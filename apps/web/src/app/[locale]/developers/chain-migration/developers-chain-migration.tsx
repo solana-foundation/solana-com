@@ -15,13 +15,37 @@ import {
   COSMOS_CARD_DECK,
   COSMOS_GUIDES_HEADING,
   EVM_GUIDES_HEADING,
-  FAQ_COUNT,
   HERO_BUTTONS,
   PRIMARY_CARD_DECK,
   SECONDARY_CARD_DECK,
 } from "@/data/developers/evm-to-svm";
 
 const FeatureHighlightAny = FeatureHighlight as any;
+
+function GuideSectionIntro({
+  id,
+  eyebrow,
+  headline,
+  body,
+}: {
+  id: string;
+  eyebrow: string;
+  headline: string;
+  body: string;
+}) {
+  return (
+    <div
+      id={id}
+      className="tw-max-w-screen-xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8 tw-grid tw-gap-3 tw-scroll-mt-24"
+    >
+      <p className="tw-eyebrow">{eyebrow}</p>
+      <h3 className="tw-font-medium tw-text-display-xs md:tw-text-display-md tw-text-pretty">
+        {headline}
+      </h3>
+      <p className="tw-text-lg tw-text-gray-300 tw-text-pretty">{body}</p>
+    </div>
+  );
+}
 
 export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
@@ -54,9 +78,49 @@ export function DevelopersChainMigrationPage() {
     },
   }));
 
-  const faqItems = Array.from({ length: FAQ_COUNT }, (_, i) => ({
-    title: t(`faq.accordions.${i}.title`),
-    body: t.raw(`faq.accordions.${i}.body`),
+  const evmGuideSections = [
+    {
+      id: "evm-foundations",
+      eyebrow: t("evmGuideSections.foundations.eyebrow"),
+      headline: t("evmGuideSections.foundations.headline"),
+      body: t("evmGuideSections.foundations.body"),
+      cards: [
+        primaryCards[0],
+        primaryCards[8],
+        primaryCards[9],
+        primaryCards[10],
+      ],
+    },
+    {
+      id: "evm-token-standards",
+      eyebrow: t("evmGuideSections.tokenStandards.eyebrow"),
+      headline: t("evmGuideSections.tokenStandards.headline"),
+      body: t("evmGuideSections.tokenStandards.body"),
+      cards: [
+        primaryCards[1],
+        primaryCards[2],
+        primaryCards[4],
+        primaryCards[5],
+        primaryCards[6],
+      ],
+    },
+    {
+      id: "evm-advanced-patterns",
+      eyebrow: t("evmGuideSections.advancedPatterns.eyebrow"),
+      headline: t("evmGuideSections.advancedPatterns.headline"),
+      body: t("evmGuideSections.advancedPatterns.body"),
+      cards: [primaryCards[3], primaryCards[7]],
+    },
+  ];
+
+  const evmFaqItems = Array.from({ length: 2 }, (_, i) => ({
+    title: t(`faq.evm.accordions.${i}.title`),
+    body: t.raw(`faq.evm.accordions.${i}.body`),
+  }));
+
+  const cosmosFaqItems = Array.from({ length: 2 }, (_, i) => ({
+    title: t(`faq.cosmos.accordions.${i}.title`),
+    body: t.raw(`faq.cosmos.accordions.${i}.body`),
   }));
 
   const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({
@@ -104,31 +168,50 @@ export function DevelopersChainMigrationPage() {
       </ResponsiveBox>
 
       <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          variant={EVM_GUIDES_HEADING.variant as "floatingButton"}
-          eyebrow={t("evmGuidesHeading.eyebrow")}
-          headline={t("evmGuidesHeading.headline")}
-          body={t("evmGuidesHeading.body")}
-        />
+        <div id="evm-guides" className="tw-scroll-mt-24">
+          <Heading
+            variant={EVM_GUIDES_HEADING.variant as "floatingButton"}
+            eyebrow={t("evmGuidesHeading.eyebrow")}
+            headline={t("evmGuidesHeading.headline")}
+            body={t("evmGuidesHeading.body")}
+          />
+        </div>
       </ResponsiveBox>
 
-      <CardDeck
-        cards={primaryCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          PRIMARY_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={PRIMARY_CARD_DECK.featured}
-      />
+      {evmGuideSections.map((section) => (
+        <div key={section.id}>
+          <ResponsiveBox responsiveStyles={blockSpacing}>
+            <GuideSectionIntro
+              id={section.id}
+              eyebrow={section.eyebrow}
+              headline={section.headline}
+              body={section.body}
+            />
+          </ResponsiveBox>
+
+          <CardDeck
+            cards={
+              section.cards as React.ComponentProps<typeof CardDeck>["cards"]
+            }
+            numCols={
+              PRIMARY_CARD_DECK.numCols as React.ComponentProps<
+                typeof CardDeck
+              >["numCols"]
+            }
+            featured={section.cards.some((card) => Boolean(card?.isFeatured))}
+          />
+        </div>
+      ))}
 
       <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          variant={COSMOS_GUIDES_HEADING.variant as "floatingButton"}
-          eyebrow={t("cosmosGuidesHeading.eyebrow")}
-          headline={t("cosmosGuidesHeading.headline")}
-          body={t("cosmosGuidesHeading.body")}
-        />
+        <div id="cosmos-guide" className="tw-scroll-mt-24">
+          <Heading
+            variant={COSMOS_GUIDES_HEADING.variant as "floatingButton"}
+            eyebrow={t("cosmosGuidesHeading.eyebrow")}
+            headline={t("cosmosGuidesHeading.headline")}
+            body={t("cosmosGuidesHeading.body")}
+          />
+        </div>
       </ResponsiveBox>
 
       <CardDeck
@@ -143,9 +226,17 @@ export function DevelopersChainMigrationPage() {
 
       <ResponsiveBox responsiveStyles={{ large: { minHeight: "100px" } }}>
         <Accordion
-          accordions={faqItems}
-          headline={t("faq.headline")}
-          eyebrow={t("faq.eyebrow")}
+          accordions={evmFaqItems}
+          headline={t("faq.evm.headline")}
+          eyebrow={t("faq.evm.eyebrow")}
+        />
+      </ResponsiveBox>
+
+      <ResponsiveBox responsiveStyles={blockSpacing}>
+        <Accordion
+          accordions={cosmosFaqItems}
+          headline={t("faq.cosmos.headline")}
+          eyebrow={t("faq.cosmos.eyebrow")}
         />
       </ResponsiveBox>
 

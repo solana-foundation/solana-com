@@ -8,13 +8,13 @@ export const HERO_BUTTONS = [
     hierarchy: "primary",
     size: "md",
     iconSize: "md",
-    url: "/developers/chain-migration/complete-guide",
+    url: "#evm-guides",
   },
   {
     hierarchy: "outline",
     size: "md",
     iconSize: "md",
-    url: "https://www.rareskills.io/solana-tutorial",
+    url: "#cosmos-guide",
   },
 ];
 
@@ -130,7 +130,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/721",
+        url: "/developers/chain-migration/erc721",
         size: "md",
         hierarchy: "primary",
       },
@@ -143,7 +143,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/ERC4337",
+        url: "/developers/chain-migration/erc4337",
         size: "md",
         hierarchy: "primary",
       },
@@ -156,7 +156,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/ERC3643",
+        url: "/developers/chain-migration/erc3643",
         size: "md",
         hierarchy: "primary",
       },
@@ -169,7 +169,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/ERC4626",
+        url: "/developers/chain-migration/erc4626",
         size: "md",
         hierarchy: "primary",
       },
