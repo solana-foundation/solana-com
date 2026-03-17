@@ -1,21 +1,7 @@
-import { DevelopersChainMigrationCosmwasmPage } from "../chain-migration/cosmwasm/developers-chain-migration-cosmwasm";
-import { getAlternates } from "@workspace/i18n/routing";
-import { getTranslations } from "next-intl/server";
-
-type Props = { params: Promise<{ locale: string }> };
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
 
-export default async function Page(_props: Props) {
-  return <DevelopersChainMigrationCosmwasmPage />;
-}
-
-export async function generateMetadata({ params }: Props) {
-  const { locale } = await params;
-  const t = await getTranslations("developers-chain-migration-cosmwasm");
-  return {
-    title: t("meta.seoTitle"),
-    description: t("meta.seoDescription"),
-    alternates: getAlternates("/developers/cosmos-to-svm", locale),
-  };
+export default async function Page() {
+  redirect("/developers/chain-migration/cosmwasm");
 }
