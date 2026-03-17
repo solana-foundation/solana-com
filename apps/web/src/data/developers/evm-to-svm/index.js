@@ -36,7 +36,7 @@ export const CHAIN_SELECTOR_CARDS = [
     button: {
       hierarchy: "outline",
       size: "md",
-      url: "/developers/evm-to-svm",
+      url: "/developers/chain-migration/ethereum",
     },
   },
   {
@@ -100,7 +100,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm",
+        url: "/developers/chain-migration/ethereum",
         size: "md",
         hierarchy: "primary",
       },
