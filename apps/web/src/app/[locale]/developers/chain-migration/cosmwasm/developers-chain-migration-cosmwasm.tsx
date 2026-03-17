@@ -1,14 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   CardDeck,
-  ContentEditor,
   Heading,
   Hero,
   HtmlParser,
   Section,
 } from "@solana-foundation/solana-lib";
+
+const ContentEditor = dynamic(
+  () =>
+    import("@solana-foundation/solana-lib").then((mod) => ({
+      default: mod.ContentEditor,
+    })),
+  { ssr: false },
+);
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
