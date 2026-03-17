@@ -50,7 +50,21 @@ export const ACCELERATE_APP_URL =
     ? vercelAccelerateUrl
     : developmentAccelerateUrl);
 
+// Breakpoint app URLs
+const vercelBreakpointUrl = withRelatedProject({
+  projectName: "solana-com-breakpoint-2",
+  defaultHost: "https://solana-com-breakpoint-2.vercel.app",
+});
+const developmentBreakpointUrl = "http://localhost:3005";
+
+export const BREAKPOINT_APP_URL =
+  process.env.NEXT_PUBLIC_BREAKPOINT_APP_URL ||
+  (process.env.NODE_ENV === "production"
+    ? vercelBreakpointUrl
+    : developmentBreakpointUrl);
+
 console.log("MEDIA_APP_URL", MEDIA_APP_URL);
 console.log("DOCS_APP_URL", DOCS_APP_URL);
 console.log("TEMPLATES_APP_URL", TEMPLATES_APP_URL);
 console.log("ACCELERATE_APP_URL", ACCELERATE_APP_URL);
+console.log("BREAKPOINT_APP_URL", BREAKPOINT_APP_URL);

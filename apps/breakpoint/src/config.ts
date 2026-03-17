@@ -1,4 +1,5 @@
 export const config = {
+  basePath: "/breakpoint",
   siteUrl: "https://solana.com/breakpoint",
   siteMetadata: {
     title: "Breakpoint 2026",

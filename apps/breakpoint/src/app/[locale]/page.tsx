@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { config } from "@/config";
 
 function LogoMark() {
   return (
@@ -257,6 +258,7 @@ function SubscribeModal({
 }
 
 export default function HomePage() {
+  const assetPath = (path: string) => `${config.basePath}${path}`;
   const [videoOpen, setVideoOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
 
@@ -310,12 +312,12 @@ export default function HomePage() {
           <img
             className="w-full hidden md:block"
             alt="Solana Breakpoint Logo"
-            src="/assets/bp-logo-full.svg"
+            src={assetPath("/assets/bp-logo-full.svg")}
           />
           <img
             className="w-full block md:hidden"
             alt="Solana Breakpoint Logo"
-            src="/assets/bg-logo-mobile-full.svg"
+            src={assetPath("/assets/bg-logo-mobile-full.svg")}
           />
 
           <div className="mt-m gap-l flex flex-col md:flex-row items-start">

@@ -3,6 +3,7 @@ import {
   DOCS_APP_URL,
   TEMPLATES_APP_URL,
   ACCELERATE_APP_URL,
+  BREAKPOINT_APP_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -44,27 +45,24 @@ export default {
     beforeFiles: [
       {
         source: "/breakpoint",
-        destination: "https://solana-com-breakpoint.vercel.app/breakpoint",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint`,
         locale: false,
       },
       // everything underneath
       {
         source: "/breakpoint/:path*",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint/:path*`,
         locale: false,
       },
-      // Breakpoint app – locale-prefixed (so local pages can be removed)
+      // Breakpoint app – locale-prefixed
       {
         source: "/:locale/breakpoint",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint/:locale`,
         locale: false,
       },
       {
         source: "/:locale/breakpoint/:path*",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint/:path*",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint/:locale/:path*`,
         locale: false,
       },
       // Media app rewrites - new routes
