@@ -1,21 +1,7 @@
-import { DevelopersEvmToSvmPage } from "./developers-evm-to-svm";
-import { getAlternates } from "@workspace/i18n/routing";
-import { getTranslations } from "next-intl/server";
-
-type Props = { params: Promise<{ locale: string }> };
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
 
-export default async function Page(_props: Props) {
-  return <DevelopersEvmToSvmPage />;
-}
-
-export async function generateMetadata({ params }: Props) {
-  const { locale } = await params;
-  const t = await getTranslations("developers-evm-to-svm");
-  return {
-    title: t("evmPage.meta.seoTitle"),
-    description: t("evmPage.meta.seoDescription"),
-    alternates: getAlternates("/developers/evm-to-svm", locale),
-  };
+export default async function Page() {
+  redirect("/developers/chain-migration/ethereum");
 }
