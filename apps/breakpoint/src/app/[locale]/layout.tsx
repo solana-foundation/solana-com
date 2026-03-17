@@ -9,7 +9,7 @@ import "@/app/globals.css";
 
 const displayFont = localFont({
   src: "../../../public/fonts/fh-lecturis/FHLecturis-Regular.woff2",
-  variable: "--font-breakpoint-display",
+  variable: "--font-fh-lecturis",
   display: "swap",
 });
 
@@ -31,13 +31,13 @@ const bodyFont = localFont({
       style: "normal",
     },
   ],
-  variable: "--font-breakpoint-body",
+  variable: "--font-abc-diatype",
   display: "swap",
 });
 
 const monoFont = localFont({
   src: "../../../public/fonts/macan-mono/Macan-Mono-Medium.woff2",
-  variable: "--font-breakpoint-mono",
+  variable: "--font-macan-mono",
   display: "swap",
 });
 

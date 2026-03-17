@@ -12,39 +12,47 @@ export function BreakpointPage({
   content: BreakpointPageContent;
 }) {
   return (
-    <main className="bp-atmosphere bp-grain bp-scanlines relative z-10 pb-20">
-      {/* ── Hero ─────────────────────────────────────────────── */}
-      <section id="hero" className="relative overflow-hidden">
-        <div className="relative min-h-[90vh] overflow-hidden border-b border-[var(--bp-border)]">
+    <main className="bp-atmosphere bp-grain bp-scanlines relative overflow-x-hidden">
+      <section
+        id="hero"
+        className="relative overflow-hidden border-b border-stroke-primary"
+      >
+        <div className="relative min-h-screen overflow-hidden">
           <WaterHeroBackground />
           <Container>
-            <div className="relative z-10 flex min-h-[90vh] flex-col justify-end gap-12 pb-14 pt-28 lg:pb-20">
-              {/* Eyebrow */}
+            <div className="relative z-10 flex min-h-screen flex-col pb-xl pt-s md:pb-3xl">
               <ScrollReveal>
-                <p className="font-bp-mono text-[10px] uppercase tracking-[0.4em] text-bp-purple-light">
-                  {content.hero.eyebrow}
-                </p>
+                <div className="flex min-h-[3.5rem] items-center justify-between border-b border-stroke-primary py-xs">
+                  <a
+                    href="#hero"
+                    className="font-macan-mono text-sm uppercase tracking-button text-primary"
+                  >
+                    Breakpoint
+                  </a>
+                  <p className="hidden font-macan-mono text-2xs uppercase tracking-button text-secondary md:block">
+                    {content.hero.dates}
+                  </p>
+                </div>
               </ScrollReveal>
-
-              <div className="grid gap-10 lg:grid-cols-[1.5fr_0.5fr] lg:items-end">
-                <div>
-                  {/* Main title — heavy visual weight */}
+              <div className="grid flex-1 items-end gap-l py-xl md:grid-cols-12 md:py-3xl">
+                <div className="md:col-span-8">
                   <ScrollReveal delay={80}>
-                    <h1 className="font-bp-display text-[clamp(3.2rem,10vw,8rem)] leading-[0.86] tracking-[-0.02em] text-white">
+                    <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-lime">
+                      {content.hero.eyebrow}
+                    </p>
+                  </ScrollReveal>
+                  <ScrollReveal delay={140}>
+                    <h1 className="mt-m max-w-5xl font-fh-lecturis text-xl leading-[0.95] text-primary">
                       {content.hero.title}
                     </h1>
                   </ScrollReveal>
-
-                  {/* Subtitle — thin contrast */}
                   <ScrollReveal delay={160}>
-                    <p className="mt-6 max-w-xl text-base font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)] md:text-lg">
+                    <p className="text-p1 mt-s max-w-2xl text-secondary">
                       {content.hero.blurb}
                     </p>
                   </ScrollReveal>
-
-                  {/* CTAs */}
                   <ScrollReveal delay={240}>
-                    <div className="mt-10 flex flex-wrap gap-3">
+                    <div className="mt-l flex flex-wrap gap-3">
                       <ButtonLink href={content.cta.placeholderHref}>
                         {content.hero.ctaPrimary}
                       </ButtonLink>
@@ -55,25 +63,24 @@ export function BreakpointPage({
                   </ScrollReveal>
                 </div>
 
-                {/* Stats column */}
-                <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+                <div className="grid gap-2 sm:grid-cols-3 md:col-span-4 md:min-w-[18rem] md:self-end md:justify-self-end md:grid-cols-1">
                   <ScrollReveal delay={200}>
-                    <div className="bp-card-static p-5">
-                      <p className="font-bp-mono text-[10px] uppercase tracking-[0.26em] text-bp-purple-light">
+                    <div className="bp-panel rounded-bp p-s">
+                      <p className="text-caption text-secondary">
                         {content.hero.dates}
                       </p>
-                      <p className="mt-3 text-lg font-medium text-white">
+                      <p className="mt-3 text-h4 text-primary">
                         {content.hero.venue}
                       </p>
                     </div>
                   </ScrollReveal>
                   {content.hero.stats.map((stat, i) => (
                     <ScrollReveal key={stat.label} delay={260 + i * 60}>
-                      <div className="bp-card-static p-5">
-                        <p className="font-bp-mono text-[10px] uppercase tracking-[0.26em] text-bp-gray">
+                      <div className="bp-panel rounded-bp p-s">
+                        <p className="text-caption text-secondary">
                           {stat.label}
                         </p>
-                        <p className="mt-3 text-xl font-medium text-white">
+                        <p className="mt-3 text-h5 text-primary">
                           {stat.value}
                         </p>
                       </div>
@@ -88,29 +95,28 @@ export function BreakpointPage({
 
       <SectionNav items={content.nav} />
 
-      {/* ── Overview ─────────────────────────────────────────── */}
       <Section id="overview">
-        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-l md:grid-cols-12">
           <ScrollReveal>
-            <div>
-              <p className="font-bp-mono text-[10px] uppercase tracking-[0.4em] text-bp-purple-light">
+            <div className="md:col-span-5">
+              <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-azure">
                 Overview
               </p>
-              <h2 className="mt-4 font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+              <h2 className="mt-s font-abc-diatype text-h2 text-primary">
                 {content.overview.title}
               </h2>
             </div>
           </ScrollReveal>
-          <div>
+          <div className="md:col-span-7">
             <ScrollReveal delay={100}>
-              <p className="text-base font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)]">
+              <p className="text-p1 max-w-3xl text-secondary">
                 {content.overview.body}
               </p>
             </ScrollReveal>
-            <div className="mt-6 grid gap-1">
+            <div className="mt-l grid gap-3">
               {content.overview.highlights.map((highlight, i) => (
                 <ScrollReveal key={highlight} delay={180 + i * 60}>
-                  <div className="bp-card border-[var(--bp-border)] bg-bp-surface px-5 py-4 text-sm text-bp-text md:text-base">
+                  <div className="bp-panel rounded-bp px-s py-m text-p1 text-primary">
                     {highlight}
                   </div>
                 </ScrollReveal>
@@ -120,51 +126,50 @@ export function BreakpointPage({
         </div>
       </Section>
 
-      {/* ── Audience ─────────────────────────────────────────── */}
       <Section id="audience">
         <ScrollReveal>
-          <div className="flex items-end justify-between gap-6">
-            <h2 className="font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+          <div className="flex items-end justify-between gap-6 border-b border-stroke-primary pb-s">
+            <h2 className="font-abc-diatype text-h2 text-primary">
               {content.audience.title}
             </h2>
-            <p className="hidden font-bp-mono text-[10px] uppercase tracking-[0.28em] text-bp-gray md:block">
+            <p className="hidden font-macan-mono text-2xs uppercase tracking-button text-secondary md:block">
               Program value
             </p>
           </div>
         </ScrollReveal>
-        <div className="mt-8 grid gap-2 md:grid-cols-3">
+        <div className="mt-l grid gap-3 md:grid-cols-3">
           {content.audience.cards.map((card, i) => (
             <ScrollReveal key={card.title} delay={80 + i * 80}>
-              <article className="bp-card p-6 md:min-h-64">
-                <h3 className="text-lg font-medium text-white">{card.title}</h3>
-                <p className="mt-4 text-sm font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)] md:text-base">
-                  {card.body}
+              <article className="bp-panel rounded-bp p-s md:min-h-[19rem]">
+                <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-lime">
+                  0{i + 1}
                 </p>
+                <h3 className="mt-m text-h3 text-primary">{card.title}</h3>
+                <p className="text-p1 mt-s text-secondary">{card.body}</p>
               </article>
             </ScrollReveal>
           ))}
         </div>
       </Section>
 
-      {/* ── Video ────────────────────────────────────────────── */}
       <Section id="video">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <div className="grid gap-l md:grid-cols-12 md:items-start">
           <ScrollReveal>
-            <div>
-              <p className="font-bp-mono text-[10px] uppercase tracking-[0.4em] text-bp-purple-light">
+            <div className="md:col-span-4">
+              <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-azure">
                 Featured video
               </p>
-              <h2 className="mt-4 font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+              <h2 className="mt-s font-abc-diatype text-h2 text-primary">
                 {content.video.title}
               </h2>
-              <p className="mt-5 max-w-xl text-base font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)]">
+              <p className="text-p1 mt-s max-w-xl text-secondary">
                 {content.video.body}
               </p>
             </div>
           </ScrollReveal>
           <ScrollReveal delay={120}>
-            <div className="bp-card-static overflow-hidden p-2">
-              <div className="aspect-video overflow-hidden">
+            <div className="bp-panel overflow-hidden rounded-bp-lg p-3 md:col-span-8">
+              <div className="aspect-video overflow-hidden rounded-[1.25rem] border border-stroke-primary">
                 <iframe
                   title={content.video.caption}
                   className="h-full w-full"
@@ -173,7 +178,7 @@ export function BreakpointPage({
                   allowFullScreen
                 />
               </div>
-              <p className="px-2 pb-1 pt-3 font-bp-mono text-[10px] uppercase tracking-[0.14em] text-bp-gray">
+              <p className="text-caption px-2 pb-1 pt-s text-secondary">
                 {content.video.caption}
               </p>
             </div>
@@ -181,36 +186,35 @@ export function BreakpointPage({
         </div>
       </Section>
 
-      {/* ── Logistics ────────────────────────────────────────── */}
       <Section id="logistics">
         <ScrollReveal>
-          <div className="bp-card-static p-6 md:p-8">
-            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-              <h2 className="font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+          <div className="bp-panel rounded-bp-lg p-s md:p-xl">
+            <div className="grid gap-l md:grid-cols-12">
+              <h2 className="font-abc-diatype text-h2 text-primary md:col-span-4">
                 {content.logistics.title}
               </h2>
-              <dl className="grid gap-2 sm:grid-cols-3">
-                <div className="border border-[var(--bp-border)] bg-bp-ink p-5">
-                  <dt className="font-bp-mono text-[10px] uppercase tracking-[0.26em] text-bp-purple-light">
+              <dl className="grid gap-3 sm:grid-cols-3 md:col-span-8">
+                <div className="rounded-bp border border-stroke-primary bg-transparent-wisp-10 p-s">
+                  <dt className="text-caption text-secondary">
                     {content.logistics.dateLabel}
                   </dt>
-                  <dd className="mt-3 text-lg text-white">
+                  <dd className="mt-s text-h4 text-primary">
                     {content.logistics.dateValue}
                   </dd>
                 </div>
-                <div className="border border-[var(--bp-border)] bg-bp-ink p-5">
-                  <dt className="font-bp-mono text-[10px] uppercase tracking-[0.26em] text-bp-purple-light">
+                <div className="rounded-bp border border-stroke-primary bg-transparent-wisp-10 p-s">
+                  <dt className="text-caption text-secondary">
                     {content.logistics.venueLabel}
                   </dt>
-                  <dd className="mt-3 text-lg text-white">
+                  <dd className="mt-s text-h4 text-primary">
                     {content.logistics.venueValue}
                   </dd>
                 </div>
-                <div className="border border-[var(--bp-border)] bg-bp-ink p-5">
-                  <dt className="font-bp-mono text-[10px] uppercase tracking-[0.26em] text-bp-purple-light">
+                <div className="rounded-bp border border-stroke-primary bg-transparent-wisp-10 p-s">
+                  <dt className="text-caption text-secondary">
                     {content.logistics.formatLabel}
                   </dt>
-                  <dd className="mt-3 text-lg text-white">
+                  <dd className="mt-s text-h4 text-primary">
                     {content.logistics.formatValue}
                   </dd>
                 </div>
@@ -220,32 +224,27 @@ export function BreakpointPage({
         </ScrollReveal>
       </Section>
 
-      {/* ── Why London ───────────────────────────────────────── */}
       <Section id="london">
-        <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="grid gap-l md:grid-cols-12">
           <ScrollReveal>
-            <div>
-              <p className="font-bp-mono text-[10px] uppercase tracking-[0.4em] text-bp-purple-light">
+            <div className="md:col-span-5">
+              <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-mint">
                 Why London
               </p>
-              <h2 className="mt-4 font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+              <h2 className="mt-s font-abc-diatype text-h2 text-primary">
                 {content.london.title}
               </h2>
             </div>
           </ScrollReveal>
-          <div>
+          <div className="md:col-span-7">
             <ScrollReveal delay={80}>
-              <p className="text-base font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)]">
-                {content.london.body}
-              </p>
+              <p className="text-p1 text-secondary">{content.london.body}</p>
             </ScrollReveal>
-            <div className="mt-5 grid gap-1">
+            <div className="mt-l grid gap-3">
               {content.london.reasons.map((reason, i) => (
                 <ScrollReveal key={reason} delay={160 + i * 60}>
-                  <div className="bp-card border-[var(--bp-border)] bg-bp-surface px-5 py-4">
-                    <p className="text-sm font-light leading-relaxed text-white md:text-base">
-                      {reason}
-                    </p>
+                  <div className="bp-panel rounded-bp px-s py-m">
+                    <p className="text-p1 text-primary">{reason}</p>
                   </div>
                 </ScrollReveal>
               ))}
@@ -254,27 +253,24 @@ export function BreakpointPage({
         </div>
       </Section>
 
-      {/* ── CTA ──────────────────────────────────────────────── */}
       <Section id="cta">
         <ScrollReveal>
-          <div className="relative overflow-hidden border border-[var(--bp-border-strong)] bg-bp-surface p-8 md:p-12">
-            {/* Purple radial glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_70%_0%,rgba(98,58,196,0.18),transparent)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_100%,rgba(98,58,196,0.06),transparent_50%)]" />
-
-            <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="bp-panel relative overflow-hidden rounded-bp-lg p-s md:p-xl">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_70%_0%,rgba(171,102,253,0.22),transparent)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_100%,rgba(89,184,254,0.08),transparent_52%)]" />
+            <div className="relative grid gap-l md:grid-cols-12 md:items-end">
               <div>
-                <p className="font-bp-mono text-[10px] uppercase tracking-[0.4em] text-bp-purple-light">
+                <p className="font-macan-mono text-2xs uppercase tracking-button text-secondary-lime">
                   Primary CTA
                 </p>
-                <h2 className="mt-4 font-bp-display text-4xl tracking-tight text-white md:text-5xl">
+                <h2 className="mt-s font-abc-diatype text-h2 text-primary">
                   {content.cta.title}
                 </h2>
-                <p className="mt-5 max-w-2xl text-base font-light leading-relaxed tracking-wide text-[var(--bp-text-muted)]">
+                <p className="text-p1 mt-s max-w-2xl text-secondary">
                   {content.cta.body}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 md:justify-end">
                 <ButtonLink href={content.cta.placeholderHref}>
                   {content.cta.primary}
                 </ButtonLink>
@@ -286,6 +282,30 @@ export function BreakpointPage({
           </div>
         </ScrollReveal>
       </Section>
+
+      <footer className="border-t border-stroke-primary pb-xl pt-l md:pb-3xl">
+        <Container className="flex flex-col gap-m md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-fh-lecturis text-h2 leading-none text-primary">
+              Breakpoint
+            </p>
+            <p className="text-p1 mt-xs max-w-xl text-secondary">
+              November 15-17, 2026. Olympia London.
+            </p>
+          </div>
+          <div className="flex flex-col gap-xs font-macan-mono text-2xs uppercase tracking-button text-secondary md:items-end">
+            <a
+              href={content.cta.placeholderHref}
+              className="cta-transition hover:text-byte"
+            >
+              {content.cta.primary}
+            </a>
+            <a href="#hero" className="cta-transition hover:text-byte">
+              {content.cta.secondary}
+            </a>
+          </div>
+        </Container>
+      </footer>
     </main>
   );
 }

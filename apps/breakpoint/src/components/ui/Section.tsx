@@ -7,7 +7,7 @@ export function Section({
   ...props
 }: HTMLAttributes<HTMLElement>) {
   return (
-    <section className={`py-14 md:py-20 ${className}`.trim()} {...props}>
+    <section className={`py-xl md:py-3xl ${className}`.trim()} {...props}>
       <Container>{children}</Container>
     </section>
   );

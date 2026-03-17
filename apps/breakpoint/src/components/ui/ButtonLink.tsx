@@ -10,12 +10,12 @@ export function ButtonLink({
   ...props
 }: Props) {
   const base =
-    "inline-flex min-h-12 items-center justify-center px-7 py-3 text-sm font-medium tracking-[0.08em] uppercase transition-all duration-300";
+    "bp-button cta cta-transition inline-flex min-h-[3.25rem] items-center justify-center rounded-full px-s py-xs";
 
   const palette =
     variant === "primary"
-      ? "bg-bp-purple text-white hover:bg-bp-purple-light hover:shadow-[0_0_28px_rgba(98,58,196,0.4)] active:scale-[0.97]"
-      : "border border-[var(--bp-border-strong)] text-[var(--bp-text)] hover:border-bp-purple hover:text-white hover:shadow-[0_0_20px_rgba(98,58,196,0.15)] active:scale-[0.97]";
+      ? "bg-button-fill text-invert hover:bg-button-fill-hover hover:text-invert"
+      : "border border-stroke-secondary bg-transparent text-primary hover:border-byte hover:text-byte";
 
   return <a className={`${base} ${palette} ${className}`.trim()} {...props} />;
 }
