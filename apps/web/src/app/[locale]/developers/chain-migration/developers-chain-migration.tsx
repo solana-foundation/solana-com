@@ -77,9 +77,9 @@ export function DevelopersChainMigrationPage() {
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <div id="resources" className="tw-scroll-mt-24">
           <Heading
-            eyebrow={t("heading.eyebrow")}
-            headline={t("heading.headline")}
-            body={t("heading.body")}
+            eyebrow={t("chainMigrationResources.eyebrow")}
+            headline={t("chainMigrationResources.headline")}
+            body={t("chainMigrationResources.body")}
           />
         </div>
       </ResponsiveBox>
