@@ -36,7 +36,7 @@ export const CHAIN_SELECTOR_CARDS = [
     button: {
       hierarchy: "outline",
       size: "md",
-      url: "/developers/chain-migration/complete-guide",
+      url: "/developers/evm-to-svm",
     },
   },
   {
@@ -51,7 +51,7 @@ export const CHAIN_SELECTOR_CARDS = [
     button: {
       hierarchy: "outline",
       size: "md",
-      url: "/developers/chain-migration/cosmwasm",
+      url: "/developers/cosmos-to-svm",
     },
   },
 ];
@@ -76,7 +76,7 @@ export const COSMOS_CARD_DECK = {
       },
       backgroundGradient: "aqua",
       callToAction: {
-        url: "/developers/chain-migration/cosmwasm",
+        url: "/developers/cosmos-to-svm",
         size: "md",
         hierarchy: "primary",
       },
@@ -100,7 +100,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/complete-guide",
+        url: "/developers/evm-to-svm",
         size: "md",
         hierarchy: "primary",
       },
