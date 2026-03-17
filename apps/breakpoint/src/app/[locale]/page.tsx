@@ -169,8 +169,96 @@ function VideoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
+function SubscribeModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [open, handleKeyDown]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="video-modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Subscribe for Breakpoint updates"
+    >
+      <div
+        className="video-modal-content max-w-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute -top-xl right-0 text-primary hover:text-byte cta-transition cursor-pointer"
+          aria-label="Close"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="bg-null border-1 border-wisp-10 p-s md:p-l">
+          <p className="text-eyebrow text-byte">Breakpoint 2026</p>
+          <h3 className="mt-s text-primary">Get notified</h3>
+          <p className="text-p1 text-secondary mt-xs">
+            Sign up for updates and early registration details.
+          </p>
+          <form
+            action="https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=94b90b1b-b29a-4ad7-9b3b-87331601d030"
+            method="get"
+            target="_blank"
+            className="flex flex-col gap-xs mt-l md:flex-row"
+          >
+            <input
+              type="email"
+              name="email"
+              placeholder="email"
+              required
+              className="border-1 border-wisp-10 bg-transparent px-xs h-[3rem] w-full focus:outline-none focus:border-byte text-primary"
+            />
+            <button
+              type="submit"
+              className="gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition outline-offset-[8px] outline-transparent px-[var(--spacing-xs)] h-[3rem] bg-byte text-invert hover:bg-primary-wisp shrink-0"
+            >
+              Subscribe
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [videoOpen, setVideoOpen] = useState(false);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
 
   return (
     <>
@@ -183,8 +271,8 @@ export default function HomePage() {
             <li className="flex-start px-s py-xs">
               <a
                 className="block w-[18.2px] h-xs"
-                title="Breakpoint homepage"
-                href="#top"
+                title="Solana"
+                href="https://solana.com"
               >
                 <LogoMark />
               </a>
@@ -196,7 +284,8 @@ export default function HomePage() {
                 <NavLink href="#logistics">Logistics</NavLink>
                 <li>
                   <CTAButton
-                    href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest"
+                    type="button"
+                    onClick={() => setSubscribeOpen(true)}
                     className="px-s focus:outline-none focus:underline focus:underline-offset-4 focus:decoration-null"
                   >
                     Get Notified
@@ -206,7 +295,7 @@ export default function HomePage() {
             </li>
             <div className="nav-sm:hidden flex-end transition-transform duration-300 transform-[translateX(0)] transform-[translateX(158px)]">
               <li>
-                <CTAButton href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest">
+                <CTAButton type="button" onClick={() => setSubscribeOpen(true)}>
                   Get Notified
                 </CTAButton>
               </li>
@@ -250,7 +339,7 @@ export default function HomePage() {
                 <PlayIcon />
                 Watch Breakpoint 2025
               </CTAButton>
-              <CTAButton href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest">
+              <CTAButton type="button" onClick={() => setSubscribeOpen(true)}>
                 Get Notified
               </CTAButton>
             </div>
@@ -365,7 +454,8 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col gap-xs mt-m md:flex-row md:gap-s md:mt-l">
             <CTAButton
-              href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest"
+              type="button"
+              onClick={() => setSubscribeOpen(true)}
               className="bg-null text-primary hover:bg-primary hover:text-invert"
             >
               Get Notified
@@ -381,6 +471,10 @@ export default function HomePage() {
       </main>
 
       <VideoModal open={videoOpen} onClose={() => setVideoOpen(false)} />
+      <SubscribeModal
+        open={subscribeOpen}
+        onClose={() => setSubscribeOpen(false)}
+      />
     </>
   );
 }
