@@ -16,6 +16,14 @@ Web search for all companies in the ecosystem-data registry and update their rec
 
 Read the registry and types files. Build a list of all company IDs and note which ones have `gridProfile: null` (need enrichment) vs. a populated `gridProfile` object (may need refresh).
 
+Before research, run:
+
+```bash
+pnpm --filter @workspace/ecosystem-data audit:data
+```
+
+Use the audit output to spot companies that have asset folders and company records but are still missing enrichment or have obvious asset consistency issues.
+
 ### 2. Research each company
 
 For every company with `gridProfile: null`, launch parallel Agent subprocesses (subagent_type: "general-purpose") to web search and gather:

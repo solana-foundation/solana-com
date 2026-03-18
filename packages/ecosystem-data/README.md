@@ -11,6 +11,7 @@ The package owns:
 - canonical company records
 - canonical imported company assets
 - selectors for reading company data and logos
+- audit tooling for registry and asset completeness
 
 The package does not own app-specific augmentation.
 
@@ -102,10 +103,16 @@ packages/ecosystem-data/src/companies/registry.ts
 Expected process:
 
 1. read the registry and identify companies where `gridProfile` is `null`
-2. research each company using publicly available sources, starting with the official website
-3. populate only the `gridProfile` field with neutral, factual copy and verified URLs
-4. omit socials that cannot be confidently verified
-5. validate the package with:
+2. run the audit script to see which companies are missing enrichment or have asset mismatches:
+
+```bash
+pnpm --filter @workspace/ecosystem-data audit:data
+```
+
+3. research each company using publicly available sources, starting with the official website
+4. populate only the `gridProfile` field with neutral, factual copy and verified URLs
+5. omit socials that cannot be confidently verified
+6. validate the package with:
 
 ```bash
 pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
@@ -150,6 +157,7 @@ Patterns:
 - use `getCompany(id)` when rendering a single ecosystem company
 - use `getCompanyLogo(id, options)` when you need a theme-aware logo
 - use `resolveImportedAssetSrc()` to convert an imported asset module into a URL string when needed
+- use `getCompanyLogoSrc()` when an app needs a plain string URL for a translated or serialized payload
 - compose app-specific sponsor objects in the consuming app from app JSON plus package data
 
 Do not:
@@ -167,7 +175,8 @@ When adding a new company:
 2. add the logo files
 3. add the company record
 4. add any event references separately in the consuming app
-5. verify that selectors resolve a primary logo
+5. run `pnpm --filter @workspace/ecosystem-data audit:data`
+6. verify that selectors resolve a primary logo
 
 When updating an existing company:
 
@@ -191,6 +200,31 @@ That keeps:
 - company ownership centralized
 - app augmentation local
 - logo handling consistent
+
+## i18n integration
+
+Locale files such as `apps/web/public/locales/en/common.json` should keep translated copy and reference canonical companies by ID.
+
+Preferred locale shape:
+
+```json
+{
+  "alt": "Phantom",
+  "companyId": "phantom"
+}
+```
+
+Then resolve the image source in app code:
+
+```ts
+const src = getCompanyLogoSrc("phantom");
+```
+
+This keeps:
+
+- translated text in locale files
+- canonical assets in `@workspace/ecosystem-data`
+- image path generation in code instead of hardcoded locale strings
 
 ## Accelerate rule
 
