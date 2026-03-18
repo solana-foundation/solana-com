@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
@@ -259,6 +260,108 @@ const ITERABLE_SUBSCRIBE_URL =
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const liveMediaCards = [
+  {
+    eyebrow: "Playlist",
+    headline: "All talks from BP25",
+    description:
+      "Every breakthrough. Every reveal. Every voice that shaped Breakpoint 2025. Dive into the talks from Abu Dhabi and see where the Solana ecosystem is headed next.",
+    url: "https://www.youtube.com/watch?v=yOgLKAwney0&list=PLilwLeBwGuK4dz_gqiiDA3GfS094Yr46b",
+    imageRef: "6d7274b13accddf1fed94920cfccd8dc54526423-420x420.jpg",
+  },
+  {
+    eyebrow: "Sizzle",
+    headline: "Solana Breakpoint 2026 Is Coming to London",
+    description: "A new city. A new moment. Same unstoppable energy.",
+    url: "https://www.youtube.com/watch?v=Mys5RoZPWMg",
+    imageRef: "aca941a95615690c4b9e2a873d6b8c2199dcda6b-1000x500.webp",
+  },
+  {
+    eyebrow: "Playlist",
+    headline: "Solana Stories",
+    description:
+      "Meet the people shaping Solana. In-person interviews that spotlight the builders, founders, and creators moving the ecosystem forward—one story at a time.",
+    url: "https://www.youtube.com/watch?v=XHhNzPiY7A8&list=PLilwLeBwGuK6p3pB-vUQf1TjkX48j0Af-",
+    imageRef: "50825a84b192c8f0e7253053b80fb983374a0b84-2160x1215.webp",
+  },
+  {
+    eyebrow: "Playlist",
+    headline: "Relive talks from BP24",
+    description:
+      "Take a step back to BP24 and revisit the conversations that defined the year. From bold ideas to major reveals, these talks show how far the ecosystem has come.",
+    url: "https://www.youtube.com/watch?v=6M8SGByj-yM&list=PLilwLeBwGuK7YY8igEkLeFcpdoFRJAa0L",
+    imageRef: "ef0b6ccd637614306b7014dd75442a9d7ed1d999-2160x1215.webp",
+  },
+];
+
+function CarouselArrow({
+  direction,
+  onClick,
+}: {
+  direction: "prev" | "next";
+  onClick: () => void;
+}) {
+  const isNext = direction === "next";
+
+  return (
+    <button
+      type="button"
+      aria-label={isNext ? "Next" : "Previous"}
+      onClick={onClick}
+      className="cta cursor-pointer uppercase flex items-center justify-center cta-transition w-[48px] h-[48px] shrink-0 bg-transparent border border-wisp text-primary-wisp [&>svg]:fill-primary-wisp hover:bg-transparent-wisp-10 active:bg-transparent-wisp-10 active:border-transparent-wisp-40"
+    >
+      <svg
+        width="18"
+        height="16"
+        viewBox="0 0 18 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d={
+            isNext
+              ? "M9.90341 16L8.89773 15.0028L14.8295 9.07955H0V7.64773H14.8295L8.89773 1.72443L9.90341 0.727273L17.5398 8.36364L9.90341 16Z"
+              : "M8.00568 16L0.369318 8.36364L8.00568 0.727273L9.01136 1.71591L3.07955 7.64773H17.9091V9.07955H3.07955L9.01136 14.9943L8.00568 16Z"
+          }
+          fill="currentColor"
+        />
+      </svg>
+    </button>
+  );
+}
+
+function LiveMediaCard({
+  card,
+  assetPath,
+}: {
+  card: (typeof liveMediaCards)[number];
+  assetPath: (path: string) => string;
+}) {
+  return (
+    <a
+      href={card.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-media-card
+      className="flex-[0_0_calc(76.322%)] md:flex-[0_0_calc(50%-(var(--spacing-s)/2))] flex flex-col gap-s snap-start cta-transition outline-offset-[-2px] outline-transparent cursor-pointer focus:outline-2 focus:outline-transparent-wisp-40"
+    >
+      <div className="w-full relative overflow-hidden aspect-[4/3]">
+        <img
+          src={assetPath(`/img/${card.imageRef}`)}
+          alt={`${card.headline} image`}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+
+      <div className="flex flex-col gap-xs">
+        <p className="text-p2-mono text-secondary">{card.eyebrow}</p>
+        <p className="text-h5 md:text-h4">{card.headline}</p>
+        <p className="text-p1">{card.description}</p>
+      </div>
+    </a>
+  );
+}
+
 function SubscribeForm({
   className,
   inputClassName,
@@ -508,6 +611,23 @@ export default function HomePage() {
   const assetPath = (path: string) => `${config.assetPrefix}${path}`;
   const [videoOpen, setVideoOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const liveMediaCarouselRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollLiveMedia = useCallback((direction: "prev" | "next") => {
+    const container = liveMediaCarouselRef.current;
+
+    if (!container) return;
+
+    const firstCard = container.querySelector<HTMLElement>("[data-media-card]");
+    const gap = 16;
+    const offset =
+      (firstCard?.offsetWidth ?? container.clientWidth * 0.76) + gap;
+
+    container.scrollBy({
+      left: direction === "next" ? offset : -offset,
+      behavior: "smooth",
+    });
+  }, []);
 
   return (
     <>
@@ -679,6 +799,42 @@ export default function HomePage() {
                 src={assetPath("/img/tower-bridge.png")}
                 alt="Tower Bridge, London"
               />
+            </div>
+          </div>
+        </article>
+
+        {/* ── BP25 Live Media ── */}
+        <article className="px-s py-2xl md:py-3xl text-primary bg-null">
+          <div className="md:grid md:grid-cols-2">
+            <div className="flex flex-col gap-s">
+              <p className="text-eyebrow text-byte">BP25 Live Media</p>
+              <h2>Internet Capital Markets Are Here</h2>
+            </div>
+
+            <div className="hidden md:flex justify-end gap-3xs self-end">
+              <CarouselArrow
+                direction="prev"
+                onClick={() => scrollLiveMedia("prev")}
+              />
+              <CarouselArrow
+                direction="next"
+                onClick={() => scrollLiveMedia("next")}
+              />
+            </div>
+          </div>
+
+          <div className="-mx-xs overflow-hidden md:mx-0 mt-l md:mt-xl">
+            <div
+              ref={liveMediaCarouselRef}
+              className="embla__viewport flex gap-xs overflow-x-auto px-xs pb-xs snap-x snap-mandatory scroll-smooth md:px-0 md:pb-0 md:gap-s [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:[&>*:last-child]:mr-s [&>*:last-child]:mr-xs"
+            >
+              {liveMediaCards.map((card) => (
+                <LiveMediaCard
+                  key={card.headline}
+                  card={card}
+                  assetPath={assetPath}
+                />
+              ))}
             </div>
           </div>
         </article>
