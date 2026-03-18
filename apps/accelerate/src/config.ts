@@ -12,8 +12,13 @@ export const ASSET_PREFIX = "/accelerate-assets";
  */
 export function getImagePath(path: string): string {
   if (!path) return path;
-  // Already has the asset prefix or is an external URL
-  if (path.startsWith(ASSET_PREFIX) || path.startsWith("http")) {
+  // Already has the asset prefix, is an external URL, or is an imported data/blob URL
+  if (
+    path.startsWith(ASSET_PREFIX) ||
+    path.startsWith("http") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:")
+  ) {
     return path;
   }
   // Ensure path starts with /
