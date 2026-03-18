@@ -5,8 +5,7 @@ export const osl = {
   "id": "osl",
   "slug": "osl",
   "name": "OSL",
-  "gridProfileSlug": "osl",
-  "gridProfile": {
+  "profile": {
     "name": "OSL",
     "tagLine": "Built for simple crypto trading.",
     "descriptionShort": "Licensed digital asset exchange providing secure trading, fiat deposits, and custody services.",

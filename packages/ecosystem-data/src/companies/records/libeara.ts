@@ -5,8 +5,7 @@ export const libeara = {
   "id": "libeara",
   "slug": "libeara",
   "name": "Libeara",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Libeara",
     "tagLine": "Investing is more accessible and equitable with tokenised assets.",
     "descriptionShort": "SC Ventures incubated tokenisation platform helping organizations create, issue, and manage real-world assets on-chain.",

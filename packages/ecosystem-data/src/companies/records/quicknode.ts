@@ -5,8 +5,7 @@ export const quicknode = {
   "id": "quicknode",
   "slug": "quicknode",
   "name": "Quicknode",
-  "gridProfileSlug": "quicknode",
-  "gridProfile": {
+  "profile": {
     "name": "QuickNode",
     "tagLine": "Build, scale, and ship without compromise",
     "descriptionShort": "QuickNode provides high-performance RPC endpoints and developer tooling for building and scaling applications on Solana and other blockchains.",

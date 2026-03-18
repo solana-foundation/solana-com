@@ -5,8 +5,7 @@ export const solflare = {
   "id": "solflare",
   "slug": "solflare",
   "name": "Solflare",
-  "gridProfileSlug": "Solflare",
-  "gridProfile": {
+  "profile": {
     "name": "Solflare",
     "tagLine": "The Solana Wallet",
     "descriptionShort": "Solflare is a self-custody wallet for the Solana ecosystem, enabling users to buy, store, stake, swap tokens, and manage NFTs across web, browser extension, and mobile platforms.",

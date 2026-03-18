@@ -5,8 +5,7 @@ export const solanaSpaces = {
   "id": "solana-spaces",
   "slug": "solana-spaces",
   "name": "Solana Spaces",
-  "gridProfileSlug": "solanaspaces",
-  "gridProfile": {
+  "profile": {
     "name": "Solana Spaces",
     "tagLine": "Activating e-commerce and global IRL stores for Solana and its ecosystem",
     "descriptionShort": "Solana Spaces provides end-to-end events, merchandise, and community activations for the Solana ecosystem, operating pop-up retail stores at crypto conferences.",

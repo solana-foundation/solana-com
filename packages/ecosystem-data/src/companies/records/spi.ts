@@ -5,8 +5,7 @@ export const spi = {
   "id": "spi",
   "slug": "spi",
   "name": "Solana Policy Institute",
-  "gridProfileSlug": "solanapolicyinstitute",
-  "gridProfile": {
+  "profile": {
     "name": "Solana Policy Institute",
     "tagLine": "Educating policymakers on how decentralized networks are the future of the digital economy",
     "descriptionShort": "The Solana Policy Institute is a non-partisan, not-for-profit organization that educates policymakers on decentralized networks and advocates for legal clarity for the Solana ecosystem.",

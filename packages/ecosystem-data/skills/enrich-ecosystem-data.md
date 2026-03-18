@@ -7,14 +7,14 @@ Web search for all companies in the ecosystem-data registry and update their rec
 - Registry: `packages/ecosystem-data/src/companies/registry.ts`
 - Types: `packages/ecosystem-data/src/types.ts`
 - Package guide: `packages/ecosystem-data/README.md`
-- Each company has a `CompanyRecord` with an optional `gridProfile` field containing enriched data (tagline, descriptions, sector, socials, URLs).
+- Each company has a `CompanyRecord` with an optional `profile` field containing enriched data (tagline, descriptions, sector, socials, URLs).
 - The goal is to enrich canonical company data only. Event-specific sponsorship metadata stays in consuming apps.
 
 ## Workflow
 
 ### 1. Read current state
 
-Read the registry and types files. Build a list of all company IDs and note which ones have `gridProfile: null` (need enrichment) vs. a populated `gridProfile` object (may need refresh).
+Read the registry and types files. Build a list of all company IDs and note which ones have `profile: null` (need enrichment) vs. a populated `profile` object (may need refresh).
 
 Before research, run:
 
@@ -26,7 +26,7 @@ Use the audit output to spot companies that have asset folders and company recor
 
 ### 2. Research each company
 
-For every company with `gridProfile: null`, launch parallel Agent subprocesses (subagent_type: "general-purpose") to web search and gather:
+For every company with `profile: null`, launch parallel Agent subprocesses (subagent_type: "general-purpose") to web search and gather:
 
 | Field | Source hint |
 |---|---|
@@ -62,10 +62,10 @@ If sources conflict, prefer the official website. Do not fill fields from low-co
 
 ### 3. Update the registry
 
-For each researched company, replace `"gridProfile": null` with a populated object matching this shape:
+For each researched company, replace `"profile": null` with a populated object matching this shape:
 
 ```ts
-"gridProfile": {
+"profile": {
   "name": "<Display Name>",
   "tagLine": "<Tagline>",
   "descriptionShort": "<Short description.>",
@@ -102,7 +102,7 @@ Only include social entries where a URL was found. Omit socials with no discover
 When enriching:
 
 - preserve existing field ordering and object shape used by nearby records
-- use the company display name already present in the record for `gridProfile.name` unless the registry itself clearly uses a different canonical style
+- use the company display name already present in the record for `profile.name` unless the registry itself clearly uses a different canonical style
 - include the homepage in `urls` even when social links are sparse
 - prefer direct organization URLs over link-in-bio or profile aggregators
 
@@ -116,10 +116,10 @@ pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
 
 ### Rules
 
-- **Only modify `gridProfile`** — never touch `id`, `slug`, `name`, `logos`, `defaultLogoId`, or `gridProfileSlug`.
+- **Only modify `profile`** — never touch `id`, `slug`, `name`, `logos`, `defaultLogoId`.
 - Use factual, neutral language — no marketing superlatives.
 - Match the tone of existing enriched records (Bridge, DoubleZero, KAST, Libeara, OSL, Superteam USA, velia.net).
-- If reliable information cannot be found for a company, leave `gridProfile: null` and note it in the summary.
+- If reliable information cannot be found for a company, leave `profile: null` and note it in the summary.
 - Process companies in parallel to save time.
 - Keep `packages/ecosystem-data/README.md` accurate if the enrichment workflow or expectations materially change.
 

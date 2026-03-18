@@ -161,10 +161,10 @@ for (const fileName of recordFiles) {
   const id = getObjectPropertyString(recordNode, "id");
   const slug = getObjectPropertyString(recordNode, "slug");
   const defaultLogoId = getObjectPropertyString(recordNode, "defaultLogoId");
-  const gridProfileNode = getNestedProperty(recordNode, ["gridProfile"]);
-  const gridProfileObject = ts.isObjectLiteralExpression(gridProfileNode) ? gridProfileNode : null;
-  const urlEntries = getObjectPropertyArray(gridProfileObject, "urls");
-  const socialsNode = getNestedProperty(recordNode, ["gridProfile", "root", "socials"]);
+  const profileNode = getNestedProperty(recordNode, ["profile"]);
+  const profileObject = ts.isObjectLiteralExpression(profileNode) ? profileNode : null;
+  const urlEntries = getObjectPropertyArray(profileObject, "urls");
+  const socialsNode = getNestedProperty(recordNode, ["profile", "root", "socials"]);
   const logosArray = getObjectPropertyArray(recordNode, "logos");
   const logos = [];
 
@@ -217,7 +217,7 @@ for (const fileName of recordFiles) {
     slug,
     defaultLogoId,
     logos,
-    gridProfileNull: gridProfileNode?.kind === ts.SyntaxKind.NullKeyword,
+    profileNull: profileNode?.kind === ts.SyntaxKind.NullKeyword,
     hasWebsiteUrl,
     socialCount,
   });
@@ -243,14 +243,14 @@ const issues = {
   recordsWithoutAssetFolder: records
     .filter((record) => record.slug && !assetFolderSet.has(record.slug))
     .map((record) => `${record.id} -> ${record.slug}`),
-  recordsWithNullGridProfile: records
-    .filter((record) => record.gridProfileNull)
+  recordsWithNullProfile: records
+    .filter((record) => record.profileNull)
     .map((record) => record.id),
   recordsMissingWebsite: records
-    .filter((record) => !record.gridProfileNull && !record.hasWebsiteUrl)
+    .filter((record) => !record.profileNull && !record.hasWebsiteUrl)
     .map((record) => record.id),
   recordsMissingSocials: records
-    .filter((record) => !record.gridProfileNull && record.socialCount === 0)
+    .filter((record) => !record.profileNull && record.socialCount === 0)
     .map((record) => record.id),
   recordsWithoutLogos: records
     .filter((record) => record.logos.length === 0)
@@ -310,8 +310,8 @@ for (const record of records) {
 const summary = {
   companyRecords: records.length,
   assetFolders: assetFolders.length,
-  enrichedRecords: records.length - issues.recordsWithNullGridProfile.length,
-  nullGridProfiles: issues.recordsWithNullGridProfile.length,
+  enrichedRecords: records.length - issues.recordsWithNullProfile.length,
+  nullProfiles: issues.recordsWithNullProfile.length,
 };
 
 let hasIssues = false;

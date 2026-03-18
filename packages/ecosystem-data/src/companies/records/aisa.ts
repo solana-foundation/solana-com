@@ -6,8 +6,7 @@ export const aisa = {
   "slug": "aisa",
   "name": "AIsa",
   "legalName": "AIsa Inc.",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "AIsa",
     "tagLine": "The Unified Resource & Payment Layer for AI Agents",
     "descriptionShort": "AIsa is an AI infrastructure platform that combines a unified resource gateway with usage-based payment infrastructure for AI agents and applications.",

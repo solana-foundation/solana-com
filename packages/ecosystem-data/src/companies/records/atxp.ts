@@ -5,8 +5,7 @@ export const atxp = {
   "id": "atxp",
   "slug": "atxp",
   "name": "ATXP",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "ATXP",
     "tagLine": "A web-wide protocol for agentic payments",
     "descriptionShort": "ATXP is a protocol built by Circuit & Chisel that enables AI agents to autonomously handle commerce from discovery to payment, with support for Solana-based micropayments.",

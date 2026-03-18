@@ -5,8 +5,7 @@ export const galaxy = {
   "id": "galaxy",
   "slug": "galaxy",
   "name": "Galaxy",
-  "gridProfileSlug": "Galaxy_Digital",
-  "gridProfile": {
+  "profile": {
     "name": "Galaxy",
     "tagLine": "Global leader in digital assets and data center infrastructure",
     "descriptionShort": "Galaxy is a publicly traded digital asset and blockchain financial services firm that provides institutional-grade trading, asset management, and infrastructure solutions.",

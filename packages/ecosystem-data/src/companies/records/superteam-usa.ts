@@ -5,8 +5,7 @@ export const superteamUsa = {
   "id": "superteam-usa",
   "slug": "superteam-usa",
   "name": "Solana Superteam USA",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Superteam USA",
     "tagLine": "The talent layer of Solana in the United States.",
     "descriptionShort": "US chapter of the Superteam community connecting founders, developers, creatives, and operators building on Solana.",

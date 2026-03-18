@@ -5,8 +5,7 @@ export const switchboard = {
   "id": "switchboard",
   "slug": "switchboard",
   "name": "Switchboard",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Switchboard",
     "tagLine": "The Everything Oracle",
     "descriptionShort": "Switchboard is a permissionless, multi-chain oracle protocol on Solana that provides customizable data feeds, verifiable randomness, and off-chain compute for smart contracts.",

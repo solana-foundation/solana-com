@@ -5,8 +5,7 @@ export const squads = {
   "id": "squads",
   "slug": "squads",
   "name": "Squads",
-  "gridProfileSlug": "Squads",
-  "gridProfile": {
+  "profile": {
     "name": "Squads",
     "tagLine": "Finance Without Legacy Constraints",
     "descriptionShort": "Squads is the multisig standard on Solana, providing smart account infrastructure for teams, DAOs, and businesses to securely manage on-chain assets with shared ownership and permissions.",

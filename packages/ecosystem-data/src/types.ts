@@ -1,14 +1,14 @@
-export type GridProfileUrl = {
+export type ProfileUrl = {
   url?: string | null;
   urlType?: { name?: string | null } | null;
 };
 
-export type GridProfileSocial = {
+export type ProfileSocial = {
   socialType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
+  urls?: ProfileUrl[] | null;
 };
 
-export type GridProfile = {
+export type Profile = {
   name?: string | null;
   logo?: string | null;
   tagLine?: string | null;
@@ -18,8 +18,8 @@ export type GridProfile = {
   profileSector?: { name?: string | null } | null;
   profileStatus?: { name?: string | null } | null;
   profileType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
-  root?: { slug?: string | null; socials?: GridProfileSocial[] | null } | null;
+  urls?: ProfileUrl[] | null;
+  root?: { slug?: string | null; socials?: ProfileSocial[] | null } | null;
 };
 
 export type CompanyLogoFormat = "svg" | "png" | "jpg" | "jpeg" | "webp";
@@ -47,8 +47,7 @@ export type CompanyRecord = {
   slug: string;
   name: string;
   legalName?: string;
-  gridProfileSlug?: string | null;
-  gridProfile?: GridProfile | null;
+  profile?: Profile | null;
   logos: CompanyLogoAsset[];
   defaultLogoId?: string;
 };

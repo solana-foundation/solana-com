@@ -5,8 +5,7 @@ export const safepalWallet = {
   "id": "safepal-wallet",
   "slug": "safepal-wallet",
   "name": "Safepal wallet",
-  "gridProfileSlug": "safepal",
-  "gridProfile": {
+  "profile": {
     "name": "SafePal",
     "tagLine": "The best wallet to protect your assets",
     "descriptionShort": "SafePal is a hardware and software crypto wallet suite supporting Solana and 100+ blockchains, offering air-gapped cold storage and integrated DeFi access.",

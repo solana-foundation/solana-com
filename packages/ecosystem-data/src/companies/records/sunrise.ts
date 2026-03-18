@@ -5,8 +5,7 @@ export const sunrise = {
   "id": "sunrise",
   "slug": "sunrise",
   "name": "Sunrise",
-  "gridProfileSlug": "sunrise",
-  "gridProfile": {
+  "profile": {
     "name": "Sunrise",
     "tagLine": "Strengthen Solana and offset carbon emissions simultaneously",
     "descriptionShort": "Sunrise Stake is a regenerative finance protocol on Solana that lets users stake SOL and automatically donate staking yield to carbon offset programs.",

@@ -5,8 +5,7 @@ export const veliaNet = {
   "id": "velia-net",
   "slug": "velia-net",
   "name": "velia.net",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "velia.net",
     "tagLine": "Bare Metal Server Power — Reliable Server Hosting",
     "descriptionShort": "Enterprise dedicated server and bare metal hosting provider with over 20 years of industry experience.",

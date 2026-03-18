@@ -11,6 +11,7 @@ export type SponsorAugmentation = {
   sponsorshipLevel: string;
   url?: string;
   featuredLogoId?: string;
+  gridProfileSlug?: string | null;
 };
 
 function getPublicLogoPath(
@@ -53,8 +54,8 @@ export function composeSponsors(
       availableLogos: company.logos.map((asset) =>
         resolveImportedAssetSrc(asset.source),
       ),
-      gridProfileSlug: company.gridProfileSlug ?? null,
-      gridProfile: company.gridProfile ?? null,
+      gridProfileSlug: entry.gridProfileSlug ?? null,
+      profile: company.profile ?? null,
     };
   });
 }

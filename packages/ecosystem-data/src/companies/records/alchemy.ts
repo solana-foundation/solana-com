@@ -10,8 +10,7 @@ export const alchemy = {
   "id": "alchemy",
   "slug": "alchemy",
   "name": "Alchemy",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Alchemy",
     "tagLine": "Infrastructure that moves billions at scale.",
     "descriptionShort": "Web3 development platform providing blockchain infrastructure, APIs, and developer tools across multiple chains including Solana.",

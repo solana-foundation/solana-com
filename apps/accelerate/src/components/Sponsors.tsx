@@ -253,7 +253,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
   const t = useTranslations("accelerate.sponsors");
 
   const activeSponsorData = activeSponsor?.sponsor;
-  const activeManualProfile = activeSponsorData?.gridProfile ?? null;
+  const activeManualProfile = activeSponsorData?.profile ?? null;
   const activeSlug = activeSponsorData?.gridProfileSlug ?? null;
   const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
   const resolvedProfile = activeProfile ?? activeManualProfile ?? undefined;
@@ -293,7 +293,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
     if (!isModalOpen || !activeSponsor) return;
 
     const slug = activeSponsor.sponsor.gridProfileSlug;
-    const manualProfile = activeSponsor.sponsor.gridProfile;
+    const manualProfile = activeSponsor.sponsor.profile;
     if (!slug || manualProfile || profilesBySlug[slug] || unmatchedSlugs[slug])
       return;
 

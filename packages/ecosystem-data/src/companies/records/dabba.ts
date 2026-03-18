@@ -5,8 +5,7 @@ export const dabba = {
   "id": "dabba",
   "slug": "dabba",
   "name": "Dabba",
-  "gridProfileSlug": "dabba",
-  "gridProfile": {
+  "profile": {
     "name": "Dabba",
     "tagLine": "Web3 powered WiFi networks, built for emerging markets",
     "descriptionShort": "Dabba Network is a DePIN project on Solana that deploys decentralized WiFi hotspots across India to provide affordable high-speed internet access to underserved communities.",

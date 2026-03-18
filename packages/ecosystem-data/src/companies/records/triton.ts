@@ -5,8 +5,7 @@ export const triton = {
   "id": "triton",
   "slug": "triton",
   "name": "Triton",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Triton",
     "tagLine": "Ship fast. Scale ambitiously. Never settle for downtime.",
     "descriptionShort": "Triton One is a high-performance RPC infrastructure provider for Solana, offering enterprise-grade node services with full historical data access and advanced APIs.",

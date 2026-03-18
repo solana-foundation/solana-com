@@ -5,8 +5,7 @@ export const kast = {
   "id": "kast",
   "slug": "kast",
   "name": "KAST",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "KAST",
     "tagLine": "Borderless finance for the internet economy.",
     "descriptionShort": "KAST is building a global financial account that lets users hold, move, and spend stablecoins across cards, transfers, and everyday payments.",

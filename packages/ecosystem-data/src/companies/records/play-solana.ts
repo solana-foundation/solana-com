@@ -5,8 +5,7 @@ export const playSolana = {
   "id": "play-solana",
   "slug": "play-solana",
   "name": "Play Solana",
-  "gridProfileSlug": "playsolana",
-  "gridProfile": {
+  "profile": {
     "name": "Play Solana",
     "tagLine": "Your gateway to the Web3 gaming revolution",
     "descriptionShort": "Play Solana is a Web3 gaming ecosystem on Solana that combines a handheld gaming console, a token economy, and a curated game library.",

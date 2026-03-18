@@ -5,8 +5,7 @@ export const gradient = {
   "id": "gradient",
   "slug": "gradient",
   "name": "Gradient Network",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Gradient Network",
     "tagLine": "Building open intelligence collectively",
     "descriptionShort": "Gradient Network is a decentralized AI infrastructure platform on Solana that enables distributed training, serving, and agentic systems through its Open Intelligence Stack.",

@@ -5,8 +5,7 @@ export const fireblocks = {
   "id": "fireblocks",
   "slug": "fireblocks",
   "name": "Fireblocks",
-  "gridProfileSlug": "Fireblocks",
-  "gridProfile": {
+  "profile": {
     "name": "Fireblocks",
     "tagLine": "Digital asset and stablecoin infrastructure",
     "descriptionShort": "Fireblocks provides enterprise-grade digital asset infrastructure for securely storing, transferring, and issuing assets on Solana and other blockchains.",
