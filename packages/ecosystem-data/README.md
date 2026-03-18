@@ -77,6 +77,47 @@ Each company should have:
 
 The company record should remain useful outside any single event.
 
+## Populating registry companies with enrichment data
+
+Company records can include an optional `gridProfile` object with enriched ecosystem metadata such as:
+
+- tagline
+- short and long descriptions
+- sector and type
+- website URL
+- social links such as X, LinkedIn, Discord, Telegram, and GitHub
+
+Use the enrichment workflow in:
+
+```text
+packages/ecosystem-data/skills/enrich-ecosystem-data.md
+```
+
+That workflow is the source of truth for how to research and populate missing `gridProfile` data in:
+
+```text
+packages/ecosystem-data/src/companies/registry.ts
+```
+
+Expected process:
+
+1. read the registry and identify companies where `gridProfile` is `null`
+2. research each company using publicly available sources, starting with the official website
+3. populate only the `gridProfile` field with neutral, factual copy and verified URLs
+4. omit socials that cannot be confidently verified
+5. validate the package with:
+
+```bash
+pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
+```
+
+Rules:
+
+- only modify `gridProfile`
+- do not change `id`, `slug`, `name`, `logos`, `defaultLogoId`, or `gridProfileSlug`
+- match the tone of existing enriched records
+- leave `gridProfile: null` when reliable information is not available
+
 ## What not to put here
 
 Do not put context-specific fields into this package.
