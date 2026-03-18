@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { config } from "@/config";
 
 function LogoMark() {
@@ -93,6 +100,257 @@ function CTAButton({
       {children}
       {arrow}
     </a>
+  );
+}
+
+function CopyrightIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={11}
+      viewBox="0 0 11 14"
+      fill="none"
+    >
+      <g clipPath="url(#clip0_copyright)">
+        <path
+          d="M1.16623 7.99474C1.3658 10.3771 2.72847 12.7563 5.43824 12.4788C8.75294 12.1389 9.2082 7.40227 8.53778 4.88584C7.50564 1.02232 2.98105 0.691787 1.56536 4.42434C1.34709 5.00121 1.30655 6.37636 0.626769 6.44185C-0.424083 6.54475 0.26817 4.28402 0.526985 3.69467C1.69633 1.00673 4.70545 -0.15326 7.32478 1.29361C11.1852 3.4265 10.9232 12.1576 6.41737 13.4548C2.82202 14.4901 0.159031 11.5371 0 8.13506L1.16623 7.99474Z"
+          fill="currentColor"
+        />
+        <path
+          d="M7.21906 6.28024C6.07778 6.55153 6.15885 5.96842 5.65682 5.59422C4.27231 4.56208 3.09361 7.1783 4.27231 8.52538C4.97704 9.33301 5.80961 8.90581 6.07466 7.97345L7.37186 7.98281C6.19627 12.0584 1.2133 9.49516 2.85039 5.70648C3.76092 3.59854 7.16917 3.92596 7.21906 6.27712V6.28024Z"
+          fill="currentColor"
+        />
+      </g>
+      <defs>
+        <clipPath id="clip0_copyright">
+          <rect
+            width="10.0221"
+            height="13"
+            fill="white"
+            transform="translate(0 0.666992)"
+          />
+        </clipPath>
+      </defs>
+    </svg>
+  );
+}
+
+const socialLinks = [
+  {
+    name: "X",
+    url: "https://x.com/solana",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <path d="M18.3263 2.07129H21.6998L14.3297 10.4948L23 21.9573H16.2112L10.894 15.0053L4.80995 21.9573H1.43443L9.31743 12.9474L1 2.07129H7.96111L12.7674 8.42562L18.3263 2.07129ZM17.1423 19.9381H19.0116L6.94539 3.98442H4.93946L17.1423 19.9381Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Discord",
+    url: "https://discord.com/invite/solana",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <path d="M20.317 4.32208C18.7873 3.6202 17.147 3.10308 15.4319 2.80691C15.4007 2.80119 15.3695 2.81548 15.3534 2.84405C15.1424 3.21926 14.9087 3.70876 14.7451 4.0935C12.9004 3.81733 11.0652 3.81733 9.25832 4.0935C9.09465 3.70021 8.85248 3.21926 8.64057 2.84405C8.62449 2.81643 8.59328 2.80214 8.56205 2.80691C6.84791 3.10213 5.20756 3.61925 3.67693 4.32208C3.66368 4.32779 3.65233 4.33732 3.64479 4.34969C0.533392 8.99805 -0.31895 13.5322 0.0991801 18.0101C0.101072 18.032 0.11337 18.0529 0.130398 18.0662C2.18321 19.5738 4.17171 20.489 6.12328 21.0956C6.15451 21.1051 6.18761 21.0937 6.20748 21.068C6.66913 20.4376 7.08064 19.7728 7.43348 19.0738C7.4543 19.0329 7.43442 18.9843 7.39186 18.9681C6.73913 18.7205 6.1176 18.4186 5.51973 18.0758C5.47244 18.0482 5.46865 17.9805 5.51216 17.9481C5.63797 17.8539 5.76382 17.7558 5.88396 17.6567C5.90569 17.6386 5.93598 17.6348 5.96153 17.6462C9.88928 19.4395 14.1415 19.4395 18.023 17.6462C18.0485 17.6339 18.0788 17.6377 18.1015 17.6558C18.2216 17.7548 18.3475 17.8539 18.4742 17.9481C18.5177 17.9805 18.5149 18.0482 18.4676 18.0758C17.8697 18.4253 17.2482 18.7205 16.5945 18.9671C16.552 18.9833 16.533 19.0329 16.5538 19.0738C16.9143 19.7719 17.3258 20.4366 17.7789 21.067C17.7978 21.0937 17.8319 21.1051 17.8631 21.0956C19.8241 20.489 21.8126 19.5738 23.8654 18.0662C23.8834 18.0529 23.8948 18.0329 23.8967 18.011C24.3971 12.8341 23.0585 8.33714 20.3482 4.35064C20.3416 4.33732 20.3303 4.32779 20.317 4.32208ZM8.02002 15.2835C6.8375 15.2835 5.86313 14.1978 5.86313 12.8646C5.86313 11.5313 6.8186 10.4456 8.02002 10.4456C9.23087 10.4456 10.1958 11.5408 10.1769 12.8646C10.1769 14.1978 9.22141 15.2835 8.02002 15.2835ZM15.9947 15.2835C14.8123 15.2835 13.8379 14.1978 13.8379 12.8646C13.8379 11.5313 14.7933 10.4456 15.9947 10.4456C17.2056 10.4456 18.1705 11.5408 18.1516 12.8646C18.1516 14.1978 17.2056 15.2835 15.9947 15.2835Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "GitHub",
+    url: "https://github.com/solana-labs",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <g clipPath="url(#clip0_github)">
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M12.0099 0.166992C5.36875 0.166992 0 5.57532 0 12.2662C0 17.6145 3.43994 22.1418 8.21205 23.7441C8.80869 23.8646 9.02724 23.4838 9.02724 23.1634C9.02724 22.8829 9.00757 21.9215 9.00757 20.9197C5.6667 21.641 4.97099 19.4774 4.97099 19.4774C4.43409 18.0752 3.63858 17.7148 3.63858 17.7148C2.54511 16.9736 3.71823 16.9736 3.71823 16.9736C4.93117 17.0538 5.56763 18.2156 5.56763 18.2156C6.64118 20.0583 8.37111 19.5377 9.06706 19.2171C9.16638 18.4358 9.48473 17.895 9.82275 17.5946C7.15817 17.3141 4.35469 16.2725 4.35469 11.625C4.35469 10.3029 4.8316 9.22127 5.58729 8.38003C5.46807 8.07962 5.0504 6.83743 5.70677 5.17486C5.70677 5.17486 6.72083 4.85429 9.00732 6.41681C9.98625 6.15196 10.9958 6.01723 12.0099 6.0161C13.024 6.0161 14.0577 6.15647 15.0123 6.41681C17.299 4.85429 18.3131 5.17486 18.3131 5.17486C18.9695 6.83743 18.5515 8.07962 18.4323 8.38003C19.2079 9.22127 19.6652 10.3029 19.6652 11.625C19.6652 16.2725 16.8617 17.2939 14.1772 17.5946C14.6148 17.9751 14.9924 18.6962 14.9924 19.8381C14.9924 21.4606 14.9727 22.7627 14.9727 23.1632C14.9727 23.4838 15.1915 23.8646 15.7879 23.7443C20.56 22.1415 23.9999 17.6145 23.9999 12.2662C24.0196 5.57532 18.6312 0.166992 12.0099 0.166992Z"
+          />
+        </g>
+        <defs>
+          <clipPath id="clip0_github">
+            <rect
+              width="24"
+              height="24"
+              fill="white"
+              transform="translate(0 0.166992)"
+            />
+          </clipPath>
+        </defs>
+      </svg>
+    ),
+  },
+  {
+    name: "Reddit",
+    url: "https://reddit.com/r/solana",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <path d="M14.4414 5.82523C14.6495 6.70742 15.4417 7.36461 16.3877 7.36461C17.492 7.36461 18.3873 6.4693 18.3873 5.36492C18.3873 4.26055 17.492 3.36523 16.3877 3.36523C15.422 3.36523 14.6167 4.04961 14.4292 4.95992C12.812 5.13336 11.5492 6.50492 11.5492 8.16711C11.5492 8.17086 11.5492 8.17367 11.5492 8.17742C9.79047 8.25148 8.18453 8.75211 6.90953 9.54242C6.43609 9.17586 5.84172 8.95742 5.19672 8.95742C3.64891 8.95742 2.39453 10.2118 2.39453 11.7596C2.39453 12.8827 3.05453 13.8502 4.00797 14.2974C4.10078 17.5505 7.64547 20.1671 12.0058 20.1671C16.3661 20.1671 19.9155 17.5477 20.0036 14.2918C20.9495 13.8418 21.6039 12.8771 21.6039 11.7605C21.6039 10.2127 20.3495 8.95836 18.8017 8.95836C18.1595 8.95836 17.568 9.17492 17.0955 9.53867C15.8092 8.74274 14.1855 8.24211 12.4089 8.17555C12.4089 8.17273 12.4089 8.17086 12.4089 8.16805C12.4089 6.97742 13.2939 5.9893 14.4414 5.82711V5.82523ZM6.79703 13.538C6.84391 12.5218 7.51891 11.7418 8.30359 11.7418C9.08828 11.7418 9.68828 12.5659 9.64141 13.5821C9.59453 14.5984 9.00859 14.9677 8.22297 14.9677C7.43734 14.9677 6.75016 14.5543 6.79703 13.538ZM15.7089 11.7418C16.4945 11.7418 17.1695 12.5218 17.2155 13.538C17.2623 14.5543 16.5742 14.9677 15.7895 14.9677C15.0048 14.9677 14.418 14.5993 14.3711 13.5821C14.3242 12.5659 14.9233 11.7418 15.7089 11.7418ZM14.7752 15.8893C14.9223 15.9043 15.0161 16.0571 14.9589 16.194C14.4761 17.348 13.3361 18.159 12.0058 18.159C10.6755 18.159 9.53641 17.348 9.05266 16.194C8.99547 16.0571 9.08922 15.9043 9.23641 15.8893C10.0989 15.8021 11.0317 15.7543 12.0058 15.7543C12.9798 15.7543 13.9117 15.8021 14.7752 15.8893Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "YouTube",
+    url: "https://youtube.com/SolanaFndn",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <path d="M23.7609 7.3668C23.7609 7.3668 23.5266 5.71211 22.8047 4.98555C21.8906 4.0293 20.8688 4.02461 20.4 3.96836C17.0438 3.72461 12.0047 3.72461 12.0047 3.72461H11.9953C11.9953 3.72461 6.95625 3.72461 3.6 3.96836C3.13125 4.02461 2.10938 4.0293 1.19531 4.98555C0.473438 5.71211 0.24375 7.3668 0.24375 7.3668C0.24375 7.3668 0 9.31211 0 11.2527V13.0715C0 15.0121 0.239062 16.9574 0.239062 16.9574C0.239062 16.9574 0.473437 18.6121 1.19062 19.3387C2.10469 20.2949 3.30469 20.2621 3.83906 20.3652C5.76094 20.548 12 20.6043 12 20.6043C12 20.6043 17.0438 20.5949 20.4 20.3559C20.8688 20.2996 21.8906 20.2949 22.8047 19.3387C23.5266 18.6121 23.7609 16.9574 23.7609 16.9574C23.7609 16.9574 24 15.0168 24 13.0715V11.2527C24 9.31211 23.7609 7.3668 23.7609 7.3668ZM9.52031 15.2793V8.53398L16.0031 11.9184L9.52031 15.2793Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Telegram",
+    url: "https://t.me/solana",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={16}
+        viewBox="0 0 24 25"
+        fill="currentColor"
+      >
+        <g clipPath="url(#clip0_telegram)">
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M24 12.167C24 18.7944 18.6274 24.167 12 24.167C5.37258 24.167 0 18.7944 0 12.167C0 5.53958 5.37258 0.166992 12 0.166992C18.6274 0.166992 24 5.53958 24 12.167ZM12.43 9.02592C11.2628 9.51139 8.93014 10.5162 5.43189 12.0403C4.86383 12.2662 4.56626 12.4872 4.53917 12.7033C4.49339 13.0685 4.95071 13.2123 5.57347 13.4081C5.65818 13.4348 5.74595 13.4623 5.83594 13.4916C6.44864 13.6908 7.27283 13.9238 7.70129 13.933C8.08994 13.9414 8.52373 13.7812 9.00264 13.4523C12.2712 11.246 13.9584 10.1308 14.0643 10.1068C14.139 10.0898 14.2426 10.0685 14.3128 10.1308C14.3829 10.1932 14.376 10.3113 14.3686 10.343C14.3233 10.5361 12.5281 12.2051 11.5991 13.0688C11.3095 13.338 11.1041 13.529 11.0621 13.5726C10.968 13.6703 10.8721 13.7628 10.78 13.8516C10.2108 14.4003 9.78391 14.8118 10.8036 15.4838C11.2936 15.8067 11.6858 16.0737 12.077 16.3401C12.5042 16.6311 12.9303 16.9213 13.4816 17.2827C13.6221 17.3747 13.7562 17.4704 13.8869 17.5635C14.3841 17.918 14.8307 18.2364 15.3826 18.1856C15.7032 18.1561 16.0345 17.8546 16.2027 16.9553C16.6002 14.8301 17.3816 10.2254 17.5622 8.32797C17.578 8.16172 17.5581 7.94896 17.5422 7.85557C17.5262 7.76217 17.4928 7.6291 17.3714 7.53059C17.2276 7.41393 17.0056 7.38933 16.9064 7.39108C16.455 7.39903 15.7626 7.63981 12.43 9.02592Z"
+          />
+        </g>
+        <defs>
+          <clipPath id="clip0_telegram">
+            <rect
+              width="24"
+              height="24"
+              fill="white"
+              transform="translate(0 0.166992)"
+            />
+          </clipPath>
+        </defs>
+      </svg>
+    ),
+  },
+];
+
+const ITERABLE_SUBSCRIBE_URL =
+  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=7b8f7f90-b5cc-479e-af28-7121d89fc6a4";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function SubscribeForm({
+  className,
+  inputClassName,
+  buttonClassName,
+  successClassName,
+  errorClassName,
+}: {
+  className: string;
+  inputClassName: string;
+  buttonClassName: string;
+  successClassName: string;
+  errorClassName: string;
+}) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "success" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleEmailChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setEmail(event.target.value);
+      setStatus("idle");
+      setErrorMsg("");
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setErrorMsg("");
+
+      if (!EMAIL_REGEX.test(email)) {
+        setStatus("error");
+        setErrorMsg("Please enter a valid email address.");
+        return;
+      }
+
+      setStatus("submitting");
+
+      try {
+        const data = new FormData();
+        data.append("email", email);
+
+        const response = await fetch(ITERABLE_SUBSCRIBE_URL, {
+          method: "POST",
+          body: data,
+        });
+
+        if (!response.ok) {
+          throw new Error("Subscription failed");
+        }
+
+        setStatus("success");
+        setEmail("");
+      } catch {
+        setStatus("error");
+        setErrorMsg("Something went wrong. Please try again.");
+      }
+    },
+    [email],
+  );
+
+  if (status === "success") {
+    return (
+      <p className={successClassName}>
+        Thanks for subscribing! We&apos;ll keep you updated.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className={className}>
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="email"
+        value={email}
+        onChange={handleEmailChange}
+        className={inputClassName}
+      />
+      <button
+        type="submit"
+        disabled={status === "submitting"}
+        className={buttonClassName}
+      >
+        {status === "submitting" ? "Submitting..." : "Subscribe"}
+      </button>
+      {errorMsg ? <p className={errorClassName}>{errorMsg}</p> : null}
+    </form>
   );
 }
 
@@ -231,26 +489,15 @@ function SubscribeModal({
           <p className="text-p1 text-secondary mt-xs">
             Sign up for updates and early registration details.
           </p>
-          <form
-            action="https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=94b90b1b-b29a-4ad7-9b3b-87331601d030"
-            method="get"
-            target="_blank"
-            className="flex flex-col gap-xs mt-l md:flex-row"
-          >
-            <input
-              type="email"
-              name="email"
-              placeholder="email"
-              required
-              className="border-1 border-wisp-10 bg-transparent px-xs h-[3rem] w-full focus:outline-none focus:border-byte text-primary"
+          <div className="mt-l">
+            <SubscribeForm
+              className="flex flex-col gap-xs md:flex-row"
+              inputClassName="border-1 border-wisp-10 bg-transparent px-xs h-[3rem] w-full focus:outline-none focus:border-byte text-primary"
+              buttonClassName="gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition outline-offset-[8px] outline-transparent px-[var(--spacing-xs)] h-[3rem] bg-byte text-invert hover:bg-primary-wisp shrink-0 disabled:opacity-50"
+              successClassName="text-p1 text-byte"
+              errorClassName="text-p1 text-byte"
             />
-            <button
-              type="submit"
-              className="gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition outline-offset-[8px] outline-transparent px-[var(--spacing-xs)] h-[3rem] bg-byte text-invert hover:bg-primary-wisp shrink-0"
-            >
-              Subscribe
-            </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>
@@ -462,23 +709,6 @@ export default function HomePage() {
               </h4>
             </div>
           </div>
-
-          {/* Additional details row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-xs mt-xs">
-            {[
-              "Expo Hall",
-              "Networking Lounges",
-              "Hackathon",
-              "After Parties",
-            ].map((item) => (
-              <div
-                key={item}
-                className="border-1 border-wisp-10 p-s flex items-center justify-center text-center"
-              >
-                <p className="text-caption text-secondary">{item}</p>
-              </div>
-            ))}
-          </div>
         </article>
 
         {/* ── CTA ── */}
@@ -509,6 +739,84 @@ export default function HomePage() {
           </div>
         </article>
       </main>
+
+      {/* ── Footer ── */}
+      <footer className="container w-full font-macan-mono pt-2xl md:pt-4xl px-s">
+        {/* Subscribe row */}
+        <div className="text-primary md:flex md:flex-row md:items-center md:justify-between">
+          <h3>Stay in the loop</h3>
+          <div className="mt-xs md:mt-0 md:w-[452px]">
+            <SubscribeForm
+              className="flex"
+              inputClassName="w-full h-[3rem] grow border-1 border-wisp-40 bg-transparent px-xs uppercase text-primary focus:outline-none focus:border-byte font-macan-mono text-[0.9375rem] tracking-[0.09375rem]"
+              buttonClassName="shrink-0 cta cursor-pointer uppercase flex items-center justify-center cta-transition px-xs h-[3rem] bg-byte text-invert hover:bg-primary-wisp whitespace-nowrap disabled:opacity-50"
+              successClassName="text-p1 text-byte"
+              errorClassName="mt-xs text-p1 text-byte"
+            />
+          </div>
+        </div>
+
+        {/* Links & info row */}
+        <div className="flex flex-col-reverse mt-xl md:mt-l md:flex-row md:justify-between">
+          {/* Left: logo + copyright */}
+          <div className="flex flex-col gap-m justify-end pt-m md:pt-0">
+            <a
+              href="https://solana.com"
+              className="self-start block w-[18.2px]"
+            >
+              <LogoMark />
+            </a>
+            <div className="flex gap-[2px] md:justify-end text-button items-center">
+              <CopyrightIcon />
+              {`Solana Foundation ${new Date().getFullYear()}`}
+            </div>
+          </div>
+
+          {/* Right: contact + code of conduct + social */}
+          <div className="flex flex-col gap-m md:items-end">
+            <a
+              href="mailto:breakpoint@solana.org"
+              className="text-button cta-transition hover:text-byte"
+            >
+              Contact Us
+            </a>
+            <a
+              href="https://solana.com/code-of-conduct"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-button cta-transition hover:text-byte"
+            >
+              Code of Conduct
+            </a>
+            <div className="flex gap-xs">
+              {socialLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={link.name}
+                  className="text-primary cta-transition hover:text-byte"
+                >
+                  {link.icon}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Large Breakpoint logo */}
+        <img
+          className="w-full pt-xl hidden md:block"
+          alt="Solana Breakpoint Logo"
+          src={assetPath("/assets/bp-logo.svg")}
+        />
+        <img
+          className="w-full pt-xl md:hidden"
+          alt="Solana Breakpoint Logo"
+          src={assetPath("/assets/bg-logo-mobile-full.svg")}
+        />
+      </footer>
 
       <VideoModal open={videoOpen} onClose={() => setVideoOpen(false)} />
       <SubscribeModal
