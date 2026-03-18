@@ -396,12 +396,11 @@ export default function HomePage() {
           <div className="grid gap-m md:grid-cols-2 mt-l">
             <div className="flex flex-col gap-m">
               <p className="text-p1">
-                London sits at the intersection of global capital. It is where
-                money is accumulated, structured, legitimized, and
-                redeployed&mdash;home to family offices, sovereign wealth funds,
-                hedge funds, commodity traders, private credit firms, insurers,
-                and the legal and financial infrastructure that connects markets
-                across continents.
+                London is where money is accumulated, structured, legitimized,
+                and redeployed&mdash;home to family offices, sovereign wealth
+                funds, hedge funds, commodity traders, private credit firms,
+                insurers, and the legal and financial infrastructure that
+                connects markets across continents.
               </p>
             </div>
             <div className="flex flex-col gap-m">
