@@ -20,7 +20,7 @@ const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
 const LOCALHOST_RPC_URL = "http://localhost:8899";
 const LOCALHOST_WS_URL = "ws://localhost:8900";
 const CREATE_LOCAL_CLIENT_SETUP_REGEX =
-  /const\s+client\s*=\s*await\s+createLocalClient\(\)(?<pluginChain>[\s\S]*?)\s*;/;
+  /const\s+client\s*=\s*await\s+createLocalClient\(\)([\s\S]*?)\s*;/;
 
 const createExplicitClientSetup = (pluginChain = ""): string => {
   const baseClientName = pluginChain ? "baseClient" : "client";
@@ -56,9 +56,7 @@ const replaceCreateLocalClientSetup = (code: string): string | null => {
     return null;
   }
 
-  const pluginChain = match.groups?.pluginChain?.trim()
-    ? match.groups.pluginChain
-    : "";
+  const pluginChain = match[1]?.trim() ? match[1] : "";
 
   return code.replace(
     CREATE_LOCAL_CLIENT_SETUP_REGEX,
