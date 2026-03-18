@@ -11,6 +11,7 @@ import {
   HashScroll,
 } from "@/components";
 import sponsorsData from "@/data/hong-kong/sponsors.json";
+import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
 import type { Sponsor } from "@/types/sponsors";
 import { config } from "@/config";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
@@ -42,6 +43,10 @@ export async function generateMetadata({
 }
 
 export default function HongKongPage() {
+  const sponsors = composeSponsors(
+    sponsorsData.sponsors as SponsorAugmentation[],
+  );
+
   return (
     <>
       <SeoJsonLd
@@ -52,7 +57,7 @@ export default function HongKongPage() {
       <EventDetails />
       <AgendaBanner />
       <Speakers />
-      <Sponsors sponsors={sponsorsData.sponsors as Sponsor[]} />
+      <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ />
       <GettingThere />
       <FooterCTA />

@@ -2,9 +2,9 @@
 name: Google Sheets to Sponsors Automation
 overview:
   Automate sponsor data sync from Google Sheets to the Accelerate app by
-  fetching sponsors with status "published web", downloading logos from Google
-  Drive folders, and dynamically rendering them in the Sponsors component based
-  on sponsorship level tiers.
+  fetching sponsors with status "published web", mapping sponsors to canonical
+  company records in `@workspace/ecosystem-data`, and dynamically rendering them
+  in the Sponsors component based on sponsorship level tiers.
 todos:
   - id: install-deps
     content: Install googleapis and google-auth-library packages
@@ -46,11 +46,10 @@ Create an automated workflow that:
 
 1. Fetches sponsor data from Google Sheets (filtered by status = "published
    web")
-2. Downloads logo images from Google Drive folders
-3. Stores logos in `public/images/sponsors/[sponsor-name]/` folders
-4. Dynamically renders sponsors in the `Sponsors` component based on sponsorship
+2. Resolves sponsor logos from `@workspace/ecosystem-data`
+3. Dynamically renders sponsors in the `Sponsors` component based on sponsorship
    level tiers
-5. Selects one random logo from each sponsor's folder for display
+4. Selects the canonical or configured company logo for display
 
 ## Architecture
 
@@ -59,9 +58,7 @@ Google Sheets (API Key)
   ↓
 Sync Script (pnpm script)
   ↓
-Google Drive (Service Account)
-  ↓
-public/images/sponsors/[sponsor-name]/
+@workspace/ecosystem-data companyId mapping
   ↓
 Sponsors Component (dynamic data)
 ```
@@ -97,24 +94,19 @@ This script will:
 
 - Connect to Google Sheets API using API key
 - Read the spreadsheet and filter rows where `status` = "published web"
-- Extract: sponsor name, sponsorship level, logo folder ID/path
-- For each sponsor:
-  - Connect to Google Drive API using service account
-  - List all image files in the logo folder
-  - Download all images to `public/images/sponsors/[sponsor-name]/`
-  - Store metadata about available logos
-- Generate a JSON file with sponsor data: `public/data/sponsors.json`
+- Extract: sponsor name, sponsorship level, canonical `companyId`
+- Validate that each `companyId` exists in `@workspace/ecosystem-data`
+- Generate sponsor augmentation JSON for `src/data/...`
 
 **Data Structure**:
 
 ```typescript
 interface Sponsor {
+  companyId: string;
   name: string;
   url: string;
   sponsorshipLevel: string; // Maps to tier names
-  logoFolder: string; // Folder name/path
-  logos: string[]; // Array of logo file paths
-  selectedLogo: string; // Randomly selected logo
+  featuredLogoId?: string;
 }
 ```
 
