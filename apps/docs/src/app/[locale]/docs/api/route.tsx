@@ -19,9 +19,11 @@ const TXTX_RPC_URL = isEnvConfigured ? `https://${TXTX_SURFNET_URL}:8899` : "";
 const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
 const LOCALHOST_RPC_URL = "http://localhost:8899";
 const LOCALHOST_WS_URL = "ws://localhost:8900";
+const CREATE_LOCAL_CLIENT_SETUP_REGEX =
+  /const\s+client\s*=\s*await\s+createLocalClient\(\)(?<pluginChain>[\s\S]*?)\s*;/;
 
-const createExplicitClientSetup = (pluginExpression?: string): string => {
-  const baseClientName = pluginExpression ? "baseClient" : "client";
+const createExplicitClientSetup = (pluginChain = ""): string => {
+  const baseClientName = pluginChain ? "baseClient" : "client";
 
   return [
     "const feePayer = await generateKeyPairSigner();",
@@ -42,30 +44,26 @@ const createExplicitClientSetup = (pluginExpression?: string): string => {
     "  lamports: lamports(1_000_000_000n),",
     '  commitment: "confirmed",',
     "});",
-    ...(pluginExpression
-      ? ["", `const client = ${baseClientName}.use(${pluginExpression});`]
+    ...(pluginChain
+      ? ["", `const client = ${baseClientName}${pluginChain};`]
       : []),
   ].join("\n");
 };
 
-const replaceSupportedCreateLocalClientSetup = (
-  code: string,
-): string | null => {
-  const replacements = [
-    [
-      "const client = await createLocalClient().use(tokenProgram());",
-      createExplicitClientSetup("tokenProgram()"),
-    ],
-    ["const client = await createLocalClient();", createExplicitClientSetup()],
-  ] as const;
-
-  for (const [from, to] of replacements) {
-    if (code.includes(from)) {
-      return code.replace(from, to);
-    }
+const replaceCreateLocalClientSetup = (code: string): string | null => {
+  const match = code.match(CREATE_LOCAL_CLIENT_SETUP_REGEX);
+  if (!match) {
+    return null;
   }
 
-  return null;
+  const pluginChain = match.groups?.pluginChain?.trim()
+    ? match.groups.pluginChain
+    : "";
+
+  return code.replace(
+    CREATE_LOCAL_CLIENT_SETUP_REGEX,
+    createExplicitClientSetup(pluginChain),
+  );
 };
 
 const replaceLocalHostUrl = (code: string): string => {
@@ -109,10 +107,10 @@ const upsertNamedImport = (
 
 // `createLocalClient()` assumes the snippet is running with a local validator
 // with an auto-funded payer. The docs runner executes against a remote Surfnet
-// endpoint instead, so we rewrite the supported local-client snippets to an
-// explicit RPC client setup while preserving plugin usage when present.
+// endpoint instead, so we rewrite the local-client assignment to an explicit
+// RPC client setup while preserving any chained `.use(...)` plugins.
 const replaceCreateLocalClientSnippet = (code: string): string => {
-  const nextClientSetup = replaceSupportedCreateLocalClientSetup(code);
+  const nextClientSetup = replaceCreateLocalClientSetup(code);
 
   if (!nextClientSetup) {
     return code;
