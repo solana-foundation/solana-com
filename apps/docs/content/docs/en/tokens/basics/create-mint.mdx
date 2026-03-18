@@ -63,21 +63,8 @@ You need invoke two instructions to create a mint account:
 <CodeTabs storage="token-ts" flags="r">
 
 ```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   getInitializeMintInstruction,
@@ -85,19 +72,8 @@ import {
   TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate keypairs for fee payer
-const feePayer = await generateKeyPairSigner();
-
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+// Connect to a local validator with a generated, funded payer
+const client = await createLocalClient();
 
 // Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
@@ -106,54 +82,28 @@ const mint = await generateKeyPairSigner();
 const space = BigInt(getMintSize());
 
 // Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
-  mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address
-});
-
-const instructions = [createAccountInstruction, initializeMintInstruction];
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }), // Create transaction message
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
-  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
-);
-
-// Sign transaction message with required signers (fee payer and mint keypair)
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
+// Create and initialize the mint account in one transaction
+const transactionResult = await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 9,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
 
 console.log("Mint Address:", mint.address);
-console.log("\nTransaction Signature:", transactionSignature);
+console.log("\nTransaction Result:");
+console.dir(transactionResult, { depth: null });
 ```
 
 ```ts !! title="Legacy"
