@@ -85,3 +85,11 @@ export function getCompanyLogo(
 export function resolveImportedAssetSrc(asset: ImportedAssetModule): string {
   return typeof asset === "string" ? asset : asset.src;
 }
+
+export function getCompanyLogoSrc(
+  companyOrId: CompanyId | CompanyRecord,
+  options: LogoSelectorOptions = {},
+): string | undefined {
+  const logo = getCompanyLogo(companyOrId, options);
+  return logo ? resolveImportedAssetSrc(logo.source) : undefined;
+}

@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../types";
+import aisaLogo from "../../assets/companies/aisa/logo.svg";
 import alchemyLogoBlack from "../../assets/companies/alchemy/logo-black.svg";
 import alchemyLogoColor from "../../assets/companies/alchemy/logo-color.svg";
 import alchemyLogoWhiteBlue from "../../assets/companies/alchemy/logo-white-blue.svg";
@@ -7,20 +8,26 @@ import alchemyLogomarkWhite from "../../assets/companies/alchemy/logomark-white.
 import alchemyLogomark from "../../assets/companies/alchemy/logomark.svg";
 import allnodesLogo from "../../assets/companies/allnodes/logo.svg";
 import arciumLogo from "../../assets/companies/arcium/logo.svg";
+import atxpLogo from "../../assets/companies/atxp/logo.svg";
 import bonkLogo from "../../assets/companies/bonk/logo.webp";
 import bridgeLogo from "../../assets/companies/bridge/logo.svg";
 import bydfiLogo from "../../assets/companies/bydfi/logo.svg";
 import byrealLogo from "../../assets/companies/byreal/logo.svg";
+import coinbaseLogo from "../../assets/companies/coinbase/logo.svg";
 import dabbaLogo from "../../assets/companies/dabba/logo.svg";
+import darkresearchLogo from "../../assets/companies/darkresearch/logo.png";
 import doublezeroLogo from "../../assets/companies/doublezero/logo.svg";
 import fireblocksLogo from "../../assets/companies/fireblocks/logo.png";
 import frodobotsLogo from "../../assets/companies/frodobots/logo.svg";
 import galaxyLogo from "../../assets/companies/galaxy/logo.svg";
+import gradientLogo from "../../assets/companies/gradient/logo.png";
 import jitoLogo from "../../assets/companies/jito/logo.svg";
 import kastLogo from "../../assets/companies/kast/logo.svg";
 import libearaLogo from "../../assets/companies/libeara/logo.svg";
 import mantleByrealLogo from "../../assets/companies/mantle-byreal/logo.svg";
+import openminedLogo from "../../assets/companies/openmined/logo.png";
 import oslLogo from "../../assets/companies/osl/logo.svg";
+import phantomLogo from "../../assets/companies/phantom/logo.svg";
 import playSolanaLogo from "../../assets/companies/play-solana/logo.svg";
 import quicknodeLogo from "../../assets/companies/quicknode/logo.svg";
 import safepalWalletLogo from "../../assets/companies/safepal-wallet/logo.svg";
@@ -31,9 +38,91 @@ import spiLogo from "../../assets/companies/spi/logo.svg";
 import squadsLogo from "../../assets/companies/squads/logo.svg";
 import sunriseLogo from "../../assets/companies/sunrise/logo.svg";
 import superteamUsaLogo from "../../assets/companies/superteam-usa/logo.svg";
+import switchboardLogo from "../../assets/companies/switchboard/logo.svg";
+import tritonLogo from "../../assets/companies/triton/logo.svg";
 import veliaNetLogo from "../../assets/companies/velia-net/logo.svg";
+import visaLogo from "../../assets/companies/visa/logo.png";
 
 export const companiesById = {
+  "aisa": {
+  "id": "aisa",
+  "slug": "aisa",
+  "name": "AIsa",
+  "legalName": "AIsa Inc.",
+  "gridProfileSlug": null,
+  "gridProfile": {
+    "name": "AIsa",
+    "tagLine": "The Unified Resource & Payment Layer for AI Agents",
+    "descriptionShort": "AIsa is an AI infrastructure platform that combines a unified resource gateway with usage-based payment infrastructure for AI agents and applications.",
+    "descriptionLong": "AIsa provides a unified API layer for AI models, search, financial data, social data, and packaged agent skills, alongside a payments stack built for high-frequency, pay-per-use AI workloads. The platform positions itself as infrastructure for autonomous agents to discover resources, execute micropayments, and settle usage without vendor-specific integrations. The company says it was founded in San Francisco in late 2024, while its LinkedIn page lists the company as founded in 2025.",
+    "profileSector": {
+      "name": "Payments"
+    },
+    "profileType": {
+      "name": "Platform"
+    },
+    "urls": [
+      {
+        "url": "https://aisa.one/",
+        "urlType": {
+          "name": "website"
+        }
+      }
+    ],
+    "root": {
+      "socials": [
+        {
+          "socialType": {
+            "name": "Twitter / X"
+          },
+          "urls": [
+            {
+              "url": "https://x.com/AIsaOneHQ",
+              "urlType": {
+                "name": "main"
+              }
+            }
+          ]
+        },
+        {
+          "socialType": {
+            "name": "LinkedIn"
+          },
+          "urls": [
+            {
+              "url": "https://www.linkedin.com/company/aipayhq",
+              "urlType": {
+                "name": "main"
+              }
+            }
+          ]
+        },
+        {
+          "socialType": {
+            "name": "Discord"
+          },
+          "urls": [
+            {
+              "url": "https://discord.gg/bhjDrRKc",
+              "urlType": {
+                "name": "main"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": aisaLogo
+    }
+  ]
+},
   "alchemy": {
   "id": "alchemy",
   "slug": "alchemy",
@@ -189,6 +278,22 @@ export const companiesById = {
     }
   ]
 },
+  "atxp": {
+  "id": "atxp",
+  "slug": "atxp",
+  "name": "ATXP",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": atxpLogo
+    }
+  ]
+},
   "bonk": {
   "id": "bonk",
   "slug": "bonk",
@@ -302,6 +407,22 @@ export const companiesById = {
     }
   ]
 },
+  "coinbase": {
+  "id": "coinbase",
+  "slug": "coinbase",
+  "name": "Coinbase",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": coinbaseLogo
+    }
+  ]
+},
   "dabba": {
   "id": "dabba",
   "slug": "dabba",
@@ -315,6 +436,22 @@ export const companiesById = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": dabbaLogo
+    }
+  ]
+},
+  "darkresearch": {
+  "id": "darkresearch",
+  "slug": "darkresearch",
+  "name": "Dark Research",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.png",
+      "format": "png",
+      "source": darkresearchLogo
     }
   ]
 },
@@ -415,6 +552,22 @@ export const companiesById = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": galaxyLogo
+    }
+  ]
+},
+  "gradient": {
+  "id": "gradient",
+  "slug": "gradient",
+  "name": "Gradient Network",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.png",
+      "format": "png",
+      "source": gradientLogo
     }
   ]
 },
@@ -606,6 +759,22 @@ export const companiesById = {
     }
   ]
 },
+  "openmined": {
+  "id": "openmined",
+  "slug": "openmined",
+  "name": "OpenMined",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.png",
+      "format": "png",
+      "source": openminedLogo
+    }
+  ]
+},
   "osl": {
   "id": "osl",
   "slug": "osl",
@@ -694,6 +863,22 @@ export const companiesById = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": oslLogo
+    }
+  ]
+},
+  "phantom": {
+  "id": "phantom",
+  "slug": "phantom",
+  "name": "Phantom",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": phantomLogo
     }
   ]
 },
@@ -893,6 +1078,38 @@ export const companiesById = {
     }
   ]
 },
+  "switchboard": {
+  "id": "switchboard",
+  "slug": "switchboard",
+  "name": "Switchboard",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": switchboardLogo
+    }
+  ]
+},
+  "triton": {
+  "id": "triton",
+  "slug": "triton",
+  "name": "Triton",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.svg",
+      "format": "svg",
+      "source": tritonLogo
+    }
+  ]
+},
   "velia-net": {
   "id": "velia-net",
   "slug": "velia-net",
@@ -955,6 +1172,22 @@ export const companiesById = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": veliaNetLogo
+    }
+  ]
+},
+  "visa": {
+  "id": "visa",
+  "slug": "visa",
+  "name": "Visa",
+  "gridProfileSlug": null,
+  "gridProfile": null,
+  "defaultLogoId": "logo",
+  "logos": [
+    {
+      "id": "logo",
+      "fileName": "logo.png",
+      "format": "png",
+      "source": visaLogo
     }
   ]
 }

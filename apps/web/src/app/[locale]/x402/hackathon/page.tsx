@@ -2,11 +2,32 @@ import React from "react";
 import { X402HackathonPage } from "./x402-hackathon";
 import { getTranslations } from "next-intl/server";
 import { getIndexMetadata } from "@/app/metadata";
+import { resolveLocalizedCompanyLogo } from "@/lib/ecosystem-data";
+import type { CompanyId } from "@workspace/ecosystem-data";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function Page(_props: Props) {
   const t = await getTranslations();
+  const sponsorBounties = t.raw(
+    "x402.hackathon.sponsorBounties.items",
+  ) as Array<{
+    sponsor: string;
+    title: string;
+    description: string;
+    prizeAmount: string;
+    logo?: string;
+    companyId?: CompanyId;
+    logoId?: string;
+  }>;
+  const sponsorBannerLogos = t.raw(
+    "x402.hackathon.sponsorBanner.logos",
+  ) as Array<{
+    src?: string;
+    alt: string;
+    companyId?: CompanyId;
+    logoId?: string;
+  }>;
 
   const translations = {
     heroTitle: t("x402.hackathon.hero.title"),
@@ -71,19 +92,16 @@ export default async function Page(_props: Props) {
 
     sponsorBountiesTitle: t("x402.hackathon.sponsorBounties.title"),
     sponsorBountiesSubtitle: t("x402.hackathon.sponsorBounties.subtitle"),
-    sponsorBounties: t.raw("x402.hackathon.sponsorBounties.items") as Array<{
-      sponsor: string;
-      logo: string;
-      title: string;
-      description: string;
-      prizeAmount: string;
-    }>,
+    sponsorBounties: sponsorBounties.map((item) => ({
+      ...item,
+      logo: resolveLocalizedCompanyLogo(item, "logo"),
+    })),
 
     sponsorBannerTitle: t("x402.hackathon.sponsorBanner.title"),
-    sponsorBannerLogos: t.raw("x402.hackathon.sponsorBanner.logos") as Array<{
-      src: string;
-      alt: string;
-    }>,
+    sponsorBannerLogos: sponsorBannerLogos.map((item) => ({
+      ...item,
+      src: resolveLocalizedCompanyLogo(item, "src") ?? "",
+    })),
 
     resourcesTitle: t("x402.hackathon.resources.title"),
     resourcesDescription: t("x402.hackathon.resources.description"),
