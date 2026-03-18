@@ -5,7 +5,7 @@ import {
   sentryDenyUrls,
   sentryIgnoreErrors,
   sentryTracesSampler,
-} from "./src/lib/sentry";
+} from "@workspace/sentry";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,

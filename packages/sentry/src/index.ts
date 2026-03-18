@@ -34,6 +34,16 @@ const STATIC_ASSET_EXTENSIONS = [
   ".woff2",
   ".ttf",
 ];
+const EXTENSION_FRAME_MARKERS = [
+  "extensionServiceWorker.js",
+  "chrome-extension://",
+  "moz-extension://",
+  "safari-extension://",
+  "extension://",
+];
+const EXTENSION_REJECTION_PATTERNS = [
+  /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/,
+];
 
 type SentryEventLike = {
   exception?: {
@@ -142,11 +152,8 @@ function isBotUserAgent(userAgent: string): boolean {
 
 function isExtensionStackFrame(filename: string): boolean {
   return (
-    filename.includes("extensionServiceWorker.js") ||
-    filename.includes("chrome-extension://") ||
-    filename.includes("moz-extension://") ||
-    filename.includes("safari-extension://") ||
-    filename.includes("extension://")
+    filename.startsWith("app:///") ||
+    EXTENSION_FRAME_MARKERS.some((marker) => filename.includes(marker))
   );
 }
 
@@ -162,17 +169,42 @@ function isThirdPartyFrame(filename: string): boolean {
   );
 }
 
-function isWalletExtensionError(event: SentryEventLike): boolean {
-  const exception = event.exception?.values?.[0];
-  const serialized = event.extra?.__serialized__;
-
+function isSerializedWalletExtensionRejection(
+  serialized: unknown,
+  exceptionType: string | undefined,
+  isSynthetic: boolean | undefined,
+): boolean {
   return Boolean(
-    exception?.mechanism?.synthetic &&
-      exception.type === "UnhandledRejection" &&
+    isSynthetic &&
+      exceptionType === "UnhandledRejection" &&
       serialized &&
       typeof serialized === "object" &&
       "code" in serialized &&
       "message" in serialized,
+  );
+}
+
+function isKnownExtensionRejectionMessage(
+  value: string | undefined,
+  exceptionType: string | undefined,
+): boolean {
+  return Boolean(
+    exceptionType === "UnhandledRejection" &&
+      value &&
+      EXTENSION_REJECTION_PATTERNS.some((pattern) => pattern.test(value)),
+  );
+}
+
+function isWalletExtensionError(event: SentryEventLike): boolean {
+  const exception = event.exception?.values?.[0];
+  const serialized = event.extra?.__serialized__;
+
+  return (
+    isSerializedWalletExtensionRejection(
+      serialized,
+      exception?.type,
+      exception?.mechanism?.synthetic,
+    ) || isKnownExtensionRejectionMessage(exception?.value, exception?.type)
   );
 }
 

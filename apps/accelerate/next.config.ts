@@ -1,6 +1,7 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const prefix = "/accelerate-assets";
 const nextConfig: NextConfig = {
@@ -148,4 +149,15 @@ const withMDX = createMDX({
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-export default withNextIntl(withMDX(nextConfig));
+export default withSentryConfig(withNextIntl(withMDX(nextConfig)), {
+  org: "solana-fndn",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  sourcemaps: {
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
+  },
+});
