@@ -57,12 +57,17 @@ export default {
       // Breakpoint app – locale-prefixed
       {
         source: "/:locale/breakpoint",
-        destination: `${BREAKPOINT_APP_URL}/breakpoint/:locale`,
+        destination: `${BREAKPOINT_APP_URL}/:locale/breakpoint`,
         locale: false,
       },
       {
         source: "/:locale/breakpoint/:path*",
-        destination: `${BREAKPOINT_APP_URL}/breakpoint/:locale/:path*`,
+        destination: `${BREAKPOINT_APP_URL}/:locale/breakpoint/:path*`,
+        locale: false,
+      },
+      {
+        source: "/breakpoint-assets/:path+",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
       // Media app rewrites - new routes

@@ -258,7 +258,7 @@ function SubscribeModal({
 }
 
 export default function HomePage() {
-  const assetPath = (path: string) => `${config.basePath}${path}`;
+  const assetPath = (path: string) => `${config.assetPrefix}${path}`;
   const [videoOpen, setVideoOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
 

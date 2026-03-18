@@ -5,7 +5,6 @@ import { getMessages } from "next-intl/server";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
 import { getBaseMetadata } from "@/app/metadata";
-import "@/app/globals.css";
 
 const displayFont = localFont({
   src: "../../../public/fonts/fh-lecturis/FHLecturis-Regular.woff2",
