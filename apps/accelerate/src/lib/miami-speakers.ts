@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import speakersData from "@/data/speakers.json";
+import fallbackMiamiSpeakersData from "@/data/miami/speakers.json";
 import type { Speaker } from "@/types/speakers";
 
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
@@ -8,6 +8,7 @@ const AIRTABLE_CACHE_SECONDS = 60 * 30;
 const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
 const DEFAULT_TABLE_ID = "tbljHJh3sx1zrwMSD";
 const DEFAULT_VIEW_ID = "viwK6atCbxFZWGyvk";
+const FALLBACK_MIAMI_SPEAKERS = fallbackMiamiSpeakersData.speakers as Speaker[];
 
 type AirtableAttachment = {
   url?: string;
@@ -108,6 +109,19 @@ function isPublished(fields: Record<string, unknown>) {
     asBoolean,
   );
   if (explicitHidden === true) return false;
+
+  const publishToWeb = getField(
+    fields,
+    [
+      "Publish To Web",
+      "Publish to Web",
+      "publish to web",
+      "publishToWeb",
+      "publish_to_web",
+    ],
+    asBoolean,
+  );
+  if (publishToWeb !== true) return false;
 
   const explicitPublished = getField(
     fields,
@@ -213,7 +227,10 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
   const viewId = process.env.AIRTABLE_VIEW_ID_SPEAKERS ?? DEFAULT_VIEW_ID;
 
   if (!token) {
-    return speakersData.speakers;
+    console.warn(
+      "Miami speakers Airtable PAT missing; using fallback snapshot",
+    );
+    return FALLBACK_MIAMI_SPEAKERS;
   }
 
   try {
@@ -270,14 +287,13 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
       .map((entry) => entry.speaker);
   } catch (error) {
     console.error("Failed to load Miami speakers from Airtable", error);
-    return speakersData.speakers;
+    return FALLBACK_MIAMI_SPEAKERS;
   }
 }
 
-export const getMiamiSpeakers = unstable_cache(
-  fetchAirtableSpeakers,
-  ["miami-speakers-airtable"],
-  {
-    revalidate: AIRTABLE_CACHE_SECONDS,
-  },
-);
+export const getMiamiSpeakers =
+  process.env.NODE_ENV === "production"
+    ? unstable_cache(fetchAirtableSpeakers, ["miami-speakers-airtable"], {
+        revalidate: AIRTABLE_CACHE_SECONDS,
+      })
+    : fetchAirtableSpeakers;
