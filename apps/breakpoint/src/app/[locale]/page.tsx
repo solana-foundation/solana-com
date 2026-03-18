@@ -308,7 +308,7 @@ export default function HomePage() {
 
       <main id="top" className="container">
         {/* ── Hero ── */}
-        <section className="[&&]:pb-2xl [&&]:md:pb-2xl px-s py-s flex flex-col justify-between relative">
+        <section className="px-s pt-s pb-xl md:pb-2xl flex flex-col justify-between relative">
           <img
             className="w-full hidden md:block"
             alt="Solana Breakpoint Logo"
@@ -320,19 +320,19 @@ export default function HomePage() {
             src={assetPath("/assets/bg-logo-mobile-full.svg")}
           />
 
-          <div className="mt-m gap-l flex flex-col md:flex-row items-start">
-            <div className="gap-s flex flex-col w-full md:w-2/3">
-              <p className="text-eyebrow">Breakpoint 2026</p>
+          <div className="mt-l md:mt-xl flex flex-col md:flex-row items-start gap-l md:gap-xl">
+            <div className="flex flex-col gap-s w-full md:w-7/12">
+              <p className="text-eyebrow text-byte">Breakpoint 2026</p>
               <h3>
                 The global Solana community comes to London, November 15-17
               </h3>
-              <p className="text-p1 mt-xs text-secondary">
+              <p className="text-p1 text-secondary">
                 Breakpoint 2026 brings together the leaders, builders,
                 investors, institutions, and creators shaping the future of the
                 Solana ecosystem.
               </p>
             </div>
-            <div className="flex flex-col gap-xs w-full md:w-1/3 md:mt-l">
+            <div className="flex flex-col gap-xs w-full md:w-5/12 md:pt-l">
               <CTAButton
                 type="button"
                 onClick={() => setVideoOpen(true)}
@@ -346,73 +346,92 @@ export default function HomePage() {
               </CTAButton>
             </div>
           </div>
+
+          {/* Divider */}
+          <div className="mt-xl md:mt-2xl border-t border-transparent-wisp-10" />
         </section>
 
         {/* ── Overview ── */}
         <article
           id="overview"
-          className="p-xs w-full md:px-s md:py-m text-invert bg-byte pt-2xl pb-2xl md:pt-3xl md:pb-3xl"
+          className="px-s py-2xl md:py-3xl text-invert bg-byte"
         >
-          <div className="flex flex-col gap-2xl sm:gap-l">
+          <div className="flex flex-col gap-s">
             <p className="text-eyebrow">The Event</p>
             <h2>A high-signal gathering for the Solana ecosystem</h2>
           </div>
-          <div className="grid gap-m md:grid-cols-2 mt-l">
+
+          <div className="grid gap-m md:grid-cols-2 mt-l md:mt-xl">
             <p className="text-p1">
-              Designed as a high-signal gathering, Breakpoint creates space for
-              meaningful connections, new ideas, and the unveiling of products
-              and technologies pushing the network forward.
-            </p>
-            <p className="text-p1">
-              Attendees will experience a curated program of keynotes, lightning
-              talks, debates, workshops, and networking designed to spark
-              collaboration and accelerate the next phase of growth across the
-              ecosystem.
+              Breakpoint creates space for meaningful connections, new ideas,
+              and the unveiling of products and technologies pushing the network
+              forward. Attendees will experience a curated program of keynotes,
+              lightning talks, debates, workshops, and networking designed to
+              spark collaboration and accelerate the next phase of growth across
+              the ecosystem.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-xs mt-xl">
-            {["Keynotes", "Lightning Talks", "Debates", "Workshops"].map(
-              (item) => (
-                <div
-                  key={item}
-                  className="border-1 border-primary-null/20 p-s flex items-center justify-center text-center"
-                >
-                  <p className="text-eyebrow">{item}</p>
-                </div>
-              ),
-            )}
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-xs mt-xl md:mt-2xl">
+            {[
+              { value: "3", label: "Days" },
+              { value: "200+", label: "Speakers" },
+              { value: "2", label: "Stages" },
+              { value: "100+", label: "Side Events" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="border-t border-primary-null/20 pt-s"
+              >
+                <p className="text-stat-display font-fh-lecturis">
+                  {stat.value}
+                </p>
+                <p className="text-eyebrow mt-xs">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </article>
 
         {/* ── Why London ── */}
-        <article
-          id="why-london"
-          className="p-xs w-full md:px-s md:py-m text-invert bg-lime pt-2xl pb-2xl md:pt-3xl md:pb-3xl"
-        >
-          <div className="flex flex-col gap-2xl sm:gap-l">
-            <p className="text-eyebrow">Why London</p>
-            <h2>At the intersection of global capital</h2>
-          </div>
-          <div className="grid gap-m md:grid-cols-2 mt-l">
-            <div className="flex flex-col gap-m">
-              <p className="text-p1">
-                London is where money is accumulated, structured, legitimized,
-                and redeployed&mdash;home to family offices, sovereign wealth
-                funds, hedge funds, commodity traders, private credit firms,
-                insurers, and the legal and financial infrastructure that
-                connects markets across continents.
-              </p>
+        <article id="why-london" className="text-invert bg-lime">
+          <div className="flex flex-col md:flex-row">
+            {/* Text — left */}
+            <div className="px-s py-2xl md:py-3xl md:w-1/2 flex flex-col justify-center">
+              <div className="flex flex-col gap-s">
+                <p className="text-eyebrow">Why London</p>
+                <h2>At the intersection of global capital</h2>
+              </div>
+
+              <div className="flex flex-col gap-m mt-l md:mt-xl">
+                <p className="text-p1">
+                  London is where money is accumulated, structured, legitimized,
+                  and redeployed&mdash;home to family offices, sovereign wealth
+                  funds, hedge funds, commodity traders, private credit firms,
+                  insurers, and the legal and financial infrastructure that
+                  connects markets across continents.
+                </p>
+                <p className="text-p1">
+                  Winning London means gaining distribution across Europe, the
+                  Middle East, Africa, and beyond&mdash;making it the ideal
+                  stage for the next chapter of Solana&apos;s growth.
+                </p>
+                <p className="text-p1">
+                  Breakpoint 2026 brings the global Solana community to one of
+                  the world&apos;s most influential financial centers.
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col gap-m">
-              <p className="text-p1">
-                Winning London means gaining distribution across Europe, the
-                Middle East, Africa, and beyond&mdash;making it the ideal stage
-                for the next chapter of Solana&apos;s growth.
-              </p>
-              <p className="text-p1">
-                Breakpoint 2026 brings the global Solana community to one of the
-                world&apos;s most influential financial centers.
-              </p>
+
+            {/* Image — right */}
+            <div
+              className="image-filter w-full md:w-1/2 aspect-square md:aspect-auto md:min-h-full"
+              style={{ "--tint": "#c9ff7c" } as React.CSSProperties}
+            >
+              <img
+                src={assetPath("/img/tower-bridge.png")}
+                alt="Tower Bridge, London"
+              />
             </div>
           </div>
         </article>
@@ -420,53 +439,73 @@ export default function HomePage() {
         {/* ── Logistics ── */}
         <article
           id="logistics"
-          className="p-xs w-full md:px-s md:py-m text-primary bg-null pt-xl pb-xl md:pt-3xl md:pb-2xl"
+          className="px-s py-2xl md:py-3xl text-primary bg-null"
         >
-          <div className="flex flex-col gap-2xl sm:gap-l">
+          <div className="flex flex-col gap-s">
             <p className="text-eyebrow">Logistics</p>
             <h2>Venue &amp; Dates</h2>
           </div>
-          <div className="grid gap-m md:grid-cols-3 mt-l">
-            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
-              <p className="text-eyebrow">Dates</p>
-              <h4 className="mt-s">November 15-17, 2026</h4>
+
+          <div className="grid gap-xs md:grid-cols-3 mt-l md:mt-xl">
+            <div className="border-1 border-wisp-10 p-s md:p-m bg-transparent-wisp-10 flex flex-col justify-between min-h-[8rem] md:min-h-[10rem]">
+              <p className="text-eyebrow text-byte">Dates</p>
+              <h4 className="mt-auto">November 15&ndash;17, 2026</h4>
             </div>
-            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
-              <p className="text-eyebrow">Venue</p>
-              <h4 className="mt-s">Olympia London</h4>
+            <div className="border-1 border-wisp-10 p-s md:p-m bg-transparent-wisp-10 flex flex-col justify-between min-h-[8rem] md:min-h-[10rem]">
+              <p className="text-eyebrow text-byte">Venue</p>
+              <h4 className="mt-auto">Olympia London</h4>
             </div>
-            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
-              <p className="text-eyebrow">Format</p>
-              <h4 className="mt-s">
+            <div className="border-1 border-wisp-10 p-s md:p-m bg-transparent-wisp-10 flex flex-col justify-between min-h-[8rem] md:min-h-[10rem]">
+              <p className="text-eyebrow text-byte">Format</p>
+              <h4 className="mt-auto">
                 Keynotes, talks, demos, workshops, side events
               </h4>
             </div>
           </div>
+
+          {/* Additional details row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-xs mt-xs">
+            {[
+              "Expo Hall",
+              "Networking Lounges",
+              "Hackathon",
+              "After Parties",
+            ].map((item) => (
+              <div
+                key={item}
+                className="border-1 border-wisp-10 p-s flex items-center justify-center text-center"
+              >
+                <p className="text-caption text-secondary">{item}</p>
+              </div>
+            ))}
+          </div>
         </article>
 
         {/* ── CTA ── */}
-        <article className="p-xs w-full md:px-s md:py-m text-invert bg-mint pt-2xl pb-2xl md:pt-3xl md:pb-3xl">
-          <div className="flex flex-col gap-2xl sm:gap-l [&&]:gap-m md:[&&]:gap-l">
-            <p className="text-eyebrow">Be There</p>
-            <h2>Breakpoint 2026 is coming</h2>
-            <p className="text-p1">
-              Sign up for updates and early registration details.
-            </p>
-          </div>
-          <div className="flex flex-col gap-xs mt-m md:flex-row md:gap-s md:mt-l">
-            <CTAButton
-              type="button"
-              onClick={() => setSubscribeOpen(true)}
-              className="bg-null text-primary hover:bg-primary hover:text-invert"
-            >
-              Get Notified
-            </CTAButton>
-            <CTAButton
-              href="https://solanafoundation.typeform.com/bp26sponsorform"
-              className="bg-transparent border-1 border-primary-null/30 text-invert hover:bg-primary-null hover:text-primary"
-            >
-              Become a Sponsor
-            </CTAButton>
+        <article className="px-s py-2xl md:py-3xl text-invert bg-mint">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-l md:gap-xl">
+            <div className="flex flex-col gap-s md:max-w-[60%]">
+              <p className="text-eyebrow">Be There</p>
+              <h2>Breakpoint 2026 is coming</h2>
+              <p className="text-p1">
+                Sign up for updates and early registration details.
+              </p>
+            </div>
+            <div className="flex flex-col gap-xs w-full md:w-auto md:min-w-[16rem]">
+              <CTAButton
+                type="button"
+                onClick={() => setSubscribeOpen(true)}
+                className="bg-null text-primary hover:bg-primary hover:text-invert"
+              >
+                Get Notified
+              </CTAButton>
+              <CTAButton
+                href="https://solanafoundation.typeform.com/bp26sponsorform"
+                className="bg-transparent border-1 border-primary-null/30 text-invert hover:bg-primary-null hover:text-primary"
+              >
+                Become a Sponsor
+              </CTAButton>
+            </div>
           </div>
         </article>
       </main>

@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
           destination: "/assets/:path+",
         },
         {
+          source: "/breakpoint-assets/img/:path+",
+          destination: "/img/:path+",
+        },
+        {
           source: "/breakpoint-assets/live/:path+",
           destination: "/live/:path+",
         },
