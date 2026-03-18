@@ -139,7 +139,7 @@ To add a new event location:
 
 - Format: SVG preferred
 - Size: Optimized for 120px width
-- Location: `public/images/sponsors/`
+- Location: `packages/ecosystem-data/assets/companies/`
 
 ## Environment Variables
 
