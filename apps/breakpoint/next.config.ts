@@ -1,5 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const assetPrefix = "/breakpoint-assets";
@@ -7,6 +8,9 @@ const assetPrefix = "/breakpoint-assets";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   assetPrefix,
+  env: {
+    NEXT_PUBLIC_APP_NAME: "breakpoint",
+  },
   experimental: {
     externalDir: true,
   },
@@ -50,4 +54,15 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: "solana-fndn",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  sourcemaps: {
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
+  },
+});
