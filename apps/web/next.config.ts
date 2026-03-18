@@ -244,6 +244,9 @@ export default withSentryConfig(moduleExports, {
   project: "javascript-nextjs",
   silent: !process.env.CI,
   widenClientFileUpload: true,
+  _experimental: {
+    thirdPartyOriginStackFrames: true,
+  },
   disableLogger: true,
   automaticVercelMonitors: true,
   sourcemaps: {
