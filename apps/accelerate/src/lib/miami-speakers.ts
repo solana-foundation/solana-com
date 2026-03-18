@@ -165,7 +165,15 @@ function normalizeSpeakerRecord(
   const title =
     getField(
       fields,
-      ["Title", "title", "Role", "role", "Job Title", "jobTitle"],
+      [
+        "Role or Title",
+        "Title",
+        "title",
+        "Role",
+        "role",
+        "Job Title",
+        "jobTitle",
+      ],
       asString,
     ) ?? "";
   const company =

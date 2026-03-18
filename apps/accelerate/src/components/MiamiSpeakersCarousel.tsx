@@ -113,6 +113,7 @@ function SpeakerCard({ speaker, index }: { speaker: Speaker; index: number }) {
 
       {/* Speaker info — below the image */}
       <div className="mt-4 flex flex-1 flex-col">
+        {/* Name */}
         <motion.h3
           className="text-[22px] font-light uppercase leading-[0.88] tracking-[0.06em] sm:text-[26px]"
           animate={{
@@ -126,19 +127,28 @@ function SpeakerCard({ speaker, index }: { speaker: Speaker; index: number }) {
           ) : null}
         </motion.h3>
 
-        <div className="mt-2 flex flex-1 items-end justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            {speaker.company ? (
-              <p className="font-diatype text-[15px] leading-tight text-white sm:text-[16px]">
+        {/* Job title — primary credential */}
+        {speaker.title ? (
+          <p className="mt-3 font-diatype text-[15px] leading-snug text-white sm:text-base">
+            {speaker.title}
+          </p>
+        ) : null}
+
+        {/* Company + X link */}
+        <div className="mt-auto flex items-center gap-3 pt-3">
+          {speaker.company ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span
+                className="inline-block h-[2px] w-3 flex-shrink-0 rounded-full"
+                style={{
+                  background: "linear-gradient(90deg, #9945FF, #19FB9B)",
+                }}
+              />
+              <p className="truncate font-diatype text-[13px] uppercase tracking-[0.08em] text-white/50 sm:text-sm">
                 {speaker.company}
               </p>
-            ) : null}
-            {speaker.title ? (
-              <p className="font-diatype mt-0.5 text-[13px] leading-snug text-white/60 sm:text-sm">
-                {speaker.title}
-              </p>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {speaker.twitter ? (
             <a
               href={
@@ -148,7 +158,7 @@ function SpeakerCard({ speaker, index }: { speaker: Speaker; index: number }) {
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-shrink-0 text-white/40 transition-colors hover:text-white"
+              className="flex-shrink-0 text-white/30 transition-colors hover:text-[#19FB9B]"
               aria-label={`${speaker.name} on X`}
             >
               <XIcon className="h-4 w-4" />
