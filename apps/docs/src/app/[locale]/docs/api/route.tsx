@@ -15,7 +15,6 @@ interface CodeRunResult {
 const { CODE_RUN_SERVER_URL, TXTX_SURFNET_URL } = process.env;
 
 const isEnvConfigured = !!CODE_RUN_SERVER_URL && !!TXTX_SURFNET_URL;
-
 const TXTX_RPC_URL = isEnvConfigured ? `https://${TXTX_SURFNET_URL}:8899` : "";
 const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
 const LOCALHOST_RPC_URL = "http://localhost:8899";
