@@ -1,3 +1,3 @@
-export * from "./companies/index.js";
-export * from "./selectors.js";
-export type * from "./types.js";
+export * from "./companies";
+export * from "./selectors";
+export type * from "./types";

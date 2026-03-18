@@ -1,13 +1,13 @@
 import {
   getCompany,
   type CompanyId,
-} from "./companies/registry.js";
+} from "./companies/registry";
 import type {
   CompanyLogoAsset,
   CompanyRecord,
   ImportedAssetModule,
   LogoSelectorOptions,
-} from "./types.js";
+} from "./types";
 
 function resolveCompany(companyOrId: CompanyId | CompanyRecord): CompanyRecord {
   if (typeof companyOrId !== "string") {

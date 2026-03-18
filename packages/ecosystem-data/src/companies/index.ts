@@ -4,5 +4,5 @@ export {
   companiesBySlug,
   getCompany,
   getCompanyBySlug,
-} from "./registry.js";
-export type { CompanyId } from "./registry.js";
+} from "./registry";
+export type { CompanyId } from "./registry";
