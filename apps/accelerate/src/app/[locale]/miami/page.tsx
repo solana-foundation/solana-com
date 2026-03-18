@@ -11,6 +11,7 @@ import {
   MiamiSpeakers,
 } from "@/components";
 import sponsorsData from "@/data/miami/sponsors.json";
+import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
 import type { Sponsor } from "@/types/sponsors";
 import { MiamiHeroSymbols } from "./MiamiHeroSymbols";
 import { config } from "@/config";
@@ -44,6 +45,9 @@ export async function generateMetadata({
 
 export default async function MiamiPage({ params }: PageProps) {
   const { locale } = await params;
+  const sponsors = composeSponsors(
+    sponsorsData.sponsors as SponsorAugmentation[],
+  );
 
   return (
     <>
@@ -67,7 +71,7 @@ export default async function MiamiPage({ params }: PageProps) {
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
       <MiamiSpeakers locale={locale} />
-      <Sponsors sponsors={sponsorsData.sponsors as Sponsor[]} />
+      <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
         translationPrefix="accelerate.miami.faq"
