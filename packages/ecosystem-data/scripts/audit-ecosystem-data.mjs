@@ -8,17 +8,16 @@ import ts from "typescript";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
-const registryPath = path.join(packageRoot, "src/companies/registry.ts");
+const recordsRoot = path.join(packageRoot, "src/companies/records");
 const assetsRoot = path.join(packageRoot, "assets/companies");
 
-const registryText = fs.readFileSync(registryPath, "utf8");
-const sourceFile = ts.createSourceFile(
-  registryPath,
-  registryText,
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TS,
-);
+function getPropertyName(nameNode) {
+  if (ts.isIdentifier(nameNode) || ts.isStringLiteral(nameNode)) {
+    return nameNode.text;
+  }
+
+  return null;
+}
 
 function getPropertyByName(node, propertyName) {
   if (!node || !ts.isObjectLiteralExpression(node)) {
@@ -30,17 +29,8 @@ function getPropertyByName(node, propertyName) {
       return false;
     }
 
-    const name = getPropertyName(property.name);
-    return name === propertyName;
+    return getPropertyName(property.name) === propertyName;
   });
-}
-
-function getPropertyName(nameNode) {
-  if (ts.isIdentifier(nameNode) || ts.isStringLiteral(nameNode)) {
-    return nameNode.text;
-  }
-
-  return null;
 }
 
 function getStringLiteralValue(expression) {
@@ -97,67 +87,77 @@ function getNestedProperty(node, propertyPath) {
   return current;
 }
 
-const importedAssetPaths = new Map();
-let companiesByIdNode = null;
+function getRecordObject(filePath) {
+  const fileText = fs.readFileSync(filePath, "utf8");
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    fileText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
 
-for (const statement of sourceFile.statements) {
-  if (ts.isImportDeclaration(statement)) {
-    const importClause = statement.importClause;
-    if (!importClause?.name) {
+  const importedAssetPaths = new Map();
+  let recordNode = null;
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isImportDeclaration(statement)) {
+      const importName = statement.importClause?.name?.text;
+      const moduleSpecifier = getStringLiteralValue(statement.moduleSpecifier);
+
+      if (importName && moduleSpecifier?.startsWith("../../../assets/companies/")) {
+        importedAssetPaths.set(
+          importName,
+          moduleSpecifier.replace("../../../assets/companies/", ""),
+        );
+      }
+
       continue;
     }
 
-    const moduleSpecifier = getStringLiteralValue(statement.moduleSpecifier);
-    if (!moduleSpecifier?.startsWith("../../assets/companies/")) {
+    if (!ts.isVariableStatement(statement)) {
       continue;
     }
 
-    importedAssetPaths.set(
-      importClause.name.text,
-      moduleSpecifier.replace("../../assets/companies/", ""),
+    const isExported = statement.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
     );
-    continue;
-  }
-
-  if (!ts.isVariableStatement(statement)) {
-    continue;
-  }
-
-  for (const declaration of statement.declarationList.declarations) {
-    if (!ts.isIdentifier(declaration.name) || declaration.name.text !== "companiesById") {
+    if (!isExported) {
       continue;
     }
 
-    const initializer = declaration.initializer;
-    const objectLiteral =
-      initializer && ts.isSatisfiesExpression(initializer)
-        ? initializer.expression
-        : initializer;
+    for (const declaration of statement.declarationList.declarations) {
+      const initializer = declaration.initializer;
+      const objectLiteral =
+        initializer && ts.isSatisfiesExpression(initializer)
+          ? initializer.expression
+          : initializer;
 
-    if (objectLiteral && ts.isObjectLiteralExpression(objectLiteral)) {
-      companiesByIdNode = objectLiteral;
+      if (objectLiteral && ts.isObjectLiteralExpression(objectLiteral)) {
+        recordNode = objectLiteral;
+      }
     }
   }
+
+  return { importedAssetPaths, recordNode };
 }
 
-if (!companiesByIdNode) {
-  console.error("Could not locate companiesById in registry.ts");
-  process.exit(1);
-}
+const recordFiles = fs
+  .readdirSync(recordsRoot, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+  .map((entry) => entry.name)
+  .sort();
 
 const records = [];
 
-for (const property of companiesByIdNode.properties) {
-  if (!ts.isPropertyAssignment(property)) {
+for (const fileName of recordFiles) {
+  const filePath = path.join(recordsRoot, fileName);
+  const { importedAssetPaths, recordNode } = getRecordObject(filePath);
+
+  if (!recordNode) {
     continue;
   }
 
-  const key = getPropertyName(property.name);
-  if (!key || !ts.isObjectLiteralExpression(property.initializer)) {
-    continue;
-  }
-
-  const recordNode = property.initializer;
   const id = getObjectPropertyString(recordNode, "id");
   const slug = getObjectPropertyString(recordNode, "slug");
   const defaultLogoId = getObjectPropertyString(recordNode, "defaultLogoId");
@@ -175,20 +175,20 @@ for (const property of companiesByIdNode.properties) {
       }
 
       const logoId = getObjectPropertyString(entry, "id");
-      const fileName = getObjectPropertyString(entry, "fileName");
+      const fileNameValue = getObjectPropertyString(entry, "fileName");
       const sourceProperty = getPropertyByName(entry, "source");
       const sourceIdentifier =
         sourceProperty && ts.isIdentifier(sourceProperty.initializer)
           ? sourceProperty.initializer.text
           : null;
 
-      if (!logoId || !fileName) {
+      if (!logoId || !fileNameValue) {
         continue;
       }
 
       logos.push({
         id: logoId,
-        fileName,
+        fileName: fileNameValue,
         importedAssetPath: sourceIdentifier
           ? importedAssetPaths.get(sourceIdentifier) ?? null
           : null,
@@ -202,7 +202,7 @@ for (const property of companiesByIdNode.properties) {
     }
 
     const urlTypeNode = getObjectPropertyObject(entry, "urlType");
-    return getObjectPropertyString(urlTypeNode ?? recordNode, "name") === "website";
+    return getObjectPropertyString(urlTypeNode, "name") === "website";
   });
 
   const socialCount =
@@ -211,7 +211,8 @@ for (const property of companiesByIdNode.properties) {
       : 0;
 
   records.push({
-    key,
+    fileName,
+    fileSlug: fileName.replace(/\.ts$/, ""),
     id,
     slug,
     defaultLogoId,
@@ -233,20 +234,27 @@ const companyIdSet = new Set(records.map((record) => record.id).filter(Boolean))
 const recordSlugSet = new Set(records.map((record) => record.slug).filter(Boolean));
 
 const issues = {
+  filesWithMismatchedSlug: records
+    .filter((record) => record.slug && record.fileSlug !== record.slug)
+    .map((record) => `${record.fileName} -> slug ${record.slug}`),
   assetFoldersWithoutRecord: assetFolders.filter(
     (folder) => !companyIdSet.has(folder) && !recordSlugSet.has(folder),
   ),
   recordsWithoutAssetFolder: records
     .filter((record) => record.slug && !assetFolderSet.has(record.slug))
     .map((record) => `${record.id} -> ${record.slug}`),
-  recordsWithNullGridProfile: records.filter((record) => record.gridProfileNull).map((record) => record.id),
+  recordsWithNullGridProfile: records
+    .filter((record) => record.gridProfileNull)
+    .map((record) => record.id),
   recordsMissingWebsite: records
     .filter((record) => !record.gridProfileNull && !record.hasWebsiteUrl)
     .map((record) => record.id),
   recordsMissingSocials: records
     .filter((record) => !record.gridProfileNull && record.socialCount === 0)
     .map((record) => record.id),
-  recordsWithoutLogos: records.filter((record) => record.logos.length === 0).map((record) => record.id),
+  recordsWithoutLogos: records
+    .filter((record) => record.logos.length === 0)
+    .map((record) => record.id),
   recordsWithInvalidDefaultLogoId: records
     .filter(
       (record) =>

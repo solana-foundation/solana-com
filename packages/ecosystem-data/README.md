@@ -29,6 +29,14 @@ Atomic company data lives in a single company record and includes:
 - logo variants
 - reusable URLs and descriptions
 
+Each company record is stored as its own module:
+
+```text
+packages/ecosystem-data/src/companies/records/<company-slug>.ts
+```
+
+The registry composes those atomic modules into the exported lookups and selectors.
+
 Composable event or campaign data should live in the consuming app and reference those company records by `companyId`.
 For `apps/accelerate`, the JSON files remain the source of truth for sponsor augmentation.
 
