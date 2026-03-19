@@ -20,6 +20,10 @@ export interface LatestPostsResponse {
   };
 }
 
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
 /**
  * Transform Keystatic post entry to PostItem
  */
@@ -137,8 +141,8 @@ async function transformPost(
     id: slug,
     published: formattedDate,
     title: String(post.title),
-    tags: tagNames,
-    categories: categoryNames,
+    tags: dedupeStrings(tagNames),
+    categories: dedupeStrings(categoryNames),
     url: `/news/${slug}`,
     description: serializedDescription, // Content document type, serialized for RSC
     heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
