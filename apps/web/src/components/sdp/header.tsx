@@ -67,7 +67,7 @@ export const SdpHeader = () => {
     <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#0C0C0E]">
       {/* main bar */}
       <div className="flex justify-center">
-        <div className="flex items-center gap-[40px] w-full max-w-[1440px] h-14 xl:border-x xl:border-white/[0.08] px-5 md:px-8 xl:px-[48px]">
+        <div className="flex items-center gap-[40px] w-full max-w-[1440px] h-[72px] xl:border-x xl:border-white/[0.08] px-5 md:px-8 xl:px-[48px]">
           {/* logo + badge */}
           <div className="flex items-center gap-[16px] shrink-0">
             <LogoIcon className="h-4 xl:h-5 w-auto" />

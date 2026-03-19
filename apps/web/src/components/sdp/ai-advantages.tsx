@@ -1,7 +1,64 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+
+const PROMPTS = [
+  "Build an RWA tokenization engine that supports different institutional custodians",
+  "Build a corporate treasury dashboard",
+  "Add stablecoin on/offramp capabilities to XYZ neobank",
+  "Set compliance rules for all stablecoin transfers to only allow low risk transactions",
+  "Create a new institutional wallet designated for issuing stablecoins",
+  "Add stablecoin payout capabilities to XYZ remittance app",
+];
+
+const TYPE_SPEED = 48;
+const DELETE_SPEED = 20;
+const PAUSE_AFTER_TYPE = 3000;
+const PAUSE_AFTER_DELETE = 500;
+
+function useTypingAnimation(texts: string[], isEnabled: boolean) {
+  const [displayText, setDisplayText] = useState("");
+  const state = useRef({ promptIndex: 0, isDeleting: false, charCount: 0 });
+
+  useEffect(() => {
+    if (!isEnabled) return;
+
+    let timeout: ReturnType<typeof setTimeout>;
+
+    function tick() {
+      const s = state.current;
+      const current = texts[s.promptIndex];
+
+      if (s.isDeleting) {
+        s.charCount -= 1;
+        setDisplayText(current.slice(0, s.charCount));
+        if (s.charCount === 0) {
+          s.isDeleting = false;
+          s.promptIndex = (s.promptIndex + 1) % texts.length;
+          timeout = setTimeout(tick, PAUSE_AFTER_DELETE);
+        } else {
+          timeout = setTimeout(tick, DELETE_SPEED);
+        }
+      } else {
+        s.charCount += 1;
+        setDisplayText(current.slice(0, s.charCount));
+        if (s.charCount === current.length) {
+          s.isDeleting = true;
+          timeout = setTimeout(tick, PAUSE_AFTER_TYPE);
+        } else {
+          timeout = setTimeout(tick, TYPE_SPEED);
+        }
+      }
+    }
+
+    timeout = setTimeout(tick, PAUSE_AFTER_DELETE);
+    return () => clearTimeout(timeout);
+  }, [texts, isEnabled]);
+
+  return isEnabled ? displayText : null;
+}
 
 const visualSrc1 = "/src/img/solutions/sdp/ai-advantages-visual-1.svg";
 const visualBgSrc1 = "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg";
@@ -37,8 +94,17 @@ export interface AiAdvantagesProps {
 export const AiAdvantages = (props: AiAdvantagesProps): React.ReactElement => {
   const { title, description, items } = props;
   const [show, setShow] = useState<1 | 2>(1);
+  const { ref, isIntersecting } = useIntersectionObserver<HTMLElement>({
+    threshold: 0.2,
+    triggerOnce: true,
+  });
+  const typingText = useTypingAnimation(PROMPTS, isIntersecting);
+
   return (
-    <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
+    <section
+      className="flex flex-col items-center w-full bg-[#0C0C0E]"
+      ref={ref}
+    >
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
         <div className="flex flex-col xl:flex-row">
           {/* Left column: heading + checklist */}
@@ -113,6 +179,23 @@ export const AiAdvantages = (props: AiAdvantagesProps): React.ReactElement => {
                 aria-label="Codex"
                 onClick={() => setShow(2)}
               ></button>
+              {typingText && (
+                <div className="absolute top-[65.5%] left-[10.8%] right-[12%] nd-body-m bg-[#131316] px-3 !-mx-3">
+                  <svg viewBox="0 0 500 80" xmlns="http://www.w3.org/2000/svg">
+                    <foreignObject x="0" y="0" width="500" height="80">
+                      <span className="nd-body-s" id="typing-text-animation">
+                        {typingText}
+                        <span
+                          className="w-[2px] h-[1em] inline-block -mb-1 ml-1"
+                          style={{
+                            backgroundColor: show === 2 ? "#94A1FE" : "#E8704E",
+                          }}
+                        ></span>
+                      </span>
+                    </foreignObject>
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
         </div>

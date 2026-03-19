@@ -61,17 +61,17 @@ export function CardGrid(): React.ReactElement {
             >
               {/* Image */}
               <div className="relative overflow-hidden aspect-[960/830] w-full md:flex-1 xl:flex-none xl:aspect-auto xl:h-[415px] shrink-0">
-                <Image
+                <img
                   src={col.bg}
                   alt=""
-                  fill
-                  className="object-cover pointer-events-none"
+                  className="absolute inset-0 object-cover pointer-events-none"
                 />
                 <Image
                   src={col.img}
                   alt=""
                   fill
                   className="object-cover pointer-events-none"
+                  sizes="(max-width: 768px) 75vw, 100vw"
                 />
               </div>
 
