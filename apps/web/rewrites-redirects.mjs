@@ -87,6 +87,16 @@ export default {
         locale: false,
       },
       {
+        source: "/reports",
+        destination: `${MEDIA_APP_URL}/reports`,
+        locale: false,
+      },
+      {
+        source: "/reports/:path*",
+        destination: `${MEDIA_APP_URL}/reports/:path*`,
+        locale: false,
+      },
+      {
         source: "/podcasts",
         destination: `${MEDIA_APP_URL}/podcasts`,
         locale: false,
@@ -107,6 +117,16 @@ export default {
         locale: false,
       },
       {
+        source: "/:locale/reports",
+        destination: `${MEDIA_APP_URL}/:locale/reports`,
+        locale: false,
+      },
+      {
+        source: "/:locale/reports/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/reports/:path*`,
+        locale: false,
+      },
+      {
         source: "/:locale/podcasts",
         destination: `${MEDIA_APP_URL}/:locale/podcasts`,
         locale: false,
@@ -119,6 +139,11 @@ export default {
       {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/reports/:path*",
+        destination: `${MEDIA_APP_URL}/api/reports/:path*`,
         locale: false,
       },
       {

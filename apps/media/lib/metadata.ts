@@ -189,6 +189,119 @@ export async function categoryListingMetadata(
 }
 
 // ---------------------------------------------------------------------------
+// Reports listing  /reports
+// ---------------------------------------------------------------------------
+
+export function reportsListingMetadata(): Metadata {
+  const canonicalUrl = `${publicUrl}/reports`;
+  const title = "Solana Reports";
+  const description =
+    "Research, market analysis, and ecosystem reports from the Solana Foundation.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Report detail  /reports/[slug]
+// ---------------------------------------------------------------------------
+
+export async function reportMetadata(slug: string): Promise<Metadata> {
+  const report = await reader.collections.switchbacks.read(slug);
+
+  if (!report || !report.isReport || report.status !== "published") {
+    return { title: "Report Not Found", description: "" };
+  }
+
+  const title = String(report.headline || report.title);
+  const description = report.description
+    ? String(report.description).trim()
+    : undefined;
+  const canonicalUrl = `${publicUrl}/reports/${slug}`;
+  const ogImage = report.image?.src || siteMetadata.socialShare;
+
+  const categoryNames: string[] = [];
+  if (report.categories) {
+    for (const categoryRef of report.categories) {
+      if (!categoryRef?.category) continue;
+
+      const category = await reader.collections.categories.read(
+        String(categoryRef.category)
+      );
+
+      if (category?.name) {
+        categoryNames.push(String(category.name));
+      }
+    }
+  }
+
+  const tagNames: string[] = [];
+  if (report.tags) {
+    for (const tagRef of report.tags) {
+      if (!tagRef?.tag) continue;
+
+      const tag = await reader.collections.tags.read(String(tagRef.tag));
+      if (tag?.name) {
+        tagNames.push(String(tag.name));
+      }
+    }
+  }
+
+  return {
+    title,
+    description,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "article",
+      siteName: siteMetadata.title,
+      images: ogImage
+        ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
+        : undefined,
+      publishedTime: report.date || undefined,
+      section: categoryNames[0],
+      tags: tagNames.length > 0 ? tagNames : undefined,
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Podcasts listing  /podcasts
 // ---------------------------------------------------------------------------
 

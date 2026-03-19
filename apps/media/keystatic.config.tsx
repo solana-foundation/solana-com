@@ -338,6 +338,31 @@ export default config({
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
+        isReport: fields.checkbox({
+          label: "Use As Report",
+          description:
+            "Marks this switchback as a report so it can appear under /reports and the reports API",
+        }),
+        status: fields.select({
+          label: "Report Status",
+          options: [
+            { label: "Draft", value: "draft" },
+            { label: "Published", value: "published" },
+          ],
+          defaultValue: "draft",
+          description: "Only applies when 'Use As Report' is enabled",
+        }),
+        date: fields.text({
+          label: "Report Date",
+          description:
+            "Only applies when 'Use As Report' is enabled. Use YYYY-MM-DD format",
+        }),
+        description: fields.text({
+          label: "Report Description",
+          description:
+            "Only applies when 'Use As Report' is enabled. Used for SEO and report previews",
+          multiline: true,
+        }),
         image: fields.object(
           {
             src: fields.image({
@@ -351,6 +376,35 @@ export default config({
         ),
         eyebrow: fields.text({ label: "Eyebrow" }),
         headline: fields.text({ label: "Headline" }),
+        pdfUrl: fields.text({
+          label: "PDF URL",
+          description:
+            "Only applies when 'Use As Report' is enabled. Direct URL to the downloadable report PDF",
+        }),
+        categories: fields.array(
+          fields.object({
+            category: fields.relationship({
+              label: "Category",
+              collection: "categories",
+            }),
+          }),
+          {
+            label: "Report Categories",
+            itemLabel: (props) => props.fields.category.value || "Category",
+          }
+        ),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Report Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          }
+        ),
         body: fields.mdx({
           label: "Body",
           options: {
