@@ -2,9 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Button } from "./button";
-import { Slider } from "./slider";
-import { SwitchControl } from "./switch-control";
 
 const texts = [
   "Permissioned stablecoins",
@@ -61,70 +58,6 @@ const defaultControls: Controls = {
 
 const storageKey = "rotating-arc-arcv0-controls-v7";
 
-function SliderControl({
-  label,
-  value,
-  min,
-  max,
-  step,
-  suffix = "",
-  onValueChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  suffix?: string;
-  onValueChange: (_value: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] leading-[var(--line-height-xs)] text-content-strong">
-          {label}
-        </span>
-      </div>
-      <Slider
-        variant="adjustment"
-        size="s"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onValueChange={(nextValue) => {
-          const resolvedValue = Array.isArray(nextValue)
-            ? nextValue[0]
-            : nextValue;
-          if (
-            typeof resolvedValue === "number" &&
-            Number.isFinite(resolvedValue)
-          ) {
-            onValueChange(resolvedValue);
-          }
-        }}
-      >
-        <Slider.Control>
-          <Slider.AdjustmentTrack>
-            <Slider.Track>
-              <Slider.Indicator />
-              <Slider.Value className="text-[length:var(--font-size-xs)] leading-[var(--line-height-xs)] tabular-nums">
-                {() => (
-                  <>
-                    {Number.isInteger(value) ? value : value.toFixed(2)}
-                    {suffix}
-                  </>
-                )}
-              </Slider.Value>
-              <Slider.Thumb />
-            </Slider.Track>
-          </Slider.AdjustmentTrack>
-        </Slider.Control>
-      </Slider>
-    </div>
-  );
-}
-
 function describeArc(
   cx: number,
   cy: number,
@@ -167,13 +100,12 @@ function polarToCartesian(
 export function RotatingArc({ className }: { className?: string }) {
   const itemCount = texts.length;
   const [controls, setControls] = useState<Controls>(defaultControls);
-  const [showControls, setShowControls] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [stepProgress, setStepProgress] = useState(0);
   const [phase, setPhase] = useState<"paused" | "moving">("paused");
   const [isPlaying, setIsPlaying] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [volume, setVolume] = useState(0.15);
+  const [soundEnabled] = useState(true);
+  const [volume] = useState(0.15);
   const [mounted, setMounted] = useState(false);
   const [inView, setInView] = useState(false);
   const [entryDone, setEntryDone] = useState(false);
@@ -273,10 +205,6 @@ export function RotatingArc({ className }: { className?: string }) {
       }
       return;
     }
-
-    // const easeInOutCubic = (t: number) => {
-    //   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    // };
 
     const animate = () => {
       if (phase === "paused") {
@@ -642,184 +570,6 @@ export function RotatingArc({ className }: { className?: string }) {
     startAngle,
   ]);
 
-  const updateControl = (key: ControlKey) => (nextValue: number) => {
-    setControls((current) => ({
-      ...current,
-      [key]: Number.isFinite(nextValue) ? nextValue : current[key],
-    }));
-  };
-
-  const updateToggleControl = (key: ControlKey) => (checked: boolean) => {
-    setControls((current) => ({
-      ...current,
-      [key]: checked ? 1 : 0,
-    }));
-  };
-
-  const sliderControls: Array<{
-    key: ControlKey;
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    suffix?: string;
-  }> = [
-    {
-      key: "pauseDuration",
-      label: "Pause",
-      min: 500,
-      max: 5000,
-      step: 100,
-      suffix: "ms",
-    },
-    {
-      key: "moveDuration",
-      label: "Move",
-      min: 200,
-      max: 2000,
-      step: 50,
-      suffix: "ms",
-    },
-    {
-      key: "radius",
-      label: "Radius",
-      min: 120,
-      max: 600,
-      step: 10,
-      suffix: "px",
-    },
-    {
-      key: "outerArcRadius",
-      label: "Outer size",
-      min: 120,
-      max: 600,
-      step: 10,
-      suffix: "px",
-    },
-    {
-      key: "innerArcRadius",
-      label: "Inner size",
-      min: 60,
-      max: 500,
-      step: 10,
-      suffix: "px",
-    },
-    {
-      key: "outerArcOpacity",
-      label: "Outer opacity",
-      min: 0,
-      max: 1,
-      step: 0.05,
-    },
-    {
-      key: "innerArcOpacity",
-      label: "Inner opacity",
-      min: 0,
-      max: 1,
-      step: 0.05,
-    },
-    {
-      key: "offsetX",
-      label: "Offset X",
-      min: -500,
-      max: 200,
-      step: 10,
-      suffix: "px",
-    },
-    {
-      key: "offsetY",
-      label: "Offset Y",
-      min: -300,
-      max: 300,
-      step: 10,
-      suffix: "px",
-    },
-    {
-      key: "arcSpan",
-      label: "Arc span",
-      min: 90,
-      max: 270,
-      step: 10,
-      suffix: "deg",
-    },
-    { key: "edgeFade", label: "Edge fade", min: 0.1, max: 0.5, step: 0.05 },
-    { key: "maxBlur", label: "Blur", min: 0, max: 10, step: 0.5, suffix: "px" },
-    {
-      key: "fontSize",
-      label: "Text size",
-      min: 16,
-      max: 48,
-      step: 1,
-      suffix: "px",
-    },
-    {
-      key: "focusScale",
-      label: "Focus scale",
-      min: 1,
-      max: 1.5,
-      step: 0.05,
-      suffix: "x",
-    },
-    {
-      key: "scaleFalloff",
-      label: "Scale falloff",
-      min: 0.05,
-      max: 0.3,
-      step: 0.01,
-      suffix: "x",
-    },
-    {
-      key: "tiltAngle",
-      label: "Tilt",
-      min: -45,
-      max: 45,
-      step: 1,
-      suffix: "deg",
-    },
-  ];
-
-  const sliderSections = [
-    {
-      title: "Timing",
-      controls: sliderControls.filter(
-        (control) =>
-          control.key === "pauseDuration" || control.key === "moveDuration",
-      ),
-    },
-    {
-      title: "Wheel",
-      controls: sliderControls.filter(
-        (control) =>
-          control.key === "radius" ||
-          control.key === "offsetX" ||
-          control.key === "offsetY" ||
-          control.key === "arcSpan" ||
-          control.key === "tiltAngle",
-      ),
-    },
-    {
-      title: "Arcs",
-      controls: sliderControls.filter(
-        (control) =>
-          control.key === "outerArcRadius" ||
-          control.key === "innerArcRadius" ||
-          control.key === "outerArcOpacity" ||
-          control.key === "innerArcOpacity",
-      ),
-    },
-    {
-      title: "Text",
-      controls: sliderControls.filter(
-        (control) =>
-          control.key === "fontSize" ||
-          control.key === "focusScale" ||
-          control.key === "scaleFalloff" ||
-          control.key === "edgeFade" ||
-          control.key === "maxBlur",
-      ),
-    },
-  ];
-
   return (
     <div
       ref={containerRef}
@@ -1048,126 +798,6 @@ export function RotatingArc({ className }: { className?: string }) {
             })}
         </div>
       </div>
-
-      <div
-        className="fixed left-4 top-4 z-[100] pointer-events-auto"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={() => setShowControls((currentValue) => !currentValue)}
-          aria-label={showControls ? "Close controls" : "Open controls"}
-          className="inline-flex size-9 items-center justify-center rounded-full bg-actions-tertiary-default text-content-strong backdrop-blur-[12px] shadow-[0_1px_2px_0_var(--color-utility-shadow-l3),0_0_1px_0_var(--color-utility-shadow-l2),0_0_0_1px_var(--color-utility-shadow-l1)] transition-[background-color] hover:bg-actions-tertiary-hover"
-        >
-          <span className="flex size-4 items-center justify-center [&_svg]:size-full">
-            {showControls ? (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M11.9997 10.5865L16.9495 5.63672L18.3637 7.05093L13.4139 12.0007L18.3637 16.9504L16.9495 18.3646L11.9997 13.4149L7.04996 18.3646L5.63574 16.9504L10.5855 12.0007L5.63574 7.05093L7.04996 5.63672L11.9997 10.5865Z" />
-              </svg>
-            ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M17.5 2.47363L23 11.9999L17.5 21.5262H6.5L1 11.9999L6.5 2.47363H17.5ZM8.63398 8.16979L13.634 16.83L15.366 15.83L10.366 7.16979L8.63398 8.16979Z" />
-              </svg>
-            )}
-          </span>
-        </button>
-      </div>
-
-      {showControls ? (
-        <div
-          className="fixed left-4 top-14 z-[100] flex w-[360px] max-h-[calc(100vh-72px)] flex-col overflow-hidden rounded-[var(--radius-16)] border border-border-subtle bg-surface-overlay/90 p-[var(--space-20)] text-content-strong shadow-[var(--shadow-modal)] backdrop-blur-[24px]"
-          onPointerDown={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-body-l font-medium">Wheel controls</div>
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              onClick={() => {
-                setControls(defaultControls);
-                setCurrentIndex(0);
-                setStepProgress(0);
-                setPhase("paused");
-                setIsPlaying(true);
-              }}
-            >
-              Reset
-            </Button>
-          </div>
-          <div className="my-3 h-px bg-border-subtle" />
-
-          <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto pr-1">
-            <div className="flex flex-col gap-8">
-              {sliderSections.map((section) => (
-                <section key={section.title} className="flex flex-col gap-2.5">
-                  <div className="text-[14px] font-[500] leading-tight text-content-subtle">
-                    {section.title}
-                  </div>
-                  {section.title === "Arcs" && (
-                    <label className="flex cursor-pointer items-center justify-between">
-                      <span className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] leading-[var(--line-height-xs)] text-content-strong">
-                        Show inner arc
-                      </span>
-                      <SwitchControl
-                        checked={showInnerArc}
-                        onCheckedChange={updateToggleControl("showInnerArc")}
-                      />
-                    </label>
-                  )}
-                  <div className="flex flex-col gap-3.5">
-                    {section.controls.map((control) => (
-                      <SliderControl
-                        key={control.key}
-                        label={control.label}
-                        value={controls[control.key]}
-                        min={control.min}
-                        max={control.max}
-                        step={control.step}
-                        suffix={control.suffix}
-                        onValueChange={updateControl(control.key)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-              <section className="flex flex-col gap-2.5">
-                <div className="text-[14px] font-[500] leading-tight text-content-subtle">
-                  Sound
-                </div>
-                <label className="flex cursor-pointer items-center justify-between">
-                  <span className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] leading-[var(--line-height-xs)] text-content-strong">
-                    Scrub sound
-                  </span>
-                  <SwitchControl
-                    checked={soundEnabled}
-                    onCheckedChange={(checked) => setSoundEnabled(checked)}
-                  />
-                </label>
-                {soundEnabled && (
-                  <SliderControl
-                    label="Volume"
-                    value={volume}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    onValueChange={setVolume}
-                  />
-                )}
-              </section>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

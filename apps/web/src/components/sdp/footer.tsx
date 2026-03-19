@@ -37,9 +37,6 @@ const SOCIAL_LINKS = [
   { name: "Telegram", url: "/telegram", Icon: TelegramIcon },
 ];
 
-console.log(SOCIAL_LINKS);
-console.log(typeof SOCIAL_LINKS);
-
 const NavColumn = ({
   title,
   links,
