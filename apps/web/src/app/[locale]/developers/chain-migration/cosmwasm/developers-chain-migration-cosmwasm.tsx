@@ -1,7 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ResponsiveBox } from "@/component-library/responsive-box";
+import {
+  ResponsiveBox,
+  ResponsiveStyles,
+} from "@/component-library/responsive-box";
 import {
   CardDeck,
   Heading,
@@ -62,7 +65,9 @@ export function DevelopersChainMigrationCosmwasmPage() {
     }
 
     return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
+      <ResponsiveBox
+        responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
+      >
         {content}
       </ResponsiveBox>
     );
