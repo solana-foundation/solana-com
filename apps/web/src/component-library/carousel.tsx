@@ -59,6 +59,7 @@ type CarouselProps = {
   controlsInline?: boolean;
   className?: string;
   panels?: number;
+  panelsPerNav?: number;
   autoPlay?: number;
   prevButtonClassName?: string;
   nextButtonClassName?: string;
@@ -128,11 +129,15 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       swipeThreshold = 50,
       lastPageOffset = 1,
       startIndex,
+      panelsPerNav,
     },
     ref,
   ) => {
     const count = children.length;
     const panelsToShow = Math.max(1, Math.min(panels, count));
+    const panelsToNav = panelsPerNav
+      ? Math.max(1, Math.min(panelsPerNav, count))
+      : panelsToShow;
     const numPages = Math.ceil(count / panelsToShow);
     const lastPage = Math.max(0, numPages - lastPageOffset);
 
@@ -158,18 +163,18 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       setCurrentPage((p) => Math.min(p + 1, lastPage));
     }, [lastPage]);
 
+    // Each slide is 100 / (numPages * panelsToNav)% of the track
+    const slideWidth = `${100 / (numPages * panelsToNav)}%`;
+
     // Track is 100% * numPages wide
     const trackStyle = {
-      width: `${numPages * 100}%`,
+      width: `${(100 / (panelsToShow / panelsToNav)) * numPages}%`,
       display: "flex",
       transition: isDragging
         ? "none"
         : "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
       transform: `translateX(calc(-${currentPage * (100 / numPages)}% + ${dragOffset}px))`,
     };
-
-    // Each slide is 100 / (numPages * panelsToShow)% of the track
-    const slideWidth = `${100 / (numPages * panelsToShow)}%`;
 
     // Touch/Mouse event handlers
     const handleStart = useCallback(
@@ -447,6 +452,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "flex-start",
+                    flexShrink: 0,
                   }}
                 >
                   <div style={{ width: "100%" }}>{item}</div>

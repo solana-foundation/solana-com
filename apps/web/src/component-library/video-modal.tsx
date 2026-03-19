@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Video Modal System
  *
