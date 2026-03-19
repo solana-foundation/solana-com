@@ -120,17 +120,18 @@ export default async function ReportPage({
 
                 {/* CTA buttons */}
                 <div className="flex flex-wrap gap-3 pt-2">
-                  {report.hubspotForm?.formUrl && (
-                    <ReportFormModal
-                      buttonLabel={
-                        report.hubspotForm.buttonLabel || "Get the full report"
-                      }
-                      portalId={report.hubspotForm.portalId || undefined}
-                      formId={report.hubspotForm.formId || undefined}
-                      formUrl={String(report.hubspotForm.formUrl)}
-                      title={headline}
-                    />
-                  )}
+                  {report.hubspotForm?.portalId &&
+                    report.hubspotForm?.formId && (
+                      <ReportFormModal
+                        buttonLabel={
+                          report.hubspotForm.buttonLabel ||
+                          "Get the full report"
+                        }
+                        portalId={String(report.hubspotForm.portalId)}
+                        formId={String(report.hubspotForm.formId)}
+                        title={headline}
+                      />
+                    )}
 
                   {report.pdfUrl && (
                     <Button

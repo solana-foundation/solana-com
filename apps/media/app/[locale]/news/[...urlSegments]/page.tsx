@@ -182,14 +182,13 @@ export default async function PostPage({
             }))}
             isReport={switchback.isReport || undefined}
             hubspotForm={
-              switchback.hubspotForm?.formUrl
+              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
                 ? {
                     buttonLabel:
                       switchback.hubspotForm.buttonLabel ||
                       "Get the full report",
-                    portalId: switchback.hubspotForm.portalId || undefined,
-                    formId: switchback.hubspotForm.formId || undefined,
-                    formUrl: String(switchback.hubspotForm.formUrl),
+                    portalId: String(switchback.hubspotForm.portalId),
+                    formId: String(switchback.hubspotForm.formId),
                   }
                 : undefined
             }

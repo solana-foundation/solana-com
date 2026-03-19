@@ -14,9 +14,8 @@ import { Button } from "@/components/ui/button";
 
 interface ReportFormModalProps {
   buttonLabel: string;
-  formUrl: string;
-  portalId?: string;
-  formId?: string;
+  portalId: string;
+  formId: string;
   title?: string;
 }
 
@@ -24,7 +23,6 @@ type ParsedHubSpotForm = {
   formId: string;
   portalId: string;
   region: "na1" | "eu1";
-  fieldValues: Record<string, string>;
 };
 
 declare global {
@@ -37,50 +35,8 @@ declare global {
   }
 }
 
-function parseHubSpotFormUrl(formUrl: string): ParsedHubSpotForm | null {
-  try {
-    const url = new URL(formUrl);
-    const pathToken = url.pathname.split("/").filter(Boolean).at(-1) || "";
-
-    if (!pathToken) {
-      return null;
-    }
-
-    // Derived from HubSpot's shareable-forms bootstrap script.
-    const normalized = pathToken.replaceAll("-", "+").replaceAll("_", "/");
-    const binary = atob(normalized);
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    const hex = [...bytes]
-      .map((byte) => (byte + 256).toString(16).slice(-2))
-      .reduce((acc, part, index) => {
-        if (index === 4 || index === 6 || index === 8 || index === 10) {
-          acc += "-";
-        }
-
-        return acc + part;
-      }, "");
-
-    const formId = hex.substring(1, 37);
-    const portalId = parseInt(hex.substring(37), 36).toString();
-
-    if (!formId || !portalId || Number.isNaN(Number(portalId))) {
-      return null;
-    }
-
-    return {
-      formId,
-      portalId,
-      region: url.hostname.includes("eu") ? "eu1" : "na1",
-      fieldValues: Object.fromEntries(url.searchParams.entries()),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function ReportFormModal({
   buttonLabel,
-  formUrl,
   portalId,
   formId,
   title = "Get the full report",
@@ -88,28 +44,22 @@ export function ReportFormModal({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [fallbackToIframe, setFallbackToIframe] = useState(false);
   const [containerMounted, setContainerMounted] = useState(false);
   const targetId = useId().replace(/:/g, "");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const createdRef = useRef(false);
-  const parsedForm = useMemo(() => {
-    if (portalId && formId) {
-      return {
+  const parsedForm = useMemo(
+    () =>
+      ({
         portalId,
         formId,
         region: "na1" as const,
-        fieldValues: Object.fromEntries(
-          new URL(formUrl).searchParams.entries()
-        ),
-      };
-    }
-
-    return parseHubSpotFormUrl(formUrl);
-  }, [formId, formUrl, portalId]);
+      }) satisfies ParsedHubSpotForm,
+    [formId, portalId]
+  );
 
   useEffect(() => {
-    if (!isOpen || !parsedForm || fallbackToIframe || window.hbspt?.forms) {
+    if (!isOpen || window.hbspt?.forms) {
       return;
     }
 
@@ -125,45 +75,16 @@ export function ReportFormModal({
     script.src = "https://js.hsforms.net/forms/embed/v2.js";
     script.async = true;
     document.body.appendChild(script);
-  }, [fallbackToIframe, isOpen, parsedForm]);
+  }, [isOpen]);
 
   useEffect(() => {
-    if (
-      !isOpen ||
-      !parsedForm ||
-      fallbackToIframe ||
-      !containerMounted ||
-      !containerRef.current ||
-      isSubmitted
-    ) {
+    if (!isOpen || !containerMounted || !containerRef.current || isSubmitted) {
       return;
     }
 
     let cancelled = false;
     let attempts = 0;
     let readyTimeout: number | undefined;
-
-    const applyFieldValues = () => {
-      if (!containerRef.current) {
-        return;
-      }
-
-      for (const [fieldName, fieldValue] of Object.entries(
-        parsedForm.fieldValues
-      )) {
-        const field = containerRef.current.querySelector<
-          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-        >(`[name="${fieldName}"]`);
-
-        if (!field) {
-          continue;
-        }
-
-        field.value = fieldValue;
-        field.dispatchEvent(new Event("input", { bubbles: true }));
-        field.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    };
 
     const markReadyIfRendered = () => {
       if (!containerRef.current) {
@@ -197,7 +118,7 @@ export function ReportFormModal({
 
       readyTimeout = window.setTimeout(() => {
         if (!cancelled) {
-          setFallbackToIframe(true);
+          setIsLoading(false);
         }
       }, 8000);
 
@@ -211,7 +132,6 @@ export function ReportFormModal({
             if (readyTimeout) {
               window.clearTimeout(readyTimeout);
             }
-            applyFieldValues();
             setIsLoading(false);
           },
           onFormSubmitted: () => {
@@ -226,7 +146,7 @@ export function ReportFormModal({
         if (readyTimeout) {
           window.clearTimeout(readyTimeout);
         }
-        setFallbackToIframe(true);
+        setIsLoading(false);
       }
     };
 
@@ -241,7 +161,7 @@ export function ReportFormModal({
 
       if (attempts > 20) {
         window.clearInterval(timer);
-        setFallbackToIframe(true);
+        setIsLoading(false);
       }
     }, 250);
 
@@ -256,7 +176,6 @@ export function ReportFormModal({
     };
 
     const observer = new MutationObserver(() => {
-      applyFieldValues();
       markReadyIfRendered();
     });
 
@@ -276,14 +195,7 @@ export function ReportFormModal({
       window.removeEventListener("message", onMessage);
       observer.disconnect();
     };
-  }, [
-    containerMounted,
-    fallbackToIframe,
-    isOpen,
-    isSubmitted,
-    parsedForm,
-    targetId,
-  ]);
+  }, [containerMounted, isOpen, isSubmitted, parsedForm, targetId]);
 
   return (
     <Dialog
@@ -292,7 +204,6 @@ export function ReportFormModal({
         if (open) {
           setIsLoading(true);
           setIsSubmitted(false);
-          setFallbackToIframe(false);
           setContainerMounted(false);
           createdRef.current = false;
         } else {
@@ -342,15 +253,6 @@ export function ReportFormModal({
                   If you do not see it, check spam or promotions.
                 </p>
               </div>
-            </div>
-          ) : fallbackToIframe || !parsedForm ? (
-            <div className="bg-[#1c1c1d] p-6">
-              <iframe
-                src={formUrl}
-                title={title}
-                className="h-[700px] w-full rounded-xl border border-[rgba(236,228,253,0.12)] bg-white"
-                onLoad={() => setIsLoading(false)}
-              />
             </div>
           ) : (
             <div

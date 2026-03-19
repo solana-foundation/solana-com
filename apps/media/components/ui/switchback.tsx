@@ -18,9 +18,8 @@ interface SwitchbackProps {
   isReport?: boolean;
   hubspotForm?: {
     buttonLabel: string;
-    portalId?: string;
-    formId?: string;
-    formUrl: string;
+    portalId: string;
+    formId: string;
   };
   pdfUrl?: string;
   headline?: string;
@@ -99,12 +98,11 @@ const Switchback: React.FC<SwitchbackProps> = ({
 
                 {/* CTA buttons */}
                 <div className="flex flex-wrap items-center gap-3 pt-1">
-                  {hubspotForm?.formUrl && (
+                  {hubspotForm && (
                     <SwitchbackReportCta
                       buttonLabel={hubspotForm.buttonLabel}
                       portalId={hubspotForm.portalId}
                       formId={hubspotForm.formId}
-                      formUrl={hubspotForm.formUrl}
                       title={displayTitle}
                     />
                   )}

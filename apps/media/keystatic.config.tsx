@@ -391,17 +391,12 @@ export default config({
             portalId: fields.text({
               label: "Portal ID",
               description:
-                "Only applies when 'Use As Report' is enabled. Explicit HubSpot portal ID for embedded forms",
+                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the numeric `portalId` value from the embed code (eg: 9409604)",
             }),
             formId: fields.text({
               label: "Form ID",
               description:
-                "Only applies when 'Use As Report' is enabled. Explicit HubSpot form ID for embedded forms",
-            }),
-            formUrl: fields.text({
-              label: "Form URL",
-              description:
-                "Only applies when 'Use As Report' is enabled. HubSpot form URL opened in a modal",
+                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the UUID `formId` value from the embed code (eg: 7aef2b29-c63f-4427-bc18-a8c15fbff49b)",
             }),
           },
           { label: "HubSpot Form CTA" }

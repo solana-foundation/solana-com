@@ -4,9 +4,8 @@ import { ReportFormModal } from "@/components/report/report-form-modal";
 
 interface SwitchbackReportCtaProps {
   buttonLabel: string;
-  portalId?: string;
-  formId?: string;
-  formUrl: string;
+  portalId: string;
+  formId: string;
   title: string;
 }
 
@@ -14,7 +13,6 @@ export function SwitchbackReportCta({
   buttonLabel,
   portalId,
   formId,
-  formUrl,
   title,
 }: SwitchbackReportCtaProps) {
   return (
@@ -22,7 +20,6 @@ export function SwitchbackReportCta({
       buttonLabel={buttonLabel}
       portalId={portalId}
       formId={formId}
-      formUrl={formUrl}
       title={title}
     />
   );
