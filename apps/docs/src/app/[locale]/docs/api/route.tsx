@@ -41,7 +41,7 @@ const createExplicitClientSetup = (pluginChain = ""): string => {
     `  rpcSubscriptions: ${baseClientName}.rpcSubscriptions,`,
     "})({",
     "  recipientAddress: feePayer.address,",
-    "  lamports: lamports(1_000_000_000n),",
+    "  lamports: lamports(5_000_000_000n),",
     '  commitment: "confirmed",',
     "});",
     ...(pluginChain
