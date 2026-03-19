@@ -5,8 +5,7 @@ export const bonk = {
   "id": "bonk",
   "slug": "bonk",
   "name": "BONK",
-  "gridProfileSlug": "Bonk",
-  "gridProfile": {
+  "profile": {
     "name": "BONK",
     "tagLine": "The first Solana dog coin for the people, by the people",
     "descriptionShort": "BONK is a community-driven dog-themed memecoin on Solana, governed by BonkDAO, with over 350 on-chain integrations and a deflationary burn mechanism.",

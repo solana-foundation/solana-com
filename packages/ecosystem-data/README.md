@@ -88,7 +88,7 @@ The company record should remain useful outside any single event.
 
 ## Populating registry companies with enrichment data
 
-Company records can include an optional `gridProfile` object with enriched ecosystem metadata such as:
+Company records can include an optional `profile` object with enriched ecosystem metadata such as:
 
 - tagline
 - short and long descriptions
@@ -102,7 +102,7 @@ Use the enrichment workflow in:
 packages/ecosystem-data/skills/enrich-ecosystem-data.md
 ```
 
-That workflow is the source of truth for how to research and populate missing `gridProfile` data in:
+That workflow is the source of truth for how to research and populate missing `profile` data in:
 
 ```text
 packages/ecosystem-data/src/companies/registry.ts
@@ -110,7 +110,7 @@ packages/ecosystem-data/src/companies/registry.ts
 
 Expected process:
 
-1. read the registry and identify companies where `gridProfile` is `null`
+1. read the registry and identify companies where `profile` is `null`
 2. run the audit script to see which companies are missing enrichment or have asset mismatches:
 
 ```bash
@@ -118,7 +118,7 @@ pnpm --filter @workspace/ecosystem-data audit:data
 ```
 
 3. research each company using publicly available sources, starting with the official website
-4. populate only the `gridProfile` field with neutral, factual copy and verified URLs
+4. populate only the `profile` field with neutral, factual copy and verified URLs
 5. omit socials that cannot be confidently verified
 6. validate the package with:
 
@@ -128,10 +128,10 @@ pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
 
 Rules:
 
-- only modify `gridProfile`
-- do not change `id`, `slug`, `name`, `logos`, `defaultLogoId`, or `gridProfileSlug`
+- only modify `profile`
+- do not change `id`, `slug`, `name`, `logos`, `defaultLogoId`
 - match the tone of existing enriched records
-- leave `gridProfile: null` when reliable information is not available
+- leave `profile: null` when reliable information is not available
 
 ## What not to put here
 

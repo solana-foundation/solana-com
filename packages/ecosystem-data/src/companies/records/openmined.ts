@@ -5,8 +5,7 @@ export const openmined = {
   "id": "openmined",
   "slug": "openmined",
   "name": "OpenMined",
-  "gridProfileSlug": null,
-  "gridProfile": null,
+  "profile": null,
   "defaultLogoId": "logo",
   "logos": [
     {

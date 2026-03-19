@@ -5,8 +5,7 @@ export const doublezero = {
   "id": "doublezero",
   "slug": "doublezero",
   "name": "DoubleZero",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "DoubleZero",
     "tagLine": "The High-Performance Global Network",
     "descriptionShort": "DoubleZero is a decentralized fiber network providing low-latency connectivity for distributed systems like blockchain networks.",

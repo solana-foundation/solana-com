@@ -5,8 +5,7 @@ export const byreal = {
   "id": "byreal",
   "slug": "byreal",
   "name": "Byreal",
-  "gridProfileSlug": "byreal",
-  "gridProfile": {
+  "profile": {
     "name": "Byreal",
     "tagLine": "The onchain liquidity network for the next wave of assets",
     "descriptionShort": "Byreal is an AI agent-native DEX on Solana incubated by Bybit, combining CEX-grade liquidity with DeFi-native transparency for trading real-world and digital assets.",

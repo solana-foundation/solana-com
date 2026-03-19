@@ -5,8 +5,7 @@ export const darkresearch = {
   "id": "darkresearch",
   "slug": "darkresearch",
   "name": "Dark Research",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Dark Research",
     "tagLine": "An AI lab for the new internet",
     "descriptionShort": "Dark Research is an applied AI lab building production applications at the intersection of blockchain infrastructure and artificial intelligence, with tools for Solana.",

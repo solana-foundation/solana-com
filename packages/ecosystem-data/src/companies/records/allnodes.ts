@@ -5,8 +5,7 @@ export const allnodes = {
   "id": "allnodes",
   "slug": "allnodes",
   "name": "Allnodes",
-  "gridProfileSlug": "allnodes",
-  "gridProfile": {
+  "profile": {
     "name": "Allnodes",
     "tagLine": "Non-custodial platform for node hosting and staking across 120+ protocols",
     "descriptionShort": "Allnodes is a non-custodial infrastructure platform that provides node hosting, validator services, and staking for Solana and 120+ other blockchain protocols.",

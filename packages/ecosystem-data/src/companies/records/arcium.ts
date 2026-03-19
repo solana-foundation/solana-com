@@ -5,8 +5,7 @@ export const arcium = {
   "id": "arcium",
   "slug": "arcium",
   "name": "Arcium",
-  "gridProfileSlug": "Arcium",
-  "gridProfile": {
+  "profile": {
     "name": "Arcium",
     "tagLine": "Encrypt Everything. Compute Anything.",
     "descriptionShort": "Arcium is a decentralized confidential computing network built on Solana that enables encrypted computations using multi-party computation, fully homomorphic encryption, and zero-knowledge proofs.",

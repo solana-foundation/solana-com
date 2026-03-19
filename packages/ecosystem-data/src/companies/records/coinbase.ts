@@ -5,8 +5,7 @@ export const coinbase = {
   "id": "coinbase",
   "slug": "coinbase",
   "name": "Coinbase",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Coinbase",
     "tagLine": "Increase economic freedom in the world",
     "descriptionShort": "Coinbase is a publicly traded cryptocurrency exchange that provides a platform for buying, selling, storing, and managing digital assets including Solana and SPL tokens.",

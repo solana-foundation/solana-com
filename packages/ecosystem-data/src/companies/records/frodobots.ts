@@ -5,8 +5,7 @@ export const frodobots = {
   "id": "frodobots",
   "slug": "frodobots",
   "name": "FrodoBots",
-  "gridProfileSlug": "FrodoBots",
-  "gridProfile": {
+  "profile": {
     "name": "FrodoBots",
     "tagLine": "Crowdsourcing real-world datasets with robotic gaming",
     "descriptionShort": "FrodoBots is a robotics and blockchain company on Solana that lets users remotely control physical robots in a gaming experience while collecting real-world datasets for embodied AI research.",

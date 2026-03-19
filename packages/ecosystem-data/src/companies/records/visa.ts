@@ -5,8 +5,7 @@ export const visa = {
   "id": "visa",
   "slug": "visa",
   "name": "Visa",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Visa",
     "tagLine": "A world leader in digital payments",
     "descriptionShort": "Visa has expanded its stablecoin settlement capabilities to the Solana blockchain, using USDC for cross-border payments between participating banks.",

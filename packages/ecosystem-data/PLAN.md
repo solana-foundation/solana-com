@@ -114,8 +114,7 @@ export type CompanyRecord = {
   slug: string;
   name: string;
   legalName?: string;
-  gridProfileSlug?: string | null;
-  gridProfile?: GridProfile | null;
+  profile?: Profile | null;
   tagline?: string;
   shortDescription?: string;
   sectors?: string[];
@@ -237,8 +236,7 @@ This adapter can live in the app or in a thin app-specific helper layer and shou
 - `sponsorshipLevel`
 - `logo`
 - `availableLogos`
-- `gridProfileSlug`
-- `gridProfile`
+- `profile`
 
 That adapter is the migration hinge. It lets `apps/accelerate` keep its existing `Sponsors` component while the company source moves underneath it.
 
@@ -359,14 +357,14 @@ Deliver the smallest replacement that unblocks reuse:
 
 ## Open decisions
 
-1. Whether `gridProfile` should stay embedded as optional manual override data, or move into a separate enrichment layer.
+1. Whether `profile` should stay embedded as optional manual override data, or move into a separate enrichment layer.
 2. Whether the sync source remains Google Sheets or moves to a more explicit registry workflow.
 
 ## Recommended answer to those decisions
 
 For the first version:
 
-- keep `gridProfile` override support in the package
+- keep `profile` override support in the package
 - keep all event-specific sponsor declarations outside the package
 - keep the current `Sponsor` UI type as an app-derived compatibility layer
 - import package-owned company assets directly instead of copying them into app `public/`

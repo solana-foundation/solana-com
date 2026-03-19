@@ -5,8 +5,7 @@ export const bridge = {
   "id": "bridge",
   "slug": "bridge",
   "name": "Bridge",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Bridge",
     "tagLine": "Make money move",
     "descriptionShort": "An entirely new payments platform built with stablecoins to simplify global money movement.",

@@ -5,8 +5,7 @@ export const solayer = {
   "id": "solayer",
   "slug": "solayer",
   "name": "Solayer",
-  "gridProfileSlug": "Solayer",
-  "gridProfile": {
+  "profile": {
     "name": "Solayer",
     "tagLine": "Hardware-accelerated SVM",
     "descriptionShort": "Solayer is Solana's native restaking protocol, enabling SOL holders to extend the utility of their staked assets to secure additional services and protocols within the ecosystem.",

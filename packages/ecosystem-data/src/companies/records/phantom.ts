@@ -5,8 +5,7 @@ export const phantom = {
   "id": "phantom",
   "slug": "phantom",
   "name": "Phantom",
-  "gridProfileSlug": null,
-  "gridProfile": {
+  "profile": {
     "name": "Phantom",
     "tagLine": "The crypto app for everyone",
     "descriptionShort": "Phantom is a self-custodial multi-chain crypto wallet originally built for Solana, supporting token management, swaps, NFTs, and dApp interactions.",

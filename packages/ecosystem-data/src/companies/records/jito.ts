@@ -5,8 +5,7 @@ export const jito = {
   "id": "jito",
   "slug": "jito",
   "name": "Jito",
-  "gridProfileSlug": "jito",
-  "gridProfile": {
+  "profile": {
     "name": "Jito",
     "tagLine": "Non-custodial liquid staking on Solana",
     "descriptionShort": "Jito is the largest DeFi protocol on Solana, providing non-custodial liquid staking with MEV rewards and MEV-optimized validator infrastructure.",

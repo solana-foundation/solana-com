@@ -5,8 +5,7 @@ export const mantleByreal = {
   "id": "mantle-byreal",
   "slug": "mantle-byreal",
   "name": "Mantle / Byreal",
-  "gridProfileSlug": "mantle_xyz",
-  "gridProfile": {
+  "profile": {
     "name": "Mantle / Byreal",
     "tagLine": "Building the Liquidity Chain of the Future",
     "descriptionShort": "Mantle is an Ethereum Layer 2 network that has expanded to Solana via the Mantle Super Portal and Byreal, a Solana-native decentralized exchange incubated by Bybit.",

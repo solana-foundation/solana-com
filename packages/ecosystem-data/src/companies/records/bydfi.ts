@@ -5,8 +5,7 @@ export const bydfi = {
   "id": "bydfi",
   "slug": "bydfi",
   "name": "BYDFi",
-  "gridProfileSlug": "bydfi",
-  "gridProfile": {
+  "profile": {
     "name": "BYDFi",
     "tagLine": "BUIDL Your Dream Finance",
     "descriptionShort": "BYDFi is a centralized cryptocurrency exchange supporting trading of 1000+ altcoins and 500+ perpetual contracts, including Solana ecosystem tokens.",
