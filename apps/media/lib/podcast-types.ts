@@ -12,6 +12,7 @@ export interface PodcastShow {
   title: string;
   slug: string;
   description: string | ContentDocument;
+  descriptionPlainText?: string;
   coverImage: string;
   category?: string;
   featured: boolean;

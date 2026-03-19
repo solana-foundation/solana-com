@@ -53,13 +53,35 @@ async function transformPodcast(
   if (typeof rawDescription === "function") {
     rawDescription = await rawDescription();
   }
+  let serializedDescription: PodcastShow["description"] = "";
+  try {
+    if (
+      rawDescription !== null &&
+      rawDescription !== undefined &&
+      typeof rawDescription !== "function"
+    ) {
+      const jsonString = JSON.stringify(rawDescription, (key, value) => {
+        if (typeof value === "function") {
+          return undefined;
+        }
+        return value;
+      });
+
+      if (jsonString) {
+        serializedDescription = JSON.parse(jsonString);
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to serialize podcast description for ${slug}:`, error);
+  }
   const descriptionString = contentDocumentToPlainText(rawDescription as any);
 
   return {
     id: slug,
     title: String(podcast.title) || "Untitled Podcast",
     slug: podcast.slug || slug,
-    description: descriptionString, // Converted to string for serialization
+    description: serializedDescription,
+    descriptionPlainText: descriptionString,
     coverImage: podcast.coverImage || "/uploads/podcasts/default-cover.png",
     category: categoryName,
     featured: podcast.featured || false,

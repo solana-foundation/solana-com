@@ -347,9 +347,7 @@ export async function podcastShowMetadata(
 
   const title = `${podcast.title} | Podcasts`;
   const description =
-    typeof podcast.description === "string"
-      ? podcast.description
-      : `Listen to ${podcast.title} podcast`;
+    podcast.descriptionPlainText || `Listen to ${podcast.title} podcast`;
   const canonicalUrl = `${publicUrl}/podcasts/${podcastSlug}`;
 
   return {
