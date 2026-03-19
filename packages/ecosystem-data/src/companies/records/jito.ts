@@ -6,79 +6,19 @@ export const jito = {
   "slug": "jito",
   "name": "Jito",
   "profile": {
-    "name": "Jito",
-    "tagLine": "Non-custodial liquid staking on Solana",
-    "descriptionShort": "Jito is the largest DeFi protocol on Solana, providing non-custodial liquid staking with MEV rewards and MEV-optimized validator infrastructure.",
-    "descriptionLong": "Jito operates two core products on Solana: a liquid staking protocol that lets users stake any amount of SOL and receive JitoSOL with auto-compounded rewards amplified by MEV extraction, and a MEV infrastructure suite including an open-source validator client and transaction relayer. The Jito Foundation governs the protocol through JTO token holders who shape its development.",
-    "profileSector": {
-      "name": "Staking"
+    "tagline": "Non-custodial liquid staking on Solana",
+    "summary": "Jito is the largest DeFi protocol on Solana, providing non-custodial liquid staking with MEV rewards and MEV-optimized validator infrastructure.",
+    "description": "Jito operates two core products on Solana: a liquid staking protocol that lets users stake any amount of SOL and receive JitoSOL with auto-compounded rewards amplified by MEV extraction, and a MEV infrastructure suite including an open-source validator client and transaction relayer. The Jito Foundation governs the protocol through JTO token holders who shape its development.",
+    "sector": "Staking",
+    "type": "Protocol",
+    "links": {
+      "website": "https://www.jito.network/"
     },
-    "profileType": {
-      "name": "Protocol"
-    },
-    "urls": [
-      {
-        "url": "https://www.jito.network/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/jito_sol",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/jito-labs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.gg/jito",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/jito-foundation",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/jito_sol",
+      "linkedin": "https://www.linkedin.com/company/jito-labs",
+      "discord": "https://discord.gg/jito",
+      "github": "https://github.com/jito-foundation"
     }
   },
   "defaultLogoId": "logo",

@@ -1,25 +1,60 @@
-export type ProfileUrl = {
-  url?: string | null;
-  urlType?: { name?: string | null } | null;
+export const COMPANY_PROFILE_SECTORS = [
+  "Community",
+  "DeFi",
+  "DePIN",
+  "Developer Tools",
+  "Exchange",
+  "Gaming",
+  "Infrastructure",
+  "Payments",
+  "Policy",
+  "Restaking",
+  "Robotics",
+  "Staking",
+  "Tokenization",
+  "Wallet",
+] as const;
+
+export type CompanyProfileSector = (typeof COMPANY_PROFILE_SECTORS)[number];
+
+export const COMPANY_PROFILE_TYPES = [
+  "Community",
+  "Company",
+  "DAO",
+  "Platform",
+  "Protocol",
+] as const;
+
+export type CompanyProfileType = (typeof COMPANY_PROFILE_TYPES)[number];
+
+export type ProfileLinks = {
+  website?: string;
+  app?: string;
+  docs?: string;
+  blog?: string;
+  careers?: string;
 };
 
-export type ProfileSocial = {
-  socialType?: { name?: string | null } | null;
-  urls?: ProfileUrl[] | null;
+export type ProfileSocials = {
+  x?: string;
+  linkedin?: string;
+  github?: string;
+  discord?: string;
+  telegram?: string;
+  youtube?: string;
+  medium?: string;
 };
 
 export type Profile = {
-  name?: string | null;
-  logo?: string | null;
-  tagLine?: string | null;
-  descriptionShort?: string | null;
-  descriptionLong?: string | null;
-  foundingDate?: string | null;
-  profileSector?: { name?: string | null } | null;
-  profileStatus?: { name?: string | null } | null;
-  profileType?: { name?: string | null } | null;
-  urls?: ProfileUrl[] | null;
-  root?: { slug?: string | null; socials?: ProfileSocial[] | null } | null;
+  tagline?: string;
+  summary?: string;
+  description?: string;
+  founded?: string;
+  sector?: CompanyProfileSector;
+  status?: string;
+  type?: CompanyProfileType;
+  links?: ProfileLinks;
+  socials?: ProfileSocials;
 };
 
 export type CompanyLogoFormat = "svg" | "png" | "jpg" | "jpeg" | "webp";

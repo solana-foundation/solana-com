@@ -6,92 +6,20 @@ export const solayer = {
   "slug": "solayer",
   "name": "Solayer",
   "profile": {
-    "name": "Solayer",
-    "tagLine": "Hardware-accelerated SVM",
-    "descriptionShort": "Solayer is Solana's native restaking protocol, enabling SOL holders to extend the utility of their staked assets to secure additional services and protocols within the ecosystem.",
-    "descriptionLong": "Solayer is the first native restaking and liquid restaking protocol on Solana, allowing SOL holders to restake their assets to secure Actively Validated Services (AVSs) such as oracles and bridges. Users receive sSOL in exchange for their staked SOL, earning additional yield while improving the security and reliability of ecosystem services. Solayer also offers sUSD, a yield-bearing stablecoin backed by US Treasury Bonds, and is building InfiniSVM, a hardware-accelerated SVM blockchain.",
-    "profileSector": {
-      "name": "Restaking"
+    "tagline": "Hardware-accelerated SVM",
+    "summary": "Solayer is Solana's native restaking protocol, enabling SOL holders to extend the utility of their staked assets to secure additional services and protocols within the ecosystem.",
+    "description": "Solayer is the first native restaking and liquid restaking protocol on Solana, allowing SOL holders to restake their assets to secure Actively Validated Services (AVSs) such as oracles and bridges. Users receive sSOL in exchange for their staked SOL, earning additional yield while improving the security and reliability of ecosystem services. Solayer also offers sUSD, a yield-bearing stablecoin backed by US Treasury Bonds, and is building InfiniSVM, a hardware-accelerated SVM blockchain.",
+    "sector": "Restaking",
+    "type": "Protocol",
+    "links": {
+      "website": "https://solayer.org/"
     },
-    "profileType": {
-      "name": "Protocol"
-    },
-    "urls": [
-      {
-        "url": "https://solayer.org/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/solayer_labs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/solayer-labs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.com/invite/solayerlabs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Telegram"
-          },
-          "urls": [
-            {
-              "url": "https://t.me/solayer_discussion",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/solayer-labs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/solayer_labs",
+      "linkedin": "https://www.linkedin.com/company/solayer-labs",
+      "discord": "https://discord.com/invite/solayerlabs",
+      "telegram": "https://t.me/solayer_discussion",
+      "github": "https://github.com/solayer-labs"
     }
   },
   "defaultLogoId": "logo",

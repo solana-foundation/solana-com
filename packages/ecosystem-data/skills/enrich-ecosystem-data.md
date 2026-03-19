@@ -7,7 +7,7 @@ Web search for all companies in the ecosystem-data registry and update their rec
 - Registry: `packages/ecosystem-data/src/companies/registry.ts`
 - Types: `packages/ecosystem-data/src/types.ts`
 - Package guide: `packages/ecosystem-data/README.md`
-- Each company has a `CompanyRecord` with an optional `profile` field containing enriched data (tagline, descriptions, sector, socials, URLs).
+- Each company has a `CompanyRecord` with an optional `profile` field containing enriched data in a flat package-owned shape.
 - The goal is to enrich canonical company data only. Event-specific sponsorship metadata stays in consuming apps.
 
 ## Workflow
@@ -26,37 +26,38 @@ Use the audit output to spot companies that have asset folders and company recor
 
 ### 2. Research each company
 
-For every company with `profile: null`, launch parallel Agent subprocesses (subagent_type: "general-purpose") to web search and gather:
+For every company with `profile: null`, launch parallel Agent subprocesses (subagent_type: "general-purpose") to research and gather:
 
 | Field | Source hint |
 |---|---|
-| `tagLine` | Official website hero/header, or X bio |
-| `descriptionShort` | 1–2 sentence summary of what they do on Solana |
-| `descriptionLong` | 2–4 sentence detailed description |
-| `profileSector` | One of: Infrastructure, DeFi, Payments, Gaming, Wallet, Exchange, NFT, DePIN, Community, Tokenization, Staking, Developer Tools, Policy, Robotics, Restaking |
-| `profileType` | One of: Company, Protocol, Platform, Community, DAO |
-| Website URL | Official homepage |
-| Twitter / X | `x.com` or `twitter.com` handle |
-| LinkedIn | Company LinkedIn page |
-| Discord | Invite link |
-| Telegram | Community or announcements channel |
-| GitHub | Organization page |
+| `tagline` | Official website hero/header, or X bio |
+| `summary` | 1–2 sentence summary of what they do on Solana |
+| `description` | 2–4 sentence detailed description |
+| `sector` | One of: Infrastructure, DeFi, Payments, Gaming, Wallet, Exchange, DePIN, Community, Tokenization, Staking, Developer Tools, Policy, Robotics, Restaking |
+| `status` | Optional lifecycle/status label when clearly supported by sources |
+| `type` | One of: Company, Protocol, Platform, Community, DAO |
+| `links.website` | Official homepage |
+| `socials.x` | `x.com` or `twitter.com` handle |
+| `socials.linkedin` | Company LinkedIn page |
+| `socials.discord` | Invite link |
+| `socials.telegram` | Community or announcements channel |
+| `socials.github` | Organization page |
 
-**Search strategy**: query `"<Company Name> Solana"` first, then fetch the company website for tagline and descriptions if needed.
+**Research strategy**: start from the company's canonical URL already present in the record. Treat that URL and the site it resolves to as the primary pull for company facts, messaging, and outbound official links. Use search only as a fallback to locate missing official profiles or to verify ambiguous details when the canonical site is incomplete.
 
 **Source preference**:
 
-1. official company website
+1. canonical company URL from the record, including the official website it resolves to
 2. official social profiles
 3. reputable ecosystem directories or coverage used only to confirm, not invent, missing facts
 
-If sources conflict, prefer the official website. Do not fill fields from low-confidence directories, scraped profiles, or stale aggregator copy.
+If sources conflict, prefer the canonical company URL and the official website it resolves to. Do not fill fields from low-confidence directories, scraped profiles, or stale aggregator copy.
 
 **Writing guidance**:
 
-- `tagLine`: short phrase, usually copied or lightly normalized from the official site
-- `descriptionShort`: 1 to 2 sentences, plain factual summary
-- `descriptionLong`: 2 to 4 sentences with more product and ecosystem context
+- `tagline`: short phrase, usually copied or lightly normalized from the official site
+- `summary`: 1 to 2 sentences, plain factual summary
+- `description`: 2 to 4 sentences with more product and ecosystem context
 - Avoid slogans, hype, investor language, and unsupported claims
 - Write in present tense and keep the wording durable outside a single campaign or event
 
@@ -66,44 +67,30 @@ For each researched company, replace `"profile": null` with a populated object m
 
 ```ts
 "profile": {
-  "name": "<Display Name>",
-  "tagLine": "<Tagline>",
-  "descriptionShort": "<Short description.>",
-  "descriptionLong": "<Longer detailed description.>",
-  "profileSector": {
-    "name": "<Sector>"
+  "tagline": "<Tagline>",
+  "summary": "<Short description.>",
+  "description": "<Longer detailed description.>",
+  "sector": "<Sector>",
+  "status": "<Optional status>",
+  "type": "<Type>",
+  "links": {
+    "website": "https://..."
   },
-  "profileType": {
-    "name": "<Type>"
-  },
-  "urls": [
-    {
-      "url": "https://...",
-      "urlType": { "name": "website" }
-    }
-  ],
-  "root": {
-    "socials": [
-      {
-        "socialType": { "name": "Twitter / X" },
-        "urls": [{ "url": "https://x.com/...", "urlType": { "name": "main" } }]
-      },
-      {
-        "socialType": { "name": "LinkedIn" },
-        "urls": [{ "url": "https://linkedin.com/company/...", "urlType": { "name": "main" } }]
-      }
-    ]
+  "socials": {
+    "x": "https://x.com/...",
+    "linkedin": "https://linkedin.com/company/..."
   }
 }
 ```
 
-Only include social entries where a URL was found. Omit socials with no discovered URL.
+Only include social entries where a URL was found. Omit social keys with no discovered URL.
 
 When enriching:
 
 - preserve existing field ordering and object shape used by nearby records
-- use the company display name already present in the record for `profile.name` unless the registry itself clearly uses a different canonical style
-- include the homepage in `urls` even when social links are sparse
+- do not duplicate the top-level company `name` inside `profile`
+- include `links.website` even when social links are sparse
+- use the existing company URL as the canonical research starting point before consulting search engines
 - prefer direct organization URLs over link-in-bio or profile aggregators
 
 ### 4. Validate

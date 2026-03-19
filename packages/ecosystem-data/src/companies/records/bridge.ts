@@ -6,53 +6,17 @@ export const bridge = {
   "slug": "bridge",
   "name": "Bridge",
   "profile": {
-    "name": "Bridge",
-    "tagLine": "Make money move",
-    "descriptionShort": "An entirely new payments platform built with stablecoins to simplify global money movement.",
-    "descriptionLong": "Bridge provides a fully integrated stablecoin infrastructure platform enabling businesses to receive, store, convert, issue, and spend stablecoins. The platform offers APIs for orchestration, issuance, card programs, wallets, and cross-border payments. By handling regulatory, compliance, and technical complexities, Bridge allows companies to expand globally and move funds faster and cheaper.",
-    "profileSector": {
-      "name": "Payments"
+    "tagline": "Make money move",
+    "summary": "An entirely new payments platform built with stablecoins to simplify global money movement.",
+    "description": "Bridge provides a fully integrated stablecoin infrastructure platform enabling businesses to receive, store, convert, issue, and spend stablecoins. The platform offers APIs for orchestration, issuance, card programs, wallets, and cross-border payments. By handling regulatory, compliance, and technical complexities, Bridge allows companies to expand globally and move funds faster and cheaper.",
+    "sector": "Payments",
+    "type": "Company",
+    "links": {
+      "website": "https://www.bridge.xyz/"
     },
-    "profileType": {
-      "name": "Company"
-    },
-    "urls": [
-      {
-        "url": "https://www.bridge.xyz/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/StableCoin",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/bridge-apis/",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/StableCoin",
+      "linkedin": "https://www.linkedin.com/company/bridge-apis/"
     }
   },
   "defaultLogoId": "logo",
