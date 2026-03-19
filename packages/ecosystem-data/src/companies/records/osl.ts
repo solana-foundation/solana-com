@@ -6,79 +6,19 @@ export const osl = {
   "slug": "osl",
   "name": "OSL",
   "profile": {
-    "name": "OSL",
-    "tagLine": "Built for simple crypto trading.",
-    "descriptionShort": "Licensed digital asset exchange providing secure trading, fiat deposits, and custody services.",
-    "descriptionLong": "OSL offers regulated trading, OTC services, custody, trading APIs, tokenization, and payment infrastructure for individuals and institutions, backed by global compliance coverage.",
-    "profileSector": {
-      "name": "Exchange"
+    "tagline": "Built for simple crypto trading.",
+    "summary": "Licensed digital asset exchange providing secure trading, fiat deposits, and custody services.",
+    "description": "OSL offers regulated trading, OTC services, custody, trading APIs, tokenization, and payment infrastructure for individuals and institutions, backed by global compliance coverage.",
+    "sector": "Exchange",
+    "type": "Platform",
+    "links": {
+      "website": "https://www.osl.com/"
     },
-    "profileType": {
-      "name": "Platform"
-    },
-    "urls": [
-      {
-        "url": "https://www.osl.com/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://twitter.com/OSLdotcom",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://hk.linkedin.com/company/osldotcom/",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.com/invite/oslglobal",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Telegram"
-          },
-          "urls": [
-            {
-              "url": "https://t.me/osl_community",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://twitter.com/OSLdotcom",
+      "linkedin": "https://hk.linkedin.com/company/osldotcom/",
+      "discord": "https://discord.com/invite/oslglobal",
+      "telegram": "https://t.me/osl_community"
     }
   },
   "defaultLogoId": "logo",

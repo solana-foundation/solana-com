@@ -101,12 +101,29 @@ export type CompanyLogoVariant = {
 };
 
 export type CompanyProfile = {
-  website?: string;
-  x?: string;
-  linkedin?: string;
-  github?: string;
-  discord?: string;
-  telegram?: string;
+  tagline?: string;
+  summary?: string;
+  description?: string;
+  founded?: string;
+  sector?: CompanyProfileSector;
+  status?: string;
+  type?: CompanyProfileType;
+  links?: {
+    website?: string;
+    app?: string;
+    docs?: string;
+    blog?: string;
+    careers?: string;
+  };
+  socials?: {
+    x?: string;
+    linkedin?: string;
+    github?: string;
+    discord?: string;
+    telegram?: string;
+    youtube?: string;
+    medium?: string;
+  };
 };
 
 export type CompanyRecord = {
@@ -114,12 +131,7 @@ export type CompanyRecord = {
   slug: string;
   name: string;
   legalName?: string;
-  profile?: Profile | null;
-  tagline?: string;
-  shortDescription?: string;
-  sectors?: string[];
-  profileType?: string;
-  urls?: CompanyProfile;
+  profile?: CompanyProfile | null;
   logos: CompanyLogoVariant[];
   defaultLogoId?: string;
 };
@@ -130,6 +142,7 @@ Notes:
 - `id` should be the stable internal key. Use it everywhere instead of event-local names.
 - `slug` can remain URL-friendly and human-readable, but should not be the only identifier.
 - `logos` replaces `logo` and `availableLogos` as the source of truth.
+- `profile` should use explicit named fields for known links and socials instead of nested tagged arrays copied from an external CMS shape.
 - a single `CompanyRecord` should be independently reusable anywhere in the monorepo without requiring an event dataset
 - fields should only exist here if they are inherent to the company itself or its canonical public identity
 
@@ -357,14 +370,14 @@ Deliver the smallest replacement that unblocks reuse:
 
 ## Open decisions
 
-1. Whether `profile` should stay embedded as optional manual override data, or move into a separate enrichment layer.
+1. Whether `profile` should stay embedded as optional package-owned enrichment data, or move into a separate enrichment layer.
 2. Whether the sync source remains Google Sheets or moves to a more explicit registry workflow.
 
 ## Recommended answer to those decisions
 
 For the first version:
 
-- keep `profile` override support in the package
+- keep `profile` override support in the package using the flat package schema rather than the external Grid response shape
 - keep all event-specific sponsor declarations outside the package
 - keep the current `Sponsor` UI type as an app-derived compatibility layer
 - import package-owned company assets directly instead of copying them into app `public/`

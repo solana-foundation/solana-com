@@ -163,8 +163,8 @@ for (const fileName of recordFiles) {
   const defaultLogoId = getObjectPropertyString(recordNode, "defaultLogoId");
   const profileNode = getNestedProperty(recordNode, ["profile"]);
   const profileObject = ts.isObjectLiteralExpression(profileNode) ? profileNode : null;
-  const urlEntries = getObjectPropertyArray(profileObject, "urls");
-  const socialsNode = getNestedProperty(recordNode, ["profile", "root", "socials"]);
+  const linksObject = getObjectPropertyObject(profileObject, "links");
+  const socialsObject = getObjectPropertyObject(profileObject, "socials");
   const logosArray = getObjectPropertyArray(recordNode, "logos");
   const logos = [];
 
@@ -196,19 +196,17 @@ for (const fileName of recordFiles) {
     }
   }
 
-  const hasWebsiteUrl = !!urlEntries?.elements.some((entry) => {
-    if (!ts.isObjectLiteralExpression(entry)) {
-      return false;
-    }
+  const hasWebsiteUrl = Boolean(getObjectPropertyString(linksObject, "website"));
 
-    const urlTypeNode = getObjectPropertyObject(entry, "urlType");
-    return getObjectPropertyString(urlTypeNode, "name") === "website";
-  });
+  const socialCount = socialsObject
+    ? socialsObject.properties.filter((property) => {
+        if (!ts.isPropertyAssignment(property)) {
+          return false;
+        }
 
-  const socialCount =
-    socialsNode && ts.isArrayLiteralExpression(socialsNode)
-      ? socialsNode.elements.length
-      : 0;
+        return Boolean(getStringLiteralValue(property.initializer));
+      }).length
+    : 0;
 
   records.push({
     fileName,

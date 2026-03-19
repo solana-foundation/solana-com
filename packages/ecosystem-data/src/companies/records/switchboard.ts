@@ -6,92 +6,20 @@ export const switchboard = {
   "slug": "switchboard",
   "name": "Switchboard",
   "profile": {
-    "name": "Switchboard",
-    "tagLine": "The Everything Oracle",
-    "descriptionShort": "Switchboard is a permissionless, multi-chain oracle protocol on Solana that provides customizable data feeds, verifiable randomness, and off-chain compute for smart contracts.",
-    "descriptionLong": "Switchboard is a decentralized, community-curated oracle network that brings real-world data on-chain across 10+ blockchains including Solana, Arbitrum, Aptos, and Sui. It serves as the data provider for prominent DeFi projects such as Kamino, Jito, MarginFi, and Drift. The protocol delivers price feeds at sub-100ms latency through its Surge oracle network.",
-    "profileSector": {
-      "name": "Infrastructure"
+    "tagline": "The Everything Oracle",
+    "summary": "Switchboard is a permissionless, multi-chain oracle protocol on Solana that provides customizable data feeds, verifiable randomness, and off-chain compute for smart contracts.",
+    "description": "Switchboard is a decentralized, community-curated oracle network that brings real-world data on-chain across 10+ blockchains including Solana, Arbitrum, Aptos, and Sui. It serves as the data provider for prominent DeFi projects such as Kamino, Jito, MarginFi, and Drift. The protocol delivers price feeds at sub-100ms latency through its Surge oracle network.",
+    "sector": "Infrastructure",
+    "type": "Protocol",
+    "links": {
+      "website": "https://switchboard.xyz"
     },
-    "profileType": {
-      "name": "Protocol"
-    },
-    "urls": [
-      {
-        "url": "https://switchboard.xyz",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/switchboardxyz",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/switchboardxyz",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.com/invite/sNeGymrabT",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Telegram"
-          },
-          "urls": [
-            {
-              "url": "https://telegram.me/switchboardxyz",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/switchboard-xyz",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/switchboardxyz",
+      "linkedin": "https://www.linkedin.com/company/switchboardxyz",
+      "discord": "https://discord.com/invite/sNeGymrabT",
+      "telegram": "https://telegram.me/switchboardxyz",
+      "github": "https://github.com/switchboard-xyz"
     }
   },
   "defaultLogoId": "logo",

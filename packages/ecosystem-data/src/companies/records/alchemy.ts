@@ -11,79 +11,19 @@ export const alchemy = {
   "slug": "alchemy",
   "name": "Alchemy",
   "profile": {
-    "name": "Alchemy",
-    "tagLine": "Infrastructure that moves billions at scale.",
-    "descriptionShort": "Web3 development platform providing blockchain infrastructure, APIs, and developer tools across multiple chains including Solana.",
-    "descriptionLong": "Alchemy is a web3 development platform providing blockchain infrastructure, APIs, SDKs, and developer tools. Its Solana offering includes archive data retrieval, gRPC streaming, enhanced RPC endpoints, and staked transaction connections purpose-built for Solana's architecture. The platform also provides embedded wallets, gasless transactions, webhooks, and portfolio APIs across over 100 supported chains.",
-    "profileSector": {
-      "name": "Infrastructure"
+    "tagline": "Infrastructure that moves billions at scale.",
+    "summary": "Web3 development platform providing blockchain infrastructure, APIs, and developer tools across multiple chains including Solana.",
+    "description": "Alchemy is a web3 development platform providing blockchain infrastructure, APIs, SDKs, and developer tools. Its Solana offering includes archive data retrieval, gRPC streaming, enhanced RPC endpoints, and staked transaction connections purpose-built for Solana's architecture. The platform also provides embedded wallets, gasless transactions, webhooks, and portfolio APIs across over 100 supported chains.",
+    "sector": "Infrastructure",
+    "type": "Platform",
+    "links": {
+      "website": "https://www.alchemy.com/"
     },
-    "profileType": {
-      "name": "Platform"
-    },
-    "urls": [
-      {
-        "url": "https://www.alchemy.com/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/Alchemy",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/alchemyinc/",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.gg/9GnAcXQYZ6",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/alchemyplatform",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/Alchemy",
+      "linkedin": "https://www.linkedin.com/company/alchemyinc/",
+      "discord": "https://discord.gg/9GnAcXQYZ6",
+      "github": "https://github.com/alchemyplatform"
     }
   },
   "defaultLogoId": "logo-white",
