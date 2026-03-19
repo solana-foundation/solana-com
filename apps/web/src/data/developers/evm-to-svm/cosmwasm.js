@@ -7,6 +7,7 @@ const CONTENT_BLOCK_STYLE_KEYS = {
   tableWrapper: "tableWrapper",
 };
 
+/** @type {Record<string, import("@/component-library/responsive-box").ResponsiveStyles>} */
 export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
     large: { paddingTop: "20px" },
