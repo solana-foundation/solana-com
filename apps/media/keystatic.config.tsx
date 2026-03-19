@@ -388,6 +388,16 @@ export default config({
               description:
                 "Only applies when 'Use As Report' is enabled. Label for the HubSpot report CTA",
             }),
+            portalId: fields.text({
+              label: "Portal ID",
+              description:
+                "Only applies when 'Use As Report' is enabled. Explicit HubSpot portal ID for embedded forms",
+            }),
+            formId: fields.text({
+              label: "Form ID",
+              description:
+                "Only applies when 'Use As Report' is enabled. Explicit HubSpot form ID for embedded forms",
+            }),
             formUrl: fields.text({
               label: "Form URL",
               description:

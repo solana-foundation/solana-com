@@ -2,12 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import uniqBy from "lodash/uniqBy";
-import { Section } from "@/components/layout/section";
 import ErrorBoundary from "@/components/error-boundary";
 import LoadMoreStatus from "@/components/ui/load-more-status";
-import { Button } from "@/components/ui/button";
 import type { PageInfo, ReportItem } from "@/lib/report-types";
 import { ReportCard } from "@/components/report/report-card";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
   hasPreviousPage: false,
@@ -113,63 +112,76 @@ export default function ReportsClientPage({
 
   return (
     <ErrorBoundary>
-      <Section>
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-10 md:px-6 lg:px-8">
-          <div className="relative overflow-hidden bg-[#08101d] px-6 py-10 text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] md:px-10 md:py-14">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_0%_0%,rgba(82,158,255,0.28),transparent_55%),radial-gradient(80%_80%_at_100%_0%,rgba(25,237,152,0.14),transparent_60%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))]" />
-            <div className="relative z-10 flex max-w-3xl flex-col gap-5">
-              <span className="text-xs uppercase tracking-[0.35em] text-sky-300/80">
+      <section className="relative min-h-screen bg-background">
+        {/* Hero */}
+        <div className="relative overflow-hidden border-b border-[rgba(236,228,253,0.12)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_0%_0%,rgba(153,69,255,0.14),transparent_60%),radial-gradient(ellipse_60%_50%_at_100%_0%,rgba(20,241,149,0.08),transparent_50%)]" />
+          <div className="relative mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10">
+            <div className="flex flex-col gap-5 pb-10 pt-12 md:pb-14 md:pt-16 xl:pb-16 xl:pt-[120px]">
+              <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#CA9FF5]">
                 Solana Reports
               </span>
-              <h1 className="text-4xl font-bold leading-[0.98] md:text-6xl">
+              <h1 className="max-w-4xl text-[clamp(2rem,5vw,3.5rem)] font-medium leading-[1.05] tracking-[-0.02em] text-white">
                 Research and reports from across the ecosystem.
               </h1>
-              <p className="max-w-2xl text-sm leading-7 text-white/70 md:text-base">
+              <p className="max-w-2xl text-base leading-7 text-[#ABABBA] md:text-lg">
                 Long-form analysis, market context, and ecosystem research
                 published through the Solana media stack.
               </p>
             </div>
           </div>
+        </div>
 
+        {/* Content */}
+        <div className="mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10">
+          {/* Category filters */}
           {allCategories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground">
-                Filter by category:
-              </span>
-              <Button
-                variant={selectedCategory === null ? "default" : "secondary"}
-                size="sm"
+            <div className="flex flex-wrap items-center gap-2 border-b border-[rgba(236,228,253,0.12)] py-6">
+              <button
+                type="button"
                 onClick={() => setSelectedCategory(null)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm transition-colors",
+                  selectedCategory === null
+                    ? "border-white bg-white text-black"
+                    : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white"
+                )}
               >
                 All
-              </Button>
+              </button>
               {allCategories.map((category) => (
-                <Button
+                <button
+                  type="button"
                   key={category}
-                  variant={
-                    selectedCategory === category ? "default" : "secondary"
-                  }
-                  size="sm"
                   onClick={() => setSelectedCategory(category)}
+                  className={cn(
+                    "rounded-full border px-4 py-1.5 text-sm capitalize transition-colors",
+                    selectedCategory === category
+                      ? "border-white bg-white text-black"
+                      : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white"
+                  )}
                 >
                   {category}
-                </Button>
+                </button>
               ))}
             </div>
           )}
 
-          {filteredReports.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredReports.map((report) => (
-                <ReportCard key={report.id} report={report} />
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center text-muted-foreground">
-              No reports found
-              {selectedCategory ? ` for "${selectedCategory}"` : ""}.
-            </div>
-          )}
+          {/* Reports grid */}
+          <div className="py-10">
+            {filteredReports.length > 0 ? (
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {filteredReports.map((report, index) => (
+                  <ReportCard key={report.id} report={report} index={index} />
+                ))}
+              </div>
+            ) : (
+              <div className="py-20 text-center text-[#ABABBA]">
+                No reports found
+                {selectedCategory ? ` for "${selectedCategory}"` : ""}.
+              </div>
+            )}
+          </div>
 
           {!selectedCategory && reports.length > 0 && (
             <LoadMoreStatus
@@ -181,7 +193,7 @@ export default function ReportsClientPage({
             />
           )}
         </div>
-      </Section>
+      </section>
     </ErrorBoundary>
   );
 }
