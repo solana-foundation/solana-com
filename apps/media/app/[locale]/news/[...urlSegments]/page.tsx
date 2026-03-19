@@ -10,6 +10,7 @@ import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import { newsPostMetadata } from "@/lib/metadata";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import type { Metadata } from "next";
@@ -116,6 +117,9 @@ export default async function PostPage({
                       <MDXRemote
                         source={mdxSource}
                         components={mdxComponents}
+                        options={{
+                          mdxOptions: { remarkPlugins: [remarkGfm] },
+                        }}
                       />
                     </div>
                   </div>
@@ -142,14 +146,20 @@ export default async function PostPage({
           return (
             <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
               <div className="prose dark:prose-dark w-full max-w-none">
-                <MDXRemote source={mdxSource} components={mdxComponents} />
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                  }}
+                />
               </div>
             </div>
           );
         })()}
       </Section>
       {switchback && (
-        <Section className="max-w-6xl mx-auto">
+        <Section>
           <Switchback
             title={String(switchback.title)}
             image={{
@@ -161,12 +171,34 @@ export default async function PostPage({
               <MDXRemote
                 source={preprocessMDX(await switchback.body())}
                 components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
               />
             }
             buttons={switchback.buttons?.map((button) => ({
               label: button?.label || "",
               url: button?.url || "",
             }))}
+            isReport={switchback.isReport || undefined}
+            hubspotForm={
+              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
+                ? {
+                    buttonLabel:
+                      switchback.hubspotForm.buttonLabel ||
+                      "Get the full report",
+                    portalId: String(switchback.hubspotForm.portalId),
+                    formId: String(switchback.hubspotForm.formId),
+                  }
+                : undefined
+            }
+            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
+            headline={switchback.headline || undefined}
+            description={
+              switchback.description
+                ? String(switchback.description)
+                : undefined
+            }
           />
         </Section>
       )}

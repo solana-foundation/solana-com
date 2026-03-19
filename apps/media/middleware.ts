@@ -22,8 +22,12 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // Skip i18n for Keystatic admin and API routes
-  if (pathname.startsWith("/keystatic") || pathname.startsWith("/api")) {
+  // Skip i18n for Keystatic admin, API routes, and asset-prefixed Next internals.
+  if (
+    pathname.startsWith("/keystatic") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/media-assets")
+  ) {
     return NextResponse.next();
   }
 
@@ -34,8 +38,8 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
-  // Strip locale prefix to get the normalized path
   const pathSegments = pathname.split("/").filter(Boolean);
+  // Strip locale prefix to get the normalized path
   const hasLocalePrefix = locales.includes(pathSegments[0]);
   const normalizedSegments = hasLocalePrefix
     ? pathSegments.slice(1)
@@ -70,7 +74,7 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?!md$).*|uploads).*)",
+    "/((?!api|_next/static|_next/image|media-assets|favicon.ico|.*\\.(?!md$).*|uploads).*)",
     "/api/markdown/:path*",
   ],
 };

@@ -338,6 +338,31 @@ export default config({
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
+        isReport: fields.checkbox({
+          label: "Use As Report",
+          description:
+            "Marks this switchback as a report so it can appear under /reports and the reports API",
+        }),
+        status: fields.select({
+          label: "Report Status",
+          options: [
+            { label: "Draft", value: "draft" },
+            { label: "Published", value: "published" },
+          ],
+          defaultValue: "draft",
+          description: "Only applies when 'Use As Report' is enabled",
+        }),
+        date: fields.text({
+          label: "Report Date",
+          description:
+            "Only applies when 'Use As Report' is enabled. Use YYYY-MM-DD format",
+        }),
+        description: fields.text({
+          label: "Report Description",
+          description:
+            "Only applies when 'Use As Report' is enabled. Used for SEO and report previews",
+          multiline: true,
+        }),
         image: fields.object(
           {
             src: fields.image({
@@ -351,6 +376,55 @@ export default config({
         ),
         eyebrow: fields.text({ label: "Eyebrow" }),
         headline: fields.text({ label: "Headline" }),
+        pdfUrl: fields.text({
+          label: "PDF URL",
+          description:
+            "Only applies when 'Use As Report' is enabled. Direct URL to the downloadable report PDF",
+        }),
+        hubspotForm: fields.object(
+          {
+            buttonLabel: fields.text({
+              label: "Button Label",
+              description:
+                "Only applies when 'Use As Report' is enabled. Label for the HubSpot report CTA",
+            }),
+            portalId: fields.text({
+              label: "Portal ID",
+              description:
+                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the numeric `portalId` value from the embed code (eg: 9409604)",
+            }),
+            formId: fields.text({
+              label: "Form ID",
+              description:
+                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the UUID `formId` value from the embed code (eg: 7aef2b29-c63f-4427-bc18-a8c15fbff49b)",
+            }),
+          },
+          { label: "HubSpot Form CTA" }
+        ),
+        categories: fields.array(
+          fields.object({
+            category: fields.relationship({
+              label: "Category",
+              collection: "categories",
+            }),
+          }),
+          {
+            label: "Report Categories",
+            itemLabel: (props) => props.fields.category.value || "Category",
+          }
+        ),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Report Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          }
+        ),
         body: fields.mdx({
           label: "Body",
           options: {
