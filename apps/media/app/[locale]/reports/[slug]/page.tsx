@@ -61,6 +61,16 @@ export default async function ReportPage({
           <div className="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-7xl flex-col gap-10 px-4 py-12 md:px-6 md:py-16 lg:flex-row lg:items-center lg:gap-16 lg:px-8">
             <div className="flex flex-1 flex-col gap-8">
               <div className="flex flex-col gap-4">
+                <div className="mb-2">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="w-fit px-0 text-white/70 hover:bg-transparent hover:text-white"
+                  >
+                    <Link href="/reports">Back to Reports</Link>
+                  </Button>
+                </div>
                 {report.eyebrow && (
                   <span className="text-xs uppercase tracking-[0.35em] text-sky-300/80">
                     {String(report.eyebrow)}
@@ -81,6 +91,16 @@ export default async function ReportPage({
                 {categories.map((category) => (
                   <span key={category}>{category}</span>
                 ))}
+              </div>
+
+              <div className="prose prose-invert max-w-2xl text-white/86 prose-headings:text-white prose-p:text-white/78 prose-strong:text-white prose-a:text-sky-300">
+                <MDXRemote
+                  source={preprocessMDX(await report.body())}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                  }}
+                />
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -136,24 +156,6 @@ export default async function ReportPage({
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="mx-auto w-full max-w-4xl px-4 py-12 md:px-6 md:py-16 lg:px-8">
-          <div className="mb-8">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/reports">Back to Reports</Link>
-            </Button>
-          </div>
-
-          <div className="prose dark:prose-dark w-full max-w-none">
-            <MDXRemote
-              source={preprocessMDX(await report.body())}
-              components={mdxComponents}
-              options={{
-                mdxOptions: { remarkPlugins: [remarkGfm] },
-              }}
-            />
           </div>
         </div>
       </Section>
