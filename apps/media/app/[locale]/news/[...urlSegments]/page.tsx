@@ -111,8 +111,8 @@ export default async function PostPage({
           if (cta) {
             return (
               <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex gap-8 lg:gap-12 items-start">
-                  <div className="flex-1 min-w-0">
+                <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-12">
+                  <div className="min-w-0 lg:flex-1">
                     <div className="prose dark:prose-dark w-full max-w-none">
                       <MDXRemote
                         source={mdxSource}
@@ -124,20 +124,20 @@ export default async function PostPage({
                     </div>
                   </div>
 
-                  <div className="hidden lg:block lg:w-50 lg:flex-shrink-0 relative">
-                    <div className="sticky top-24">
-                      <CallToAction
-                        eyebrow={cta.eyebrow || undefined}
-                        headline={cta.headline || undefined}
-                        description={cta.description || undefined}
-                        button={{
-                          label: cta.button?.label || "",
-                          url: cta.button?.url || "",
-                        }}
-                        className={cta.className || undefined}
-                      />
-                    </div>
-                  </div>
+                  <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
+                    <CallToAction
+                      eyebrow={cta.eyebrow || undefined}
+                      headline={cta.headline || undefined}
+                      description={cta.description || undefined}
+                      button={{
+                        label: cta.button?.label || "",
+                        url: cta.button?.url || "",
+                      }}
+                      className={["sticky top-24", cta.className]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                  </aside>
                 </div>
               </div>
             );
