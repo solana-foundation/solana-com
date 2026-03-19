@@ -30,7 +30,7 @@ export interface Sponsor {
   logo: string;
   availableLogos: string[];
   gridProfileSlug?: string | null;
-  gridProfile?: GridProfile | null;
+  profile?: GridProfile | null;
 }
 
 export interface SponsorTier {

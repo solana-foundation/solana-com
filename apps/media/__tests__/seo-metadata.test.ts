@@ -107,6 +107,7 @@ function expectNoInternalUrls(og: any, alternates: any) {
 // ---------------------------------------------------------------------------
 
 const MOCK_POST = {
+  status: "published",
   title: "State of Solana February 2026",
   description: "A deep dive into the Solana ecosystem in February 2026.",
   heroImage: "/uploads/state-of-solana-feb-2026.jpg",

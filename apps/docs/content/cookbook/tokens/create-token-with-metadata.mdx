@@ -1,0 +1,101 @@
+---
+title: How to Create a Token with Metadata
+description:
+  "Learn how to create an SPL Token with on-chain metadata using the Metaplex
+  Token Metadata Program."
+---
+
+To add metadata (name, symbol, image) to a standard SPL Token, you need to use
+the
+[Metaplex Token Metadata Program](https://developers.metaplex.com/token-metadata).
+This creates a metadata account that is linked to your token mint via a Program
+Derived Address (PDA).
+
+<Callout type="info">
+  This guide covers metadata for standard SPL Tokens (Token Program) and is also
+  applicable for Token-2022. If you want to use the Metadata Extension for
+  Token-2022, see the [Metadata Extension
+  guide](/docs/tokens/extensions/metadata).
+</Callout>
+
+<CodeTabs storage="cookbook">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { generateKeyPairSigner } from "@solana/signers";
+import {
+  getCreateV1InstructionAsync,
+  fetchMetadataFromSeeds,
+  TokenStandard
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection to local validator
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Airdrop SOL to payer
+const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+await airdrop({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// !mark(1:12)
+// Create token with metadata
+const createInstruction = await getCreateV1InstructionAsync({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token-metadata.json",
+  sellerFeeBasisPoints: 0, // 0% royalty (use 500 for 5%)
+  tokenStandard: TokenStandard.Fungible
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// !mark(1:7)
+// Verify metadata was created
+const metadata = await fetchMetadataFromSeeds(rpc, { mint: mint.address });
+
+console.log("Mint Address:", mint.address);
+console.log("Token Name:", metadata.data.name);
+console.log("Token Symbol:", metadata.data.symbol);
+console.log("Metadata URI:", metadata.data.uri);
+```
+
+</CodeTabs>

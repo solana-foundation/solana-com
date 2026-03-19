@@ -88,7 +88,7 @@ colors: {
 | ------------------------------------------------ | --------------------------- | -------------------------- |
 | Decorative vectors (skyline, waves, dots, pills) | SVG                         | `/public/images/`          |
 | Speaker headshots                                | PNG (400x400 min)           | `/public/images/speakers/` |
-| Sponsor logos                                    | SVG preferred, PNG fallback | `/public/images/sponsors/` |
+| Sponsor logos                                    | SVG preferred, PNG fallback | `packages/ecosystem-data/assets/companies/` |
 | Accelerate logo                                  | SVG                         | `/public/images/`          |
 
 **Process**:

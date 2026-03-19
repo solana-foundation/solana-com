@@ -193,9 +193,21 @@ async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
   }
 
   const profiles = payload.data?.profileInfos ?? [];
+  const requestedByLower = new Map(
+    slugs.map((slug) => [slug.toLowerCase(), slug]),
+  );
+
   return profiles.reduce<Record<string, GridProfile>>((acc, profile) => {
-    const slug = profile.root?.slug;
-    if (slug) acc[slug] = profile;
+    const returnedSlug = profile.root?.slug;
+    if (!returnedSlug) return acc;
+
+    acc[returnedSlug] = profile;
+
+    const requestedSlug = requestedByLower.get(returnedSlug.toLowerCase());
+    if (requestedSlug) {
+      acc[requestedSlug] = profile;
+    }
+
     return acc;
   }, {});
 }
@@ -241,7 +253,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
   const t = useTranslations("accelerate.sponsors");
 
   const activeSponsorData = activeSponsor?.sponsor;
-  const activeManualProfile = activeSponsorData?.gridProfile ?? null;
+  const activeManualProfile = activeSponsorData?.profile ?? null;
   const activeSlug = activeSponsorData?.gridProfileSlug ?? null;
   const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
   const resolvedProfile = activeProfile ?? activeManualProfile ?? undefined;
@@ -281,7 +293,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
     if (!isModalOpen || !activeSponsor) return;
 
     const slug = activeSponsor.sponsor.gridProfileSlug;
-    const manualProfile = activeSponsor.sponsor.gridProfile;
+    const manualProfile = activeSponsor.sponsor.profile;
     if (!slug || manualProfile || profilesBySlug[slug] || unmatchedSlugs[slug])
       return;
 
@@ -489,9 +501,9 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
                             <p className="text-2xl font-semibold text-white">
                               {activeDisplayName}
                             </p>
-                            {activeProfile?.tagLine && (
+                            {resolvedProfile?.tagLine && (
                               <p className="text-sm text-white/70">
-                                {activeProfile.tagLine}
+                                {resolvedProfile.tagLine}
                               </p>
                             )}
                           </div>

@@ -4,7 +4,12 @@ hideTableOfContents: true
 h1: getTokenAccountsByDelegate RPC Method
 ---
 
-Returns all SPL Token accounts by approved Delegate.
+Returns SPL Token accounts whose approved delegate matches the supplied
+address.
+
+<Callout type="info" title="Source">
+  [`get_token_accounts_by_delegate`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L2132)
+</Callout>
 
 <APIMethod>
 
@@ -15,13 +20,13 @@ Returns all SPL Token accounts by approved Delegate.
   "method": "getTokenAccountsByDelegate",
   "params": [
     // !hover pubkey
-    "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
-    // !hover(1:3) 1
+    "9mMBg1qaUaQdht6Q7r5T5VirRzJbNAyquKTq96FyR4UC",
+    // !hover(1:3) token account filter
     {
-      // !hover programId
-      "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      // !hover mint
+      "mint": "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"
     },
-    // !hover(1:3) 2
+    // !hover(1:4) config
     {
       // !hover commitment
       "commitment": "finalized",
@@ -45,7 +50,17 @@ let delegate = address("4kg8oh3jdNtn7j2wcS7TrUua31AgbLzDVkBZgTAe44aF");
 let tokenProgram = address("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 let tokenAccByDelegate = await rpc
-  .getTokenAccountsByDelegate(delegate, { programId: tokenProgram })
+  .getTokenAccountsByDelegate(
+    delegate,
+    { programId: tokenProgram },
+    // !hover(1:4) config
+    {
+      // !hover commitment
+      commitment: "finalized",
+      // !hover encoding
+      encoding: "jsonParsed",
+    },
+  )
   .send();
 
 console.log(tokenAccByDelegate);
@@ -93,7 +108,7 @@ async fn main() -> Result<()> {
 
 Pubkey of account delegate to query, as base-58 encoded string
 
-#### !! 1
+#### !! token account filter
 
 !type object
 !required
@@ -107,13 +122,17 @@ A JSON object with one of the following fields:
 Pubkey of the specific token Mint to limit accounts to, as base-58 encoded
 string; or
 
+```json title="Example"
+{ "mint": "So11111111111111111111111111111111111111112" }
+```
+
 ##### !! programId
 
 !type string
 
 Pubkey of the Token program that owns the accounts, as base-58 encoded string
 
-#### !! 2
+#### !! config
 
 !type object
 
@@ -122,9 +141,16 @@ Configuration object containing the following fields:
 ##### !! commitment
 
 !type string
+!values processed confirmed finalized
+!default finalized
 
-The commitment describes how finalized a block is at that point in time. See
-[Configuring State Commitment](/docs/rpc#configuring-state-commitment).
+Solana RPC uses the following commitment levels:
+
+| Value | Description |
+|---|---|
+| `processed` | Return data from the highest slot this node has processed on the fork it currently considers best. This is the newest view, but it can still change if the cluster switches forks. |
+| `confirmed` | Return data from the highest slot that at least two-thirds of active stake has directly voted to confirm. This is more stable than `processed`, but it is still a weaker guarantee than `finalized`. |
+| `finalized` | Return data from the highest slot that the cluster recognizes as finalized. In Agave, this means the slot has reached maximum vote lockout in validators' vote towers and is recognized by at least two-thirds of active stake. This is the strongest commitment level. |
 
 ##### !! minContextSlot
 
@@ -132,18 +158,33 @@ The commitment describes how finalized a block is at that point in time. See
 
 The minimum slot that the request can be evaluated at
 
+```json title="Example"
+{ "minContextSlot": 341197000 }
+```
+
 ##### !! dataSlice
 
 !type object
 
 Request a slice of the account's data.
 
-- `length: <usize>` - number of bytes to return
-- `offset: <usize>` - byte offset from which to start reading
+| Field | Type | Description |
+| --- | --- | --- |
+| `offset` | `usize` | Byte offset from which to start reading account data. |
+| `length` | `usize` | Number of bytes to return. |
+
+```json title="Example"
+{ "offset": 0, "length": 32 }
+```
 
 <Callout type="info">
-  Data slicing is only available for `base58`, `base64`, or `base64+zstd`
-  encodings.
+  Data slicing is only available for `base58`, `base64`, `base64+zstd`, and
+  `binary` encodings.
+</Callout>
+
+<Callout type="info">
+  Use `encoding: "jsonParsed"` if you want the parsed token account structure
+  shown in the response example below.
 </Callout>
 
 ##### !! encoding
@@ -152,30 +193,41 @@ Request a slice of the account's data.
 !values base58 base64 base64+zstd binary jsonParsed
 !default binary
 
-Encoding format for Account data
+Encoding format for account data.
 
-- `base58` is slow and limited to less than 129 bytes of Account data.
-- `base64` will return base64 encoded data for Account data of any size.
-- `base64+zstd` compresses the Account data using
-  [Zstandard](https://facebook.github.io/zstd/) and base64-encodes the result.
-- `binary` (⚠️ deprecated) is similar to `base58`, except data will be a base58-encoded string and not an array that includes the encoding.
-- `jsonParsed` encoding attempts to use program-specific state parsers to return
-  more human-readable and explicit account state data.
-- If `jsonParsed` is requested but a parser cannot be found, the field falls
-  back to `base64` encoding, detectable when the `data` field is type `string`.
+| Encoding | Data format | Notes |
+|---|---|---|
+| `base64` | `[data, "base64"]` | Recommended |
+| `base58` | `[data, "base58"]` | Slow. The account's data field must be 128 bytes or fewer |
+| `base64+zstd` | `[data, "base64+zstd"]` | [Zstandard](https://facebook.github.io/zstd/) compressed |
+| `jsonParsed` | `{program, parsed, space}` | Falls back to `[data, "base64"]` if no parser found |
+| `binary` | `string` | Deprecated. Legacy encoding retained for backwards compatibility. Same base58 encoding as `base58` with the same 128-byte data field limit, but returns data as a plain string instead of an array. Use `base64` instead |
+
+If you use `jsonParsed`, this method returns the token-account wrapper
+`{program, parsed, space}`. The `program` field identifies the token parser
+that produced `parsed`.
+
+| `program` value | Parsed account type |
+| --- | --- |
+| `spl-token` | SPL Token accounts |
+| `spl-token-2022` | SPL Token 2022 accounts |
+
+The nested `parsed` payload on this page is the SPL Token account form Agave
+returns for these accounts.
 
 ### !!result
 
 ```jsonc !response
 {
   "jsonrpc": "2.0",
+  // !hover(1:41) result
   "result": {
-    "context": { "slot": 1114 },
+    // !hover context
+    "context": { "apiVersion": "3.1.8", "slot": 1114 },
+    // !hover(1:38) value
     "value": [
       {
-        // !hover pubkey
         "pubkey": "28YTZEwqtMHWrhWcvv34se7pjS7wctgqzCPB3gReCFKp",
-        // !hover(1:33) account
         "account": {
           "data": {
             "program": "spl-token",
@@ -216,38 +268,78 @@ Encoding format for Account data
 }
 ```
 
-!type array
+!type object
 
-An array of JSON objects containing:
+RpcResponse object containing:
 
-##### !! pubkey
-
-!type string
-
-The account Pubkey as base-58 encoded string
-
-##### !! account
+#### !! context
 
 !type object
 
-A JSON object containing:
+Slot and API version the node used to answer this request.
 
-- `lamports: <u64>` - number of lamports assigned to this account, as a u64
-- `owner: <string>` - base-58 encoded Pubkey of the program this account has
-  been assigned to
-- `data: <string|[string,encoding]|object>` - Token state data associated with the account. Format depends on encoding parameter:
-  - If the encoding parameter is left as the deprecated default of `binary`, this will be a string containing encoded binary data.
-  - If `base58`, `base64`, or `base64+zstd` is specified, this will be an array, where the first element is the encoded data string and the second element is the encoding format.
-  - If `jsonParsed` is specified, this will be JSON format `{<program>: <state>}`.
-- `executable: <bool>` - boolean indicating if the account contains a program
-  (and is strictly read-only)
-- `rentEpoch: <u64>` - the epoch at which this account will next owe rent, as
-  u64
-- `space: <u64>` - the data size of the account
+| Field | Type | Description |
+| --- | --- | --- |
+| `slot` | `u64` | Slot at which the node evaluated this request. |
+| `apiVersion` | `string` | RPC API version reported by the node. This field may be omitted by older nodes. |
 
-When the data is requested with the `jsonParsed` encoding a format similar to
-that of the [Token Balances Structure](/docs/rpc/json-structures#token-balances)
-can be expected inside the structure, both for the `tokenAmount` and the
-`delegatedAmount` - with the latter being an optional object.
+#### !! value
+
+!type array
+
+Array of keyed-account objects with the following fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `pubkey` | `string` | Account pubkey, as a base-58 encoded string. |
+| `account` | `object` | Account data object. |
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `string \| [string, encoding] \| object` | Token account data. Binary forms depend on the `encoding` parameter. When `encoding` is `jsonParsed`, this field is `{program, parsed, space}`; if no parser is available, Agave falls back to `[data, "base64"]`. |
+| `executable` | `bool` | Whether the account contains a program and is therefore read-only. |
+| `lamports` | `u64` | Lamports assigned to the account. |
+| `owner` | `string` | Program owner pubkey, as a base-58 encoded string. |
+| `rentEpoch` | `u64` | Next epoch at which the account owes rent. |
+| `space` | `u64 \| null` | Account data size in bytes. Agave currently populates this field for encoded account responses. |
+
+When `account.data` is returned as an object, it contains:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `program` | `string` | Name of the parser that produced the decoded token-account data. |
+| `parsed` | `object` | Parsed SPL Token account payload. For this method, Agave returns the token-account form documented below. |
+| `space` | `u64` | Account data size in bytes. |
+
+**`parsed` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `type` | `string` | Always `account` for this method. |
+| `info` | `object` | Parsed SPL Token account fields. |
+
+**`parsed.info` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `mint` | `string` | Token mint pubkey, as a base-58 encoded string. |
+| `owner` | `string` | Token-account owner pubkey, as a base-58 encoded string. |
+| `tokenAmount` | `object` | Token amount object with raw and decimal-scaled representations. |
+| `delegate` | `string \| null` | Delegate pubkey, when a delegate is set. |
+| `state` | `string` | Token-account state. The value is `uninitialized`, `initialized`, or `frozen`. |
+| `isNative` | `bool` | Whether this account wraps the native SOL mint. |
+| `rentExemptReserve` | `object \| null` | Rent-exempt reserve amount for wrapped SOL accounts, when present. Uses the same token-amount schema as `tokenAmount`. |
+| `delegatedAmount` | `object \| null` | Amount delegated to `delegate`, when present. Uses the same token-amount schema as `tokenAmount`. |
+| `closeAuthority` | `string \| null` | Close-authority pubkey, when present. |
+| `extensions` | `array` | Parsed SPL Token 2022 extension entries. Each element has an `extension` discriminator and an extension-specific `state` payload. |
+
+**`tokenAmount` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `uiAmount` | `number \| null` | Decimal-scaled amount as a floating-point number. Deprecated in favor of `uiAmountString`. |
+| `decimals` | `u8` | Number of decimal places configured on the mint. |
+| `amount` | `string` | Raw token amount, as a base-10 integer string. |
+| `uiAmountString` | `string` | Decimal-scaled amount as a string. |
 
 </APIMethod>
