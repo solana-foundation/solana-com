@@ -25,7 +25,7 @@ There are two layers:
 Atomic company data lives in a single company record and includes:
 
 - company identity
-- optional Grid enrichment
+- optional package profile enrichment
 - logo variants
 - reusable URLs and descriptions
 
@@ -88,13 +88,13 @@ The company record should remain useful outside any single event.
 
 ## Populating registry companies with enrichment data
 
-Company records can include an optional `profile` object with enriched ecosystem metadata such as:
+Company records can include an optional `profile` object with package-owned ecosystem metadata such as:
 
-- tagline
-- short and long descriptions
-- sector and type
-- website URL
-- social links such as X, LinkedIn, Discord, Telegram, and GitHub
+- `tagline`
+- `summary` and `description`
+- `sector`, optional `status`, and `type`
+- `links.website`
+- `socials.x`, `socials.linkedin`, `socials.discord`, `socials.telegram`, `socials.github`
 
 Use the enrichment workflow in:
 
@@ -118,7 +118,7 @@ pnpm --filter @workspace/ecosystem-data audit:data
 ```
 
 3. research each company using publicly available sources, starting with the official website
-4. populate only the `profile` field with neutral, factual copy and verified URLs
+4. populate only the `profile` field with neutral, factual copy and verified URLs using the flat package schema
 5. omit socials that cannot be confidently verified
 6. validate the package with:
 
@@ -132,6 +132,26 @@ Rules:
 - do not change `id`, `slug`, `name`, `logos`, `defaultLogoId`
 - match the tone of existing enriched records
 - leave `profile: null` when reliable information is not available
+
+Recommended profile shape:
+
+```ts
+profile: {
+  tagline: "Infrastructure that moves billions at scale.",
+  summary: "Web3 development platform providing blockchain infrastructure and developer tooling.",
+  description: "Longer durable description with Solana-specific context.",
+  sector: "Infrastructure",
+  type: "Platform",
+  links: {
+    website: "https://www.alchemy.com/",
+  },
+  socials: {
+    x: "https://x.com/Alchemy",
+    linkedin: "https://www.linkedin.com/company/alchemyinc/",
+    github: "https://github.com/alchemyplatform",
+  },
+}
+```
 
 ## What not to put here
 

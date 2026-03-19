@@ -6,40 +6,16 @@ export const doublezero = {
   "slug": "doublezero",
   "name": "DoubleZero",
   "profile": {
-    "name": "DoubleZero",
-    "tagLine": "The High-Performance Global Network",
-    "descriptionShort": "DoubleZero is a decentralized fiber network providing low-latency connectivity for distributed systems like blockchain networks.",
-    "descriptionLong": "DoubleZero Foundation operates a global fiber network designed to deliver high-performance networking infrastructure to blockchains and systems requiring millisecond-level responsiveness. The protocol enables validators to connect to dedicated network links while introducing revenue opportunities through real-time data distribution services.",
-    "profileSector": {
-      "name": "Infrastructure"
+    "tagline": "The High-Performance Global Network",
+    "summary": "DoubleZero is a decentralized fiber network providing low-latency connectivity for distributed systems like blockchain networks.",
+    "description": "DoubleZero Foundation operates a global fiber network designed to deliver high-performance networking infrastructure to blockchains and systems requiring millisecond-level responsiveness. The protocol enables validators to connect to dedicated network links while introducing revenue opportunities through real-time data distribution services.",
+    "sector": "Infrastructure",
+    "type": "Company",
+    "links": {
+      "website": "https://www.doublezero.xyz/"
     },
-    "profileType": {
-      "name": "Company"
-    },
-    "urls": [
-      {
-        "url": "https://www.doublezero.xyz/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/DoubleZeroXYZ",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/DoubleZeroXYZ"
     }
   },
   "defaultLogoId": "logo",

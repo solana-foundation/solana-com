@@ -6,92 +6,20 @@ export const allnodes = {
   "slug": "allnodes",
   "name": "Allnodes",
   "profile": {
-    "name": "Allnodes",
-    "tagLine": "Non-custodial platform for node hosting and staking across 120+ protocols",
-    "descriptionShort": "Allnodes is a non-custodial infrastructure platform that provides node hosting, validator services, and staking for Solana and 120+ other blockchain protocols.",
-    "descriptionLong": "Allnodes provides reliable non-custodial node hosting and staking services, allowing users to deploy validators, full nodes, and stake assets across 120+ blockchain protocols. On Solana, Allnodes hosts over 100 nodes including 61 validators with 6.47M SOL staked. The platform also offers bare-metal servers purpose-built for Solana validators, featuring AMD EPYC Turin processors and enterprise-grade hardware.",
-    "profileSector": {
-      "name": "Infrastructure"
+    "tagline": "Non-custodial platform for node hosting and staking across 120+ protocols",
+    "summary": "Allnodes is a non-custodial infrastructure platform that provides node hosting, validator services, and staking for Solana and 120+ other blockchain protocols.",
+    "description": "Allnodes provides reliable non-custodial node hosting and staking services, allowing users to deploy validators, full nodes, and stake assets across 120+ blockchain protocols. On Solana, Allnodes hosts over 100 nodes including 61 validators with 6.47M SOL staked. The platform also offers bare-metal servers purpose-built for Solana validators, featuring AMD EPYC Turin processors and enterprise-grade hardware.",
+    "sector": "Infrastructure",
+    "type": "Platform",
+    "links": {
+      "website": "https://www.allnodes.com"
     },
-    "profileType": {
-      "name": "Platform"
-    },
-    "urls": [
-      {
-        "url": "https://www.allnodes.com",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/Allnodes",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/allnodes",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.com/invite/allnodes",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Telegram"
-          },
-          "urls": [
-            {
-              "url": "https://t.me/allnodes",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/allnodes",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/Allnodes",
+      "linkedin": "https://www.linkedin.com/company/allnodes",
+      "discord": "https://discord.com/invite/allnodes",
+      "telegram": "https://t.me/allnodes",
+      "github": "https://github.com/allnodes"
     }
   },
   "defaultLogoId": "logo",
