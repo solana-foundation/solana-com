@@ -159,7 +159,7 @@ export default async function PostPage({
         })()}
       </Section>
       {switchback && (
-        <Section className="max-w-6xl mx-auto">
+        <Section>
           <Switchback
             title={String(switchback.title)}
             image={{
@@ -180,6 +180,26 @@ export default async function PostPage({
               label: button?.label || "",
               url: button?.url || "",
             }))}
+            isReport={switchback.isReport || undefined}
+            hubspotForm={
+              switchback.hubspotForm?.formUrl
+                ? {
+                    buttonLabel:
+                      switchback.hubspotForm.buttonLabel ||
+                      "Get the full report",
+                    portalId: switchback.hubspotForm.portalId || undefined,
+                    formId: switchback.hubspotForm.formId || undefined,
+                    formUrl: String(switchback.hubspotForm.formUrl),
+                  }
+                : undefined
+            }
+            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
+            headline={switchback.headline || undefined}
+            description={
+              switchback.description
+                ? String(switchback.description)
+                : undefined
+            }
           />
         </Section>
       )}
