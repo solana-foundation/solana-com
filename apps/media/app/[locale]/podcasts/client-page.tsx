@@ -93,9 +93,9 @@ export default function PodcastsClientPage({
                     {latestPodcast.title}
                   </h1>
 
-                  {typeof latestPodcast.description === "string" && (
+                  {latestPodcast.descriptionPlainText && (
                     <p className="text-lg text-white/80 line-clamp-3">
-                      {latestPodcast.description}
+                      {latestPodcast.descriptionPlainText}
                     </p>
                   )}
 
