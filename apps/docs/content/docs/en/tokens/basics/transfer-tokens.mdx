@@ -22,218 +22,245 @@ instruction.
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+The `Kit` examples below show the recommended approach using `@solana/kit`.
+`Legacy` examples using `@solana/web3.js` are included for reference.
 
-```ts !! title="Kit"
+#### Kit
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Plugin"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
-  getMintToInstruction,
-  getTransferInstruction,
-  fetchToken
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createLocalClient()
+  // !mark[/\.use\(tokenProgram\(\)\)/]
+  .use(tokenProgram());
 
-// Generate keypairs for fee payer (sender) and recipient
-const feePayer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
 
-console.log("Fee Payer/Sender Address:", feePayer.address.toString());
-console.log("Recipient Address:", recipient.address.toString());
+// !collapse(1:16) collapsed
+// Setup: create a mint and fund the payer's ATA before transferring tokens.
+await client.sendTransaction([
+  client.token.instructions.createMint({
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await client.token.instructions.mintToATA({
+    mint: mint.address,
+    owner: client.payer.address,
+    mintAuthority: client.payer,
+    amount: 100n,
+    decimals: 2
+  })
+]);
 
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+const result = await client.token.instructions
+  // !mark(1:7)
+  .transferToATA({
+    mint: mint.address, // Mint for the token being transferred.
+    authority: client.payer, // Owner or delegate approving the transfer.
+    recipient: recipient.address, // Account that owns the destination token account.
+    amount: 25n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+  .sendTransaction();
 
-// Generate keypair to use as address of mint
-const mint = await generateKeyPairSigner();
-console.log("Mint Address:", mint.address.toString());
-
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
-
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token  program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
+const [sourceTokenAccount] = await findAssociatedTokenPda({
   mint: mint.address,
-  decimals: 2,
-  mintAuthority: feePayer.address
-});
-
-// Derive the ATAs for sender and recipient
-const [senderAssociatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
+  owner: client.payer.address,
   tokenProgram: TOKEN_PROGRAM_ADDRESS
 });
 
-const [recipientAssociatedTokenAddress] = await findAssociatedTokenPda({
+const [destinationTokenAccount] = await findAssociatedTokenPda({
   mint: mint.address,
   owner: recipient.address,
   tokenProgram: TOKEN_PROGRAM_ADDRESS
 });
 
-console.log(
-  "Sender Associated Token Account Address:",
-  senderAssociatedTokenAddress.toString()
-);
-console.log(
-  "Recipient Associated Token Account Address:",
-  recipientAssociatedTokenAddress.toString()
-);
+const [sourceTokenAccountData, destinationTokenAccountData] =
+  await client.token.accounts.token.fetchAll([
+    sourceTokenAccount,
+    destinationTokenAccount
+  ]);
 
-// Create instruction for sender's ATA
-const createSenderAtaInstruction =
-  await getCreateAssociatedTokenInstructionAsync({
-    payer: feePayer,
+console.log("Mint Address:", mint.address);
+console.log("Source Token Account Address:", sourceTokenAccount);
+console.log("Source Token Account:", sourceTokenAccountData.data);
+console.log("Destination Token Account Address:", destinationTokenAccount);
+console.log("Destination Token Account:", destinationTokenAccountData.data);
+console.log("Transaction Signature:", result.context.signature);
+```
+
+```ts !! title="Instruction Plan"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchAllToken,
+  findAssociatedTokenPda,
+  getCreateMintInstructionPlan,
+  getMintToATAInstructionPlanAsync,
+  getTransferToATAInstructionPlanAsync,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// !collapse(1:18) collapsed
+// Setup: create a mint and fund the payer's ATA before transferring tokens.
+await client.sendTransaction([
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getMintToATAInstructionPlanAsync({
+    payer: client.payer,
     mint: mint.address,
-    owner: feePayer.address
-  });
+    owner: client.payer.address,
+    mintAuthority: client.payer,
+    amount: 100n,
+    decimals: 2
+  })
+]);
 
-// Create instruction for recipient's ATA
-const createRecipientAtaInstruction =
+const result = await client.sendTransaction(
+  // !mark(1:8)
+  await getTransferToATAInstructionPlanAsync({
+    payer: client.payer, // Account funding account creation.
+    mint: mint.address, // Mint for the token being transferred.
+    authority: client.payer, // Owner or delegate approving the transfer.
+    recipient: recipient.address, // Account that owns the destination token account.
+    amount: 25n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+);
+
+const [sourceTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [destinationTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [sourceTokenAccountData, destinationTokenAccountData] =
+  await fetchAllToken(client.rpc, [
+    sourceTokenAccount,
+    destinationTokenAccount
+  ]);
+
+console.log("Mint Address:", mint.address);
+console.log("Source Token Account Address:", sourceTokenAccount);
+console.log("Source Token Account:", sourceTokenAccountData.data);
+console.log("Destination Token Account Address:", destinationTokenAccount);
+console.log("Destination Token Account:", destinationTokenAccountData.data);
+console.log("Transaction Signature:", result.context.signature);
+```
+
+```ts !! title="Instructions"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchAllToken,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
+  getCreateMintInstructionPlan,
+  getMintToATAInstructionPlanAsync,
+  getTransferCheckedInstruction,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const [sourceTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [destinationTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// !collapse(1:23) collapsed
+// Setup: create a mint, fund the payer's ATA, and create the recipient's ATA.
+await client.sendTransaction([
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getMintToATAInstructionPlanAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address,
+    mintAuthority: client.payer,
+    amount: 100n,
+    decimals: 2
+  }),
   await getCreateAssociatedTokenInstructionAsync({
-    payer: feePayer,
+    payer: client.payer,
     mint: mint.address,
     owner: recipient.address
-  });
+  })
+]);
 
-// Create instruction to mint tokens to sender
-const mintToInstruction = getMintToInstruction({
-  mint: mint.address,
-  token: senderAssociatedTokenAddress,
-  mintAuthority: feePayer.address,
-  amount: 100n
-});
+const result = await client.sendTransaction([
+  // !mark(1:8)
+  getTransferCheckedInstruction({
+    source: sourceTokenAccount, // Token account sending the tokens.
+    mint: mint.address, // Mint for the token being transferred.
+    destination: destinationTokenAccount, // Token account receiving the tokens.
+    authority: client.payer, // Owner or delegate approving the transfer.
+    amount: 25n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+]);
 
-// Combine all instructions in order
-const instructions = [
-  createAccountInstruction, // Create mint account
-  initializeMintInstruction, // Initialize mint
-  createSenderAtaInstruction, // Create sender's ATA
-  createRecipientAtaInstruction, // Create recipient's ATA
-  mintToInstruction // Mint tokens to sender
-];
+const [sourceTokenAccountData, destinationTokenAccountData] =
+  await fetchAllToken(client.rpc, [
+    sourceTokenAccount,
+    destinationTokenAccount
+  ]);
 
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("Transaction Signature:", transactionSignature);
-console.log("Successfully minted 1.0 tokens");
-
-// Get a fresh blockhash for the transfer transaction
-const { value: transferBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create instruction to transfer tokens
-const transferInstruction = getTransferInstruction({
-  source: senderAssociatedTokenAddress,
-  destination: recipientAssociatedTokenAddress,
-  authority: feePayer.address,
-  amount: 50n // 0.50 tokens with 2 decimals
-});
-
-// Create transaction message for token transfer
-const transferTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(transferBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransferTx =
-  await signTransactionMessageWithSigners(transferTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransferTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transferTransactionSignature =
-  getSignatureFromTransaction(signedTransferTx);
-
-console.log("Transaction Signature:", transferTransactionSignature);
-console.log("Successfully transferred 0.5 tokens");
-
-const senderTokenAccount = await fetchToken(rpc, senderAssociatedTokenAddress, {
-  commitment: "confirmed"
-});
-const recipientTokenAccount = await fetchToken(
-  rpc,
-  recipientAssociatedTokenAddress,
-  {
-    commitment: "confirmed"
-  }
-);
-
-const senderBalance = senderTokenAccount.data.amount;
-const recipientBalance = recipientTokenAccount.data.amount;
-
-console.log("=== Final Balances ===");
-console.log("Sender balance:", Number(senderBalance) / 100, "tokens");
-console.log("Recipient balance:", Number(recipientBalance) / 100, "tokens");
+console.log("Mint Address:", mint.address);
+console.log("Source Token Account Address:", sourceTokenAccount);
+console.log("Source Token Account:", sourceTokenAccountData.data);
+console.log("Destination Token Account Address:", destinationTokenAccount);
+console.log("Destination Token Account:", destinationTokenAccountData.data);
+console.log("Transaction Signature:", result.context.signature);
 ```
+
+</CodeTabs>
+
+#### Legacy
+
+<CodeTabs storage="token-ts-legacy" flags="r">
 
 ```ts !! title="Legacy"
 import {

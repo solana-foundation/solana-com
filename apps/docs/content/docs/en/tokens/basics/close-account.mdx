@@ -22,161 +22,135 @@ can execute this instruction.
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+The `Kit` examples below show the recommended approach using `@solana/kit`.
+`Legacy` examples using `@solana/web3.js` are included for reference.
 
-```ts !! title="Kit"
+#### Kit
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Plugin"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
-  getCloseAccountInstruction
+  getCreateAssociatedTokenInstructionAsync,
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createLocalClient()
+  // !mark[/\.use\(tokenProgram\(\)\)/]
+  .use(tokenProgram());
 
-// Generate keypairs for fee payer and destination
-const feePayer = await generateKeyPairSigner();
-const destination = await generateKeyPairSigner();
-
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
-
-// Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
+const destination = client.payer.address;
 
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
-
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
+const [tokenAccount] = await findAssociatedTokenPda({
   mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address
-});
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
+  owner: client.payer.address,
   tokenProgram: TOKEN_PROGRAM_ADDRESS
 });
 
-// Create instruction to create the associated token account
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: feePayer,
-  mint: mint.address,
-  owner: feePayer.address
-});
+// !collapse(1:14) collapsed
+// Setup: create a mint and the payer's ATA before closing the token account.
+await client.sendTransaction([
+  client.token.instructions.createMint({
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  })
+]);
 
-const instructions = [
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-];
+const result = await client.token.instructions
+  // !mark(1:5)
+  .closeAccount({
+    account: tokenAccount, // Token account to close.
+    destination, // Account receiving the reclaimed SOL.
+    owner: client.payer // Owner approving the account closure.
+  })
+  .sendTransaction();
 
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
+const tokenAccountData = await client.token.accounts.token.fetchMaybe(
+  tokenAccount
 );
 
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("Mint Address:", mint.address.toString());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAddress.toString()
-);
-console.log("Destination Address:", destination.address.toString());
-console.log("Transaction Signature:", transactionSignature);
-
-// Get a fresh blockhash for the close transaction
-const { value: closeBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create instruction to close the token account
-const closeAccountInstruction = getCloseAccountInstruction({
-  account: associatedTokenAddress,
-  destination: destination.address,
-  owner: feePayer
-});
-
-// Create transaction message for closing
-const closeTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(closeBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([closeAccountInstruction], tx)
-);
-
-// Sign transaction message with all required signers
-const signedCloseTx = await signTransactionMessageWithSigners(closeTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedCloseTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature2 = getSignatureFromTransaction(signedCloseTx);
-
-console.log("\nSuccessfully closed the token account");
-console.log("Transaction Signature:", transactionSignature2);
+console.log("Mint Address:", mint.address);
+console.log("Token Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData);
+console.log("Destination Address:", destination);
+console.log("Transaction Signature:", result.context.signature);
 ```
+
+```ts !! title="Instructions"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchMaybeToken,
+  findAssociatedTokenPda,
+  getCloseAccountInstruction,
+  getCreateAssociatedTokenInstructionAsync,
+  getCreateMintInstructionPlan,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const destination = client.payer.address;
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// !collapse(1:15) collapsed
+// Setup: create a mint and the payer's ATA before closing the token account.
+await client.sendTransaction([
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  })
+]);
+
+const result = await client.sendTransaction([
+  // !mark(1:5)
+  getCloseAccountInstruction({
+    account: tokenAccount, // Token account to close.
+    destination, // Account receiving the reclaimed SOL.
+    owner: client.payer // Owner approving the account closure.
+  })
+]);
+
+const tokenAccountData = await fetchMaybeToken(client.rpc, tokenAccount);
+
+console.log("Mint Address:", mint.address);
+console.log("Token Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData);
+console.log("Destination Address:", destination);
+console.log("Transaction Signature:", result.context.signature);
+```
+
+</CodeTabs>
+
+#### Legacy
+
+<CodeTabs storage="token-ts-legacy" flags="r">
 
 ```ts !! title="Legacy"
 import {

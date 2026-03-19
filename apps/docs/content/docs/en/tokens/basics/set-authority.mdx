@@ -41,211 +41,116 @@ be restored.
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+The `Kit` examples below show the recommended approach using `@solana/kit`.
+`Legacy` examples using `@solana/web3.js` are included for reference.
 
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
-  findAssociatedTokenPda,
-  getCreateAssociatedTokenInstructionAsync,
-  getSetAuthorityInstruction,
-  AuthorityType
-} from "@solana-program/token";
+#### Kit
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+<CodeTabs storage="token-ts-kit" flags="r">
 
-// Generate keypairs for fee payer and new authority
-const feePayer = await generateKeyPairSigner();
+```ts !! title="Plugin"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import { AuthorityType, tokenProgram } from "@solana-program/token";
+
+const client = await createLocalClient()
+  // !mark[/\.use\(tokenProgram\(\)\)/]
+  .use(tokenProgram());
+
+const mint = await generateKeyPairSigner();
 const newAuthority = await generateKeyPairSigner();
 
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+// !collapse(1:9) collapsed
+// Setup: create a mint before changing its authorities.
+await client.token.instructions
+  .createMint({
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+  .sendTransaction();
 
-// Generate keypair to use as address of mint
-const mint = await generateKeyPairSigner();
+const result = await client.sendTransaction([
+  // !mark(1:12)
+  client.token.instructions.setAuthority({
+    owned: mint.address, // Mint whose authority changes.
+    owner: client.payer, // Current authority approving this change.
+    authorityType: AuthorityType.MintTokens, // Authority role to update on the mint.
+    newAuthority: newAuthority.address // New authority to assign to this role.
+  }),
+  client.token.instructions.setAuthority({
+    owned: mint.address, // Mint whose authority changes.
+    owner: client.payer, // Current authority approving this change.
+    authorityType: AuthorityType.FreezeAccount, // Authority role to update on the mint.
+    newAuthority: newAuthority.address // New authority to assign to this role.
+  })
+]);
 
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
+const mintAccount = await client.token.accounts.mint.fetch(mint.address);
 
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
-  mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address,
-  freezeAuthority: feePayer.address
-});
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS
-});
-
-// Create instruction to create the associated token account
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: feePayer,
-  mint: mint.address,
-  owner: feePayer.address
-});
-
-const instructions = [
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-];
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("\nMint Address:", mint.address.toString());
-console.log("New Authority Address:", newAuthority.address.toString());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAddress.toString()
-);
-console.log("\nTransaction Signature:", transactionSignature);
-
-// Get a fresh blockhash for the authority change transaction
-const { value: authorityBlockhash } = await rpc.getLatestBlockhash().send();
-
-// 1. Change Mint Authority (MintTokens)
-const setMintAuthorityIx = getSetAuthorityInstruction({
-  owned: mint.address,
-  owner: feePayer,
-  authorityType: AuthorityType.MintTokens,
-  newAuthority: newAuthority.address
-});
-
-// 2. Change Freeze Authority (FreezeAccount)
-const setFreezeAuthorityIx = getSetAuthorityInstruction({
-  owned: mint.address,
-  owner: feePayer,
-  authorityType: AuthorityType.FreezeAccount,
-  newAuthority: newAuthority.address
-});
-
-// Create transaction message for authority changes
-const authorityTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(authorityBlockhash, tx),
-  (tx) =>
-    appendTransactionMessageInstructions(
-      [setMintAuthorityIx, setFreezeAuthorityIx],
-      tx
-    )
-);
-
-// Sign transaction message with all required signers
-const signedAuthorityTx =
-  await signTransactionMessageWithSigners(authorityTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedAuthorityTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature2 = getSignatureFromTransaction(signedAuthorityTx);
-
-console.log("\nSuccessfully changed mint and freeze authorities");
-console.log("Transaction Signature:", transactionSignature2);
-
-// Get a fresh blockhash for the revoke transaction
-const { value: revokeBlockhash } = await rpc.getLatestBlockhash().send();
-
-// 3. Example of revoking authority (setting to null)
-const revokeMintAuthorityIx = getSetAuthorityInstruction({
-  owned: mint.address,
-  owner: newAuthority,
-  authorityType: AuthorityType.MintTokens,
-  newAuthority: null
-});
-
-// Create transaction message for revoking
-const revokeTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(revokeBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([revokeMintAuthorityIx], tx)
-);
-
-// Sign transaction message with all required signers (newAuthority needs to sign)
-const signedRevokeTx = await signTransactionMessageWithSigners(revokeTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedRevokeTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature3 = getSignatureFromTransaction(signedRevokeTx);
-
-console.log("\nSuccessfully revoked mint authority");
-console.log("Transaction Signature:", transactionSignature3);
+console.log("Mint Address:", mint.address);
+console.log("Mint Account:", mintAccount.data);
+console.log("New Authority Address:", newAuthority.address);
+console.log("Transaction Signature:", result.context.signature);
 ```
+
+```ts !! title="Instructions"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  AuthorityType,
+  fetchMint,
+  getCreateMintInstructionPlan,
+  getSetAuthorityInstruction
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const newAuthority = await generateKeyPairSigner();
+
+// !collapse(1:10) collapsed
+// Setup: create a mint before changing its authorities.
+await client.sendTransaction(
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+);
+
+const result = await client.sendTransaction([
+  // !mark(1:12)
+  getSetAuthorityInstruction({
+    owned: mint.address, // Mint whose authority changes.
+    owner: client.payer, // Current authority approving this change.
+    authorityType: AuthorityType.MintTokens, // Authority role to update on the mint.
+    newAuthority: newAuthority.address // New authority to assign to this role.
+  }),
+  getSetAuthorityInstruction({
+    owned: mint.address, // Mint whose authority changes.
+    owner: client.payer, // Current authority approving this change.
+    authorityType: AuthorityType.FreezeAccount, // Authority role to update on the mint.
+    newAuthority: newAuthority.address // New authority to assign to this role.
+  })
+]);
+
+const mintAccount = await fetchMint(client.rpc, mint.address);
+
+console.log("Mint Address:", mint.address);
+console.log("Mint Account:", mintAccount.data);
+console.log("New Authority Address:", newAuthority.address);
+console.log("Transaction Signature:", result.context.signature);
+```
+
+</CodeTabs>
+
+#### Legacy
+
+<CodeTabs storage="token-ts-legacy" flags="r">
 
 ```ts !! title="Legacy"
 import {
