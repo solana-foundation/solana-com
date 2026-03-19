@@ -7,6 +7,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
 import ErrorBoundary from "@/components/error-boundary";
+import { ReportFormModal } from "@/components/report/report-form-modal";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
@@ -104,6 +105,16 @@ export default async function ReportPage({
               </div>
 
               <div className="flex flex-wrap gap-3">
+                {report.hubspotForm?.formUrl && (
+                  <ReportFormModal
+                    buttonLabel={
+                      report.hubspotForm.buttonLabel || "Get the full report"
+                    }
+                    formUrl={String(report.hubspotForm.formUrl)}
+                    title={headline}
+                  />
+                )}
+
                 {report.pdfUrl && (
                   <Button
                     asChild

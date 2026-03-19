@@ -381,6 +381,21 @@ export default config({
           description:
             "Only applies when 'Use As Report' is enabled. Direct URL to the downloadable report PDF",
         }),
+        hubspotForm: fields.object(
+          {
+            buttonLabel: fields.text({
+              label: "Button Label",
+              description:
+                "Only applies when 'Use As Report' is enabled. Label for the HubSpot report CTA",
+            }),
+            formUrl: fields.text({
+              label: "Form URL",
+              description:
+                "Only applies when 'Use As Report' is enabled. HubSpot form URL opened in a modal",
+            }),
+          },
+          { label: "HubSpot Form CTA" }
+        ),
         categories: fields.array(
           fields.object({
             category: fields.relationship({
