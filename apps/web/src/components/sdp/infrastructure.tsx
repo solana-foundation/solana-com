@@ -1,11 +1,13 @@
 import React from "react";
 import Image from "next/image";
 import { RotatingArc } from "./rotating-arc";
+import { Badge } from "@/component-library/badge";
 
 const bgSrc = "/src/img/solutions/sdp/infrastructure-bg.png";
 
 export interface InfraChecklistItem {
   label: string;
+  badge?: string;
   Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
@@ -28,7 +30,7 @@ export const Infrastructure = ({
 }: InfrastructureProps): React.ReactElement => {
   return (
     <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
-      <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08] relative">
+      <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08] relative overflow-hidden">
         <img
           src={bgSrc}
           alt=""
@@ -55,8 +57,8 @@ export const Infrastructure = ({
 
               {/* Testimonial */}
               <div className="flex flex-col gap-10 xl:max-w-[707px]">
-                <p className="nd-heading-s text-white max-w-[674px]">
-                  {testimonialQuote}
+                <p className="nd-heading-s text-white max-w-[674px] italic">
+                  &ldquo;{testimonialQuote}&rdquo;
                 </p>
                 <div className="flex flex-col-reverse xl:flex-row xl:items-center gap-8">
                   {/* Worldpay logo */}
@@ -118,6 +120,9 @@ export const Infrastructure = ({
                     {/* Label */}
                     <span className="nd-body-l text-white px-5">
                       {item.label}
+                      {item.badge && (
+                        <Badge title={item.badge} className="ml-2" />
+                      )}
                     </span>
                   </div>
                 );
@@ -126,7 +131,7 @@ export const Infrastructure = ({
           </div>
 
           {/* Right column: visual */}
-          <div className="relative flex xl:w-1/3 overflow-hidden">
+          <div className="max-xl:relative max-xl:overflow-hidden flex xl:w-1/3">
             <img
               src={bgSrc}
               alt=""

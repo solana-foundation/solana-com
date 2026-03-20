@@ -58,7 +58,7 @@ export function CardGrid({
                 <img
                   src={col.bg}
                   alt=""
-                  className="absolute inset-0 object-cover pointer-events-none"
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 />
                 <Image
                   src={col.img}

@@ -3,7 +3,7 @@
 import React from "react";
 import Button from "@/component-library/button";
 import { VideoTrigger } from "@/component-library/video-modal";
-import UnicornScene from "unicornstudio-react";
+// import UnicornScene from "unicornstudio-react";
 
 const bgSrc = "/src/img/solutions/sdp/hero-bg.png";
 const bgMobileSrc = "/src/img/solutions/sdp/hero-bg-mobile.png";
@@ -66,7 +66,12 @@ export const Hero = ({
         className="hidden xl:block absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none overflow-hidden"
         style={{ width: "2225px", height: "1096px" }}
       >
-        <UnicornScene
+        <img
+          src={bgSrc}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* <UnicornScene
           projectId="hero"
           className="!absolute inset-0 z-0"
           jsonFilePath="/src/img/solutions/sdp/hero-bg.json"
@@ -87,7 +92,7 @@ export const Hero = ({
           }
           showPlaceholderOnError
           showPlaceholderWhileLoading
-        />
+        /> */}
         <div
           className="absolute inset-0"
           style={{

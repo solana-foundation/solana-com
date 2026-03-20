@@ -69,7 +69,7 @@ export const Ecosystem = ({
                     : ""
                 }`}
               >
-                <div className="h-5 xl:h-10">
+                <div className="h-14 xl:h-20">
                   <img
                     src={inst.logoSrc}
                     alt={inst.logoAlt}

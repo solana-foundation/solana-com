@@ -2,7 +2,7 @@
 
 import React from "react";
 import Button from "@/component-library/button";
-import UnicornScene from "unicornstudio-react";
+// import UnicornScene from "unicornstudio-react";
 
 const bgSrc = "/src/img/solutions/sdp/hero-bg.png";
 const bgMobileSrc = "/src/img/solutions/sdp/hero-bg-mobile.png";
@@ -52,7 +52,12 @@ export const Join = ({
         aria-hidden
         className="hidden xl:block absolute inset-0 pointer-events-none overflow-hidden"
       >
-        <UnicornScene
+        <img
+          src={bgSrc}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* <UnicornScene
           projectId="join"
           className="!absolute inset-0 z-0"
           jsonFilePath="/src/img/solutions/sdp/hero-bg.json"
@@ -73,7 +78,7 @@ export const Join = ({
           }
           showPlaceholderOnError
           showPlaceholderWhileLoading
-        />
+        /> */}
         <div
           className="absolute inset-0"
           style={{

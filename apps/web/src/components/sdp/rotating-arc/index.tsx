@@ -46,7 +46,7 @@ const defaultControls: Controls = {
   offsetX: -300,
   offsetY: 0,
   moveDuration: 800,
-  pauseDuration: 2000,
+  pauseDuration: 600,
   fontSize: 20,
   focusScale: 1.1,
   scaleFalloff: 0.12,
@@ -55,8 +55,6 @@ const defaultControls: Controls = {
   edgeFade: 0.3,
   maxBlur: 4,
 };
-
-const storageKey = "rotating-arc-arcv0-controls-v7";
 
 function describeArc(
   cx: number,
@@ -99,7 +97,7 @@ function polarToCartesian(
 
 export function RotatingArc({ className }: { className?: string }) {
   const itemCount = texts.length;
-  const [controls, setControls] = useState<Controls>(defaultControls);
+  const [controls] = useState<Controls>(defaultControls);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [stepProgress, setStepProgress] = useState(0);
   const [phase, setPhase] = useState<"paused" | "moving">("paused");
@@ -181,22 +179,6 @@ export function RotatingArc({ className }: { className?: string }) {
     }, lastDelay);
     return () => window.clearTimeout(timer);
   }, [inView]);
-
-  useEffect(() => {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return;
-    }
-
-    try {
-      const saved = JSON.parse(raw) as Partial<Controls>;
-      setControls((current) => ({ ...current, ...saved }));
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(controls));
-  }, [controls]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -337,7 +319,7 @@ export function RotatingArc({ className }: { className?: string }) {
     }
     resumeTimerRef.current = window.setTimeout(() => {
       setIsPlaying(true);
-    }, 2000);
+    }, 1000);
   }, [itemCount, playClick]);
 
   const applyScrubDelta = useCallback(
@@ -572,9 +554,8 @@ export function RotatingArc({ className }: { className?: string }) {
 
   return (
     <div
-      ref={containerRef}
       className={
-        "relative h-[520px] w-[480px] overflow-visible cursor-grab select-none active:cursor-grabbing " +
+        "h-[520px] w-[480px] overflow-visible cursor-grab select-none active:cursor-grabbing " +
         className
       }
       onWheel={handleWheel}
@@ -582,220 +563,226 @@ export function RotatingArc({ className }: { className?: string }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      ref={containerRef}
     >
-      <div className="absolute left-0 top-1/2 hidden h-[248px] w-[248px] -translate-y-1/2 mix-blend-overlay">
-        <Image
-          src="/images/ellipse-glow-2.svg"
-          alt=""
-          fill
-          className="object-contain"
-        />
-      </div>
-      <div className="absolute left-0 top-1/2 hidden h-[248px] w-[248px] -translate-y-1/2 mix-blend-overlay">
-        <Image
-          src="/images/ellipse-glow-2.svg"
-          alt=""
-          fill
-          className="object-contain"
-        />
-      </div>
+      <div className="absolute inset-0"></div>
+      <div className="relative xl:overflow-hidden h-full w-full cursor-grab select-none active:cursor-grabbing ">
+        <div className="absolute left-0 top-1/2 hidden h-[248px] w-[248px] -translate-y-1/2 mix-blend-overlay">
+          <Image
+            src="/images/ellipse-glow-2.svg"
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </div>
+        <div className="absolute left-0 top-1/2 hidden h-[248px] w-[248px] -translate-y-1/2 mix-blend-overlay">
+          <Image
+            src="/images/ellipse-glow-2.svg"
+            alt=""
+            fill
+            className="object-contain"
+          />
+        </div>
 
-      <div className="absolute inset-0 overflow-visible">
-        <div
-          className="absolute"
-          style={{
-            left: `calc(50% + ${controls.offsetX}px)`,
-            top: `calc(50% + ${controls.offsetY}px)`,
-            transform: `rotate(${controls.tiltAngle}deg)`,
-          }}
-        >
+        <div className="absolute inset-0 overflow-visible">
           <div
-            aria-hidden="true"
-            className="pointer-events-none absolute mix-blend-screen transition-opacity duration-700 ease-out"
+            className="absolute"
             style={{
-              left: -maxArcRadius,
-              top: -maxArcRadius,
-              width: maxArcRadius * 2,
-              height: maxArcRadius * 2,
-              overflow: "visible",
-              opacity: inView ? 1 : 0,
+              left: `calc(50% + ${controls.offsetX}px)`,
+              top: `calc(50% + ${controls.offsetY}px)`,
+              transform: `rotate(${controls.tiltAngle}deg)`,
             }}
           >
-            <svg
-              className="absolute inset-0"
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute mix-blend-screen transition-opacity duration-700 ease-out"
               style={{
+                left: -maxArcRadius,
+                top: -maxArcRadius,
+                width: maxArcRadius * 2,
+                height: maxArcRadius * 2,
                 overflow: "visible",
+                opacity: inView ? 1 : 0,
               }}
             >
-              <defs>
-                <linearGradient
-                  id="rotating-arc-stroke-gradient"
-                  x1={maxArcRadius}
-                  y1={0}
-                  x2={maxArcRadius}
-                  y2={maxArcRadius * 2 * 0.786}
-                  gradientUnits="userSpaceOnUse"
-                >
-                  <stop stopColor="#ECE4FD" stopOpacity="0.95" />
-                  <stop offset="1" stopColor="#ECE4FD" stopOpacity="0" />
-                </linearGradient>
-                <filter
-                  id="rotating-arc-soft-glow"
-                  x="-20%"
-                  y="-20%"
-                  width="140%"
-                  height="140%"
-                >
-                  <feGaussianBlur stdDeviation="2" />
-                </filter>
-              </defs>
-              <circle
-                cx={maxArcRadius}
-                cy={maxArcRadius}
-                r={controls.outerArcRadius}
-                fill="none"
-                stroke="url(#rotating-arc-stroke-gradient)"
-                strokeWidth="2.5"
-                strokeOpacity={0.2 * controls.outerArcOpacity}
-                filter="url(#rotating-arc-soft-glow)"
-              />
-              <circle
-                cx={maxArcRadius}
-                cy={maxArcRadius}
-                r={controls.outerArcRadius}
-                fill="none"
-                stroke="url(#rotating-arc-stroke-gradient)"
-                strokeWidth="1"
-                strokeOpacity={controls.outerArcOpacity}
-              />
-              {showInnerArc ? (
-                <>
-                  <path
-                    d={describeArc(
-                      maxArcRadius,
-                      maxArcRadius,
-                      controls.innerArcRadius,
-                      startAngle,
-                      endAngle,
-                    )}
-                    fill="none"
-                    stroke="url(#rotating-arc-stroke-gradient)"
-                    strokeWidth="2.75"
-                    strokeLinecap="round"
-                    strokeOpacity={0.22 * controls.innerArcOpacity}
-                    filter="url(#rotating-arc-soft-glow)"
-                  />
-                  <path
-                    d={describeArc(
-                      maxArcRadius,
-                      maxArcRadius,
-                      controls.innerArcRadius,
-                      startAngle,
-                      endAngle,
-                    )}
-                    fill="none"
-                    stroke="url(#rotating-arc-stroke-gradient)"
-                    strokeWidth="1.25"
-                    strokeLinecap="round"
-                    strokeOpacity={controls.innerArcOpacity}
-                  />
-                </>
-              ) : null}
-            </svg>
-          </div>
-
-          {(() => {
-            const dotAngleRad = (focusAngle * Math.PI) / 180;
-            const dotX = Math.cos(dotAngleRad) * controls.radius;
-            const dotY = Math.sin(dotAngleRad) * controls.radius;
-            const straightRotation = -controls.tiltAngle;
-
-            return (
-              <div
-                className="absolute z-10 transition-opacity duration-500 ease-out"
+              <svg
+                className="absolute inset-0"
                 style={{
-                  left: dotX,
-                  top: dotY,
-                  transform: `translate(-50%, -50%) rotate(${straightRotation}deg) scale(${dotScale})`,
-                  transformOrigin: "center center",
-                  opacity: inView ? 1 : 0,
-                  transitionDelay: "200ms",
+                  overflow: "visible",
                 }}
               >
-                <span
-                  className="block h-2 w-2 rounded-full bg-white"
-                  style={{
-                    boxShadow: `0 0 ${dotGlowBlur}px rgba(255,255,255,${dotGlowOpacity})`,
-                  }}
+                <defs>
+                  <linearGradient
+                    id="rotating-arc-stroke-gradient"
+                    x1={maxArcRadius}
+                    y1={0}
+                    x2={maxArcRadius}
+                    y2={maxArcRadius * 2 * 0.786}
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stopColor="#ECE4FD" stopOpacity="0.95" />
+                    <stop offset="1" stopColor="#ECE4FD" stopOpacity="0" />
+                  </linearGradient>
+                  <filter
+                    id="rotating-arc-soft-glow"
+                    x="-20%"
+                    y="-20%"
+                    width="140%"
+                    height="140%"
+                  >
+                    <feGaussianBlur stdDeviation="2" />
+                  </filter>
+                </defs>
+                <circle
+                  cx={maxArcRadius}
+                  cy={maxArcRadius}
+                  r={controls.outerArcRadius}
+                  fill="none"
+                  stroke="url(#rotating-arc-stroke-gradient)"
+                  strokeWidth="2.5"
+                  strokeOpacity={0.2 * controls.outerArcOpacity}
+                  filter="url(#rotating-arc-soft-glow)"
                 />
-              </div>
-            );
-          })()}
+                <circle
+                  cx={maxArcRadius}
+                  cy={maxArcRadius}
+                  r={controls.outerArcRadius}
+                  fill="none"
+                  stroke="url(#rotating-arc-stroke-gradient)"
+                  strokeWidth="1"
+                  strokeOpacity={controls.outerArcOpacity}
+                />
+                {showInnerArc ? (
+                  <>
+                    <path
+                      d={describeArc(
+                        maxArcRadius,
+                        maxArcRadius,
+                        controls.innerArcRadius,
+                        startAngle,
+                        endAngle,
+                      )}
+                      fill="none"
+                      stroke="url(#rotating-arc-stroke-gradient)"
+                      strokeWidth="2.75"
+                      strokeLinecap="round"
+                      strokeOpacity={0.22 * controls.innerArcOpacity}
+                      filter="url(#rotating-arc-soft-glow)"
+                    />
+                    <path
+                      d={describeArc(
+                        maxArcRadius,
+                        maxArcRadius,
+                        controls.innerArcRadius,
+                        startAngle,
+                        endAngle,
+                      )}
+                      fill="none"
+                      stroke="url(#rotating-arc-stroke-gradient)"
+                      strokeWidth="1.25"
+                      strokeLinecap="round"
+                      strokeOpacity={controls.innerArcOpacity}
+                    />
+                  </>
+                ) : null}
+              </svg>
+            </div>
 
-          {mounted &&
-            renderItems.map(({ text, key, data }) => {
-              const dotGap = 16;
-              const stepsFromFocus = Math.round(Math.abs(data.angle) / autoGap);
-              // Fan out from focused: down (positive angle) first, then up (negative angle)
-              const entryRank =
-                stepsFromFocus === 0
-                  ? 0
-                  : (stepsFromFocus - 1) * 2 + 1 + (data.angle < 0 ? 1 : 0);
-              const entryDelay = entryRank * 80;
-              // const showItem = inView && entryDone ? true : inView;
-              // const entryOpacity = !inView
-              //   ? 0
-              //   : entryDone
-              //     ? data.opacity
-              //     : data.opacity;
-              const entryTranslateX = !inView ? -12 : 0;
+            {(() => {
+              const dotAngleRad = (focusAngle * Math.PI) / 180;
+              const dotX = Math.cos(dotAngleRad) * controls.radius;
+              const dotY = Math.sin(dotAngleRad) * controls.radius;
+              const straightRotation = -controls.tiltAngle;
 
               return (
                 <div
-                  key={key}
-                  className="absolute"
+                  className="absolute z-10 transition-opacity duration-500 ease-out"
                   style={{
-                    left: data.x,
-                    top: data.y,
-                    transform: `translate(${dotGap + entryTranslateX}px, -50%) rotate(${data.textRotation}deg)`,
-                    transformOrigin: "left center",
-                    width: 0,
-                    height: 0,
-                    overflow: "visible",
-                    transition: !entryDone
-                      ? `transform 600ms cubic-bezier(0.16, 1, 0.3, 1) ${entryDelay}ms, opacity 600ms ease-out ${entryDelay}ms`
-                      : undefined,
-                    opacity: !inView ? 0 : 1,
+                    left: dotX,
+                    top: dotY,
+                    transform: `translate(-50%, -50%) rotate(${straightRotation}deg) scale(${dotScale})`,
+                    transformOrigin: "center center",
+                    opacity: inView ? 1 : 0,
+                    transitionDelay: "200ms",
                   }}
                 >
                   <span
-                    className="inline-block whitespace-nowrap transition-[color,font-weight] duration-300"
+                    className="block h-2 w-2 rounded-full bg-white"
                     style={{
-                      transform: `translateY(-50%) scale(${data.scale})`,
-                      transformOrigin: "left center",
-                      opacity: !inView ? 0 : data.opacity,
-                      filter: !inView
-                        ? "blur(6px)"
-                        : data.blur > 0.1
-                          ? `blur(${data.blur}px)`
-                          : "none",
-                      fontSize: `${controls.fontSize}px`,
-                      fontFamily:
-                        '"ABC Diatype", system-ui, -apple-system, sans-serif',
-                      fontWeight: 500,
-                      color: data.isFocused
-                        ? "#ffffff"
-                        : "rgba(255,255,255,0.4)",
-                      transition: !entryDone
-                        ? `opacity 600ms ease-out ${entryDelay}ms, filter 600ms ease-out ${entryDelay}ms`
-                        : "color 300ms, font-weight 300ms",
+                      boxShadow: `0 0 ${dotGlowBlur}px rgba(255,255,255,${dotGlowOpacity})`,
                     }}
-                  >
-                    {text}
-                  </span>
+                  />
                 </div>
               );
-            })}
+            })()}
+
+            {mounted &&
+              renderItems.map(({ text, key, data }) => {
+                const dotGap = 16;
+                const stepsFromFocus = Math.round(
+                  Math.abs(data.angle) / autoGap,
+                );
+                // Fan out from focused: down (positive angle) first, then up (negative angle)
+                const entryRank =
+                  stepsFromFocus === 0
+                    ? 0
+                    : (stepsFromFocus - 1) * 2 + 1 + (data.angle < 0 ? 1 : 0);
+                const entryDelay = entryRank * 80;
+                // const showItem = inView && entryDone ? true : inView;
+                // const entryOpacity = !inView
+                //   ? 0
+                //   : entryDone
+                //     ? data.opacity
+                //     : data.opacity;
+                const entryTranslateX = !inView ? -12 : 0;
+
+                return (
+                  <div
+                    key={key}
+                    className="absolute"
+                    style={{
+                      left: data.x,
+                      top: data.y,
+                      transform: `translate(${dotGap + entryTranslateX}px, -50%) rotate(${data.textRotation}deg)`,
+                      transformOrigin: "left center",
+                      width: 0,
+                      height: 0,
+                      overflow: "visible",
+                      transition: !entryDone
+                        ? `transform 600ms cubic-bezier(0.16, 1, 0.3, 1) ${entryDelay}ms, opacity 600ms ease-out ${entryDelay}ms`
+                        : undefined,
+                      opacity: !inView ? 0 : 1,
+                    }}
+                  >
+                    <span
+                      className="inline-block whitespace-nowrap transition-[color,font-weight] duration-300"
+                      style={{
+                        transform: `translateY(-50%) scale(${data.scale})`,
+                        transformOrigin: "left center",
+                        opacity: !inView ? 0 : data.opacity,
+                        filter: !inView
+                          ? "blur(6px)"
+                          : data.blur > 0.1
+                            ? `blur(${data.blur}px)`
+                            : "none",
+                        fontSize: `${controls.fontSize}px`,
+                        fontFamily:
+                          '"ABC Diatype", system-ui, -apple-system, sans-serif',
+                        fontWeight: 500,
+                        color: data.isFocused
+                          ? "#ffffff"
+                          : "rgba(255,255,255,0.4)",
+                        transition: !entryDone
+                          ? `opacity 600ms ease-out ${entryDelay}ms, filter 600ms ease-out ${entryDelay}ms`
+                          : "color 300ms, font-weight 300ms",
+                      }}
+                    >
+                      {text}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       </div>
     </div>

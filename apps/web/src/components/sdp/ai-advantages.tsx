@@ -175,7 +175,10 @@ export const AiAdvantages = (props: AiAdvantagesProps): React.ReactElement => {
                 <div className="absolute top-[65.5%] left-[10.8%] right-[12%] nd-body-m bg-[#131316] px-3 !-mx-3">
                   <svg viewBox="0 0 500 80" xmlns="http://www.w3.org/2000/svg">
                     <foreignObject x="0" y="0" width="500" height="80">
-                      <span className="nd-body-s" id="typing-text-animation">
+                      <span
+                        className="nd-body-s max-sm:text-[20px]"
+                        id="typing-text-animation"
+                      >
                         {typingText}
                         <span
                           className="w-[2px] h-[1em] inline-block -mb-1 ml-1"

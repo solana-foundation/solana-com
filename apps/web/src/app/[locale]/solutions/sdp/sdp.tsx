@@ -117,7 +117,11 @@ export function SdpPage() {
         checklistItems={[
           { label: t("infrastructure.checklist.0"), Icon: Dollar },
           { label: t("infrastructure.checklist.1"), Icon: Switch },
-          { label: t("infrastructure.checklist.2"), Icon: Steps },
+          {
+            label: t("infrastructure.checklist.2"),
+            badge: t("infrastructure.soonBadge"),
+            Icon: Steps,
+          },
         ]}
       />
       <DecorGrid />
