@@ -7,6 +7,7 @@ export type MarkdocDocument = ContentDocument;
 export type PostItem = {
   id: string;
   published: string;
+  publishedAt: string | null;
   title: string;
   tags: string[];
   categories: string[];

@@ -1,6 +1,7 @@
-import { format } from "date-fns";
 import { reader } from "../reader";
 import type { PageInfo, ReportItem } from "../report-types";
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
+import { isPublishedReport } from "./report-status";
 
 export interface LatestReportsParams {
   limit?: number;
@@ -16,14 +17,6 @@ export interface LatestReportsResponse {
 
 export interface FeaturedReportResponse {
   report: ReportItem | null;
-}
-
-function isPublishedReport(
-  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-): report is NonNullable<
-  Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-> {
-  return Boolean(report && report.isReport && report.status === "published");
 }
 
 async function resolveCategoryNames(
@@ -128,11 +121,9 @@ async function transformReport(
 ): Promise<ReportItem | null> {
   if (!report) return null;
 
-  const dateString =
-    typeof report.date === "string" ? report.date : String(report.date || "");
-  const date = dateString ? new Date(dateString) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAt =
+    typeof report.publishedAt === "string" ? report.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAt);
 
   const [categories, tags] = await Promise.all([
     resolveCategoryNames(report.categories),
@@ -143,6 +134,7 @@ async function transformReport(
     id: slug,
     title: String(report.title),
     published: formattedDate,
+    publishedAt,
     tags,
     categories,
     url: `/reports/${slug}`,
@@ -177,11 +169,6 @@ export const fetchLatestReports = async (
         const report = await reader.collections.switchbacks.read(slug);
         if (!isPublishedReport(report)) continue;
 
-        const dateString =
-          typeof report.date === "string"
-            ? report.date
-            : String(report.date || "");
-
         if (
           !(await matchesCategoryOrTag(
             report,
@@ -194,7 +181,7 @@ export const fetchLatestReports = async (
 
         reportsWithDates.push({
           slug,
-          date: dateString ? new Date(dateString) : null,
+          date: parsePublishedAt(report.publishedAt),
           report,
         });
       } catch (error) {
@@ -270,14 +257,9 @@ export const fetchFeaturedReport =
 
           if (!isFeatured) continue;
 
-          const dateString =
-            typeof report.date === "string"
-              ? report.date
-              : String(report.date || "");
-
           featuredCandidates.push({
             slug,
-            date: dateString ? new Date(dateString) : null,
+            date: parsePublishedAt(report.publishedAt),
             report,
           });
         } catch (error) {
