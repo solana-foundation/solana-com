@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "../utils/Link";
 
 export type ButtonVariant = "cta" | "primary" | "secondary" | "tertiary";
 export type ButtonSize = "xl" | "l" | "m";
@@ -53,8 +54,7 @@ const ArrowRight = ({ size = 18 }: { size?: number }) => (
   </svg>
 );
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Custom left icon; defaults to ArrowLeft */
@@ -63,6 +63,10 @@ export interface ButtonProps
   rightIcon?: React.ReactNode;
   showLeftIcon?: boolean;
   showRightIcon?: boolean;
+  newTab?: boolean;
+  to?: string;
+  children: React.ReactNode;
+  [key: string]: unknown;
 }
 
 export const Button = ({
@@ -74,6 +78,8 @@ export const Button = ({
   showRightIcon = false,
   children = "Join waitlist",
   className,
+  newTab,
+  to,
   ...props
 }: ButtonProps) => {
   const iconSize = size === "m" ? 16 : 18;
@@ -87,13 +93,14 @@ export const Button = ({
     : "px-4";
 
   const variantClasses = {
-    cta: "bg-white hover:bg-[#ececec]",
-    primary: "bg-white hover:bg-[#ececec]",
-    secondary: "bg-white/[0.08] hover:bg-white/[0.12]",
-    tertiary: "border border-white/[0.28] hover:border-white/[0.20]",
+    cta: "[&&&]:bg-white [&&&]:hover:bg-[#ececec]",
+    primary: "[&&&]:bg-white [&&&]:hover:bg-[#ececec]",
+    secondary: "[&&&]:bg-white/[0.08] [&&&]:hover:bg-white/[0.12]",
+    tertiary:
+      "[&&&]:border [&&&]:border-white/[0.28] [&&&]:hover:border-white/[0.20]",
   }[variant];
 
-  const textColor = isLight ? "text-black" : "text-white";
+  const textColor = isLight ? "[&&&]:text-black" : "[&&&]:text-white";
 
   const textSizeClass =
     size === "m"
@@ -131,8 +138,17 @@ export const Button = ({
     return <span className="shrink-0">{icon ?? defaultIcon}</span>;
   };
 
+  const Tag = to ? Link : "button";
+  const tagProps = to
+    ? {
+        to,
+        target: newTab ? "_blank" : undefined,
+        rel: newTab ? "noopener noreferrer" : undefined,
+      }
+    : { type: "button" as const };
+
   return (
-    <button
+    <Tag
       className={[
         "all-[unset] box-border cursor-pointer",
         "inline-flex items-center justify-center rounded-[800px]",
@@ -144,6 +160,7 @@ export const Button = ({
         textColor,
         className ?? "",
       ].join(" ")}
+      {...tagProps}
       {...props}
     >
       {showLeftIcon && renderIcon(leftIcon, "left")}
@@ -151,7 +168,7 @@ export const Button = ({
         {children}
       </span>
       {showRightIcon && renderIcon(rightIcon, "right")}
-    </button>
+    </Tag>
   );
 };
 

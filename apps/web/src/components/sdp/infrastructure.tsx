@@ -1,28 +1,31 @@
 import React from "react";
 import Image from "next/image";
-import Dollar from "@@/public/src/img/icons/Dollar.inline.svg";
-import Steps from "@@/public/src/img/icons/Steps.inline.svg";
-import Switch from "@@/public/src/img/icons/Switch.inline.svg";
 import { RotatingArc } from "./rotating-arc";
-
-const checklistItems = [
-  {
-    label: "Create assets",
-    Icon: Dollar,
-  },
-  {
-    label: "Move money",
-    Icon: Switch,
-  },
-  {
-    label: "Trade and settle",
-    Icon: Steps,
-  },
-];
 
 const bgSrc = "/src/img/solutions/sdp/infrastructure-bg.png";
 
-export const Infrastructure = (): React.ReactElement => {
+export interface InfraChecklistItem {
+  label: string;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+}
+
+export interface InfrastructureProps {
+  title?: string;
+  description?: string;
+  testimonialQuote?: string;
+  testimonialName?: string;
+  testimonialRole?: string;
+  checklistItems?: InfraChecklistItem[];
+}
+
+export const Infrastructure = ({
+  title,
+  description,
+  testimonialQuote,
+  testimonialName,
+  testimonialRole,
+  checklistItems = [],
+}: InfrastructureProps): React.ReactElement => {
   return (
     <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08] relative">
@@ -38,15 +41,9 @@ export const Infrastructure = (): React.ReactElement => {
             <div className="px-5 md:px-8 xl:px-12 py-10 md:py-20 grow">
               {/* Heading */}
               <div className="flex flex-col gap-5 xl:gap-6">
-                <h2 className="nd-heading-l-a text-white">
-                  Build any financial product, without worrying about the
-                  infrastructure
-                </h2>
+                <h2 className="nd-heading-l-a text-white">{title}</h2>
                 <p className="nd-body-l max-w-[558px] text-white/[0.64]">
-                  Whether you&apos;re issuing a stablecoin, orchestrating
-                  cross-border payments, or tokenizing real-world assets, SDP
-                  provides the most reliable APIs and infrastructure to make it
-                  happen.
+                  {description}
                 </p>
               </div>
 
@@ -59,8 +56,7 @@ export const Infrastructure = (): React.ReactElement => {
               {/* Testimonial */}
               <div className="flex flex-col gap-10 xl:max-w-[707px]">
                 <p className="nd-heading-s text-white max-w-[674px]">
-                  By leveraging SDP, Worldpay can offer merchants seamless
-                  access to on-chain settlement and tokenized assets.
+                  {testimonialQuote}
                 </p>
                 <div className="flex flex-col-reverse xl:flex-row xl:items-center gap-8">
                   {/* Worldpay logo */}
@@ -81,17 +77,17 @@ export const Infrastructure = (): React.ReactElement => {
                     <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-sm overflow-hidden shrink-0 relative">
                       <Image
                         src="/src/img/solutions/sdp/profile.png"
-                        alt="Ahmed Zifzaf"
+                        alt={testimonialName ?? ""}
                         fill
                         className="object-cover"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-white font-medium nd-body-m">
-                        Ahmed Zifzaf
+                        {testimonialName}
                       </span>
                       <span className="text-white/[0.64] nd-body-s">
-                        Head of Crypto Partnerships, Worldpay
+                        {testimonialRole}
                       </span>
                     </div>
                   </div>

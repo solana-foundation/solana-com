@@ -3,10 +3,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown } from "lucide-react";
 import { Logos, Logo as LogoType } from "@/component-library/logos";
-import Bank from "@@/public/src/img/icons/Bank.inline.svg";
-import Nodes from "@@/public/src/img/icons/Nodes.inline.svg";
-import Law from "@@/public/src/img/icons/Law.inline.svg";
-import Sort from "@@/public/src/img/icons/Sort.inline.svg";
 import CursorBox from "@@/public/src/img/icons/CursorBox.inline.svg";
 import {
   Tooltip,
@@ -15,216 +11,49 @@ import {
   TooltipTrigger,
   TooltipPortal,
 } from "@/app/components/ui/tooltip";
+import React from "react";
 
-const institutions = [
-  {
-    logoSrc: "/src/img/logos-eco/mastercard.svg",
-    logoAlt: "Mastercard",
-    name: "Mastercard",
-    description: "Stablecoin settlements",
-  },
-  {
-    logoSrc: "/src/img/logos-eco/worldpay.svg",
-    logoAlt: "Worldpay",
-    name: "Worldpay",
-    description: "Payments and settlement",
-  },
-  {
-    logoSrc: "/src/img/logos-eco/western-union.v2.svg",
-    logoAlt: "Western Union",
-    name: "Western Union",
-    description: "Cross-border payments",
-  },
-];
+export interface EcosystemInstitution {
+  logoSrc: string;
+  logoAlt: string;
+  name: string;
+  description: string;
+}
 
-const categories = [
-  {
-    id: "node-rpc",
-    Icon: Nodes,
-    label: "Node / RPC",
-    logos: [
-      {
-        src: "/src/img/logos-eco/helius.svg",
-        alt: "Helius",
-        height: "22px",
-        href: "https://helius.dev",
-      },
-      {
-        src: "/src/img/logos-eco/triton.svg",
-        alt: "Triton",
-        height: "24px",
-        href: "https://triton.one",
-      },
-      {
-        src: "/src/img/logos-eco/alchemy.svg",
-        alt: "Alchemy",
-        height: "24px",
-        href: "https://alchemy.com",
-      },
-      {
-        src: "/src/img/logos-eco/quicknode.svg",
-        alt: "QuickNode",
-        height: "18px",
-        href: "https://quicknode.com",
-      },
-    ],
-  },
-  {
-    id: "institutional-custody",
-    Icon: Bank,
-    label: "Institutional custody",
-    logos: [
-      {
-        src: "/src/img/logos-eco/paxos.svg",
-        alt: "Paxos",
-        height: "30px",
-        href: "https://paxos.com",
-      },
-      {
-        src: "/src/img/logos-eco/bitgo.svg",
-        alt: "BitGo",
-        height: "24px",
-        href: "https://bitgo.com",
-      },
-      {
-        src: "/src/img/logos-eco/coinbase.svg",
-        alt: "Coinbase",
-        height: "22px",
-        href: "https://coinbase.com",
-      },
-      {
-        src: "/src/img/logos-eco/privy.svg",
-        alt: "Privy",
-        height: "18px",
-        href: "https://privy.io",
-      },
-      {
-        src: "/src/img/logos-eco/para.svg",
-        alt: "Para",
-        height: "18px",
-        href: "https://getpara.com",
-      },
-      {
-        src: "/src/img/logos-eco/crossmint.svg",
-        alt: "Crossmint",
-        height: "32px",
-        href: "https://crossmint.com",
-      },
-      {
-        src: "/src/img/logos-eco/turnkey.svg",
-        alt: "Turnkey",
-        height: "20px",
-        href: "https://turnkey.com",
-      },
-      {
-        src: "/src/img/logos-eco/dfns.svg",
-        alt: "Dfns",
-        height: "24px",
-        href: "https://dfns.co",
-      },
-      {
-        src: "/src/img/logos-eco/anchorage-digital.svg",
-        alt: "Anchorage Digital",
-        height: "30px",
-        href: "https://anchorage.com",
-      },
-      {
-        src: "/src/img/logos-eco/dynamic.svg",
-        alt: "Dynamic",
-        height: "28px",
-        href: "https://dynamic.xyz",
-      },
-      {
-        src: "/src/img/logos-eco/fireblocks.svg",
-        alt: "Fireblocks",
-        height: "22px",
-        href: "https://fireblocks.com",
-      },
-    ],
-  },
-  {
-    id: "compliance",
-    Icon: Law,
-    label: "Compliance",
-    logos: [
-      {
-        src: "/src/img/logos-eco/range.svg",
-        alt: "Range",
-        height: "15px",
-        href: "https://range.org",
-      },
-      {
-        src: "/src/img/logos-eco/chainalysis.svg",
-        alt: "Chainalysis",
-        height: "22px",
-        href: "https://chainalysis.com",
-      },
-      {
-        src: "/src/img/logos-eco/elliptic.svg",
-        alt: "Elliptic",
-        height: "16px",
-        href: "https://elliptic.co",
-      },
-      {
-        src: "/src/img/logos-eco/trm.svg",
-        alt: "TRM",
-        height: "22px",
-        href: "https://trmlabs.com",
-      },
-    ],
-  },
-  {
-    id: "on-off-ramps",
-    Icon: Sort,
-    label: "On / Off Ramps",
-    logos: [
-      {
-        src: "/src/img/logos-eco/bridge.svg",
-        alt: "Bridge",
-        height: "28px",
-        href: "https://bridge.xyz",
-      },
-      {
-        src: "/src/img/logos-eco/modern-treasury.svg",
-        alt: "Modern Treasury",
-        height: "16px",
-        href: "https://moderntreasury.com",
-      },
-      {
-        src: "/src/img/logos-eco/bvnk.svg",
-        alt: "BVNK",
-        height: "16px",
-        href: "https://bvnk.com",
-      },
-      {
-        src: "/src/img/logos-eco/lightspark.svg",
-        alt: "Lightspark",
-        height: "24px",
-        href: "https://lightspark.com",
-      },
-      {
-        src: "/src/img/logos-eco/moonpay.svg",
-        alt: "MoonPay",
-        height: "22px",
-        href: "https://moonpay.com",
-      },
-    ],
-  },
-];
+export interface EcosystemCategory {
+  id: string;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  logos: (LogoType & { href: string })[];
+}
 
-export const Ecosystem = (): React.ReactElement => {
+export interface EcosystemProps {
+  title?: string;
+  description?: string;
+  partnersTitle?: string;
+  partnersSubtitle?: string;
+  institutions?: EcosystemInstitution[];
+  categories?: EcosystemCategory[];
+}
+
+export const Ecosystem = ({
+  title,
+  description,
+  partnersTitle,
+  partnersSubtitle,
+  institutions = [],
+  categories = [],
+}: EcosystemProps): React.ReactElement => {
   return (
     <section className="relative flex flex-col items-center w-full bg-[#0C0C0E]">
       <div className="relative w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
         {/* Row 1 — heading + description */}
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 xl:gap-0 px-5 md:px-8 xl:px-12 py-10 md:py-20 border-b border-white/[0.08]">
           <h2 className="nd-heading-l-a text-white xl:w-[575px] xl:flex-none">
-            Trusted by world&apos;s leading financial institutions
+            {title}
           </h2>
           <p className="nd-body-l text-white/[0.64] xl:w-[411px] xl:flex-none">
-            The biggest names in payments and finance are already building with
-            SDP, alongside our vetted infrastructure partners powering the
-            platform.
+            {description}
           </p>
         </div>
 
@@ -260,12 +89,8 @@ export const Ecosystem = (): React.ReactElement => {
 
         {/* Row 3 — ecosystem section header */}
         <div className="flex flex-col gap-1 px-5 md:px-8 xl:px-12 py-10">
-          <p className="nd-body-m font-medium text-white">
-            Enterprise-grade ecosystem or infrastructure partners
-          </p>
-          <p className="nd-body-s text-white/[0.64]">
-            Access the best of the Solana ecosystem with a unified experience
-          </p>
+          <p className="nd-body-m font-medium text-white">{partnersTitle}</p>
+          <p className="nd-body-s text-white/[0.64]">{partnersSubtitle}</p>
         </div>
 
         <div className="px-3 xl:px-0 border-t border-white/[0.08] grow-0">
@@ -300,6 +125,8 @@ export const Ecosystem = (): React.ReactElement => {
                         itemClassName="!mr-6 xl:!mr-12"
                         logos={cat.logos}
                         autoAnimation
+                        fadeColor="transparent"
+                        speed={50}
                         renderImage={(
                           logo: LogoType & { href: string },
                           logoImage,
@@ -307,7 +134,7 @@ export const Ecosystem = (): React.ReactElement => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <a
-                                className="block text-inherit"
+                                className="block h-full text-inherit"
                                 href={logo.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -364,12 +191,13 @@ export const Ecosystem = (): React.ReactElement => {
                         itemClassName="!mr-6 xl:!mr-12"
                         logos={cat.logos}
                         animation={false}
+                        fadeColor="transparent"
                         renderImage={(
                           logo: LogoType & { href: string },
                           logoImage,
                         ) => (
                           <a
-                            className="block text-inherit"
+                            className="block h-full text-inherit"
                             href={logo.href}
                             target="_blank"
                             rel="noopener noreferrer"

@@ -136,7 +136,10 @@ export const Logos: React.FC<LogosProps> = ({
         </div>
       ) : (
         <div
-          className={cn(className)}
+          className={cn(
+            className,
+            "transform-gpu will-change-[transform,opacity] opacity-[0.99]",
+          )}
           style={{ "--fade-color": fadeColor } as React.CSSProperties}
         >
           {/* Left Blur */}

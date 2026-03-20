@@ -4,15 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
-const PROMPTS = [
-  "Build an RWA tokenization engine that supports different institutional custodians",
-  "Build a corporate treasury dashboard",
-  "Add stablecoin on/offramp capabilities to XYZ neobank",
-  "Set compliance rules for all stablecoin transfers to only allow low risk transactions",
-  "Create a new institutional wallet designated for issuing stablecoins",
-  "Add stablecoin payout capabilities to XYZ remittance app",
-];
-
 const TYPE_SPEED = 48;
 const DELETE_SPEED = 20;
 const PAUSE_AFTER_TYPE = 3000;
@@ -89,16 +80,17 @@ export interface AiAdvantagesProps {
   title?: React.ReactNode;
   description?: React.ReactNode;
   items?: string[];
+  prompts?: string[];
 }
 
 export const AiAdvantages = (props: AiAdvantagesProps): React.ReactElement => {
-  const { title, description, items } = props;
+  const { title, description, items, prompts = [] } = props;
   const [show, setShow] = useState<1 | 2>(1);
   const { ref, isIntersecting } = useIntersectionObserver<HTMLElement>({
     threshold: 0.2,
     triggerOnce: true,
   });
-  const typingText = useTypingAnimation(PROMPTS, isIntersecting);
+  const typingText = useTypingAnimation(prompts, isIntersecting);
 
   return (
     <section

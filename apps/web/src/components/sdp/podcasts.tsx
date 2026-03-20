@@ -1,10 +1,11 @@
 "use client";
 
+import React from "react";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useRef } from "react";
 
-interface PodcastType {
+export interface PodcastItem {
   title: string;
   img: string;
   href: string;
@@ -12,79 +13,16 @@ interface PodcastType {
   duration?: string;
 }
 
-const podcasts: PodcastType[] = [
-  {
-    title: "The infrastructure behind trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "36:12",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "42:05",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "28:47",
-  },
-  {
-    title: "The infrastructure behind trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "36:12",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "42:05",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "28:47",
-  },
-  {
-    title: "The infrastructure behind trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "36:12",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "42:05",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/podcasts",
-    date: "Mon, Oct 6",
-    duration: "28:47",
-  },
-];
+export interface PodcastsProps {
+  title?: string;
+  items?: PodcastItem[];
+}
 
 function splitIntoStacks<T>(array: T[], stackSize: number): T[][] {
   return Array.from({ length: Math.ceil(array.length / stackSize) }, (_, i) =>
     array.slice(i * stackSize, (i + 1) * stackSize),
   );
 }
-
-interface PodcastCardProps extends PodcastType {}
 
 const PlayIcon = () => (
   <svg
@@ -99,13 +37,7 @@ const PlayIcon = () => (
   </svg>
 );
 
-const PodcastCard = ({
-  title,
-  img,
-  href,
-  date,
-  duration,
-}: PodcastCardProps) => {
+const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
   return (
     <a
       href={href}
@@ -154,9 +86,12 @@ const PodcastCard = ({
   );
 };
 
-export const Podcasts = (): React.ReactElement => {
+export const Podcasts = ({
+  title,
+  items = [],
+}: PodcastsProps): React.ReactElement => {
   const carouselRef = useRef(null);
-  const stackedItems = splitIntoStacks(podcasts, 3);
+  const stackedItems = splitIntoStacks(items, 3);
   const isDesktop = useMediaQuery("(min-width: 1280px)");
 
   return (
@@ -164,9 +99,7 @@ export const Podcasts = (): React.ReactElement => {
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
         {/* Header */}
         <div className="px-5 md:px-8 xl:px-12 py-10 md:py-20 flex flex-row justify-between items-end gap-5">
-          <h2 className="nd-heading-l-a text-white">
-            Conversations with the builders
-          </h2>
+          <h2 className="nd-heading-l-a text-white">{title}</h2>
 
           <CarouselControls
             className="shrink-0 grow-0 border-dashed border-x border-y border-white/[0.08] p-2 rounded-full"

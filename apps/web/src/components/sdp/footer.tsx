@@ -11,23 +11,6 @@ import {
   TelegramIcon,
 } from "@solana-com/ui-chrome";
 
-const PRODUCT_LINKS = [
-  { label: "API documentation", href: "/docs/rpc" },
-  { label: "Postman collection", href: "#" },
-  { label: "AI skills", href: "#" },
-];
-
-const GET_CONNECTED_LINKS = [
-  { label: "Blog", href: "/news" },
-  { label: "Podcasts", href: "/podcasts" },
-  { label: "Newsletter", href: "/newsletter" },
-];
-
-const LEGAL_LINKS = [
-  { label: "Disclaimer", href: "/tos" },
-  { label: "Privacy policy", href: "/privacy-policy" },
-];
-
 const SOCIAL_LINKS = [
   { name: "YouTube", url: "/youtube", Icon: YoutubeIcon },
   { name: "Twitter", url: "/twitter", Icon: TwitterIcon },
@@ -37,13 +20,27 @@ const SOCIAL_LINKS = [
   { name: "Telegram", url: "/telegram", Icon: TelegramIcon },
 ];
 
+export interface FooterLink {
+  label: string;
+  href: string;
+}
+
+export interface FooterNavColumn {
+  title: string;
+  links: FooterLink[];
+}
+
+export interface FooterProps {
+  navColumns?: FooterNavColumn[];
+}
+
 const NavColumn = ({
   title,
   links,
   className,
 }: {
   title: string;
-  links: { label: string; href: string }[];
+  links: FooterLink[];
   className?: string;
 }) => (
   <div
@@ -67,7 +64,7 @@ const NavColumn = ({
   </div>
 );
 
-export const Footer = () => {
+export const Footer = ({ navColumns = [] }: FooterProps) => {
   const year = new Date().getFullYear();
 
   return (
@@ -123,23 +120,29 @@ export const Footer = () => {
           </div>
         </div>
 
-        {/* Nav columns: Product, Get Connected, Legal */}
+        {/* Nav columns */}
         <div className="flex-1 flex flex-wrap xl:flex-nowrap">
-          <NavColumn
-            title="Product"
-            links={PRODUCT_LINKS}
-            className="w-1/2 xl:w-auto xl:flex-1 border-r border-white/[0.08] border-b xl:border-b-0"
-          />
-          <NavColumn
-            title="Get connected"
-            links={GET_CONNECTED_LINKS}
-            className="w-1/2 xl:w-auto xl:flex-1 xl:border-r border-white/[0.08] border-b xl:border-b-0"
-          />
-          <NavColumn
-            title="Legal"
-            links={LEGAL_LINKS}
-            className="w-full xl:w-auto xl:flex-1"
-          />
+          {navColumns.map((col, i) => {
+            const isLast = i === navColumns.length - 1;
+            const isSecondToLast = i === navColumns.length - 2;
+            const className = [
+              "xl:w-auto xl:flex-1",
+              isLast ? "w-full" : "w-1/2",
+              !isLast ? "border-b xl:border-b-0" : "",
+              !isLast && !isSecondToLast ? "border-r border-white/[0.08]" : "",
+              isSecondToLast ? "xl:border-r border-white/[0.08]" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <NavColumn
+                key={col.title}
+                title={col.title}
+                links={col.links}
+                className={className}
+              />
+            );
+          })}
         </div>
       </div>
     </footer>

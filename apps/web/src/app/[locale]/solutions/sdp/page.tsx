@@ -7,10 +7,10 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  const baseMeta = getIndexMetadata({
+  const baseMeta = await getIndexMetadata({
     titleKey: "sdp.meta.seoTitle",
     descriptionKey: "sdp.meta.seoDescription",
-    path: "/sdp",
+    path: "/solutions/sdp",
     locale,
   });
   return {

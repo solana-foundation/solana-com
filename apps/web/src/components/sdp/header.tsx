@@ -7,14 +7,18 @@ import LogoIcon from "@@/public/src/img/logos-solana/logotype.inline.svg";
 import Image from "next/image";
 import { MobileMenu } from "./mobile-menu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import Link from "next/link";
 
-const navLinks = [
-  { label: "Platform", href: "#platform" },
-  { label: "Use cases", href: "#use-cases" },
-  { label: "Partners", href: "#partners" },
-  { label: "Sandbox", href: "#sandbox" },
-  { label: "Media", href: "#media" },
-];
+export interface HeaderNavLink {
+  label: string;
+  href: string;
+}
+
+export interface SdpHeaderProps {
+  navLinks?: HeaderNavLink[];
+  ctaLabel?: string;
+  ctaHref?: string;
+}
 
 const MenuIcon = () => (
   <svg
@@ -55,7 +59,11 @@ const MenuIcon = () => (
   </svg>
 );
 
-export const SdpHeader = () => {
+export const SdpHeader = ({
+  navLinks = [],
+  ctaLabel = "",
+  ctaHref,
+}: SdpHeaderProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1280px)");
 
@@ -70,7 +78,9 @@ export const SdpHeader = () => {
         <div className="flex items-center gap-[40px] w-full max-w-[1440px] h-[72px] xl:border-x xl:border-white/[0.08] px-5 md:px-8 xl:px-[48px]">
           {/* logo + badge */}
           <div className="flex items-center gap-[16px] shrink-0">
-            <LogoIcon className="h-4 xl:h-5 w-auto" />
+            <Link className="text-inherit" href="/">
+              <LogoIcon className="h-4 xl:h-5 w-auto" />
+            </Link>
             <Image
               width={60}
               height={34}
@@ -95,8 +105,8 @@ export const SdpHeader = () => {
           {/* desktop right: lang selector + CTA */}
           <div className="hidden xl:flex items-center gap-2 shrink-0">
             <LanguageSelector className="!text-white/60 hover:!text-white" />
-            <Button size="m" variant="secondary">
-              Join waitlist
+            <Button size="m" variant="secondary" to={ctaHref} newTab>
+              {ctaLabel}
             </Button>
           </div>
 
@@ -112,8 +122,10 @@ export const SdpHeader = () => {
                     size="m"
                     showRightIcon
                     className="w-full justify-between"
+                    to={ctaHref}
+                    newTab
                   >
-                    Join waitlist
+                    {ctaLabel}
                   </Button>
                 }
               />
@@ -121,7 +133,7 @@ export const SdpHeader = () => {
               <button
                 onClick={() => setMenuOpen(true)}
                 className="p-1"
-                aria-label={"Open menu"}
+                aria-label="Open menu"
                 aria-expanded={menuOpen}
               >
                 <MenuIcon />

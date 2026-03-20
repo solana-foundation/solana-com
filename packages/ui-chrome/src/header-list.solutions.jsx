@@ -26,6 +26,7 @@ import SparklesIcon from "./assets/nav/solutions/sparkles.inline.svg";
 import StoreIcon from "./assets/nav/solutions/store.inline.svg";
 import SwordIcon from "./assets/nav/solutions/sword.inline.svg";
 import WalletIcon from "./assets/nav/solutions/wallet.inline.svg";
+import MaintenanceIcon from "./assets/nav/build/maintenance.inline.svg";
 
 const HeaderListSolutions = ({ isMobile = false }) => {
   const t = useTranslations();
@@ -53,7 +54,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[0].title}
+                  title={solutionsToolsItems[0]?.title}
                   Icon={CoinsIcon}
                 />
               </Link>
@@ -63,7 +64,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[9].title}
+                  title={solutionsToolsItems[9]?.title}
                   Icon={ChainLinkIcon}
                 />
               </Link>
@@ -73,7 +74,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[10].title}
+                  title={solutionsToolsItems[10]?.title}
                   Icon={WalletIcon}
                 />
               </Link>
@@ -83,7 +84,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[7].title}
+                  title={solutionsToolsItems[7]?.title}
                   Icon={ShieldIcon}
                 />
               </Link>
@@ -95,7 +96,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[1].title}
+                  title={solutionsToolsItems[1]?.title}
                   Icon={SwordIcon}
                 />
               </Link>
@@ -105,7 +106,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[2].title}
+                  title={solutionsToolsItems[2]?.title}
                   Icon={MoneyIcon}
                 />
               </Link>
@@ -115,7 +116,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[3].title}
+                  title={solutionsToolsItems[3]?.title}
                   Icon={StoreIcon}
                 />
               </Link>
@@ -125,7 +126,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[4].title}
+                  title={solutionsToolsItems[4]?.title}
                   Icon={FlowIcon}
                 />
               </Link>
@@ -160,6 +161,16 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 <HeaderItem
                   title={solutionsToolsItems[6].title}
                   Icon={PhoneIcon}
+                />
+              </Link>
+              <Link
+                to="/solutions/sdp"
+                className="block no-underline text-inherit group/link"
+                activeClassName="active"
+              >
+                <HeaderItem
+                  title={solutionsToolsItems[11]?.title}
+                  Icon={MaintenanceIcon}
                 />
               </Link>
             </div>

@@ -1,46 +1,19 @@
 "use client";
 
+import React from "react";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useRef } from "react";
 
-interface NewsType {
+export interface NewsItem {
   title: string;
   img: string;
   href: string;
 }
 
-const news: NewsType[] = [
-  {
-    title: "The infrastructure behind  trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/news",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/news",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/news",
-  },
-  {
-    title: "The infrastructure behind  trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/news",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/news",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/news",
-  },
-];
+export interface NewsProps {
+  title?: string;
+  items?: NewsItem[];
+}
 
 function splitIntoStacks<T>(array: T[], stackSize: number): T[][] {
   return Array.from({ length: Math.ceil(array.length / stackSize) }, (_, i) =>
@@ -48,9 +21,7 @@ function splitIntoStacks<T>(array: T[], stackSize: number): T[][] {
   );
 }
 
-interface NewsCardProps extends NewsType {}
-
-const NewsCard = ({ title, img, href }: NewsCardProps) => {
+const NewsCard = ({ title, img, href }: NewsItem) => {
   return (
     <a
       href={href}
@@ -66,16 +37,16 @@ const NewsCard = ({ title, img, href }: NewsCardProps) => {
   );
 };
 
-export const News = (): React.ReactElement => {
+export const News = ({ title, items = [] }: NewsProps): React.ReactElement => {
   const carouselRef = useRef(null);
-  const stackedItems = splitIntoStacks(news, 3);
+  const stackedItems = splitIntoStacks(items, 3);
 
   return (
     <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
         {/* Header */}
         <div className="px-5 md:px-8 xl:px-12 py-10 md:py-20 flex flex-row justify-between items-end gap-5">
-          <h2 className="nd-heading-l-a text-white">News & updates</h2>
+          <h2 className="nd-heading-l-a text-white">{title}</h2>
 
           <CarouselControls
             className="shrink-0 grow-0 border-dashed border-x border-y border-white/[0.08] p-2 rounded-full"

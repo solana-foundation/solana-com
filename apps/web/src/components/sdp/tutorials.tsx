@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { VideoTrigger } from "@/component-library/video-modal";
 
-interface Tutorial {
+export interface TutorialItem {
   title: string;
   duration: string;
   thumbnail: string;
@@ -11,68 +11,51 @@ interface Tutorial {
   platform: "youtube" | "vimeo";
 }
 
-const tutorials: Tutorial[] = [
-  {
-    title: "Payments on Solana - The Future of Money Movement",
-    duration: "0:33",
-    thumbnail: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    videoId: "6bxWGU7mpJI",
-    platform: "youtube",
-  },
-  {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    duration: "8:30",
-    thumbnail: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    videoId: "sB6cocqLXNw",
-    platform: "youtube",
-  },
-  {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    duration: "0:54",
-    thumbnail: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    videoId: "9arQw72tFx4",
-    platform: "youtube",
-  },
-];
+export interface TutorialsProps {
+  title?: string;
+  items?: TutorialItem[];
+}
 
 const bgSrc = "/src/img/solutions/sdp/tutorials-bg.png";
 
-export const Tutorials = (): React.ReactElement => {
+export const Tutorials = ({
+  title,
+  items = [],
+}: TutorialsProps): React.ReactElement => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const active = tutorials[activeIndex];
+  const active = items[activeIndex];
 
   return (
     <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
         {/* Header */}
         <div className="px-5 md:px-8 xl:px-12 py-10 md:py-20">
-          <h2 className="nd-heading-l-a text-white">
-            Get started with tutorials
-          </h2>
+          <h2 className="nd-heading-l-a text-white">{title}</h2>
         </div>
 
         {/* Content: video + playlist */}
         <div className="border-t border-white/[0.08] flex flex-col xl:flex-row overflow-hidden">
           {/* Video */}
-          <div className="xl:w-1/2 border-b xl:border-b-0 xl:border-r border-white/[0.08] relative overflow-hidden shrink-0">
-            <div className="relative aspect-video">
-              <img
-                src={active.thumbnail}
-                alt={active.title}
-                className="absolute left-0 w-full max-w-none object-cover"
-                style={{ height: "117.71%", top: "-0.11%" }}
-              />
-              <div className="absolute inset-0 bg-black/[0.32]" />
-              <VideoTrigger
-                platform={active.platform}
-                id={active.videoId}
-                title={active.title}
-                bgColorClass="!bg-black/70"
-                className="!w-14 !h-14 !bg-white/[0.08] hover:!bg-white/[0.12] border border-white/[0.20] hover:border-white/[0.28] backdrop-blur-[6px] group"
-                iconClassName="!w-4 !h-4 opacity-[0.64] group-hover:opacity-[1]"
-              />
+          {active && (
+            <div className="xl:w-1/2 border-b xl:border-b-0 xl:border-r border-white/[0.08] relative overflow-hidden shrink-0">
+              <div className="relative aspect-video">
+                <img
+                  src={active.thumbnail}
+                  alt={active.title}
+                  className="absolute inset-0 w-full h-full max-w-none object-cover"
+                />
+                <div className="absolute inset-0 bg-black/[0.32]" />
+                <VideoTrigger
+                  platform={active.platform}
+                  id={active.videoId}
+                  title={active.title}
+                  bgColorClass="!bg-black/70"
+                  className="!w-14 !h-14 !bg-white/[0.08] hover:!bg-white/[0.12] border border-white/[0.20] hover:border-white/[0.28] backdrop-blur-[6px] group"
+                  iconClassName="!w-4 !h-4 opacity-[0.64] group-hover:opacity-[1]"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Playlist */}
           <div
@@ -89,7 +72,7 @@ export const Tutorials = (): React.ReactElement => {
               }}
             ></div>
             <div className="px-3 xl:px-0 border-t border-b xl:border-b-0 xl:border-t-0 border-white/[0.08] bg-[#0C0C0E]">
-              {tutorials.map((tutorial, i) => {
+              {items.map((tutorial, i) => {
                 const isActive = i === activeIndex;
                 return (
                   <button

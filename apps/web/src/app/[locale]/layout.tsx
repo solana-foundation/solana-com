@@ -10,15 +10,13 @@ import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { locales, staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import {
-  Header,
-  Footer,
   ThemeProvider,
   SitewideTopAlert,
   InkeepChatButton,
 } from "@solana-com/ui-chrome";
+import { ChromeWrapper } from "@/components/ChromeWrapper";
 import Script from "next/script";
 
 type Props = {
@@ -38,8 +36,6 @@ export default async function RootLayout({ children, params }: Props) {
   const messages = (await import(`@@/public/locales/${locale}/common.json`))
     .default;
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
-  const headersList = await headers();
-  const isCustomLayout = Boolean(headersList.get("x-custom-layout"));
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -59,9 +55,7 @@ export default async function RootLayout({ children, params }: Props) {
               <GTMTrackingSnippet />
               <SitewideTopAlert />
               <CookieConsent />
-              {isCustomLayout ? null : <Header />}
-              {children}
-              {isCustomLayout ? null : <Footer />}
+              <ChromeWrapper>{children}</ChromeWrapper>
               <InkeepChatButton />
               <Script
                 id="signals-script"

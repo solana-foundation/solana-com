@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Button from "@/component-library/button";
 import UnicornScene from "unicornstudio-react";
 
@@ -7,6 +8,12 @@ const bgSrc = "/src/img/solutions/sdp/hero-bg.png";
 const bgMobileSrc = "/src/img/solutions/sdp/hero-bg-mobile.png";
 const dashboardSrc = "/src/img/solutions/sdp/dashboard.svg";
 const patternSrc = "/src/img/solutions/sdp/tutorials-bg.png";
+
+export interface JoinProps {
+  title?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+}
 
 const ArrowRight = () => (
   <svg
@@ -33,7 +40,11 @@ const ArrowRight = () => (
   </svg>
 );
 
-export const Join = (): React.ReactElement => {
+export const Join = ({
+  title,
+  ctaLabel,
+  ctaHref,
+}: JoinProps): React.ReactElement => {
   return (
     <section className="relative flex flex-col items-center w-full overflow-hidden bg-[#0C0C0E]">
       {/* Decorative background — desktop */}
@@ -41,11 +52,6 @@ export const Join = (): React.ReactElement => {
         aria-hidden
         className="hidden xl:block absolute inset-0 pointer-events-none overflow-hidden"
       >
-        {/* <img
-          src={bgSrc}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        /> */}
         <UnicornScene
           projectId="join"
           className="!absolute inset-0 z-0"
@@ -93,32 +99,13 @@ export const Join = (): React.ReactElement => {
 
       {/* Content */}
       <div className="relative w-full max-w-[1440px] xl:border-x xl:border-white/[0.08]">
-        {/* Mobile / Tablet layout (< xl) */}
-        {/* <div className="xl:hidden flex flex-col gap-5 px-5 md:px-8 py-20">
-          <h2 className="nd-heading-l-a text-white">
-            Build the next wave of finance on Solana
-          </h2>
-          <Button size="m" showRightIcon>
-            Join waitlist
-          </Button>
-          <div className="relative mt-3 rounded-md overflow-hidden border-t border-[rgba(236,228,253,0.08)]">
-            <img
-              src={dashboardSrc}
-              alt="SDP dashboard"
-              className="w-full h-auto"
-            />
-          </div>
-        </div> */}
-
         <div className="flex flex-col xl:bg-[#0c0c0e]">
           {/* Row 1: Heading */}
           <div className="px-5 md:px-8 xl:px-12 py-10 md:py-20 flex flex-col gap-5">
-            <h2 className="nd-heading-l-a text-white max-w-[546px]">
-              Build the next wave of finance on Solana
-            </h2>
+            <h2 className="nd-heading-l-a text-white max-w-[546px]">{title}</h2>
             <div className="xl:hidden">
-              <Button size="m" showRightIcon>
-                Join waitlist
+              <Button size="m" showRightIcon to={ctaHref} newTab>
+                {ctaLabel}
               </Button>
             </div>
           </div>
@@ -151,14 +138,19 @@ export const Join = (): React.ReactElement => {
 
             {/* Centered display CTA button */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <button className="pointer-events-auto hidden xl:flex items-center gap-0 bg-white hover:bg-[#ececec] transition-colors rounded-[800px] h-[126px] px-7 cursor-pointer">
+              <a
+                className="pointer-events-auto hidden xl:flex items-center gap-0 bg-white hover:bg-[#ececec] transition-colors rounded-[800px] h-[126px] px-7 cursor-pointer text-inherit"
+                href={ctaHref}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
                 <span className="px-9 font-brand font-medium text-[40.5px] tracking-[-0.405px] leading-[54px] text-black whitespace-nowrap">
-                  Join waitlist
+                  {ctaLabel}
                 </span>
                 <div className="w-[72px] h-[72px] flex items-center justify-center bg-black rounded-full text-white shrink-0">
                   <ArrowRight />
                 </div>
-              </button>
+              </a>
             </div>
           </div>
         </div>
