@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import bonkLogo from "../../../assets/companies/bonk/logo.webp";
+import bonkMark from "../../../assets/companies/bonk/mark.svg";
 
 export const bonk = {
   "id": "bonk",
@@ -22,13 +23,21 @@ export const bonk = {
       "github": "https://github.com/BonkLabs"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "mark",
   "logos": [
     {
       "id": "logo",
       "fileName": "logo.webp",
       "format": "webp",
-      "source": bonkLogo
+      "source": bonkLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "mark",
+      "fileName": "mark.svg",
+      "format": "svg",
+      "source": bonkMark,
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

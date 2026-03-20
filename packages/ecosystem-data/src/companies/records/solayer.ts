@@ -1,5 +1,11 @@
 import type { CompanyRecord } from "../../types";
 import solayerLogo from "../../../assets/companies/solayer/logo.svg";
+import solayerLogoLight from "../../../assets/companies/solayer/logo-light.svg";
+import solayerLogoDark from "../../../assets/companies/solayer/logo-dark.svg";
+import solayerMarkLight from "../../../assets/companies/solayer/mark-light.svg";
+import solayerMarkDark from "../../../assets/companies/solayer/mark-dark.svg";
+import solayerWordmarkLight from "../../../assets/companies/solayer/wordmark-light.svg";
+import solayerWordmarkDark from "../../../assets/companies/solayer/wordmark-dark.svg";
 
 export const solayer = {
   "id": "solayer",
@@ -22,13 +28,62 @@ export const solayer = {
       "github": "https://github.com/solayer-labs"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": solayerLogo
+      "source": solayerLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": solayerLogoLight,
+      "theme": "light",
+      "kind": "logo"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": solayerLogoDark,
+      "theme": "dark",
+      "kind": "logo"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": solayerMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": solayerMarkDark,
+      "theme": "dark",
+      "kind": "mark"
+    },
+    {
+      "id": "wordmark-light",
+      "fileName": "wordmark-light.svg",
+      "format": "svg",
+      "source": solayerWordmarkLight,
+      "theme": "light",
+      "kind": "wordmark"
+    },
+    {
+      "id": "wordmark-dark",
+      "fileName": "wordmark-dark.svg",
+      "format": "svg",
+      "source": solayerWordmarkDark,
+      "theme": "dark",
+      "kind": "wordmark"
     }
   ]
 } satisfies CompanyRecord;

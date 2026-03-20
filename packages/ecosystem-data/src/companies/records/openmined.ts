@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
-import openminedLogo from "../../../assets/companies/openmined/logo.svg";
+import openminedMark from "../../../assets/companies/openmined/logo.svg";
+import openminedLogoLight from "../../../assets/companies/openmined/logo-light.svg";
+import openminedLogoDark from "../../../assets/companies/openmined/logo-dark.svg";
+import openminedMarkIcon from "../../../assets/companies/openmined/mark.svg";
 
 export const openmined = {
   "id": "openmined",
@@ -21,13 +24,35 @@ export const openmined = {
       "youtube": "https://www.youtube.com/c/openminedorg"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
+      "id": "mark",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": openminedLogo
+      "source": openminedMark,
+      "kind": "mark"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": openminedLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": openminedLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-icon",
+      "fileName": "mark.svg",
+      "format": "svg",
+      "source": openminedMarkIcon,
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

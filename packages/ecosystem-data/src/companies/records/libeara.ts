@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import libearaLogo from "../../../assets/companies/libeara/logo.svg";
+import libearaLogoDark from "../../../assets/companies/libeara/logo-dark.png";
 
 export const libeara = {
   "id": "libeara",
@@ -25,7 +26,15 @@ export const libeara = {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": libearaLogo
+      "source": libearaLogo,
+      "theme": "dark"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.png",
+      "format": "png",
+      "source": libearaLogoDark,
+      "theme": "light"
     }
   ]
 } satisfies CompanyRecord;

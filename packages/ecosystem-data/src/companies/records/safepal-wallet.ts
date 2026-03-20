@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
-import safepalWalletLogo from "../../../assets/companies/safepal-wallet/logo.svg";
+import safepalWalletLogoDark from "../../../assets/companies/safepal-wallet/logo.svg";
+import safepalWalletLogoLight from "../../../assets/companies/safepal-wallet/logo-light.svg";
+import safepalWalletWordmarkLight from "../../../assets/companies/safepal-wallet/wordmark-light.svg";
+import safepalWalletWordmarkDark from "../../../assets/companies/safepal-wallet/wordmark-dark.svg";
 
 export const safepalWallet = {
   "id": "safepal-wallet",
@@ -21,13 +24,37 @@ export const safepalWallet = {
       "github": "https://github.com/SafePalWallet"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
+      "id": "logo-dark",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": safepalWalletLogo
+      "source": safepalWalletLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": safepalWalletLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "wordmark-light",
+      "fileName": "wordmark-light.svg",
+      "format": "svg",
+      "source": safepalWalletWordmarkLight,
+      "theme": "light",
+      "kind": "wordmark"
+    },
+    {
+      "id": "wordmark-dark",
+      "fileName": "wordmark-dark.svg",
+      "format": "svg",
+      "source": safepalWalletWordmarkDark,
+      "theme": "dark",
+      "kind": "wordmark"
     }
   ]
 } satisfies CompanyRecord;

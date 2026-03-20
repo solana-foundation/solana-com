@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
 import visaLogo from "../../../assets/companies/visa/logo.png";
+import visaLogoLight from "../../../assets/companies/visa/logo-light.svg";
+import visaLogoDark from "../../../assets/companies/visa/logo-dark.svg";
 
 export const visa = {
   "id": "visa",
@@ -20,13 +22,30 @@ export const visa = {
       "github": "https://github.com/visa"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
       "id": "logo",
       "fileName": "logo.png",
       "format": "png",
-      "source": visaLogo
+      "source": visaLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": visaLogoLight,
+      "theme": "light",
+      "kind": "logo"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": visaLogoDark,
+      "theme": "dark",
+      "kind": "logo"
     }
   ]
 } satisfies CompanyRecord;

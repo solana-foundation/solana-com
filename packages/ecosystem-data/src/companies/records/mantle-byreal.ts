@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
-import mantleByrealLogo from "../../../assets/companies/mantle-byreal/logo.svg";
+import mantleByrealLogoDark from "../../../assets/companies/mantle-byreal/logo-dark.svg";
+import mantleByrealMarkDark from "../../../assets/companies/mantle-byreal/mark-dark.svg";
 
 export const mantleByreal = {
   "id": "mantle-byreal",
@@ -22,13 +23,23 @@ export const mantleByreal = {
       "github": "https://github.com/mantlenetworkio"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-dark",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
       "format": "svg",
-      "source": mantleByrealLogo
+      "source": mantleByrealLogoDark,
+      "theme": "dark",
+      "kind": "logo"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": mantleByrealMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

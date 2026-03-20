@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
-import frodobotsLogo from "../../../assets/companies/frodobots/logo.svg";
+import frodobotsLogoDark from "../../../assets/companies/frodobots/logo-dark.svg";
+import frodobotsMarkLight from "../../../assets/companies/frodobots/mark-light.svg";
+import frodobotsMarkDark from "../../../assets/companies/frodobots/mark-dark.png";
 
 export const frodobots = {
   "id": "frodobots",
@@ -21,13 +23,30 @@ export const frodobots = {
       "github": "https://github.com/frodobots-org"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-dark",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
       "format": "svg",
-      "source": frodobotsLogo
+      "source": frodobotsLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": frodobotsMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.png",
+      "format": "png",
+      "source": frodobotsMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

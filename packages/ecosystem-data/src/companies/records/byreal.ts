@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
-import byrealLogo from "../../../assets/companies/byreal/logo.svg";
+import byrealLogoLight from "../../../assets/companies/byreal/logo-light.svg";
+import byrealLogoDark from "../../../assets/companies/byreal/logo-dark.svg";
+import byrealMarkLight from "../../../assets/companies/byreal/mark-light.svg";
+import byrealMarkDark from "../../../assets/companies/byreal/mark-dark.svg";
 
 export const byreal = {
   "id": "byreal",
@@ -19,13 +22,37 @@ export const byreal = {
       "telegram": "https://t.me/Byreal_Community"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
       "format": "svg",
-      "source": byrealLogo
+      "source": byrealLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": byrealLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": byrealMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": byrealMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

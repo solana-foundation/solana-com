@@ -1,5 +1,10 @@
 import type { CompanyRecord } from "../../types";
-import phantomLogo from "../../../assets/companies/phantom/logo.svg";
+import phantomLogoDark from "../../../assets/companies/phantom/logo-dark.svg";
+import phantomLogoLight from "../../../assets/companies/phantom/logo-light.svg";
+import phantomLogoPurple from "../../../assets/companies/phantom/logo-purple.svg";
+import phantomMarkDark from "../../../assets/companies/phantom/mark-dark.svg";
+import phantomMarkLight from "../../../assets/companies/phantom/mark-light.svg";
+import phantomMarkPurple from "../../../assets/companies/phantom/mark-purple.svg";
 
 export const phantom = {
   "id": "phantom",
@@ -21,13 +26,50 @@ export const phantom = {
       "github": "https://github.com/phantom"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-purple",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-purple",
+      "fileName": "logo-purple.svg",
       "format": "svg",
-      "source": phantomLogo
+      "source": phantomLogoPurple
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": phantomLogoDark,
+      "theme": "light"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": phantomLogoLight,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-purple",
+      "fileName": "mark-purple.svg",
+      "format": "svg",
+      "source": phantomMarkPurple,
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": phantomMarkDark,
+      "kind": "mark",
+      "theme": "light"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": phantomMarkLight,
+      "kind": "mark",
+      "theme": "dark"
     }
   ]
 } satisfies CompanyRecord;

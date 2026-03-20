@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import dabbaLogo from "../../../assets/companies/dabba/logo.svg";
+import dabbaWordmarkColor from "../../../assets/companies/dabba/wordmark-color.svg";
 
 export const dabba = {
   "id": "dabba",
@@ -29,6 +30,13 @@ export const dabba = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": dabbaLogo
+    },
+    {
+      "id": "wordmark-color",
+      "fileName": "wordmark-color.svg",
+      "format": "svg",
+      "source": dabbaWordmarkColor,
+      "kind": "wordmark"
     }
   ]
 } satisfies CompanyRecord;

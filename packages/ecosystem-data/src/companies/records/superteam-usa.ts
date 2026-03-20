@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import superteamUsaLogo from "../../../assets/companies/superteam-usa/logo.svg";
+import superteamUsaMark from "../../../assets/companies/superteam-usa/mark.png";
 
 export const superteamUsa = {
   "id": "superteam-usa",
@@ -24,7 +25,15 @@ export const superteamUsa = {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": superteamUsaLogo
+      "source": superteamUsaLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "mark",
+      "fileName": "mark.png",
+      "format": "png",
+      "source": superteamUsaMark,
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;
