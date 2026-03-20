@@ -80,7 +80,7 @@ export default async function MiamiPage({ params }: PageProps) {
         translationPrefix="accelerate.miami.gettingThere"
         hotelDealsLink={{
           text: "View hotel deals on Nomadz (sign up required).",
-          href: "https://nomadz.xyz/stays?locationInputValue=Miami,%20FL,%20USA&destination.location=Miami&destination.latitude=25.7949095&destination.longitude=-80.1358448&filters.stars[0]=2&filters.stars[1]=3&filters.stars[2]=4&filters.stars[3]=5&filters.hideSoldOut=true&filters.distanceToPointMax=5000&checkIn=2026-05-04T00:00:00.000Z&checkOut=2026-05-07T00:00:00.000Z&guests.rooms[0].adults=1&guests.rooms[0].children[]&sort.property=Discount&sort.direction=desc",
+          href: "https://nomadz.xyz/stays?locationInputValue=Miami%20Beach%2C%20United%20States&destination.latitude=25.7947559&destination.longitude=-80.13378639999999&destination.radius=5000&guests.rooms%5B0%5D.adults=1&guests.rooms[0].children[]&checkIn=2026-05-03T23%3A00%3A00.000Z&checkOut=2026-05-06T21%3A00%3A00.000Z&filters.stars%5B0%5D=2&filters.stars%5B1%5D=3&filters.stars%5B2%5D=4&filters.stars%5B3%5D=5&filters.hideSoldOut=true&filters.distanceToPointMax=5000&sort.property=Discount&sort.direction=desc&event=10128847-d607-439e-8619-a70118d80090",
         }}
       />
       <FooterCTA
