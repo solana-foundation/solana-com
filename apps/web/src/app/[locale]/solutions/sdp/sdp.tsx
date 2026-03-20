@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { Hero } from "@/components/sdp/hero";
 import { Logos } from "@/component-library/logos";
@@ -34,25 +35,27 @@ import {
 } from "@/data/solutions/sdp";
 
 export function SdpPage() {
+  const t = useTranslations("sdp");
+
   return (
     <div className="bg-[#0C0C0E]">
       <Header
         navLinks={[
-          { label: "Platform", href: "#platform" },
-          { label: "Use cases", href: "#use-cases" },
-          { label: "Partners", href: "#partners" },
-          { label: "Sandbox", href: "#sandbox" },
-          // { label: "Media", href: "#media" },
+          { label: t("header.nav.platform"), href: "#platform" },
+          { label: t("header.nav.useCases"), href: "#use-cases" },
+          { label: t("header.nav.partners"), href: "#partners" },
+          { label: t("header.nav.sandbox"), href: "#sandbox" },
+          // { label: t("header.nav.media"), href: "#media" },
         ]}
-        ctaLabel="Join waitlist"
+        ctaLabel={t("header.cta")}
         ctaHref="https://platform.solana.com"
       />
       <Hero
-        title="Launch and scale financial products on Solana with enterprise-ready APIs"
-        description="The institutional infrastructure for digital assets, built for compliant issuance, seamless payments, and efficient trading from a single platform on Solana."
-        primaryCta="Join waitlist"
+        title={t("hero.title")}
+        description={t("hero.description")}
+        primaryCta={t("hero.primaryCta")}
         primaryCtaHref="https://platform.solana.com"
-        videoLabel="VISION BEHIND SDP"
+        videoLabel={t("hero.videoLabel")}
       />
       <Logos
         className="py-8"
@@ -64,11 +67,11 @@ export function SdpPage() {
       <DecorGrid />
       <section id="platform" className="scroll-mt-[72px]">
         <Advantages
-          title="Build and launch financial products in weeks, not months."
+          title={t("advantages.title")}
           items={[
-            "Accelerate time to market",
-            "Built for AI",
-            "Designed for institutions",
+            t("advantages.items.0"),
+            t("advantages.items.1"),
+            t("advantages.items.2"),
           ]}
           visualSrc="/src/img/solutions/sdp/advantages-visual.svg"
           visualBgSrc="/src/img/solutions/sdp/advantages-visual-bg.jpg"
@@ -77,96 +80,96 @@ export function SdpPage() {
       <DecorGrid />
       <section id="use-cases" className="scroll-mt-[72px]">
         <CardGrid
-          title="A single, unified interface to issue, move and trade tokenized assets"
+          title={t("cardGrid.title")}
           columns={[
             {
               num: "1",
               img: "/src/img/solutions/sdp/feat-1.svg",
               bg: "/src/img/solutions/sdp/feat-bg-1.jpg",
-              heading: "Issuance",
-              body: "Launch GENIUS-compliant tokenized assets across deposits, stablecoins and RWAs with permissioning and privacy built-in.",
+              heading: t("cardGrid.columns.0.heading"),
+              body: t("cardGrid.columns.0.body"),
             },
             {
               num: "2",
               img: "/src/img/solutions/sdp/feat-2.svg",
               bg: "/src/img/solutions/sdp/feat-bg-2.jpg",
-              heading: "Payments",
-              body: "Orchestrate fiat and stablecoin flows — on-ramp, off-ramp, and onchain transactions across B2B, B2C, and P2P use cases.",
+              heading: t("cardGrid.columns.1.heading"),
+              body: t("cardGrid.columns.1.body"),
             },
             {
               num: "3",
               img: "/src/img/solutions/sdp/feat-3.svg",
               bg: "/src/img/solutions/sdp/feat-bg-3.jpg",
-              heading: "Trading",
-              headingBadge: "Coming Soon",
-              body: "Support financial flows including atomic swaps, vaults, onchain FX and more.",
+              heading: t("cardGrid.columns.2.heading"),
+              headingBadge: t("cardGrid.columns.2.headingBadge"),
+              body: t("cardGrid.columns.2.body"),
             },
           ]}
         />
       </section>
       <DecorGrid />
       <Infrastructure
-        title="Build any financial product, without worrying about the infrastructure"
-        description="Whether you're issuing a stablecoin, orchestrating cross-border payments, or tokenizing real-world assets, SDP provides the most reliable APIs and infrastructure to make it happen."
-        testimonialQuote="By leveraging SDP, Worldpay can offer merchants seamless access to on-chain settlement and tokenized assets."
-        testimonialName="Ahmed Zifzaf"
-        testimonialRole="Head of Crypto Partnerships, Worldpay"
+        title={t("infrastructure.title")}
+        description={t("infrastructure.description")}
+        testimonialQuote={t("infrastructure.testimonialQuote")}
+        testimonialName={t("infrastructure.testimonialName")}
+        testimonialRole={t("infrastructure.testimonialRole")}
         checklistItems={[
-          { label: "Create assets", Icon: Dollar },
-          { label: "Move money", Icon: Switch },
-          { label: "Trade and settle", Icon: Steps },
+          { label: t("infrastructure.checklist.0"), Icon: Dollar },
+          { label: t("infrastructure.checklist.1"), Icon: Switch },
+          { label: t("infrastructure.checklist.2"), Icon: Steps },
         ]}
       />
       <DecorGrid />
       <section id="partners" className="scroll-mt-[72px]">
         <Ecosystem
-          title="Trusted by the world’s leading financial institutions"
-          description="The biggest names in payments and finance are already building with SDP, alongside our vetted infrastructure partners powering the platform."
-          partnersTitle="Enterprise-grade ecosystem"
-          partnersSubtitle="Access the best of the Solana ecosystem with a unified experience"
+          title={t("ecosystem.title")}
+          description={t("ecosystem.description")}
+          partnersTitle={t("ecosystem.partnersTitle")}
+          partnersSubtitle={t("ecosystem.partnersSubtitle")}
           institutions={[
             {
               logoSrc: "/src/img/logos-eco/mastercard.svg",
               logoAlt: "Mastercard",
-              name: "Mastercard",
-              description: "Stablecoin settlements",
+              name: t("ecosystem.institutions.0.name"),
+              description: t("ecosystem.institutions.0.description"),
             },
             {
               logoSrc: "/src/img/logos-eco/worldpay.svg",
               logoAlt: "Worldpay",
-              name: "Worldpay",
-              description: "Payments and settlement",
+              name: t("ecosystem.institutions.1.name"),
+              description: t("ecosystem.institutions.1.description"),
             },
             {
               logoSrc: "/src/img/logos-eco/western-union.v2.svg",
               logoAlt: "Western Union",
-              name: "Western Union",
-              description: "Cross-border payments",
+              name: t("ecosystem.institutions.2.name"),
+              description: t("ecosystem.institutions.2.description"),
             },
           ]}
           categories={[
             {
               id: "node-rpc",
               Icon: Nodes,
-              label: "Node / RPC",
+              label: t("ecosystem.categories.0"),
               logos: NODES_LOGOS,
             },
             {
               id: "institutional-custody",
               Icon: Bank,
-              label: "Institutional custody",
+              label: t("ecosystem.categories.1"),
               logos: INST_LOGOS,
             },
             {
               id: "compliance",
               Icon: Law,
-              label: "Compliance",
+              label: t("ecosystem.categories.2"),
               logos: COMPLIANCE_LOGOS,
             },
             {
               id: "on-off-ramps",
               Icon: Sort,
-              label: "On / Off Ramps",
+              label: t("ecosystem.categories.3"),
               logos: RAMP_LOGOS,
             },
           ]}
@@ -174,62 +177,68 @@ export function SdpPage() {
       </section>
       <DecorGrid />
       <AiAdvantages
-        title="Build with the AI tools you already use"
-        description="SDP works out of the box with AI coding tools like Claude Code by Anthropic and Codex by OpenAI, so your team can build faster with the tools they already know."
+        title={t("aiAdvantages.title")}
+        description={t("aiAdvantages.description")}
         items={[
-          "Fully API driven",
-          "Skills for AI agents",
-          "AI-ready API documentation",
+          t("aiAdvantages.items.0"),
+          t("aiAdvantages.items.1"),
+          t("aiAdvantages.items.2"),
         ]}
         prompts={[
-          "Build an RWA tokenization engine that supports different institutional custodians",
-          'Build a corporate treasury dashboard that tracks stablecoin movements in and out of the "treasury" wallet',
-          "Add stablecoin on/offramp capabilities to XYZ neobank",
-          "Set compliance rules for all stablecoin transfers to only allow low risk transactions",
-          "Create a new institutional wallet designated for issuing stablecoins",
-          "Add stablecoin payout capabilities to XYZ remittance app",
+          t("aiAdvantages.prompts.0"),
+          t("aiAdvantages.prompts.1"),
+          t("aiAdvantages.prompts.2"),
+          t("aiAdvantages.prompts.3"),
+          t("aiAdvantages.prompts.4"),
+          t("aiAdvantages.prompts.5"),
         ]}
       />
       <DecorGrid />
       <section id="sandbox" className="scroll-mt-[72px]">
-        <Tutorials title="Get Started in 10min" items={TUTORIALS} />
+        <Tutorials title={t("tutorials.title")} items={TUTORIALS} />
       </section>
       <DecorGrid />
       {/* <section id="media" className="scroll-mt-[72px]">
-        <News title="News & updates" items={NEWS} />
+        <News title={t("news.title")} items={NEWS} />
       </section>
       <DecorGrid /> */}
-      <Podcasts title="Meet the builders" items={PODCASTS} />
+      <Podcasts title={t("podcasts.title")} items={PODCASTS} />
       <DecorGrid />
       <Join
-        title="Build the next wave of finance on Solana"
-        ctaLabel="Join waitlist"
+        title={t("join.title")}
+        ctaLabel={t("join.cta")}
         ctaHref="https://platform.solana.com"
       />
       <DecorGrid />
       <Footer
         navColumns={[
           {
-            title: "Product",
+            title: t("footer.product.title"),
             links: [
-              { label: "API documentation", href: "/docs/rpc" },
-              { label: "Postman collection", href: "#" },
-              { label: "AI skills", href: "#" },
+              { label: t("footer.product.apiDocs"), href: "/docs/rpc" },
+              { label: t("footer.product.postman"), href: "#" },
+              { label: t("footer.product.aiSkills"), href: "#" },
             ],
           },
           {
-            title: "Get connected",
+            title: t("footer.getConnected.title"),
             links: [
-              { label: "Blog", href: "/news" },
-              { label: "Podcasts", href: "/podcasts" },
-              { label: "Newsletter", href: "/newsletter" },
+              { label: t("footer.getConnected.blog"), href: "/news" },
+              { label: t("footer.getConnected.podcasts"), href: "/podcasts" },
+              {
+                label: t("footer.getConnected.newsletter"),
+                href: "/newsletter",
+              },
             ],
           },
           {
-            title: "Legal",
+            title: t("footer.legal.title"),
             links: [
-              { label: "Disclaimer", href: "/tos" },
-              { label: "Privacy policy", href: "/privacy-policy" },
+              { label: t("footer.legal.disclaimer"), href: "/tos" },
+              {
+                label: t("footer.legal.privacyPolicy"),
+                href: "/privacy-policy",
+              },
             ],
           },
         ]}
