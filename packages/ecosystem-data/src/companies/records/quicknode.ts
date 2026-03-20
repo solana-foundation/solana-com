@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import quicknodeLogo from "../../../assets/companies/quicknode/logo.svg";
+import quicknodeLogoLight from "../../../assets/companies/quicknode/logo-light.png";
 
 export const quicknode = {
   "id": "quicknode",
@@ -27,7 +28,16 @@ export const quicknode = {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": quicknodeLogo
+      "source": quicknodeLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.png",
+      "format": "png",
+      "source": quicknodeLogoLight,
+      "theme": "light",
+      "kind": "logo"
     }
   ]
 } satisfies CompanyRecord;

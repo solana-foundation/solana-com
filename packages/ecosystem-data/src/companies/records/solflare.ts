@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
 import solflareLogo from "../../../assets/companies/solflare/logo.svg";
+import solflareMark from "../../../assets/companies/solflare/mark.svg";
+import solflareWordmarkDark from "../../../assets/companies/solflare/wordmark-dark.svg";
 
 export const solflare = {
   "id": "solflare",
@@ -28,6 +30,21 @@ export const solflare = {
       "fileName": "logo.svg",
       "format": "svg",
       "source": solflareLogo
+    },
+    {
+      "id": "mark",
+      "fileName": "mark.svg",
+      "format": "svg",
+      "source": solflareMark,
+      "kind": "mark"
+    },
+    {
+      "id": "wordmark-dark",
+      "fileName": "wordmark-dark.svg",
+      "format": "svg",
+      "source": solflareWordmarkDark,
+      "kind": "wordmark",
+      "theme": "light"
     }
   ]
 } satisfies CompanyRecord;

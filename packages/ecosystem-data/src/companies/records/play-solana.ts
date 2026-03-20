@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
-import playSolanaLogo from "../../../assets/companies/play-solana/logo.svg";
+import playSolanaWordmark from "../../../assets/companies/play-solana/wordmark.svg";
+import playSolanaLogoDark from "../../../assets/companies/play-solana/logo-dark.png";
+import playSolanaWordmarkDark from "../../../assets/companies/play-solana/wordmark-dark.png";
 
 export const playSolana = {
   "id": "play-solana",
@@ -22,13 +24,30 @@ export const playSolana = {
       "github": "https://github.com/playsolana"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-dark",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "wordmark",
+      "fileName": "wordmark.svg",
       "format": "svg",
-      "source": playSolanaLogo
+      "source": playSolanaWordmark,
+      "kind": "wordmark"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.png",
+      "format": "png",
+      "source": playSolanaLogoDark,
+      "theme": "dark",
+      "kind": "logo"
+    },
+    {
+      "id": "wordmark-dark",
+      "fileName": "wordmark-dark.png",
+      "format": "png",
+      "source": playSolanaWordmarkDark,
+      "theme": "dark",
+      "kind": "wordmark"
     }
   ]
 } satisfies CompanyRecord;

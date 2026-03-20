@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
 import arciumLogo from "../../../assets/companies/arcium/logo.svg";
+import arciumLogoLight from "../../../assets/companies/arcium/logo-light.svg";
+import arciumMarkLight from "../../../assets/companies/arcium/mark-light.svg";
+import arciumWordmarkLight from "../../../assets/companies/arcium/wordmark-light.svg";
 
 export const arcium = {
   "id": "arcium",
@@ -21,13 +24,38 @@ export const arcium = {
       "github": "https://github.com/arcium-hq"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": arciumLogo
+      "source": arciumLogo,
+      "kind": "logo"
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": arciumLogoLight,
+      "theme": "light",
+      "kind": "logo"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": arciumMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "wordmark-light",
+      "fileName": "wordmark-light.svg",
+      "format": "svg",
+      "source": arciumWordmarkLight,
+      "theme": "light",
+      "kind": "wordmark"
     }
   ]
 } satisfies CompanyRecord;

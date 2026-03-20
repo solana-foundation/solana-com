@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
-import darkresearchLogo from "../../../assets/companies/darkresearch/logo.png";
+import darkresearchLogoLight from "../../../assets/companies/darkresearch/logo-light.svg";
+import darkresearchLogoDark from "../../../assets/companies/darkresearch/logo-dark.png";
+import darkresearchMarkLight from "../../../assets/companies/darkresearch/mark-light.png";
 
 export const darkresearch = {
   "id": "darkresearch",
@@ -20,13 +22,29 @@ export const darkresearch = {
       "github": "https://github.com/darkresearch"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.png",
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": darkresearchLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.png",
       "format": "png",
-      "source": darkresearchLogo
+      "source": darkresearchLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.png",
+      "format": "png",
+      "source": darkresearchMarkLight,
+      "theme": "light",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

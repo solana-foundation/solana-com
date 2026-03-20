@@ -1,5 +1,9 @@
 import type { CompanyRecord } from "../../types";
 import galaxyLogo from "../../../assets/companies/galaxy/logo.svg";
+import galaxyLogoLight from "../../../assets/companies/galaxy/logo-light.svg";
+import galaxyLogoDark from "../../../assets/companies/galaxy/logo-dark.svg";
+import galaxyMarkLight from "../../../assets/companies/galaxy/mark-light.svg";
+import galaxyMarkDark from "../../../assets/companies/galaxy/mark-dark.svg";
 
 export const galaxy = {
   "id": "galaxy",
@@ -20,13 +24,43 @@ export const galaxy = {
       "github": "https://github.com/galaxy-digital"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
       "source": galaxyLogo
+    },
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": galaxyLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": galaxyLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": galaxyMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": galaxyMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
-import spiLogo from "../../../assets/companies/spi/logo.svg";
+import spiLogoLight from "../../../assets/companies/spi/logo-light.svg";
+import spiLogoDark from "../../../assets/companies/spi/logo-dark.png";
 
 export const spi = {
   "id": "spi",
@@ -19,13 +20,23 @@ export const spi = {
       "linkedin": "https://www.linkedin.com/company/solana-policy-institute"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
       "format": "svg",
-      "source": spiLogo
+      "source": spiLogoLight,
+      "theme": "light",
+      "kind": "logo"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.png",
+      "format": "png",
+      "source": spiLogoDark,
+      "theme": "dark",
+      "kind": "logo"
     }
   ]
 } satisfies CompanyRecord;

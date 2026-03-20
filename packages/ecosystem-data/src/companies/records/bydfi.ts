@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
-import bydfiLogo from "../../../assets/companies/bydfi/logo.svg";
+import bydfiLogoLight from "../../../assets/companies/bydfi/logo-light.svg";
+import bydfiLogoDark from "../../../assets/companies/bydfi/logo-dark.svg";
+import bydfiMarkLight from "../../../assets/companies/bydfi/mark-light.svg";
+import bydfiMarkDark from "../../../assets/companies/bydfi/mark-dark.svg";
 
 export const bydfi = {
   "id": "bydfi",
@@ -21,13 +24,37 @@ export const bydfi = {
       "telegram": "https://t.me/BYDFiEnglish"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
       "format": "svg",
-      "source": bydfiLogo
+      "source": bydfiLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": bydfiLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark-light",
+      "fileName": "mark-light.svg",
+      "format": "svg",
+      "source": bydfiMarkLight,
+      "theme": "light",
+      "kind": "mark"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": bydfiMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;

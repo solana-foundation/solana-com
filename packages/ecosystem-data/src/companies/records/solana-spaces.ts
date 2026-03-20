@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
-import solanaSpacesLogo from "../../../assets/companies/solana-spaces/logo.svg";
+import solanaSpacesLogoLight from "../../../assets/companies/solana-spaces/logo-light.svg";
+import solanaSpacesLogoDark from "../../../assets/companies/solana-spaces/logo-dark.svg";
 
 export const solanaSpaces = {
   "id": "solana-spaces",
@@ -19,13 +20,23 @@ export const solanaSpaces = {
       "linkedin": "https://www.linkedin.com/company/solana-spaces"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
-      "fileName": "logo.svg",
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
       "format": "svg",
-      "source": solanaSpacesLogo
+      "source": solanaSpacesLogoLight,
+      "theme": "light",
+      "kind": "logo"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": solanaSpacesLogoDark,
+      "theme": "dark",
+      "kind": "logo"
     }
   ]
 } satisfies CompanyRecord;

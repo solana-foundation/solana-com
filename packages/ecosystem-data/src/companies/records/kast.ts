@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
 import kastLogo from "../../../assets/companies/kast/logo.svg";
+import kastLogoDark from "../../../assets/companies/kast/logo-dark.svg";
+import kastMarkDark from "../../../assets/companies/kast/mark-dark.svg";
 
 export const kast = {
   "id": "kast",
@@ -21,13 +23,29 @@ export const kast = {
       "discord": "https://discord.com/invite/KASTxyz"
     }
   },
-  "defaultLogoId": "logo",
+  "defaultLogoId": "logo-light",
   "logos": [
     {
-      "id": "logo",
+      "id": "logo-light",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": kastLogo
+      "source": kastLogo,
+      "theme": "dark"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": kastLogoDark,
+      "theme": "light"
+    },
+    {
+      "id": "mark-dark",
+      "fileName": "mark-dark.svg",
+      "format": "svg",
+      "source": kastMarkDark,
+      "theme": "dark",
+      "kind": "mark"
     }
   ]
 } satisfies CompanyRecord;
