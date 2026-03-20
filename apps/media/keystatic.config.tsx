@@ -98,9 +98,11 @@ export default config({
           label: "Author",
           collection: "authors",
         }),
-        date: fields.text({
-          label: "Posted Date",
-          description: "Date in YYYY-MM-DD format",
+        publishedAt: fields.datetime({
+          label: "Publish Date",
+          description:
+            "Date and time when the post becomes visible on the site and in APIs",
+          validation: { isRequired: true },
         }),
         categories: fields.array(
           fields.object({
@@ -352,10 +354,10 @@ export default config({
           defaultValue: "draft",
           description: "Only applies when 'Use As Report' is enabled",
         }),
-        date: fields.text({
-          label: "Report Date",
+        publishedAt: fields.datetime({
+          label: "Publish Date",
           description:
-            "Only applies when 'Use As Report' is enabled. Use YYYY-MM-DD format",
+            "Only applies when 'Use As Report' is enabled. Date and time when the report becomes visible on the site and in APIs",
         }),
         description: fields.text({
           label: "Report Description",

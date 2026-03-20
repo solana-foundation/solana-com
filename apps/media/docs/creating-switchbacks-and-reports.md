@@ -167,7 +167,7 @@ Fill these fields for every report:
 | `Title`              | Defines the entry slug                               |
 | `Use As Report`      | Enables report behavior                              |
 | `Report Status`      | Must be `published` for the route to work            |
-| `Report Date`        | Used for sorting and display                         |
+| `Publish Date`       | Controls scheduling, sorting, and display            |
 | `Report Description` | Used for SEO and preview copy                        |
 | `Image`              | Main hero image for the report page                  |
 | `Eyebrow`            | Category-style label above the headline              |
@@ -336,7 +336,7 @@ Before marking a report as published, confirm all of the following:
 
 - `Use As Report` is enabled
 - `Report Status` is `published`
-- `Report Date` is set
+- `Publish Date` is set with the correct date and time
 - `Report Description` is filled
 - `Headline` is correct
 - `Image` is uploaded

@@ -51,6 +51,13 @@ Important rules:
 - Setting a post to **Published** only marks it ready on `staging`.
 - Content goes live only after a Pull Request from `staging` to `main` is
   reviewed and merged.
+- Posts and reports now use **Publish Date** with both date and time.
+- Published posts and reports remain hidden until their **Publish Date** has
+  passed.
+- Scheduled content is filtered out of the website, RSS feeds, and APIs until
+  that timestamp is reached.
+- Site and API caches revalidate roughly every 5 minutes, so merge scheduled
+  content a little ahead of the desired release time.
 
 ---
 
@@ -106,19 +113,19 @@ Click **Add** to open the new post form.
 
 The form includes:
 
-| Field           | Description                                        |
-| --------------- | -------------------------------------------------- |
-| **Title**       | Internal and public title of the post              |
-| **Slug**        | URL path for the post                              |
-| **Status**      | Usually **Draft** while the article is in progress |
-| **Hero Image**  | Main article image for listing and social sharing  |
-| **Description** | SEO/social summary                                 |
-| **Author**      | Author relationship field                          |
-| **Posted Date** | Publication date in `YYYY-MM-DD` format            |
-| **Categories**  | One or more categories                             |
-| **Body**        | Main article content editor                        |
-| **CTA**         | Optional call-to-action block                      |
-| **Switchback**  | Optional switchback block                          |
+| Field            | Description                                        |
+| ---------------- | -------------------------------------------------- |
+| **Title**        | Internal and public title of the post              |
+| **Slug**         | URL path for the post                              |
+| **Status**       | Usually **Draft** while the article is in progress |
+| **Hero Image**   | Main article image for listing and social sharing  |
+| **Description**  | SEO/social summary                                 |
+| **Author**       | Author relationship field                          |
+| **Publish Date** | Exact publication date and time                    |
+| **Categories**   | One or more categories                             |
+| **Body**         | Main article content editor                        |
+| **CTA**          | Optional call-to-action block                      |
+| **Switchback**   | Optional switchback block                          |
 
 #### Body Editor
 
@@ -145,7 +152,9 @@ When the article is approved and finalized:
 
 1. Re-open the post from the Posts list.
 2. Change **Status** from **Draft** to **Published**.
-3. Click **Save**.
+3. Set **Publish Date** to the exact date and time when the post should become
+   visible.
+4. Click **Save**.
 
 This still saves only to `staging`. The article is not live yet.
 
@@ -169,7 +178,8 @@ Publishing happens after the content is already saved on `staging`.
 7. After review and approval, merge the Pull Request into `main`.
 
 > **Important:** A post with **Status = Published** is still not live until the
-> `staging` to `main` Pull Request is merged.
+> `staging` to `main` Pull Request is merged, and it remains hidden until the
+> **Publish Date** timestamp has passed.
 
 ---
 
@@ -241,6 +251,28 @@ Click **Add** to create a switchback.
 | **Headline** | Main heading              |
 | **Body**     | Rich text content         |
 | **Buttons**  | One or more CTA buttons   |
+
+### Reports in Switchbacks
+
+Reports are managed through the **Switchbacks** collection.
+
+When a switchback is used as a report:
+
+| Field                          | Description                                       |
+| ------------------------------ | ------------------------------------------------- |
+| **Use As Report**              | Marks the switchback as a report                  |
+| **Report Status**              | Set to **Published** when the report is approved  |
+| **Publish Date**               | Exact date and time when the report should appear |
+| **Report Description**         | Summary used for previews and SEO                 |
+| **PDF URL / HubSpot Form CTA** | Download or lead-gen action                       |
+
+To schedule a report:
+
+1. Open the switchback entry for the report.
+2. Enable **Use As Report** if needed.
+3. Set **Report Status** to **Published**.
+4. Set **Publish Date** to the exact release date and time.
+5. Save on `staging` and publish through the normal Pull Request flow.
 
 ---
 

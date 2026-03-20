@@ -11,6 +11,7 @@ import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 const { publicUrl, siteMetadata, social } = config;
 
@@ -128,7 +129,7 @@ export async function newsPostMetadata(slug: string): Promise<Metadata> {
       images: ogImage
         ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
         : undefined,
-      publishedTime: post.date || undefined,
+      publishedTime: post.publishedAt || undefined,
       authors: authorName ? [authorName] : undefined,
       section: categoryName,
       tags: tagNames.length > 0 ? tagNames : undefined,
@@ -226,7 +227,7 @@ export function reportsListingMetadata(): Metadata {
 export async function reportMetadata(slug: string): Promise<Metadata> {
   const report = await reader.collections.switchbacks.read(slug);
 
-  if (!report || !report.isReport || report.status !== "published") {
+  if (!isPublishedReport(report)) {
     return { title: "Report Not Found", description: "" };
   }
 
@@ -287,7 +288,7 @@ export async function reportMetadata(slug: string): Promise<Metadata> {
       images: ogImage
         ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
         : undefined,
-      publishedTime: report.date || undefined,
+      publishedTime: report.publishedAt || undefined,
       section: categoryNames[0],
       tags: tagNames.length > 0 ? tagNames : undefined,
     },
