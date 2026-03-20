@@ -77,7 +77,7 @@ export const Footer = ({ className = "" }) => {
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
         <div className="relative grid grid-cols-2 xl:grid-cols-6 gap-[30px]">
-          <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-3">
+          <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-3 relative z-10">
             <p className="text-base md:text-lg font-medium mb-0 leading-[1.33]">
               {t("footer.foundation")}
             </p>
