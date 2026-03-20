@@ -331,6 +331,7 @@ use anyhow::Result;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
+    program_pack::Pack,
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
@@ -339,27 +340,26 @@ use spl_associated_token_account_interface::{
     address::get_associated_token_address, instruction::create_associated_token_account,
 };
 use spl_token_interface::{
-    id as token_program_id, instruction::sync_native, native_mint::ID as NATIVE_MINT_ID,
+    id as token_program_id,
+    instruction::sync_native,
+    native_mint::ID as NATIVE_MINT_ID,
+    state::Account,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to local validator
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let latest_blockhash = client.get_latest_blockhash().await?;
 
-    // Generate a new keypair for the fee payer
+    // !collapse(1:28) collapsed
+    // Setup: create a WSOL ATA before wrapping and syncing SOL.
     let fee_payer = Keypair::new();
 
-    // Airdrop 2 SOL to fee payer
     let airdrop_signature = client
         .request_airdrop(&fee_payer.pubkey(), 2_000_000_000)
         .await?;
-    client.confirm_transaction(&airdrop_signature).await?;
-
     loop {
         let confirmed = client.confirm_transaction(&airdrop_signature).await?;
         if confirmed {
@@ -367,50 +367,49 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Get associated token account address for WSOL
-    let associated_token_address = get_associated_token_address(
-        &fee_payer.pubkey(), // owner
-        &NATIVE_MINT_ID,     // mint (Wrapped SOL)
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
+        &[create_associated_token_account(
+            &fee_payer.pubkey(),
+            &fee_payer.pubkey(),
+            &NATIVE_MINT_ID,
+            &token_program_id(),
+        )],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
     );
+    client
+        .send_and_confirm_transaction(&setup_transaction)
+        .await?;
 
-    // Instruction to create associated token account for WSOL
-    let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(), // funding address
-        &fee_payer.pubkey(), // wallet address
-        &NATIVE_MINT_ID,     // mint address
-        &token_program_id(), // program id
-    );
-
-    // Amount to wrap (1 SOL = 1,000,000,000 lamports)
-    let amount = 1_000_000_000;
-
-    // Create transfer instruction to send SOL to the WSOL token account
-    let transfer_instruction = transfer(&fee_payer.pubkey(), &associated_token_address, amount);
-
-    // Create sync native instruction to update WSOL balance
-    let sync_native_instruction = sync_native(&token_program_id(), &associated_token_address)?;
-
-    // Create transaction and add instructions
+    let associated_token_address = get_associated_token_address(&fee_payer.pubkey(), &NATIVE_MINT_ID);
+    let sync_amount = 1_000_000;
     let transaction = Transaction::new_signed_with_payer(
         &[
-            create_ata_instruction,
-            transfer_instruction,
-            sync_native_instruction,
+            // !mark(1:9)
+            transfer(
+                &fee_payer.pubkey(), // Account sending the SOL to wrap.
+                &associated_token_address, // WSOL token account receiving the SOL.
+                sync_amount, // SOL amount in lamports.
+            ),
+            sync_native(
+                &token_program_id(), // Token program to invoke.
+                &associated_token_address, // WSOL token account to synchronize.
+            )?,
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
         latest_blockhash,
     );
 
-    // Send and confirm transaction
-    client.send_and_confirm_transaction(&transaction).await?;
-
-    let token_account = client.get_token_account(&associated_token_address).await?;
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let token_account = client.get_account(&associated_token_address).await?;
+    let token_data = Account::unpack(&token_account.data)?;
 
     println!("WSOL Token Account Address: {}", associated_token_address);
-    if let Some(token_account) = token_account {
-        println!("{:#?}", token_account);
-    }
+    println!("WSOL Token Account: {:#?}", token_data);
+    println!("\nTransaction Signature: {}", transaction_signature);
 
     Ok(())
 }
