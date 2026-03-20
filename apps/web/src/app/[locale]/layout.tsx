@@ -18,6 +18,7 @@ import {
 } from "@solana-com/ui-chrome";
 import { ChromeWrapper } from "@/components/ChromeWrapper";
 import Script from "next/script";
+import { Header, Footer } from "@solana-com/ui-chrome";
 
 type Props = {
   children: React.ReactNode;
@@ -55,7 +56,13 @@ export default async function RootLayout({ children, params }: Props) {
               <GTMTrackingSnippet />
               <SitewideTopAlert />
               <CookieConsent />
-              <ChromeWrapper>{children}</ChromeWrapper>
+              <ChromeWrapper>
+                <Header />
+              </ChromeWrapper>
+              {children}
+              <ChromeWrapper>
+                <Footer />
+              </ChromeWrapper>
               <InkeepChatButton />
               <Script
                 id="signals-script"
