@@ -1,7 +1,7 @@
 import { reader } from "../reader";
 import { PostItem } from "../post-types";
-import { format } from "date-fns";
 import { isPublishedPost } from "./post-status";
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
 
 export interface LatestPostsParams {
   limit?: number;
@@ -33,12 +33,9 @@ async function transformPost(
 ): Promise<PostItem | null> {
   if (!post) return null;
 
-  // Ensure date is a string before processing
-  const dateString =
-    typeof post.date === "string" ? post.date : String(post.date || "");
-  const date = dateString ? new Date(dateString) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAt =
+    typeof post.publishedAt === "string" ? post.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAt);
 
   // Resolve author reference
   let authorName = "Solana Foundation";
@@ -140,6 +137,7 @@ async function transformPost(
   return {
     id: slug,
     published: formattedDate,
+    publishedAt,
     title: String(post.title),
     tags: dedupeStrings(tagNames),
     categories: dedupeStrings(categoryNames),
@@ -175,12 +173,9 @@ export const fetchLatestPosts = async (
       try {
         const post = await reader.collections.posts.read(slug);
         if (isPublishedPost(post)) {
-          // Ensure date is a string before creating Date object
-          const dateString =
-            typeof post.date === "string" ? post.date : String(post.date || "");
           postsWithDates.push({
             slug,
-            date: dateString ? new Date(dateString) : null,
+            date: parsePublishedAt(post.publishedAt),
             post,
           });
         }
@@ -347,13 +342,9 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
           }
 
           if (isFeatured) {
-            const dateString =
-              typeof post.date === "string"
-                ? post.date
-                : String(post.date || "");
             featuredCandidates.push({
               slug,
-              date: dateString ? new Date(dateString) : null,
+              date: parsePublishedAt(post.publishedAt),
               post,
             });
           }

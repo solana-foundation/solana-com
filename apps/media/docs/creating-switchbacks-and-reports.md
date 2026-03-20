@@ -162,19 +162,19 @@ If either is missing, the report page will not resolve.
 
 Fill these fields for every report:
 
-| Field                | Why it matters                                       |
-| -------------------- | ---------------------------------------------------- |
-| `Title`              | Defines the entry slug                               |
-| `Use As Report`      | Enables report behavior                              |
-| `Report Status`      | Must be `published` for the route to work            |
-| `Report Date`        | Used for sorting and display                         |
-| `Report Description` | Used for SEO and preview copy                        |
-| `Image`              | Main hero image for the report page                  |
-| `Eyebrow`            | Category-style label above the headline              |
-| `Headline`           | Main report title shown on page                      |
-| Main editor body     | Structured report copy shown in the hero text column |
-| `Report Categories`  | Used for filtering and page metadata                 |
-| `Report Tags`        | Used for filtering and tagging                       |
+| Field                | Why it matters                                                    |
+| -------------------- | ----------------------------------------------------------------- |
+| `Title`              | Defines the entry slug                                            |
+| `Use As Report`      | Enables report behavior                                           |
+| `Report Status`      | Must be `published` for the route to work                         |
+| `Publish Date`       | Controls scheduling, sorting, and display; enter the value in UTC |
+| `Report Description` | Used for SEO and preview copy                                     |
+| `Image`              | Main hero image for the report page                               |
+| `Eyebrow`            | Category-style label above the headline                           |
+| `Headline`           | Main report title shown on page                                   |
+| Main editor body     | Structured report copy shown in the hero text column              |
+| `Report Categories`  | Used for filtering and page metadata                              |
+| `Report Tags`        | Used for filtering and tagging                                    |
 
 ### Optional report fields
 
@@ -336,7 +336,7 @@ Before marking a report as published, confirm all of the following:
 
 - `Use As Report` is enabled
 - `Report Status` is `published`
-- `Report Date` is set
+- `Publish Date` is set with the correct UTC date and time
 - `Report Description` is filled
 - `Headline` is correct
 - `Image` is uploaded

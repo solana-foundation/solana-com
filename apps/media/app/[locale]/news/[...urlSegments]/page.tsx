@@ -1,7 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { format } from "date-fns";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
@@ -13,6 +12,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { newsPostMetadata } from "@/lib/metadata";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -50,11 +50,7 @@ export default async function PostPage({
     switchback = await reader.collections.switchbacks.read(post.switchback);
   }
 
-  const date = post.date ? new Date(post.date) : null;
-  let formattedDate = "";
-  if (date && !isNaN(date.getTime())) {
-    formattedDate = format(date, "d MMMM yyyy");
-  }
+  const formattedDate = formatPublishedAt(post.publishedAt, "long");
 
   return (
     <ErrorBoundary>

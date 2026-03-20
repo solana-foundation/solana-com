@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { format } from "date-fns";
 import { Download, ArrowUpRight, ArrowLeft } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -12,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import { reader } from "@/lib/reader";
 import { reportMetadata } from "@/lib/metadata";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
+import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -24,13 +25,11 @@ export default async function ReportPage({
   const { slug } = await params;
   const report = await reader.collections.switchbacks.read(slug);
 
-  if (!report || !report.isReport || report.status !== "published") {
+  if (!isPublishedReport(report)) {
     notFound();
   }
 
-  const date = report.date ? new Date(report.date) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "d MMMM yyyy") : "";
+  const formattedDate = formatPublishedAt(report.publishedAt, "long");
   const headline = String(report.headline || report.title);
   const buttons =
     report.buttons?.filter((button) => button?.label && button?.url) || [];
@@ -201,7 +200,7 @@ export async function generateStaticParams() {
 
     for (const slug of slugs) {
       const report = await reader.collections.switchbacks.read(slug);
-      if (report?.isReport && report.status === "published") {
+      if (isPublishedReport(report)) {
         publishedSlugs.push(slug);
       }
     }
