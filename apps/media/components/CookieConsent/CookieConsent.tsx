@@ -48,11 +48,6 @@ export const CookieConsent = () => {
     const consent = getLocalStorage("cookie_consent", null);
     setCookieConsent(consent);
     setIsLoaded(true);
-
-    // set builderNoTrack based on the previously set consent
-    if (typeof window !== "undefined" && consent !== null) {
-      (window as any).builderNoTrack = !consent;
-    }
   }, []);
 
   // update when cookieConsent is changed via onClick
@@ -69,8 +64,6 @@ export const CookieConsent = () => {
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
-
-      (window as any).builderNoTrack = !cookieConsent;
     }
   }, [cookieConsent, isLoaded]);
 

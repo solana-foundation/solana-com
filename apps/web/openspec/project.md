@@ -11,7 +11,7 @@ multi-app Next.js architecture behind `solana.com`.
 - Next.js 15 (App Router) with React 19 and TypeScript 5.8
 - Styling: Tailwind CSS, SCSS, styled-components; Radix UI primitives
 - i18n: `next-intl` via `@workspace/i18n`
-- Content: MDX, Fumadocs (docs), Builder.io (marketing/news), TinaCMS (media)
+- Content: MDX, Fumadocs (docs), TinaCMS (media)
 - Deployment/ops: Vercel, Sentry, PostHog
 
 ## Project Conventions
@@ -43,7 +43,7 @@ multi-app Next.js architecture behind `solana.com`.
 - Public content should avoid "official recommendations" and "favorites";
   list multiple options when referencing ecosystem products or services
 - Developer docs live in `/content` and use Fumadocs conventions
-- News and many landing pages use Builder.io; media app content is in MDX
+- News, landing pages, and media content are file-backed content in the repo
 
 ## Important Constraints
 - Proxy-only routing: all apps are served through `solana.com` via rewrites
@@ -52,6 +52,6 @@ multi-app Next.js architecture behind `solana.com`.
 
 ## External Dependencies
 - Vercel multi-project deployment with related projects
-- Builder.io (marketing/news content), TinaCMS (media admin)
+- TinaCMS (media admin)
 - Sentry (error tracking), PostHog (analytics), Inkeep (chat)
 - Simplecast + YouTube APIs for podcasts/video integrations

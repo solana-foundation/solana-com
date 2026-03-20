@@ -14,7 +14,7 @@ information, events, news aggregation, and marketing content.
 - **Framework**: Next.js 15 (App Router) with next-intl
 - **Styling**: Tailwind CSS, SCSS, Bootstrap 5
 - **Animation**: Framer Motion, GSAP
-- **CMS**: Builder.io for dynamic content and redirects
+- **CMS**: File-backed content and app-managed redirects
 - **UI Components**: Radix UI primitives, React Bootstrap
 - **Testing**: Jest + React Testing Library
 - **Icons**: Lucide React, React Feather
@@ -75,12 +75,6 @@ ANALYZE=true pnpm build
 
 ## Key Integrations
 
-### Builder.io CMS
-
-- Dynamic page content
-- URL redirects management (fetched at build time)
-- API Key: `NEXT_PUBLIC_BUILDER_API_KEY`
-
 ### External APIs
 
 - **Luma** - Events calendar (`LUMA_PRIVATE_API_KEY`)
@@ -101,11 +95,10 @@ ANALYZE=true pnpm build
 
 - All routes are under `[locale]` for i18n support
 - Uses Next.js App Router with layouts and route groups
-- Rewrites and redirects managed in `rewrites-redirects.mjs` + Builder.io
+- Rewrites and redirects managed in `rewrites-redirects.mjs`
 
 ## Key Dependencies (App-Specific)
 
-- `@builder.io/react` - Builder.io CMS integration
 - `@typeform/embed` - Typeform embeds
 - `gsap` - GreenSock animations (transpiled via next.config)
 - `react-slick` / `slick-carousel` - Carousels

@@ -19,8 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value:
-      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234",
+    value: "frame-ancestors http://localhost:1234",
   },
 ];
 
@@ -96,10 +95,6 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.lu.ma",
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.builder.io",
       },
       {
         protocol: "https",

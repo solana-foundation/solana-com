@@ -47,11 +47,6 @@ export default function CookieConsent() {
   useEffect(() => {
     const consent = getLocalStorage("cookie_consent", null);
     setCookieConsent(consent);
-
-    // set builderNoTrack based on the previously set consent
-    if (typeof window !== "undefined" && consent) {
-      window.builderNoTrack = !consent;
-    }
   }, [setCookieConsent]);
 
   // update when cookieConsent is changed via onClick
@@ -64,8 +59,6 @@ export default function CookieConsent() {
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
-
-      window.builderNoTrack = !cookieConsent;
     }
   }, [cookieConsent]);
 

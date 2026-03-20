@@ -63,21 +63,6 @@ The developer docs are built with [Fumadocs](https://fumadocs.vercel.app/). For
 additional details on how files are structured, see the
 [Fumadocs documentation](https://fumadocs.vercel.app/docs/headless/page-conventions#overview).
 
-## Builder API
-
-The blog content located at `/news` and most of the landing pages under
-`/solutions` utilize Builder.io, a headless CMS integrated with our current
-Next.js project.
-
-```conf
-NEXT_PUBLIC_BUILDER_API_KEY=""
-NEXT_PUBLIC_BUILDER_NEWS_SETTINGS_ID=""
-```
-
-> Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key):
-> The Builder Public API Key is public, meaning that you don't have to keep it
-> private.
-
 ## RPC providers
 
 To be considered for listing on the https://solana.com/rpc page, providers must
