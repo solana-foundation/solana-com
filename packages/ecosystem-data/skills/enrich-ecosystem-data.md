@@ -61,7 +61,79 @@ If sources conflict, prefer the canonical company URL and the official website i
 - Avoid slogans, hype, investor language, and unsupported claims
 - Write in present tense and keep the wording durable outside a single campaign or event
 
-### 3. Update the registry
+### 3. Find and download brand logos
+
+For every company, search for official brand/media/press pages that provide downloadable logo assets. Launch parallel Agent subprocesses to process companies in batches.
+
+**Search strategy**:
+
+1. Start from the company's canonical website URL in the record — it is the authority
+2. Try common brand page paths: `{website}/brand`, `{website}/press`, `{website}/media`, `{website}/brand-assets`, `{website}/brandkit`
+3. Search the web for: `"{company name} brand assets"`, `"{company name} media kit"`, `"{company name} press kit logos"`
+4. If no brand page is found after 1–2 searches, skip the company and move on
+
+**Source preference**:
+
+1. Official brand/press/media pages on the company's own domain
+2. Official documentation sites (e.g., `docs.{company}.com/resources/brand-kit`)
+3. Direct asset URLs from the company's own CDN or website
+4. Do not use third-party logo aggregators unless no official source exists
+
+**Download rules**:
+
+- Prefer SVG over PNG/WebP
+- Download into `packages/ecosystem-data/assets/companies/<company-slug>/`
+- Use explicit variant names: `logo-light.svg`, `logo-dark.svg`, `wordmark-light.svg`, `mark-dark.png`
+- Use lowercase kebab-case for all filenames
+- Logo kinds: `logo` (full logo with mark + text), `mark` (icon/symbol only), `wordmark` (text only)
+- Verify downloaded files are valid — SVG content should start with `<svg` or `<?xml`, PNG files should not be zero bytes or HTML error pages
+- Keep the existing logo file (renamed to a descriptive variant name if needed) and add new variants alongside it
+
+**Record update pattern**:
+
+```ts
+import type { CompanyRecord } from "../../types";
+import companyLogoLight from "../../../assets/companies/company/logo-light.svg";
+import companyLogoDark from "../../../assets/companies/company/logo-dark.svg";
+import companyMark from "../../../assets/companies/company/mark.svg";
+
+export const company = {
+  ...
+  "defaultLogoId": "logo-light",
+  "logos": [
+    {
+      "id": "logo-light",
+      "fileName": "logo-light.svg",
+      "format": "svg",
+      "source": companyLogoLight,
+      "theme": "light"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.svg",
+      "format": "svg",
+      "source": companyLogoDark,
+      "theme": "dark"
+    },
+    {
+      "id": "mark",
+      "fileName": "mark.svg",
+      "format": "svg",
+      "source": companyMark,
+      "kind": "mark"
+    }
+  ]
+} satisfies CompanyRecord;
+```
+
+Key points:
+
+- Import variable names use camelCase: `{companyName}Logo{Variant}` (e.g., `phantomLogoLight`)
+- Each logo entry has: `id`, `fileName`, `format`, `source` (the import), and optionally `theme` (`"light"` / `"dark"`), `kind` (`"mark"` / `"wordmark"` / `"logo"`)
+- `defaultLogoId` should point to the most versatile logo variant
+- Only modify imports, `logos` array, and `defaultLogoId` — never touch `id`, `slug`, `name`, or `profile`
+
+### 4. Update the registry (profile enrichment)
 
 For each researched company, replace `"profile": null` with a populated object matching this shape:
 
@@ -93,7 +165,7 @@ When enriching:
 - use the existing company URL as the canonical research starting point before consulting search engines
 - prefer direct organization URLs over link-in-bio or profile aggregators
 
-### 4. Validate
+### 5. Validate
 
 After editing, confirm the file has valid TypeScript by running:
 
@@ -103,17 +175,19 @@ pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
 
 ### Rules
 
-- **Only modify `profile`** — never touch `id`, `slug`, `name`, `logos`, `defaultLogoId`.
+- **Profile enrichment**: only modify `profile` — never touch `id`, `slug`, `name`, `logos`, `defaultLogoId`.
+- **Logo enrichment**: only modify imports, `logos`, and `defaultLogoId` — never touch `id`, `slug`, `name`, or `profile`.
 - Use factual, neutral language — no marketing superlatives.
 - Match the tone of existing enriched records (Bridge, DoubleZero, KAST, Libeara, OSL, Superteam USA, velia.net).
 - If reliable information cannot be found for a company, leave `profile: null` and note it in the summary.
 - Process companies in parallel to save time.
 - Keep `packages/ecosystem-data/README.md` accurate if the enrichment workflow or expectations materially change.
 
-### 5. Summary
+### 6. Summary
 
 Report:
 - Companies enriched (with sector assigned)
+- Companies with logos updated (with variants added)
 - Companies skipped (with reason)
 - Companies where data confidence is low
 - Validation result from `pnpm --filter @workspace/ecosystem-data exec tsc --noEmit`
