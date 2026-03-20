@@ -101,7 +101,7 @@ export default config({
         publishedAt: fields.datetime({
           label: "Publish Date",
           description:
-            "Date and time when the post becomes visible on the site and in APIs",
+            "Date and time in UTC when the post becomes visible on the site and in APIs. The picker value is stored as UTC.",
           validation: { isRequired: true },
         }),
         categories: fields.array(
@@ -357,7 +357,7 @@ export default config({
         publishedAt: fields.datetime({
           label: "Publish Date",
           description:
-            "Only applies when 'Use As Report' is enabled. Date and time when the report becomes visible on the site and in APIs",
+            "Only applies when 'Use As Report' is enabled. Date and time in UTC when the report becomes visible on the site and in APIs. The picker value is stored as UTC.",
         }),
         description: fields.text({
           label: "Report Description",
