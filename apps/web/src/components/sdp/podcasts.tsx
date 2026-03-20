@@ -4,6 +4,7 @@ import React from "react";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useRef } from "react";
+import FormattedDate from "../shared/FormattedDate";
 
 export interface PodcastItem {
   title: string;
@@ -41,7 +42,9 @@ const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
   return (
     <a
       href={href}
-      className="group flex items-center xl:items-stretch border-t xl:border-t-0 xl:border-b last:border-b-0 border-white/[0.08] hover:bg-[#101013] hover:border-white/[0.12] transition-colors max-xl:px-5 max-xl:py-4"
+      className="group flex items-center xl:items-stretch border-t xl:border-t-0 xl:border-b [&:nth-child(3n)]:border-b-0 border-white/[0.08] hover:bg-[#101013] hover:border-white/[0.12] transition-colors max-xl:px-5 max-xl:py-4"
+      target="_blank"
+      rel="noopener noreferrer"
     >
       {/* Thumbnail */}
       <div className="relative shrink-0 size-10 xl:w-[104px] xl:h-auto xl:aspect-square xl:border-r xl:border-white/[0.08] overflow-hidden">
@@ -61,7 +64,7 @@ const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
           <div className="flex gap-3 items-center">
             {date && (
               <span className="nd-body-xs text-white/[0.64] whitespace-nowrap">
-                {date}
+                <FormattedDate date={date} format="E, MMM d" />
               </span>
             )}
             {date && duration && (
