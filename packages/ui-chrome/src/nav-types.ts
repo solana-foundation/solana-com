@@ -1,6 +1,12 @@
 import type React from "react";
 
 export type NavItemVariant = "medium" | "large";
+export type NavTopLevelSectionId =
+  | "learn"
+  | "developers"
+  | "solutions"
+  | "network"
+  | "community";
 
 export interface NavItemDefinition {
   id: string;
@@ -22,7 +28,7 @@ export interface NavMatchRule {
 }
 
 export interface NavTopLevelSectionMetadata {
-  id: string;
+  id: NavTopLevelSectionId;
   titleKey: string;
   matchRules: NavMatchRule[];
   mobileIcon: React.ComponentType<{

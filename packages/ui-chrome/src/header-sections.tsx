@@ -10,23 +10,29 @@ import HeaderListSolutions from "./header-list.solutions";
 import HeaderListNetwork from "./header-list.network";
 import { HeaderListCommunity } from "./header-list.community";
 import { HEADER_SECTION_METADATA } from "./header-section-metadata";
-import type { NavTopLevelSection } from "./nav-types";
+import type { NavTopLevelSection, NavTopLevelSectionId } from "./nav-types";
 
-const HEADER_SECTION_ICONS = {
+const HEADER_SECTION_ICONS: Record<
+  NavTopLevelSectionId,
+  NavTopLevelSection["mobileIcon"]
+> = {
   learn: CodeIcon,
   developers: CodeIcon,
   solutions: LightbulbIcon,
   network: BezierIcon,
   community: GlobusIcon,
-} as const;
+};
 
-const HEADER_SECTION_CONTENT = {
+const HEADER_SECTION_CONTENT: Record<
+  NavTopLevelSectionId,
+  NavTopLevelSection["Content"]
+> = {
   learn: HeaderListLearn,
   developers: HeaderListBuild,
   solutions: HeaderListSolutions,
   network: HeaderListNetwork,
   community: HeaderListCommunity,
-} as const;
+};
 
 export const HEADER_SECTIONS: NavTopLevelSection[] =
   HEADER_SECTION_METADATA.map((section) => ({
