@@ -15,9 +15,11 @@ import FlowIcon from "./assets/nav/solutions/flow.inline.svg";
 import MallIcon from "./assets/nav/solutions/mall.inline.svg";
 import MoneyIcon from "./assets/nav/solutions/money.inline.svg";
 import PhoneIcon from "./assets/nav/solutions/phone.inline.svg";
+import RocketIcon from "./assets/nav/solutions/rocket.inline.svg";
 import RootingIcon from "./assets/nav/solutions/rooting.inline.svg";
 import SparklesIcon from "./assets/nav/solutions/sparkles.inline.svg";
 import StoreIcon from "./assets/nav/solutions/store.inline.svg";
+import TokensIcon from "./assets/nav/solutions/tokens.inline.svg";
 import WalletIcon from "./assets/nav/solutions/wallet.inline.svg";
 
 const HeaderListSolutions = ({ isMobile = false }) => {
@@ -230,14 +232,14 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 />
               </Link>
               <Link
-                to="https://launch.solana.com/products/contra"
+                to="https://launch.solana.com/"
                 className="block no-underline text-inherit group/link"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <HeaderItem
                   title={solutionsResourcesItems[1].title}
-                  Icon={SparklesIcon}
+                  Icon={RocketIcon}
                 />
               </Link>
               <Link
@@ -249,6 +251,17 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 <HeaderItem
                   title={solutionsResourcesItems[2].title}
                   Icon={PhoneIcon}
+                />
+              </Link>
+              <Link
+                to="https://tokens.solana.com"
+                className="block no-underline text-inherit group/link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <HeaderItem
+                  title={solutionsResourcesItems[3].title}
+                  Icon={TokensIcon}
                 />
               </Link>
             </div>
