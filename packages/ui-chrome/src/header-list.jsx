@@ -26,6 +26,7 @@ const HeaderList = () => {
   const isSolutionsActive =
     asPath.includes("/solutions") ||
     asPath.includes("/wallets") ||
+    asPath.includes("/solana-wallets") ||
     asPath.includes("/ai");
   const isBuildActive =
     asPath.includes("/developers") ||

@@ -7,24 +7,17 @@ import { CollapseMenu } from "./collapse-menu";
 import BankIcon from "./assets/nav/solutions/bank.inline.svg";
 import BitcoinIcon from "./assets/nav/solutions/bitcoin.inline.svg";
 import BuildingsIcon from "./assets/nav/solutions/buildings.inline.svg";
-import ChainLinkIcon from "./assets/nav/solutions/chain-link.inline.svg";
-import ChecklistIcon from "./assets/nav/solutions/checklist.inline.svg";
 import CoinIcon from "./assets/nav/solutions/coin.inline.svg";
 import CoinsAddIcon from "./assets/nav/solutions/coins-add.inline.svg";
 import CoinsIcon from "./assets/nav/solutions/coins.inline.svg";
 import ContrastIcon from "./assets/nav/solutions/contrast.inline.svg";
 import FlowIcon from "./assets/nav/solutions/flow.inline.svg";
-import GamepadIcon from "./assets/nav/solutions/gamepad.inline.svg";
-import GroupIcon from "./assets/nav/solutions/group.inline.svg";
-import ImageAvatarIcon from "./assets/nav/solutions/image-avatar.inline.svg";
 import MallIcon from "./assets/nav/solutions/mall.inline.svg";
 import MoneyIcon from "./assets/nav/solutions/money.inline.svg";
 import PhoneIcon from "./assets/nav/solutions/phone.inline.svg";
 import RootingIcon from "./assets/nav/solutions/rooting.inline.svg";
-import ShieldIcon from "./assets/nav/solutions/shield.inline.svg";
 import SparklesIcon from "./assets/nav/solutions/sparkles.inline.svg";
 import StoreIcon from "./assets/nav/solutions/store.inline.svg";
-import SwordIcon from "./assets/nav/solutions/sword.inline.svg";
 import WalletIcon from "./assets/nav/solutions/wallet.inline.svg";
 
 const HeaderListSolutions = ({ isMobile = false }) => {
@@ -58,64 +51,24 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 />
               </Link>
               <Link
-                to="/solutions/actions"
+                to="/solana-wallets"
                 className="block no-underline text-inherit group/link"
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[9].title}
-                  Icon={ChainLinkIcon}
-                />
-              </Link>
-              <Link
-                to="/wallets"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsToolsItems[10].title}
+                  title={solutionsToolsItems[5].title}
                   Icon={WalletIcon}
-                />
-              </Link>
-              <Link
-                to="/solutions/solana-permissioned-environments"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsToolsItems[7].title}
-                  Icon={ShieldIcon}
                 />
               </Link>
             </div>
             <div className="divide-y divide-[rgba(238,228,255,0.04)] flex-1">
-              <Link
-                to="/solutions/games-tooling"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsToolsItems[1].title}
-                  Icon={SwordIcon}
-                />
-              </Link>
-              <Link
-                to="/solutions/payments-tooling"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsToolsItems[2].title}
-                  Icon={MoneyIcon}
-                />
-              </Link>
               <Link
                 to="/solutions/commerce-tooling"
                 className="block no-underline text-inherit group/link"
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[3].title}
+                  title={solutionsToolsItems[1].title}
                   Icon={StoreIcon}
                 />
               </Link>
@@ -125,7 +78,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[4].title}
+                  title={solutionsToolsItems[2].title}
                   Icon={FlowIcon}
                 />
               </Link>
@@ -137,7 +90,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[5].title}
+                  title={solutionsToolsItems[3].title}
                   Icon={ContrastIcon}
                 />
               </Link>
@@ -147,19 +100,8 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 activeClassName="active"
               >
                 <HeaderItem
-                  title={solutionsToolsItems[8].title}
+                  title={solutionsToolsItems[4].title}
                   Icon={MallIcon}
-                />
-              </Link>
-              <Link
-                to="https://solanamobile.com/developers"
-                className="block no-underline text-inherit group/link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <HeaderItem
-                  title={solutionsToolsItems[6].title}
-                  Icon={PhoneIcon}
                 />
               </Link>
             </div>
@@ -231,46 +173,6 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                     Icon={CoinIcon}
                   />
                 </Link>
-                {/* <Link
-                to="/solutions/defi"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsCasesItems[9].title}
-                  Icon={CoinIcon}
-                />
-              </Link> */}
-                {/* <Link
-                to="/solutions/consumer"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsCasesItems[10].title}
-                  Icon={CoinIcon}
-                />
-              </Link> */}
-                {/* <Link
-                to="/solutions/ai"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsCasesItems[11].title}
-                  Icon={CoinIcon}
-                />
-              </Link> */}
-                {/* <Link
-                to="/solutions/desci"
-                className="block no-underline text-inherit group/link"
-                activeClassName="active"
-              >
-                <HeaderItem
-                  title={solutionsCasesItems[12].title}
-                  Icon={CoinIcon}
-                />
-              </Link> */}
                 <Link
                   to="/solutions/enterprise"
                   className="block no-underline text-inherit group/link"
@@ -282,23 +184,23 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                   />
                 </Link>
                 <Link
-                  to="/solutions/gaming-and-entertainment"
+                  to="/solutions/financial-institutions"
                   className="block no-underline text-inherit group/link"
                   activeClassName="active"
                 >
                   <HeaderItem
-                    title={solutionsCasesItems[0].title}
-                    Icon={GamepadIcon}
+                    title={solutionsCasesItems[3].title}
+                    Icon={BankIcon}
                   />
                 </Link>
                 <Link
-                  to="/solutions/artists-creators"
+                  to="/solutions/ai"
                   className="block no-underline text-inherit group/link"
                   activeClassName="active"
                 >
                   <HeaderItem
-                    title={solutionsCasesItems[2].title}
-                    Icon={ImageAvatarIcon}
+                    title={solutionsCasesItems[11].title}
+                    Icon={SparklesIcon}
                   />
                 </Link>
               </div>
@@ -317,33 +219,36 @@ const HeaderListSolutions = ({ isMobile = false }) => {
           >
             <div className="divide-y divide-[rgba(238,228,255,0.04)] flex-1">
               <Link
-                to="/solutions"
+                to="https://payments.org"
                 className="block no-underline text-inherit group/link"
-                activeClassName="active"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <HeaderItem
                   title={solutionsResourcesItems[0].title}
-                  Icon={ChecklistIcon}
+                  Icon={MoneyIcon}
                 />
               </Link>
               <Link
-                to="/solutions/ai"
+                to="https://launch.solana.com/products/contra"
                 className="block no-underline text-inherit group/link"
-                activeClassName="active"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <HeaderItem
                   title={solutionsResourcesItems[1].title}
-                  Icon={GroupIcon}
+                  Icon={SparklesIcon}
                 />
               </Link>
               <Link
-                to="/developers/dao"
+                to="https://solanamobile.com/developers"
                 className="block no-underline text-inherit group/link"
-                activeClassName="active"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <HeaderItem
                   title={solutionsResourcesItems[2].title}
-                  Icon={SparklesIcon}
+                  Icon={PhoneIcon}
                 />
               </Link>
             </div>
