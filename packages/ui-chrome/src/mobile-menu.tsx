@@ -11,20 +11,13 @@ import {
   SheetTitle,
   VisuallyHidden,
 } from "./sheet";
-import HeaderListLearn from "./header-list.learn";
-import HeaderListBuild from "./header-list.build";
-import HeaderListSolutions from "./header-list.solutions";
-import HeaderListNetwork from "./header-list.network";
-import { HeaderListCommunity } from "./header-list.community";
 import AngleDown from "./assets/angle-down.inline.svg";
 import ArrowLeft from "./assets/arrow-left.inline.svg";
 import SolanaMono from "./assets/solana-mono.inline.svg";
-import CodeIcon from "./assets/nav/code.inline.svg";
-import BezierIcon from "./assets/nav/bezier.inline.svg";
-import GlobusIcon from "./assets/nav/globus.inline.svg";
-import LightbulbIcon from "./assets/nav/lightbulb.inline.svg";
 import NavSwipe from "./assets/nav/nav-swipe.inline.svg";
+import { HEADER_SECTIONS } from "./header-sections";
 import { useSwipeDown } from "./hooks/useSwipeDown";
+import { isNavSectionActive } from "./nav-active";
 
 interface MobileMenuProps {
   expanded: boolean;
@@ -63,27 +56,10 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
   const t = useTranslations();
   const { asPath } = useRouter();
   const [menu, setMenu] = React.useState<string | null>(null);
-
-  const isLearnActive =
-    asPath.includes("/learn") ||
-    asPath === "/environment" ||
-    asPath.includes("/universities");
-  const isSolutionsActive =
-    asPath.includes("/solutions") ||
-    asPath.includes("/wallets") ||
-    asPath.includes("/ai");
-  const isBuildActive =
-    asPath.includes("/developers") ||
-    asPath.includes("/docs") ||
-    asPath === "/hackathon";
-  const isNetworkActive =
-    asPath === "/validators" || asPath === "/rpc" || asPath === "/solanaramp";
-  const isCommunityActive =
-    asPath === "/community" ||
-    asPath.includes("/events") ||
-    asPath === "/breakpoint" ||
-    asPath === "/news" ||
-    asPath.includes("/podcasts");
+  const activeSection = HEADER_SECTIONS.find(({ matchRules }) =>
+    isNavSectionActive(asPath, matchRules),
+  )?.id;
+  const ActiveContent = HEADER_SECTIONS.find(({ id }) => id === menu)?.Content;
 
   // Close menu on route change
   React.useEffect(() => {
@@ -180,43 +156,18 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
         {/* Navigation Sections */}
         {!menu && (
           <nav className="px-3 divide-y divide-[rgba(238,228,255,0.04)]">
-            <MenuItem
-              title={t("nav.learn.title")}
-              Icon={CodeIcon}
-              isActive={isLearnActive}
-              onClick={() => setMenu("learn")}
-            />
-            <MenuItem
-              title={t("nav.developers.title")}
-              Icon={CodeIcon}
-              isActive={isBuildActive}
-              onClick={() => setMenu("developers")}
-            />
-            <MenuItem
-              title={t("nav.solutions.title")}
-              Icon={LightbulbIcon}
-              isActive={isSolutionsActive}
-              onClick={() => setMenu("solutions")}
-            />
-            <MenuItem
-              title={t("nav.network.title")}
-              Icon={BezierIcon}
-              isActive={isNetworkActive}
-              onClick={() => setMenu("network")}
-            />
-            <MenuItem
-              title={t("nav.community.title")}
-              Icon={GlobusIcon}
-              isActive={isCommunityActive}
-              onClick={() => setMenu("community")}
-            />
+            {HEADER_SECTIONS.map(({ id, titleKey, mobileIcon }) => (
+              <MenuItem
+                key={id}
+                title={t(titleKey)}
+                Icon={mobileIcon}
+                isActive={activeSection === id}
+                onClick={() => setMenu(id)}
+              />
+            ))}
           </nav>
         )}
-        {menu === "learn" && <HeaderListLearn />}
-        {menu === "developers" && <HeaderListBuild />}
-        {menu === "solutions" && <HeaderListSolutions isMobile={true} />}
-        {menu === "network" && <HeaderListNetwork />}
-        {menu === "community" && <HeaderListCommunity />}
+        {ActiveContent && <ActiveContent isMobile={true} />}
       </SheetContent>
     </Sheet>
   );
