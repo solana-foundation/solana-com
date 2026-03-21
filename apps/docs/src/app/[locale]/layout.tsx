@@ -16,7 +16,7 @@ import {
   ThemeProvider,
   SitewideTopAlert,
 } from "@solana-com/ui-chrome";
-import { loadMessages } from "@workspace/i18n/load-messages";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 
 type Props = {
   children: React.ReactNode;
@@ -26,21 +26,7 @@ type Props = {
 export default async function RootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
-  // Load messages from both sources in parallel with automatic fallback to English
-  const [webMessages, docsMessages] = await Promise.all([
-    loadMessages(
-      (loc) =>
-        import(`../../../../../apps/web/public/locales/${loc}/common.json`),
-      locale,
-    ),
-    loadMessages(
-      (loc) => import(`@@/public/locales/${loc}/common.json`),
-      locale,
-    ),
-  ]);
-
-  // Merge translations, with docs-specific taking precedence.
-  const messages = { ...webMessages, ...docsMessages };
+  const messages = await loadMergedMessages({ app: "docs", locale });
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>

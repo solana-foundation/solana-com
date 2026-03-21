@@ -4,25 +4,27 @@ Translations are generated during CI/CD via `.github/workflows/i18n.yml` using
 [Lingo](https://lingo.dev). Note that `src/app` uses
 [app-router](https://next-intl.dev/docs/getting-started/app-router/with-i18n-routing).
 Config is customised to this setup where `src/i18n` routes for app-router.
+Shared UI catalogs now live in `packages/i18n/messages/web`.
 
 ## Manual gen i18n
 
 Translations can be manually triggered:
 
 - run `npx lingo.dev@latest login` to login to Lingo
-- run `pnpm i18n:lingo` (or `npx lingo.dev@latest i18n`) from `apps/web` to sync
-  all buckets
+- run `pnpm i18n:lingo` from `apps/web` to sync the `web` bucket
+- or run `pnpm i18n:ui` from repo root to sync every shared UI bucket
 
 ### Run Lingo for a specific path (e.g. developers/evm-to-svm)
 
-From `apps/web`:
+From repo root:
 
-**JSON bucket** (locale files like `public/locales/[locale]/common.json`) —
-update all keys whose path starts with a given prefix (use dot-separated key
-prefix; Lingo matches recursively):
+**Web UI bucket** (locale files like
+`packages/i18n/messages/web/[locale]/common.json`) — update all keys whose path
+starts with a given prefix (use dot-separated key prefix; Lingo matches
+recursively):
 
 ```bash
-npx lingo.dev@latest run --bucket json --key "developers-evm-to-svm"
+pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket web --key "developers-evm-to-svm"
 ```
 
 This updates all keys starting with `developers-evm-to-svm` (landing page and
@@ -33,7 +35,7 @@ re-translate even if the lockfile considers them unchanged.
 **Nav only** (e.g. just the “EVM to SVM” label in the developers nav):
 
 ```bash
-npx lingo.dev@latest run --bucket json --key "nav.developers.tutorials.evm-to-svm"
+pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket web --key "nav.developers.tutorials.evm-to-svm"
 ```
 
 **TXT bucket** (llms-\*.txt files) — after adding a new section to

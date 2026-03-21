@@ -231,7 +231,7 @@ That keeps:
 
 ## i18n integration
 
-Locale files such as `apps/web/public/locales/en/common.json` should keep translated copy and reference canonical companies by ID.
+Locale files such as `packages/i18n/messages/web/en/common.json` should keep translated copy and reference canonical companies by ID.
 
 Preferred locale shape:
 
