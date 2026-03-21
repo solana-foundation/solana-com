@@ -1,6 +1,6 @@
 import createNextIntlMiddleware from "next-intl/middleware";
 import { defineRouting } from "next-intl/routing";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale } from "./config";
 
 export const SHARED_LOCALE_COOKIE = "SOLANA_LOCALE";
@@ -134,7 +134,7 @@ export function createMiddleware<
     ) {
       const redirectUrl = getEffectiveOrigin(req);
       redirectUrl.pathname = getLocaleRedirectPath(pathname, preferredLocale);
-      const redirectResponse = Response.redirect(redirectUrl, 307);
+      const redirectResponse = NextResponse.redirect(redirectUrl, 307);
       redirectResponse.headers.append(
         "set-cookie",
         buildSharedLocaleCookie(preferredLocale),
