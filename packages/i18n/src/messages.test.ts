@@ -37,6 +37,17 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("titles");
   });
 
+  it("keeps media nav inherited from web", async () => {
+    const webMessages = await loadMergedMessages({ app: "web", locale: "fr" });
+    const mediaMessages = await loadMergedMessages({
+      app: "media",
+      locale: "fr",
+    });
+
+    expect(mediaMessages).toHaveProperty("nav");
+    expect(mediaMessages.nav).toEqual(webMessages.nav);
+  });
+
   it("does not let primitives overwrite structured English objects", () => {
     const merged = deepMergeMessages(
       { nested: { label: "English" } },
