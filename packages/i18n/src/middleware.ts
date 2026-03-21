@@ -3,6 +3,9 @@ import { defineRouting } from "next-intl/routing";
 import type { NextRequest } from "next/server";
 import { locales, defaultLocale } from "./config";
 
+export const SHARED_LOCALE_COOKIE = "SOLANA_LOCALE";
+const SHARED_LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
 interface CreateMiddlewareOptions {
   /**
    * When true, the middleware will strip the NEXT_LOCALE cookie from responses
@@ -36,6 +39,66 @@ export const routingWithoutDetection = defineRouting({
   localeDetection: false,
 });
 
+export function getLocaleFromPathname(pathname: string) {
+  const [, firstSegment] = pathname.split("/");
+  return firstSegment && locales.includes(firstSegment) ? firstSegment : null;
+}
+
+export function getPreferredLocaleCookie(value?: string | null) {
+  return value && locales.includes(value) ? value : null;
+}
+
+export function getLocaleRedirectPath(pathname: string, locale: string) {
+  if (locale === defaultLocale) {
+    return pathname;
+  }
+
+  return pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
+}
+
+export function buildSharedLocaleCookie(locale: string) {
+  const expires = new Date(Date.now() + SHARED_LOCALE_COOKIE_MAX_AGE * 1000);
+
+  return [
+    `${SHARED_LOCALE_COOKIE}=${encodeURIComponent(locale)}`,
+    "Path=/",
+    `Max-Age=${SHARED_LOCALE_COOKIE_MAX_AGE}`,
+    `Expires=${expires.toUTCString()}`,
+    "SameSite=Lax",
+  ].join("; ");
+}
+
+function getEffectiveOrigin(req: NextRequest) {
+  const url = req.nextUrl.clone();
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+
+  if (forwardedHost) {
+    url.host = forwardedHost;
+  }
+
+  if (forwardedProto) {
+    url.protocol = `${forwardedProto}:`;
+  }
+
+  return url;
+}
+
+function getResponseLocale(req: NextRequest, response: Response) {
+  const localeFromRequestPath = getLocaleFromPathname(req.nextUrl.pathname);
+  if (localeFromRequestPath) {
+    return localeFromRequestPath;
+  }
+
+  const location = response.headers.get("location");
+  if (!location) {
+    return null;
+  }
+
+  const redirectPathname = new URL(location, getEffectiveOrigin(req)).pathname;
+  return getLocaleFromPathname(redirectPathname);
+}
+
 /**
  * Creates an i18n middleware that wraps next-intl's middleware with additional
  * functionality to handle multi-app deployments on the same domain.
@@ -58,7 +121,35 @@ export function createMiddleware<
   const handleI18nRouting = createNextIntlMiddleware(routingConfig);
 
   return async function middleware(req: NextRequest) {
+    const pathname = req.nextUrl.pathname;
+    const localeFromPath = getLocaleFromPathname(pathname);
+    const preferredLocale = getPreferredLocaleCookie(
+      req.cookies.get(SHARED_LOCALE_COOKIE)?.value,
+    );
+
+    if (
+      !localeFromPath &&
+      preferredLocale &&
+      preferredLocale !== defaultLocale
+    ) {
+      const redirectUrl = getEffectiveOrigin(req);
+      redirectUrl.pathname = getLocaleRedirectPath(pathname, preferredLocale);
+      const redirectResponse = Response.redirect(redirectUrl, 307);
+      redirectResponse.headers.append(
+        "set-cookie",
+        buildSharedLocaleCookie(preferredLocale),
+      );
+      return redirectResponse;
+    }
+
     const response = await handleI18nRouting(req);
+    const responseLocale = getResponseLocale(req, response);
+    if (responseLocale) {
+      response.headers.append(
+        "set-cookie",
+        buildSharedLocaleCookie(responseLocale),
+      );
+    }
 
     // Check if request came through a proxy (e.g., rewrite from another Vercel app)
     const forwardedHost = req.headers.get("x-forwarded-host");
