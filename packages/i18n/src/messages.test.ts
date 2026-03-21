@@ -10,7 +10,7 @@ import { IntlErrorCode } from "next-intl";
 
 describe("@workspace/i18n messages", () => {
   it("falls back to English for a missing locale file", async () => {
-    const messages = await loadAppMessages("templates", "fr");
+    const messages = await loadAppMessages("templates", "sv");
     const english = await loadAppMessages("templates", "en");
 
     expect(messages).toEqual(english);
