@@ -1,7 +1,35 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import process from "node:process";
+import path from "node:path";
 
 const rootDir = process.cwd();
+const uiCatalogPathByApp = {
+  web: "messages/web/",
+  accelerate: "messages/accelerate/",
+  media: "messages/media/",
+  templates: "messages/templates/",
+};
+
+function loadEnvFileIfPresent(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  process.loadEnvFile(filePath);
+}
+
+function loadI18nEnv() {
+  loadEnvFileIfPresent(path.join(rootDir, ".env.local"));
+  loadEnvFileIfPresent(path.join(rootDir, ".env"));
+
+  // Lingo now prefers LINGO_API_KEY, but keep the older repo convention working.
+  if (!process.env.LINGO_API_KEY && process.env.LINGODOTDEV_API_KEY) {
+    process.env.LINGO_API_KEY = process.env.LINGODOTDEV_API_KEY;
+  }
+}
+
+loadI18nEnv();
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
@@ -17,7 +45,18 @@ function run(command, args, cwd) {
 
 function runUi(bucket) {
   if (bucket) {
-    run("npx", ["lingo.dev@latest", "run", "--bucket", bucket], `${rootDir}/packages/i18n`);
+    const fileFilter = uiCatalogPathByApp[bucket];
+
+    if (!fileFilter) {
+      console.error(`Unknown shared UI catalog: ${bucket}`);
+      process.exit(1);
+    }
+
+    run(
+      "npx",
+      ["lingo.dev@latest", "run", "--bucket", "json", "--file", fileFilter],
+      `${rootDir}/packages/i18n`,
+    );
     return;
   }
 

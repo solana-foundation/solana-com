@@ -11,20 +11,20 @@ Shared UI catalogs now live in `packages/i18n/messages/web`.
 Translations can be manually triggered:
 
 - run `npx lingo.dev@latest login` to login to Lingo
-- run `pnpm i18n:lingo` from `apps/web` to sync the `web` bucket
-- or run `pnpm i18n:ui` from repo root to sync every shared UI bucket
+- run `pnpm i18n:lingo` from `apps/web` to sync the web UI catalog
+- or run `pnpm i18n:ui` from repo root to sync every shared UI catalog
 
 ### Run Lingo for a specific path (e.g. developers/evm-to-svm)
 
 From repo root:
 
-**Web UI bucket** (locale files like
+**Web UI catalog** (locale files like
 `packages/i18n/messages/web/[locale]/common.json`) — update all keys whose path
 starts with a given prefix (use dot-separated key prefix; Lingo matches
 recursively):
 
 ```bash
-pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket web --key "developers-evm-to-svm"
+pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket json --file "messages/web/" --key "developers-evm-to-svm"
 ```
 
 This updates all keys starting with `developers-evm-to-svm` (landing page and
@@ -35,7 +35,7 @@ re-translate even if the lockfile considers them unchanged.
 **Nav only** (e.g. just the “EVM to SVM” label in the developers nav):
 
 ```bash
-pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket web --key "nav.developers.tutorials.evm-to-svm"
+pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket json --file "messages/web/" --key "nav.developers.tutorials.evm-to-svm"
 ```
 
 **TXT bucket** (llms-\*.txt files) — after adding a new section to
