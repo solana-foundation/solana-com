@@ -48,8 +48,12 @@ switch (target) {
     }
 
     if (app === "docs") {
-      runUi("docs");
       runDocsContent();
+      break;
+    }
+
+    if (app === "breakpoint") {
+      console.log("Breakpoint has no local translation catalog to sync.");
       break;
     }
 

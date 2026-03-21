@@ -14,14 +14,11 @@ export type AppId =
 
 type MessageLoader = (locale: string) => Promise<MessageModule>;
 
-const appMessageLoaders: Record<AppId, MessageLoader> = {
+const appMessageLoaders: Partial<Record<AppId, MessageLoader>> = {
   web: (locale) => import(`../messages/web/${locale}/common.json`),
-  docs: (locale) => import(`../messages/docs/${locale}/common.json`),
   accelerate: (locale) =>
     import(`../messages/accelerate/${locale}/common.json`),
   media: (locale) => import(`../messages/media/${locale}/common.json`),
-  breakpoint: (locale) =>
-    import(`../messages/breakpoint/${locale}/common.json`),
   templates: (locale) => import(`../messages/templates/${locale}/common.json`),
 };
 
@@ -79,7 +76,13 @@ async function loadRawMessages(
   app: AppId,
   locale: string,
 ): Promise<AbstractIntlMessages> {
-  return loadMessages(appMessageLoaders[app], locale);
+  const loader = appMessageLoaders[app];
+
+  if (!loader) {
+    return {};
+  }
+
+  return loadMessages(loader, locale);
 }
 
 export async function loadAppMessages(
