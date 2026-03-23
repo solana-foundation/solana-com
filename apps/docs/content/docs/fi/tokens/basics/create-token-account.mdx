@@ -1,12 +1,24 @@
 ---
 title: Luo token account
-description: Opi luomaan SPL token accounteja.
+description:
+  Luo token-tilejä ja assosioituja token-tilejä tietylle mintille ja
+  omistajalle.
+url: /docs/tokens/basics/create-token-account
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics
+  - /docs/tokens/basics/create-mint
+related:
+  - /docs/tokens/basics/mint-tokens
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/basics/close-account
+  - /docs/tokens/basics/sync-native
 ---
 
-## Mikä on token account?
+## Mikä on token-tili
 
-Token account tallentaa saldosi tietystä tokenista. Jokainen token account on
-liitetty täsmälleen yhteen minttiin ja seuraa token-saldoasi sekä muita tietoja.
+Token-tili tallentaa tokeneita yhdelle mintille ja yhdelle token-tilin
+omistajalle Solanassa.
 
 ```rust title="Token Account Type"
 /// Account data.
@@ -36,63 +48,84 @@ pub struct Account {
 }
 ```
 
-<Callout type="info">
-  Huomaa, että lähdekoodissa kehittäjät kutsuvat token accountia `Account`
-  -tyypiksi. Sekä [Token
-  Program](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
-  että [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/state.rs#L102-L123)
-  jakavat saman perusimplementaation token accountille.
+Tässä _rs`owner`_ tarkoittaa auktoriteettia, joka voi siirtää, polttaa tai
+delegoida tokeneita token-tililtä. Tilin program owner on edelleen Token Program
+tai Token Extensions Program.
+
+Jokainen token-tili on sidottu täsmälleen yhteen minttiin, mikä tarkoittaa, että
+token-tili voi sisältää vain yhden tokenin yksiköitä – sen tokenin, joka on
+tunnistettu token-tilin _rs`mint`_-kentässä.
+
+## Mikä on assosioitu token-tili
+
+Assosioitu token-tili (ATA) on lompakon ja mintin oletusarvoinen token-tili.
+[Associated Token Program](https://github.com/solana-program/associated-token-account/tree/main/program/src)
+johtaa ATA-osoitteen lompakon osoitteesta, token-ohjelman osoitteesta ja mintin
+osoitteesta.
+
+Vain Associated Token Programin luomia token-tilejä kutsutaan assosioituksiksi
+token-tileiksi.
+
+Associated Token Program on tapa luoda token-tili standardoidussa,
+deterministisessä osoitteessa. Tuloksena oleva tili on silti token-tili, jonka
+omistaa Token Program tai Token Extensions Program, ei Associated Token Program.
+
+Associated Token Program johtaa ATA-osoitteen kuten näytetään tiedostossa
+[address.rs](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/interface/src/address.rs#L56-L70):
+
+```rust title="Associated Token Account Address Derivation"
+pub fn get_associated_token_address_and_bump_seed_internal(
+    wallet_address: &Pubkey,
+    token_mint_address: &Pubkey,
+    program_id: &Pubkey,
+    token_program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            &wallet_address.to_bytes(), // Owner's public key
+            &token_program_id.to_bytes(), // Token Program or Token Extension Program
+            &token_mint_address.to_bytes(), // Token mint address
+        ],
+        program_id, // Associated Token Program ID
+    )
+}
+```
+
+Mille tahansa lompakon, token-ohjelman ja mintin yhdistelmälle on olemassa
+täsmälleen yksi ATA-osoite. Associated Token Program luo standardin token-tilin
+kyseiseen osoitteeseen, ja tuloksena oleva tili käyttää edelleen Token Programin
+tai Token Extensions Programin määrittelemää _rs`Account`_-tyyppiä.
+
+## Liitetyn tokentilin luominen
+
+Liitetyn tokentilin luominen käyttää Associated Token Program -ohjelman
+_rs`Create`_- tai _rs`CreateIdempotent`_-käskyä. Associated Token Program
+johdattaa ATA-osoitteen, luo tilin ATA-osoitteeseen ja alustaa tilin
+tokentiliksi, jonka omistaa Token Program tai Token Extensions Program.
+
+<Callout type="info" title="Suositeltu">
+  Useimmissa sovelluksissa tokentilit kannattaa luoda Associated Token Program
+  -ohjelman kautta sen sijaan, että ne luotaisiin kutsumalla suoraan System
+  Program- ja Token Program -käskyjä. Liitetty tokentili käyttää deterministista
+  osoitetta, joka johdetaan omistajasta, token-ohjelmasta ja mintistä, mikä
+  tekee tietyn mintin oletustokentilin helpommin löydettäväksi lompakoille ja
+  sovelluksille.
 </Callout>
 
-Tokenien hallussapitämiseksi tarvitset token accountin kyseiselle mintille.
-Jokainen token account seuraa:
+### Lähdeviite
 
-1. **Mint**: Tietty tokenityyppi, jota se sisältää
-2. **Owner**: Auktoriteetti, joka voi siirtää tokeneita tältä accountilta
+| Kohde                                         | Kuvaus                                                                                                                                                                                                                                                         | Lähde                                                                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| _rs`Create`_                                  | Luo liitetyn tokentilin johdettuun ATA-osoitteeseen.                                                                                                                                                                                                           | [Lähde](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/interface/src/instruction.rs#L20-L29) |
+| _rs`CreateIdempotent`_                        | Luo liitetyn tokentilin, mutta onnistuu silti, jos kyseinen ATA on jo olemassa samalle omistajalle ja mintille.                                                                                                                                                | [Lähde](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/interface/src/instruction.rs#L30-L40) |
+| _rs`process_create_associated_token_account`_ | Johdattaa ATA-osoitteen ja käyttää _rs`create_pda_account`_-funktiota sekä CPI-kutsuja valittuun token-ohjelmaan tokentilin alustamiseksi. Kun valittu ohjelma on Token Extensions Program, ATA-prosessori alustaa myös muuttumattoman omistajan laajennuksen. | [Lähde](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/program/src/processor.rs#L64-L161)    |
+| _rs`create_pda_account`_                      | _rs`process_create_associated_token_account`_-funktion käyttämä apuväline PDA-tilin luomiseen CPI-kutsulla System Program -ohjelmaan.                                                                                                                          | [Lähde](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/program/src/tools/account.rs#L14-L70) |
 
-### Esimerkki: USD Coin (USDC)
+### Typescript
 
-- Mintin osoite: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
-- Circlen token account: `3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa`
-- Tämä account sisältää vain USDC-tokeneita
-- Circle hallitsee tokenia token accountin owner-auktoriteetin kautta:
-  `7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE`
-
-Voit tarkastella tämän token accountin tietoja
-[Solana Explorerissa](https://explorer.solana.com/address/3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa).
-
-<Callout type="info">
-  **"Owner"-terminologian ymmärtäminen**
-
-Termiä "owner" voidaan käyttää kahdessa eri kontekstissa:
-
-1. **Token account owner**: Auktoriteetti, joka voi siirtää, polttaa tai
-   delegoida tokeneita. Tämä on tallennettu token accountin dataan.
-
-2. **Program owner**: Ohjelma, joka omistaa accountin (aina Token Program tai
-   Token Extension Program token accounteille).
-
-Token accountien kanssa työskennellessä "owner" viittaa tyypillisesti
-auktoriteettiin, joka voi siirtää tokeneita, ei ohjelmaan, joka omistaa
-accountin.
-
-</Callout>
-
-## Mikä on associated token account?
-
-Associated token account (ATA) on lompakon oletusarvoinen token account tietyn
-tokenin hallintaan. Se käyttää deterministista osoitetta (PDA), jonka luo
-[Associated Token Program](https://github.com/solana-program/associated-token-account/tree/main/program).
-
-<Callout type="info">
-  Vain Associated Token Programin luomia token accounteja kutsutaan "associated
-  token accounteiksi".
-</Callout>
-
-ATA:t käyttävät deterministisiä osoitteita, mikä helpottaa minkä tahansa
-lompakon token accountin löytämistä tietylle mintille. Katso
-[johdannaisen toteutus täältä](https://github.com/solana-program/associated-token-account/blob/c78722ee39ebf6741cdfa81dffd52135370a5015/interface/src/address.rs#L56).
+Alla olevat `Kit`-esimerkit osoittavat suositellun lähestymistavan käyttäen
+`@solana/kit`-kirjastoa. Vanhat esimerkit käyttäen `@solana/web3.js`-kirjastoa
+on sisällytetty viitteeksi.
 
 ```rust title="Associated Token Account Address Derivation"
 pub fn get_associated_token_address_and_bump_seed_internal(
