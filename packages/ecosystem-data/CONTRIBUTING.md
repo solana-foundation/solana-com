@@ -2,6 +2,17 @@
 
 This guide walks you through adding a company to the ecosystem registry, from the bare minimum (just a logo) up to a fully enriched record generated from a URL.
 
+## Index
+
+- [Quick reference](#quick-reference)
+- [Level 1: Just add a logo](#level-1-just-add-a-logo)
+- [Level 2: Add multiple logo variants](#level-2-add-multiple-logo-variants)
+- [Level 3: Add a profile](#level-3-add-a-profile)
+- [Level 4: Generate a full record from a URL](#level-4-generate-a-full-record-from-a-url)
+- [Updating an existing company](#updating-an-existing-company)
+- [Common mistakes](#common-mistakes)
+- [Validation commands](#validation-commands)
+
 ## Quick reference
 
 ```
@@ -219,20 +230,20 @@ Community, Company, DAO, Platform, Protocol
 
 ## Level 4: Generate a full record from a URL
 
-If you have Claude Code available, you can use the enrichment skill to research a company from its website URL and generate a complete record with profile data and logos.
+If you have a coding assistant or internal enrichment workflow available, you can use it to research a company from its website URL and generate a complete record with profile data and logos.
 
-### Using Claude Code
+### Using a coding assistant
 
-Ask Claude Code to add the company using its URL:
+Ask your assistant to add the company using its URL:
 
 ```
 Add <company-name> to ecosystem-data using https://example.com
 ```
 
-Claude Code will:
+The assistant should:
 
 1. Research the company from its website and official sources
-2. Download brand logos from the company's press/brand page
+2. Download brand logos from the company's press or brand page
 3. Generate a complete `CompanyRecord` with profile, logos, and metadata
 4. Register it and run validation
 
