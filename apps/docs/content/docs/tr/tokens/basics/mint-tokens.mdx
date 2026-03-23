@@ -1,179 +1,325 @@
 ---
 title: Token basma
-description: Bir tokenin yeni birimlerini nasıl basacağınızı öğrenin.
+description: Mint yetkisi ile bir token hesabına yeni token birimleri basın.
+url: /docs/tokens/basics/mint-tokens
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics/create-mint
+  - /docs/tokens/basics/create-token-account
+related:
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/basics/burn-tokens
+  - /docs/tokens/basics/set-authority
+  - /docs/tokens/basics/approve-delegate
 ---
 
-## Token nasıl basılır
+## Basım Ne İşe Yarar?
 
-Basma işlemi,
-[`MintTo`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L174)
-talimatını kullanarak bir tokenin yeni birimlerini oluşturur.
+Basım, mevcut bir token'ın yeni birimlerini oluşturur ve mint'in toplam arzını
+artırır.
 
-- Yalnızca basma yetkisi yeni token basabilir
-- Basılan tokenları almak için bir hedef token hesabı mevcut olmalıdır
+Yalnızca mint yetkisi yeni token'lar basabilir. Hedef token account zaten mevcut
+olmalı ve aynı mint'e ait olmalıdır.
 
-<Callout type="info">
-  [Token
-  Programı](https://github.com/solana-program/token/blob/3daf44899f0bd71c879d28dffdfb788dd944f3c5/program/src/processor.rs#L521)
-  ve [Token Uzantı
-  Programı](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/processor.rs#L973)
-  aynı işlevselliği elde etmek için benzer uygulamaları paylaşır.
-</Callout>
+## Token'lar Nasıl Basılır
+
+Token'lar basmak için Token Program'ın _rs`MintTo`_ veya _rs`MintToChecked`_
+talimatı kullanılır.
+
+Aşağıdaki örnekler _rs`MintToChecked`_ kullanır; bu talimat, çağrıcının mint'in
+ondalık basamaklarını sağlamasını gerektirir, böylece talimat basmadan önce
+beklenen token hassasiyetini doğrulayabilir.
+
+[Native mint](/docs/tokens/basics/sync-native) basımı desteklemez.
+
+### Kaynak Referans
+
+| Öğe                   | Açıklama                                                                                                                                                     | Token Program                                                                                                  | Token Extensions Program                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| _rs`Mint`_            | Mint durumu, mint yetkisini ve toplam token arzını saklar.                                                                                                   | [Kaynak](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/state.rs#L13-L30)         | [Kaynak](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/state.rs#L25-L42)         |
+| _rs`Account`_         | Token account durumu, basım tarafından güncellenen hedef bakiyeyi saklar.                                                                                    | [Kaynak](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/state.rs#L84-L108)        | [Kaynak](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/state.rs#L99-L123)        |
+| _rs`MintTo`_          | Mevcut bir token account'a çağrıcının mint'in ondalık basamaklarını sağlamasını gerektirmeden token basan bir basım talimatı.                                | [Kaynak](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/instruction.rs#L159-L177) | [Kaynak](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/instruction.rs#L202-L220) |
+| _rs`MintToChecked`_   | Çağrıcının mint'in ondalık basamaklarını sağlamasını gerektiren ve mevcut bir token account'a token basmadan önce bu değeri kontrol eden bir basım talimatı. | [Kaynak](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/instruction.rs#L301-L325) | [Kaynak](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/instruction.rs#L367-L391) |
+| _rs`process_mint_to`_ | Token basımı için paylaşılan işlemci mantığı.                                                                                                                | [Kaynak](https://github.com/solana-program/token/blob/program%40v9.0.0/program/src/processor.rs#L521-L583)     | [Kaynak](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L981-L1067)    |
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+Aşağıdaki `Kit` örnekleri, `@solana/kit` kullanılarak önerilen yaklaşımı
+gösterir. `@solana/web3.js` kullanan eski örnekler referans için dahil
+edilmiştir.
 
-```ts !! title="Kit"
+#### Kit
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Plugin"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
-  getMintToInstruction
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createLocalClient()
+  // !mark[/\.use\(tokenProgram\(\)\)/]
+  .use(tokenProgram());
 
-// Generate keypairs for fee payer
-const feePayer = await generateKeyPairSigner();
-
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
-
-// Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
-console.log("Mint Address:", mint.address);
 
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
+// !collapse(1:9) collapsed
+// Setup: create a mint before minting tokens to the payer's ATA.
+await client.token.instructions
+  .createMint({
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+  .sendTransaction();
 
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+const result = await client.token.instructions
+  // !mark(1:7)
+  .mintToATA({
+    mint: mint.address, // Mint for the token being minted.
+    owner: client.payer.address, // Account that owns the token account receiving the minted tokens.
+    mintAuthority: client.payer, // Authority allowed to mint new tokens.
+    amount: 100n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+  .sendTransaction();
 
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
+const [tokenAccount] = await findAssociatedTokenPda({
   mint: mint.address,
-  decimals: 2,
-  mintAuthority: feePayer.address
-});
-
-// Create instruction to create the associated token account
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: feePayer,
-  mint: mint.address,
-  owner: feePayer.address
-});
-
-const instructions = [
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-];
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
+  owner: client.payer.address,
   tokenProgram: TOKEN_PROGRAM_ADDRESS
 });
 
-console.log(
-  "Associated Token Account Address: ",
-  associatedTokenAddress.toString()
-);
+const mintAccount = await client.token.accounts.mint.fetch(mint.address);
+const tokenAccountData = await client.token.accounts.token.fetch(tokenAccount);
 
-// Create instruction to mint tokens
-const mintToInstruction = getMintToInstruction({
-  mint: mint.address,
-  token: associatedTokenAddress,
-  mintAuthority: feePayer.address,
-  amount: 100n // 1.00 tokens with 2 decimals
-});
-
-// Create transaction message for minting tokens
-const mintTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([mintToInstruction], tx)
-);
-
-// Sign transaction message with all required signers
-const signedMintTx = await signTransactionMessageWithSigners(mintTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedMintTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature2 = getSignatureFromTransaction(signedMintTx);
-
-console.log("Successfully minted 1.0 tokens");
-console.log("Transaction Signature:", transactionSignature2);
+console.log("Mint Address:", mint.address);
+console.log("Mint Account:", mintAccount.data);
+console.log("\nToken Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData.data);
+console.log("\nTransaction Signature:", result.context.signature);
 ```
 
-```ts !! title="Legacy"
+```ts !! title="Instruction Plan"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchMint,
+  fetchToken,
+  findAssociatedTokenPda,
+  getCreateMintInstructionPlan,
+  getMintToATAInstructionPlanAsync,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+
+// !collapse(1:10) collapsed
+// Setup: create a mint before minting tokens to the payer's ATA.
+await client.sendTransaction(
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+);
+
+const result = await client.sendTransaction(
+  // !mark(1:8)
+  await getMintToATAInstructionPlanAsync({
+    payer: client.payer, // Account funding account creation.
+    mint: mint.address, // Mint for the token being minted.
+    owner: client.payer.address, // Account that owns the token account receiving the minted tokens.
+    mintAuthority: client.payer, // Authority allowed to mint new tokens.
+    amount: 100n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+);
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const mintAccount = await fetchMint(client.rpc, mint.address);
+const tokenAccountData = await fetchToken(client.rpc, tokenAccount);
+
+console.log("Mint Address:", mint.address);
+console.log("Mint Account:", mintAccount.data);
+console.log("\nToken Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData.data);
+console.log("\nTransaction Signature:", result.context.signature);
+```
+
+```ts !! title="Instructions"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchMint,
+  fetchToken,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
+  getCreateMintInstructionPlan,
+  getMintToCheckedInstruction,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// !collapse(1:15) collapsed
+// Setup: create a mint and the payer's ATA before minting tokens.
+await client.sendTransaction([
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  })
+]);
+
+const result = await client.sendTransaction([
+  // !mark(1:7)
+  getMintToCheckedInstruction({
+    mint: mint.address, // Mint for the token being minted.
+    token: tokenAccount, // Token account receiving the minted tokens.
+    mintAuthority: client.payer, // Authority allowed to mint new tokens.
+    amount: 100n, // Token amount in base units.
+    decimals: 2 // Decimals defined on the mint account.
+  })
+]);
+
+const mintAccount = await fetchMint(client.rpc, mint.address);
+const tokenAccountData = await fetchToken(client.rpc, tokenAccount);
+
+console.log("Mint Address:", mint.address);
+console.log("Mint Account:", mintAccount.data);
+console.log("\nToken Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData.data);
+console.log("\nTransaction Signature:", result.context.signature);
+```
+
+</CodeTabs>
+
+#### Web3.js
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Helper Function"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccount,
+  createMint,
+  getAccount,
+  getMint,
+  mintToChecked,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:39) collapsed
+// Setup: create a mint and the payer's ATA before minting tokens.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintPubkey = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  2,
+  Keypair.generate(),
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+const associatedTokenAccount = await createAssociatedTokenAccount(
+  connection,
+  feePayer,
+  mintPubkey,
+  feePayer.publicKey,
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+// !mark(1:14)
+const result = await mintToChecked(
+  connection, // Connection to the local validator.
+  feePayer, // Account paying transaction fees.
+  mintPubkey, // Mint for the token being minted.
+  associatedTokenAccount, // Token account receiving the minted tokens.
+  feePayer, // Authority allowed to mint new tokens.
+  100, // Token amount in base units.
+  2, // Decimals defined on the mint account.
+  [], // Additional multisig signers.
+  {
+    commitment: "confirmed" // Confirmation options for the transaction.
+  },
+  TOKEN_PROGRAM_ID // Token program to invoke.
+);
+
+const mintAccount = await getMint(
+  connection,
+  mintPubkey,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mintPubkey.toBase58());
+console.log("Mint Account:", mintAccount);
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
+```
+
+```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
@@ -183,24 +329,25 @@ import {
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  createInitializeMintInstruction,
-  MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  createMintToInstruction
+  createAssociatedTokenAccountInstruction,
+  createInitializeMintInstruction,
+  createMintToCheckedInstruction,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMinimumBalanceForRentExemptMint,
+  getMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
 
-// Create connection to local validator
+// !collapse(1:60) collapsed
+// Setup: create a mint and the payer's ATA before minting tokens.
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-// Generate a new keypair for the fee payer
 const feePayer = Keypair.generate();
 
-// Airdrop 1 SOL to fee payer
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
   LAMPORTS_PER_SOL
@@ -211,13 +358,8 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-// Generate keypair to use as address of mint
 const mint = Keypair.generate();
-
-// Get minimum balance for rent exemption
 const mintRent = await getMinimumBalanceForRentExemptMint(connection);
-
-// Get the associated token account address
 const associatedTokenAccount = getAssociatedTokenAddressSync(
   mint.publicKey,
   feePayer.publicKey,
@@ -226,168 +368,83 @@ const associatedTokenAccount = getAssociatedTokenAddressSync(
   ASSOCIATED_TOKEN_PROGRAM_ID
 );
 
-// Create account instruction
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: mintRent,
-  programId: TOKEN_PROGRAM_ID
-});
-
-// Initialize mint instruction
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  2, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_PROGRAM_ID
-);
-
-// Create associated token account instruction
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account address
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-// Create and sign transaction with both mint creation and ATA creation
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAssociatedTokenAccountIx
-);
-
-// Sign transaction
-const transactionSignature = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transaction,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      2,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_PROGRAM_ID
+    ),
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey,
+      associatedTokenAccount,
+      feePayer.publicKey,
+      mint.publicKey,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )
+  ),
   [feePayer, mint]
 );
 
-console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAccount.toBase58()
-);
-console.log("Transaction Signature:", transactionSignature);
-
-// Create a separate transaction for minting tokens
-// Create mint to instruction (mint 100 tokens = 1.00 with 2 decimals)
-const mintAmount = 100;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey, // mint
-  associatedTokenAccount, // destination
-  feePayer.publicKey, // authority
-  mintAmount, // amount
-  [], // multiSigners
-  TOKEN_PROGRAM_ID // programId
-);
-
-// Get a new blockhash for the mint transaction
 const mintBlockhash = await connection.getLatestBlockhash();
 
-// Create and sign transaction for minting tokens
-const mintTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: mintBlockhash.blockhash,
-  lastValidBlockHeight: mintBlockhash.lastValidBlockHeight
-}).add(mintToInstruction);
-
-// Sign and send mint transaction
-const mintTransactionSignature = await sendAndConfirmTransaction(
+const result = await sendAndConfirmTransaction(
   connection,
-  mintTransaction,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: mintBlockhash.blockhash,
+    lastValidBlockHeight: mintBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:9)
+    createMintToCheckedInstruction(
+      mint.publicKey, // Mint for the token being minted.
+      associatedTokenAccount, // Token account receiving the minted tokens.
+      feePayer.publicKey, // Authority allowed to mint new tokens.
+      100, // Token amount in base units.
+      2, // Decimals defined on the mint account.
+      [], // Additional multisig signers.
+      TOKEN_PROGRAM_ID // Token program to invoke.
+    )
+  ),
   [feePayer]
 );
 
-console.log("Successfully minted 1.0 tokens");
-console.log("Transaction Signature:", mintTransactionSignature);
-```
-
-```ts !! title="Legacy Helper"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import {
-  createMint,
-  createAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
-
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-// Generate a new keypair for the fee payer
-const feePayer = Keypair.generate();
-
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
-
-// Create mint using helper function
-const mintPubkey = await createMint(
-  connection, // connection
-  feePayer, // fee payer
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  2, // decimals
-  Keypair.generate(), // keypair (optional)
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log(`Mint Address: ${mintPubkey.toBase58()}`);
-
-// Create associated token account using helper function
-const associatedTokenAccount = await createAssociatedTokenAccount(
-  connection, // connection
-  feePayer, // fee payer
-  mintPubkey, // mint
-  feePayer.publicKey, // owner
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log(
-  `Associated Token Account Address: ${associatedTokenAccount.toBase58()}`
-);
-
-// Mint 100 tokens to the associated token account (with 2 decimals, this is 1.00 tokens)
-const mintAmount = 100; // 1.00 tokens with 2 decimals
-const mintTransactionSignature = await mintTo(
+const mintAccount = await getMint(
   connection,
-  feePayer,
-  mintPubkey,
-  associatedTokenAccount,
-  feePayer, // Authority (mint authority)
-  mintAmount,
-  [],
-  {
-    commitment: "confirmed"
-  },
+  mint.publicKey,
+  "confirmed",
   TOKEN_PROGRAM_ID
 );
-console.log(
-  `Successfully minted 1.00 tokens to ${associatedTokenAccount.toBase58()}`
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
 );
-console.log("Transaction Signature:", mintTransactionSignature);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Mint Account:", mintAccount);
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
 ```
 
 </CodeTabs>
@@ -407,33 +464,30 @@ use solana_sdk::{
 };
 use solana_system_interface::instruction::create_account;
 use spl_associated_token_account_interface::{
-    address::get_associated_token_address_with_program_id,
+    address::get_associated_token_address,
     instruction::create_associated_token_account,
 };
 use spl_token_interface::{
     id as token_program_id,
-    instruction::{initialize_mint, mint_to},
+    instruction::{initialize_mint, mint_to_checked},
     state::{Account, Mint},
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to local validator
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let latest_blockhash = client.get_latest_blockhash().await?;
 
-    // Generate a new keypair for the fee payer
+    // !collapse(1:48) collapsed
+    // Setup: create a mint and the payer's ATA before minting tokens.
     let fee_payer = Keypair::new();
+    let decimals = 2;
 
-    // Airdrop 1 SOL to fee payer
     let airdrop_signature = client
         .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
         .await?;
-    client.confirm_transaction(&airdrop_signature).await?;
-
     loop {
         let confirmed = client.confirm_transaction(&airdrop_signature).await?;
         if confirmed {
@@ -441,104 +495,76 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Generate keypair to use as address of mint
     let mint = Keypair::new();
-
-    // Get default mint account size (in bytes), no extensions enabled
-    let mint_space = Mint::LEN;
     let mint_rent = client
-        .get_minimum_balance_for_rent_exemption(mint_space)
+        .get_minimum_balance_for_rent_exemption(Mint::LEN)
         .await?;
 
-    // Instruction to create new account for mint (token program)
-    let create_account_instruction = create_account(
-        &fee_payer.pubkey(), // payer
-        &mint.pubkey(),      // new account (mint)
-        mint_rent,           // lamports
-        mint_space as u64,   // space
-        &token_program_id(), // program id
-    );
-
-    // Instruction to initialize mint account data
-    let initialize_mint_instruction = initialize_mint(
-        &token_program_id(),
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        2,                         // decimals
-    )?;
-
-    // Calculate the associated token account address for fee_payer
-    let associated_token_address = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(), // owner
-        &mint.pubkey(),      // mint
-        &token_program_id(), // program_id
-    );
-
-    // Instruction to create associated token account
-    let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(), // funding address
-        &fee_payer.pubkey(), // wallet address
-        &mint.pubkey(),      // mint address
-        &token_program_id(), // program id
-    );
-
-    // Create transaction and add instructions
-    let transaction = Transaction::new_signed_with_payer(
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
         &[
-            create_account_instruction,
-            initialize_mint_instruction,
-            create_ata_instruction,
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                Mint::LEN as u64,
+                &token_program_id(),
+            ),
+            initialize_mint(
+                &token_program_id(),
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                decimals,
+            )?,
+            create_associated_token_account(
+                &fee_payer.pubkey(),
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                &token_program_id(),
+            ),
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer, &mint],
         latest_blockhash,
     );
+    client.send_and_confirm_transaction(&setup_transaction).await?;
 
-    // Send and confirm transaction
-    client.send_and_confirm_transaction(&transaction).await?;
+    let associated_token_address = get_associated_token_address(&fee_payer.pubkey(), &mint.pubkey());
+    let mint_amount = 100;
 
-    // Amount of tokens to mint (100 tokens with 2 decimal places)
-    let amount = 100;
-
-    // Create mint_to instruction to mint tokens to the associated token account
-    let mint_to_instruction = mint_to(
-        &token_program_id(),
-        &mint.pubkey(),            // mint
-        &associated_token_address, // destination
-        &fee_payer.pubkey(),       // authority
-        &[&fee_payer.pubkey()],    // signer
-        amount,                    // amount
-    )?;
-
-    // Create transaction for minting tokens
     let transaction = Transaction::new_signed_with_payer(
-        &[mint_to_instruction],
+        &[
+            // !mark(1:9)
+            mint_to_checked(
+                &token_program_id(), // Token program to invoke.
+                &mint.pubkey(), // Mint for the token being minted.
+                &associated_token_address, // Token account receiving the minted tokens.
+                &fee_payer.pubkey(), // Authority allowed to mint new tokens.
+                &[], // Additional multisig signers.
+                mint_amount, // Token amount in base units.
+                decimals, // Decimals defined on the mint account.
+            )?,
+        ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
         latest_blockhash,
     );
 
-    // Send and confirm transaction
     let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
-
     let mint_account = client.get_account(&mint.pubkey()).await?;
     let mint_data = Mint::unpack(&mint_account.data)?;
+    let token_account = client.get_account(&associated_token_address).await?;
+    let token_data = Account::unpack(&token_account.data)?;
 
-    let token = client.get_account(&associated_token_address).await?;
-    let token_data = Account::unpack(&token.data)?;
-
-    println!("Minted 1.00 tokens to the associated token account");
-    println!("\nMint Address: {}", mint.pubkey());
-    println!("{:#?}", mint_data);
-
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Mint Account: {:#?}", mint_data);
     println!(
         "\nAssociated Token Account Address: {}",
         associated_token_address
     );
-    println!("{:#?}", token_data);
-
-    println!("Transaction Signature: {}", transaction_signature);
+    println!("Associated Token Account: {:#?}", token_data);
+    println!("\nTransaction Signature: {}", transaction_signature);
 
     Ok(())
 }
@@ -554,58 +580,90 @@ async fn main() -> Result<()> {
 #!/usr/bin/env python3
 
 import asyncio
+import json
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
+from solders.message import Message
 from solders.pubkey import Pubkey
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
-from spl.token.instructions import mint_to, MintToParams
-from spl.token.constants import TOKEN_PROGRAM_ID
+from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
+from spl.token.async_client import AsyncToken
+from spl.token.instructions import (
+    create_associated_token_account,
+    get_associated_token_address,
+    initialize_mint,
+    InitializeMintParams,
+    mint_to_checked,
+    MintToCheckedParams,
+)
+from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
+
+DECIMALS = 2
+AMOUNT_TO_MINT = 100
 
 async def main():
     rpc = AsyncClient("http://localhost:8899")
 
-    # Example keypairs and addresses
-    payer = Keypair()
-    mint_authority = Keypair()
-    mint_address = Pubkey.from_string("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")
-    destination_token_account = Pubkey.from_string("GfVPzUxMDvhFJ1Xs6C9i47XQRSapTd8LHw5grGuTquyQ")
-
-    # Amount to mint (in smallest unit)
-    amount_to_mint = 1000000000  # 1 token with 9 decimals
-
     async with rpc:
-        # Create mint instruction
-        mint_instruction = mint_to(
-            MintToParams(
-                program_id=TOKEN_PROGRAM_ID,
-                mint=mint_address,
-                dest=destination_token_account,
-                mint_authority=mint_authority.pubkey(),
-                amount=amount_to_mint
+        # !collapse(1:20) collapsed
+        # Setup: create a mint and destination token account before minting tokens.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        mint = Keypair()
+        destination_token_account = get_associated_token_address(fee_payer.pubkey(), mint.pubkey())
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=DECIMALS, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey())),
+            create_associated_token_account(fee_payer.pubkey(), fee_payer.pubkey(), mint.pubkey(), TOKEN_PROGRAM_ID),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
+
+        # !mark(1:10)
+        mint_tokens_instruction = mint_to_checked(
+            MintToCheckedParams(
+                program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                mint=mint.pubkey(),  # Mint for the token being minted.
+                dest=destination_token_account,  # Token account receiving the minted tokens.
+                mint_authority=fee_payer.pubkey(),  # Authority allowed to mint new tokens.
+                amount=AMOUNT_TO_MINT,  # Token amount in base units.
+                decimals=DECIMALS,  # Decimals defined on the mint account.
             )
         )
-
-        # Get latest blockhash
-        recent_blockhash = await rpc.get_latest_blockhash()
-
-        # Create message
-        message = MessageV0.try_compile(
-            payer=payer.pubkey(),
-            instructions=[mint_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=recent_blockhash.value.blockhash
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer],
+            Message([mint_tokens_instruction], fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
         )
+        result = await rpc.send_transaction(transaction)
 
-        # Create transaction
-        transaction = VersionedTransaction(message, [payer, mint_authority])
+        mint_info = await token.get_mint_info()
+        destination_token_account_info = await token.get_account_info(destination_token_account)
+        mint_account = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in mint_info._asdict().items()
+        }
+        token_account = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in destination_token_account_info._asdict().items()
+        }
 
-        print(f"Mint: {mint_address}")
-        print(f"Destination: {destination_token_account}")
-        print(f"Amount: {amount_to_mint}")
-        print(f"Mint authority: {mint_authority.pubkey()}")
-        print(f"Payer: {payer.pubkey()}")
-        print(f"Mint transaction created successfully")
+        print("Mint Address:", mint.pubkey())
+        print("Mint Account:")
+        print(json.dumps(mint_account, indent=2))
+        print("\nToken Account Address:", destination_token_account)
+        print("Token Account:")
+        print(json.dumps(token_account, indent=2))
+        print("\nTransaction Signature:", result.value)
 
 if __name__ == "__main__":
     asyncio.run(main())
