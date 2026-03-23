@@ -1,207 +1,309 @@
 ---
 title: Revogar Delegado
-description: Aprenda como revogar o delegado da token account.
+description:
+  Remover o delegado atual de uma conta de token e limpar sua permissão delegada
+  restante.
+url: /docs/tokens/basics/revoke-delegate
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics/approve-delegate
+related:
+  - /docs/tokens/basics/approve-delegate
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/basics/burn-tokens
+  - /docs/tokens/basics/set-authority
 ---
 
-## Como revogar um delegado
+## O Que Faz a Revogação de um Delegado?
 
-A instrução
-[`Revoke`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L133C5-L133C11)
-remove todas as permissões de transferência do delegado atualmente aprovado.
-Após a revogação, o delegado não pode mais transferir quaisquer tokens da sua
-conta. Para o Token Program, apenas o proprietário da token account pode revogar
-um delegado. Para o Token Extension Program, o proprietário da token account e o
-delegado atual podem revogar a delegação.
+Revogar um delegado limpa o delegado atual da conta de token e redefine a
+quantidade delegada para zero.
 
-<Callout type="info">
-  O [Token
-  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L140)
-  e o [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
-  compartilham implementações semelhantes para alcançar a mesma funcionalidade.
-</Callout>
+Após a revogação, o delegado anterior não tem mais autoridade para transferir ou
+queimar tokens em nome da conta de token.
+
+## Como Revogar um Delegado
+
+A revogação de um delegado usa a instrução _rs`Revoke`_ do Token Program.
+
+A instrução _rs`Revoke`_ limpa os campos de delegado na conta de token de
+origem. No Token Program, o proprietário da conta de token assina a revogação.
+No Token Extensions Program, o delegado atual também pode revogar a delegação.
+
+### Referência de Origem
+
+| Item                 | Descrição                                                               | Token Program                                                                                                  | Token Extensions Program                                                                                             |
+| -------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| _rs`Account`_        | O estado da conta de token armazena o delegado e a quantidade delegada. | [Origem](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/state.rs#L84-L108)        | [Origem](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/state.rs#L99-L123)        |
+| _rs`Revoke`_         | Uma instrução que remove o delegado atual de uma conta de token.        | [Origem](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/instruction.rs#L128-L140) | [Origem](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/instruction.rs#L170-L182) |
+| _rs`process_revoke`_ | Lógica compartilhada do processador para revogação de delegado.         | [Origem](https://github.com/solana-program/token/blob/program%40v9.0.0/program/src/processor.rs#L395-L420)     | [Origem](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L643-L674)     |
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+Os exemplos de `Kit` abaixo mostram a abordagem recomendada usando
+`@solana/kit`. Exemplos legados usando `@solana/web3.js` estão incluídos como
+referência.
 
-```ts !! title="Kit"
+#### Kit
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Plugin"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
-  getMintToInstruction,
-  getApproveCheckedInstruction,
-  getRevokeInstruction
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createLocalClient()
+  // !mark[/\.use\(tokenProgram\(\)\)/]
+  .use(tokenProgram());
 
-// Generate keypairs for fee payer and delegate
-const feePayer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
 const delegate = await generateKeyPairSigner();
 
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
-
-// Generate keypair to use as address of mint
-const mint = await generateKeyPairSigner();
-
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
-
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
+const [tokenAccount] = await findAssociatedTokenPda({
   mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address
-});
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
+  owner: client.payer.address,
   tokenProgram: TOKEN_PROGRAM_ADDRESS
 });
 
-// Create instruction to create the associated token account
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: feePayer,
-  mint: mint.address,
-  owner: feePayer.address
-});
+// !collapse(1:24) collapsed
+// Setup: create a mint, fund the payer's ATA, and approve a delegate first.
+await client.sendTransaction([
+  client.token.instructions.createMint({
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await client.token.instructions.mintToATA({
+    mint: mint.address,
+    owner: client.payer.address,
+    mintAuthority: client.payer,
+    amount: 100n,
+    decimals: 2
+  }),
+  client.token.instructions.approveChecked({
+    source: tokenAccount,
+    mint: mint.address,
+    delegate: delegate.address,
+    owner: client.payer,
+    amount: 25n,
+    decimals: 2
+  })
+]);
 
-// Create instruction to mint tokens
-const mintToInstruction = getMintToInstruction({
-  mint: mint.address,
-  token: associatedTokenAddress,
-  mintAuthority: feePayer.address,
-  amount: 1000_000_000_000n // 1000.0 tokens with 9 decimals
-});
+const result = await client.token.instructions
+  // !mark(1:4)
+  .revoke({
+    source: tokenAccount, // Token account whose delegate approval changes.
+    owner: client.payer // Owner approving this delegate change.
+  })
+  .sendTransaction();
 
-// Create instruction to approve delegate
-const approveInstruction = getApproveCheckedInstruction({
-  source: associatedTokenAddress,
-  mint: mint.address,
-  delegate: delegate.address,
-  owner: feePayer,
-  amount: 1_000_000_000n, // 1.0 tokens with 9 decimals
-  decimals: 9
-});
+const tokenAccountData = await client.token.accounts.token.fetch(tokenAccount);
 
-const instructions = [
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAtaInstruction,
-  mintToInstruction,
-  approveInstruction
-];
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("\nMint Address:", mint.address.toString());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAddress.toString()
-);
-console.log("\nDelegate Address:", delegate.address.toString());
-console.log("Successfully approved delegate to transfer 1.0 tokens");
-console.log("Transaction Signature:", transactionSignature);
-
-// Get a fresh blockhash for the revoke transaction
-const { value: revokeBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create instruction to revoke delegate
-const revokeInstruction = getRevokeInstruction({
-  source: associatedTokenAddress,
-  owner: feePayer
-});
-
-// Create transaction message for revoke
-const revokeTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(revokeBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([revokeInstruction], tx)
-);
-
-// Sign transaction message with all required signers
-const signedRevokeTx = await signTransactionMessageWithSigners(revokeTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedRevokeTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature2 = getSignatureFromTransaction(signedRevokeTx);
-
-console.log("\nSuccessfully revoked delegation from the token account");
-console.log("Transaction Signature:", transactionSignature2);
+console.log("Mint Address:", mint.address);
+console.log("\nToken Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData.data);
+console.log("\nDelegate Address:", delegate.address);
+console.log("\nTransaction Signature:", result.context.signature);
 ```
 
-```ts !! title="Legacy"
+```ts !! title="Instructions"
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import {
+  fetchToken,
+  findAssociatedTokenPda,
+  getApproveCheckedInstruction,
+  getCreateMintInstructionPlan,
+  getMintToATAInstructionPlanAsync,
+  getRevokeInstruction,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const delegate = await generateKeyPairSigner();
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// !collapse(1:26) collapsed
+// Setup: create a mint, fund the payer's ATA, and approve a delegate first.
+await client.sendTransaction([
+  getCreateMintInstructionPlan({
+    payer: client.payer,
+    newMint: mint,
+    decimals: 2,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  }),
+  await getMintToATAInstructionPlanAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address,
+    mintAuthority: client.payer,
+    amount: 100n,
+    decimals: 2
+  }),
+  getApproveCheckedInstruction({
+    source: tokenAccount,
+    mint: mint.address,
+    delegate: delegate.address,
+    owner: client.payer,
+    amount: 25n,
+    decimals: 2
+  })
+]);
+
+const result = await client.sendTransaction([
+  // !mark(1:4)
+  getRevokeInstruction({
+    source: tokenAccount, // Token account whose delegate approval changes.
+    owner: client.payer // Owner approving this delegate change.
+  })
+]);
+
+const tokenAccountData = await fetchToken(client.rpc, tokenAccount);
+
+console.log("Mint Address:", mint.address);
+console.log("\nToken Account Address:", tokenAccount);
+console.log("Token Account:", tokenAccountData.data);
+console.log("\nDelegate Address:", delegate.address);
+console.log("\nTransaction Signature:", result.context.signature);
+```
+
+</CodeTabs>
+
+#### Web3.js
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Helper Function"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccount,
+  approveChecked,
+  createMint,
+  getAccount,
+  mintToChecked,
+  revoke,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:71) collapsed
+// Setup: create a mint, fund the payer's ATA, and approve a delegate first.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+const delegate = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintPubkey = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  2,
+  Keypair.generate(),
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+const associatedTokenAccount = await createAssociatedTokenAccount(
+  connection,
+  feePayer,
+  mintPubkey,
+  feePayer.publicKey,
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+await mintToChecked(
+  connection,
+  feePayer,
+  mintPubkey,
+  associatedTokenAccount,
+  feePayer,
+  100,
+  2,
+  [],
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+await approveChecked(
+  connection,
+  feePayer,
+  mintPubkey,
+  associatedTokenAccount,
+  delegate.publicKey,
+  feePayer,
+  25,
+  2,
+  [],
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+// !mark(1:11)
+const result = await revoke(
+  connection, // Connection to the local validator.
+  feePayer, // Account paying transaction fees.
+  associatedTokenAccount, // Token account whose delegate approval changes.
+  feePayer, // Owner approving this delegate change.
+  [], // Additional multisig signers.
+  {
+    commitment: "confirmed" // Confirmation options for the transaction.
+  },
+  TOKEN_PROGRAM_ID // Token program to invoke.
+);
+
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mintPubkey.toBase58());
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nDelegate Address:", delegate.publicKey.toBase58());
+console.log("\nTransaction Signature:", result);
+```
+
+```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
@@ -211,29 +313,27 @@ import {
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  createInitializeMintInstruction,
-  MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  createMintToInstruction,
   createApproveCheckedInstruction,
-  createRevokeInstruction
+  createAssociatedTokenAccountInstruction,
+  createInitializeMintInstruction,
+  createMintToCheckedInstruction,
+  createRevokeInstruction,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMinimumBalanceForRentExemptMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
 
-// Create connection to local validator
+// !collapse(1:80) collapsed
+// Setup: create a mint, fund the payer's ATA, and approve a delegate first.
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-// Generate a new keypair for the fee payer
 const feePayer = Keypair.generate();
-
-// Generate a new keypair for the delegate
 const delegate = Keypair.generate();
 
-// Airdrop 1 SOL to fee payer
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
   LAMPORTS_PER_SOL
@@ -244,13 +344,8 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-// Generate keypair to use as address of mint
 const mint = Keypair.generate();
-
-// Get minimum balance for rent exemption
 const mintRent = await getMinimumBalanceForRentExemptMint(connection);
-
-// Get the associated token account address
 const associatedTokenAccount = getAssociatedTokenAddressSync(
   mint.publicKey,
   feePayer.publicKey,
@@ -259,234 +354,93 @@ const associatedTokenAccount = getAssociatedTokenAddressSync(
   ASSOCIATED_TOKEN_PROGRAM_ID
 );
 
-// Create account instruction
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: mintRent,
-  programId: TOKEN_PROGRAM_ID
-});
-
-// Initialize mint instruction
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  9, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_PROGRAM_ID
-);
-
-// Create associated token account instruction
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account address
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-// Create mint to instruction (mint 1000 tokens = 1000.0 with 9 decimals)
-const mintAmount = 1000_000_000_000;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey, // mint
-  associatedTokenAccount, // destination
-  feePayer.publicKey, // authority
-  mintAmount, // amount
-  [], // multiSigners
-  TOKEN_PROGRAM_ID // programId
-);
-
-// Create approve instruction (approve 1 token = 1.0 with 9 decimals)
-const approveAmount = 1_000_000_000;
-const approveInstruction = createApproveCheckedInstruction(
-  associatedTokenAccount, // token account
-  mint.publicKey, // mint
-  delegate.publicKey, // delegate
-  feePayer.publicKey, // owner of token account
-  approveAmount, // amount
-  9, // decimals
-  [], // multiSigners
-  TOKEN_PROGRAM_ID // programId
-);
-
-// Create and sign transaction with mint creation, ATA creation, minting, and approval
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAssociatedTokenAccountIx,
-  mintToInstruction,
-  approveInstruction
-);
-
-// Sign transaction
-const transactionSignature = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transaction,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      2,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_PROGRAM_ID
+    ),
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey,
+      associatedTokenAccount,
+      feePayer.publicKey,
+      mint.publicKey,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    ),
+    createMintToCheckedInstruction(
+      mint.publicKey,
+      associatedTokenAccount,
+      feePayer.publicKey,
+      100,
+      2,
+      [],
+      TOKEN_PROGRAM_ID
+    ),
+    createApproveCheckedInstruction(
+      associatedTokenAccount,
+      mint.publicKey,
+      delegate.publicKey,
+      feePayer.publicKey,
+      25,
+      2,
+      [],
+      TOKEN_PROGRAM_ID
+    )
+  ),
   [feePayer, mint]
 );
 
-console.log("\nMint Address:", mint.publicKey.toBase58());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAccount.toBase58()
-);
-console.log("\nDelegate Address:", delegate.publicKey.toBase58());
-console.log("Successfully approved delegate to transfer 1.0 tokens");
-console.log("Transaction Signature:", transactionSignature);
-
-// Get a new blockhash for the revoke transaction
 const revokeBlockhash = await connection.getLatestBlockhash();
 
-// Create revoke instruction
-const revokeInstruction = createRevokeInstruction(
-  associatedTokenAccount, // token account
-  feePayer.publicKey, // owner of token account
-  [], // multiSigners
-  TOKEN_PROGRAM_ID // programId
-);
-
-// Create and sign transaction for revoking delegation
-const revokeTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: revokeBlockhash.blockhash,
-  lastValidBlockHeight: revokeBlockhash.lastValidBlockHeight
-}).add(revokeInstruction);
-
-// Sign and send revoke transaction
-const transactionSignature2 = await sendAndConfirmTransaction(
+const result = await sendAndConfirmTransaction(
   connection,
-  revokeTransaction,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: revokeBlockhash.blockhash,
+    lastValidBlockHeight: revokeBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:6)
+    createRevokeInstruction(
+      associatedTokenAccount, // Token account whose delegate approval changes.
+      feePayer.publicKey, // Owner approving this delegate change.
+      [], // Additional multisig signers.
+      TOKEN_PROGRAM_ID // Token program to invoke.
+    )
+  ),
   [feePayer]
 );
 
-console.log("\nSuccessfully revoked delegation from the token account");
-console.log("Transaction Signature:", transactionSignature2);
-```
-
-```ts !! title="Legacy Helper"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import {
-  createMint,
-  createAssociatedTokenAccount,
-  mintTo,
-  approveChecked,
-  revoke,
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
   TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
-
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-// Generate a new keypair for the fee payer
-const feePayer = Keypair.generate();
-
-// Generate a new keypair for the delegate
-const delegate = Keypair.generate();
-
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
 );
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
 
-// Create mint using helper function
-const mintPubkey = await createMint(
-  connection, // connection
-  feePayer, // fee payer
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  9, // decimals
-  Keypair.generate(), // keypair (optional)
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Mint Address:", mintPubkey.toBase58());
-
-// Create associated token account using helper function
-const associatedTokenAccount = await createAssociatedTokenAccount(
-  connection, // connection
-  feePayer, // fee payer
-  mintPubkey, // mint
-  feePayer.publicKey, // owner
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
+console.log("Mint Address:", mint.publicKey.toBase58());
 console.log(
-  "Associated Token Account Address:",
+  "\nAssociated Token Account Address:",
   associatedTokenAccount.toBase58()
 );
-
-// Mint 1000 tokens to the associated token account (with 9 decimals, this is 1000.0 tokens)
-const mintAmount = 1000_000_000_000; // 1000.0 tokens with 9 decimals
-const mintSignature = await mintTo(
-  connection, // connection
-  feePayer, // payer
-  mintPubkey, // mint
-  associatedTokenAccount, // destination
-  feePayer, // authority (mint authority)
-  mintAmount, // amount
-  [], // additional signers
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("\nSuccessfully minted 1000.0 tokens");
-console.log("Transaction Signature:", mintSignature);
-
-// Approve delegate to transfer 1 token
-const delegateAmount = 1_000_000_000; // 1.0 tokens with 9 decimals
-const approveSignature = await approveChecked(
-  connection, // connection
-  feePayer, // payer
-  mintPubkey, // mint
-  associatedTokenAccount, // token account
-  delegate.publicKey, // delegate
-  feePayer, // owner of token account
-  delegateAmount, // amount
-  9, // decimals
-  [], // additional signers
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-
+console.log("Associated Token Account:", tokenAccountData);
 console.log("\nDelegate Address:", delegate.publicKey.toBase58());
-console.log("Successfully approved delegate to transfer 1.0 tokens");
-console.log("Transaction Signature:", approveSignature);
-
-// Revoke the delegation
-const transactionSignature2 = await revoke(
-  connection,
-  feePayer,
-  associatedTokenAccount,
-  feePayer,
-  [],
-  {
-    commitment: "confirmed"
-  },
-  TOKEN_PROGRAM_ID
-);
-
-console.log("\nSuccessfully revoked delegation from the token account");
-console.log("Transaction Signature:", transactionSignature2);
+console.log("\nTransaction Signature:", result);
 ```
 
 </CodeTabs>
@@ -510,31 +464,26 @@ use spl_associated_token_account_interface::{
 };
 use spl_token_interface::{
     id as token_program_id,
-    instruction::{approve_checked, initialize_mint, mint_to, revoke},
-    state::Mint,
+    instruction::{approve_checked, initialize_mint, mint_to_checked, revoke},
+    state::{Account, Mint},
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to local validator
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let latest_blockhash = client.get_latest_blockhash().await?;
-
-    // Generate a new keypair for the fee payer
-    let fee_payer = Keypair::new();
-
-    // Generate a keypair for the delegate
     let delegate = Keypair::new();
 
-    // Airdrop 1 SOL to fee payer
+    // !collapse(1:72) collapsed
+    // Setup: create a mint, fund the payer's ATA, and approve a delegate first.
+    let fee_payer = Keypair::new();
+    let decimals = 2;
+
     let airdrop_signature = client
         .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
         .await?;
-    client.confirm_transaction(&airdrop_signature).await?;
-
     loop {
         let confirmed = client.confirm_transaction(&airdrop_signature).await?;
         if confirmed {
@@ -542,128 +491,92 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Generate keypair to use as address of mint
     let mint = Keypair::new();
-
-    // Number of decimals for the mint
-    let decimals = 2;
-
-    // Get default mint account size (in bytes), no extensions enabled
-    let mint_space = Mint::LEN;
     let mint_rent = client
-        .get_minimum_balance_for_rent_exemption(mint_space)
+        .get_minimum_balance_for_rent_exemption(Mint::LEN)
         .await?;
-
-    // Instruction to create new account for mint (token program)
-    let create_account_instruction = create_account(
-        &fee_payer.pubkey(), // payer
-        &mint.pubkey(),      // new account (mint)
-        mint_rent,           // lamports
-        mint_space as u64,   // space
-        &token_program_id(), // program id
-    );
-
-    // Instruction to initialize mint account data
-    let initialize_mint_instruction = initialize_mint(
-        &token_program_id(),
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        decimals,                  // decimals
-    )?;
-
-    // Calculate the associated token account address for fee_payer
     let associated_token_address = get_associated_token_address(
-        &fee_payer.pubkey(), // owner
-        &mint.pubkey(),      // mint
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
     );
-
-    // Instruction to create associated token account
-    let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(), // funding address
-        &fee_payer.pubkey(), // wallet address
-        &mint.pubkey(),      // mint address
-        &token_program_id(), // program id
-    );
-
-    // Amount of tokens to mint (1000 tokens with 2 decimals)
-    let amount = 100_00;
-
-    // Create mint_to instruction to mint tokens to the associated token account
-    let mint_to_instruction = mint_to(
-        &token_program_id(),
-        &mint.pubkey(),            // mint
-        &associated_token_address, // destination
-        &fee_payer.pubkey(),       // authority
-        &[&fee_payer.pubkey()],    // signer
-        amount,                    // amount
-    )?;
-
-    // Amount of tokens to approve (1 token with 2 decimals)
-    let approve_amount = 1_00;
-
-    // Create approve_checked instruction
-    let approve_instruction = approve_checked(
-        &token_program_id(),       // program id
-        &associated_token_address, // source token account
-        &mint.pubkey(),            // mint
-        &delegate.pubkey(),        // delegate
-        &fee_payer.pubkey(),       // owner
-        &[&fee_payer.pubkey()],    // signers
-        approve_amount,            // amount
-        decimals,                  // decimals
-    )?;
-
-    // Create transaction and add instructions
-    let transaction = Transaction::new_signed_with_payer(
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
         &[
-            create_account_instruction,
-            initialize_mint_instruction,
-            create_ata_instruction,
-            mint_to_instruction,
-            approve_instruction,
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                Mint::LEN as u64,
+                &token_program_id(),
+            ),
+            initialize_mint(
+                &token_program_id(),
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                decimals,
+            )?,
+            create_associated_token_account(
+                &fee_payer.pubkey(),
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                &token_program_id(),
+            ),
+            mint_to_checked(
+                &token_program_id(),
+                &mint.pubkey(),
+                &associated_token_address,
+                &fee_payer.pubkey(),
+                &[],
+                100,
+                decimals,
+            )?,
+            approve_checked(
+                &token_program_id(),
+                &associated_token_address,
+                &mint.pubkey(),
+                &delegate.pubkey(),
+                &fee_payer.pubkey(),
+                &[],
+                25,
+                decimals,
+            )?,
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer, &mint],
         latest_blockhash,
     );
+    client
+        .send_and_confirm_transaction(&setup_transaction)
+        .await?;
 
-    // Send and confirm transaction
-    client.send_and_confirm_transaction(&transaction).await?;
-
-    let token = client.get_token_account(&associated_token_address).await?;
-    println!("Token Account Address: {}", associated_token_address);
-    println!("\nToken Account Delegate Approved");
-    if let Some(token) = token {
-        println!("{:#?}", token);
-    }
-
-    // Create revoke instruction
-    let revoke_instruction = revoke(
-        &token_program_id(),       // program id
-        &associated_token_address, // source token account
-        &fee_payer.pubkey(),       // owner
-        &[&fee_payer.pubkey()],    // signers
-    )?;
-
-    // Create transaction for revoking delegation
     let transaction = Transaction::new_signed_with_payer(
-        &[revoke_instruction],
+        &[
+            // !mark(1:6)
+            revoke(
+                &token_program_id(), // Token program to invoke.
+                &associated_token_address, // Token account whose delegate approval changes.
+                &fee_payer.pubkey(), // Owner approving this delegate change.
+                &[], // Additional multisig signers.
+            )?,
+        ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
         latest_blockhash,
     );
 
-    // Send and confirm transaction
     let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let token_account = client.get_account(&associated_token_address).await?;
+    let token_data = Account::unpack(&token_account.data)?;
 
-    let token = client.get_token_account(&associated_token_address).await?;
-    println!("\nToken Account Delegate Revoked");
-    if let Some(token) = token {
-        println!("{:#?}", token);
-    }
-
-    println!("Transaction Signature: {}", transaction_signature);
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "\nAssociated Token Account Address: {}",
+        associated_token_address
+    );
+    println!("Associated Token Account: {:#?}", token_data);
+    println!("\nDelegate Address: {}", delegate.pubkey());
+    println!("\nTransaction Signature: {}", transaction_signature);
 
     Ok(())
 }
@@ -679,146 +592,90 @@ async fn main() -> Result<()> {
 #!/usr/bin/env python3
 
 import asyncio
+import json
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
+from solders.message import Message
+from solders.pubkey import Pubkey
 from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
+from spl.token.async_client import AsyncToken
 from spl.token.instructions import (
-    initialize_mint, InitializeMintParams,
+    approve_checked,
+    ApproveCheckedParams,
     create_associated_token_account,
-    mint_to_checked, MintToCheckedParams,
-    revoke, RevokeParams,
-    get_associated_token_address
+    get_associated_token_address,
+    initialize_mint,
+    InitializeMintParams,
+    mint_to_checked,
+    MintToCheckedParams,
+    revoke,
+    RevokeParams,
 )
-from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
 
-# Constants
-DECIMALS = 9
-
-async def setup(rpc, mint_authority, latest_blockhash):
-    """
-    The setup function initializes the mint and associated token accounts,
-    and mints tokens to said associated token account
-    """
-    mint = Keypair()
-
-    space = 82  # getMintSize() equivalent for SPL Token
-
-    # Get minimum balance for rent exemption
-    rent = await rpc.get_minimum_balance_for_rent_exemption(space)
-
-    # Create & initialize mint account
-    create_account_instruction = create_account(
-        CreateAccountParams(
-            from_pubkey=mint_authority.pubkey(),
-            to_pubkey=mint.pubkey(),
-            lamports=rent.value,
-            space=space,
-            owner=TOKEN_PROGRAM_ID
-        )
-    )
-
-    initialize_mint_instruction = initialize_mint(
-        InitializeMintParams(
-            program_id=TOKEN_PROGRAM_ID,
-            mint=mint.pubkey(),
-            decimals=DECIMALS,
-            mint_authority=mint_authority.pubkey(),
-            freeze_authority=None
-        )
-    )
-
-    # Create associated token account
-    authority_ata = get_associated_token_address(
-        owner=mint_authority.pubkey(),
-        mint=mint.pubkey(),
-        token_program_id=TOKEN_PROGRAM_ID
-    )
-
-    create_authority_ata_instruction = create_associated_token_account(
-        payer=mint_authority.pubkey(),
-        owner=mint_authority.pubkey(),
-        mint=mint.pubkey()
-    )
-
-    # Mint to token account
-    mint_to_instruction = mint_to_checked(
-        MintToCheckedParams(
-            program_id=TOKEN_PROGRAM_ID,
-            mint=mint.pubkey(),
-            dest=authority_ata,
-            mint_authority=mint_authority.pubkey(),
-            amount=1_000_000_000_000,  # 1000 tokens
-            decimals=DECIMALS
-        )
-    )
-
-    instructions = [
-        create_account_instruction,
-        initialize_mint_instruction,
-        create_authority_ata_instruction,
-        mint_to_instruction
-    ]
-
-    # Create transaction message
-    transaction_message = MessageV0.try_compile(
-        payer=mint_authority.pubkey(),
-        instructions=instructions,
-        address_lookup_table_accounts=[],
-        recent_blockhash=latest_blockhash.value.blockhash
-    )
-
-    # Create and sign transaction
-    signed_transaction = VersionedTransaction(transaction_message, [mint_authority, mint])
-
-    print("Setup transaction created successfully")
-    print(f"Mint: {mint.pubkey()}")
-    print(f"Authority ATA: {authority_ata}")
-
-    return {
-        "mint": mint.pubkey(),
-        "authority_ata": authority_ata
-    }
+DECIMALS = 2
+AMOUNT_TO_MINT = 100
+AMOUNT_TO_APPROVE = 25
 
 async def main():
     rpc = AsyncClient("http://localhost:8899")
 
-    # Constants
-    mint_authority = Keypair()
+    delegate = Keypair()
 
     async with rpc:
-        # Get latest blockhash
-        latest_blockhash = await rpc.get_latest_blockhash()
+        # !collapse(1:22) collapsed
+        # Setup: create a mint, token account, and delegate approval before revoking the delegate.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        mint = Keypair()
+        token_account_address = get_associated_token_address(fee_payer.pubkey(), mint.pubkey())
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=DECIMALS, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey())),
+            create_associated_token_account(fee_payer.pubkey(), fee_payer.pubkey(), mint.pubkey(), TOKEN_PROGRAM_ID),
+            mint_to_checked(MintToCheckedParams(program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), dest=token_account_address, mint_authority=fee_payer.pubkey(), amount=AMOUNT_TO_MINT, decimals=DECIMALS)),
+            approve_checked(ApproveCheckedParams(program_id=TOKEN_PROGRAM_ID, source=token_account_address, mint=mint.pubkey(), delegate=delegate.pubkey(), owner=fee_payer.pubkey(), amount=AMOUNT_TO_APPROVE, decimals=DECIMALS)),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
 
-        # Setup mint and associated token accounts
-        setup_result = await setup(rpc, mint_authority, latest_blockhash)
-        authority_ata = setup_result["authority_ata"]
-
-        # Create revoke delegate instruction
-        revoke_delegate_ix = revoke(
+        # !mark(1:7)
+        revoke_delegate_instruction = revoke(
             RevokeParams(
-                program_id=TOKEN_PROGRAM_ID,
-                account=authority_ata,
-                owner=mint_authority.pubkey()
+                program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                account=token_account_address,  # Token account whose delegate approval changes.
+                owner=fee_payer.pubkey(),  # Account that owns the token account.
             )
         )
-
-        # Create transaction message
-        transaction_message = MessageV0.try_compile(
-            payer=mint_authority.pubkey(),
-            instructions=[revoke_delegate_ix],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer],
+            Message([revoke_delegate_instruction], fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
         )
+        result = await rpc.send_transaction(transaction)
 
-        # Create and sign transaction
-        signed_transaction = VersionedTransaction(transaction_message, [mint_authority])
+        token_account_info = await token.get_account_info(token_account_address)
+        token_account = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in token_account_info._asdict().items()
+        }
 
-        print(f"\nRevoke Delegate Transaction:")
-        print(f"Source: {authority_ata}")
-        print(f"Owner: {mint_authority.pubkey()}")
-        print(f"Revoke delegate transaction created successfully")
+        print("Mint Address:", mint.pubkey())
+        print("\nToken Account Address:", token_account_address)
+        print("Token Account:")
+        print(json.dumps(token_account, indent=2))
+        print("\nDelegate Address:", delegate.pubkey())
+        print("\nTransaction Signature:", result.value)
 
 if __name__ == "__main__":
     asyncio.run(main())
