@@ -9,6 +9,7 @@ import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { locales, staticLocales } from "@workspace/i18n/config";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
 import { notFound } from "next/navigation";
 import {
@@ -33,9 +34,7 @@ export default async function RootLayout({ children, params }: Props) {
   }
 
   const direction = getLangDir(locale);
-  // Load messages directly
-  const messages = (await import(`@@/public/locales/${locale}/common.json`))
-    .default;
+  const messages = await loadMergedMessages({ app: "web", locale });
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>

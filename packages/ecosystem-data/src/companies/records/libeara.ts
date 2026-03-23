@@ -1,58 +1,23 @@
 import type { CompanyRecord } from "../../types";
 import libearaLogo from "../../../assets/companies/libeara/logo.svg";
+import libearaLogoDark from "../../../assets/companies/libeara/logo-dark.png";
 
 export const libeara = {
   "id": "libeara",
   "slug": "libeara",
   "name": "Libeara",
   "profile": {
-    "name": "Libeara",
-    "tagLine": "Investing is more accessible and equitable with tokenised assets.",
-    "descriptionShort": "SC Ventures incubated tokenisation platform helping organizations create, issue, and manage real-world assets on-chain.",
-    "descriptionLong": "Libeara is a road-tested asset tokenisation platform focused on making markets more accessible, transparent, and secure, with solutions for regulated funds, tokenised government bonds, and other real-world assets.",
-    "profileSector": {
-      "name": "Tokenization"
+    "tagline": "Investing is more accessible and equitable with tokenised assets.",
+    "summary": "SC Ventures incubated tokenisation platform helping organizations create, issue, and manage real-world assets on-chain.",
+    "description": "Libeara is a road-tested asset tokenisation platform focused on making markets more accessible, transparent, and secure, with solutions for regulated funds, tokenised government bonds, and other real-world assets.",
+    "sector": "Tokenization",
+    "type": "Platform",
+    "links": {
+      "website": "https://libeara.com/"
     },
-    "profileType": {
-      "name": "Platform"
-    },
-    "urls": [
-      {
-        "url": "https://libeara.com/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/libeara_",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/libeara/",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/libeara_",
+      "linkedin": "https://www.linkedin.com/company/libeara/"
     }
   },
   "defaultLogoId": "logo",
@@ -61,7 +26,15 @@ export const libeara = {
       "id": "logo",
       "fileName": "logo.svg",
       "format": "svg",
-      "source": libearaLogo
+      "source": libearaLogo,
+      "theme": "dark"
+    },
+    {
+      "id": "logo-dark",
+      "fileName": "logo-dark.png",
+      "format": "png",
+      "source": libearaLogoDark,
+      "theme": "light"
     }
   ]
 } satisfies CompanyRecord;

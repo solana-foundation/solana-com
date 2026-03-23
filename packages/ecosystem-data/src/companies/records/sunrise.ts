@@ -6,79 +6,16 @@ export const sunrise = {
   "slug": "sunrise",
   "name": "Sunrise",
   "profile": {
-    "name": "Sunrise",
-    "tagLine": "Strengthen Solana and offset carbon emissions simultaneously",
-    "descriptionShort": "Sunrise Stake is a regenerative finance protocol on Solana that lets users stake SOL and automatically donate staking yield to carbon offset programs.",
-    "descriptionLong": "Sunrise Stake is a non-custodial, permissionless smart contract on Solana that directs staking yield toward retiring carbon tokens and supporting climate-positive projects. Users stake SOL and receive gSOL (green SOL), a wrapped token representing their stake, which can be used across the Solana ecosystem. The protocol is volunteer-driven, charges no fees, and donates 100% of staking rewards to carbon offset initiatives.",
-    "profileSector": {
-      "name": "Staking"
+    "tagline": "Any onchain asset, from any chain, live on Solana on day one",
+    "summary": "Sunrise is an asset tokenization layer for Solana that brings newly launched onchain assets from other ecosystems into Solana with day-one liquidity and immediate DeFi utility.",
+    "description": "Sunrise provides a gateway for external onchain assets to arrive on Solana with trading liquidity from launch. The platform is designed to let users access newly listed crypto assets from other chains without leaving the Solana ecosystem, while enabling issuers and liquidity providers to seed markets for day-one trading. Sunrise is made by Wormhole Labs and is positioned for crypto assets, tokenized stocks, commodities, and other real-world assets.",
+    "sector": "Tokenization",
+    "type": "Platform",
+    "links": {
+      "website": "https://www.sunrisedefi.com/"
     },
-    "profileType": {
-      "name": "Protocol"
-    },
-    "urls": [
-      {
-        "url": "https://www.sunrisestake.com",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/sunrisestake",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/sunrisestake",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "Discord"
-          },
-          "urls": [
-            {
-              "url": "https://discord.com/invite/dhhAddB6AJ",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/sunrise-stake",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/Sunrise_DeFi"
     }
   },
   "defaultLogoId": "logo",

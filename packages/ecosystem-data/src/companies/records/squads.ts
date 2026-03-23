@@ -6,66 +6,18 @@ export const squads = {
   "slug": "squads",
   "name": "Squads",
   "profile": {
-    "name": "Squads",
-    "tagLine": "Finance Without Legacy Constraints",
-    "descriptionShort": "Squads is the multisig standard on Solana, providing smart account infrastructure for teams, DAOs, and businesses to securely manage on-chain assets with shared ownership and permissions.",
-    "descriptionLong": "Squads is the industry-standard multisig platform on Solana, built on the formally verified Squads Protocol. Teams can deploy a multisig in a few clicks, configuring time locks, spending limits, roles, sub-accounts, and custom access controls. Major Solana projects including Helium, Jito, Pyth, Drift, and Orca rely on Squads for on-chain operations.",
-    "profileSector": {
-      "name": "Infrastructure"
+    "tagline": "Finance Without Legacy Constraints",
+    "summary": "Squads is the multisig standard on Solana, providing smart account infrastructure for teams, DAOs, and businesses to securely manage on-chain assets with shared ownership and permissions.",
+    "description": "Squads is the industry-standard multisig platform on Solana, built on the formally verified Squads Protocol. Teams can deploy a multisig in a few clicks, configuring time locks, spending limits, roles, sub-accounts, and custom access controls. Major Solana projects including Helium, Jito, Pyth, Drift, and Orca rely on Squads for on-chain operations.",
+    "sector": "Infrastructure",
+    "type": "Protocol",
+    "links": {
+      "website": "https://squads.xyz/"
     },
-    "profileType": {
-      "name": "Protocol"
-    },
-    "urls": [
-      {
-        "url": "https://squads.xyz/",
-        "urlType": {
-          "name": "website"
-        }
-      }
-    ],
-    "root": {
-      "socials": [
-        {
-          "socialType": {
-            "name": "Twitter / X"
-          },
-          "urls": [
-            {
-              "url": "https://x.com/SquadsProtocol",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "LinkedIn"
-          },
-          "urls": [
-            {
-              "url": "https://www.linkedin.com/company/squads-labs",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        },
-        {
-          "socialType": {
-            "name": "GitHub"
-          },
-          "urls": [
-            {
-              "url": "https://github.com/Squads-Protocol",
-              "urlType": {
-                "name": "main"
-              }
-            }
-          ]
-        }
-      ]
+    "socials": {
+      "x": "https://x.com/SquadsProtocol",
+      "linkedin": "https://www.linkedin.com/company/squads-labs",
+      "github": "https://github.com/Squads-Protocol"
     }
   },
   "defaultLogoId": "logo",

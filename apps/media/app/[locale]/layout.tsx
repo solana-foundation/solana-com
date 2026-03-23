@@ -12,7 +12,7 @@ import { staticLocales } from "@workspace/i18n/config";
 import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
 import { config } from "@/lib/config";
-import { loadMessages } from "@workspace/i18n/load-messages";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 import { TailwindIndicator } from "@/components/ui/breakpoint-indicator";
 
 type Props = {
@@ -85,11 +85,7 @@ export default async function LocaleLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
 
-  // Load the requested locale with automatic fallback to English if it doesn't exist
-  const messages = await loadMessages(
-    (loc) => import(`../../public/locales/${loc}/common.json`),
-    locale
-  );
+  const messages = await loadMergedMessages({ app: "media", locale });
 
   // Fetch global data for LayoutProvider
   const globalSettings = await reader.singletons.global.read();
@@ -125,7 +121,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           <LayoutProvider globalSettings={globalData.global} pageData={null}>
             <VideoDialogProvider>
               <Header />
-              <main className="overflow-x-hidden">{children}</main>
+              <main>{children}</main>
               <Footer />
               <VideoDialog />
             </VideoDialogProvider>

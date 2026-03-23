@@ -50,8 +50,9 @@ and block approval/merging.
 
 Translations are handled via the lingo.dev platform. The content within this
 repo is in the default/base language of English. When the content is pushed to
-`main`, there is a CI/CD process to convert the `public/locales/en/common.json`
-file to all other translation variants.
+`main`, there is a CI/CD process to convert the shared
+`packages/i18n/messages/*/en/common.json` UI catalogs and the docs content
+sources to the other translation variants.
 
 ## Documentation
 
