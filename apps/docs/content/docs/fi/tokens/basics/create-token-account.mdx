@@ -1179,3 +1179,209 @@ if __name__ == "__main__":
 ```
 
 </CodeTabs>
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_token_interface::{
+    id as token_program_id,
+    instruction::{initialize_account, initialize_mint},
+    state::{Account, Mint},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // !collapse(1:41) collapsed
+    // Setup: create a mint before creating the token account.
+    let fee_payer = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let mint = Keypair::new();
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(Mint::LEN)
+        .await?;
+
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                Mint::LEN as u64,
+                &token_program_id(),
+            ),
+            initialize_mint(
+                &token_program_id(),
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                2,
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
+    client.send_and_confirm_transaction(&setup_transaction).await?;
+
+    let token_account = Keypair::new();
+    let token_account_rent = client
+        .get_minimum_balance_for_rent_exemption(Account::LEN)
+        .await?;
+
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+    // !mark(1:13)
+            create_account(
+                &fee_payer.pubkey(), // Account funding account creation.
+                &token_account.pubkey(), // New token account to create.
+                token_account_rent, // Lamports funding the new account rent.
+                Account::LEN as u64, // Account size in bytes.
+                &token_program_id(), // Program that owns the new account.
+            ),
+            initialize_account(
+                &token_program_id(),
+                &token_account.pubkey(), // Token account to initialize.
+                &mint.pubkey(), // Mint for the token this account holds.
+                &fee_payer.pubkey(), // Account that owns the token account.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &token_account],
+        latest_blockhash,
+    );
+
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let token_account_data = client.get_account(&token_account.pubkey()).await?;
+    let token_data = Account::unpack(&token_account_data.data)?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("\nToken Account Address: {}", token_account.pubkey());
+    println!("Token Account: {:#?}", token_data);
+    println!("\nTransaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+### Python
+
+<CodeTabs flags="r">
+
+```py !! title="Python"
+#!/usr/bin/env python3
+
+import asyncio
+import json
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.message import Message
+from solders.pubkey import Pubkey
+from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
+from spl.token.async_client import AsyncToken
+from spl.token.instructions import (
+    initialize_account,
+    InitializeAccountParams,
+    initialize_mint,
+    InitializeMintParams,
+)
+from spl.token.constants import ACCOUNT_LEN, MINT_LEN, TOKEN_PROGRAM_ID
+
+async def main():
+    rpc = AsyncClient("http://localhost:8899")
+
+    async with rpc:
+        # !collapse(1:18) collapsed
+        # Setup: create and initialize a mint before creating the token account.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        mint = Keypair()
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=2, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey(), freeze_authority=fee_payer.pubkey())),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
+
+        token_account = Keypair()
+        token_account_rent = (await rpc.get_minimum_balance_for_rent_exemption(ACCOUNT_LEN)).value
+
+        # !mark(1:19)
+        create_token_account_instructions = [
+            create_account(
+                CreateAccountParams(
+                    from_pubkey=fee_payer.pubkey(),  # Account funding account creation.
+                    to_pubkey=token_account.pubkey(),  # New token account to create.
+                    lamports=token_account_rent,  # Lamports funding the new account rent.
+                    space=ACCOUNT_LEN,  # Account size in bytes.
+                    owner=TOKEN_PROGRAM_ID,  # Program that owns the new token account.
+                )
+            ),
+            initialize_account(
+                InitializeAccountParams(
+                    program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                    account=token_account.pubkey(),  # Token account to initialize.
+                    mint=mint.pubkey(),  # Mint for the token this account holds.
+                    owner=fee_payer.pubkey(),  # Account that owns the token account.
+                )
+            ),
+        ]
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer, token_account],
+            Message(create_token_account_instructions, fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
+        )
+        result = await rpc.send_transaction(transaction)
+
+        token_account_info = await token.get_account_info(token_account.pubkey())
+        token_account_data = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in token_account_info._asdict().items()
+        }
+
+        print("Mint Address:", mint.pubkey())
+        print("\nToken Account Address:", token_account.pubkey())
+        print("Token Account:")
+        print(json.dumps(token_account_data, indent=2))
+        print("\nTransaction Signature:", result.value)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</CodeTabs>
