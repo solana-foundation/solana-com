@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { RotatingArc } from "./rotating-arc";
 import { Badge } from "@/component-library/badge";
@@ -11,23 +13,46 @@ export interface InfraChecklistItem {
   Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
+export interface TestimonialItem {
+  quote: string;
+  name: string;
+  role: string;
+  logoSrc?: string;
+  logoAlt?: string;
+  profileSrc?: string;
+}
+
 export interface InfrastructureProps {
   title?: string;
   description?: string;
-  testimonialQuote?: string;
-  testimonialName?: string;
-  testimonialRole?: string;
+  testimonials?: TestimonialItem[];
   checklistItems?: InfraChecklistItem[];
 }
+
+const CYCLE_INTERVAL = 5000;
+const FADE_DURATION = 400;
 
 export const Infrastructure = ({
   title,
   description,
-  testimonialQuote,
-  testimonialName,
-  testimonialRole,
+  testimonials = [],
   checklistItems = [],
 }: InfrastructureProps): React.ReactElement => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (testimonials.length <= 1) return;
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setActiveIndex((i) => (i + 1) % testimonials.length);
+        setVisible(true);
+      }, FADE_DURATION);
+    }, CYCLE_INTERVAL);
+    return () => clearInterval(timer);
+  }, [testimonials.length]);
+
   return (
     <section className="flex flex-col items-center w-full bg-[#0C0C0E]">
       <div className="w-full max-w-[1440px] xl:border-x xl:border-white/[0.08] relative overflow-hidden">
@@ -55,46 +80,68 @@ export const Infrastructure = ({
                 style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               />
 
-              {/* Testimonial */}
-              <div className="flex flex-col gap-10 xl:max-w-[707px]">
-                <p className="nd-heading-s text-white max-w-[674px] italic">
-                  &ldquo;{testimonialQuote}&rdquo;
-                </p>
-                <div className="flex flex-col-reverse xl:flex-row xl:items-center gap-8">
-                  {/* Worldpay logo */}
-                  <div className="shrink-0 w-28 h-10 relative">
-                    <Image
-                      src="/src/img/solutions/sdp/worldpay-logo.svg"
-                      alt="Worldpay"
-                      fill
-                      className="object-contain object-left"
-                    />
-                  </div>
+              {/* Testimonials — CSS grid stacking so container = tallest slide */}
+              {testimonials.length > 0 && (
+                <div id="quotes" style={{ display: "grid" }}>
+                  {testimonials.map((item, i) => {
+                    const isActive = i === activeIndex;
+                    return (
+                      <div
+                        key={i}
+                        aria-hidden={!isActive}
+                        style={{
+                          gridArea: "1 / 1",
+                          opacity: isActive && visible ? 1 : 0,
+                          transition: `opacity ${FADE_DURATION}ms ease-in-out`,
+                        }}
+                      >
+                        <div className="flex flex-col gap-10 xl:max-w-[707px]">
+                          <p className="nd-heading-s text-white max-w-[674px] italic">
+                            &ldquo;{item.quote}&rdquo;
+                          </p>
+                          <div className="flex flex-col-reverse xl:flex-row xl:items-center gap-8">
+                            {/* Logo */}
+                            {item.logoSrc && (
+                              <div className="shrink-0 min-w-10 h-10 relative">
+                                <img
+                                  src={item.logoSrc}
+                                  alt={item.logoAlt ?? ""}
+                                  className="object-contain object-left"
+                                />
+                              </div>
+                            )}
 
-                  {/* Vertical divider */}
-                  <div className="w-full xl:w-px h-px xl:h-14 bg-white/[0.08] shrink-0" />
+                            {/* Vertical divider */}
+                            <div className="w-full xl:w-px h-px xl:h-14 bg-white/[0.08] shrink-0" />
 
-                  {/* Profile */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-sm overflow-hidden shrink-0 relative">
-                      <Image
-                        src="/src/img/solutions/sdp/profile.png"
-                        alt={testimonialName ?? ""}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-white font-medium nd-body-m">
-                        {testimonialName}
-                      </span>
-                      <span className="text-white/[0.64] nd-body-s">
-                        {testimonialRole}
-                      </span>
-                    </div>
-                  </div>
+                            {/* Profile */}
+                            <div className="flex items-center gap-4">
+                              {item.profileSrc && (
+                                <div className="w-11 h-11 xl:w-14 xl:h-14 rounded-sm overflow-hidden shrink-0 relative">
+                                  <Image
+                                    src={item.profileSrc}
+                                    alt={item.name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex flex-col gap-1">
+                                <span className="text-white font-medium nd-body-m">
+                                  {item.name}
+                                </span>
+                                <span className="text-white/[0.64] nd-body-s">
+                                  {item.role}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Checklist */}

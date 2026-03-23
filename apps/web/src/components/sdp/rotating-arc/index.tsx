@@ -45,7 +45,7 @@ const defaultControls: Controls = {
   showInnerArc: 0,
   offsetX: -300,
   offsetY: 0,
-  moveDuration: 800,
+  moveDuration: 900,
   pauseDuration: 600,
   fontSize: 20,
   focusScale: 1.1,
@@ -361,7 +361,7 @@ export function RotatingArc({ className }: { className?: string }) {
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (!entryDone) return;
-      e.preventDefault();
+      // e.preventDefault();
       applyScrubDelta(e.deltaY);
       // Snap back after scroll stops (short debounce)
       if (wheelIdleRef.current !== null) {

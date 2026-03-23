@@ -54,13 +54,13 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/privy.svg",
     alt: "Privy",
-    height: "20px",
+    height: "18px",
   },
-  { src: "/src/img/logos-eco/para.svg", alt: "Para", height: "20px" },
+  { src: "/src/img/logos-eco/para.svg", alt: "Para", height: "18px" },
   {
     src: "/src/img/logos-eco/crossmint.svg",
     alt: "Crossmint",
-    height: "34px",
+    height: "35px",
   },
   {
     src: "/src/img/logos-eco/turnkey.svg",
@@ -86,7 +86,7 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/quicknode.svg",
     alt: "QuickNode",
-    height: "20px",
+    height: "19px",
   },
   {
     src: "/src/img/logos-eco/alchemy.svg",
@@ -127,7 +127,7 @@ export const NODES_LOGOS = [
   {
     src: "/src/img/logos-eco/quicknode.svg",
     alt: "QuickNode",
-    height: "20px",
+    height: "19px",
     href: "https://quicknode.com",
   },
 ];
@@ -154,19 +154,19 @@ export const INST_LOGOS = [
   {
     src: "/src/img/logos-eco/privy.svg",
     alt: "Privy",
-    height: "20px",
+    height: "18px",
     href: "https://privy.io",
   },
   {
     src: "/src/img/logos-eco/para.svg",
     alt: "Para",
-    height: "20px",
+    height: "18px",
     href: "https://getpara.com",
   },
   {
     src: "/src/img/logos-eco/crossmint.svg",
     alt: "Crossmint",
-    height: "34px",
+    height: "35px",
     href: "https://crossmint.com",
   },
   {

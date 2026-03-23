@@ -111,9 +111,32 @@ export function SdpPage() {
       <Infrastructure
         title={t("infrastructure.title")}
         description={t("infrastructure.description")}
-        testimonialQuote={t("infrastructure.testimonialQuote")}
-        testimonialName={t("infrastructure.testimonialName")}
-        testimonialRole={t("infrastructure.testimonialRole")}
+        testimonials={[
+          {
+            quote: t("infrastructure.testimonials.0.quote"),
+            name: t("infrastructure.testimonials.0.name"),
+            role: t("infrastructure.testimonials.0.role"),
+            logoSrc: "/src/img/logos-eco/worldpay.svg",
+            logoAlt: "Worldpay",
+            profileSrc: "/src/img/solutions/sdp/profile-wp.png",
+          },
+          {
+            quote: t("infrastructure.testimonials.1.quote"),
+            name: t("infrastructure.testimonials.1.name"),
+            role: t("infrastructure.testimonials.1.role"),
+            logoSrc: "/src/img/logos-eco/mastercard.svg",
+            logoAlt: "Mastercard",
+            profileSrc: "/src/img/solutions/sdp/profile-mc.jpg",
+          },
+          {
+            quote: t("infrastructure.testimonials.2.quote"),
+            name: t("infrastructure.testimonials.2.name"),
+            role: t("infrastructure.testimonials.2.role"),
+            logoSrc: "/src/img/logos-eco/western-union.v2.svg",
+            logoAlt: "Western Union",
+            profileSrc: "/src/img/solutions/sdp/profile-wu.png",
+          },
+        ]}
         checklistItems={[
           { label: t("infrastructure.checklist.0"), Icon: Dollar },
           { label: t("infrastructure.checklist.1"), Icon: Switch },
