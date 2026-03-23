@@ -582,12 +582,20 @@ import asyncio
 import json
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
+from solders.message import Message
 from solders.pubkey import Pubkey
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
+from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
 from spl.token.async_client import AsyncToken
-from spl.token.instructions import mint_to_checked, MintToCheckedParams
-from spl.token.constants import TOKEN_PROGRAM_ID
+from spl.token.instructions import (
+    create_associated_token_account,
+    get_associated_token_address,
+    initialize_mint,
+    InitializeMintParams,
+    mint_to_checked,
+    MintToCheckedParams,
+)
+from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
 
 DECIMALS = 2
 AMOUNT_TO_MINT = 100
@@ -596,41 +604,46 @@ async def main():
     rpc = AsyncClient("http://localhost:8899")
 
     async with rpc:
-        # !collapse(1:7) collapsed
+        # !collapse(1:20) collapsed
         # Setup: create a mint and destination token account before minting tokens.
         fee_payer = Keypair()
         airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
         await rpc.confirm_transaction(airdrop_signature)
-        token = await AsyncToken.create_mint(rpc, fee_payer, fee_payer.pubkey(), DECIMALS, TOKEN_PROGRAM_ID)
-        mint_address = token.pubkey
-        destination_token_account = await token.create_associated_token_account(fee_payer.pubkey())
+        mint = Keypair()
+        destination_token_account = get_associated_token_address(fee_payer.pubkey(), mint.pubkey())
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=DECIMALS, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey())),
+            create_associated_token_account(fee_payer.pubkey(), fee_payer.pubkey(), mint.pubkey(), TOKEN_PROGRAM_ID),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
 
+        # !mark(1:10)
+        mint_tokens_instruction = mint_to_checked(
+            MintToCheckedParams(
+                program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                mint=mint.pubkey(),  # Mint for the token being minted.
+                dest=destination_token_account,  # Token account receiving the minted tokens.
+                mint_authority=fee_payer.pubkey(),  # Authority allowed to mint new tokens.
+                amount=AMOUNT_TO_MINT,  # Token amount in base units.
+                decimals=DECIMALS,  # Decimals defined on the mint account.
+            )
+        )
         latest_blockhash = await rpc.get_latest_blockhash()
-
-        message = MessageV0.try_compile(
-            payer=fee_payer.pubkey(),
-            instructions=[
-                # !mark(1:10)
-                mint_to_checked(
-                    MintToCheckedParams(
-                        program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
-                        mint=mint_address,  # Mint for the token being minted.
-                        dest=destination_token_account,  # Token account receiving the minted tokens.
-                        mint_authority=fee_payer.pubkey(),  # Authority allowed to mint new tokens.
-                        amount=AMOUNT_TO_MINT,  # Token amount in base units.
-                        decimals=DECIMALS,  # Decimals defined on the mint account.
-                    )
-                )
-            ],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash,
+        transaction = Transaction(
+            [fee_payer],
+            Message([mint_tokens_instruction], fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
         )
-        transaction = VersionedTransaction(message, [fee_payer])
         result = await rpc.send_transaction(transaction)
-        await rpc.confirm_transaction(
-            result.value,
-            last_valid_block_height=latest_blockhash.value.last_valid_block_height,
-        )
 
         mint_info = await token.get_mint_info()
         destination_token_account_info = await token.get_account_info(destination_token_account)
@@ -643,7 +656,7 @@ async def main():
             for key, value in destination_token_account_info._asdict().items()
         }
 
-        print("Mint Address:", mint_address)
+        print("Mint Address:", mint.pubkey())
         print("Mint Account:")
         print(json.dumps(mint_account, indent=2))
         print("\nToken Account Address:", destination_token_account)

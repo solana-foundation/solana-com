@@ -409,61 +409,55 @@ import asyncio
 import json
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
-from solders.message import MessageV0
+from solders.message import Message
 from solders.system_program import create_account, CreateAccountParams
-from solders.transaction import VersionedTransaction
+from solders.transaction import Transaction
 from spl.token.async_client import AsyncToken
 from spl.token.instructions import initialize_mint, InitializeMintParams
-from spl.token.constants import TOKEN_PROGRAM_ID
+from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
 
 DECIMALS = 9
-MINT_SIZE = 82
 
 async def main():
     rpc = AsyncClient("http://localhost:8899")
 
     async with rpc:
-        # !collapse(1:7) collapsed
+        # !collapse(1:6) collapsed
         # Setup: create and fund the fee payer before creating the mint.
         fee_payer = Keypair()
         mint = Keypair()
         airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
         await rpc.confirm_transaction(airdrop_signature)
-        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_SIZE)).value
-        latest_blockhash = await rpc.get_latest_blockhash()
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
 
-        message = MessageV0.try_compile(
-            payer=fee_payer.pubkey(),
-            instructions=[
-                # !mark(1:18)
-                create_account(
-                    CreateAccountParams(
-                        from_pubkey=fee_payer.pubkey(),  # Account funding account creation.
-                        to_pubkey=mint.pubkey(),  # New mint account to create.
-                        lamports=mint_rent,  # Lamports funding the new account rent.
-                        space=MINT_SIZE,  # Account size in bytes.
-                        owner=TOKEN_PROGRAM_ID,  # Program that owns the new account.
-                    )
-                ),
-                initialize_mint(
-                    InitializeMintParams(
-                        program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
-                        mint=mint.pubkey(),  # Mint account to initialize.
-                        decimals=DECIMALS,  # Decimals to define on the mint account.
-                        mint_authority=fee_payer.pubkey(),  # Authority allowed to mint new tokens.
-                        freeze_authority=fee_payer.pubkey(),  # Authority allowed to freeze token accounts.
-                    )
-                ),
-            ],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash
+        # !mark(1:20)
+        create_mint_instructions = [
+            create_account(
+                CreateAccountParams(
+                    from_pubkey=fee_payer.pubkey(),  # Account funding account creation.
+                    to_pubkey=mint.pubkey(),  # New mint account to create.
+                    lamports=mint_rent,  # Lamports funding the new account rent.
+                    space=MINT_LEN,  # Account size in bytes.
+                    owner=TOKEN_PROGRAM_ID,  # Program that owns the new account.
+                )
+            ),
+            initialize_mint(
+                InitializeMintParams(
+                    program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                    mint=mint.pubkey(),  # Mint account to initialize.
+                    decimals=DECIMALS,  # Decimals to define on the mint account.
+                    mint_authority=fee_payer.pubkey(),  # Authority allowed to mint new tokens.
+                    freeze_authority=fee_payer.pubkey(),  # Authority allowed to freeze token accounts.
+                )
+            ),
+        ]
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer, mint],
+            Message(create_mint_instructions, fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
         )
-        transaction = VersionedTransaction(message, [fee_payer, mint])
         result = await rpc.send_transaction(transaction)
-        await rpc.confirm_transaction(
-            result.value,
-            last_valid_block_height=latest_blockhash.value.last_valid_block_height
-        )
 
         token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
         mint_info = await token.get_mint_info()
