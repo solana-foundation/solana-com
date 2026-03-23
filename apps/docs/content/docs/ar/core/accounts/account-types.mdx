@@ -61,13 +61,18 @@ related:
 <CodeTabs storage="accounts" flags="r">
 
 ```ts !! title="Kit"
-import { Address, createSolanaRpc } from "@solana/kit";
+import { Address, generateKeyPairSigner } from "@solana/kit";
+import { createClient } from "@solana/kit-client-rpc";
 
-const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+const feePayer = await generateKeyPairSigner();
+const client = createClient({
+  url: "https://api.mainnet.solana.com",
+  payer: feePayer
+});
 
 const programId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address;
 
-const accountInfo = await rpc
+const accountInfo = await client.rpc
   .getAccountInfo(programId, { encoding: "base64" })
   .send();
 console.log(accountInfo);
@@ -149,22 +154,9 @@ async fn main() -> Result<()> {
 <CodeTabs storage="accounts" flags="r">
 
 ```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
+import { generateKeyPairSigner } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import { systemProgram } from "@solana-program/system";
 import {
   getInitializeMintInstruction,
   getMintSize,
@@ -172,19 +164,7 @@ import {
   fetchMint
 } from "@solana-program/token-2022";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate keypairs for fee payer
-const feePayer = await generateKeyPairSigner();
-
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+const client = await createLocalClient().use(systemProgram());
 
 // Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
@@ -193,59 +173,29 @@ const mint = await generateKeyPairSigner();
 const space = BigInt(getMintSize());
 
 // Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
-// Instruction to create new account for mint (token 2022 program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_2022_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token 2022 program
-const initializeMintInstruction = getInitializeMintInstruction({
-  mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address
-});
-
-const instructions = [createAccountInstruction, initializeMintInstruction];
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }), // Create transaction message
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
-  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
-);
-
-// Sign transaction message with required signers (fee payer and mint keypair)
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
+const transactionSignature = await client.sendTransaction([
+  client.system.instructions.createAccount({
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 9,
+    mintAuthority: client.payer.address
+  })
+]);
 
 console.log("Mint Address:", mint.address);
-console.log("Transaction Signature:", transactionSignature);
+console.log("Transaction Signature:", transactionSignature.context.signature);
 
-const accountInfo = await rpc.getAccountInfo(mint.address).send();
+const accountInfo = await client.rpc.getAccountInfo(mint.address).send();
 console.log(accountInfo);
 
-const mintAccount = await fetchMint(rpc, mint.address);
+const mintAccount = await fetchMint(client.rpc, mint.address);
 console.log(mintAccount);
 ```
 
@@ -453,30 +403,22 @@ Program.
 <CodeTabs storage="accounts" flags="r">
 
 ```ts !! title="Kit"
-import {
-  airdropFactory,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  generateKeyPairSigner,
-  lamports
-} from "@solana/kit";
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
 
-// Create a connection to Solana cluster
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createLocalClient();
 
 // Generate a new keypair
 const keypair = await generateKeyPairSigner();
 console.log(`Public Key: ${keypair.address}`);
 
 // Funding an address with SOL automatically creates an account
-const signature = await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: keypair.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+const signature = await client.airdrop(
+  keypair.address,
+  lamports(1_000_000_000n)
+);
 
-const accountInfo = await rpc.getAccountInfo(keypair.address).send();
+const accountInfo = await client.rpc.getAccountInfo(keypair.address).send();
 console.log(accountInfo);
 ```
 
@@ -566,18 +508,23 @@ async fn main() -> Result<()> {
 <CodeTabs storage="accounts" flags="r">
 
 ```ts !! title="Kit"
-import { createSolanaRpc } from "@solana/kit";
+import { generateKeyPairSigner } from "@solana/kit";
+import { createClient } from "@solana/kit-client-rpc";
 import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
 
-const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+const feePayer = await generateKeyPairSigner();
+const client = createClient({
+  url: "https://api.mainnet.solana.com",
+  payer: feePayer
+});
 
-const accountInfo = await rpc
+const accountInfo = await client.rpc
   .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
   .send();
 console.log(accountInfo);
 
 // Automatically fetch and deserialize the account data
-const clock = await fetchSysvarClock(rpc);
+const clock = await fetchSysvarClock(client.rpc);
 console.log(clock);
 ```
 
