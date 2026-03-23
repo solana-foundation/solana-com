@@ -96,6 +96,12 @@ pnpm --filter solana-com-media test
 pnpm --filter solana-templates check-types
 ```
 
+Periodic agent-context audit:
+
+```bash
+node skills/refresh-agent-context/scripts/workspace_inventory.mjs
+```
+
 ## Architecture Notes
 
 - Root scripts use `turbo run ...` and task defaults live in [`turbo.json`](./turbo.json)

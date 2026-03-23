@@ -73,6 +73,12 @@ pnpm --filter <workspace> check-types
 pnpm --filter <workspace> test
 ```
 
+Periodic agent-doc refresh:
+
+```bash
+node skills/refresh-agent-context/scripts/workspace_inventory.mjs
+```
+
 Useful filters:
 
 - `solana-com`
@@ -92,6 +98,9 @@ Useful filters:
 
 When a change needs validation, prefer targeted workspace commands before
 running the whole repo.
+
+If repo structure changed and the onboarding docs may be stale, use the
+`refresh-agent-context` skill in `skills/refresh-agent-context/`.
 
 ## Cross-App Behavior
 
