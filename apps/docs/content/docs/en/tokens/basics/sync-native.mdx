@@ -453,141 +453,79 @@ async fn main() -> Result<()> {
 #!/usr/bin/env python3
 
 import asyncio
+import json
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
+from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
 from solders.system_program import transfer, TransferParams
+from spl.token.async_client import AsyncToken
 from spl.token.instructions import (
-    create_associated_token_account,
     sync_native, SyncNativeParams,
-    close_account, CloseAccountParams,
     get_associated_token_address
 )
-from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from solders.pubkey import Pubkey
+from spl.token.constants import TOKEN_PROGRAM_ID, WRAPPED_SOL_MINT
 
-# Native mint address for wrapped SOL
-NATIVE_MINT = Pubkey.from_string("So11111111111111111111111111111111111111112")
+AMOUNT_TO_WRAP = 1_000_000
 
 async def main():
     rpc = AsyncClient("http://localhost:8899")
 
-    # Example keypairs
-    payer = Keypair()
-    owner = Keypair()
-
-    # Amount to wrap (in lamports)
-    amount_to_wrap = 1000000000  # 1 SOL
-
     async with rpc:
-        # Get associated token address for wrapped SOL
-        wrapped_sol_account = get_associated_token_address(
-            owner=owner.pubkey(),
-            mint=NATIVE_MINT,
-            token_program_id=TOKEN_PROGRAM_ID
-        )
+        # !collapse(1:7) collapsed
+        # Setup: create the wrapped SOL token account before updating its token balance.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        token = AsyncToken(rpc, WRAPPED_SOL_MINT, TOKEN_PROGRAM_ID, fee_payer)
+        wrapped_sol_account = get_associated_token_address(fee_payer.pubkey(), WRAPPED_SOL_MINT)
+        await token.create_associated_token_account(fee_payer.pubkey())
 
-        # Create associated token account for wrapped SOL
-        create_ata_instruction = create_associated_token_account(
-            payer=payer.pubkey(),
-            owner=owner.pubkey(),
-            mint=NATIVE_MINT
-        )
+        latest_blockhash = await rpc.get_latest_blockhash()
 
-        # Transfer SOL to the wrapped SOL account
-        transfer_instruction = transfer(
-            TransferParams(
-                from_pubkey=payer.pubkey(),
-                to_pubkey=wrapped_sol_account,
-                lamports=amount_to_wrap
-            )
-        )
-
-        # Sync native instruction to update the wrapped SOL balance
-        sync_native_instruction = sync_native(
-            SyncNativeParams(
-                program_id=TOKEN_PROGRAM_ID,
-                account=wrapped_sol_account
-            )
-        )
-
-        instructions = [
-            create_ata_instruction,
-            transfer_instruction,
-            sync_native_instruction
-        ]
-
-        # Get latest blockhash
-        recent_blockhash = await rpc.get_latest_blockhash()
-
-        # Create message
         message = MessageV0.try_compile(
-            payer=payer.pubkey(),
-            instructions=instructions,
+            payer=fee_payer.pubkey(),
+            instructions=[
+                # !mark(1:13)
+                transfer(
+                    TransferParams(
+                        from_pubkey=fee_payer.pubkey(),  # Account sending SOL to the wrapped SOL token account.
+                        to_pubkey=wrapped_sol_account,  # Wrapped SOL token account receiving the lamports.
+                        lamports=AMOUNT_TO_WRAP,  # Lamports to wrap as WSOL.
+                    )
+                ),
+                sync_native(
+                    SyncNativeParams(
+                        program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                        account=wrapped_sol_account,  # Wrapped SOL token account whose amount field updates.
+                    )
+                ),
+            ],
             address_lookup_table_accounts=[],
-            recent_blockhash=recent_blockhash.value.blockhash
+            recent_blockhash=latest_blockhash.value.blockhash,
+        )
+        transaction = VersionedTransaction(message, [fee_payer])
+        result = await rpc.send_transaction(transaction)
+        await rpc.confirm_transaction(
+            result.value,
+            last_valid_block_height=latest_blockhash.value.last_valid_block_height,
         )
 
-        # Create transaction
-        transaction = VersionedTransaction(message, [payer])
+        token_account_info = await token.get_account_info(wrapped_sol_account)
+        token_account = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in token_account_info._asdict().items()
+        }
 
-        print(f"Wrapped SOL Operations:")
-        print(f"Owner: {owner.pubkey()}")
-        print(f"Wrapped SOL Account: {wrapped_sol_account}")
-        print(f"Amount to wrap: {amount_to_wrap} lamports ({amount_to_wrap / 1e9} SOL)")
-        print(f"Native Mint: {NATIVE_MINT}")
-        print(f"Payer: {payer.pubkey()}")
-        print(f"Wrapped SOL transaction created successfully")
-
-async def unwrap_sol_example():
-    """Example of unwrapping SOL (closing wrapped SOL account)"""
-    rpc = AsyncClient("http://localhost:8899")
-
-    payer = Keypair()
-    owner = Keypair()
-
-    async with rpc:
-        # Get wrapped SOL account
-        wrapped_sol_account = get_associated_token_address(
-            owner=owner.pubkey(),
-            mint=NATIVE_MINT,
-            token_program_id=TOKEN_PROGRAM_ID
-        )
-
-        # Close account instruction (unwraps SOL)
-        close_account_instruction = close_account(
-            CloseAccountParams(
-                program_id=TOKEN_PROGRAM_ID,
-                account=wrapped_sol_account,
-                dest=owner.pubkey(),  # SOL will be sent back to owner
-                owner=owner.pubkey()
-            )
-        )
-
-        # Get latest blockhash
-        recent_blockhash = await rpc.get_latest_blockhash()
-
-        # Create message
-        message = MessageV0.try_compile(
-            payer=payer.pubkey(),
-            instructions=[close_account_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=recent_blockhash.value.blockhash
-        )
-
-        # Create transaction
-        transaction = VersionedTransaction(message, [payer, owner])
-
-        print(f"\nUnwrap SOL Example:")
-        print(f"Wrapped SOL Account: {wrapped_sol_account}")
-        print(f"Owner: {owner.pubkey()}")
-        print(f"Destination: {owner.pubkey()}")
-        print(f"Unwrap SOL transaction created successfully")
+        print("Native Mint Address:", WRAPPED_SOL_MINT)
+        print("\nWrapped SOL Token Account Address:", wrapped_sol_account)
+        print("Token Account:")
+        print(json.dumps(token_account, indent=2))
+        print("\nTransaction Signature:", result.value)
 
 if __name__ == "__main__":
     asyncio.run(main())
-    asyncio.run(unwrap_sol_example())
 ```
 
 </CodeTabs>
