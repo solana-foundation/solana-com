@@ -115,6 +115,7 @@ If you have light/dark variants or separate mark and wordmark files, add them al
 assets/companies/acme-labs/
   logo-light.svg      # Full logo for dark backgrounds
   logo-dark.svg       # Full logo for light backgrounds
+  logo-monotone.svg   # Single-color SVG for CSS recoloring
   mark.svg            # Icon/symbol only
   wordmark-light.svg  # Text only, for dark backgrounds
 ```
@@ -132,6 +133,7 @@ assets/companies/acme-labs/
 | `-light` | Designed for dark backgrounds |
 | `-dark` | Designed for light backgrounds |
 | `-color` | Full-color version (any background) |
+| `-monotone` | Single-color asset intended to be tinted/overlaid in CSS at render time |
 
 ### Update the record
 
@@ -139,6 +141,7 @@ assets/companies/acme-labs/
 import type { CompanyRecord } from "../../types";
 import acmeLabsLogoLight from "../../../assets/companies/acme-labs/logo-light.svg";
 import acmeLabsLogoDark from "../../../assets/companies/acme-labs/logo-dark.svg";
+import acmeLabsLogoMonotone from "../../../assets/companies/acme-labs/logo-monotone.svg";
 import acmeLabsMark from "../../../assets/companies/acme-labs/mark.svg";
 
 export const acmeLabs = {
@@ -163,6 +166,13 @@ export const acmeLabs = {
       "theme": "light"
     },
     {
+      "id": "logo-monotone",
+      "fileName": "logo-monotone.svg",
+      "format": "svg",
+      "source": acmeLabsLogoMonotone,
+      "treatment": "monotone"
+    },
+    {
       "id": "mark",
       "fileName": "mark.svg",
       "format": "svg",
@@ -177,9 +187,11 @@ Notes on logo metadata:
 
 - **`theme`**: Which background this logo is _designed for_ — `"light"` means it looks good on a light background (i.e. it's a dark-colored logo), `"dark"` means it looks good on a dark background.
 - **`kind`**: `"logo"` (default, full logo), `"mark"` (icon only), or `"wordmark"` (text only).
+- **`treatment`**: `"brand"` (default) or `"monotone"` for a flat asset that the UI recolors in CSS.
 - **`format`**: `"svg"`, `"png"`, `"jpg"`, `"jpeg"`, or `"webp"`.
 - **`defaultLogoId`**: Should point to the most versatile variant.
 - Import variable names use camelCase: `{companyName}{Kind}{Variant}` (e.g. `phantomMarkDark`).
+- Prefer `*-monotone.svg` only for SVGs that are safe to tint at render time. Do not label a multi-color brand asset as monotone.
 
 ---
 

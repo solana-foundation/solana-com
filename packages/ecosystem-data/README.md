@@ -54,7 +54,7 @@ Example:
 packages/ecosystem-data/assets/companies/jito/
   logo-light.svg
   logo-dark.svg
-  logo-light.png
+  logo-monotone.svg
 ```
 
 Do not add new files to a shared flat logo directory.
@@ -65,6 +65,7 @@ Use explicit variant names:
 
 - `logo-light.svg`
 - `logo-dark.svg`
+- `logo-monotone.svg`
 - `wordmark-light.svg`
 - `mark-dark.png`
 
@@ -74,6 +75,8 @@ Guidelines:
 - add PNG/WebP only when needed
 - keep filenames descriptive, not positional
 - use lowercase kebab-case
+- use `-monotone` for a single-color SVG intended to be recolored at render time with CSS
+- monotone variants should stay visually flat and avoid embedded gradients, shadows, or baked background fills
 
 ## Authoring a company record
 
@@ -184,6 +187,7 @@ Patterns:
 
 - use `getCompany(id)` when rendering a single ecosystem company
 - use `getCompanyLogo(id, options)` when you need a theme-aware logo
+- use `getCompanyLogo(id, { treatment: "monotone" })` when the consuming UI applies color in CSS
 - use `resolveImportedAssetSrc()` to convert an imported asset module into a URL string when needed
 - use `getCompanyLogoSrc()` when an app needs a plain string URL for a translated or serialized payload
 - compose app-specific sponsor objects in the consuming app from app JSON plus package data

@@ -2,6 +2,7 @@ import type { CompanyRecord } from "../../types";
 import solayerLogo from "../../../assets/companies/solayer/logo.svg";
 import solayerLogoLight from "../../../assets/companies/solayer/logo-light.svg";
 import solayerLogoDark from "../../../assets/companies/solayer/logo-dark.svg";
+import solayerLogoMonotone from "../../../assets/companies/solayer/logo-monotone.svg";
 import solayerMarkLight from "../../../assets/companies/solayer/mark-light.svg";
 import solayerMarkDark from "../../../assets/companies/solayer/mark-dark.svg";
 import solayerWordmarkLight from "../../../assets/companies/solayer/wordmark-light.svg";
@@ -52,6 +53,14 @@ export const solayer = {
       "source": solayerLogoDark,
       "theme": "dark",
       "kind": "logo"
+    },
+    {
+      "id": "logo-monotone",
+      "fileName": "logo-monotone.svg",
+      "format": "svg",
+      "source": solayerLogoMonotone,
+      "kind": "logo",
+      "treatment": "monotone"
     },
     {
       "id": "mark-light",
