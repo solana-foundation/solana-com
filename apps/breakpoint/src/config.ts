@@ -1,6 +1,12 @@
+const routePrefix = "/breakpoint";
+const assetPrefix = "/breakpoint-assets";
+
+const routePath = (path: string) =>
+  `${routePrefix}${path.startsWith("/") ? path : `/${path}`}`;
+
 export const config = {
-  assetPrefix: "/breakpoint-assets",
-  siteUrl: "https://solana.com/breakpoint",
+  assetPrefix,
+  siteUrl: `https://solana.com${routePrefix}`,
   siteMetadata: {
     title: "Breakpoint 2026",
     description:
@@ -13,7 +19,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: "/social-card.svg",
+    socialShare: routePath("/social-card.webp"),
   },
   social: {
     twitter: {
