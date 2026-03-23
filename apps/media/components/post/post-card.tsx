@@ -12,6 +12,11 @@ interface PostCardProps {
   variant?: "vertical" | "horizontal";
 }
 
+function getUniqueValues(values: string[] | undefined): string[] {
+  if (!values?.length) return [];
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
 // Helper: render description as plain text or DocumentRenderer document
 function DescriptionContent({ description }: { description: any }) {
   if (!description) return null;
@@ -46,6 +51,8 @@ function DescriptionContent({ description }: { description: any }) {
 }
 
 export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
+  const uniqueTags = getUniqueValues(post.tags);
+
   if (variant === "horizontal") {
     return (
       <Link
@@ -78,14 +85,11 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
               <span className="text-xs text-muted-foreground">
                 {post.published}
               </span>
-              {post.tags?.map(
-                (tag: string) =>
-                  tag && (
-                    <Badge key={`${post.id}-${tag}`} variant="outline">
-                      {tag}
-                    </Badge>
-                  )
-              )}
+              {uniqueTags.map((tag: string, index: number) => (
+                <Badge key={`${post.id}-${tag}-${index}`} variant="outline">
+                  {tag}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
@@ -114,14 +118,11 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
       )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">{post.published}</span>
-        {post.tags?.map(
-          (tag: string) =>
-            tag && (
-              <Badge key={`${post.id}-${tag}`} variant="outline">
-                {tag}
-              </Badge>
-            )
-        )}
+        {uniqueTags.map((tag: string, index: number) => (
+          <Badge key={`${post.id}-${tag}-${index}`} variant="outline">
+            {tag}
+          </Badge>
+        ))}
       </div>
       <h3 className="text-xl font-semibold group-hover:underline">
         {post.title}

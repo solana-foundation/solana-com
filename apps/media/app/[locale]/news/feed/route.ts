@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { parsePublishedAt } from "@/lib/keystatic/publishing";
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 export const revalidate = 300;
@@ -44,7 +45,7 @@ export async function GET() {
       if (isPublishedPost(post)) {
         postsWithDates.push({
           slug,
-          date: post.date ? new Date(post.date) : null,
+          date: parsePublishedAt(post.publishedAt),
           post,
         });
       }

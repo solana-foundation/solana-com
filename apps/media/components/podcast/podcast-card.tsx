@@ -55,9 +55,9 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
         </h3>
 
         {/* Description */}
-        {typeof podcast.description === "string" && (
+        {podcast.descriptionPlainText && (
           <p className="text-sm text-muted-foreground line-clamp-3">
-            {truncateDescription(podcast.description)}
+            {truncateDescription(podcast.descriptionPlainText)}
           </p>
         )}
 

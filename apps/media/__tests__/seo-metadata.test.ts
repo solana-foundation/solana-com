@@ -111,7 +111,7 @@ const MOCK_POST = {
   title: "State of Solana February 2026",
   description: "A deep dive into the Solana ecosystem in February 2026.",
   heroImage: "/uploads/state-of-solana-feb-2026.jpg",
-  date: "2026-02-15",
+  publishedAt: "2026-02-15T00:00:00.000Z",
   author: "solana-team",
   category: "ecosystem",
   tags: ["defi", "nft"],
@@ -220,7 +220,7 @@ describe("newsPostMetadata", () => {
     const og = meta.openGraph as any;
 
     expectOgFields(og);
-    expect(og.publishedTime).toBe(MOCK_POST.date);
+    expect(og.publishedTime).toBe(MOCK_POST.publishedAt);
     expect(og.authors).toEqual(["Solana Team"]);
   });
 

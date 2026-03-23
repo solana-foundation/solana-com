@@ -15,7 +15,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOCALES_DIR = join(__dirname, "../public/locales");
+const LOCALES_DIR = join(__dirname, "../../../packages/i18n/messages/web");
 const FALLBACK_FROM_EN = process.argv.includes("--fallback-from-en");
 
 function isEmptyLeaf(value) {

@@ -1,25 +1,12 @@
-export type GridProfileUrl = {
-  url?: string | null;
-  urlType?: { name?: string | null } | null;
-};
+import type { Profile } from "@workspace/ecosystem-data";
 
-export type GridProfileSocial = {
-  socialType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
-};
-
-export type GridProfile = {
+export type SponsorProfile = Omit<Profile, "sector" | "type"> & {
   name?: string | null;
-  logo?: string | null;
-  tagLine?: string | null;
-  descriptionShort?: string | null;
-  descriptionLong?: string | null;
-  foundingDate?: string | null;
-  profileSector?: { name?: string | null } | null;
-  profileStatus?: { name?: string | null } | null;
-  profileType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
-  root?: { slug?: string | null; socials?: GridProfileSocial[] | null } | null;
+  founded?: string;
+  sector?: string;
+  status?: string | null;
+  type?: string;
+  dataPageSlug?: string | null;
 };
 
 export interface Sponsor {
@@ -30,7 +17,7 @@ export interface Sponsor {
   logo: string;
   availableLogos: string[];
   gridProfileSlug?: string | null;
-  gridProfile?: GridProfile | null;
+  profile?: SponsorProfile | null;
 }
 
 export interface SponsorTier {

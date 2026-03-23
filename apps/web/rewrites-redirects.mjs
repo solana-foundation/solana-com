@@ -3,6 +3,7 @@ import {
   DOCS_APP_URL,
   TEMPLATES_APP_URL,
   ACCELERATE_APP_URL,
+  BREAKPOINT_APP_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -44,27 +45,29 @@ export default {
     beforeFiles: [
       {
         source: "/breakpoint",
-        destination: "https://solana-com-breakpoint.vercel.app/breakpoint",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint`,
         locale: false,
       },
       // everything underneath
       {
         source: "/breakpoint/:path*",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint/:path*`,
         locale: false,
       },
-      // Breakpoint app – locale-prefixed (so local pages can be removed)
+      // Breakpoint app – locale-prefixed
       {
         source: "/:locale/breakpoint",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint",
+        destination: `${BREAKPOINT_APP_URL}/:locale/breakpoint`,
         locale: false,
       },
       {
         source: "/:locale/breakpoint/:path*",
-        destination:
-          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint/:path*",
+        destination: `${BREAKPOINT_APP_URL}/:locale/breakpoint/:path*`,
+        locale: false,
+      },
+      {
+        source: "/breakpoint-assets/:path+",
+        destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
       // Media app rewrites - new routes
@@ -81,6 +84,16 @@ export default {
       {
         source: "/news/:path*",
         destination: `${MEDIA_APP_URL}/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/reports",
+        destination: `${MEDIA_APP_URL}/reports`,
+        locale: false,
+      },
+      {
+        source: "/reports/:path*",
+        destination: `${MEDIA_APP_URL}/reports/:path*`,
         locale: false,
       },
       {
@@ -104,6 +117,16 @@ export default {
         locale: false,
       },
       {
+        source: "/:locale/reports",
+        destination: `${MEDIA_APP_URL}/:locale/reports`,
+        locale: false,
+      },
+      {
+        source: "/:locale/reports/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/reports/:path*`,
+        locale: false,
+      },
+      {
         source: "/:locale/podcasts",
         destination: `${MEDIA_APP_URL}/:locale/podcasts`,
         locale: false,
@@ -116,6 +139,11 @@ export default {
       {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/reports/:path*",
+        destination: `${MEDIA_APP_URL}/api/reports/:path*`,
         locale: false,
       },
       {
@@ -454,7 +482,8 @@ export default {
     { source: "/summercamp(.*)", destination: "/hackathon" },
     { source: "/grizzlython(.*)", destination: "/hackathon" },
     { source: "/hyperdrive(.*)", destination: "/hackathon" },
-    { source: "/developers/ai", destination: "/ai" },
+    { source: "/developers/ai", destination: "/solutions/ai" },
+    { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
@@ -472,6 +501,19 @@ export default {
     {
       source: "/token-extensions",
       destination: "/solutions/token-extensions",
+    },
+    {
+      source: "/solutions/commerce-and-payments",
+      destination: "/solutions/institutional-payments",
+    },
+    {
+      source: "/solutions/games-tooling",
+      destination:
+        "/developers/guides/games/getting-started-with-game-development",
+    },
+    {
+      source: "/solutions/solana-permissioned-environments",
+      destination: "https://launch.solana.com/products/contra",
     },
     {
       source: "/enterprise",

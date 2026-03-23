@@ -24,7 +24,7 @@ import {
   VisuallyHidden,
 } from "@workspace/ui";
 import { getSponsorsByTier } from "@/lib/sponsors";
-import type { GridProfile, Sponsor, SponsorTier } from "@/types/sponsors";
+import type { Sponsor, SponsorProfile, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
 import { fadeInUp, staggerFast } from "@/lib/animations";
 
@@ -72,8 +72,45 @@ const GRID_PROFILE_QUERY = `
   }
 `;
 
+type GridProfileResponse = {
+  name?: string | null;
+  tagLine?: string | null;
+  descriptionShort?: string | null;
+  descriptionLong?: string | null;
+  foundingDate?: string | null;
+  profileSector?: { name?: string | null } | null;
+  profileStatus?: { name?: string | null } | null;
+  profileType?: { name?: string | null } | null;
+  urls?: Array<
+    | {
+        url?: string | null;
+        urlType?: { name?: string | null } | null;
+      }
+    | null
+    | undefined
+  > | null;
+  root?: {
+    slug?: string | null;
+    socials?: Array<
+      | {
+          socialType?: { name?: string | null } | null;
+          urls?: Array<
+            | {
+                url?: string | null;
+                urlType?: { name?: string | null } | null;
+              }
+            | null
+            | undefined
+          > | null;
+        }
+      | null
+      | undefined
+    > | null;
+  } | null;
+};
+
 type GridResponse = {
-  data?: { profileInfos?: GridProfile[] };
+  data?: { profileInfos?: GridProfileResponse[] };
   errors?: Array<{ message?: string }>;
 };
 
@@ -88,6 +125,26 @@ const SOCIAL_PRIORITY = [
 ];
 
 const URL_TYPE_PRIORITY = ["main", "website", "app", "documentation", "blog"];
+
+const GRID_SOCIAL_PLATFORM_MAP = {
+  "Twitter / X": "x",
+  LinkedIn: "linkedin",
+  GitHub: "github",
+  Discord: "discord",
+  Telegram: "telegram",
+  YouTube: "youtube",
+  Medium: "medium",
+} as const;
+
+const SOCIAL_LABELS: Record<string, string> = {
+  x: "Twitter / X",
+  discord: "Discord",
+  telegram: "Telegram",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  medium: "Medium",
+  github: "GitHub",
+};
 
 function getQuickLinkIcon(label: string, url?: string) {
   const labelNorm = label.toLowerCase().trim();
@@ -130,30 +187,35 @@ function getQuickLinkIcon(label: string, url?: string) {
   }
 }
 
-function getMainUrl(profile?: GridProfile) {
-  const urls = profile?.urls ?? [];
-  if (!urls.length) return undefined;
+function getMainUrl(profile?: SponsorProfile) {
+  const links = profile?.links;
+  if (!links) return undefined;
+
+  const linkByType: Record<string, string | undefined> = {
+    main: links.website,
+    website: links.website,
+    app: links.app,
+    documentation: links.docs,
+    blog: links.blog,
+  };
 
   for (const type of URL_TYPE_PRIORITY) {
-    const match = urls.find(
-      (item) => item?.urlType?.name?.toLowerCase() === type,
-    );
-    if (match?.url) return match.url;
+    const value = linkByType[type];
+    if (value) return value;
   }
 
-  return urls[0]?.url ?? undefined;
+  return Object.values(links).find(Boolean);
 }
 
-function getSocialLinks(profile?: GridProfile) {
-  const socials = profile?.root?.socials ?? [];
-  const seen = new Set<string>();
+function getSocialLinks(profile?: SponsorProfile) {
+  const socials = profile?.socials;
+  if (!socials) return [];
+
   const links: Array<{ label: string; url: string }> = [];
 
-  for (const social of socials) {
-    const label = social?.socialType?.name;
-    const url = social?.urls?.[0]?.url;
-    if (!label || !url || seen.has(label)) continue;
-    seen.add(label);
+  for (const [platform, url] of Object.entries(socials)) {
+    if (!url) continue;
+    const label = SOCIAL_LABELS[platform] ?? platform;
     links.push({ label, url });
   }
 
@@ -167,6 +229,64 @@ function getSocialLinks(profile?: GridProfile) {
   });
 
   return links;
+}
+
+function normalizeGridProfile(profile: GridProfileResponse): SponsorProfile {
+  const links: NonNullable<SponsorProfile["links"]> = {};
+
+  for (const entry of profile.urls ?? []) {
+    const type = entry?.urlType?.name?.toLowerCase();
+    const url = entry?.url ?? undefined;
+    if (!type || !url) continue;
+
+    if (type === "main" || type === "website") {
+      links.website ??= url;
+      continue;
+    }
+
+    if (type === "app") {
+      links.app ??= url;
+      continue;
+    }
+
+    if (type === "documentation") {
+      links.docs ??= url;
+      continue;
+    }
+
+    if (type === "blog") {
+      links.blog ??= url;
+    }
+  }
+
+  const socials: NonNullable<SponsorProfile["socials"]> = {};
+
+  for (const entry of profile.root?.socials ?? []) {
+    const label = entry?.socialType?.name;
+    const url = entry?.urls?.[0]?.url ?? undefined;
+    const platform =
+      label && label in GRID_SOCIAL_PLATFORM_MAP
+        ? GRID_SOCIAL_PLATFORM_MAP[
+            label as keyof typeof GRID_SOCIAL_PLATFORM_MAP
+          ]
+        : null;
+    if (!platform || !url) continue;
+    socials[platform] ??= url;
+  }
+
+  return {
+    name: profile.name ?? undefined,
+    tagline: profile.tagLine ?? undefined,
+    summary: profile.descriptionShort ?? undefined,
+    description: profile.descriptionLong ?? undefined,
+    founded: profile.foundingDate ?? undefined,
+    sector: profile.profileSector?.name ?? undefined,
+    status: profile.profileStatus?.name ?? undefined,
+    type: profile.profileType?.name ?? undefined,
+    dataPageSlug: profile.root?.slug ?? undefined,
+    links: Object.keys(links).length > 0 ? links : undefined,
+    socials: Object.keys(socials).length > 0 ? socials : undefined,
+  };
 }
 
 async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
@@ -193,9 +313,22 @@ async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
   }
 
   const profiles = payload.data?.profileInfos ?? [];
-  return profiles.reduce<Record<string, GridProfile>>((acc, profile) => {
-    const slug = profile.root?.slug;
-    if (slug) acc[slug] = profile;
+  const requestedByLower = new Map(
+    slugs.map((slug) => [slug.toLowerCase(), slug]),
+  );
+
+  return profiles.reduce<Record<string, SponsorProfile>>((acc, profile) => {
+    const normalizedProfile = normalizeGridProfile(profile);
+    const returnedSlug = normalizedProfile.dataPageSlug;
+    if (!returnedSlug) return acc;
+
+    acc[returnedSlug] = normalizedProfile;
+
+    const requestedSlug = requestedByLower.get(returnedSlug.toLowerCase());
+    if (requestedSlug) {
+      acc[requestedSlug] = normalizedProfile;
+    }
+
     return acc;
   }, {});
 }
@@ -231,7 +364,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [profilesBySlug, setProfilesBySlug] = useState<
-    Record<string, GridProfile>
+    Record<string, SponsorProfile>
   >({});
   const [unmatchedSlugs, setUnmatchedSlugs] = useState<Record<string, boolean>>(
     {},
@@ -241,7 +374,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
   const t = useTranslations("accelerate.sponsors");
 
   const activeSponsorData = activeSponsor?.sponsor;
-  const activeManualProfile = activeSponsorData?.gridProfile ?? null;
+  const activeManualProfile = activeSponsorData?.profile ?? null;
   const activeSlug = activeSponsorData?.gridProfileSlug ?? null;
   const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
   const resolvedProfile = activeProfile ?? activeManualProfile ?? undefined;
@@ -253,18 +386,18 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
     ? getSocialLinks(resolvedProfile).slice(0, 4)
     : [];
   const activeMeta = [
-    resolvedProfile?.profileSector?.name,
-    resolvedProfile?.profileType?.name,
-    resolvedProfile?.profileStatus?.name,
+    resolvedProfile?.sector,
+    resolvedProfile?.type,
+    resolvedProfile?.status,
   ].filter(Boolean);
   const activeDescription =
-    resolvedProfile?.descriptionLong ?? resolvedProfile?.descriptionShort;
+    resolvedProfile?.description ?? resolvedProfile?.summary;
   const isProfileMissing = Boolean(
     activeSlug && unmatchedSlugs[activeSlug] && !activeManualProfile,
   );
   const activeDisplayName =
     resolvedProfile?.name ?? activeSponsorData?.name ?? "Sponsor";
-  const dataPageSlug = activeProfile?.root?.slug;
+  const dataPageSlug = activeProfile?.dataPageSlug;
   const dataPageUrl = dataPageSlug
     ? `https://thegrid.id/profiles/${dataPageSlug}`
     : undefined;
@@ -281,7 +414,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
     if (!isModalOpen || !activeSponsor) return;
 
     const slug = activeSponsor.sponsor.gridProfileSlug;
-    const manualProfile = activeSponsor.sponsor.gridProfile;
+    const manualProfile = activeSponsor.sponsor.profile;
     if (!slug || manualProfile || profilesBySlug[slug] || unmatchedSlugs[slug])
       return;
 
@@ -489,9 +622,9 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
                             <p className="text-2xl font-semibold text-white">
                               {activeDisplayName}
                             </p>
-                            {activeProfile?.tagLine && (
+                            {resolvedProfile?.tagline && (
                               <p className="text-sm text-white/70">
-                                {activeProfile.tagLine}
+                                {resolvedProfile.tagline}
                               </p>
                             )}
                           </div>

@@ -1,7 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { format } from "date-fns";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
@@ -10,8 +9,10 @@ import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import { newsPostMetadata } from "@/lib/metadata";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -49,11 +50,7 @@ export default async function PostPage({
     switchback = await reader.collections.switchbacks.read(post.switchback);
   }
 
-  const date = post.date ? new Date(post.date) : null;
-  let formattedDate = "";
-  if (date && !isNaN(date.getTime())) {
-    formattedDate = format(date, "d MMMM yyyy");
-  }
+  const formattedDate = formatPublishedAt(post.publishedAt, "long");
 
   return (
     <ErrorBoundary>
@@ -110,30 +107,33 @@ export default async function PostPage({
           if (cta) {
             return (
               <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex gap-8 lg:gap-12 items-start">
-                  <div className="flex-1 min-w-0">
+                <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-12">
+                  <div className="min-w-0 lg:flex-1">
                     <div className="prose dark:prose-dark w-full max-w-none">
                       <MDXRemote
                         source={mdxSource}
                         components={mdxComponents}
+                        options={{
+                          mdxOptions: { remarkPlugins: [remarkGfm] },
+                        }}
                       />
                     </div>
                   </div>
 
-                  <div className="hidden lg:block lg:w-50 lg:flex-shrink-0 relative">
-                    <div className="sticky top-24">
-                      <CallToAction
-                        eyebrow={cta.eyebrow || undefined}
-                        headline={cta.headline || undefined}
-                        description={cta.description || undefined}
-                        button={{
-                          label: cta.button?.label || "",
-                          url: cta.button?.url || "",
-                        }}
-                        className={cta.className || undefined}
-                      />
-                    </div>
-                  </div>
+                  <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
+                    <CallToAction
+                      eyebrow={cta.eyebrow || undefined}
+                      headline={cta.headline || undefined}
+                      description={cta.description || undefined}
+                      button={{
+                        label: cta.button?.label || "",
+                        url: cta.button?.url || "",
+                      }}
+                      className={["sticky top-24", cta.className]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                  </aside>
                 </div>
               </div>
             );
@@ -142,14 +142,20 @@ export default async function PostPage({
           return (
             <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
               <div className="prose dark:prose-dark w-full max-w-none">
-                <MDXRemote source={mdxSource} components={mdxComponents} />
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                  }}
+                />
               </div>
             </div>
           );
         })()}
       </Section>
       {switchback && (
-        <Section className="max-w-6xl mx-auto">
+        <Section>
           <Switchback
             title={String(switchback.title)}
             image={{
@@ -161,12 +167,34 @@ export default async function PostPage({
               <MDXRemote
                 source={preprocessMDX(await switchback.body())}
                 components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
               />
             }
             buttons={switchback.buttons?.map((button) => ({
               label: button?.label || "",
               url: button?.url || "",
             }))}
+            isReport={switchback.isReport || undefined}
+            hubspotForm={
+              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
+                ? {
+                    buttonLabel:
+                      switchback.hubspotForm.buttonLabel ||
+                      "Get the full report",
+                    portalId: String(switchback.hubspotForm.portalId),
+                    formId: String(switchback.hubspotForm.formId),
+                  }
+                : undefined
+            }
+            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
+            headline={switchback.headline || undefined}
+            description={
+              switchback.description
+                ? String(switchback.description)
+                : undefined
+            }
           />
         </Section>
       )}

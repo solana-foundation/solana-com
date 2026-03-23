@@ -2,6 +2,7 @@ export { Hero } from "./Hero";
 export { EventDetails } from "./EventDetails";
 export { AgendaBanner } from "./AgendaBanner";
 export { Speakers } from "./Speakers";
+export { MiamiSpeakers } from "./MiamiSpeakers";
 export { Sponsors } from "./Sponsors";
 export { FAQ } from "./FAQ";
 export { GettingThere } from "./GettingThere";
