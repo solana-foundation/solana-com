@@ -63,6 +63,8 @@ export type CompanyLogoTheme = "light" | "dark";
 
 export type CompanyLogoKind = "logo" | "mark" | "wordmark";
 
+export type CompanyLogoTreatment = "brand" | "monotone";
+
 export type ImportedAssetModule = string | { src: string };
 
 export type CompanyLogoAsset = {
@@ -72,6 +74,7 @@ export type CompanyLogoAsset = {
   source: ImportedAssetModule;
   theme?: CompanyLogoTheme;
   kind?: CompanyLogoKind;
+  treatment?: CompanyLogoTreatment;
   width?: number;
   height?: number;
   background?: "transparent" | "light" | "dark";
@@ -92,4 +95,5 @@ export type LogoSelectorOptions = {
   format?: CompanyLogoFormat;
   theme?: CompanyLogoTheme;
   kind?: CompanyLogoKind;
+  treatment?: CompanyLogoTreatment;
 };
