@@ -83,9 +83,10 @@ For every company, search for official brand/media/press pages that provide down
 
 - Prefer SVG over PNG/WebP
 - Download into `packages/ecosystem-data/assets/companies/<company-slug>/`
-- Use explicit variant names: `logo-light.svg`, `logo-dark.svg`, `wordmark-light.svg`, `mark-dark.png`
+- Use explicit variant names: `logo-light.svg`, `logo-dark.svg`, `logo-monotone.svg`, `wordmark-light.svg`, `mark-dark.png`
 - Use lowercase kebab-case for all filenames
 - Logo kinds: `logo` (full logo with mark + text), `mark` (icon/symbol only), `wordmark` (text only)
+- Use `-monotone` only for flat single-color SVGs that are meant to be recolored by CSS in the consuming app
 - Verify downloaded files are valid — SVG content should start with `<svg` or `<?xml`, PNG files should not be zero bytes or HTML error pages
 - Keep the existing logo file (renamed to a descriptive variant name if needed) and add new variants alongside it
 
@@ -95,6 +96,7 @@ For every company, search for official brand/media/press pages that provide down
 import type { CompanyRecord } from "../../types";
 import companyLogoLight from "../../../assets/companies/company/logo-light.svg";
 import companyLogoDark from "../../../assets/companies/company/logo-dark.svg";
+import companyLogoMonotone from "../../../assets/companies/company/logo-monotone.svg";
 import companyMark from "../../../assets/companies/company/mark.svg";
 
 export const company = {
@@ -114,6 +116,13 @@ export const company = {
       "format": "svg",
       "source": companyLogoDark,
       "theme": "dark"
+    },
+    {
+      "id": "logo-monotone",
+      "fileName": "logo-monotone.svg",
+      "format": "svg",
+      "source": companyLogoMonotone,
+      "treatment": "monotone"
     },
     {
       "id": "mark",

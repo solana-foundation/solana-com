@@ -4,7 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Globe from "./assets/globe.inline.svg";
 import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg";
 import { languages } from "@workspace/i18n/config";
-import { usePathname } from "@workspace/i18n/routing";
+import { Link, usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 import classNames from "classnames";
 import { twMerge } from "tailwind-merge";
@@ -45,12 +45,13 @@ const LanguageSelector = ({ className = "" }) => {
       >
         {Object.keys(languages).map((language) => (
           <DropdownMenu.Item asChild key={language}>
-            <a
-              href={"/" + language + asPath}
+            <Link
+              href={asPath || "/"}
+              locale={language}
               className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
             >
               {languages[language]}
-            </a>
+            </Link>
           </DropdownMenu.Item>
         ))}
       </DropdownMenu.Content>

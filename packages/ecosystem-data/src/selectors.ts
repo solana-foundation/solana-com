@@ -76,6 +76,9 @@ export function getCompanyLogo(
     if (options.format && logo.format !== options.format) {
       return false;
     }
+    if (options.treatment && logo.treatment !== options.treatment) {
+      return false;
+    }
     return true;
   });
 

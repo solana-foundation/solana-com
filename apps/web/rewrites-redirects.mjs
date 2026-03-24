@@ -503,6 +503,19 @@ export default {
       destination: "/solutions/token-extensions",
     },
     {
+      source: "/solutions/commerce-and-payments",
+      destination: "/solutions/institutional-payments",
+    },
+    {
+      source: "/solutions/games-tooling",
+      destination:
+        "/developers/guides/games/getting-started-with-game-development",
+    },
+    {
+      source: "/solutions/solana-permissioned-environments",
+      destination: "https://launch.solana.com/products/contra",
+    },
+    {
       source: "/enterprise",
       destination: "/solutions/enterprise",
     },
