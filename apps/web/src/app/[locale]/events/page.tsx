@@ -26,7 +26,7 @@ export default async function Page(_props: Props) {
   mainEvents = [...mainEvents, ...bp26Events];
 
   // Solanamerica calendar
-  let usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
+  const usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
     period: "future",
   });
 
@@ -43,19 +43,19 @@ export default async function Page(_props: Props) {
   const sortInstructions = [[(x: any) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents], ...sortInstructions);
-  let unique = uniqBy(sorted, "key");
+  const sorted = orderBy([...mainEvents], ...sortInstructions);
+  const unique = uniqBy(sorted, "key");
 
   // sorted community events
-  let sortedCommunity = orderBy(
+  const sortedCommunity = orderBy(
     [...communityEvents, ...communityRiverEvents],
     ...sortInstructions,
   );
 
   // Set featured event: prefer explicitly marked featured, else first by date
-  let featuredEvent =
+  const featuredEvent =
     unique.find((e: any) => e.featured === true) || unique[0] || null;
-  let events = [...unique];
+  const events = [...unique];
 
   const t = await getTranslations();
 

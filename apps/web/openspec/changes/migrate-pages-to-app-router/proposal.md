@@ -3,9 +3,9 @@
 ## Why
 
 The web app still has ~65 pages under `apps/web/src/pages/[locale]/` using the
-legacy Next.js Pages Router. Migrating them to `apps/web/src/app/[locale]/`
-(App Router) unifies routing, enables React Server Components, improves
-performance, and removes the dual-router complexity.
+legacy Next.js Pages Router. Migrating them to `apps/web/src/app/[locale]/` (App
+Router) unifies routing, enables React Server Components, improves performance,
+and removes the dual-router complexity.
 
 ## What Changes
 
@@ -21,7 +21,8 @@ performance, and removes the dual-router complexity.
 - Affected specs: `page-migration` (new capability)
 - Affected code:
   - `apps/web/src/pages/[locale]/*.{js,jsx,tsx}` - All files migrated out
-  - `apps/web/src/pages/[locale]/{community,developers,events,hackathon,nftshowdown,solutions}/` - Subdirectories migrated
+  - `apps/web/src/pages/[locale]/{community,developers,events,hackathon,nftshowdown,solutions}/` -
+    Subdirectories migrated
   - `apps/web/src/app/[locale]/` - New page directories created
 - No user-facing route changes (all URLs remain the same)
 
@@ -34,7 +35,8 @@ These pages already exist in `app/[locale]/` and should NOT be re-migrated:
 - `/wallets` → `app/[locale]/wallets/page.tsx`
 - `/privacyhack` → `app/[locale]/privacyhack/page.tsx`
 - `/universities` → `app/[locale]/universities/page.tsx`
-- `/universities/hackathon-fall-2025` → `app/[locale]/universities/hackathon-fall-2025/page.tsx`
+- `/universities/hackathon-fall-2025` →
+  `app/[locale]/universities/hackathon-fall-2025/page.tsx`
 - `/x402` → `app/[locale]/x402/page.tsx`
 - `/x402/hackathon` → `app/[locale]/x402/hackathon/page.tsx`
 - `/x402/what-is-x402` → `app/[locale]/x402/what-is-x402/page.tsx`
