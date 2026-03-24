@@ -303,6 +303,11 @@ export interface FeaturedPostResponse {
   post: PostItem | null;
 }
 
+export async function fetchPublishedPostBySlug(slug: string) {
+  const post = await reader.collections.posts.read(slug);
+  return isPublishedPost(post) ? post : null;
+}
+
 /**
  * Fetch featured post from Keystatic
  */

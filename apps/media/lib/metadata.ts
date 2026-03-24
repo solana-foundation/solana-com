@@ -9,8 +9,8 @@ import type { Metadata } from "next";
 import { config } from "@/lib/config";
 import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 const { publicUrl, siteMetadata, social } = config;
@@ -71,10 +71,17 @@ export async function newsListingMetadata(): Promise<Metadata> {
 // ---------------------------------------------------------------------------
 
 export async function newsPostMetadata(slug: string): Promise<Metadata> {
-  const post = await reader.collections.posts.read(slug);
+  const post = await fetchPublishedPostBySlug(slug);
 
-  if (!isPublishedPost(post)) {
-    return { title: "Post Not Found", description: "" };
+  if (!post) {
+    return {
+      title: "Post Not Found",
+      description: "",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
   let authorName: string | undefined;

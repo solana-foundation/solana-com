@@ -268,6 +268,20 @@ describe("newsPostMetadata", () => {
     const meta = await newsPostMetadata(slug);
     expect(meta.title).toBe("Post Not Found");
   });
+
+  it("returns noindex fallback when post publish date is in the future", async () => {
+    mockReader.collections.posts.read.mockResolvedValue({
+      ...MOCK_POST,
+      publishedAt: "2026-03-25T12:00:00.000Z",
+    });
+    const meta = await newsPostMetadata(slug);
+
+    expect(meta.title).toBe("Post Not Found");
+    expect(meta.robots).toEqual({
+      index: false,
+      follow: false,
+    });
+  });
 });
 
 // ---- Category Listing ----

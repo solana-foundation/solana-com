@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { reader } from "@/lib/reader";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 
 export async function GET(
   request: NextRequest,
@@ -12,9 +11,9 @@ export async function GET(
   }
 
   const postSlug = slug.join("/");
-  const post = await reader.collections.posts.read(postSlug);
+  const post = await fetchPublishedPostBySlug(postSlug);
 
-  if (!isPublishedPost(post)) {
+  if (!post) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
