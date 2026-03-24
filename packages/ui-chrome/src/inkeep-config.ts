@@ -7,6 +7,9 @@ import type {
 } from "@inkeep/cxkit-react";
 import LongArrowUp from "./assets/long-arrow-up.svg";
 
+const resolveAssetSrc = (asset: string | { src: string }) =>
+  typeof asset === "string" ? asset : asset.src;
+
 const baseSettings: InkeepBaseSettings = {
   apiKey: process.env.NEXT_PUBLIC_INKEEP_API_KEY!,
   primaryBrandColor: "#9945ff",
@@ -733,7 +736,7 @@ const aiChatSettings: InkeepAIChatSettings = {
   chatSubjectName: "Solana",
   introMessage:
     "I'm an AI assistant trained on documentation, github repos, and other content. Ask me anything about `Solana`.",
-  aiAssistantAvatar: faviconPng,
+  aiAssistantAvatar: resolveAssetSrc(faviconPng),
   disclaimerSettings: {
     isEnabled: true,
     label: "",
