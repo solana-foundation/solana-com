@@ -25,6 +25,7 @@ CURATED_SECTIONS = {
         ("Accounts", "docs/core/accounts", "How Solana stores data in accounts"),
         ("Transactions", "docs/core/transactions", "The fundamental building blocks for interacting with Solana"),
         ("Programs", "docs/core/programs", "Smart contracts on Solana"),
+        ("Instructions", "docs/core/instructions", "How instructions define program execution on Solana"),
         ("Program Derived Addresses", "docs/core/pda", "Deterministic addresses for program-controlled accounts"),
         ("Cross Program Invocation", "docs/core/cpi", "How programs invoke other programs"),
         ("Fees on Solana", "docs/core/fees", "Transaction costs and priority fees"),
@@ -48,6 +49,8 @@ CURATED_SECTIONS = {
     "Client SDKs": [
         ("JavaScript/TypeScript SDK", "docs/clients/official/javascript", "Official TypeScript SDK for Solana"),
         ("Rust SDK", "docs/clients/official/rust", "Official Rust crates for Solana"),
+        ("Go SDK", "docs/clients/community/go", "Community-maintained Go client"),
+        ("Java SDK", "docs/clients/community/java", "Community-maintained Java client"),
         ("Python SDK", "docs/clients/community/python", "Community-maintained Python client"),
         ("Solana Gaming SDKs", "docs/clients/community/game-sdks", "Community SDKs for Solana game development"),
     ],
@@ -63,8 +66,12 @@ CURATED_SECTIONS = {
     "Payments": [
         ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
         ("How Payments Work", "docs/payments/how-payments-work", "Core concepts for Solana payments"),
+        ("Interacting with Solana", "docs/payments/interacting-with-solana", "Connect payment flows to Solana accounts and transactions"),
         ("Send Payments", "docs/payments/send-payments", "Send stablecoin payments with memos and batching"),
         ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
+        ("Advanced Payments", "docs/payments/advanced-payments", "Design more flexible payment flows on Solana"),
+        ("Agentic Payments", "docs/payments/agentic-payments", "Build payment flows for AI agents and automated systems"),
+        ("Developer Tools", "docs/payments/developer-tools", "Tooling and infrastructure for payment integrations"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
     ],
 }
@@ -77,6 +84,7 @@ ENGLISH_EXTRAS = {
         ("Getting Started", "learn/getting-started", "First steps with Solana"),
         ("Introduction to DeFi", "learn/introduction-to-defi-on-solana", "Decentralized finance on Solana"),
         ("Introduction to Tokens", "learn/introduction-to-solana-tokens", "Understanding SPL tokens"),
+        ("What is Staking", "learn/what-is-staking", "How staking works on Solana"),
     ],
     "Cookbook": [
         ("Send SOL", "developers/cookbook/transactions/send-sol", "Transfer SOL between accounts"),
@@ -99,7 +107,10 @@ ENGLISH_EXTRAS = {
     "Program Development": [
         ("Developing Programs", "docs/programs", "Build on-chain programs"),
         ("Anchor Framework", "docs/programs/anchor", "High-level framework for Solana programs"),
+        ("Deploy Programs", "docs/programs/deploying", "Deploy Solana programs to a cluster"),
         ("Testing Programs", "docs/programs/testing", "Test programs with bankrun and other tools"),
+        ("Program Examples", "docs/programs/examples", "Reference examples for common program patterns"),
+        ("Verified Builds", "docs/programs/verified-builds", "Verify program binaries against source code"),
     ],
     "EVM to SVM": [
         ("Solana for EVM Developers", "developers/evm-to-svm", "Learn about the key differences in building between Solana and Ethereum"),

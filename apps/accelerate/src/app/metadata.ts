@@ -1,8 +1,6 @@
 import { config } from "@@/src/config";
 import type { Metadata } from "next";
 import { defaultLocale, locales } from "@workspace/i18n/config";
-import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
-import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string = "en"): Metadata {
   const { siteMetadata, siteUrl, siteIcon, social } = config;
@@ -44,12 +42,14 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
     },
     icons: {
       icon: [
+        { url: "/favicon.ico", type: "image/x-icon" },
         { url: siteIcon, type: "image/png" },
-        { url: faviconSvg, type: "image/svg+xml" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
       ],
-      shortcut: siteIcon,
-      apple: appleTouchIcon.src,
+      shortcut: "/favicon.ico",
+      apple: "/apple-touch-icon.png",
     },
+    manifest: "/site.webmanifest",
     robots: {
       index: true,
       follow: true,

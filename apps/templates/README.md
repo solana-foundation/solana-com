@@ -43,6 +43,7 @@ Next.js rewrites. Users always access the templates through `solana.com`.
   - `@solana-com/ui-chrome` - Header and footer components
   - `@workspace/ui` - UI components
   - `@workspace/i18n` - Internationalization utilities
+- Shared SEO defaults and generated root icon assets live in `packages/seo`
 - Fetches template data from GitHub at build time
 - Supports internationalization with next-intl
 - Generates OG images dynamically for each template

@@ -61,6 +61,10 @@ The app will be available at:
 pnpm build
 ```
 
+SEO is fallback-first. Shared icon assets and manifest generation live in
+`packages/seo`, and this app generates root SEO files during `prebuild` rather
+than treating `public/` copies as source-of-truth.
+
 ## Content Structure
 
 Content is stored in the `content/` directory:

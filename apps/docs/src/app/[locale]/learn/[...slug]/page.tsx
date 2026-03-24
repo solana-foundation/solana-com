@@ -6,6 +6,7 @@ import ChapterIndicator from "@@/src/components/learn/chapter-indicator";
 import ChapterNavigation from "@@/src/components/learn/chapter-navigation";
 import MobileChapterNavigation from "@@/src/components/learn/mobile-chapter-navigation";
 import TutorialNavigation from "@@/src/components/learn/tutorial-navigation";
+import { getMdxMetadata } from "@@/src/app/metadata";
 import { getTranslations } from "next-intl/server";
 
 type Props = {
@@ -25,11 +26,11 @@ export async function generateMetadata(props: Props) {
   }
 
   const data = await page.data;
-
-  return {
-    title: data.seoTitle || data.title,
-    description: data.description,
-  };
+  return getMdxMetadata({
+    ...page,
+    data,
+    locale,
+  });
 }
 
 export default async function LearnContentPage(props: Props) {

@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import faviconPng from "./assets/favicon.png";
+import faviconPng from "@workspace/seo/assets/favicon.png";
 import type {
   InkeepBaseSettings,
   InkeepAIChatSettings,
   InkeepSearchSettings,
 } from "@inkeep/cxkit-react";
 import LongArrowUp from "./assets/long-arrow-up.svg";
+
+const resolveAssetSrc = (asset: string | { src: string }) =>
+  typeof asset === "string" ? asset : asset.src;
 
 const baseSettings: InkeepBaseSettings = {
   apiKey: process.env.NEXT_PUBLIC_INKEEP_API_KEY!,
@@ -733,7 +736,7 @@ const aiChatSettings: InkeepAIChatSettings = {
   chatSubjectName: "Solana",
   introMessage:
     "I'm an AI assistant trained on documentation, github repos, and other content. Ask me anything about `Solana`.",
-  aiAssistantAvatar: faviconPng.src,
+  aiAssistantAvatar: resolveAssetSrc(faviconPng),
   disclaimerSettings: {
     isEnabled: true,
     label: "",

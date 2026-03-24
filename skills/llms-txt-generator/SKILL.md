@@ -37,8 +37,9 @@ Always edit the generator, not the output files.
   so the generator reproduces the current `llms.txt` plus any new additions.
 - Keep descriptions short, factual, and consistent with the current style.
 - Keep URL patterns canonical (no `utm_` parameters).
-- Keep `LOCALES` aligned with `packages/i18n/src/config.ts` and update
-  `LANGUAGE_NAMES` for any newly added locale.
+- Do not add locale checks, locale generation, or locale synchronization logic
+  to `llmtxt-generator.py`. Locale handling is owned by `lingo.dev` in a
+  separate workflow.
 - If new routing patterns appear, update `normalize_llms_urls()` accordingly.
 
 ## Regeneration
@@ -59,17 +60,17 @@ Outputs:
 - Only add new or missing sections/links; never delete existing ones.
 - Preserve ordering unless a new section clearly belongs next to related ones.
 - Do not fabricate `llms-full.txt`. Follow repo guidance or user instructions.
-- For non-English locales, note the generator preserves existing content if the
-  file exists; change this behavior only if explicitly requested.
+- Do not read, verify, generate, or modify non-English `llms-*.txt` files unless
+  the user explicitly asks.
 
 ## Verification
 
 - `apps/web/public/llms.txt` contains all prior sections and any new additions.
-- Locale files exist for all configured locales.
+- `apps/web/public/llms-en.txt` matches the generated English source output.
 - Output URLs are canonical and contain no `utm_` parameters.
 
 ## Example requests
 
 - "Upgrade llmtxt-generator.py after a new docs section"
 - "Add missing llms.txt sections based on apps structure"
-- "Add a new locale and regenerate llms files"
+- "Add missing llms.txt sections without touching locale generation"
