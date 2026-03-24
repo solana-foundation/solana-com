@@ -17,6 +17,7 @@ export type LinkItem = {
   thumbnailImage?: string | null;
   source?: string;
   publishedAt: string;
+  publishedAtRaw?: string | null;
   categories: string[];
   tags: string[];
   featured: boolean;
