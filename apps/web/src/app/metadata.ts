@@ -1,50 +1,30 @@
 import { Metadata } from "next";
 import { config } from "@@/src/config";
 import { getAlternates } from "@workspace/i18n/routing";
+import { createSeoResolver } from "@workspace/seo";
 import { getTranslations } from "next-intl/server";
 
+const seo = createSeoResolver({
+  siteName: config.siteMetadata.title,
+  siteUrl: config.siteUrl,
+  defaultTitle: config.siteMetadata.title,
+  titleTemplate: "%s | Solana",
+  description: config.siteMetadata.description,
+  author: config.siteMetadata.author,
+  twitterHandle: config.social.twitter.name,
+  defaultImage: config.siteMetadata.socialShare,
+  icons: {
+    ico: "/favicon.ico",
+    png: "/favicon.png",
+    svg: "/favicon.svg",
+    appleTouchIcon: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
+});
+
 export function getBaseMetadata(locale: string) {
-  const { siteMetadata, siteUrl } = config;
-  return {
-    other: {
-      language: locale,
-    },
-    title: {
-      template: "%s | Solana",
-      default: siteMetadata.title,
-    },
-    description: siteMetadata.description,
-    openGraph: {
-      type: "website",
-      images: [siteMetadata.socialShare],
-      locale,
-    },
-    twitter: {
-      card: "summary_large_image",
-      creator: siteMetadata.author,
-    },
-    robots: "index, follow",
-    manifest: "/site.webmanifest",
-    metadataBase: new URL(siteUrl),
-    icons: {
-      icon: [
-        {
-          url: "/favicon.ico",
-          type: "image/x-icon",
-        },
-        {
-          url: "/favicon.png",
-          type: "image/png",
-        },
-        {
-          url: "/favicon.svg",
-          type: "image/svg+xml",
-        },
-      ],
-      shortcut: "/favicon.ico",
-      apple: "/apple-touch-icon.png",
-    },
-  };
+  return seo.getBaseMetadata({ locale });
 }
 
 export async function getIndexMetadata({
@@ -59,9 +39,11 @@ export async function getIndexMetadata({
   path: string;
 }): Promise<Metadata> {
   const t = await getTranslations();
-  return {
+  return seo.getPageMetadata({
+    locale,
+    path,
     title: t(titleKey),
     description: t(descriptionKey),
     alternates: getAlternates(path, locale),
-  };
+  });
 }
