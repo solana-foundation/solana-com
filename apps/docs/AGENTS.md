@@ -7,8 +7,7 @@ Use this app for developer docs, cookbook, guides, and docs-specific UI.
 - Workspace: `apps/docs`
 - Package: `solana-docs`
 - Default dev port: `3003`
-- Public route ownership: `/docs`, `/developers/cookbook`,
-  `/developers/guides`
+- Public route ownership: `/docs`, `/developers/cookbook`, `/developers/guides`
 
 ## First Files To Open
 

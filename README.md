@@ -31,14 +31,14 @@ The main web app (`apps/web`) uses **Next.js App Router** with all pages under
 
 ## Workspace Guide
 
-| Workspace | Package name | Port | Notes |
-| --- | --- | --- | --- |
-| `apps/web` | `solana-com` | `3000` | Main site and shared user-facing entry point |
-| `apps/docs` | `solana-docs` | `3003` | Fumadocs-based developer docs |
-| `apps/media` | `solana-com-media` | `3002` | Keystatic-backed news and podcasts |
-| `apps/templates` | `solana-templates` | `3001` | Templates showcase, proxied behind `solana.com` |
-| `apps/accelerate` | `solana-com-accelerate` | `3004` | Event app with `/accelerate` rewrites |
-| `apps/breakpoint` | `solana-com-breakpoint` | `3005` | Event app with `/breakpoint` rewrites |
+| Workspace         | Package name            | Port   | Notes                                           |
+| ----------------- | ----------------------- | ------ | ----------------------------------------------- |
+| `apps/web`        | `solana-com`            | `3000` | Main site and shared user-facing entry point    |
+| `apps/docs`       | `solana-docs`           | `3003` | Fumadocs-based developer docs                   |
+| `apps/media`      | `solana-com-media`      | `3002` | Keystatic-backed news and podcasts              |
+| `apps/templates`  | `solana-templates`      | `3001` | Templates showcase, proxied behind `solana.com` |
+| `apps/accelerate` | `solana-com-accelerate` | `3004` | Event app with `/accelerate` rewrites           |
+| `apps/breakpoint` | `solana-com-breakpoint` | `3005` | Event app with `/breakpoint` rewrites           |
 
 Shared packages worth checking early:
 
@@ -104,7 +104,8 @@ node skills/refresh-agent-context/scripts/workspace_inventory.mjs
 
 ## Architecture Notes
 
-- Root scripts use `turbo run ...` and task defaults live in [`turbo.json`](./turbo.json)
+- Root scripts use `turbo run ...` and task defaults live in
+  [`turbo.json`](./turbo.json)
 - Non-web apps set `NEXT_PUBLIC_APP_NAME` in `next.config.ts`; shared nav logic
   in `packages/ui-chrome` uses that to decide cross-app navigation behavior
 - Several apps use `assetPrefix` plus rewrites because they are deployed

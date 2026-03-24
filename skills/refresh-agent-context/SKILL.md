@@ -82,8 +82,7 @@ Before finalizing:
 - verify ports from workspace scripts
 - verify asset prefixes, rewrites, and `NEXT_PUBLIC_APP_NAME` from
   `next.config.ts`
-- verify content ownership from the actual `content/`, `src/`, or package
-  layout
+- verify content ownership from the actual `content/`, `src/`, or package layout
 
 ### 5. Report the audit
 

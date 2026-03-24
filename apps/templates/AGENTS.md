@@ -1,7 +1,6 @@
 # Templates App Agent Guide
 
-Use this app for the templates showcase surfaced under
-`/developers/templates`.
+Use this app for the templates showcase surfaced under `/developers/templates`.
 
 ## Identity
 
