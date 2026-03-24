@@ -105,7 +105,7 @@ function getEditUrl(path: string) {
 }
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
-  let { next, previous } = findNeighbour(pageTree, pageUrl);
+  const { next, previous } = findNeighbour(pageTree, pageUrl);
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)

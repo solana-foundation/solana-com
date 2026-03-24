@@ -28,7 +28,7 @@ export interface LatestLinksResponse {
  */
 async function transformLink(
   slug: string,
-  link: Awaited<ReturnType<typeof reader.collections.links.read>>
+  link: Awaited<ReturnType<typeof reader.collections.links.read>>,
 ): Promise<LinkItem | null> {
   if (!link) return null;
 
@@ -42,7 +42,7 @@ async function transformLink(
     for (const catRef of link.categories) {
       if (catRef.category) {
         const catData = await reader.collections.categories.read(
-          catRef.category
+          catRef.category,
         );
         if (catData?.name) {
           categoryNames.push(String(catData.name));
@@ -84,7 +84,7 @@ async function transformLink(
  * Fetch latest links from Keystatic
  */
 export const fetchLatestLinks = async (
-  params: LatestLinksParams
+  params: LatestLinksParams,
 ): Promise<LatestLinksResponse> => {
   try {
     const allSlugs = await reader.collections.links.list();
@@ -110,7 +110,7 @@ export const fetchLatestLinks = async (
       } catch (e) {
         console.warn(
           `Skipping invalid link entry "${slug}":`,
-          e instanceof Error ? e.message : e
+          e instanceof Error ? e.message : e,
         );
       }
     }
@@ -195,7 +195,7 @@ export const fetchLatestLinks = async (
     let startIndex = 0;
     if (params.cursor) {
       const cursorIndex = filteredLinks.findIndex(
-        (l) => l.slug === params.cursor
+        (l) => l.slug === params.cursor,
       );
       if (cursorIndex >= 0) {
         startIndex = cursorIndex + 1;
@@ -236,7 +236,7 @@ export interface FeaturedLinksResponse {
  * Fetch featured links from Keystatic
  */
 export const fetchFeaturedLinks = async (
-  limit: number = 5
+  limit: number = 5,
 ): Promise<FeaturedLinksResponse> => {
   try {
     const allSlugs = await reader.collections.links.list();
@@ -288,7 +288,7 @@ export const fetchFeaturedLinks = async (
  */
 export const fetchLinksByTag = async (
   tagName: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<LatestLinksResponse> => {
   try {
     const allSlugs = await reader.collections.links.list();

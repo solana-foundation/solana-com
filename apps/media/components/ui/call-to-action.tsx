@@ -34,7 +34,7 @@ export function CallToAction(props: CallToActionProps) {
       <div
         className={cn(
           "w-full rounded-md border border-border/50 p-4",
-          "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70"
+          "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70",
         )}
       >
         {eyebrow ? (

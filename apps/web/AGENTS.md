@@ -47,7 +47,7 @@ Use this app for the main `solana.com` experience.
 - Next.js App Router with `next-intl`
 - Shared navigation and cross-app linking come from `@solana-com/ui-chrome`
 - A lot of behavior depends on `rewrites-redirects.mjs`
-- Jest is used here instead of Vitest
+- Vitest is used here for unit tests
 
 ## Commands
 

@@ -34,7 +34,7 @@ export default function DevelopersCourseItem({
       <div className={classNames("container", styles["course-item__content"])}>
         <div className="flex">
           <div className={styles["details"]}>
-            {!!courseCreator ? (
+            {courseCreator ? (
               <div className={styles["details__pill"]}>
                 <span>By {courseCreator}</span>
               </div>

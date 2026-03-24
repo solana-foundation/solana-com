@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid URL parameter" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         { error: `Failed to fetch image: ${response.status}` },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
 
     // Validate content type
     const isValidType = ALLOWED_CONTENT_TYPES.some((type) =>
-      contentType.includes(type)
+      contentType.includes(type),
     );
     if (!isValidType) {
       return NextResponse.json(
         { error: "Invalid image content type" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -96,14 +96,14 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.name === "AbortError") {
       return NextResponse.json(
         { error: "Image fetch timeout" },
-        { status: 504 }
+        { status: 504 },
       );
     }
 
     console.error("Failed to proxy image:", error);
     return NextResponse.json(
       { error: "Failed to fetch image" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

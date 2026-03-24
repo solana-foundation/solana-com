@@ -22,7 +22,7 @@ export interface FeaturedReportResponse {
 async function resolveCategoryNames(
   categories: Awaited<
     ReturnType<typeof reader.collections.switchbacks.read>
-  >["categories"]
+  >["categories"],
 ): Promise<string[]> {
   const categoryNames: string[] = [];
 
@@ -44,7 +44,7 @@ async function resolveCategoryNames(
 }
 
 async function resolveTagNames(
-  tags: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>["tags"]
+  tags: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>["tags"],
 ): Promise<string[]> {
   const tagNames: string[] = [];
 
@@ -70,7 +70,7 @@ async function matchesCategoryOrTag(
     Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
   >,
   normalizedCategory?: string,
-  normalizedTag?: string
+  normalizedTag?: string,
 ): Promise<boolean> {
   let matchesCategory = !normalizedCategory;
   if (normalizedCategory && report.categories) {
@@ -117,7 +117,7 @@ async function matchesCategoryOrTag(
 
 async function transformReport(
   slug: string,
-  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
+  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>,
 ): Promise<ReportItem | null> {
   if (!report) return null;
 
@@ -148,7 +148,7 @@ async function transformReport(
 }
 
 export const fetchLatestReports = async (
-  params: LatestReportsParams = {}
+  params: LatestReportsParams = {},
 ): Promise<LatestReportsResponse> => {
   try {
     const allSlugs = await reader.collections.switchbacks.list();
@@ -173,7 +173,7 @@ export const fetchLatestReports = async (
           !(await matchesCategoryOrTag(
             report,
             normalizedCategory,
-            normalizedTag
+            normalizedTag,
           ))
         ) {
           continue;
@@ -199,7 +199,7 @@ export const fetchLatestReports = async (
     let startIndex = 0;
     if (params.cursor) {
       const cursorIndex = reportsWithDates.findIndex(
-        (item) => item.slug === params.cursor
+        (item) => item.slug === params.cursor,
       );
       if (cursorIndex >= 0) {
         startIndex = cursorIndex + 1;
@@ -208,7 +208,7 @@ export const fetchLatestReports = async (
 
     const paginatedReports = reportsWithDates.slice(
       startIndex,
-      startIndex + limit
+      startIndex + limit,
     );
     const reports: ReportItem[] = [];
 
@@ -252,7 +252,7 @@ export const fetchFeaturedReport =
           if (!isPublishedReport(report) || !report.tags) continue;
 
           const isFeatured = report.tags.some(
-            (tagItem) => tagItem?.tag && String(tagItem.tag) === "featured"
+            (tagItem) => tagItem?.tag && String(tagItem.tag) === "featured",
           );
 
           if (!isFeatured) continue;
@@ -265,7 +265,7 @@ export const fetchFeaturedReport =
         } catch (error) {
           console.error(
             `Failed to read report "${slug}" in fetchFeaturedReport:`,
-            error
+            error,
           );
         }
       }
@@ -284,7 +284,7 @@ export const fetchFeaturedReport =
       return {
         report: await transformReport(
           featuredCandidates[0].slug,
-          featuredCandidates[0].report
+          featuredCandidates[0].report,
         ),
       };
     } catch (error) {

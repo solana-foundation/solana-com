@@ -128,7 +128,7 @@ async function buildNewsFeed(feedUrl: string) {
 }
 
 export async function getNewsRssResponse(
-  feedUrl: string = NEWS_RSS_CANONICAL_URL
+  feedUrl: string = NEWS_RSS_CANONICAL_URL,
 ) {
   try {
     const feed = await buildNewsFeed(feedUrl);

@@ -11,7 +11,7 @@ function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
   return MARKDOWN_PREFIXES.some(
     (prefix) =>
-      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`)
+      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
   );
 }
 
@@ -34,7 +34,7 @@ export default async function middleware(req: NextRequest) {
   // Lowercase all paths
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url)
+      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url),
     );
   }
 

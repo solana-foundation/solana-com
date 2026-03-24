@@ -28,13 +28,13 @@ interface PostsClientPageProps {
 export default function PostsClientPage(props: PostsClientPageProps) {
   const { featuredPost, latestPosts, initialPageInfo } = props;
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
-    null
+    null,
   );
 
   const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
-    initialPageInfo ?? DEFAULT_PAGE_INFO
+    initialPageInfo ?? DEFAULT_PAGE_INFO,
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
@@ -81,7 +81,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     setPosts(
       featuredPost
         ? latestPosts?.filter((post) => post?.id !== featuredPost?.id) || []
-        : latestPosts || []
+        : latestPosts || [],
     );
 
     // Set the cursor from the last (oldest) post edge
@@ -96,7 +96,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     const categorySet = new Set<string>();
     posts.forEach((post) => {
       post?.categories?.forEach(
-        (category: string) => category && categorySet.add(category)
+        (category: string) => category && categorySet.add(category),
       );
     });
     return Array.from(categorySet).sort();
@@ -226,7 +226,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
             {filteredPosts.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
                 {filteredPosts.map(
-                  (post) => post && <PostCard key={post.id} post={post} />
+                  (post) => post && <PostCard key={post.id} post={post} />,
                 )}
               </div>
             )}

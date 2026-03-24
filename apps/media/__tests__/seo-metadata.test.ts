@@ -200,7 +200,7 @@ describe("newsPostMetadata", () => {
     mockReader.collections.authors.read.mockResolvedValue(MOCK_AUTHOR);
     mockReader.collections.categories.read.mockResolvedValue(MOCK_CATEGORY);
     mockReader.collections.tags.read.mockImplementation((ref: string) =>
-      Promise.resolve(MOCK_TAGS[ref] || null)
+      Promise.resolve(MOCK_TAGS[ref] || null),
     );
   });
 
@@ -249,7 +249,7 @@ describe("newsPostMetadata", () => {
     });
     const meta = await newsPostMetadata(slug);
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 
@@ -396,7 +396,7 @@ describe("podcastShowMetadata", () => {
     mockFetchPodcast.mockResolvedValue({ ...MOCK_PODCAST, coverImage: null });
     const meta = await podcastShowMetadata("validated");
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 
@@ -473,7 +473,7 @@ describe("podcastEpisodeMetadata", () => {
     mockFetchPodcast.mockResolvedValue({ ...MOCK_PODCAST, coverImage: null });
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 

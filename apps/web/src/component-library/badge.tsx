@@ -29,7 +29,7 @@ export const Badge: React.FC<BadgeProps> = ({ className, title, LeftIcon }) => {
           height={0}
           alt=""
         />
-      ) : Boolean(LeftIcon) ? (
+      ) : LeftIcon ? (
         <LeftIcon size={20} />
       ) : null}
       <span className="px-1.5 inline-block align-middle pt-0.5">{title}</span>

@@ -46,7 +46,7 @@ for (const inputPath of args) {
 
   if (stats.size > MAX_FILE_SIZE_BYTES) {
     reasons.push(
-      `size ${(stats.size / (1024 * 1024)).toFixed(2)} MB exceeds 1.50 MB`
+      `size ${(stats.size / (1024 * 1024)).toFixed(2)} MB exceeds 1.50 MB`,
     );
   }
 
@@ -59,7 +59,7 @@ for (const inputPath of args) {
     (stats.size > 300 * 1024 || (metadata.width ?? 0) > 1600)
   ) {
     reasons.push(
-      `use a modern web format for large raster assets (${extension})`
+      `use a modern web format for large raster assets (${extension})`,
     );
   }
 
@@ -80,7 +80,7 @@ if (failures.length > 0) {
 
   console.error("\nFix with:");
   console.error(
-    `pnpm media:optimize-images -- ${failures.map((failure) => `"${failure.path}"`).join(" ")}`
+    `pnpm media:optimize-images -- ${failures.map((failure) => `"${failure.path}"`).join(" ")}`,
   );
   process.exit(1);
 }

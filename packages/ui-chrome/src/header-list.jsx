@@ -20,14 +20,17 @@ const HeaderList = () => {
     <NavigationMenu viewport={false} className="flex-1">
       <NavigationMenuList className="flex-wrap gap-2 xl:items-center pl-0">
         {HEADER_SECTIONS.map(
-          ({
-            id,
-            titleKey,
-            matchRules,
-            contentAlign = "left",
-            contentClassName,
-            Content,
-          }, index) => (
+          (
+            {
+              id,
+              titleKey,
+              matchRules,
+              contentAlign = "left",
+              contentClassName,
+              Content,
+            },
+            index,
+          ) => (
             <NavigationMenuItem
               key={id}
               className={`w-full xl:w-auto ${

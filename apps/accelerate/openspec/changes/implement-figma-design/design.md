@@ -84,12 +84,12 @@ colors: {
 
 **Decision**: Export from Figma using node IDs, save to `public/images/`
 
-| Asset Type                                       | Format                      | Location                   |
-| ------------------------------------------------ | --------------------------- | -------------------------- |
-| Decorative vectors (skyline, waves, dots, pills) | SVG                         | `/public/images/`          |
-| Speaker headshots                                | PNG (400x400 min)           | `/public/images/speakers/` |
+| Asset Type                                       | Format                      | Location                                    |
+| ------------------------------------------------ | --------------------------- | ------------------------------------------- |
+| Decorative vectors (skyline, waves, dots, pills) | SVG                         | `/public/images/`                           |
+| Speaker headshots                                | PNG (400x400 min)           | `/public/images/speakers/`                  |
 | Sponsor logos                                    | SVG preferred, PNG fallback | `packages/ecosystem-data/assets/companies/` |
-| Accelerate logo                                  | SVG                         | `/public/images/`          |
+| Accelerate logo                                  | SVG                         | `/public/images/`                           |
 
 **Process**:
 

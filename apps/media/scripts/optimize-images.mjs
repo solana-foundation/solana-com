@@ -55,7 +55,7 @@ async function walk(dir) {
       }
 
       return fullPath;
-    })
+    }),
   );
 
   return files.flat();
@@ -68,10 +68,10 @@ async function updateReferences(oldAbsolutePath, newAbsolutePath) {
 
   const replacements = [];
   const oldContentRelativePath = toPosix(
-    path.relative(MEDIA_CONTENT_ROOT, oldAbsolutePath)
+    path.relative(MEDIA_CONTENT_ROOT, oldAbsolutePath),
   );
   const newContentRelativePath = toPosix(
-    path.relative(MEDIA_CONTENT_ROOT, newAbsolutePath)
+    path.relative(MEDIA_CONTENT_ROOT, newAbsolutePath),
   );
 
   if (!oldContentRelativePath.startsWith("..")) {
@@ -82,15 +82,15 @@ async function updateReferences(oldAbsolutePath, newAbsolutePath) {
       [
         encodeURIComponent(path.basename(oldAbsolutePath)),
         encodeURIComponent(path.basename(newAbsolutePath)),
-      ]
+      ],
     );
   }
 
   const oldPublicRelativePath = toPosix(
-    path.relative(MEDIA_PUBLIC_ROOT, oldAbsolutePath)
+    path.relative(MEDIA_PUBLIC_ROOT, oldAbsolutePath),
   );
   const newPublicRelativePath = toPosix(
-    path.relative(MEDIA_PUBLIC_ROOT, newAbsolutePath)
+    path.relative(MEDIA_PUBLIC_ROOT, newAbsolutePath),
   );
 
   if (!oldPublicRelativePath.startsWith("..")) {
@@ -99,7 +99,7 @@ async function updateReferences(oldAbsolutePath, newAbsolutePath) {
       [
         encodeURI(`/${oldPublicRelativePath}`),
         encodeURI(`/${newPublicRelativePath}`),
-      ]
+      ],
     );
   }
 
@@ -145,7 +145,7 @@ async function optimizeImage(inputPath) {
       ? absoluteInputPath
       : path.join(
           path.dirname(absoluteInputPath),
-          `${path.basename(absoluteInputPath, extension)}${targetExtension}`
+          `${path.basename(absoluteInputPath, extension)}${targetExtension}`,
         );
 
   let pipeline = sharp(absoluteInputPath).rotate();
@@ -176,7 +176,7 @@ async function optimizeImage(inputPath) {
   const optimizedKb = (transformed.byteLength / 1024).toFixed(1);
 
   console.log(
-    `${toPosix(path.relative(process.cwd(), absoluteInputPath))} -> ${toPosix(path.relative(process.cwd(), outputPath))} (${originalKb} KB -> ${optimizedKb} KB, width ${metadata.width} -> ${optimizedWidth}, refs ${updatedRefs})`
+    `${toPosix(path.relative(process.cwd(), absoluteInputPath))} -> ${toPosix(path.relative(process.cwd(), outputPath))} (${originalKb} KB -> ${optimizedKb} KB, width ${metadata.width} -> ${optimizedWidth}, refs ${updatedRefs})`,
   );
 }
 

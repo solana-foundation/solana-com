@@ -73,7 +73,7 @@ function extractAnnotations(code: string) {
         toLineNumber: index + 1,
       });
     } else {
-      let last = annotations[annotations.length - 1];
+      const last = annotations[annotations.length - 1];
       if (last.name === "command" && last.query.endsWith("\\")) {
         last.query = last.query + "\n" + line;
         last.toLineNumber = index + 1;

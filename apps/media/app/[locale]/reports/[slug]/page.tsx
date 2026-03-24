@@ -42,11 +42,11 @@ export default async function ReportPage({
             }
 
             const category = await reader.collections.categories.read(
-              String(categoryRef.category)
+              String(categoryRef.category),
             );
 
             return category?.name ? String(category.name) : null;
-          })
+          }),
         )
       ).filter((categoryName): categoryName is string => Boolean(categoryName))
     : [];

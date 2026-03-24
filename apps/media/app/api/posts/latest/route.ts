@@ -34,7 +34,7 @@ async function fetchPosts(params: PostConnectionParams) {
           ?.map((post) => ({
             ...post,
             description: extractPlainText(
-              post.description ? String(post.description) : ""
+              post.description ? String(post.description) : "",
             ),
           })) || [],
       pageInfo: response.pageInfo,
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

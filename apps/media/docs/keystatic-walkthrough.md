@@ -18,8 +18,8 @@ If you do not have repository access yet:
 
 1. Go to [github.com](https://github.com) and create an account.
 2. Verify your email address.
-3. Ask your team admin to invite you to the
-   `solana-foundation/solana-com` repository.
+3. Ask your team admin to invite you to the `solana-foundation/solana-com`
+   repository.
 4. Accept the GitHub invitation before opening Keystatic.
 
 > **Note:** You do not need to use Git directly. Keystatic creates the commits

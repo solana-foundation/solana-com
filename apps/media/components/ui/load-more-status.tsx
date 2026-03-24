@@ -43,7 +43,7 @@ export default function LoadMoreStatus({
         root: null,
         rootMargin,
         threshold: 0.1,
-      }
+      },
     );
 
     observer.observe(sentinel);

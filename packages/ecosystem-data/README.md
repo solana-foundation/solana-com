@@ -4,7 +4,8 @@ Shared ecosystem company data and logo assets for the monorepo.
 
 ## Purpose
 
-This package stores company information as atomic records and lets apps compose those records into event sponsors or other ecosystem listings.
+This package stores company information as atomic records and lets apps compose
+those records into event sponsors or other ecosystem listings.
 
 The package owns:
 
@@ -35,10 +36,12 @@ Each company record is stored as its own module:
 packages/ecosystem-data/src/companies/records/<company-slug>.ts
 ```
 
-The registry composes those atomic modules into the exported lookups and selectors.
+The registry composes those atomic modules into the exported lookups and
+selectors.
 
-Composable event or campaign data should live in the consuming app and reference those company records by `companyId`.
-For `apps/accelerate`, the JSON files remain the source of truth for sponsor augmentation.
+Composable event or campaign data should live in the consuming app and reference
+those company records by `companyId`. For `apps/accelerate`, the JSON files
+remain the source of truth for sponsor augmentation.
 
 ## Asset layout
 
@@ -75,8 +78,10 @@ Guidelines:
 - add PNG/WebP only when needed
 - keep filenames descriptive, not positional
 - use lowercase kebab-case
-- use `-monotone` for a single-color SVG intended to be recolored at render time with CSS
-- monotone variants should stay visually flat and avoid embedded gradients, shadows, or baked background fills
+- use `-monotone` for a single-color SVG intended to be recolored at render time
+  with CSS
+- monotone variants should stay visually flat and avoid embedded gradients,
+  shadows, or baked background fills
 
 ## Authoring a company record
 
@@ -91,13 +96,15 @@ The company record should remain useful outside any single event.
 
 ## Populating registry companies with enrichment data
 
-Company records can include an optional `profile` object with package-owned ecosystem metadata such as:
+Company records can include an optional `profile` object with package-owned
+ecosystem metadata such as:
 
 - `tagline`
 - `summary` and `description`
 - `sector`, optional `status`, and `type`
 - `links.website`
-- `socials.x`, `socials.linkedin`, `socials.discord`, `socials.telegram`, `socials.github`
+- `socials.x`, `socials.linkedin`, `socials.discord`, `socials.telegram`,
+  `socials.github`
 
 Use the enrichment workflow in:
 
@@ -105,7 +112,8 @@ Use the enrichment workflow in:
 packages/ecosystem-data/skills/enrich-ecosystem-data.md
 ```
 
-That workflow is the source of truth for how to research and populate missing `profile` data in:
+That workflow is the source of truth for how to research and populate missing
+`profile` data in:
 
 ```text
 packages/ecosystem-data/src/companies/registry.ts
@@ -114,14 +122,17 @@ packages/ecosystem-data/src/companies/registry.ts
 Expected process:
 
 1. read the registry and identify companies where `profile` is `null`
-2. run the audit script to see which companies are missing enrichment or have asset mismatches:
+2. run the audit script to see which companies are missing enrichment or have
+   asset mismatches:
 
 ```bash
 pnpm --filter @workspace/ecosystem-data audit:data
 ```
 
-3. research each company using publicly available sources, starting with the official website
-4. populate only the `profile` field with neutral, factual copy and verified URLs using the flat package schema
+3. research each company using publicly available sources, starting with the
+   official website
+4. populate only the `profile` field with neutral, factual copy and verified
+   URLs using the flat package schema
 5. omit socials that cannot be confidently verified
 6. validate the package with:
 
@@ -170,8 +181,9 @@ Examples:
 
 ## Using ecosystem assets
 
-Consumers should use exported selectors instead of constructing asset paths manually.
-Assets should be imported from this package, not copied into app `public/`.
+Consumers should use exported selectors instead of constructing asset paths
+manually. Assets should be imported from this package, not copied into app
+`public/`.
 
 Preferred usage:
 
@@ -187,10 +199,14 @@ Patterns:
 
 - use `getCompany(id)` when rendering a single ecosystem company
 - use `getCompanyLogo(id, options)` when you need a theme-aware logo
-- use `getCompanyLogo(id, { treatment: "monotone" })` when the consuming UI applies color in CSS
-- use `resolveImportedAssetSrc()` to convert an imported asset module into a URL string when needed
-- use `getCompanyLogoSrc()` when an app needs a plain string URL for a translated or serialized payload
-- compose app-specific sponsor objects in the consuming app from app JSON plus package data
+- use `getCompanyLogo(id, { treatment: "monotone" })` when the consuming UI
+  applies color in CSS
+- use `resolveImportedAssetSrc()` to convert an imported asset module into a URL
+  string when needed
+- use `getCompanyLogoSrc()` when an app needs a plain string URL for a
+  translated or serialized payload
+- compose app-specific sponsor objects in the consuming app from app JSON plus
+  package data
 
 Do not:
 
@@ -235,7 +251,8 @@ That keeps:
 
 ## i18n integration
 
-Locale files such as `packages/i18n/messages/web/en/common.json` should keep translated copy and reference canonical companies by ID.
+Locale files such as `packages/i18n/messages/web/en/common.json` should keep
+translated copy and reference canonical companies by ID.
 
 Preferred locale shape:
 

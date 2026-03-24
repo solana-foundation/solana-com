@@ -84,7 +84,7 @@ function convertFrontmatter(frontmatter: string): {
 
     // Pattern: any key followed by a Keystatic ref (with optional quotes)
     const kvMatch = line.match(
-      /^(\s*[-]?\s*\w+:\s*)"?(content\/[a-z]+\/[^\s"]+\.mdx)"?\s*$/
+      /^(\s*[-]?\s*\w+:\s*)"?(content\/[a-z]+\/[^\s"]+\.mdx)"?\s*$/,
     );
     if (kvMatch) {
       const prefix = kvMatch[1];
@@ -107,7 +107,7 @@ function convertFrontmatter(frontmatter: string): {
     // e.g., `author: >-\n  content/authors/name.mdx`
     // This is less common but possible with YAML multiline scalars
     const bareRefMatch = line.match(
-      /^(\s+)(content\/[a-z]+\/[^\s"]+\.mdx)\s*$/
+      /^(\s+)(content\/[a-z]+\/[^\s"]+\.mdx)\s*$/,
     );
     if (bareRefMatch) {
       const indent = bareRefMatch[1];
@@ -208,7 +208,7 @@ async function main() {
   console.log(
     DRY_RUN
       ? "🔍 DRY RUN — no files will be modified\n"
-      : "🚀 Converting Keystatic refs to Decap CMS format...\n"
+      : "🚀 Converting Keystatic refs to Decap CMS format...\n",
   );
   console.log(`📁 Content directory: ${CONTENT_DIR}\n`);
 
@@ -246,7 +246,7 @@ async function main() {
     report.totalReplacements += result.replacements.length;
 
     console.log(
-      `\n${DRY_RUN ? "📝" : "✅"} ${result.file} (${result.replacements.length} ref${result.replacements.length > 1 ? "s" : ""})`
+      `\n${DRY_RUN ? "📝" : "✅"} ${result.file} (${result.replacements.length} ref${result.replacements.length > 1 ? "s" : ""})`,
     );
     for (const r of result.replacements) {
       console.log(`   L${r.line}: ${r.before}`);
@@ -273,7 +273,7 @@ async function main() {
 
   if (DRY_RUN) {
     console.log(
-      "\n🔍 This was a dry run. Run without --dry-run to apply changes."
+      "\n🔍 This was a dry run. Run without --dry-run to apply changes.",
     );
   } else {
     console.log("\n🎉 Done!");

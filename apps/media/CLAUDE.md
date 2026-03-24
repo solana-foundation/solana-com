@@ -4,11 +4,12 @@
 
 ## Overview
 
-The Solana blog and media site, powered by Keystatic for content management. Includes blog posts, podcasts, and marketing content with a visual CMS editing experience.
+The Solana blog and media site, powered by Keystatic for content management.
+Includes blog posts, podcasts, and marketing content with a visual CMS editing
+experience.
 
-**Package name**: `solana-com-media`
-**Default port**: 3002
-**Asset prefix**: `/media-assets`
+**Package name**: `solana-com-media` **Default port**: 3002 **Asset prefix**:
+`/media-assets`
 
 ## Tech Stack
 
@@ -107,7 +108,8 @@ Access the CMS at `/keystatic`:
 
 Keystatic uses a **GitHub App** (not an OAuth App) for production access:
 
-1. Deploy with GitHub storage enabled (`NEXT_PUBLIC_KEYSTATIC_LOCAL` unset or false)
+1. Deploy with GitHub storage enabled (`NEXT_PUBLIC_KEYSTATIC_LOCAL` unset or
+   false)
 2. Visit `/keystatic` and click "Create GitHub App"
 3. Keystatic walks you through GitHub's app creation wizard
 4. Env vars (`KEYSTATIC_GITHUB_CLIENT_ID`, etc.) are auto-generated
@@ -175,7 +177,8 @@ Podcast episodes link to Simplecast:
 ## API Routes
 
 - `/api/rss` - RSS feed generation
-- `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content operations)
+- `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
+  operations)
 
 ## Build Process
 
@@ -202,7 +205,10 @@ Pre-commit formatting:
 
 ## Gotchas
 
-1. **Local Mode**: Set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
-2. **GitHub Mode**: Requires a GitHub App — run the setup flow at `/keystatic` to auto-generate env vars
-3. **Public Repo**: Since the repo is public, any GitHub user can authenticate. Users with write access edit directly; others fork and create PRs
+1. **Local Mode**: Set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` to use filesystem
+   storage (no GitHub auth needed)
+2. **GitHub Mode**: Requires a GitHub App — run the setup flow at `/keystatic`
+   to auto-generate env vars
+3. **Public Repo**: Since the repo is public, any GitHub user can authenticate.
+   Users with write access edit directly; others fork and create PRs
 4. **Asset Prefix**: All assets served from `/media-assets/` path

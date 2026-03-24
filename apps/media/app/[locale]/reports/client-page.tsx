@@ -28,7 +28,7 @@ export default function ReportsClientPage({
   const [reports, setReports] = useState<ReportItem[]>(latestReports);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
-    initialPageInfo ?? DEFAULT_PAGE_INFO
+    initialPageInfo ?? DEFAULT_PAGE_INFO,
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
@@ -106,7 +106,7 @@ export default function ReportsClientPage({
     }
 
     return reports.filter((report) =>
-      report.categories.includes(selectedCategory)
+      report.categories.includes(selectedCategory),
     );
   }, [reports, selectedCategory]);
 
@@ -144,7 +144,7 @@ export default function ReportsClientPage({
                   "rounded-full border px-4 py-1.5 text-sm transition-colors",
                   selectedCategory === null
                     ? "border-white bg-white text-black"
-                    : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white"
+                    : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white",
                 )}
               >
                 All
@@ -158,7 +158,7 @@ export default function ReportsClientPage({
                     "rounded-full border px-4 py-1.5 text-sm capitalize transition-colors",
                     selectedCategory === category
                       ? "border-white bg-white text-black"
-                      : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white"
+                      : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white",
                   )}
                 >
                   {category}
