@@ -4,11 +4,11 @@ import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { parsePublishedAt } from "@/lib/keystatic/publishing";
-import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 const BASE_URL = "https://solana.com";
 const NEWS_URL = `${BASE_URL}/news`;
 const RSS_CANONICAL_PATH = "/news/rss.xml";
+const FAVICON_URL = `${BASE_URL}/favicon.png`;
 
 export const NEWS_RSS_CANONICAL_URL = `${BASE_URL}${RSS_CANONICAL_PATH}`;
 
@@ -67,8 +67,8 @@ async function buildNewsFeed(feedUrl: string) {
     id: feedUrl,
     link: NEWS_URL,
     language: "en",
-    image: `${BASE_URL}${faviconPng.src}`,
-    favicon: `${BASE_URL}${faviconPng.src}`,
+    image: FAVICON_URL,
+    favicon: FAVICON_URL,
     copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
     updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     feedLinks: {

@@ -6,14 +6,16 @@
  */
 
 import type { Metadata } from "next";
+import type { SeoMetadataInput } from "@workspace/seo";
 import { config } from "@/lib/config";
 import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
+import { mediaSeo } from "@/lib/seo";
 
-const { publicUrl, siteMetadata, social } = config;
+const { siteMetadata } = config;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,11 +30,51 @@ function fallbackImage() {
   };
 }
 
-function twitterBase() {
-  return {
-    card: "summary_large_image" as const,
-    creator: `@${social.twitter.name}`,
-  };
+function listingMetadata({
+  path,
+  title,
+  description,
+  image = fallbackImage(),
+}: {
+  path: string;
+  title: string;
+  description: string;
+  image?: string | ReturnType<typeof fallbackImage>;
+}) {
+  return mediaSeo.getPageMetadata({
+    path,
+    title,
+    description,
+    image,
+  });
+}
+
+function contentMetadata({
+  path,
+  title,
+  description,
+  image,
+  type,
+  authors,
+  openGraph,
+}: {
+  path: string;
+  title: string;
+  description?: string;
+  image?: string | ReturnType<typeof fallbackImage>;
+  type: "website" | "article";
+  authors?: Metadata["authors"];
+  openGraph?: SeoMetadataInput["openGraph"];
+}) {
+  return mediaSeo.getPageMetadata({
+    path,
+    title,
+    description,
+    image,
+    type,
+    authors,
+    openGraph,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -40,30 +82,11 @@ function twitterBase() {
 // ---------------------------------------------------------------------------
 
 export async function newsListingMetadata(): Promise<Metadata> {
-  const canonicalUrl = `${publicUrl}/news`;
   const title = "Solana News";
   const description =
     "Latest news and updates from the Solana ecosystem. Breaking coverage on DeFi, NFTs, developer updates, and Web3 innovation.";
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: siteMetadata.title,
-      images: [fallbackImage()],
-    },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  return listingMetadata({ path: "/news", title, description });
 }
 
 // ---------------------------------------------------------------------------
@@ -104,45 +127,21 @@ export async function newsPostMetadata(slug: string): Promise<Metadata> {
     ? String(post.description).trim()
     : undefined;
   const ogImage = post.heroImage || siteMetadata.socialShare;
-  const canonicalUrl = `${publicUrl}/news/${slug}`;
 
-  return {
+  return contentMetadata({
+    path: `/news/${slug}`,
     title,
-    description: description || undefined,
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
+    description,
+    image: ogImage,
+    type: "article",
+    authors: authorName ? [{ name: authorName }] : undefined,
     openGraph: {
-      title,
-      description: description || undefined,
-      url: canonicalUrl,
-      type: "article",
-      siteName: siteMetadata.title,
-      images: ogImage
-        ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
-        : undefined,
       publishedTime: post.publishedAt || undefined,
       authors: authorName ? [authorName] : undefined,
       section: categoryName,
       tags: tagNames.length > 0 ? tagNames : undefined,
     },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description: description || undefined,
-      images: ogImage ? [ogImage] : undefined,
-    },
-    authors: authorName ? [{ name: authorName }] : undefined,
-    alternates: { canonical: canonicalUrl },
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -166,27 +165,11 @@ export async function categoryListingMetadata(
 
   const title = `${categoryName} News`;
   const description = `Latest ${categoryName} news and updates from the Solana ecosystem.`;
-  const canonicalUrl = `${publicUrl}/news/category/${categoryParam}`;
-
-  return {
+  return listingMetadata({
+    path: `/news/category/${categoryParam}`,
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: siteMetadata.title,
-      images: [fallbackImage()],
-    },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -194,30 +177,11 @@ export async function categoryListingMetadata(
 // ---------------------------------------------------------------------------
 
 export function reportsListingMetadata(): Metadata {
-  const canonicalUrl = `${publicUrl}/reports`;
   const title = "Solana Reports";
   const description =
     "Research, market analysis, and ecosystem reports from the Solana Foundation.";
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: siteMetadata.title,
-      images: [fallbackImage()],
-    },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  return listingMetadata({ path: "/reports", title, description });
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +199,6 @@ export async function reportMetadata(slug: string): Promise<Metadata> {
   const description = report.description
     ? String(report.description).trim()
     : undefined;
-  const canonicalUrl = `${publicUrl}/reports/${slug}`;
   const ogImage = report.image?.src || siteMetadata.socialShare;
 
   const categoryNames: string[] = [];
@@ -265,41 +228,18 @@ export async function reportMetadata(slug: string): Promise<Metadata> {
     }
   }
 
-  return {
+  return contentMetadata({
+    path: `/reports/${slug}`,
     title,
     description,
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
+    image: ogImage,
+    type: "article",
     openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "article",
-      siteName: siteMetadata.title,
-      images: ogImage
-        ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
-        : undefined,
       publishedTime: report.publishedAt || undefined,
       section: categoryNames[0],
       tags: tagNames.length > 0 ? tagNames : undefined,
     },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: ogImage ? [ogImage] : undefined,
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -310,27 +250,8 @@ export function podcastsListingMetadata(): Metadata {
   const title = "Podcasts";
   const description =
     "Explore our collection of podcasts covering blockchain technology, web3, and the Solana ecosystem.";
-  const canonicalUrl = `${publicUrl}/podcasts`;
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title: `${title} | ${siteMetadata.title}`,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: siteMetadata.title,
-      images: [fallbackImage()],
-    },
-    twitter: {
-      ...twitterBase(),
-      title: `${title} | ${siteMetadata.title}`,
-      description,
-      images: [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  return listingMetadata({ path: "/podcasts", title, description });
 }
 
 // ---------------------------------------------------------------------------
@@ -349,29 +270,14 @@ export async function podcastShowMetadata(
   const title = `${podcast.title} | Podcasts`;
   const description =
     podcast.descriptionPlainText || `Listen to ${podcast.title} podcast`;
-  const canonicalUrl = `${publicUrl}/podcasts/${podcastSlug}`;
 
-  return {
+  return contentMetadata({
+    path: `/podcasts/${podcastSlug}`,
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: siteMetadata.title,
-      images: podcast.coverImage ? [podcast.coverImage] : [fallbackImage()],
-    },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: podcast.coverImage
-        ? [podcast.coverImage]
-        : [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+    image: podcast.coverImage || fallbackImage(),
+    type: "website",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -391,27 +297,16 @@ export async function podcastEpisodeMetadata(
 
   const title = `${episode.title} | ${podcast.title}`;
   const description = episode.description || `Listen to ${episode.title}`;
-  const canonicalUrl = `${publicUrl}/podcasts/${podcastSlug}/episodes/${episodeId}`;
   const image = episode.thumbnailUrl || podcast.coverImage || null;
 
-  return {
+  return contentMetadata({
+    path: `/podcasts/${podcastSlug}/episodes/${episodeId}`,
     title,
     description,
+    image: image || fallbackImage(),
+    type: "article",
     openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "article",
-      siteName: siteMetadata.title,
-      images: image ? [image] : [fallbackImage()],
       audio: episode.audioUrl ? [episode.audioUrl] : undefined,
     },
-    twitter: {
-      ...twitterBase(),
-      title,
-      description,
-      images: image ? [image] : [siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+  });
 }

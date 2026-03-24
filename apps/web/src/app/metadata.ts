@@ -2,9 +2,6 @@ import { Metadata } from "next";
 import { config } from "@@/src/config";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
-import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
-import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
-import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
@@ -29,23 +26,24 @@ export function getBaseMetadata(locale: string) {
     robots: "index, follow",
     manifest: "/site.webmanifest",
     metadataBase: new URL(siteUrl),
-    icons: [
-      {
-        url: faviconPng.src,
-        rel: "icon",
-        type: "image/png",
-      },
-      {
-        url: faviconSvg,
-        rel: "icon",
-        type: "image/svg+xml",
-      },
-      {
-        url: appleTouchIcon.src,
-        rel: "apple-touch-icon",
-        sizes: "180x180",
-      },
-    ],
+    icons: {
+      icon: [
+        {
+          url: "/favicon.ico",
+          type: "image/x-icon",
+        },
+        {
+          url: "/favicon.png",
+          type: "image/png",
+        },
+        {
+          url: "/favicon.svg",
+          type: "image/svg+xml",
+        },
+      ],
+      shortcut: "/favicon.ico",
+      apple: "/apple-touch-icon.png",
+    },
   };
 }
 

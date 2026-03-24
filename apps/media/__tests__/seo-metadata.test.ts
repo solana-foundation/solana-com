@@ -13,10 +13,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@solana-com/ui-chrome/assets/favicon.png", () => ({
-  default: { src: "/favicon.png" },
-}));
-
 vi.mock("@/lib/reader", () => ({
   reader: {
     collections: {
@@ -360,7 +356,7 @@ describe("podcastShowMetadata", () => {
 
   it("uses cover image for OG", async () => {
     const meta = await podcastShowMetadata("validated");
-    expect((meta.openGraph as any).images).toContain(MOCK_PODCAST.coverImage);
+    expect((meta.openGraph as any).images[0].url).toBe(MOCK_PODCAST.coverImage);
   });
 
   it("has complete Twitter card", async () => {
@@ -419,7 +415,9 @@ describe("podcastEpisodeMetadata", () => {
 
   it("uses episode thumbnail for OG image", async () => {
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
-    expect((meta.openGraph as any).images).toContain(MOCK_EPISODE.thumbnailUrl);
+    expect((meta.openGraph as any).images[0].url).toBe(
+      MOCK_EPISODE.thumbnailUrl
+    );
   });
 
   it("includes audio URL in OpenGraph", async () => {
@@ -448,7 +446,7 @@ describe("podcastEpisodeMetadata", () => {
       thumbnailUrl: null,
     });
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
-    expect((meta.openGraph as any).images).toContain(MOCK_PODCAST.coverImage);
+    expect((meta.openGraph as any).images[0].url).toBe(MOCK_PODCAST.coverImage);
   });
 
   it("falls back to default image when no thumbnail or cover", async () => {

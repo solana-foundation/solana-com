@@ -1,27 +1,27 @@
-import type { Metadata } from "next";
 import { createSeoResolver } from "@workspace/seo";
-import { config } from "@/config";
+import { config } from "@/lib/config";
 
-const seo = createSeoResolver({
+export const mediaSeo = createSeoResolver({
   siteName: config.siteMetadata.title,
-  siteUrl: config.siteUrl,
+  siteUrl: config.publicUrl,
   defaultTitle: config.siteMetadata.title,
   titleTemplate: `%s | ${config.siteMetadata.title}`,
-  description: config.siteMetadata.description,
+  description: config.siteMetadata.shortDescription,
   author: config.siteMetadata.author,
   twitterHandle: config.social.twitter.name,
-  defaultImage: config.siteMetadata.socialShare,
+  defaultImage: {
+    url: config.siteMetadata.socialShare,
+    width: 1200,
+    height: 630,
+    alt: config.siteMetadata.title,
+  },
   keywords: config.siteMetadata.keywords,
   manifest: "/site.webmanifest",
   icons: {
     ico: "/favicon.ico",
-    png: "/favicon.png",
+    png: config.siteIcon,
     svg: "/favicon.svg",
     appleTouchIcon: "/apple-touch-icon.png",
     shortcut: "/favicon.ico",
   },
 });
-
-export function getBaseMetadata(locale = "en"): Metadata {
-  return seo.getBaseMetadata({ locale });
-}

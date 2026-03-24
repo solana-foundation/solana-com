@@ -9,6 +9,9 @@ const schema = z.custom<{
   h1?: string;
   seoTitle?: string;
   description?: string;
+  seoImage?: string;
+  canonical?: string;
+  noindex?: boolean;
   hideTableOfContents?: boolean;
   full?: boolean;
   author?: string;

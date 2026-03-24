@@ -4,9 +4,9 @@ import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { parsePublishedAt } from "@/lib/keystatic/publishing";
-import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 export const revalidate = 300;
+const FAVICON_URL = "https://solana.com/favicon.png";
 
 // Helper function to get image MIME type from file extension
 function getImageMimeType(imageUrl: string): string {
@@ -68,8 +68,8 @@ export async function GET() {
       id: newsUrl,
       link: newsUrl,
       language: "en",
-      image: `${baseUrl}${faviconPng.src}`,
-      favicon: `${baseUrl}${faviconPng.src}`,
+      image: FAVICON_URL,
+      favicon: FAVICON_URL,
       copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
       updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     });

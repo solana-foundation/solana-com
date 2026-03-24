@@ -1,52 +1,29 @@
 import { config } from "@@/src/config";
 import { getUrlWithoutLocale } from "@@/src/app/sources/utils";
 import { getAlternates } from "@workspace/i18n/routing";
+import { createSeoResolver } from "@workspace/seo";
 import { getTranslations } from "next-intl/server";
-import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
-import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
-import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+
+const seo = createSeoResolver({
+  siteName: config.siteMetadata.title,
+  siteUrl: config.siteUrl,
+  defaultTitle: config.siteMetadata.title,
+  titleTemplate: "%s | Solana",
+  description: config.siteMetadata.description,
+  author: config.siteMetadata.author,
+  defaultImage: config.siteMetadata.socialShare,
+  icons: {
+    ico: "/favicon.ico",
+    png: "/favicon.png",
+    svg: "/favicon.svg",
+    appleTouchIcon: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
+});
 
 export function getBaseMetadata(locale: string) {
-  const { siteMetadata, siteUrl } = config;
-  return {
-    other: {
-      language: locale,
-    },
-    title: {
-      template: "%s | Solana",
-      default: siteMetadata.title,
-    },
-    description: siteMetadata.description,
-    openGraph: {
-      type: "website",
-      images: [siteMetadata.socialShare],
-      locale,
-    },
-    twitter: {
-      card: "summary_large_image",
-      creator: siteMetadata.author,
-    },
-    robots: "index, follow",
-    manifest: "/site.webmanifest",
-    metadataBase: new URL(siteUrl),
-    icons: [
-      {
-        url: faviconPng.src,
-        rel: "icon",
-        type: "image/png",
-      },
-      {
-        url: faviconSvg,
-        rel: "icon",
-        type: "image/svg+xml",
-      },
-      {
-        url: appleTouchIcon.src,
-        rel: "apple-touch-icon",
-        sizes: "180x180",
-      },
-    ],
-  };
+  return seo.getBaseMetadata({ locale });
 }
 
 export async function getIndexMetadata({
@@ -56,32 +33,32 @@ export async function getIndexMetadata({
   path,
 }) {
   const t = await getTranslations();
-  return {
+  return seo.getPageMetadata({
+    locale,
+    path,
     title: t(titleKey),
     description: t(descriptionKey),
     alternates: getAlternates(path, locale),
-  };
+  });
 }
 
 export function getMdxMetadata(page) {
   const url = getUrlWithoutLocale(page);
   const title = page.data.seoTitle || page.data.h1 || page.data.title;
   const description = page.data.description;
-  const { openGraph } = getBaseMetadata(page.locale);
 
   const imagePrefix = url?.startsWith("/docs")
     ? "/opengraph/developers"
     : "/opengraph";
 
-  return {
+  return seo.getPageMetadata({
+    locale: page.locale,
+    path: url,
     title,
     description,
+    image: page.data.seoImage || `${imagePrefix}${url}`,
+    canonical: page.data.canonical,
+    noindex: page.data.noindex,
     alternates: getAlternates(url, page.locale),
-    openGraph: {
-      ...openGraph,
-      images: [imagePrefix + url],
-      title,
-      description,
-    },
-  };
+  });
 }
