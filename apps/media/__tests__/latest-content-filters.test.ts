@@ -191,6 +191,43 @@ describe("latest content filters", () => {
 
       expect(result.links.map((item) => item.id)).toEqual(["slug-match-link"]);
     });
+
+    it("sorts links by full publishedAt datetime descending", async () => {
+      const links = {
+        "later-link": {
+          title: "Later Link",
+          url: "https://example.com/later",
+          linkType: "article",
+          description: "later",
+          publishedAt: "2026-03-11T18:30:00.000Z",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+        "earlier-link": {
+          title: "Earlier Link",
+          url: "https://example.com/earlier",
+          linkType: "article",
+          description: "earlier",
+          publishedAt: "2026-03-11T07:15:00.000Z",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+      };
+
+      readerMock.collections.links.list.mockResolvedValue(Object.keys(links));
+      readerMock.collections.links.read.mockImplementation((slug: string) =>
+        Promise.resolve(links[slug as keyof typeof links] ?? null),
+      );
+
+      const result = await fetchLatestLinks({});
+
+      expect(result.links.map((item) => item.id)).toEqual([
+        "later-link",
+        "earlier-link",
+      ]);
+      expect(result.links[0]?.publishedAtRaw).toBe("2026-03-11T18:30:00.000Z");
+      expect(result.links[1]?.publishedAtRaw).toBe("2026-03-11T07:15:00.000Z");
+    });
   });
 
   describe("fetchLatestPosts", () => {
@@ -449,7 +486,8 @@ describe("latest content filters", () => {
           {
             id: "link-1",
             title: "Link 1",
-            publishedAt: "11 Mar 2026",
+            publishedAt: "Mar 11, 2026, 12:00 PM UTC",
+            publishedAtRaw: "2026-03-11T12:00:00.000Z",
             url: "https://example.com/link-1",
             source: "Source",
             linkType: "article",
@@ -479,6 +517,7 @@ describe("latest content filters", () => {
         expect.objectContaining({
           id: "link-1",
           categoryId: "defi",
+          date: "2026-03-11T12:00:00.000Z",
         }),
       ]);
     });
