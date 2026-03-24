@@ -70,10 +70,26 @@ function buildPrettierCommand(files) {
   return [`pnpm -w exec prettier --write ${files.map(quote).join(" ")}`];
 }
 
+function buildMediaImageCheckCommand(files) {
+  if (files.length === 0) {
+    return [];
+  }
+
+  return [
+    `pnpm --filter solana-com-media exec node scripts/check-images.mjs ${files
+      .map(quote)
+      .join(" ")}`,
+  ];
+}
+
 export default {
   "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": (files) => [
     ...buildEslintCommands(files),
     ...buildPrettierCommand(files),
   ],
   "*.{md,mdx,json,scss,yml,yaml}": buildPrettierCommand,
+  "apps/media/content/**/*.{png,jpg,jpeg,webp,avif}":
+    buildMediaImageCheckCommand,
+  "apps/media/public/uploads/posts/**/*.{png,jpg,jpeg,webp,avif}":
+    buildMediaImageCheckCommand,
 };
