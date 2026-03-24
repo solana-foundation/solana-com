@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -80,6 +80,8 @@ import { GET as getLatestReports } from "@/app/api/reports/latest/route";
 
 describe("latest content filters", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-24T00:00:00.000Z"));
     vi.clearAllMocks();
 
     readerMock.collections.categories.read.mockImplementation((slug: string) =>
@@ -104,6 +106,10 @@ describe("latest content filters", () => {
       name: "Solana Foundation",
       avatar: null,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("fetchLatestLinks", () => {

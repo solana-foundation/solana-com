@@ -42,8 +42,7 @@ const ChevronLeft = ({ size }: { size: number }) => (
 
 const iconSizeMap = { l: 16, xl: 20, "2xl": 40 };
 
-export interface IconButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: IconButtonVariant;
   size?: IconButtonSize;
   /** Built-in chevron direction; ignored when `icon` is provided */

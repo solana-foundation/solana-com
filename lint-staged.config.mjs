@@ -1,7 +1,10 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+const rootWorkspace = ".";
+const eslintConfigFile = "eslint.config.mjs";
 const codeExtensions = new Set([
   ".js",
   ".jsx",
@@ -42,6 +45,46 @@ function groupByWorkspace(files) {
   return groups;
 }
 
+function getWorkspacePath(workspaceDir) {
+  return path.join(repoRoot, workspaceDir);
+}
+
+function hasWorkspaceEslintConfig(workspaceDir) {
+  if (workspaceDir === rootWorkspace) {
+    return false;
+  }
+
+  return existsSync(
+    path.join(getWorkspacePath(workspaceDir), eslintConfigFile),
+  );
+}
+
+function toWorkspaceRelativeFile(workspaceDir, file) {
+  return path.relative(
+    getWorkspacePath(workspaceDir),
+    path.join(repoRoot, file),
+  );
+}
+
+function getEslintCommandInput(workspaceDir, files) {
+  if (!hasWorkspaceEslintConfig(workspaceDir)) {
+    return {
+      cwd: rootWorkspace,
+      config: path.relative(
+        repoRoot,
+        path.join(getWorkspacePath(workspaceDir), eslintConfigFile),
+      ),
+      files,
+    };
+  }
+
+  return {
+    cwd: workspaceDir,
+    config: eslintConfigFile,
+    files: files.map((file) => toWorkspaceRelativeFile(workspaceDir, file)),
+  };
+}
+
 function buildEslintCommands(files) {
   const workspaceFiles = files.filter((file) =>
     codeExtensions.has(path.extname(file)),
@@ -49,11 +92,14 @@ function buildEslintCommands(files) {
   const commands = [];
 
   for (const [workspaceDir, groupedFiles] of groupByWorkspace(workspaceFiles)) {
-    const configPath = path.join(repoRoot, workspaceDir, "eslint.config.mjs");
-    const relativeConfigPath = path.relative(repoRoot, configPath);
+    const {
+      cwd,
+      config,
+      files: eslintFiles,
+    } = getEslintCommandInput(workspaceDir, groupedFiles);
 
     commands.push(
-      `pnpm -w exec eslint --fix --config ${quote(relativeConfigPath)} ${groupedFiles
+      `pnpm --dir ${quote(cwd)} exec eslint --fix --config ${quote(config)} ${eslintFiles
         .map(quote)
         .join(" ")}`,
     );
