@@ -344,7 +344,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchFeaturedPost();
