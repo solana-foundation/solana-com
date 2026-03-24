@@ -36,7 +36,7 @@ Next.js architecture behind `solana.com`.
 
 ### Testing Strategy
 
-- Jest + React Testing Library (web app), run via `pnpm test` (Turbo)
+- Vitest + React Testing Library (web app), run via `pnpm test` (Turbo)
 - Lint/format are expected before PRs (`pnpm lint`, `pnpm format:check`)
 
 ### Git Workflow

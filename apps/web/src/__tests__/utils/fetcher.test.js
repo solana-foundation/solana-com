@@ -1,8 +1,9 @@
 import fetcher from "@/utils/fetcher";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("fetcher", () => {
   beforeEach(() => {
-    global.fetch = jest.fn(() =>
+    global.fetch = vi.fn(() =>
       Promise.resolve({
         json: () => Promise.resolve({ success: true }),
       }),
