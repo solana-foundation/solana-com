@@ -71,7 +71,7 @@ vi.mock("@/lib/content-renderer", () => ({
 }));
 
 import { fetchLatestLinks } from "@/lib/keystatic/link-data";
-import { fetchLatestPosts } from "@/lib/keystatic/post-data";
+import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/keystatic/post-data";
 import { fetchLatestReports } from "@/lib/keystatic/report-data";
 import * as keystaticPostData from "@/lib/keystatic/post-data";
 import { GET as getLatestLinks } from "@/app/api/links/latest/route";
@@ -296,7 +296,7 @@ describe("latest content filters", () => {
           status: "published",
           title: "Live Post",
           description: "live post",
-          publishedAt: "2026-03-11T00:00:00.000Z",
+          publishedAt: "2000-03-11T00:00",
           author: "solana-foundation",
           categories: [{ category: "ecosystem" }],
           tags: [{ tag: "defi" }],
@@ -305,7 +305,7 @@ describe("latest content filters", () => {
           status: "published",
           title: "Scheduled Post",
           description: "scheduled post",
-          publishedAt: "2026-03-25T12:00:00.000Z",
+          publishedAt: "2099-03-25T12:00",
           author: "solana-foundation",
           categories: [{ category: "ecosystem" }],
           tags: [{ tag: "defi" }],
@@ -320,6 +320,36 @@ describe("latest content filters", () => {
       const result = await fetchLatestPosts({});
 
       expect(result.posts.map((item) => item.id)).toEqual(["live-post"]);
+    });
+
+    it("excludes future-dated posts from featured post results", async () => {
+      const posts = {
+        "live-featured-post": {
+          status: "published",
+          title: "Live Featured Post",
+          description: "live featured post",
+          publishedAt: "2000-03-11T00:00",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
+        "scheduled-featured-post": {
+          status: "published",
+          title: "Scheduled Featured Post",
+          description: "scheduled featured post",
+          publishedAt: "2099-03-25T12:00",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+      );
+
+      const result = await fetchFeaturedPost();
+
+      expect(result.post?.id).toBe("live-featured-post");
     });
 
     it("dedupes duplicate tag and category names in transformed posts", async () => {

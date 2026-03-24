@@ -11,6 +11,7 @@ import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { newsPostMetadata } from "@/lib/metadata";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
@@ -26,9 +27,9 @@ export default async function PostPage({
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
 
-  const post = await reader.collections.posts.read(slug);
+  const post = await fetchPublishedPostBySlug(slug);
 
-  if (!isPublishedPost(post)) {
+  if (!post) {
     notFound();
   }
 
