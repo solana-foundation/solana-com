@@ -67,8 +67,7 @@ const Link = ({
   );
 };
 
-interface InlineLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+interface InlineLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   to: string;
   children: React.ReactNode;
 }

@@ -13,8 +13,8 @@ export function isPublishedReport(
 ) {
   return Boolean(
     report &&
-      report.isReport &&
-      report.status === "published" &&
-      isPublishedAtOrBefore(report.publishedAt, now),
+    report.isReport &&
+    report.status === "published" &&
+    isPublishedAtOrBefore(report.publishedAt, now),
   );
 }
