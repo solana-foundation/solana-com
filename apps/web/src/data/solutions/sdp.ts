@@ -263,24 +263,24 @@ export const RAMP_LOGOS = [
 
 export const TUTORIALS = [
   {
-    title: "Payments on Solana - The Future of Money Movement",
-    duration: "0:33",
-    thumbnail: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    videoId: "6bxWGU7mpJI",
+    title: "Creating Wallets and API Keys",
+    duration: "5:04",
+    thumbnail: "https://img.youtube.com/vi/LzWakjjmPdc/maxresdefault.jpg",
+    videoId: "LzWakjjmPdc",
     platform: "youtube" as const,
   },
   {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    duration: "8:30",
-    thumbnail: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    videoId: "sB6cocqLXNw",
+    title: "Token Issuance",
+    duration: "5:58",
+    thumbnail: "https://img.youtube.com/vi/9R7mRaonVoo/maxresdefault.jpg",
+    videoId: "9R7mRaonVoo",
     platform: "youtube" as const,
   },
   {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    duration: "0:54",
-    thumbnail: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    videoId: "9arQw72tFx4",
+    title: "On-chain Payments",
+    duration: "2:51",
+    thumbnail: "https://img.youtube.com/vi/URAJ2kHHDBg/maxresdefault.jpg",
+    videoId: "URAJ2kHHDBg",
     platform: "youtube" as const,
   },
 ];

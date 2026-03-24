@@ -243,8 +243,14 @@ export function SdpPage() {
             title: t("footer.product.title"),
             links: [
               { label: t("footer.product.apiDocs"), href: "/docs/rpc" },
-              { label: t("footer.product.postman"), href: "#" },
-              { label: t("footer.product.aiSkills"), href: "#" },
+              {
+                label: t("footer.product.postman"),
+                href: "https://platform.solana.com/docs/reference/postman-collection",
+              },
+              {
+                label: t("footer.product.aiSkills"),
+                href: "https://platform.solana.com/docs/reference/ai-consumption",
+              },
             ],
           },
           {

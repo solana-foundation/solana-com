@@ -57,7 +57,7 @@ const ASPECT_RATIOS = {
 } as const;
 
 export interface VideoProps {
-  platform: "youtube" | "vimeo" | "x";
+  platform: "youtube" | "vimeo" | "x" | "local";
   id: string;
   title?: string;
   vimeoHash?: string;
@@ -162,6 +162,23 @@ export function Video(props: VideoProps) {
             className={`w-8 h-8 ${playButtonIconClassName ?? ""}`}
           />
         </button>
+      </div>
+    );
+  }
+
+  if (platform === "local") {
+    return (
+      <div className={`relative w-full ${ASPECT_RATIOS[aspectRatio]}`}>
+        <video
+          src={id}
+          title={title || "Video player"}
+          className="absolute inset-0 h-full w-full"
+          autoPlay={autoplay}
+          muted={autoplay}
+          controls
+          playsInline
+          loop
+        />
       </div>
     );
   }

@@ -7,7 +7,8 @@ import { VideoTrigger } from "@/component-library/video-modal";
 
 const bgSrc = "/src/img/solutions/sdp/hero-bg.png";
 const bgMobileSrc = "/src/img/solutions/sdp/hero-bg-mobile.png";
-const videoFrameSrc = "/src/img/solutions/sdp/hero-video-cover.jpg";
+const videoFrameSrc = "/src/img/solutions/sdp/hero-video-cover.v2.jpg";
+const videoSrc = "/src/img/solutions/sdp/hero.mp4";
 
 export interface HeroProps {
   title?: React.ReactNode;
@@ -37,8 +38,8 @@ const VideoFrame = ({ videoTitle }: { videoTitle?: string }) => (
     />
     <div className="absolute inset-0 bg-black/[0.32]" />
     <VideoTrigger
-      platform="youtube"
-      id="mIGoTSdkEww"
+      platform="local"
+      id={videoSrc}
       title={videoTitle ?? ""}
       bgColorClass="!bg-black/70"
       className={

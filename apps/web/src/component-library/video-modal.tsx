@@ -49,7 +49,7 @@ export function openVideoPlayer(source: VideoSource) {
 }
 
 export interface VideoTriggerProps {
-  platform: "youtube" | "vimeo";
+  platform: "youtube" | "vimeo" | "local";
   id: string;
   title?: string;
   bgColorClass: string; // e.g. "bg-purple-600/90"
