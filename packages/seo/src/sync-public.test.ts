@@ -56,6 +56,22 @@ describe("syncPublicAssets", () => {
     expect(iconFiles["icon-512.png"].length).toBeGreaterThan(0);
   });
 
+  it("prefers packaged icon PNGs when they are present", async () => {
+    const assetsDir = mkdtempSync(join(tmpdir(), "seo-icons-assets-"));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" rx="12" fill="#000"/><circle cx="50" cy="50" r="30" fill="#14f195"/></svg>`;
+    const icon192 = Buffer.from("icon-192-source");
+    const icon512 = Buffer.from("icon-512-source");
+
+    writeFileSync(join(assetsDir, "favicon.svg"), svg);
+    writeFileSync(join(assetsDir, "icon-192.png"), icon192);
+    writeFileSync(join(assetsDir, "icon-512.png"), icon512);
+
+    const iconFiles = await generateIconFiles({ assetsDir });
+
+    expect(iconFiles["icon-192.png"]).toEqual(icon192);
+    expect(iconFiles["icon-512.png"]).toEqual(icon512);
+  });
+
   it("syncs only the requested app output", async () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "seo-sync-repo-"));
     const assetsDir = mkdtempSync(join(tmpdir(), "seo-sync-assets-"));
