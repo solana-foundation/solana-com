@@ -27,6 +27,7 @@ const config = withPrettier([
   {
     files: ["content/**/*.mdx"],
     rules: {
+      "no-irregular-whitespace": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-no-undef": "off",
       "no-unused-expressions": "off",
