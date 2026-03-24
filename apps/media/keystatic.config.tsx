@@ -130,6 +130,12 @@ export default config({
         ),
         body: fields.mdx({
           label: "Body",
+          options: {
+            image: {
+              directory: "public/uploads/posts",
+              publicPath: "/uploads/posts",
+            },
+          },
           components: componentBlocks,
         }),
         cta: fields.relationship({
