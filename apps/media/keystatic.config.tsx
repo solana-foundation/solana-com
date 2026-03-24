@@ -14,7 +14,15 @@ const isVercel = process.env.VERCEL === "1";
 const keystaticLocalFlag = (process.env.NEXT_PUBLIC_KEYSTATIC_LOCAL ?? "")
   .trim()
   .toLowerCase();
-const isLocal = keystaticLocalFlag === "true" && !isVercel;
+const hasGithubKeystaticEnv = Boolean(
+  process.env.KEYSTATIC_GITHUB_CLIENT_ID &&
+    process.env.KEYSTATIC_GITHUB_CLIENT_SECRET &&
+    process.env.KEYSTATIC_SECRET
+);
+const isLocal =
+  !isVercel &&
+  (keystaticLocalFlag === "true" ||
+    (keystaticLocalFlag !== "false" && !hasGithubKeystaticEnv));
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {

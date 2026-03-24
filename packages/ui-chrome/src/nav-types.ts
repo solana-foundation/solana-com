@@ -39,8 +39,10 @@ export interface NavTopLevelSectionMetadata {
   Content: React.ComponentType<{ isMobile?: boolean }>;
 }
 
-export interface NavTopLevelSection
-  extends Omit<NavTopLevelSectionMetadata, "mobileIcon" | "Content"> {
+export interface NavTopLevelSection extends Omit<
+  NavTopLevelSectionMetadata,
+  "mobileIcon" | "Content"
+> {
   mobileIcon: React.ComponentType<{
     className?: string;
   }>;

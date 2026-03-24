@@ -17,7 +17,6 @@ export default async function DeveloperDocsImage(
   { heading, title }: DeveloperDocsImageProps,
   size = IMAGE_SETTINGS.sizeDefault,
 ): Promise<ImageResponse> {
-  //
   const solanaLogo = `${config.siteUrl}/img/logomark-color.svg`;
 
   // select a random background image to use
@@ -26,7 +25,7 @@ export default async function DeveloperDocsImage(
     config.siteUrl
   }/img/og-backgrounds/shape-${generateRandomInRange(min, max)}.jpg`;
 
-  return await new ImageResponse(
+  return new ImageResponse(
     (
       <div
         style={{
@@ -54,7 +53,7 @@ export default async function DeveloperDocsImage(
         >
           <img
             src={solanaLogo}
-            alt={"solana logo"}
+            alt="solana logo"
             style={{
               width: "64px",
               marginRight: "1.5rem",
