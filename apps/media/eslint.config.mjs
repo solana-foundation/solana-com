@@ -1,7 +1,8 @@
+import { withPrettier } from "@workspace/config-eslint/base";
 import { createNextJsConfig } from "@workspace/config-eslint/next-js";
 import * as mdx from "eslint-plugin-mdx";
 
-const config = [
+const config = withPrettier([
   ...createNextJsConfig({
     ignores: ["out/**", "tina/__generated__/**", "**/*.md"],
     rules: {
@@ -26,7 +27,6 @@ const config = [
   {
     files: ["content/**/*.mdx"],
     rules: {
-      "prettier/prettier": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-no-undef": "off",
       "no-unused-expressions": "off",
@@ -38,6 +38,6 @@ const config = [
       "@next/next/no-img-element": "off",
     },
   },
-];
+]);
 
 export default config;

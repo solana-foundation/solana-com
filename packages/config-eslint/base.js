@@ -1,5 +1,5 @@
 import js from "@eslint/js";
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+import eslintConfigPrettier from "eslint-config-prettier";
 import onlyWarn from "eslint-plugin-only-warn";
 import turboPlugin from "eslint-plugin-turbo";
 import tseslint from "typescript-eslint";
@@ -13,6 +13,7 @@ export const repoIgnores = [
   "**/dist/**",
   "**/build/**",
   "**/public/**",
+  "**/*.d.ts",
   "**/next-env.d.ts",
 ];
 
@@ -21,7 +22,7 @@ export const repoIgnores = [
  *
  * @type {import("eslint").Linter.Config}
  * */
-export const config = [
+export const baseConfig = [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -40,5 +41,13 @@ export const config = [
   {
     ignores: repoIgnores,
   },
-  eslintPluginPrettierRecommended,
 ];
+
+export function withPrettier(config) {
+  return [
+    ...config.filter((entry) => entry !== eslintConfigPrettier),
+    eslintConfigPrettier,
+  ];
+}
+
+export const config = withPrettier(baseConfig);

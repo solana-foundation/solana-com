@@ -1,17 +1,15 @@
-import js from "@eslint/js";
 import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
-import tseslint from "typescript-eslint";
 
-import { config as baseConfig } from "./base.js";
+import { baseConfig, withPrettier } from "./base.js";
 
 /**
  * A custom ESLint configuration for libraries that use Vite
  *
  * @type {import("eslint").Linter.Config}
  * */
-export const viteConfig = [
+export const viteConfig = withPrettier([
   ...baseConfig,
   {
     ...pluginReact.configs.flat.recommended,
@@ -34,6 +32,4 @@ export const viteConfig = [
       "react/prop-types": "off",
     },
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-];
+]);

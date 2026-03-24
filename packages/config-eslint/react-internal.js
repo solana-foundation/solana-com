@@ -1,16 +1,14 @@
-import js from "@eslint/js";
 import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
-import tseslint from "typescript-eslint";
 
-import { config as baseConfig } from "./base.js";
+import { baseConfig, withPrettier } from "./base.js";
 
 /**
  * A custom ESLint configuration for libraries that use React.
  *
  * @type {import("eslint").Linter.Config} */
-export const config = [
+export const config = withPrettier([
   ...baseConfig,
   pluginReact.configs.flat.recommended,
   {
@@ -34,6 +32,4 @@ export const config = [
       "react/prop-types": "off",
     },
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-];
+]);

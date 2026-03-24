@@ -1,8 +1,8 @@
-import { config as baseConfig } from "@workspace/config-eslint/base";
+import { baseConfig, withPrettier } from "@workspace/config-eslint/base";
 
-export default [
+export default withPrettier([
   ...baseConfig,
   {
     ignores: ["apps/**", "packages/**"],
   },
-];
+]);
