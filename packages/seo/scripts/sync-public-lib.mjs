@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import pngToIco from "png-to-ico";
@@ -109,20 +109,28 @@ function renderPng(svg, size) {
   return resvg.render().asPng();
 }
 
+function readGeneratedAssetIfPresent(assetsDir, filename) {
+  const assetPath = resolve(assetsDir, filename);
+  return existsSync(assetPath) ? readFileSync(assetPath) : null;
+}
+
 export async function generateIconFiles({ assetsDir }) {
   const svg = readFileSync(resolve(assetsDir, "favicon.svg"));
+  const faviconPng = readGeneratedAssetIfPresent(assetsDir, "favicon.png");
+  const faviconIco = readGeneratedAssetIfPresent(assetsDir, "favicon.ico");
+  const appleTouchIcon = readGeneratedAssetIfPresent(assetsDir, "apple-touch-icon.png");
+  const icon192 = readGeneratedAssetIfPresent(assetsDir, "icon-192.png");
+  const icon512 = readGeneratedAssetIfPresent(assetsDir, "icon-512.png");
 
   return {
     "favicon.svg": svg,
-    "favicon.png": renderPng(svg, 96),
-    "favicon.ico": await pngToIco([
-      renderPng(svg, 16),
-      renderPng(svg, 32),
-      renderPng(svg, 48),
-    ]),
-    "apple-touch-icon.png": renderPng(svg, 180),
-    "icon-192.png": renderPng(svg, 192),
-    "icon-512.png": renderPng(svg, 512),
+    "favicon.png": faviconPng ?? renderPng(svg, 96),
+    "favicon.ico":
+      faviconIco ??
+      (await pngToIco([renderPng(svg, 16), renderPng(svg, 32), renderPng(svg, 48)])),
+    "apple-touch-icon.png": appleTouchIcon ?? renderPng(svg, 180),
+    "icon-192.png": icon192 ?? renderPng(svg, 192),
+    "icon-512.png": icon512 ?? renderPng(svg, 512),
   };
 }
 
