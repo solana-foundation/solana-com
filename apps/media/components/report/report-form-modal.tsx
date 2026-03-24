@@ -55,7 +55,7 @@ export function ReportFormModal({
         formId,
         region: "na1" as const,
       }) satisfies ParsedHubSpotForm,
-    [formId, portalId]
+    [formId, portalId],
   );
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export function ReportFormModal({
     }
 
     const existingScript = document.querySelector<HTMLScriptElement>(
-      'script[src="https://js.hsforms.net/forms/embed/v2.js"]'
+      'script[src="https://js.hsforms.net/forms/embed/v2.js"]',
     );
 
     if (existingScript) {

@@ -18,7 +18,7 @@ export function transformPost(
   postData: PostData,
   resolvedAuthor?: { name: string; avatar: string | null } | null,
   resolvedTags?: string[],
-  resolvedCategories?: string[]
+  resolvedCategories?: string[],
 ): PostItem {
   const formattedDate = formatPublishedAt(postData.publishedAt);
 

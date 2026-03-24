@@ -140,7 +140,7 @@ export function SocialShare({
   const baseItemClassName = cn(
     "group flex items-center justify-center transition",
     variantStyles[variant],
-    itemClassName
+    itemClassName,
   );
 
   return (
@@ -167,7 +167,7 @@ export function SocialShare({
           >
             <Icon className={iconSize} />
           </button>
-        )
+        ),
       )}
     </div>
   );

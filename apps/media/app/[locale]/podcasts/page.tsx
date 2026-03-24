@@ -32,7 +32,7 @@ export default async function PodcastsPage({
         ...podcast,
         latestEpisode: latestEpisode || undefined,
       };
-    })
+    }),
   );
 
   return <PodcastsClientPage podcasts={podcastsWithEpisodes} />;

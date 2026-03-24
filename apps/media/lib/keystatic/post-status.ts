@@ -5,7 +5,7 @@ export function isPublishedPost(
     | { status?: string | null; publishedAt?: string | null }
     | null
     | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
 ) {
   return (
     post?.status === "published" && isPublishedAtOrBefore(post.publishedAt, now)

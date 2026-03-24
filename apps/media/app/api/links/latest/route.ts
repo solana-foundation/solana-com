@@ -58,7 +58,7 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     source: link.source,
     linkType: link.linkType,
     categories: link.categories.map(
-      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase()
+      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase(),
     ),
   };
 }
@@ -71,7 +71,7 @@ async function fetchLinks(params: LinkConnectionParams) {
     // Map category ID back to category name for Keystatic query
     const categoryName = params.category
       ? Object.entries(CATEGORY_NAME_TO_ID).find(
-          ([, id]) => id === params.category
+          ([, id]) => id === params.category,
         )?.[0] || params.category
       : undefined;
 
@@ -84,7 +84,7 @@ async function fetchLinks(params: LinkConnectionParams) {
 
     // Transform links to terminal format
     const terminalItems: TerminalItem[] = links.map((link, index) =>
-      transformToTerminalItem(link, index)
+      transformToTerminalItem(link, index),
     );
 
     return terminalItems;
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

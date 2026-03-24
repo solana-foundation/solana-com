@@ -30,7 +30,7 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
 
   const episode = await fetchEpisodeById(
     resolvedParams.episodeId,
-    resolvedParams.podcastSlug
+    resolvedParams.podcastSlug,
   );
 
   if (!episode) {
@@ -40,7 +40,7 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
   // Fetch related episodes from RSS feed (next 3 from the same podcast)
   const relatedEpisodesData = await fetchEpisodesForPodcast(podcast, 4, 0);
   const relatedEpisodes = relatedEpisodesData.episodes.filter(
-    (ep) => ep.id !== episode!.id
+    (ep) => ep.id !== episode!.id,
   );
 
   return (
@@ -67,6 +67,6 @@ export async function generateMetadata({
   const resolvedParams = await params;
   return podcastEpisodeMetadata(
     resolvedParams.podcastSlug,
-    resolvedParams.episodeId
+    resolvedParams.episodeId,
   );
 }

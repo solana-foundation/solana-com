@@ -29,7 +29,7 @@ function dedupeStrings(values: string[]): string[] {
  */
 async function transformPost(
   slug: string,
-  post: Awaited<ReturnType<typeof reader.collections.posts.read>>
+  post: Awaited<ReturnType<typeof reader.collections.posts.read>>,
 ): Promise<PostItem | null> {
   if (!post) return null;
 
@@ -59,7 +59,7 @@ async function transformPost(
       if (catItem && typeof catItem === "object" && "category" in catItem) {
         if (catItem.category) {
           const catData = await reader.collections.categories.read(
-            catItem.category
+            catItem.category,
           );
           if (catData?.name) {
             categoryNames.push(String(catData.name));
@@ -156,7 +156,7 @@ async function transformPost(
  * Fetch latest posts from Keystatic
  */
 export const fetchLatestPosts = async (
-  params: LatestPostsParams
+  params: LatestPostsParams,
 ): Promise<LatestPostsResponse> => {
   try {
     const allSlugs = await reader.collections.posts.list();
@@ -266,7 +266,7 @@ export const fetchLatestPosts = async (
     let startIndex = 0;
     if (params.cursor) {
       const cursorIndex = filteredPosts.findIndex(
-        (p) => p.slug === params.cursor
+        (p) => p.slug === params.cursor,
       );
       if (cursorIndex >= 0) {
         startIndex = cursorIndex + 1;
@@ -352,7 +352,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
       } catch (error) {
         console.error(
           `Failed to read post "${slug}" in fetchFeaturedPost:`,
-          error
+          error,
         );
       }
     }

@@ -4,7 +4,7 @@ import { isPublishedPost } from "@/lib/keystatic/post-status";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string[] }> }
+  { params }: { params: Promise<{ slug: string[] }> },
 ) {
   const { slug } = await params;
   if (!slug || slug.length === 0) {

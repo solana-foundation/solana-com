@@ -87,8 +87,8 @@ describe("latest content filters", () => {
         {
           ecosystem: { name: "Ecosystem" },
           developers: { name: "Developers" },
-        }[slug] ?? null
-      )
+        }[slug] ?? null,
+      ),
     );
 
     readerMock.collections.tags.read.mockImplementation((slug: string) =>
@@ -96,8 +96,8 @@ describe("latest content filters", () => {
         {
           defi: { name: "DeFi" },
           nft: { name: "NFT" },
-        }[slug] ?? null
-      )
+        }[slug] ?? null,
+      ),
     );
 
     readerMock.collections.authors.read.mockResolvedValue({
@@ -140,7 +140,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.links.list.mockResolvedValue(Object.keys(links));
       readerMock.collections.links.read.mockImplementation((slug: string) =>
-        Promise.resolve(links[slug as keyof typeof links] ?? null)
+        Promise.resolve(links[slug as keyof typeof links] ?? null),
       );
 
       const result = await fetchLatestLinks({
@@ -175,7 +175,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.links.list.mockResolvedValue(Object.keys(links));
       readerMock.collections.links.read.mockImplementation((slug: string) =>
-        Promise.resolve(links[slug as keyof typeof links] ?? null)
+        Promise.resolve(links[slug as keyof typeof links] ?? null),
       );
 
       const result = await fetchLatestLinks({
@@ -212,7 +212,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchLatestPosts({
@@ -247,7 +247,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchLatestPosts({
@@ -282,7 +282,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchLatestPosts({});
@@ -314,7 +314,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchLatestPosts({});
@@ -328,8 +328,8 @@ describe("latest content filters", () => {
           Promise.resolve(
             {
               ecosystem: { name: "Ecosystem" },
-            }[slug] ?? null
-          )
+            }[slug] ?? null,
+          ),
       );
 
       readerMock.collections.tags.read.mockImplementation((slug: string) =>
@@ -337,8 +337,8 @@ describe("latest content filters", () => {
           {
             ecosystem: { name: "Ecosystem" },
             defi: { name: "DeFi" },
-          }[slug] ?? null
-        )
+          }[slug] ?? null,
+        ),
       );
 
       const posts = {
@@ -355,7 +355,7 @@ describe("latest content filters", () => {
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
       readerMock.collections.posts.read.mockImplementation((slug: string) =>
-        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
       );
 
       const result = await fetchLatestPosts({});
@@ -392,11 +392,11 @@ describe("latest content filters", () => {
       };
 
       readerMock.collections.switchbacks.list.mockResolvedValue(
-        Object.keys(reports)
+        Object.keys(reports),
       );
       readerMock.collections.switchbacks.read.mockImplementation(
         (slug: string) =>
-          Promise.resolve(reports[slug as keyof typeof reports] ?? null)
+          Promise.resolve(reports[slug as keyof typeof reports] ?? null),
       );
 
       const result = await fetchLatestReports({});
@@ -431,7 +431,7 @@ describe("latest content filters", () => {
         ["links-5-cursor-1-defi-nft"],
         expect.objectContaining({
           tags: ["links"],
-        })
+        }),
       );
       expect(fetchLatestLinksMock).toHaveBeenCalledWith({
         limit: 5,
@@ -483,7 +483,7 @@ describe("latest content filters", () => {
         ["posts-2-post-0-ecosystem-defi"],
         expect.objectContaining({
           tags: ["posts"],
-        })
+        }),
       );
       expect(fetchLatestPostsSpy).toHaveBeenCalledWith({
         limit: 2,
@@ -537,8 +537,8 @@ describe("latest content filters", () => {
                 tags: [{ tag: "defi" }],
                 image: { src: "/uploads/scheduled-report.webp" },
               },
-            }[slug] ?? null
-          )
+            }[slug] ?? null,
+          ),
       );
 
       const response = (await getLatestReports({

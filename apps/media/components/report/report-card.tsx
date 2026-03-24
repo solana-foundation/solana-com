@@ -14,7 +14,7 @@ export function ReportCard({ report, index = 0 }: ReportCardProps) {
     <Link
       href={report.url}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[rgba(236,228,253,0.12)] bg-[#0D0C11] transition-all duration-300 hover:border-[rgba(236,228,253,0.32)]"
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[rgba(236,228,253,0.12)] bg-[#0D0C11] transition-all duration-300 hover:border-[rgba(236,228,253,0.32)]",
       )}
       style={{
         animationDelay: `${index * 0.06}s`,

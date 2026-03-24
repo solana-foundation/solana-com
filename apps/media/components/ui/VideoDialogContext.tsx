@@ -10,7 +10,7 @@ interface VideoDialogContextProps {
 }
 
 const VideoDialogContext = createContext<VideoDialogContextProps | undefined>(
-  undefined
+  undefined,
 );
 
 export const VideoDialogProvider = ({ children }: { children: ReactNode }) => {

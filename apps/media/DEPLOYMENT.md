@@ -1,15 +1,19 @@
 # Media App Deployment Guide
 
-This guide explains how to deploy the `@solana-com-media` app to Vercel as a separate deployment from the main `@solana-com/web` app.
+This guide explains how to deploy the `@solana-com-media` app to Vercel as a
+separate deployment from the main `@solana-com/web` app.
 
 ## Architecture
 
 The Solana website uses a **multi-app monorepo architecture**:
 
 - **apps/web** - Main website (solana.com) deployed to Vercel
-- **apps/media** - Media/news app deployed separately to `solana-com-media.vercel.app`
+- **apps/media** - Media/news app deployed separately to
+  `solana-com-media.vercel.app`
 
-When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrites proxy the requests to the media app's Vercel deployment. Users always access the site through `solana.com`.
+When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js
+rewrites proxy the requests to the media app's Vercel deployment. Users always
+access the site through `solana.com`.
 
 ## Local Development
 
@@ -31,8 +35,10 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
 
 3. **Access the apps:**
    - Main site: http://localhost:3000
-   - Media app direct: http://localhost:3002/news or http://localhost:3002/podcasts
-   - Media via web proxy: http://localhost:3000/news or http://localhost:3000/podcasts (proxies to 3002)
+   - Media app direct: http://localhost:3002/news or
+     http://localhost:3002/podcasts
+   - Media via web proxy: http://localhost:3000/news or
+     http://localhost:3000/podcasts (proxies to 3002)
 
 ## Vercel Deployment Setup
 
@@ -55,7 +61,8 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    In the Vercel dashboard (https://vercel.com/solana-foundation/media):
    - **Framework Preset:** Next.js
    - **Root Directory:** `apps/media`
-   - **Build Command:** `cd ../.. && pnpm install && pnpm --filter @solana-com-media build`
+   - **Build Command:**
+     `cd ../.. && pnpm install && pnpm --filter @solana-com-media build`
    - **Output Directory:** `.next`
    - **Install Command:** `pnpm install`
 
@@ -93,7 +100,8 @@ Vercel will automatically:
 1. Detect changes to `apps/media/`
 2. Build the media app using the monorepo setup
 3. Deploy to `solana-com-media.vercel.app`
-4. The main web app will proxy `/news/*` and `/podcasts/*` requests to this deployment
+4. The main web app will proxy `/news/*` and `/podcasts/*` requests to this
+   deployment
 
 ### Manual Deploy (if needed)
 
@@ -186,8 +194,11 @@ paths—no URL rewriting needed.
 **Solution:** Check that:
 
 1. Media app is deployed successfully to `solana-com-media.vercel.app`
-2. The rewrite URL in `apps/web/rewrites-redirects.mjs` matches the actual deployment URL
-3. The media app is accessible directly at `https://solana-com-media.vercel.app/news` or `https://solana-com-media.vercel.app/podcasts`
+2. The rewrite URL in `apps/web/rewrites-redirects.mjs` matches the actual
+   deployment URL
+3. The media app is accessible directly at
+   `https://solana-com-media.vercel.app/news` or
+   `https://solana-com-media.vercel.app/podcasts`
 
 ### Issue: Changes not deploying
 
@@ -221,7 +232,8 @@ paths—no URL rewriting needed.
 If you want a custom domain:
 
 1. Add domain in Vercel dashboard → Settings → Domains
-2. Set up domain env `NEXT_PUBLIC_MEDIA_APP_URL` for the main app `apps/web` and/or configure the rewrite in `apps/web/apps-urls.js`:
+2. Set up domain env `NEXT_PUBLIC_MEDIA_APP_URL` for the main app `apps/web`
+   and/or configure the rewrite in `apps/web/apps-urls.js`:
 
    ```javascript
    const vercelMediaUrl = `https://${withRelatedProject({

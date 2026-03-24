@@ -58,7 +58,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
       <Link
         href={post.url}
         className={cn(
-          "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer"
+          "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer",
         )}
       >
         <h3 className="text-xl font-semibold group-hover:underline">
@@ -101,7 +101,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
     <Link
       href={post.url}
       className={cn(
-        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border",
       )}
     >
       {post?.heroImage && (

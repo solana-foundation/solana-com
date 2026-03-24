@@ -11,7 +11,7 @@ export const filterAndSortPodcasts = (
     status?: PodcastShow["status"];
     category?: string;
     featured?: boolean;
-  } = {}
+  } = {},
 ): PodcastShow[] => {
   let filtered = [...podcasts];
 

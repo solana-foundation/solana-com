@@ -166,7 +166,7 @@ export default function PodcastShowClientPage({
     setIsLoadingMore(true);
     try {
       const res = await fetch(
-        `/api/podcasts/${podcast.slug}/episodes?limit=12&offset=${currentOffset}`
+        `/api/podcasts/${podcast.slug}/episodes?limit=12&offset=${currentOffset}`,
       );
       if (!res.ok) throw new Error("Failed to fetch episodes");
 
@@ -202,7 +202,7 @@ export default function PodcastShowClientPage({
         root: null,
         rootMargin: "200px",
         threshold: 0.1,
-      }
+      },
     );
 
     observer.observe(sentinel);

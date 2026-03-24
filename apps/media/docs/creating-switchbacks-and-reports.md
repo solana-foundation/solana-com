@@ -20,8 +20,8 @@ At the simplest level, a switchback contains:
 - One or more buttons
 
 Switchbacks were originally used as supporting marketing sections attached to
-posts. They now also serve a second purpose: they can act as the source of
-truth for **reports**.
+posts. They now also serve a second purpose: they can act as the source of truth
+for **reports**.
 
 This means there are now **two valid ways** to use a switchback:
 
@@ -106,7 +106,8 @@ not need it to become a report page.
 
 ### Important authoring note
 
-The main body content belongs in the **main content editor**, not in frontmatter.
+The main body content belongs in the **main content editor**, not in
+frontmatter.
 
 In the content file on disk, the body is stored below the frontmatter block
 because `body` is the collection `contentField`.

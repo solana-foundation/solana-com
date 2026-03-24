@@ -29,7 +29,7 @@ async function fetchReports(params: ReportConnectionParams) {
 }
 
 function parseQueryParams(
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
 ): ReportConnectionParams {
   const params: ReportConnectionParams = {};
 
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

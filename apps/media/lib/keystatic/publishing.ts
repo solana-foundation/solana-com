@@ -16,7 +16,7 @@ export function parsePublishedAt(value: unknown): Date | null {
 
 export function isPublishedAtOrBefore(
   value: unknown,
-  now: Date = new Date()
+  now: Date = new Date(),
 ): boolean {
   const publishedAt = parsePublishedAt(value);
   return publishedAt ? publishedAt.getTime() <= now.getTime() : false;
@@ -24,7 +24,7 @@ export function isPublishedAtOrBefore(
 
 export function formatPublishedAt(
   value: unknown,
-  format: "short" | "long" = "short"
+  format: "short" | "long" = "short",
 ): string {
   const publishedAt = parsePublishedAt(value);
   if (!publishedAt) {
