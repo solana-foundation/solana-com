@@ -53,7 +53,7 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     index: index + 1,
     title: link.title,
     categoryId,
-    date: link.publishedAt,
+    date: link.publishedAtRaw || link.publishedAt,
     url: link.url,
     source: link.source,
     linkType: link.linkType,

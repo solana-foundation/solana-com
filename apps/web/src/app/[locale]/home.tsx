@@ -141,13 +141,11 @@ export function HomePage({
       <Hero
         title={translations.heroTitle}
         subtitle={translations.heroSubtitle}
-        bannerEyebrow="Graveyard Hack"
-        bannerDescription="Build undead ideas on Solana. Join from February 12-27, 2026 and compete for prizes."
-        bannerImgSrc="/assets/graveyard-hack/background.png"
-        // rm bannerHref and bannerLabel to hide banner
-        bannerHref="/graveyard-hack"
-        bannerLabel="Explore Graveyard Hack"
-        bannerExpiryDate="2026-02-27"
+        bannerEyebrow="Solana Developer Platform"
+        bannerDescription="Build, deploy, and scale on Solana with enterprise-grade tools and infrastructure."
+        bannerImgSrc="/src/img/solutions/sdp/hero-bg.png"
+        bannerHref="/solutions/sdp"
+        bannerLabel="Explore SDP"
         cta={translations.heroCta}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"

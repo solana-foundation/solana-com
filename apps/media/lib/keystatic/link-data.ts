@@ -1,10 +1,6 @@
 import { reader } from "../reader";
 import { LinkItem } from "../link-types";
-import { format } from "date-fns";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-
-dayjs.extend(utc);
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
 
 export interface LatestLinksParams {
   limit?: number;
@@ -32,9 +28,9 @@ async function transformLink(
 ): Promise<LinkItem | null> {
   if (!link) return null;
 
-  const date = link.publishedAt ? new Date(link.publishedAt) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAtRaw =
+    typeof link.publishedAt === "string" ? link.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAtRaw);
 
   // Resolve category names
   const categoryNames: string[] = [];
@@ -73,6 +69,7 @@ async function transformLink(
     thumbnailImage: link.thumbnailImage || null,
     source: link.source || null,
     publishedAt: formattedDate,
+    publishedAtRaw,
     categories: categoryNames,
     tags: tagNames,
     featured: link.featured || false,
@@ -103,7 +100,7 @@ export const fetchLatestLinks = async (
         if (link) {
           linksWithDates.push({
             slug,
-            date: link.publishedAt ? new Date(link.publishedAt) : null,
+            date: parsePublishedAt(link.publishedAt),
             link,
           });
         }
@@ -120,7 +117,7 @@ export const fetchLatestLinks = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     const normalizedCategory = params.category?.trim().toLowerCase();
@@ -253,7 +250,7 @@ export const fetchFeaturedLinks = async (
       if (link?.featured) {
         featuredLinks.push({
           slug,
-          date: link.publishedAt ? new Date(link.publishedAt) : null,
+          date: parsePublishedAt(link.publishedAt),
           link,
         });
       }
@@ -264,7 +261,7 @@ export const fetchFeaturedLinks = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     // Transform links
@@ -309,7 +306,7 @@ export const fetchLinksByTag = async (
             if (String(tagData?.name) === tagName) {
               matchingLinks.push({
                 slug,
-                date: link.publishedAt ? new Date(link.publishedAt) : null,
+                date: parsePublishedAt(link.publishedAt),
                 link,
               });
               break;
@@ -324,7 +321,7 @@ export const fetchLinksByTag = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     // Transform links

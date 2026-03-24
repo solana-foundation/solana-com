@@ -131,16 +131,16 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
 
   useEffect(() => {
     if (!firstRender || !isIntersecting) return;
+    if (!items || items.length === 0) return;
 
-    setFirstRenderItems(items || []);
+    setFirstRenderItems(items);
 
     const timer = setTimeout(() => {
       setFirstRender(false);
     }, 10000);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstRender, isIntersecting]);
+  }, [firstRender, isIntersecting, items]);
 
   useEffect(() => {
     if (!items || items.length === 0) {

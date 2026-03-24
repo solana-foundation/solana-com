@@ -1,9 +1,6 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
 import { ContentDocument } from "./post-types";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-
-dayjs.extend(utc);
+import { formatPublishedAt } from "./keystatic/publishing";
 
 // Type for link data from Keystatic
 interface LinkData {
@@ -28,10 +25,8 @@ export function transformLink(
   resolvedCategories?: string[],
   resolvedTags?: string[],
 ): LinkItem {
-  // Format date in UTC to avoid timezone conversion issues
-  const formattedDate = linkData.publishedAt
-    ? dayjs.utc(linkData.publishedAt).format("DD MMM YYYY")
-    : "";
+  const publishedAtRaw = linkData.publishedAt ?? null;
+  const formattedDate = formatPublishedAt(publishedAtRaw);
 
   return {
     id: linkData.slug,
@@ -42,6 +37,7 @@ export function transformLink(
     thumbnailImage: linkData.thumbnailImage,
     source: linkData.source || getSourceFromUrl(linkData.url),
     publishedAt: formattedDate,
+    publishedAtRaw,
     categories: resolvedCategories || [],
     tags: resolvedTags || [],
     featured: linkData.featured || false,
