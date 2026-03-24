@@ -52,7 +52,6 @@ function Header({
             </Link>
 
             <div className="xl:grow flex items-center max-md:gap-4 md:gap-2">
-
               {/* Desktop Menu */}
               <div className="hidden xl:block flex-1">
                 <HeaderList />
