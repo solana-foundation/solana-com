@@ -1,7 +1,4 @@
-import {
-  getCompany,
-  type CompanyId,
-} from "./companies/registry";
+import { getCompany, type CompanyId } from "./companies/registry";
 import type {
   CompanyLogoAsset,
   CompanyRecord,
