@@ -76,7 +76,9 @@ function summarizeWorkspace(kind, dirName) {
   }
 
   const pkg = readJson(pkgPath);
-  const nextConfigText = readText(path.join(rootDir, relBase, "next.config.ts"));
+  const nextConfigText = readText(
+    path.join(rootDir, relBase, "next.config.ts"),
+  );
 
   return {
     name: dirName,

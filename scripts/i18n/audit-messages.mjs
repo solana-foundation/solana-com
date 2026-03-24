@@ -39,14 +39,7 @@ const appConfigs = {
   },
 };
 
-const fileExtensions = new Set([
-  ".js",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".mjs",
-  ".cjs",
-]);
+const fileExtensions = new Set([".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]);
 
 function walk(dir, files = []) {
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
@@ -117,7 +110,9 @@ function collectUsedKeysFromFile(filePath) {
     }
   }
 
-  const sortedNamespaces = [...namespaces.entries()].sort((a, b) => a[0] - b[0]);
+  const sortedNamespaces = [...namespaces.entries()].sort(
+    (a, b) => a[0] - b[0],
+  );
 
   const keyRegex = /\bt\(\s*["'`]([^"'`]+)["'`]/g;
   for (const match of source.matchAll(keyRegex)) {
