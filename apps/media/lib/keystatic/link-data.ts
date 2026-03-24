@@ -321,7 +321,7 @@ export const fetchLinksByTag = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     // Transform links
