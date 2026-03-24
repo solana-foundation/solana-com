@@ -204,14 +204,14 @@ export const solutionsCasesColumns: NavItemDefinition[][] = [
       href: "/solutions/institutional-payments",
       icon: BankIcon,
     },
-  ],
-  [
     {
       id: "solutions-stablecoins",
       titleKey: "nav.solutions.cases.items.8.title",
       href: "/solutions/stablecoins",
       icon: CoinIcon,
     },
+  ],
+  [
     {
       id: "solutions-enterprise",
       titleKey: "nav.solutions.cases.items.1.title",
@@ -229,6 +229,12 @@ export const solutionsCasesColumns: NavItemDefinition[][] = [
       titleKey: "nav.solutions.cases.items.11.title",
       href: "/solutions/ai",
       icon: SparklesIcon,
+    },
+    {
+      id: "solutions-sdp",
+      titleKey: "nav.solutions.cases.items.13.title",
+      href: "/solutions/sdp",
+      icon: MaintenanceIcon,
     },
   ],
 ];

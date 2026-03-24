@@ -83,10 +83,6 @@ export default async function middleware(req: NextRequest) {
 
   const response = await handleI18nRouting(req);
 
-  if (pathname.includes("/playgg")) {
-    response.headers.set("x-custom-layout", "true");
-  }
-
   return response;
 }
 
