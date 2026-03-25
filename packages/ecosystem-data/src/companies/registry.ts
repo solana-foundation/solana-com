@@ -19,6 +19,7 @@ import { gradient } from "./records/gradient";
 import { jito } from "./records/jito";
 import { kast } from "./records/kast";
 import { libeara } from "./records/libeara";
+import { matcha } from "./records/matcha";
 import { mantleByreal } from "./records/mantle-byreal";
 import { openmined } from "./records/openmined";
 import { osl } from "./records/osl";
@@ -59,6 +60,7 @@ export const companies = [
   jito,
   kast,
   libeara,
+  matcha,
   mantleByreal,
   openmined,
   osl,
