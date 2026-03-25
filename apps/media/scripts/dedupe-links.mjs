@@ -10,12 +10,93 @@ function parseFrontmatter(content) {
   return match ? match[1] : null;
 }
 
-function getFrontmatterValue(frontmatter, fieldName) {
-  const match = frontmatter.match(
-    new RegExp(`^${fieldName}:\\s*(?:"([^"]*)"|'([^']*)'|(.+))$`, "m"),
-  );
+function stripWrappingQuotes(value) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
 
-  return match?.[1] ?? match?.[2] ?? match?.[3]?.trim() ?? null;
+  return value;
+}
+
+function parseYamlBlockValue(lines, startIndex, indicator) {
+  let endIndex = startIndex + 1;
+  const blockLines = [];
+
+  while (endIndex < lines.length) {
+    const line = lines[endIndex];
+
+    if (line.length > 0 && !line.startsWith(" ") && !line.startsWith("\t")) {
+      break;
+    }
+
+    blockLines.push(line);
+    endIndex += 1;
+  }
+
+  const nonEmptyLines = blockLines.filter((line) => line.trim().length > 0);
+  const sharedIndent =
+    nonEmptyLines.length === 0
+      ? 0
+      : Math.min(
+          ...nonEmptyLines.map((line) => line.match(/^\s*/)?.[0].length ?? 0),
+        );
+
+  const normalizedLines = blockLines.map((line) => line.slice(sharedIndent));
+  const value = indicator.startsWith(">")
+    ? normalizedLines
+        .map((line) => line.trim())
+        .join(" ")
+        .trim()
+    : normalizedLines.join("\n").trimEnd();
+
+  return { endIndex, value };
+}
+
+function parseFrontmatterFields(frontmatter) {
+  const fields = new Map();
+  const lines = frontmatter.split("\n");
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const match = line.match(/^([A-Za-z0-9_-]+):(?:\s*(.*))?$/);
+
+    if (!match) {
+      continue;
+    }
+
+    const [, fieldName, rawValue = ""] = match;
+    const trimmedValue = rawValue.trim();
+
+    if (
+      trimmedValue === ">" ||
+      trimmedValue === ">-" ||
+      trimmedValue === "|" ||
+      trimmedValue === "|-"
+    ) {
+      const { endIndex, value } = parseYamlBlockValue(
+        lines,
+        index,
+        trimmedValue,
+      );
+
+      fields.set(fieldName, value);
+      index = endIndex - 1;
+      continue;
+    }
+
+    if (trimmedValue.length > 0) {
+      fields.set(fieldName, stripWrappingQuotes(trimmedValue));
+    }
+  }
+
+  return fields;
+}
+
+function getFrontmatterValue(frontmatterFields, fieldName) {
+  return frontmatterFields.get(fieldName) ?? null;
 }
 
 function normalizeUrl(rawUrl) {
@@ -23,6 +104,11 @@ function normalizeUrl(rawUrl) {
 
   try {
     const url = new URL(trimmed);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
     url.hash = "";
 
     if (
@@ -49,7 +135,7 @@ function normalizeUrl(rawUrl) {
 
     return url.toString();
   } catch {
-    return trimmed;
+    return null;
   }
 }
 
@@ -95,19 +181,29 @@ async function readLinkEntries() {
       continue;
     }
 
-    const rawUrl = getFrontmatterValue(frontmatter, "url");
+    const frontmatterFields = parseFrontmatterFields(frontmatter);
+    const rawUrl = getFrontmatterValue(frontmatterFields, "url");
     if (!rawUrl) {
       console.warn(`skip ${fileName} (missing url)`);
       continue;
     }
 
-    const publishedAtRaw = getFrontmatterValue(frontmatter, "publishedAt");
+    const normalizedUrl = normalizeUrl(rawUrl);
+    if (!normalizedUrl) {
+      console.warn(`skip ${fileName} (invalid url: ${rawUrl})`);
+      continue;
+    }
+
+    const publishedAtRaw = getFrontmatterValue(
+      frontmatterFields,
+      "publishedAt",
+    );
 
     entries.push({
       absolutePath,
       fileName,
       rawUrl,
-      normalizedUrl: normalizeUrl(rawUrl),
+      normalizedUrl,
       publishedAtRaw,
       publishedAtDate: parsePublishedAt(publishedAtRaw),
     });
