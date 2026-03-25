@@ -336,7 +336,7 @@ export const PODCASTS = [
   {
     title: "Fireblocks",
     img: "https://img.youtube.com/vi/eg1joEasU7s/hqdefault.jpg",
-    href: "/https://youtu.be/eg1joEasU7s",
+    href: "https://youtu.be/eg1joEasU7s",
     date: "2026-03-18",
     duration: "12:20",
   },
