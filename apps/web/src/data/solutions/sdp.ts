@@ -368,4 +368,32 @@ export const PODCASTS = [
     date: "2026-03-19",
     duration: "7:58",
   },
+  {
+    title: "Helius",
+    img: "https://img.youtube.com/vi/QGRwG0XdTJs/hqdefault.jpg",
+    href: "https://youtu.be/QGRwG0XdTJs",
+    date: "2026-03-24",
+    duration: "15:02",
+  },
+  {
+    title: "Privy",
+    img: "https://img.youtube.com/vi/CQ5uPmKYRJA/hqdefault.jpg",
+    href: "https://youtu.be/CQ5uPmKYRJA",
+    date: "2026-03-24",
+    duration: "9:35",
+  },
+  {
+    title: "Turnkey",
+    img: "https://img.youtube.com/vi/Ksrj8xVGV5I/hqdefault.jpg",
+    href: "https://youtu.be/Ksrj8xVGV5I",
+    date: "2026-03-24",
+    duration: "9:35",
+  },
+  {
+    title: "BitGo",
+    img: "https://img.youtube.com/vi/U9V2nmGMNUw/hqdefault.jpg",
+    href: "https://youtu.be/U9V2nmGMNUw",
+    date: "2026-03-24",
+    duration: "10:53",
+  },
 ];
