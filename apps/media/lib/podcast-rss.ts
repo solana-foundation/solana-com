@@ -105,6 +105,22 @@ function extractEpisodeThumbnail(item: any): string | undefined {
   );
 }
 
+function extractEpisodeDescriptionHtml(item: any): string | undefined {
+  const candidates = [
+    item.content,
+    item["content:encoded"],
+    item.contentEncoded,
+    item.description,
+  ];
+
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" &&
+      candidate.trim().length > 0 &&
+      /<[^>]+>/.test(candidate),
+  );
+}
+
 function isBuzzsproutFeed(rssFeedUrl: string): boolean {
   return /(?:^|\/\/)(?:feeds|rss)\.buzzsprout\.com\/\d+\.rss(?:$|\?)/i.test(
     rssFeedUrl,
@@ -277,6 +293,7 @@ export async function fetchEpisodesFromRSS(
         podcastSlug,
         title: item.title || "Untitled Episode",
         description: item.contentSnippet || item.content || item.description,
+        descriptionHtml: extractEpisodeDescriptionHtml(item),
         publishedDate: item.pubDate || item.isoDate || new Date().toISOString(),
         duration,
         audioUrl: item.enclosure?.url || "",

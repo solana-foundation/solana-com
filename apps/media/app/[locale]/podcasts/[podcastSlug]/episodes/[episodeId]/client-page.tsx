@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
+import { EpisodeDescription } from "@/components/podcast/episode-description";
 import { SubscribeButtons } from "@/components/podcast/subscribe-buttons";
 import { SocialShare } from "@/components/ui/social-share";
 import {
@@ -118,10 +119,11 @@ export default function EpisodeClientPage({
               </h1>
 
               {/* Description */}
-              {episode.description && (
-                <p className="text-base leading-relaxed text-muted-foreground">
-                  {episode.description}
-                </p>
+              {(episode.description || episode.descriptionHtml) && (
+                <EpisodeDescription
+                  description={episode.description}
+                  descriptionHtml={episode.descriptionHtml}
+                />
               )}
 
               {/* Hosts */}

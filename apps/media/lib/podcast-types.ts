@@ -39,6 +39,7 @@ export interface PodcastEpisode {
   podcastSlug: string;
   title: string;
   description?: string;
+  descriptionHtml?: string;
   publishedDate: string;
   duration: number;
   audioUrl: string;
