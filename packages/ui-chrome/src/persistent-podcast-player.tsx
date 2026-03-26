@@ -83,7 +83,7 @@ export function PersistentPodcastPlayer() {
     audio.playbackRate = state.playbackRate;
     void syncPlayback(audio, state.isPlaying);
   }, [
-    state.currentEpisode?.audioUrl,
+    state.currentEpisode,
     state.isMuted,
     state.isPlaying,
     state.playbackRate,
