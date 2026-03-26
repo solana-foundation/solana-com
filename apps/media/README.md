@@ -85,7 +85,7 @@ All routes are prefixed with locale:
 - `/<locale>/news/:slug` - Individual article
 - `/<locale>/podcasts` - Podcasts listing
 - `/<locale>/podcasts/:podcast` - Podcast show page
-- `/<locale>/podcasts/:podcast/episodes/:id` - Individual episode
+- `/<locale>/podcasts/:podcast/episodes/:slug` - Individual episode
 - `/keystatic` - Keystatic admin panel (no locale prefix)
 
 ## Architecture

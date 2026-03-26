@@ -49,6 +49,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 function toPlayerEpisode(episode: PodcastEpisode): PodcastPlayerEpisode {
   return {
     id: episode.id,
+    slug: episode.slug,
     podcastSlug: episode.podcastSlug,
     title: episode.title,
     audioUrl: episode.audioUrl,

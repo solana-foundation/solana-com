@@ -1,5 +1,6 @@
 export interface PodcastPlayerEpisode {
   id: string;
+  slug: string;
   podcastSlug: string;
   title: string;
   audioUrl: string;

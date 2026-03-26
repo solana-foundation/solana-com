@@ -189,7 +189,7 @@ export const fetchEpisodesForPodcast = async (
 };
 
 /**
- * Fetch a single episode by ID from RSS feed
+ * Fetch a single episode by slug or ID from RSS feed
  */
 export const fetchEpisodeById = async (
   episodeId: string,

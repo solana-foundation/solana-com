@@ -214,7 +214,7 @@ export function PersistentPodcastPlayer() {
 
   const currentEpisodePath =
     state.currentEpisode && state.podcastSlug
-      ? `/podcasts/${state.podcastSlug}/episodes/${state.currentEpisode.id}`
+      ? `/podcasts/${state.podcastSlug}/episodes/${state.currentEpisode.slug ?? state.currentEpisode.id}`
       : null;
   const podcastPath = state.podcastSlug
     ? `/podcasts/${state.podcastSlug}`

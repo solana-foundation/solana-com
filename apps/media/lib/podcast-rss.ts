@@ -86,6 +86,61 @@ function generateEpisodeId(item: any): string {
   }
 }
 
+function slugifySegment(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
+function buildEpisodeSlug(
+  title: string | undefined,
+  fallbackValue: string,
+  publishedDate?: string,
+): string {
+  const baseSlug =
+    slugifySegment(title || "") || slugifySegment(fallbackValue) || "episode";
+  const publishedDay = publishedDate
+    ? new Date(publishedDate).toISOString().slice(0, 10)
+    : null;
+
+  return publishedDay ? `${baseSlug}-${publishedDay}` : baseSlug;
+}
+
+function extractSlugFromEpisodePath(episodePath: string): string | null {
+  const episodeSegment = episodePath.match(/\/episodes\/([^/?#]+)/i)?.[1];
+  if (!episodeSegment) {
+    return null;
+  }
+
+  const slug = slugifySegment(decodeURIComponent(episodeSegment));
+  return slug || null;
+}
+
+function ensureUniqueEpisodeSlugs(
+  episodes: PodcastEpisode[],
+): PodcastEpisode[] {
+  const slugCounts = new Map<string, number>();
+
+  return episodes.map((episode) => {
+    const count = slugCounts.get(episode.slug) ?? 0;
+    slugCounts.set(episode.slug, count + 1);
+
+    if (count === 0) {
+      return episode;
+    }
+
+    const suffix = slugifySegment(episode.id).slice(-8) || String(count + 1);
+    return {
+      ...episode,
+      slug: `${episode.slug}-${suffix}`,
+    };
+  });
+}
+
 function extractEpisodeThumbnail(item: any): string | undefined {
   const candidates = [
     item.itunesImage?.href,
@@ -210,6 +265,9 @@ function parseBuzzsproutEpisodesPage(
 
     episodes.push({
       id: episodeId,
+      slug:
+        extractSlugFromEpisodePath(episodePath) ||
+        buildEpisodeSlug(titleMatch[1], episodeId, publishedDate),
       recordingId: episodeId,
       podcastSlug,
       title: stripHtml(titleMatch[1]),
@@ -266,10 +324,12 @@ async function fetchEpisodesFromBuzzsprout(
     page += 1;
   }
 
-  return episodes.sort(
+  const sortedEpisodes = episodes.sort(
     (a, b) =>
       new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime(),
   );
+
+  return ensureUniqueEpisodeSlugs(sortedEpisodes);
 }
 
 /**
@@ -286,15 +346,23 @@ export async function fetchEpisodesFromRSS(
       const duration = parseDuration(
         item.itunesDuration || item.itunes?.duration,
       );
+      const id = generateEpisodeId(item);
+      const publishedDate =
+        item.pubDate || item.isoDate || new Date().toISOString();
+      const linkSlug =
+        typeof item.link === "string"
+          ? extractSlugFromEpisodePath(item.link)
+          : null;
 
       return {
-        id: generateEpisodeId(item),
-        recordingId: generateEpisodeId(item),
+        id,
+        slug: linkSlug || buildEpisodeSlug(item.title, id, publishedDate),
+        recordingId: id,
         podcastSlug,
         title: item.title || "Untitled Episode",
         description: item.contentSnippet || item.content || item.description,
         descriptionHtml: extractEpisodeDescriptionHtml(item),
-        publishedDate: item.pubDate || item.isoDate || new Date().toISOString(),
+        publishedDate,
         duration,
         audioUrl: item.enclosure?.url || "",
         thumbnailUrl: extractEpisodeThumbnail(item),
@@ -309,7 +377,7 @@ export async function fetchEpisodesFromRSS(
         new Date(a.publishedDate).getTime(),
     );
 
-    return episodes;
+    return ensureUniqueEpisodeSlugs(episodes);
   } catch (error) {
     console.error(`❌ Failed to fetch RSS feed ${rssFeedUrl}:`, error);
     return [];
@@ -317,19 +385,23 @@ export async function fetchEpisodesFromRSS(
 }
 
 /**
- * Fetch a single episode by ID from RSS feed
+ * Fetch a single episode by slug or ID from RSS feed
  */
 export async function fetchEpisodeByIdFromRSS(
-  episodeId: string,
+  episodeIdOrSlug: string,
   rssFeedUrl: string,
   podcastSlug: string,
 ): Promise<PodcastEpisode | null> {
   try {
     const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
-    return episodes.find((ep) => ep.id === episodeId) || null;
+    return (
+      episodes.find(
+        (ep) => ep.id === episodeIdOrSlug || ep.slug === episodeIdOrSlug,
+      ) || null
+    );
   } catch (error) {
     console.error(
-      `❌ Failed to fetch episode ${episodeId} from ${rssFeedUrl}:`,
+      `❌ Failed to fetch episode ${episodeIdOrSlug} from ${rssFeedUrl}:`,
       error,
     );
     return null;

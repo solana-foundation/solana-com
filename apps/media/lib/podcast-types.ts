@@ -35,6 +35,7 @@ export interface PodcastShow {
 
 export interface PodcastEpisode {
   id: string;
+  slug: string;
   recordingId: string;
   podcastSlug: string;
   title: string;

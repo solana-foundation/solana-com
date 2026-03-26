@@ -133,6 +133,7 @@ const MOCK_PODCAST = {
 
 const MOCK_EPISODE = {
   id: "ep-123",
+  slug: "the-future-of-defi-2026-02-15",
   title: "The Future of DeFi",
   description: "Exploring DeFi innovations on Solana.",
   thumbnailUrl: "/uploads/ep-123-thumb.jpg",
@@ -446,9 +447,12 @@ describe("podcastEpisodeMetadata", () => {
     expectTwitterFields(meta.twitter as any);
   });
 
-  it("sets canonical to /podcasts/{slug}/episodes/{id}", async () => {
+  it("sets canonical to /podcasts/{slug}/episodes/{episode-slug}", async () => {
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
-    expectCanonical(meta.alternates, "/podcasts/validated/episodes/ep-123");
+    expectCanonical(
+      meta.alternates,
+      "/podcasts/validated/episodes/the-future-of-defi-2026-02-15",
+    );
   });
 
   it("uses only public URLs", async () => {

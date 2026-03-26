@@ -201,7 +201,7 @@ export default function EpisodeClientPage({
             <div className="grid grid-cols-1 gap-4 border-t border-white/[0.06] pt-8 sm:grid-cols-2">
               {previousEpisode ? (
                 <Link
-                  href={`/podcasts/${podcast.slug}/episodes/${previousEpisode.id}`}
+                  href={`/podcasts/${podcast.slug}/episodes/${previousEpisode.slug}`}
                   className="group flex cursor-pointer flex-col gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -218,7 +218,7 @@ export default function EpisodeClientPage({
 
               {nextEpisode ? (
                 <Link
-                  href={`/podcasts/${podcast.slug}/episodes/${nextEpisode.id}`}
+                  href={`/podcasts/${podcast.slug}/episodes/${nextEpisode.slug}`}
                   className="group flex cursor-pointer flex-col items-end gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 text-right transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
