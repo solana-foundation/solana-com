@@ -33,7 +33,7 @@ export const SubscribeButtons = ({
             asChild
             variant="outline"
             size="sm"
-            className="gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
               href={applePodcastsUrl}
@@ -52,7 +52,7 @@ export const SubscribeButtons = ({
             asChild
             variant="outline"
             size="sm"
-            className="gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
               href={spotifyUrl}
@@ -71,7 +71,7 @@ export const SubscribeButtons = ({
             asChild
             variant="outline"
             size="sm"
-            className="gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
               href={youtubeUrl}
@@ -90,7 +90,7 @@ export const SubscribeButtons = ({
             asChild
             variant="outline"
             size="sm"
-            className="gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
               href={rssFeedUrl}

@@ -73,7 +73,7 @@ export default function EpisodeClientPage({
             {/* Podcast Cover Art */}
             <Link
               href={`/podcasts/${podcast.slug}`}
-              className="group relative w-full flex-shrink-0 md:w-48"
+              className="group relative w-full flex-shrink-0 cursor-pointer md:w-48"
             >
               <div className="relative aspect-square w-full overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-shadow duration-300 group-hover:shadow-[0_16px_48px_rgba(0,0,0,0.4)]">
                 <Image
@@ -92,7 +92,7 @@ export default function EpisodeClientPage({
               {/* Podcast name link */}
               <Link
                 href={`/podcasts/${podcast.slug}`}
-                className="text-sm font-medium text-primary hover:underline transition-colors"
+                className="cursor-pointer text-sm font-medium text-primary hover:underline transition-colors"
               >
                 {podcast.title}
               </Link>
@@ -202,7 +202,7 @@ export default function EpisodeClientPage({
               {previousEpisode ? (
                 <Link
                   href={`/podcasts/${podcast.slug}/episodes/${previousEpisode.id}`}
-                  className="group flex flex-col gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
+                  className="group flex cursor-pointer flex-col gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <ChevronLeft className="size-3" />
@@ -219,7 +219,7 @@ export default function EpisodeClientPage({
               {nextEpisode ? (
                 <Link
                   href={`/podcasts/${podcast.slug}/episodes/${nextEpisode.id}`}
-                  className="group flex flex-col items-end gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 text-right transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
+                  className="group flex cursor-pointer flex-col items-end gap-1.5 border border-white/[0.06] bg-white/[0.02] p-4 text-right transition-all duration-300 hover:border-white/15 hover:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span>Next Episode</span>

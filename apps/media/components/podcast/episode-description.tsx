@@ -108,7 +108,7 @@ export function EpisodeDescription({
           <button
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
-            className="w-fit text-sm font-medium text-primary transition-colors hover:text-primary/80"
+            className="w-fit cursor-pointer text-sm font-medium text-primary transition-colors hover:text-primary/80"
             aria-expanded={isExpanded}
           >
             {isExpanded ? "Show less" : "Show more"}
@@ -138,7 +138,7 @@ export function EpisodeDescription({
           <button
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
-            className="w-fit text-sm font-medium text-primary transition-colors hover:text-primary/80"
+            className="w-fit cursor-pointer text-sm font-medium text-primary transition-colors hover:text-primary/80"
             aria-expanded={isExpanded}
           >
             {isExpanded ? "Show less" : "Show more"}

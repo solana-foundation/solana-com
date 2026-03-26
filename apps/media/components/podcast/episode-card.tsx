@@ -38,7 +38,7 @@ export const EpisodeCard = ({
   return (
     <Link
       href={`/podcasts/${episode.podcastSlug}/episodes/${episode.id}`}
-      className="group flex flex-col gap-3 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      className="group flex cursor-pointer flex-col gap-3 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
     >
       {/* Thumbnail with Play Button */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
@@ -60,7 +60,7 @@ export const EpisodeCard = ({
         {episode.audioUrl && (
           <button
             onClick={handlePlayClick}
-            className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-300 group-hover:bg-black/40"
+            className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 transition-all duration-300 group-hover:bg-black/40"
             aria-label={
               isPlaying ? `Pause ${episode.title}` : `Play ${episode.title}`
             }

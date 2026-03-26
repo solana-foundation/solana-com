@@ -5,5 +5,9 @@ export default function PodcastsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <PlayerProvider>{children}</PlayerProvider>;
+  return (
+    <PlayerProvider>
+      <div className="podcast-interactions">{children}</div>
+    </PlayerProvider>
+  );
 }

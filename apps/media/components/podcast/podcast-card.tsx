@@ -13,7 +13,7 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
   return (
     <Link
       href={`/podcasts/${podcast.slug}`}
-      className="group flex flex-col gap-4 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      className="group flex cursor-pointer flex-col gap-4 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
     >
       {/* Cover Image */}
       <div className="relative aspect-square w-full overflow-hidden">
