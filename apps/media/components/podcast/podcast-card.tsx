@@ -2,6 +2,7 @@ import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { getInitials } from "@/lib/podcast-utils";
 import type { PodcastShow } from "@/lib/podcast-types";
 
 interface PodcastCardProps {
@@ -9,25 +10,10 @@ interface PodcastCardProps {
 }
 
 export const PodcastCard = ({ podcast }: PodcastCardProps) => {
-  // Truncate description
-  const truncateDescription = (desc: string, maxLength: number = 120) => {
-    if (typeof desc !== "string") return "";
-    if (desc.length <= maxLength) return desc;
-    return desc.substring(0, maxLength).trim() + "...";
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0]?.toUpperCase() || "")
-      .join("")
-      .substring(0, 2);
-  };
-
   return (
     <Link
       href={`/podcasts/${podcast.slug}`}
-      className="group flex flex-col gap-4 bg-card p-4 transition-all hover:shadow-lg"
+      className="group flex flex-col gap-4 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
     >
       {/* Cover Image */}
       <div className="relative aspect-square w-full overflow-hidden">
@@ -36,12 +22,12 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
           alt={podcast.title}
           fill
           sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
       </div>
 
       {/* Podcast Info */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-1 flex-col gap-2">
         {/* Category Badge */}
         {podcast.category && (
           <Badge variant="secondary" className="w-fit capitalize">
@@ -50,27 +36,27 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
         )}
 
         {/* Title */}
-        <h3 className="text-xl font-semibold group-hover:text-primary transition-colors line-clamp-2">
+        <h3 className="text-lg font-semibold leading-snug text-foreground transition-colors duration-200 group-hover:text-primary line-clamp-2">
           {podcast.title}
         </h3>
 
         {/* Description */}
         {podcast.descriptionPlainText && (
-          <p className="text-sm text-muted-foreground line-clamp-3">
-            {truncateDescription(podcast.descriptionPlainText)}
+          <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">
+            {podcast.descriptionPlainText}
           </p>
         )}
 
         {/* Hosts */}
         {podcast.hosts && podcast.hosts.length > 0 && (
-          <div className="flex items-center gap-2 mt-2">
+          <div className="mt-auto flex items-center gap-2 pt-3 border-t border-white/[0.06]">
             <div className="flex -space-x-2">
               {podcast.hosts.slice(0, 3).map((host, index) => (
-                <Avatar key={index} className="h-8 w-8">
+                <Avatar key={index} className="size-7 border-2 border-card">
                   {host.avatar && (
                     <AvatarImage src={host.avatar} alt={host.name} />
                   )}
-                  <AvatarFallback className="text-xs">
+                  <AvatarFallback className="text-[10px]">
                     {getInitials(host.name)}
                   </AvatarFallback>
                 </Avatar>
@@ -79,18 +65,24 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
             <span className="text-xs text-muted-foreground">
               {podcast.hosts.length === 1
                 ? podcast.hosts[0].name
-                : `${podcast.hosts.length} hosts`}
+                : podcast.hosts.map((h) => h.name).join(", ")}
             </span>
           </div>
         )}
 
-        {/* Episode Count */}
-        {podcast.episodeCount !== undefined && podcast.episodeCount > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {podcast.episodeCount} episode
-            {podcast.episodeCount !== 1 ? "s" : ""}
-          </p>
-        )}
+        {/* Episode count + frequency */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {podcast.episodeCount !== undefined && podcast.episodeCount > 0 && (
+            <span>
+              {podcast.episodeCount} episode
+              {podcast.episodeCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          {podcast.episodeCount && podcast.releaseFrequency && (
+            <span className="text-white/20">·</span>
+          )}
+          {podcast.releaseFrequency && <span>{podcast.releaseFrequency}</span>}
+        </div>
       </div>
     </Link>
   );
