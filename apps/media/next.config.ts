@@ -51,6 +51,11 @@ const nextConfig: NextConfig = {
         hostname: "*.vercel.app",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "www.buzzsprout.com",
+        port: "",
+      },
     ],
   },
 
