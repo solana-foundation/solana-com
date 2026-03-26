@@ -271,9 +271,11 @@ describe("newsPostMetadata", () => {
   });
 
   it("returns noindex fallback when post publish date is in the future", async () => {
+    const futurePublishDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     mockReader.collections.posts.read.mockResolvedValue({
       ...MOCK_POST,
-      publishedAt: "2026-03-25T12:00:00.000Z",
+      publishedAt: futurePublishDate.toISOString(),
     });
     const meta = await newsPostMetadata(slug);
 
