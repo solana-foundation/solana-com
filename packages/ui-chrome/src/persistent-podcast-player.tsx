@@ -280,7 +280,7 @@ export function PersistentPodcastPlayer() {
           {currentEpisodePath ? (
             <Link
               href={currentEpisodePath}
-              className="hidden size-10 overflow-hidden rounded bg-white/5 sm:block"
+              className="hidden size-10 cursor-pointer overflow-hidden rounded bg-white/5 sm:block"
             >
               {state.currentEpisode.thumbnailUrl ? (
                 <img
@@ -296,7 +296,7 @@ export function PersistentPodcastPlayer() {
             {currentEpisodePath ? (
               <Link
                 href={currentEpisodePath}
-                className="block truncate text-sm font-medium text-white transition-opacity hover:opacity-80"
+                className="block cursor-pointer truncate text-sm font-medium text-white transition-opacity hover:opacity-80"
               >
                 {state.currentEpisode.title}
               </Link>
@@ -309,7 +309,7 @@ export function PersistentPodcastPlayer() {
             {state.podcastTitle && podcastPath ? (
               <Link
                 href={podcastPath}
-                className="block truncate text-xs text-white/60 transition-opacity hover:text-white/80"
+                className="block cursor-pointer truncate text-xs text-white/60 transition-opacity hover:text-white/80"
               >
                 {state.podcastTitle}
               </Link>
@@ -329,7 +329,7 @@ export function PersistentPodcastPlayer() {
                   seconds: 15,
                 })
               }
-              className="hidden size-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
+              className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Skip backward 15 seconds"
             >
               <SkipBack size={16} />
@@ -340,7 +340,7 @@ export function PersistentPodcastPlayer() {
               onClick={() =>
                 dispatchPodcastPlayerCommand({ type: "toggle-play-pause" })
               }
-              className="flex size-9 items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-90"
+              className="flex size-9 cursor-pointer items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-90"
               aria-label={state.isPlaying ? "Pause" : "Play"}
             >
               {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
@@ -354,7 +354,7 @@ export function PersistentPodcastPlayer() {
                   seconds: 30,
                 })
               }
-              className="hidden size-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
+              className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Skip forward 30 seconds"
             >
               <SkipForward size={16} />
@@ -366,7 +366,7 @@ export function PersistentPodcastPlayer() {
             onClick={() =>
               dispatchPodcastPlayerCommand({ type: "toggle-mute" })
             }
-            className="hidden size-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
+            className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
             aria-label={state.isMuted ? "Unmute" : "Mute"}
           >
             {state.isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -385,7 +385,7 @@ export function PersistentPodcastPlayer() {
                   volume: Number.parseFloat(event.target.value),
                 })
               }
-              className={classNames("w-20 accent-white")}
+              className={classNames("w-20 cursor-pointer accent-white")}
               aria-label="Volume"
             />
           </div>
@@ -393,7 +393,7 @@ export function PersistentPodcastPlayer() {
           <button
             type="button"
             onClick={() => dispatchPodcastPlayerCommand({ type: "dismiss" })}
-            className="flex size-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10"
             aria-label="Close player"
           >
             <X size={16} />
