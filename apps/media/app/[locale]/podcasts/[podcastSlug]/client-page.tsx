@@ -14,6 +14,7 @@ import { SubscribeButtons } from "@/components/podcast/subscribe-buttons";
 import { PodcastDescription } from "@/components/podcast/podcast-description";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
 import LoadMoreStatus from "@/components/ui/load-more-status";
+import { getSafeExternalUrl } from "@/lib/external-url";
 import { getInitials } from "@/lib/podcast-utils";
 import type { PodcastShow, PodcastEpisode } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
@@ -29,6 +30,10 @@ export default function PodcastShowClientPage({
   initialEpisodes,
   initialHasMore,
 }: PodcastShowClientPageProps) {
+  const hosts = podcast.hosts.map((host) => ({
+    ...host,
+    twitterUrl: getSafeExternalUrl(host.twitterUrl),
+  }));
   const [episodes, setEpisodes] = useState<PodcastEpisode[]>(initialEpisodes);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -113,13 +118,13 @@ export default function PodcastShowClientPage({
               </div>
 
               {/* Hosts */}
-              {podcast.hosts && podcast.hosts.length > 0 && (
+              {hosts.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
                     Hosted by
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {podcast.hosts.map((host, index) => (
+                    {hosts.map((host, index) => (
                       <a
                         key={index}
                         href={host.twitterUrl || undefined}

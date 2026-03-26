@@ -4,6 +4,7 @@ import {
   fetchEpisodeByIdFromRSS,
 } from "../podcast-rss";
 import { contentDocumentToPlainText } from "../content-renderer";
+import { getSafeExternalUrl } from "../external-url";
 import type {
   PodcastShow,
   PodcastEpisode,
@@ -27,10 +28,14 @@ async function transformPodcast(
       if (hostRef.host) {
         const hostData = await reader.collections.authors.read(hostRef.host);
         if (hostData) {
+          const safeTwitterUrl = getSafeExternalUrl(hostData.twitterUrl);
+
           hosts.push({
             name: String(hostData.name) || "Unknown Host",
             ...(hostData.avatar && { avatar: hostData.avatar }),
-            ...(hostData.twitterUrl && { twitterUrl: hostData.twitterUrl }),
+            ...(safeTwitterUrl && {
+              twitterUrl: safeTwitterUrl,
+            }),
           });
         }
       }
@@ -92,10 +97,10 @@ async function transformPodcast(
     hosts,
     riversideProjectId: podcast.riversideProjectId || "",
     riversideStudioId: podcast.riversideStudioId || undefined,
-    applePodcastsUrl: podcast.applePodcastsUrl || undefined,
-    spotifyUrl: podcast.spotifyUrl || undefined,
-    youtubeUrl: podcast.youtubeUrl || undefined,
-    rssFeedUrl: podcast.rssFeedUrl || undefined,
+    applePodcastsUrl: getSafeExternalUrl(podcast.applePodcastsUrl),
+    spotifyUrl: getSafeExternalUrl(podcast.spotifyUrl),
+    youtubeUrl: getSafeExternalUrl(podcast.youtubeUrl),
+    rssFeedUrl: getSafeExternalUrl(podcast.rssFeedUrl),
     releaseFrequency: podcast.releaseFrequency || undefined,
     firstEpisodeDate: podcast.firstEpisodeDate || undefined,
   };

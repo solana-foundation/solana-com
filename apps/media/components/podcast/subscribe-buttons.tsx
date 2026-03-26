@@ -1,6 +1,7 @@
 import { Rss } from "lucide-react";
 import { SiApple, SiSpotify, SiYoutube } from "react-icons/si";
 import { Button } from "@/components/ui/button";
+import { getSafeExternalUrl } from "@/lib/external-url";
 import { cn } from "@/lib/utils";
 
 interface SubscribeButtonsProps {
@@ -18,7 +19,17 @@ export const SubscribeButtons = ({
   rssFeedUrl,
   className,
 }: SubscribeButtonsProps) => {
-  if (!applePodcastsUrl && !spotifyUrl && !youtubeUrl && !rssFeedUrl) {
+  const safeApplePodcastsUrl = getSafeExternalUrl(applePodcastsUrl);
+  const safeSpotifyUrl = getSafeExternalUrl(spotifyUrl);
+  const safeYoutubeUrl = getSafeExternalUrl(youtubeUrl);
+  const safeRssFeedUrl = getSafeExternalUrl(rssFeedUrl);
+
+  if (
+    !safeApplePodcastsUrl &&
+    !safeSpotifyUrl &&
+    !safeYoutubeUrl &&
+    !safeRssFeedUrl
+  ) {
     return null;
   }
 
@@ -28,7 +39,7 @@ export const SubscribeButtons = ({
         Subscribe & Listen
       </p>
       <div className="flex flex-wrap gap-2">
-        {applePodcastsUrl && (
+        {safeApplePodcastsUrl && (
           <Button
             asChild
             variant="outline"
@@ -36,7 +47,7 @@ export const SubscribeButtons = ({
             className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
-              href={applePodcastsUrl}
+              href={safeApplePodcastsUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Apple Podcasts"
@@ -47,7 +58,7 @@ export const SubscribeButtons = ({
           </Button>
         )}
 
-        {spotifyUrl && (
+        {safeSpotifyUrl && (
           <Button
             asChild
             variant="outline"
@@ -55,7 +66,7 @@ export const SubscribeButtons = ({
             className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
-              href={spotifyUrl}
+              href={safeSpotifyUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Spotify"
@@ -66,7 +77,7 @@ export const SubscribeButtons = ({
           </Button>
         )}
 
-        {youtubeUrl && (
+        {safeYoutubeUrl && (
           <Button
             asChild
             variant="outline"
@@ -74,7 +85,7 @@ export const SubscribeButtons = ({
             className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
-              href={youtubeUrl}
+              href={safeYoutubeUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Watch on YouTube"
@@ -85,7 +96,7 @@ export const SubscribeButtons = ({
           </Button>
         )}
 
-        {rssFeedUrl && (
+        {safeRssFeedUrl && (
           <Button
             asChild
             variant="outline"
@@ -93,7 +104,7 @@ export const SubscribeButtons = ({
             className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
           >
             <a
-              href={rssFeedUrl}
+              href={safeRssFeedUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Subscribe via RSS"

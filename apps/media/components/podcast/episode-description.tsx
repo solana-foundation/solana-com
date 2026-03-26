@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import DOMPurify from "dompurify";
 
 interface EpisodeDescriptionProps {
   description?: string;
@@ -10,7 +11,7 @@ interface EpisodeDescriptionProps {
 const COLLAPSED_MAX_HEIGHT = 320;
 const COLLAPSE_THRESHOLD = 700;
 
-const ALLOWED_TAGS = new Set([
+const ALLOWED_TAGS = [
   "a",
   "br",
   "em",
@@ -22,40 +23,43 @@ const ALLOWED_TAGS = new Set([
   "b",
   "u",
   "ul",
-]);
+];
 
 function sanitizeEpisodeHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(['"]).*?\1/gi, "")
-    .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, "")
-    .replace(/\sstyle\s*=\s*(['"]).*?\1/gi, "")
-    .replace(/<\/?([a-z0-9-]+)([^>]*)>/gi, (match, tagName, attrs) => {
-      const normalizedTag = String(tagName).toLowerCase();
+  const sanitizedHtml = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR: ["href"],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ["iframe", "script", "style"],
+  });
 
-      if (!ALLOWED_TAGS.has(normalizedTag)) {
-        return "";
+  const parser = new DOMParser();
+  const document = parser.parseFromString(sanitizedHtml, "text/html");
+
+  document.querySelectorAll("a").forEach((anchor) => {
+    const href = anchor.getAttribute("href");
+
+    if (!href) {
+      anchor.replaceWith(...anchor.childNodes);
+      return;
+    }
+
+    try {
+      const url = new URL(href);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        anchor.replaceWith(...anchor.childNodes);
+        return;
       }
 
-      if (normalizedTag === "a") {
-        const hrefMatch = String(attrs).match(/\shref\s*=\s*(['"])(.*?)\1/i);
-        const href = hrefMatch?.[2];
+      anchor.setAttribute("href", url.toString());
+      anchor.setAttribute("target", "_blank");
+      anchor.setAttribute("rel", "noopener noreferrer");
+    } catch {
+      anchor.replaceWith(...anchor.childNodes);
+    }
+  });
 
-        if (!href || !/^https?:\/\//i.test(href)) {
-          return normalizedTag === "a" && match.startsWith("</") ? "</a>" : "";
-        }
-
-        return match.startsWith("</")
-          ? "</a>"
-          : `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
-      }
-
-      return match.startsWith("</")
-        ? `</${normalizedTag}>`
-        : `<${normalizedTag}>`;
-    });
+  return document.body.innerHTML;
 }
 
 function PlainTextDescription({ description }: { description: string }) {
@@ -80,10 +84,14 @@ export function EpisodeDescription({
   descriptionHtml,
 }: EpisodeDescriptionProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const sanitizedDescriptionHtml = React.useMemo(
+    () => (descriptionHtml ? sanitizeEpisodeHtml(descriptionHtml) : undefined),
+    [descriptionHtml],
+  );
   const contentLength = descriptionHtml?.length ?? description?.length ?? 0;
   const isCollapsible = contentLength > COLLAPSE_THRESHOLD;
 
-  if (descriptionHtml) {
+  if (sanitizedDescriptionHtml) {
     return (
       <div className="flex flex-col gap-4">
         <div
@@ -97,7 +105,7 @@ export function EpisodeDescription({
           <div
             className="prose prose-invert max-w-none prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-ul:text-muted-foreground prose-ol:text-muted-foreground"
             dangerouslySetInnerHTML={{
-              __html: sanitizeEpisodeHtml(descriptionHtml),
+              __html: sanitizedDescriptionHtml,
             }}
           />
           {isCollapsible && !isExpanded && (
