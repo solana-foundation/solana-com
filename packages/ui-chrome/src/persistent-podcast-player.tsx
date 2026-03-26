@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import classNames from "classnames";
 import {
   Pause,
@@ -224,6 +224,10 @@ export function PersistentPodcastPlayer() {
   const progress =
     state.duration > 0 ? Math.min(1, state.currentTime / state.duration) : 0;
   const displayProgress = isSeeking ? seekFraction : progress;
+  const playPauseButtonStyle = {
+    backgroundColor: "#fff",
+    color: "#000",
+  } satisfies CSSProperties;
 
   if (!state.currentEpisode) {
     return null;
@@ -374,6 +378,7 @@ export function PersistentPodcastPlayer() {
                 dispatchPodcastPlayerCommand({ type: "toggle-play-pause" })
               }
               className="flex size-9 cursor-pointer items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-90"
+              style={playPauseButtonStyle}
               aria-label={state.isPlaying ? "Pause" : "Play"}
             >
               {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
