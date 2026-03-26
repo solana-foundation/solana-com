@@ -12,6 +12,9 @@
 import Parser from "rss-parser";
 import type { PodcastEpisode } from "./podcast-types";
 
+const RSS_CACHE_TTL_SECONDS = 30 * 60; // 30 minutes
+const RSS_CACHE_TAG = "podcast-rss";
+
 // Initialize RSS parser with podcast extensions
 const parser = new Parser({
   customFields: {
@@ -195,6 +198,10 @@ async function fetchText(url: string): Promise<string> {
     headers: {
       "user-agent": "Mozilla/5.0",
     },
+    next: {
+      revalidate: RSS_CACHE_TTL_SECONDS,
+      tags: [RSS_CACHE_TAG],
+    },
   });
 
   if (!response.ok) {
@@ -340,7 +347,8 @@ export async function fetchEpisodesFromRSS(
   podcastSlug: string,
 ): Promise<PodcastEpisode[]> {
   try {
-    const feed = await parser.parseURL(rssFeedUrl);
+    const feedXml = await fetchText(rssFeedUrl);
+    const feed = await parser.parseString(feedXml);
 
     const episodes: PodcastEpisode[] = (feed.items || []).map((item: any) => {
       const duration = parseDuration(
@@ -408,36 +416,16 @@ export async function fetchEpisodeByIdFromRSS(
   }
 }
 
-/**
- * Cache RSS data to reduce network requests
- * Stores in memory with TTL of 30 minutes
- */
-const rssCache: Map<string, { data: PodcastEpisode[]; timestamp: number }> =
-  new Map();
-const RSS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-
 export async function fetchEpisodesFromRSSCached(
   rssFeedUrl: string,
   podcastSlug: string,
 ): Promise<PodcastEpisode[]> {
   try {
-    const now = Date.now();
-    const cached = rssCache.get(rssFeedUrl);
-
-    if (cached && now - cached.timestamp < RSS_CACHE_TTL) {
-      return cached.data;
+    if (isBuzzsproutFeed(rssFeedUrl)) {
+      return await fetchEpisodesFromBuzzsprout(rssFeedUrl, podcastSlug);
     }
 
     let episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
-
-    if (episodes.length === 0 && isBuzzsproutFeed(rssFeedUrl)) {
-      episodes = await fetchEpisodesFromBuzzsprout(rssFeedUrl, podcastSlug);
-    }
-
-    rssCache.set(rssFeedUrl, {
-      data: episodes,
-      timestamp: now,
-    });
 
     return episodes;
   } catch (error) {
@@ -450,12 +438,8 @@ export async function fetchEpisodesFromRSSCached(
 }
 
 /**
- * Clear RSS cache
+ * Legacy no-op. Podcast RSS now uses fetch-level Next.js data caching.
  */
 export function clearRSSCache(): void {
-  try {
-    rssCache.clear();
-  } catch (error) {
-    console.error("❌ Failed to clear RSS cache:", error);
-  }
+  return;
 }
