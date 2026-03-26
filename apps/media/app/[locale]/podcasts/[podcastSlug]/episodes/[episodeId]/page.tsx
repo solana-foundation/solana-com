@@ -37,27 +37,41 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
     notFound();
   }
 
-  // Fetch related episodes from RSS feed (next 3 from the same podcast)
-  const relatedEpisodesData = await fetchEpisodesForPodcast(podcast, 4, 0);
-  const relatedEpisodes = relatedEpisodesData.episodes.filter(
-    (ep) => ep.id !== episode!.id,
-  );
+  // Fetch enough episodes to find adjacent ones and related
+  const allEpisodesData = await fetchEpisodesForPodcast(podcast, 50, 0);
+  const allEpisodes = allEpisodesData.episodes;
+
+  // Find current episode index to determine prev/next
+  const currentIndex = allEpisodes.findIndex((ep) => ep.id === episode.id);
+
+  // Episodes are sorted newest-first, so "previous" is older (index + 1)
+  // and "next" is newer (index - 1)
+  const previousEpisode =
+    currentIndex >= 0 && currentIndex < allEpisodes.length - 1
+      ? allEpisodes[currentIndex + 1]
+      : null;
+  const nextEpisode = currentIndex > 0 ? allEpisodes[currentIndex - 1] : null;
+
+  // Related episodes: 3 most recent excluding current
+  const relatedEpisodes = allEpisodes
+    .filter((ep) => ep.id !== episode.id)
+    .slice(0, 3);
 
   return (
     <EpisodeClientPage
       podcast={podcast}
       episode={episode}
-      relatedEpisodes={relatedEpisodes.slice(0, 3)}
+      relatedEpisodes={relatedEpisodes}
+      previousEpisode={previousEpisode}
+      nextEpisode={nextEpisode}
     />
   );
 }
 
 // Generate pages on-demand with ISR
-export const dynamicParams = true; // Allow all dynamic params
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  // Return empty array to generate pages on-demand
-  // Pages will be cached after first visit (ISR)
   return [];
 }
 

@@ -138,7 +138,7 @@ export function SocialShare({
   ];
 
   const baseItemClassName = cn(
-    "group flex items-center justify-center transition",
+    "group flex cursor-pointer items-center justify-center transition",
     variantStyles[variant],
     itemClassName,
   );

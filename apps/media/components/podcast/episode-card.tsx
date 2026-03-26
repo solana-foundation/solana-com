@@ -1,32 +1,44 @@
+"use client";
+
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { Play } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
+import { usePlayerOptional } from "./player-context";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
 interface EpisodeCardProps {
   episode: PodcastEpisode;
-  showPlayButton?: boolean;
-  onPlayClick?: (episode: PodcastEpisode) => void;
+  podcastTitle?: string;
+  podcastSlug?: string;
 }
 
 export const EpisodeCard = ({
   episode,
-  showPlayButton = true,
-  onPlayClick,
+  podcastTitle,
+  podcastSlug,
 }: EpisodeCardProps) => {
+  const player = usePlayerOptional();
+  const isCurrentEpisode = player?.currentEpisode?.id === episode.id;
+  const isPlaying = isCurrentEpisode && player?.isPlaying;
+
   const handlePlayClick = (e: React.MouseEvent) => {
-    if (onPlayClick) {
-      e.preventDefault();
-      onPlayClick(episode);
+    e.preventDefault();
+    e.stopPropagation();
+    if (!player) return;
+
+    if (isCurrentEpisode) {
+      player.togglePlayPause();
+    } else {
+      player.play(episode, podcastTitle, podcastSlug || episode.podcastSlug);
     }
   };
 
   return (
     <Link
-      href={`/podcasts/${episode.podcastSlug}/episodes/${episode.id}`}
-      className="group flex flex-col gap-4 bg-card p-4 transition-all hover:shadow-lg"
+      href={`/podcasts/${episode.podcastSlug}/episodes/${episode.slug}`}
+      className="group flex cursor-pointer flex-col gap-3 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
     >
       {/* Thumbnail with Play Button */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
@@ -36,56 +48,74 @@ export const EpisodeCard = ({
             alt={episode.title}
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-            <Play className="h-16 w-16 text-primary/40" />
+            <Play className="size-12 text-primary/30" />
           </div>
         )}
 
         {/* Play Button Overlay */}
-        {showPlayButton && episode.audioUrl && (
+        {episode.audioUrl && (
           <button
             onClick={handlePlayClick}
-            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
-            aria-label={`Play ${episode.title}`}
+            className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 transition-all duration-300 group-hover:bg-black/40"
+            aria-label={
+              isPlaying ? `Pause ${episode.title}` : `Play ${episode.title}`
+            }
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110">
-              <Play className="h-8 w-8 ml-1" />
+            <div className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all duration-300 group-hover:opacity-100 group-hover:scale-100 scale-75">
+              {isPlaying ? (
+                <Pause className="size-6" />
+              ) : (
+                <Play className="size-6 ml-0.5" />
+              )}
             </div>
           </button>
+        )}
+
+        {/* Duration badge */}
+        {episode.duration > 0 && (
+          <div className="absolute bottom-2 right-2">
+            <Badge
+              variant="secondary"
+              className="bg-black/70 text-white border-0 text-[10px] font-normal backdrop-blur-sm"
+            >
+              {formatDuration(episode.duration)}
+            </Badge>
+          </div>
         )}
       </div>
 
       {/* Episode Info */}
-      <div className="flex flex-col gap-2">
-        {/* Date and Duration */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatEpisodeDate(episode.publishedDate)}</span>
-          <span>•</span>
-          <Badge variant="outline" className="font-normal">
-            {formatDuration(episode.duration)}
-          </Badge>
-        </div>
+      <div className="flex flex-col gap-1.5">
+        {/* Date */}
+        <span className="text-xs text-muted-foreground">
+          {formatEpisodeDate(episode.publishedDate)}
+        </span>
 
         {/* Title */}
-        <h3 className="text-lg font-semibold group-hover:text-primary transition-colors line-clamp-2">
+        <h3 className="text-base font-semibold leading-snug text-foreground transition-colors duration-200 group-hover:text-primary line-clamp-2">
           {episode.title}
         </h3>
 
         {/* Description */}
         {episode.description && (
-          <p className="text-sm text-muted-foreground line-clamp-3">
+          <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2">
             {episode.description}
           </p>
         )}
 
-        {/* Status Badge */}
-        {episode.status === "processing" && (
-          <Badge variant="secondary" className="w-fit">
-            Processing
-          </Badge>
+        {/* Now Playing indicator */}
+        {isCurrentEpisode && (
+          <div className="flex items-center gap-1.5 text-xs text-primary">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-primary" />
+            </span>
+            {isPlaying ? "Now playing" : "Paused"}
+          </div>
         )}
       </div>
     </Link>

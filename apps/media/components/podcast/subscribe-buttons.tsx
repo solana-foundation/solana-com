@@ -1,10 +1,13 @@
 import { Rss } from "lucide-react";
-import { SiApple, SiSpotify } from "react-icons/si";
+import { SiApple, SiSpotify, SiYoutube } from "react-icons/si";
 import { Button } from "@/components/ui/button";
+import { getSafeExternalUrl } from "@/lib/external-url";
+import { cn } from "@/lib/utils";
 
 interface SubscribeButtonsProps {
   applePodcastsUrl?: string;
   spotifyUrl?: string;
+  youtubeUrl?: string;
   rssFeedUrl?: string;
   className?: string;
 }
@@ -12,58 +15,102 @@ interface SubscribeButtonsProps {
 export const SubscribeButtons = ({
   applePodcastsUrl,
   spotifyUrl,
+  youtubeUrl,
   rssFeedUrl,
   className,
 }: SubscribeButtonsProps) => {
-  // Don't render if no URLs provided
-  if (!applePodcastsUrl && !spotifyUrl && !rssFeedUrl) {
+  const safeApplePodcastsUrl = getSafeExternalUrl(applePodcastsUrl);
+  const safeSpotifyUrl = getSafeExternalUrl(spotifyUrl);
+  const safeYoutubeUrl = getSafeExternalUrl(youtubeUrl);
+  const safeRssFeedUrl = getSafeExternalUrl(rssFeedUrl);
+
+  if (
+    !safeApplePodcastsUrl &&
+    !safeSpotifyUrl &&
+    !safeYoutubeUrl &&
+    !safeRssFeedUrl
+  ) {
     return null;
   }
 
   return (
-    <div className={className}>
-      <p className="mb-3 text-sm font-medium text-muted-foreground">
-        Subscribe & Listen:
+    <div className={cn("flex flex-col gap-2", className)}>
+      <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        Subscribe & Listen
       </p>
-      <div className="flex flex-wrap gap-3">
-        {applePodcastsUrl && (
-          <Button asChild variant="outline" size="sm" className="gap-2">
+      <div className="flex flex-wrap gap-2">
+        {safeApplePodcastsUrl && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+          >
             <a
-              href={applePodcastsUrl}
+              href={safeApplePodcastsUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Apple Podcasts"
             >
-              <SiApple className="h-4 w-4" />
+              <SiApple className="size-3.5" />
               <span>Apple Podcasts</span>
             </a>
           </Button>
         )}
 
-        {spotifyUrl && (
-          <Button asChild variant="outline" size="sm" className="gap-2">
+        {safeSpotifyUrl && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+          >
             <a
-              href={spotifyUrl}
+              href={safeSpotifyUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Spotify"
             >
-              <SiSpotify className="h-4 w-4" />
+              <SiSpotify className="size-3.5" />
               <span>Spotify</span>
             </a>
           </Button>
         )}
 
-        {rssFeedUrl && (
-          <Button asChild variant="outline" size="sm" className="gap-2">
+        {safeYoutubeUrl && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+          >
             <a
-              href={rssFeedUrl}
+              href={safeYoutubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch on YouTube"
+            >
+              <SiYoutube className="size-3.5" />
+              <span>YouTube</span>
+            </a>
+          </Button>
+        )}
+
+        {safeRssFeedUrl && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5 border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+          >
+            <a
+              href={safeRssFeedUrl}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Subscribe via RSS"
             >
-              <Rss className="h-4 w-4" />
-              <span>RSS Feed</span>
+              <Rss className="size-3.5" />
+              <span>RSS</span>
             </a>
           </Button>
         )}
