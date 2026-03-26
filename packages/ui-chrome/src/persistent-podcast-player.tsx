@@ -65,6 +65,8 @@ export function PersistentPodcastPlayer() {
   const [state, setState] = useState<PodcastPlayerState>(
     DEFAULT_PODCAST_PLAYER_STATE,
   );
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekFraction, setSeekFraction] = useState(0);
 
   useEffect(() => {
     const nextState = readPodcastPlayerState();
@@ -221,6 +223,7 @@ export function PersistentPodcastPlayer() {
     : null;
   const progress =
     state.duration > 0 ? Math.min(1, state.currentTime / state.duration) : 0;
+  const displayProgress = isSeeking ? seekFraction : progress;
 
   if (!state.currentEpisode) {
     return null;
@@ -269,10 +272,39 @@ export function PersistentPodcastPlayer() {
       />
 
       <div className="fixed bottom-0 left-0 right-0 z-[70] border-t border-white/10 bg-black/90 text-white backdrop-blur-xl shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
-        <div className="relative h-1 w-full bg-white/10">
+        <div className="group relative h-1 w-full bg-white/10">
           <div
             className="h-full bg-[#14F195] transition-[width] duration-100 ease-linear"
-            style={{ width: `${progress * 100}%` }}
+            style={{ width: `${displayProgress * 100}%` }}
+          />
+          <div
+            className="pointer-events-none absolute top-1/2 size-3 rounded-full bg-[#14F195] opacity-0 transition-opacity group-hover:opacity-100"
+            style={{
+              left: `${displayProgress * 100}%`,
+              transform: "translate(-50%, -50%)",
+              opacity: isSeeking ? 1 : undefined,
+            }}
+          />
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.001"
+            value={displayProgress}
+            onPointerDown={() => {
+              setSeekFraction(progress);
+              setIsSeeking(true);
+            }}
+            onPointerUp={() => setIsSeeking(false)}
+            onPointerCancel={() => setIsSeeking(false)}
+            onBlur={() => setIsSeeking(false)}
+            onChange={(event) => {
+              const fraction = Number.parseFloat(event.target.value);
+              setSeekFraction(fraction);
+              dispatchPodcastPlayerCommand({ type: "seek", fraction });
+            }}
+            className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+            aria-label="Seek playback position"
           />
         </div>
 
@@ -317,7 +349,8 @@ export function PersistentPodcastPlayer() {
           </div>
 
           <div className="hidden text-xs tabular-nums text-white/60 md:block">
-            {formatTime(state.currentTime)} / {formatTime(state.duration)}
+            {formatTime(displayProgress * state.duration)} /{" "}
+            {formatTime(state.duration)}
           </div>
 
           <div className="flex items-center gap-1">
