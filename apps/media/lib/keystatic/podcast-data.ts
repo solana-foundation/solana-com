@@ -30,6 +30,7 @@ async function transformPodcast(
           hosts.push({
             name: String(hostData.name) || "Unknown Host",
             ...(hostData.avatar && { avatar: hostData.avatar }),
+            ...(hostData.twitterUrl && { twitterUrl: hostData.twitterUrl }),
           });
         }
       }
@@ -93,6 +94,7 @@ async function transformPodcast(
     riversideStudioId: podcast.riversideStudioId || undefined,
     applePodcastsUrl: podcast.applePodcastsUrl || undefined,
     spotifyUrl: podcast.spotifyUrl || undefined,
+    youtubeUrl: podcast.youtubeUrl || undefined,
     rssFeedUrl: podcast.rssFeedUrl || undefined,
     releaseFrequency: podcast.releaseFrequency || undefined,
     firstEpisodeDate: podcast.firstEpisodeDate || undefined,

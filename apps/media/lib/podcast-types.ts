@@ -5,6 +5,7 @@ import { ContentDocument } from "./post-types";
 export interface PodcastHost {
   name: string;
   avatar?: string;
+  twitterUrl?: string;
 }
 
 export interface PodcastShow {
@@ -24,6 +25,7 @@ export interface PodcastShow {
   riversideStudioId?: string;
   applePodcastsUrl?: string;
   spotifyUrl?: string;
+  youtubeUrl?: string;
   rssFeedUrl?: string;
   releaseFrequency?: string;
   firstEpisodeDate?: string;

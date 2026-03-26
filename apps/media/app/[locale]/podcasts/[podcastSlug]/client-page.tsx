@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { DocumentRenderer } from "@keystatic/core/renderer";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -261,8 +261,13 @@ export default function PodcastShowClientPage({
                   </p>
                   <div className="flex flex-wrap gap-3">
                     {podcast.hosts.map((host, index) => (
-                      <div
+                      <a
                         key={index}
+                        href={host.twitterUrl || undefined}
+                        target={host.twitterUrl ? "_blank" : undefined}
+                        rel={
+                          host.twitterUrl ? "noopener noreferrer" : undefined
+                        }
                         className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5"
                       >
                         <Avatar className="h-6 w-6">
@@ -274,7 +279,10 @@ export default function PodcastShowClientPage({
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm font-medium">{host.name}</span>
-                      </div>
+                        {host.twitterUrl && (
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        )}
+                      </a>
                     ))}
                   </div>
                 </div>
@@ -284,6 +292,7 @@ export default function PodcastShowClientPage({
               <SubscribeButtons
                 applePodcastsUrl={podcast.applePodcastsUrl}
                 spotifyUrl={podcast.spotifyUrl}
+                youtubeUrl={podcast.youtubeUrl}
                 rssFeedUrl={podcast.rssFeedUrl}
               />
 

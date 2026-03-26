@@ -1,10 +1,11 @@
 import { Rss } from "lucide-react";
-import { SiApple, SiSpotify } from "react-icons/si";
+import { SiApple, SiSpotify, SiYoutube } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 
 interface SubscribeButtonsProps {
   applePodcastsUrl?: string;
   spotifyUrl?: string;
+  youtubeUrl?: string;
   rssFeedUrl?: string;
   className?: string;
 }
@@ -12,11 +13,12 @@ interface SubscribeButtonsProps {
 export const SubscribeButtons = ({
   applePodcastsUrl,
   spotifyUrl,
+  youtubeUrl,
   rssFeedUrl,
   className,
 }: SubscribeButtonsProps) => {
   // Don't render if no URLs provided
-  if (!applePodcastsUrl && !spotifyUrl && !rssFeedUrl) {
+  if (!applePodcastsUrl && !spotifyUrl && !youtubeUrl && !rssFeedUrl) {
     return null;
   }
 
@@ -50,6 +52,20 @@ export const SubscribeButtons = ({
             >
               <SiSpotify className="h-4 w-4" />
               <span>Spotify</span>
+            </a>
+          </Button>
+        )}
+
+        {youtubeUrl && (
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <a
+              href={youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch on YouTube"
+            >
+              <SiYoutube className="h-4 w-4" />
+              <span>YouTube</span>
             </a>
           </Button>
         )}
