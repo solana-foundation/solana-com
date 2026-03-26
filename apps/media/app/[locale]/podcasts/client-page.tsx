@@ -38,12 +38,6 @@ export default function PodcastsClientPage({
     })[0];
   }, [podcasts]);
 
-  // All podcasts excluding the featured one
-  const allPodcasts = useMemo(() => {
-    if (!latestPodcast) return podcasts;
-    return podcasts.filter((p) => p.id !== latestPodcast.id);
-  }, [podcasts, latestPodcast]);
-
   const handlePlayLatest = () => {
     if (!player || !latestPodcast?.latestEpisode) return;
     player.play(
@@ -195,18 +189,18 @@ export default function PodcastsClientPage({
               </div>
             )}
 
-            {allPodcasts.length > 0 && (
+            {podcasts.length > 0 && (
               <AnimatedGroup
                 preset="fade"
                 className="grid grid-cols-1 gap-5 max-w-6xl mx-auto w-full sm:grid-cols-2 lg:grid-cols-3"
               >
-                {allPodcasts.map((podcast) => (
+                {podcasts.map((podcast) => (
                   <PodcastCard key={podcast.id} podcast={podcast} />
                 ))}
               </AnimatedGroup>
             )}
 
-            {allPodcasts.length === 0 && !latestPodcast && (
+            {podcasts.length === 0 && !latestPodcast && (
               <div className="text-center py-16 max-w-6xl mx-auto w-full">
                 <p className="text-muted-foreground">
                   No podcasts available at the moment.
