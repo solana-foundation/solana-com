@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import DOMPurify from "dompurify";
+import createDOMPurify from "dompurify";
 
 interface EpisodeDescriptionProps {
   description?: string;
@@ -26,6 +26,11 @@ const ALLOWED_TAGS = [
 ];
 
 function sanitizeEpisodeHtml(html: string): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const DOMPurify = createDOMPurify(window);
   const sanitizedHtml = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR: ["href"],
@@ -84,10 +89,18 @@ export function EpisodeDescription({
   descriptionHtml,
 }: EpisodeDescriptionProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const sanitizedDescriptionHtml = React.useMemo(
-    () => (descriptionHtml ? sanitizeEpisodeHtml(descriptionHtml) : undefined),
-    [descriptionHtml],
-  );
+  const [sanitizedDescriptionHtml, setSanitizedDescriptionHtml] =
+    React.useState<string>();
+
+  React.useEffect(() => {
+    if (!descriptionHtml) {
+      setSanitizedDescriptionHtml(undefined);
+      return;
+    }
+
+    setSanitizedDescriptionHtml(sanitizeEpisodeHtml(descriptionHtml));
+  }, [descriptionHtml]);
+
   const contentLength = descriptionHtml?.length ?? description?.length ?? 0;
   const isCollapsible = contentLength > COLLAPSE_THRESHOLD;
 
