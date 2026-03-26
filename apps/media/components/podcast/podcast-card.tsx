@@ -1,5 +1,6 @@
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
+import { Radio } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getInitials } from "@/lib/podcast-utils";
@@ -7,13 +8,21 @@ import type { PodcastShow } from "@/lib/podcast-types";
 
 interface PodcastCardProps {
   podcast: PodcastShow;
+  isInternal?: boolean;
 }
 
-export const PodcastCard = ({ podcast }: PodcastCardProps) => {
+export const PodcastCard = ({
+  podcast,
+  isInternal = false,
+}: PodcastCardProps) => {
   return (
     <Link
       href={`/podcasts/${podcast.slug}`}
-      className="group flex cursor-pointer flex-col gap-4 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      className={`group flex cursor-pointer flex-col gap-4 border p-4 transition-all duration-300 ${
+        isInternal
+          ? "border-primary/15 bg-card hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(20,241,149,0.08)]"
+          : "border-white/[0.06] bg-card hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      }`}
     >
       {/* Cover Image */}
       <div className="relative aspect-square w-full overflow-hidden">
@@ -24,6 +33,14 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
           sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
+        {isInternal && (
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <span className="inline-flex items-center gap-1 bg-primary/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.15em] text-primary-foreground backdrop-blur-sm">
+              <Radio className="size-2.5" />
+              SBN
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Podcast Info */}

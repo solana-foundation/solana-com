@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { ArrowUpRight, Calendar, Clock, Play } from "lucide-react";
+import { ArrowUpRight, Calendar, Clock, Play, Radio } from "lucide-react";
 import { motion } from "motion/react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { usePlayerOptional } from "@/components/podcast/player-context";
 import type { PodcastShow } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 
+const INTERNAL_TAG = "Solana Foundation";
+
 interface PodcastsClientPageProps {
   podcasts: PodcastShow[];
 }
@@ -22,6 +24,21 @@ export default function PodcastsClientPage({
   podcasts,
 }: PodcastsClientPageProps) {
   const player = usePlayerOptional();
+
+  const { internalPodcasts, externalPodcasts } = useMemo(() => {
+    const internal: PodcastShow[] = [];
+    const external: PodcastShow[] = [];
+
+    for (const podcast of podcasts) {
+      if (podcast.tags?.includes(INTERNAL_TAG)) {
+        internal.push(podcast);
+      } else {
+        external.push(podcast);
+      }
+    }
+
+    return { internalPodcasts: internal, externalPodcasts: external };
+  }, [podcasts]);
 
   // Get latest podcast (one with the most recent episode upload)
   const latestPodcast = useMemo(() => {
@@ -168,7 +185,7 @@ export default function PodcastsClientPage({
             </motion.div>
           )}
 
-          {/* All Podcasts */}
+          {/* Podcasts Listing */}
           <div className="px-4 md:px-6 lg:px-0">
             {!latestPodcast && (
               <div className="max-w-6xl mx-auto w-full mb-8">
@@ -181,23 +198,66 @@ export default function PodcastsClientPage({
               </div>
             )}
 
-            {latestPodcast && (
-              <div className="max-w-6xl mx-auto w-full mb-8">
-                <h2 className="text-2xl font-bold text-foreground">
-                  All Shows
-                </h2>
+            {/* Solana Originals Section */}
+            {internalPodcasts.length > 0 && (
+              <div className="max-w-6xl mx-auto w-full mb-16">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex items-center justify-center size-8 bg-primary/10 border border-primary/20">
+                    <Radio className="size-4 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Solana Broadcast Network
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Produced by the Solana Foundation
+                    </p>
+                  </div>
+                </div>
+
+                {/* Accent line */}
+                <div className="mb-6 h-px bg-gradient-to-r from-primary/40 via-primary/10 to-transparent" />
+
+                <AnimatedGroup
+                  preset="fade"
+                  className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {internalPodcasts.map((podcast) => (
+                    <PodcastCard
+                      key={podcast.id}
+                      podcast={podcast}
+                      isInternal
+                    />
+                  ))}
+                </AnimatedGroup>
               </div>
             )}
 
-            {podcasts.length > 0 && (
-              <AnimatedGroup
-                preset="fade"
-                className="grid grid-cols-1 gap-5 max-w-6xl mx-auto w-full sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {podcasts.map((podcast) => (
-                  <PodcastCard key={podcast.id} podcast={podcast} />
-                ))}
-              </AnimatedGroup>
+            {/* External / Community Podcasts Section */}
+            {externalPodcasts.length > 0 && (
+              <div className="max-w-6xl mx-auto w-full">
+                <div className="mb-6 flex items-center gap-3">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Community Voices
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Podcasts from across the Solana ecosystem
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-6 h-px bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
+
+                <AnimatedGroup
+                  preset="fade"
+                  className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {externalPodcasts.map((podcast) => (
+                    <PodcastCard key={podcast.id} podcast={podcast} />
+                  ))}
+                </AnimatedGroup>
+              </div>
             )}
 
             {podcasts.length === 0 && !latestPodcast && (
