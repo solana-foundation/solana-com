@@ -1,6 +1,11 @@
 import { ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import {
+  Header,
+  Footer,
+  PersistentPodcastPlayer,
+  ThemeProvider,
+} from "@solana-com/ui-chrome";
 import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
 import { config } from "@/config";
@@ -49,6 +54,7 @@ export default async function RootLayout({ children }: Props) {
             <Header showLanguage={false} showDevelopersNav={false} />
             <main className="min-h-screen">{children}</main>
             <Footer />
+            <PersistentPodcastPlayer />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

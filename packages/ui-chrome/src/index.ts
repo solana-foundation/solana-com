@@ -20,9 +20,21 @@ export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
+export { PersistentPodcastPlayer } from "./persistent-podcast-player";
+export {
+  DEFAULT_PODCAST_PLAYER_STATE,
+  dispatchPodcastPlayerCommand,
+  readPodcastPlayerState,
+  subscribeToPodcastPlayerState,
+} from "./podcast-player-store";
 export { SitewideTopAlert } from "./sitewide-top-alert";
 export { sitewideTopAlertConfig } from "./sitewide-top-alert-config";
 export type { SitewideTopAlertConfig } from "./sitewide-top-alert-config";
+export type {
+  PodcastPlayerCommand,
+  PodcastPlayerEpisode,
+  PodcastPlayerState,
+} from "./podcast-player-types";
 export {
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
   DocsSidebarToggleIcon,

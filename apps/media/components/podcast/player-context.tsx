@@ -2,14 +2,21 @@
 
 import React, {
   createContext,
-  useContext,
-  useState,
   useCallback,
-  useRef,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
+import {
+  dispatchPodcastPlayerCommand,
+  readPodcastPlayerState,
+  subscribeToPodcastPlayerState,
+} from "@solana-com/ui-chrome";
+import type { PodcastPlayerEpisode } from "@solana-com/ui-chrome";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
-interface PlayerState {
+interface PlayerContextValue {
   currentEpisode: PodcastEpisode | null;
   podcastTitle: string | null;
   podcastSlug: string | null;
@@ -19,9 +26,6 @@ interface PlayerState {
   volume: number;
   isMuted: boolean;
   playbackRate: number;
-}
-
-interface PlayerContextValue extends PlayerState {
   play: (
     episode: PodcastEpisode,
     podcastTitle?: string,
@@ -35,136 +39,128 @@ interface PlayerContextValue extends PlayerState {
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   setPlaybackRate: (rate: number) => void;
-  setProgress: (progress: number) => void;
-  setDuration: (duration: number) => void;
+  setProgress: (_progress: number) => void;
+  setDuration: (_duration: number) => void;
   dismiss: () => void;
-  playerRef: React.RefObject<any>;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PlayerState>({
-    currentEpisode: null,
-    podcastTitle: null,
-    podcastSlug: null,
-    isPlaying: false,
-    progress: 0,
-    duration: 0,
-    volume: 0.8,
-    isMuted: false,
-    playbackRate: 1,
-  });
+function toPlayerEpisode(episode: PodcastEpisode): PodcastPlayerEpisode {
+  return {
+    id: episode.id,
+    podcastSlug: episode.podcastSlug,
+    title: episode.title,
+    audioUrl: episode.audioUrl,
+    thumbnailUrl: episode.thumbnailUrl,
+  };
+}
 
-  const playerRef = useRef<any>(null);
+export function PlayerProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState(() => readPodcastPlayerState());
+
+  useEffect(() => subscribeToPodcastPlayerState(setState), []);
 
   const play = useCallback(
     (episode: PodcastEpisode, podcastTitle?: string, podcastSlug?: string) => {
-      setState((prev) => {
-        const isSameEpisode = prev.currentEpisode?.id === episode.id;
-        return {
-          ...prev,
-          currentEpisode: episode,
-          podcastTitle: podcastTitle ?? prev.podcastTitle,
-          podcastSlug: podcastSlug ?? prev.podcastSlug,
-          isPlaying: true,
-          // Reset progress only if switching episodes
-          ...(isSameEpisode ? {} : { progress: 0, duration: 0 }),
-        };
+      dispatchPodcastPlayerCommand({
+        type: "play",
+        episode: toPlayerEpisode(episode),
+        podcastTitle,
+        podcastSlug: podcastSlug ?? episode.podcastSlug,
       });
     },
     [],
   );
 
   const pause = useCallback(() => {
-    setState((prev) => ({ ...prev, isPlaying: false }));
+    dispatchPodcastPlayerCommand({ type: "pause" });
   }, []);
 
   const togglePlayPause = useCallback(() => {
-    setState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
+    dispatchPodcastPlayerCommand({ type: "toggle-play-pause" });
   }, []);
 
   const seek = useCallback((fraction: number) => {
-    setState((prev) => {
-      const newTime = fraction * prev.duration;
-      if (playerRef.current) {
-        playerRef.current.seekTo(newTime, "seconds");
-      }
-      return { ...prev, progress: fraction };
-    });
+    dispatchPodcastPlayerCommand({ type: "seek", fraction });
   }, []);
 
   const skipForward = useCallback((seconds: number = 30) => {
-    if (playerRef.current) {
-      const current = playerRef.current.getCurrentTime();
-      playerRef.current.seekTo(current + seconds, "seconds");
-    }
+    dispatchPodcastPlayerCommand({ type: "skip-forward", seconds });
   }, []);
 
   const skipBackward = useCallback((seconds: number = 15) => {
-    if (playerRef.current) {
-      const current = playerRef.current.getCurrentTime();
-      playerRef.current.seekTo(Math.max(0, current - seconds), "seconds");
-    }
+    dispatchPodcastPlayerCommand({ type: "skip-backward", seconds });
   }, []);
 
   const setVolume = useCallback((volume: number) => {
-    setState((prev) => ({
-      ...prev,
-      volume,
-      isMuted: volume === 0 ? true : false,
-    }));
+    dispatchPodcastPlayerCommand({ type: "set-volume", volume });
   }, []);
 
   const toggleMute = useCallback(() => {
-    setState((prev) => ({ ...prev, isMuted: !prev.isMuted }));
+    dispatchPodcastPlayerCommand({ type: "toggle-mute" });
   }, []);
 
   const setPlaybackRate = useCallback((rate: number) => {
-    setState((prev) => ({ ...prev, playbackRate: rate }));
-  }, []);
-
-  const setProgress = useCallback((progress: number) => {
-    setState((prev) => ({ ...prev, progress }));
-  }, []);
-
-  const setDuration = useCallback((duration: number) => {
-    setState((prev) => ({ ...prev, duration }));
+    dispatchPodcastPlayerCommand({ type: "set-playback-rate", rate });
   }, []);
 
   const dismiss = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      currentEpisode: null,
-      podcastTitle: null,
-      podcastSlug: null,
-      isPlaying: false,
-      progress: 0,
-      duration: 0,
-    }));
+    dispatchPodcastPlayerCommand({ type: "dismiss" });
   }, []);
 
+  const value = useMemo<PlayerContextValue>(
+    () => ({
+      currentEpisode: (state.currentEpisode as PodcastEpisode | null) ?? null,
+      podcastTitle: state.podcastTitle,
+      podcastSlug: state.podcastSlug,
+      isPlaying: state.isPlaying,
+      progress:
+        state.duration > 0
+          ? Math.min(1, state.currentTime / state.duration)
+          : 0,
+      duration: state.duration,
+      volume: state.volume,
+      isMuted: state.isMuted,
+      playbackRate: state.playbackRate,
+      play,
+      pause,
+      togglePlayPause,
+      seek,
+      skipForward,
+      skipBackward,
+      setVolume,
+      toggleMute,
+      setPlaybackRate,
+      setProgress: () => {},
+      setDuration: () => {},
+      dismiss,
+    }),
+    [
+      dismiss,
+      pause,
+      play,
+      seek,
+      setPlaybackRate,
+      setVolume,
+      skipBackward,
+      skipForward,
+      state.currentEpisode,
+      state.currentTime,
+      state.duration,
+      state.isMuted,
+      state.isPlaying,
+      state.playbackRate,
+      state.podcastSlug,
+      state.podcastTitle,
+      state.volume,
+      toggleMute,
+      togglePlayPause,
+    ],
+  );
+
   return (
-    <PlayerContext.Provider
-      value={{
-        ...state,
-        play,
-        pause,
-        togglePlayPause,
-        seek,
-        skipForward,
-        skipBackward,
-        setVolume,
-        toggleMute,
-        setPlaybackRate,
-        setProgress,
-        setDuration,
-        dismiss,
-        playerRef,
-      }}
-    >
-      {children}
-    </PlayerContext.Provider>
+    <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
   );
 }
 
