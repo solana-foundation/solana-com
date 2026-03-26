@@ -86,6 +86,25 @@ function generateEpisodeId(item: any): string {
   }
 }
 
+function extractEpisodeThumbnail(item: any): string | undefined {
+  const candidates = [
+    item.itunesImage?.href,
+    item.itunesImage?.$?.href,
+    item.itunes?.image,
+    item.image?.url,
+    item.image?.href,
+    item.mediaThumbnail?.url,
+    item.mediaThumbnail?.$?.url,
+    item.mediaContent?.url,
+    item.mediaContent?.$?.url,
+  ];
+
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && candidate.length > 0,
+  );
+}
+
 function isBuzzsproutFeed(rssFeedUrl: string): boolean {
   return /(?:^|\/\/)(?:feeds|rss)\.buzzsprout\.com\/\d+\.rss(?:$|\?)/i.test(
     rssFeedUrl,
@@ -261,7 +280,7 @@ export async function fetchEpisodesFromRSS(
         publishedDate: item.pubDate || item.isoDate || new Date().toISOString(),
         duration,
         audioUrl: item.enclosure?.url || "",
-        thumbnailUrl: item.itunesImage?.href || item.itunes?.image || undefined,
+        thumbnailUrl: extractEpisodeThumbnail(item),
         status: "ready" as const,
       };
     });
