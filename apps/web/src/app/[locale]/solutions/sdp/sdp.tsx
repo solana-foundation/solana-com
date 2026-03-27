@@ -11,7 +11,7 @@ import { CardGrid } from "@/components/sdp/card-grid";
 import { Infrastructure } from "@/components/sdp/infrastructure";
 import { Ecosystem } from "@/components/sdp/ecosystem";
 import { Tutorials } from "@/components/sdp/tutorials";
-// import { News } from "@/components/sdp/news";
+import { News } from "@/components/sdp/news";
 import { Podcasts } from "@/components/sdp/podcasts";
 import Join from "@/components/sdp/join";
 import Bank from "@@/public/src/img/icons/Bank.inline.svg";
@@ -25,7 +25,7 @@ import {
   COMPLIANCE_LOGOS,
   INST_LOGOS,
   LOGOS,
-  // NEWS,
+  NEWS,
   NODES_LOGOS,
   PODCASTS,
   RAMP_LOGOS,
@@ -212,10 +212,10 @@ export function SdpPage() {
         <Tutorials title={t("tutorials.title")} items={TUTORIALS} />
       </section>
       <DecorGrid />
-      {/* <section id="media" className="scroll-mt-[72px]">
+      <section id="media" className="scroll-mt-[72px]">
         <News title={t("news.title")} items={NEWS} />
       </section>
-      <DecorGrid /> */}
+      <DecorGrid />
       <Podcasts title={t("podcasts.title")} items={PODCASTS} />
       <DecorGrid />
       <Join
