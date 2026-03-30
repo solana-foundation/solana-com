@@ -45,14 +45,27 @@ function formatTime(seconds: number) {
 }
 
 async function syncPlayback(audio: HTMLAudioElement, isPlaying: boolean) {
+  const requestedSrc = audio.currentSrc || audio.src;
+
   if (isPlaying) {
     try {
       await audio.play();
-    } catch {
-      writePodcastPlayerState({
-        ...readPodcastPlayerState(),
-        isPlaying: false,
-      });
+    } catch (error) {
+      const nextState = readPodcastPlayerState();
+      const currentSrc = audio.currentSrc || audio.src;
+      const errorName = error instanceof Error ? error.name : undefined;
+      const shouldIgnoreFailure =
+        errorName === "AbortError" ||
+        (nextState.isPlaying &&
+          (nextState.currentEpisode?.audioUrl === currentSrc ||
+            nextState.currentEpisode?.audioUrl === requestedSrc));
+
+      if (!shouldIgnoreFailure) {
+        writePodcastPlayerState({
+          ...nextState,
+          isPlaying: false,
+        });
+      }
     }
     return;
   }

@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import {
+  DEFAULT_PODCAST_PLAYER_STATE,
   dispatchPodcastPlayerCommand,
   readPodcastPlayerState,
   subscribeToPodcastPlayerState,
@@ -58,9 +59,12 @@ function toPlayerEpisode(episode: PodcastEpisode): PodcastPlayerEpisode {
 }
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState(() => readPodcastPlayerState());
+  const [state, setState] = useState(DEFAULT_PODCAST_PLAYER_STATE);
 
-  useEffect(() => subscribeToPodcastPlayerState(setState), []);
+  useEffect(() => {
+    setState(readPodcastPlayerState());
+    return subscribeToPodcastPlayerState(setState);
+  }, []);
 
   const play = useCallback(
     (episode: PodcastEpisode, podcastTitle?: string, podcastSlug?: string) => {
