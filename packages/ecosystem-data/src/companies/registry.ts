@@ -40,6 +40,7 @@ import { sunrise } from "./records/sunrise";
 import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
 import { tala } from "./records/tala";
+import { theGraph } from "./records/the-graph";
 import { triton } from "./records/triton";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
@@ -87,6 +88,7 @@ export const companies = [
   superteamUsa,
   switchboard,
   tala,
+  theGraph,
   triton,
   veliaNet,
   visa,
