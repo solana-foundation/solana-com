@@ -3,8 +3,11 @@ import Image from "next/image";
 import styles from "./WalletCard.module.scss";
 
 const CATEGORY_LABELS = {
-  wallet: "Wallet",
+  consumer: "Wallet",
   infrastructure: "Developer Tool",
+  hardware: "Hardware",
+  institutional: "Institutional",
+  payments: "Payments",
 };
 
 const WalletCard = ({
@@ -28,7 +31,7 @@ const WalletCard = ({
           className={styles["wallet-card-icon"]}
           suppressHydrationWarning
         ></Image>
-        {category === "infrastructure" && (
+        {category !== "consumer" && CATEGORY_LABELS[category] && (
           <span className={styles["wallet-card-badge"]}>
             {CATEGORY_LABELS[category]}
           </span>

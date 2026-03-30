@@ -47,7 +47,12 @@ import samuiIcon from "../../../assets/wallets/icons/samui.png";
 export const walletData = [
   {
     name: "Phantom",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "brave"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Multi-chain self-custody wallet. Swap, stake, and manage tokens and NFTs",
     website: "https://phantom.com/",
     additionalInfo:
@@ -73,6 +78,11 @@ export const walletData = [
   {
     name: "Openfort",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial wallet infrastructure with smart accounts and gas sponsorship for developers",
     website: "https://openfort.io/",
     additionalInfo:
@@ -98,6 +108,11 @@ export const walletData = [
   {
     name: "OpenSigner",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source, self-hostable key management system for Solana and Ethereum",
     website: "https://opensigner.dev/",
     additionalInfo:
@@ -122,7 +137,12 @@ export const walletData = [
   },
   {
     name: "Backpack",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Self-custodial wallet and exchange with xNFT support and integrated trading on Solana",
     website: "https://backpack.app/",
     additionalInfo:
@@ -147,7 +167,12 @@ export const walletData = [
   },
   {
     name: "Solflare",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "edge", "brave"],
+    target_audience: ["end_user"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Solana-native wallet with staking, swaps, NFTs, and Solflare Shield hardware wallet",
     website: "https://www.solflare.com/",
     additionalInfo:
@@ -172,7 +197,12 @@ export const walletData = [
   },
   {
     name: "Coinbase Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Self-custodial multi-chain wallet with MPC key management and Coinbase exchange integration",
     website: "https://www.coinbase.com/wallet",
     additionalInfo:
@@ -197,7 +227,12 @@ export const walletData = [
   },
   {
     name: "Fuse Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios"],
+    target_audience: ["end_user"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Solana smart wallet built on Squads Protocol with multisig security and spending limits",
     website: "https://www.fusewallet.com/",
     additionalInfo:
@@ -222,7 +257,12 @@ export const walletData = [
   },
   {
     name: "Jupiter",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Self-custodial wallet by Jupiter Exchange with optimized swaps and MEV protection",
     website:
       "https://chromewebstore.google.com/detail/jupiter-wallet/iledlaeogohbilgbfhmbgkgmpplbfboh",
@@ -248,6 +288,11 @@ export const walletData = [
   {
     name: "Dynamic",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Embedded wallet infrastructure with MPC key management and multi-chain auth for developers",
     website: "https://www.dynamic.xyz/",
     additionalInfo:
@@ -273,6 +318,11 @@ export const walletData = [
   {
     name: "Para",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "MPC-based embedded wallet infrastructure with gas sponsorship and programmable transaction controls",
     website: "https://www.getpara.com/",
     additionalInfo:
@@ -297,7 +347,12 @@ export const walletData = [
   },
   {
     name: "OKX",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Self-custody multi-chain wallet with MPC keyless option, DEX aggregator, and NFT marketplace",
     website: "https://www.okx.com/web3",
     additionalInfo:
@@ -323,6 +378,11 @@ export const walletData = [
   {
     name: "Privy",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Wallet infrastructure with TEE-based key management, policy engine, and embedded wallets for developers",
     website: "https://www.privy.io/",
     additionalInfo:
@@ -348,6 +408,11 @@ export const walletData = [
   {
     name: "Web3Auth",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source MPC key management SDK enabling social login wallets across 20+ chains",
     website: "https://tor.us/",
     additionalInfo:
@@ -372,7 +437,12 @@ export const walletData = [
   },
   {
     name: "Exodus",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Multi-chain self-custody wallet with built-in exchange, staking, and Trezor hardware integration",
     website: "https://www.exodus.com/",
     additionalInfo:
@@ -398,6 +468,11 @@ export const walletData = [
   {
     name: "Circle",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Programmable wallet infrastructure with MPC security and gas sponsorship for developers",
     website: "https://www.circle.com/programmable-wallets",
     additionalInfo:
@@ -422,7 +497,12 @@ export const walletData = [
   },
   {
     name: "Brave",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Browser-native self-custody wallet with multi-chain swaps, NFTs, and hardware wallet support",
     website: "https://brave.com/wallet/",
     additionalInfo:
@@ -447,7 +527,12 @@ export const walletData = [
   },
   {
     name: "Robinhood",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial multi-chain wallet with zero-fee swaps, staking, and dApp connectivity",
     website: "https://robinhood.com/us/en/support/articles/robinhood-wallet/",
     additionalInfo:
@@ -472,7 +557,12 @@ export const walletData = [
   },
   {
     name: "Tiplink",
-    category: "wallet",
+    category: "payments",
+    platforms: ["chrome"],
+    target_audience: ["end_user", "developer"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Link-based Solana wallet with Google login. Send crypto to anyone via a shareable URL",
     website: "https://tiplink.io/",
     additionalInfo:
@@ -497,7 +587,12 @@ export const walletData = [
   },
   {
     name: "Trust",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Multi-chain self-custody wallet supporting 100+ blockchains with staking, swaps, and NFT management",
     website: "https://trustwallet.com/download",
     additionalInfo:
@@ -522,7 +617,12 @@ export const walletData = [
   },
   {
     name: "Glow",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge"],
+    target_audience: ["end_user"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Solana-native wallet with zero-fee swaps, staking, NFT gallery, and spam token burner",
     website: "https://glow.app/",
     additionalInfo:
@@ -547,7 +647,12 @@ export const walletData = [
   },
   {
     name: "Helium",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android"],
+    target_audience: ["end_user"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Open-source Solana wallet for managing HNT, MOBILE, and IOT tokens with governance staking",
     website: "https://docs.helium.com/wallets/helium-wallet-app/",
     additionalInfo: "Non-Custodial - Hold NFTs - Staking - Open Source",
@@ -572,6 +677,11 @@ export const walletData = [
   {
     name: "Crossmint Non-Custodial",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Embedded smart wallet infrastructure with gas sponsorship and onchain security controls for developers",
     website:
       "https://www.crossmint.com/products/non-custodial-wallets-as-a-service",
@@ -598,6 +708,11 @@ export const walletData = [
   {
     name: "Crossmint Custodial",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Enterprise custodial wallet-as-a-service with MPC key management and compliance tools",
     website: "https://www.crossmint.com/products/custodial-wallet-as-a-service",
     additionalInfo:
@@ -622,7 +737,12 @@ export const walletData = [
   },
   {
     name: "Decaf",
-    category: "wallet",
+    category: "payments",
+    platforms: ["ios", "android"],
+    target_audience: ["end_user"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Non-custodial Solana wallet for stablecoin payments with Visa card and fiat off-ramps in 150+ countries",
     website: "https://www.decaf.so/",
     additionalInfo: "Non-Custodial - Solana Pay - Buy Crypto - Sell Crypto",
@@ -647,6 +767,11 @@ export const walletData = [
   {
     name: "WalletConnect",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source protocol connecting crypto wallets to dApps via encrypted sessions",
     website: "https://walletconnect.com/",
     additionalInfo: "Open Source",
@@ -671,6 +796,11 @@ export const walletData = [
   {
     name: "Turnkey",
     category: "infrastructure",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial wallet infrastructure with TEE-based key management and policy engine for developers",
     website: "https://www.turnkey.com/",
     additionalInfo:
@@ -695,7 +825,12 @@ export const walletData = [
   },
   {
     name: "Ledger",
-    category: "wallet",
+    category: "hardware",
+    platforms: ["desktop", "ios", "android"],
+    target_audience: ["end_user", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Hardware wallet with Secure Element chip for offline key storage, staking, and crypto management",
     website: "https://www.ledger.com/",
     additionalInfo:
@@ -720,7 +855,12 @@ export const walletData = [
   },
   {
     name: "MetaMask",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "edge", "brave"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial multi-chain wallet with native Solana support for swaps, staking, and NFTs",
     website: "https://metamask.io/",
     additionalInfo:
@@ -745,7 +885,12 @@ export const walletData = [
   },
   {
     name: "Trezor",
-    category: "wallet",
+    category: "hardware",
+    platforms: ["desktop"],
+    target_audience: ["end_user", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source hardware wallet with Solana staking, buy/sell crypto, and NFT storage via Trezor Suite",
     website: "https://trezor.io/",
     additionalInfo:
@@ -770,7 +915,12 @@ export const walletData = [
   },
   {
     name: "Keystone",
-    category: "wallet",
+    category: "hardware",
+    platforms: ["android"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Air-gapped open-source hardware wallet using QR codes for secure transaction signing",
     website: "https://keyst.one/",
     additionalInfo:
@@ -795,7 +945,12 @@ export const walletData = [
   },
   {
     name: "Bitget",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial multi-chain wallet with MPC security and gas-free transactions on Solana",
     website: "https://web3.bitget.com/en/",
     additionalInfo:
@@ -820,7 +975,12 @@ export const walletData = [
   },
   {
     name: "Binance Web3 Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Self-custody MPC wallet integrated into Binance with multi-chain swaps, staking, and dApp access",
     website: "https://www.binance.com/en/web3wallet",
     additionalInfo: "Non-Custodial - Buy Crypto - Hold NFTs - MPC - Staking",
@@ -844,7 +1004,12 @@ export const walletData = [
   },
   {
     name: "Gem Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source self-custodial wallet supporting 100+ chains with staking, swaps, and NFT management",
     website: "https://gemwallet.com/",
     additionalInfo:
@@ -869,7 +1034,12 @@ export const walletData = [
   },
   {
     name: "Enkrypt",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["chrome", "firefox", "edge", "brave"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source multichain browser wallet by MyEtherWallet with 70+ natively integrated chains",
     website: "https://www.enkrypt.com/",
     additionalInfo:
@@ -894,7 +1064,12 @@ export const walletData = [
   },
   {
     name: "NOW Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial mobile and desktop wallet by ChangeNOW supporting 70+ blockchains",
     website: "https://walletnow.app/",
     additionalInfo:
@@ -919,7 +1094,12 @@ export const walletData = [
   },
   {
     name: "Coin Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source self-custodial multicurrency wallet for multiple platforms, available since 2015",
     website: "https://coin.space/",
     additionalInfo: "Non-Custodial - Buy Crypto - Sell Crypto - Open Source",
@@ -943,7 +1123,12 @@ export const walletData = [
   },
   {
     name: "Guarda Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial multi-platform wallet supporting 70+ blockchains with staking and crypto exchange",
     website: "https://guarda.com/",
     additionalInfo:
@@ -968,7 +1153,12 @@ export const walletData = [
   },
   {
     name: "Cake Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source, privacy-focused non-custodial wallet with Solana support via Jupiter DEX integration",
     website: "https://cakewallet.com/",
     additionalInfo: "Non-Custodial - Buy Crypto - Sell Crypto - Open Source",
@@ -992,7 +1182,12 @@ export const walletData = [
   },
   {
     name: "TokenPocket",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Multi-chain DeFi wallet with 30M+ users, built-in dApp browser, and KeyPal hardware wallet",
     website: "https://tokenpocket.pro/",
     additionalInfo:
@@ -1017,7 +1212,12 @@ export const walletData = [
   },
   {
     name: "CDP Wallets",
-    category: "infrastructure",
+    category: "institutional",
+    platforms: ["api", "sdk"],
+    target_audience: ["developer", "enterprise"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Programmable wallet infrastructure by Coinbase with policy engine and TEE-based key management",
     website: "https://www.coinbase.com/developer-platform/products/wallets",
     additionalInfo:
@@ -1042,7 +1242,12 @@ export const walletData = [
   },
   {
     name: "OneKey",
-    category: "wallet",
+    category: "hardware",
+    platforms: ["ios", "android", "chrome", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source hardware wallet with software apps supporting 5000+ cryptos across multiple chains",
     website: "https://onekey.so/",
     additionalInfo:
@@ -1067,7 +1272,12 @@ export const walletData = [
   },
   {
     name: "Atomic Wallet",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Non-custodial multi-asset wallet with built-in swaps, staking for 30+ coins, and NFT support",
     website: "https://atomicwallet.io/",
     additionalInfo: "Non-Custodial - Buy Crypto - Hold NFTs - Staking",
@@ -1091,7 +1301,12 @@ export const walletData = [
   },
   {
     name: "Infinex",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Passkey-first cross-chain wallet with gas abstraction, social recovery, and integrated trading",
     website: "https://infinex.xyz/?ref=solwf",
     additionalInfo:
@@ -1116,7 +1331,12 @@ export const walletData = [
   },
   {
     name: "Cypherock",
-    category: "wallet",
+    category: "hardware",
+    platforms: ["desktop"],
+    target_audience: ["end_user"],
+    multi_chain: true,
+    solana_native: false,
+    last_verified: "2026-03-30",
     body: "Open-source hardware wallet splitting keys across 4 NFC cards using Shamir Secret Sharing",
     website: "https://www.cypherock.com/",
     additionalInfo:
@@ -1141,7 +1361,12 @@ export const walletData = [
   },
   {
     name: "Samui",
-    category: "wallet",
+    category: "consumer",
+    platforms: ["chrome"],
+    target_audience: ["end_user", "developer"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-03-30",
     body: "Open-source Solana wallet and developer toolbox with built-in token creation and airdrop tools",
     website: "https://samui.build/",
     additionalInfo: "Non-Custodial - Hold NFTs - Open Source",

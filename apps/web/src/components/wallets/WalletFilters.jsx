@@ -5,8 +5,11 @@ import Wallets from "./Wallets";
 
 const CATEGORIES = [
   { key: "all", label: "All" },
-  { key: "wallet", label: "Wallets" },
+  { key: "consumer", label: "Wallets" },
+  { key: "hardware", label: "Hardware" },
   { key: "infrastructure", label: "Developer Tools" },
+  { key: "institutional", label: "Institutional" },
+  { key: "payments", label: "Payments" },
 ];
 
 const WalletFilters = ({
