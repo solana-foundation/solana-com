@@ -287,34 +287,85 @@ export const TUTORIALS = [
 
 export const NEWS = [
   {
-    title: "The infrastructure behind  trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/news",
+    title: "Triton x SDP: Bringing Solana to Institutional Finance",
+    img: "/src/img/solutions/sdp/news/triton.jpg",
+    href: "https://blog.triton.one/triton-x-solana-developer-platform-bringing-the-chain-to-institutional-finance/",
   },
   {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/news",
+    title: "Alchemy Powers Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/alchemy.png",
+    href: "https://www.alchemy.com/blog/alchemy-powers-solana-developer-platform",
   },
   {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/news",
+    title: "Quicknode Powers Solana Developer Platform for Enterprises",
+    img: "/src/img/solutions/sdp/news/quicknode.png",
+    href: "https://blog.quicknode.com/quicknode-solana-developer-platform-sdp/",
   },
   {
-    title: "The infrastructure behind  trillions in tokenized assets",
-    img: "https://img.youtube.com/vi/6bxWGU7mpJI/maxresdefault.jpg",
-    href: "/news",
+    title:
+      "Turnkey selected as infrastructure partner for Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/turnkey.png",
+    href: "https://www.turnkey.com/blog/turnkey-solana-developer-platform",
   },
   {
-    title: "Solana Stories: Behind the Mask ft. Proph3t",
-    img: "https://img.youtube.com/vi/sB6cocqLXNw/maxresdefault.jpg",
-    href: "/news",
+    title:
+      "Crossmint Joins Solana Developer Platform as Wallet and Payments Infrastructure",
+    img: "/src/img/solutions/sdp/news/crossmint.png",
+    href: "https://www.crossmint.com/announcement/crossmint-joins-solana-developer-platform",
   },
   {
-    title: "DePIN on Solana: DePIN Science Fair Accelerate NYC 2025",
-    img: "https://img.youtube.com/vi/9arQw72tFx4/maxresdefault.jpg",
-    href: "/news",
+    title:
+      "Introducing Solana Developer Platform: Built for Institutional-Grade Finance With Para Integrated From Day One",
+    img: "/src/img/solutions/sdp/news/para.png",
+    href: "https://blog.getpara.com/solana-developer-platform/",
+  },
+  {
+    title: "Real-time compliance for institutions building on Solana",
+    img: "/src/img/solutions/sdp/news/range.png",
+    href: "https://www.range.org/blog/real-time-compliance-for-institutions-building-on-solana",
+  },
+  {
+    title:
+      "Solana Foundation Selects Modern Treasury for Solana Developer Platform Payments Infrastructure",
+    img: "/src/img/solutions/sdp/news/modern-treasury.png",
+    href: "https://www.moderntreasury.com/newsroom/press-releases/solana-foundation-selects-modern-treasury-as-a-payments-infrastructure-partner-for-solana-developer",
+  },
+  {
+    title: "Bridge joins Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/bridge.png",
+    href: "https://www.bridge.xyz/blog/bridge-joins-solana-developer-platform",
+  },
+  {
+    title: "Dynamic Joins Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/dynamic.png",
+    href: "https://www.dynamic.xyz/blog/dynamic-joins-solana-developer-platform",
+  },
+  {
+    title: "Helius Joins Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/helius.jpg",
+    href: "https://www.helius.dev/blog/solana-developer-platform",
+  },
+  {
+    title: "Paxos Joins Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/paxos.png",
+    href: "https://www.paxos.com/newsroom/paxos-joins-solana-developer-platform",
+  },
+  {
+    title:
+      "Lightspark Joins Solana Developer Platform as an Infrastructure Partner",
+    img: "/src/img/solutions/sdp/news/lightspark.png",
+    href: "https://www.lightspark.com/news/lightspark/lightspark-solana-announcement",
+  },
+  {
+    title: "Coinbase Developer Platform Joins Solana Developer Platform",
+    img: "/src/img/solutions/sdp/news/coinbase.jpg",
+    href: "https://www.coinbase.com/developer-platform/discover/launches/sdp",
+  },
+  {
+    title:
+      "Privy powers wallet infrastructure for Solana Developer Platform (SDP)",
+    img: "/src/img/solutions/sdp/news/privy.png",
+    href: "https://privy.io/blog/privy-powers-wallet-infrastructure-for-solana-developer-platform-sdp",
   },
 ];
 

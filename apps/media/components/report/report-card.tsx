@@ -27,7 +27,7 @@ export function ReportCard({ report, index = 0 }: ReportCardProps) {
             alt={report.headline || report.title}
             fill
             sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0D0C11] via-transparent to-transparent opacity-60" />
         </div>

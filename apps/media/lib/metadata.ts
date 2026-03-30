@@ -382,7 +382,7 @@ export async function podcastShowMetadata(
 }
 
 // ---------------------------------------------------------------------------
-// Podcast episode  /podcasts/[slug]/episodes/[id]
+// Podcast episode  /podcasts/[slug]/episodes/[episode-slug]
 // ---------------------------------------------------------------------------
 
 export async function podcastEpisodeMetadata(
@@ -398,7 +398,7 @@ export async function podcastEpisodeMetadata(
 
   const title = `${episode.title} | ${podcast.title}`;
   const description = episode.description || `Listen to ${episode.title}`;
-  const canonicalUrl = `${publicUrl}/podcasts/${podcastSlug}/episodes/${episodeId}`;
+  const canonicalUrl = `${publicUrl}/podcasts/${podcastSlug}/episodes/${episode.slug}`;
   const image = episode.thumbnailUrl || podcast.coverImage || null;
 
   return {

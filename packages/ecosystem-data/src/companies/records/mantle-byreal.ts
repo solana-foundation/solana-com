@@ -1,5 +1,8 @@
 import type { CompanyRecord } from "../../types";
+import mantleByrealLogoBrand from "../../../assets/companies/mantle-byreal/logo-brand.svg";
 import mantleByrealLogoDark from "../../../assets/companies/mantle-byreal/logo-dark.svg";
+import mantleByrealLogoLight from "../../../assets/companies/mantle-byreal/logo-light.svg";
+import mantleByrealLogoWhite from "../../../assets/companies/mantle-byreal/logo-white.svg";
 import mantleByrealMarkDark from "../../../assets/companies/mantle-byreal/mark-dark.svg";
 
 export const mantleByreal = {
@@ -33,6 +36,30 @@ export const mantleByreal = {
       format: "svg",
       source: mantleByrealLogoDark,
       theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: mantleByrealLogoLight,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      source: mantleByrealLogoWhite,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-brand",
+      fileName: "logo-brand.svg",
+      format: "svg",
+      source: mantleByrealLogoBrand,
+      treatment: "brand",
       kind: "logo",
     },
     {
