@@ -163,6 +163,38 @@ function extractEpisodeThumbnail(item: any): string | undefined {
   );
 }
 
+function resolveAudioUrl(enclosureUrl?: string): string {
+  if (!enclosureUrl) {
+    return "";
+  }
+
+  try {
+    const url = new URL(enclosureUrl);
+
+    // Anchor/Spotify enclosure URLs often wrap the real media URL in the last
+    // path segment. Using the final media URL directly avoids browser-specific
+    // issues with redirected audio playback.
+    if (
+      url.hostname === "anchor.fm" &&
+      /\/podcast\/play\//.test(url.pathname) &&
+      enclosureUrl.includes("https%3A%2F%2F")
+    ) {
+      const encodedTarget = url.pathname.split("/").pop();
+
+      if (encodedTarget) {
+        const decodedTarget = decodeURIComponent(encodedTarget);
+        if (/^https:\/\/.+/i.test(decodedTarget)) {
+          return decodedTarget;
+        }
+      }
+    }
+  } catch {
+    return enclosureUrl;
+  }
+
+  return enclosureUrl;
+}
+
 function extractEpisodeDescriptionHtml(item: any): string | undefined {
   const candidates = [
     item.content,
@@ -372,7 +404,7 @@ export async function fetchEpisodesFromRSS(
         descriptionHtml: extractEpisodeDescriptionHtml(item),
         publishedDate,
         duration,
-        audioUrl: item.enclosure?.url || "",
+        audioUrl: resolveAudioUrl(item.enclosure?.url),
         thumbnailUrl: extractEpisodeThumbnail(item),
         status: "ready" as const,
       };
