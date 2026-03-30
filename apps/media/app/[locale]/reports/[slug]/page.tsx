@@ -172,17 +172,16 @@ export default async function ReportPage({
 
               {/* Report image — right-aligned */}
               {report.image?.src && (
-                <div className="w-full shrink-0 self-start lg:w-[480px] xl:w-[520px]">
-                  <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-[rgba(236,228,253,0.12)]">
-                    <Image
-                      src={report.image.src}
-                      alt={report.image.alt || headline}
-                      fill
-                      priority
-                      sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 100vw"
-                      className="object-cover"
-                    />
-                  </div>
+                <div className="min-w-[280px] shrink-0 self-start lg:max-w-[480px] xl:max-w-[520px]">
+                  <Image
+                    src={report.image.src}
+                    alt={report.image.alt || headline}
+                    width={1062}
+                    height={1500}
+                    priority
+                    sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 100vw"
+                    className="h-auto w-full rounded-2xl border border-[rgba(236,228,253,0.12)]"
+                  />
                 </div>
               )}
             </div>
