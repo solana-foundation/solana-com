@@ -2,19 +2,41 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import styles from "./WalletCard.module.scss";
 
-const WalletCard = ({ index, walletImage, name, body, websiteUrl }) => {
+const CATEGORY_LABELS = {
+  consumer: "Wallet",
+  infrastructure: "Developer Tool",
+  hardware: "Hardware",
+  institutional: "Institutional",
+  payments: "Payments",
+};
+
+const WalletCard = ({
+  index,
+  walletImage,
+  name,
+  body,
+  websiteUrl,
+  category,
+}) => {
   const t = useTranslations();
 
   return (
     <article data-index={index} className={styles["wallet"]}>
-      <Image
-        src={walletImage}
-        width={60}
-        height={60}
-        alt={name}
-        className={styles["wallet-card-icon"]}
-        suppressHydrationWarning
-      ></Image>
+      <div className={styles["wallet-card-header"]}>
+        <Image
+          src={walletImage}
+          width={60}
+          height={60}
+          alt={name}
+          className={styles["wallet-card-icon"]}
+          suppressHydrationWarning
+        ></Image>
+        {category !== "consumer" && CATEGORY_LABELS[category] && (
+          <span className={styles["wallet-card-badge"]}>
+            {CATEGORY_LABELS[category]}
+          </span>
+        )}
+      </div>
       <h3 className={styles["wallet-card-title"]} suppressHydrationWarning>
         {name}
       </h3>

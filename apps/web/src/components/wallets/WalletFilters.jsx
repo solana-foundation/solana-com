@@ -3,12 +3,23 @@ import { useState } from "react";
 import styles from "./WalletFilters.module.scss";
 import Wallets from "./Wallets";
 
+const CATEGORIES = [
+  { key: "all", label: "All" },
+  { key: "consumer", label: "Wallets" },
+  { key: "hardware", label: "Hardware" },
+  { key: "infrastructure", label: "Developer Tools" },
+  { key: "institutional", label: "Institutional" },
+  { key: "payments", label: "Payments" },
+];
+
 const WalletFilters = ({
   filterData,
   currentFilters,
   setFilters,
   updateWallets,
   walletData,
+  category,
+  updateCategory,
 }) => {
   const t = useTranslations();
 
@@ -95,6 +106,17 @@ const WalletFilters = ({
 
   return (
     <>
+      <section className={styles["wallet-category-section"]}>
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.key}
+            onClick={() => updateCategory(cat.key)}
+            className={`${styles["wallet-category"]} ${category === cat.key ? styles["wallet-category--active"] : ""}`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </section>
       <section className={styles["wallet-filter-section"]}>
         <div>
           <button
