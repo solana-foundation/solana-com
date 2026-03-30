@@ -193,6 +193,8 @@ export default function EpisodeClientPage({
               spotifyUrl={podcast.spotifyUrl}
               youtubeUrl={podcast.youtubeUrl}
               rssFeedUrl={podcast.rssFeedUrl}
+              podcastTitle={podcast.title}
+              podcastSlug={podcast.slug}
             />
           </motion.div>
 

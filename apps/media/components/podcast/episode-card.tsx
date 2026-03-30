@@ -5,6 +5,11 @@ import Image from "next/image";
 import { Play, Pause } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
+import {
+  trackPodcastPlay,
+  trackPodcastPause,
+  trackPodcastEpisodeClick,
+} from "@/lib/podcast-analytics";
 import { usePlayerOptional } from "./player-context";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
@@ -28,9 +33,22 @@ export const EpisodeCard = ({
     e.stopPropagation();
     if (!player) return;
 
+    const eventParams = {
+      episode_title: episode.title,
+      episode_id: episode.id,
+      podcast_title: podcastTitle,
+      podcast_slug: podcastSlug || episode.podcastSlug,
+    };
+
     if (isCurrentEpisode) {
+      if (isPlaying) {
+        trackPodcastPause(eventParams);
+      } else {
+        trackPodcastPlay(eventParams);
+      }
       player.togglePlayPause();
     } else {
+      trackPodcastPlay(eventParams);
       player.play(episode, podcastTitle, podcastSlug || episode.podcastSlug);
     }
   };
@@ -39,6 +57,14 @@ export const EpisodeCard = ({
     <Link
       href={`/podcasts/${episode.podcastSlug}/episodes/${episode.slug}`}
       className="group flex cursor-pointer flex-col gap-3 border border-white/[0.06] bg-card p-4 transition-all duration-300 hover:border-white/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+      onClick={() =>
+        trackPodcastEpisodeClick({
+          episode_title: episode.title,
+          episode_id: episode.id,
+          podcast_title: podcastTitle,
+          podcast_slug: podcastSlug || episode.podcastSlug,
+        })
+      }
     >
       {/* Thumbnail with Play Button */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
