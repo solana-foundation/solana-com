@@ -9,19 +9,36 @@ const WalletsLayout = ({ walletData }) => {
   const t = useTranslations();
 
   const [filters, setFilters] = useState({});
+  const [category, setCategory] = useState("all");
   const [wallets, setWallets] = useState(walletData);
 
-  const updateWalletsBasedOnFilters = (filters) => {
-    if (Object.keys(filters).length !== 0) {
-      // Only return wallets that match every key/value pair inside the filters object
-      const updatedWallets = walletData.filter((obj) =>
-        Object.keys(filters).every((key) => obj[key] === filters[key]),
-      );
+  const applyFilters = (activeFilters, activeCategory) => {
+    let filtered = walletData;
 
-      setWallets(updatedWallets);
-    } else {
-      setWallets(walletData);
+    // Apply category filter
+    if (activeCategory !== "all") {
+      filtered = filtered.filter((w) => w.category === activeCategory);
     }
+
+    // Apply feature filters
+    if (Object.keys(activeFilters).length !== 0) {
+      filtered = filtered.filter((obj) =>
+        Object.keys(activeFilters).every(
+          (key) => obj[key] === activeFilters[key],
+        ),
+      );
+    }
+
+    setWallets(filtered);
+  };
+
+  const updateWalletsBasedOnFilters = (activeFilters) => {
+    applyFilters(activeFilters, category);
+  };
+
+  const updateCategory = (newCategory) => {
+    setCategory(newCategory);
+    applyFilters(filters, newCategory);
   };
 
   return (
@@ -41,6 +58,8 @@ const WalletsLayout = ({ walletData }) => {
         setFilters={setFilters}
         updateWallets={updateWalletsBasedOnFilters}
         walletData={wallets}
+        category={category}
+        updateCategory={updateCategory}
       />
     </>
   );
