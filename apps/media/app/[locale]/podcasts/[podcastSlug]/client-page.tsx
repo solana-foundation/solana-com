@@ -160,6 +160,8 @@ export default function PodcastShowClientPage({
                 spotifyUrl={podcast.spotifyUrl}
                 youtubeUrl={podcast.youtubeUrl}
                 rssFeedUrl={podcast.rssFeedUrl}
+                podcastTitle={podcast.title}
+                podcastSlug={podcast.slug}
               />
 
               {/* Release Frequency */}

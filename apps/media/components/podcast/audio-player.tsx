@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayerOptional } from "./player-context";
+import { trackPodcastPlay, trackPodcastPause } from "@/lib/podcast-analytics";
 import { cn } from "@/lib/utils";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
@@ -62,13 +63,33 @@ export const AudioPlayer = ({
     if (!globalPlayer) return;
 
     if (episode) {
+      const eventParams = {
+        episode_title: episode.title,
+        episode_id: episode.id,
+        podcast_title: podcastTitle,
+        podcast_slug: podcastSlug,
+      };
+
       if (isGlobalEpisode) {
+        if (isPlaying) {
+          trackPodcastPause(eventParams);
+        } else {
+          trackPodcastPlay(eventParams);
+        }
         globalPlayer.togglePlayPause();
       } else {
+        trackPodcastPlay(eventParams);
         globalPlayer.play(episode, podcastTitle, podcastSlug);
       }
     }
-  }, [globalPlayer, episode, isGlobalEpisode, podcastTitle, podcastSlug]);
+  }, [
+    globalPlayer,
+    episode,
+    isGlobalEpisode,
+    isPlaying,
+    podcastTitle,
+    podcastSlug,
+  ]);
 
   const handleSkipBackward = useCallback(() => {
     if (isGlobalEpisode && globalPlayer) {
