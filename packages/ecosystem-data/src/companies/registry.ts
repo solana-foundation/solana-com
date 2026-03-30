@@ -1,6 +1,7 @@
 import type { CompanyRecord } from "../types";
 import { aisa } from "./records/aisa";
 import { alchemy } from "./records/alchemy";
+import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
 import { arcium } from "./records/arcium";
@@ -30,6 +31,7 @@ import { osl } from "./records/osl";
 import { phantom } from "./records/phantom";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
+import { rockawayx } from "./records/rockawayx";
 import { safepalWallet } from "./records/safepal-wallet";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
@@ -49,6 +51,7 @@ import { wyoming } from "./records/wyoming";
 export const companies = [
   aisa,
   alchemy,
+  altitude,
   allnodes,
   ampPay,
   arcium,
@@ -78,6 +81,7 @@ export const companies = [
   phantom,
   playSolana,
   quicknode,
+  rockawayx,
   safepalWallet,
   solanaSpaces,
   solayer,
