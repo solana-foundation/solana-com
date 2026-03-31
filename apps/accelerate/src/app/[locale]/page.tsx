@@ -4,9 +4,12 @@ import {
   HomepageNav,
   HomepageHero,
   HeroWaveWrapper,
+  // LiveBanner,
   EventLineup,
+  TicketsSection,
   Highlights,
   VideoCarousel,
+  KeyStats,
   StayUpdated,
   HomepageFooter,
 } from "@/components/homepage";
@@ -45,13 +48,16 @@ export default function HomePage() {
   return (
     <main className="relative overflow-x-clip bg-black text-white">
       <SeoJsonLd data={buildEventSeriesStructuredData()} />
+      {/* <LiveBanner /> */}
       <HomepageNav />
       <HeroWaveWrapper>
         <HomepageHero />
       </HeroWaveWrapper>
       <EventLineup />
+      <TicketsSection />
       <Highlights />
       <VideoCarousel />
+      <KeyStats />
       <StayUpdated />
       <HomepageFooter />
     </main>

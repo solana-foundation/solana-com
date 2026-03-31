@@ -6,8 +6,16 @@ import { getImagePath } from "@/config";
 
 export function Highlights() {
   return (
-    <section className="relative bg-black py-16 lg:py-24">
-      <div className="mx-auto max-w-[1480px] px-6">
+    <section className="relative overflow-hidden bg-black py-16 lg:py-24">
+      <div className="pointer-events-none absolute inset-0 opacity-25">
+        <Image
+          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          alt=""
+          fill
+          className="object-cover"
+        />
+      </div>
+      <div className="relative z-10 mx-auto max-w-[1480px] px-6">
         {/* Section heading */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
