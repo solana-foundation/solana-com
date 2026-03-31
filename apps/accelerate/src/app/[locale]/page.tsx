@@ -4,9 +4,13 @@ import {
   HomepageNav,
   HomepageHero,
   HeroWaveWrapper,
+  LiveBanner,
   EventLineup,
+  TicketsSection,
   Highlights,
   VideoCarousel,
+  KeyStats,
+  Testimonials,
   StayUpdated,
   HomepageFooter,
 } from "@/components/homepage";
@@ -49,9 +53,13 @@ export default function HomePage() {
       <HeroWaveWrapper>
         <HomepageHero />
       </HeroWaveWrapper>
+      <LiveBanner />
       <EventLineup />
+      <TicketsSection />
       <Highlights />
       <VideoCarousel />
+      <KeyStats />
+      <Testimonials />
       <StayUpdated />
       <HomepageFooter />
     </main>
