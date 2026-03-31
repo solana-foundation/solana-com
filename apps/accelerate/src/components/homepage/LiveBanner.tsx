@@ -6,7 +6,12 @@ const MARQUEE_ITEMS = Array(8).fill(null);
 
 export function LiveBanner() {
   return (
-    <section className="relative z-10 overflow-hidden bg-accelerate-green py-3">
+    <section
+      className="relative z-20 overflow-hidden py-3"
+      style={{
+        background: "linear-gradient(to right, #9945FF, #19FB9B)",
+      }}
+    >
       <div className="flex">
         <motion.div
           className="flex shrink-0 items-center gap-6"
@@ -27,8 +32,8 @@ export function LiveBanner() {
                   LIVE
                 </span>
                 <span className="relative flex h-[10px] w-[10px]">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-black opacity-40" />
-                  <span className="relative inline-flex h-[10px] w-[10px] rounded-full bg-black" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accelerate-green opacity-60" />
+                  <span className="relative inline-flex h-[10px] w-[10px] rounded-full bg-accelerate-green" />
                 </span>
               </span>
               <span className="font-diatype text-[16px] font-light tracking-[0.8px] text-black">

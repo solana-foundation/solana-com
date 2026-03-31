@@ -123,28 +123,28 @@ function EventTicketBlock({
 }
 
 const EVENTS: EventTicketBlockProps[] = [
-  {
-    logoSrc: getImagePath("/images/solana-accelerate-logo.svg"),
-    dateLocation: "February 11 / Hong Kong",
-    tiers: [
-      {
-        name: "General Admission",
-        subtitle: "(Early Bird)",
-        price: "$99",
-        description: "Full conference access",
-        nameColor: "#19FB9B",
-        href: "/accelerate/hong-kong",
-      },
-      {
-        name: "Student",
-        subtitle: "(Early Bird)",
-        price: "$25",
-        description: "Valid student ID required\nat entry",
-        nameColor: "#9945FF",
-        href: "/accelerate/hong-kong",
-      },
-    ],
-  },
+  // {
+  //   logoSrc: getImagePath("/images/solana-accelerate-logo.svg"),
+  //   dateLocation: "February 11 / Hong Kong",
+  //   tiers: [
+  //     {
+  //       name: "General Admission",
+  //       subtitle: "(Early Bird)",
+  //       price: "$99",
+  //       description: "Full conference access",
+  //       nameColor: "#19FB9B",
+  //       href: "/accelerate/hong-kong",
+  //     },
+  //     {
+  //       name: "Student",
+  //       subtitle: "(Early Bird)",
+  //       price: "$25",
+  //       description: "Valid student ID required\nat entry",
+  //       nameColor: "#9945FF",
+  //       href: "/accelerate/hong-kong",
+  //     },
+  //   ],
+  // },
   {
     logoSrc: getImagePath("/images/accelerate-usa-logo.svg"),
     dateLocation: "May 5 / Miami",
@@ -167,34 +167,42 @@ const EVENTS: EventTicketBlockProps[] = [
       },
     ],
   },
-  {
-    logoSrc: getImagePath("/images/accelerate-usa-logo.svg"),
-    dateLocation: "Sep 23 / Buenos Aires",
-    tiers: [
-      {
-        name: "General Admission",
-        subtitle: "(Early Bird)",
-        price: "$99",
-        description: "Full conference access",
-        nameColor: "#19FB9B",
-        href: "/accelerate",
-      },
-      {
-        name: "Student",
-        subtitle: "(Early Bird)",
-        price: "$25",
-        description: "Valid student ID required\nat entry",
-        nameColor: "#9945FF",
-        href: "/accelerate",
-      },
-    ],
-  },
+  // {
+  //   logoSrc: getImagePath("/images/accelerate-usa-logo.svg"),
+  //   dateLocation: "Sep 23 / Buenos Aires",
+  //   tiers: [
+  //     {
+  //       name: "General Admission",
+  //       subtitle: "(Early Bird)",
+  //       price: "$99",
+  //       description: "Full conference access",
+  //       nameColor: "#19FB9B",
+  //       href: "/accelerate",
+  //     },
+  //     {
+  //       name: "Student",
+  //       subtitle: "(Early Bird)",
+  //       price: "$25",
+  //       description: "Valid student ID required\nat entry",
+  //       nameColor: "#9945FF",
+  //       href: "/accelerate",
+  //     },
+  //   ],
+  // },
 ];
 
 export function TicketsSection() {
   return (
-    <section className="relative bg-black py-16 lg:py-24">
-      <div className="mx-auto max-w-[1480px] px-6">
+    <section className="relative overflow-hidden bg-black py-16 lg:py-24">
+      <div className="pointer-events-none absolute inset-0 opacity-25">
+        <Image
+          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          alt=""
+          fill
+          className="object-cover"
+        />
+      </div>
+      <div className="relative z-10 mx-auto max-w-[1480px] px-6">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}

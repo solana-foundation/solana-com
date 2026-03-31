@@ -8,6 +8,5 @@ export { TicketsSection } from "./TicketsSection";
 export { Highlights } from "./Highlights";
 export { VideoCarousel } from "./VideoCarousel";
 export { KeyStats } from "./KeyStats";
-export { Testimonials } from "./Testimonials";
 export { StayUpdated } from "./StayUpdated";
 export { HomepageFooter } from "./HomepageFooter";
