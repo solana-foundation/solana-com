@@ -4,7 +4,6 @@ export { AuroraWave, HeroWaveWrapper } from "./AuroraWave";
 export { LiveBanner } from "./LiveBanner";
 export { EventLineup } from "./EventLineup";
 export { EventCard } from "./EventCard";
-export { TicketsSection } from "./TicketsSection";
 export { Highlights } from "./Highlights";
 export { VideoCarousel } from "./VideoCarousel";
 export { KeyStats } from "./KeyStats";

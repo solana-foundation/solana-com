@@ -6,7 +6,6 @@ import {
   HeroWaveWrapper,
   // LiveBanner,
   EventLineup,
-  TicketsSection,
   Highlights,
   VideoCarousel,
   KeyStats,
@@ -54,7 +53,6 @@ export default function HomePage() {
         <HomepageHero />
       </HeroWaveWrapper>
       <EventLineup />
-      <TicketsSection />
       <Highlights />
       <VideoCarousel />
       <KeyStats />
