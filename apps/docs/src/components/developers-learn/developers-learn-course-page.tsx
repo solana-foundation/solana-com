@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useDevelopersLearnProgress } from "@/hooks/useDevelopersLearnProgress";
 import {
-  developersLearnProgram,
+  developersLearnFeaturedSeries,
   developersLearnRoadmapTracks,
   getDevelopersLearnCourseBySlug,
   getDevelopersLearnCourseProgress,
@@ -54,12 +54,15 @@ export default function DevelopersLearnCoursePage({
           href="/developers/learn"
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
-          ← All bootcamp tracks
+          ← All Developers Learn series
         </Link>
       </div>
 
       <header className="mb-10 max-w-4xl">
         <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            {developersLearnFeaturedSeries.title}
+          </span>
           <p className="text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
             Track {course.trackNumber}
           </p>
@@ -76,10 +79,10 @@ export default function DevelopersLearnCoursePage({
 
         <div className="mb-5 flex flex-wrap gap-2">
           <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
-            Primary medium: {developersLearnProgram.primaryMedium}
+            Primary medium: {developersLearnFeaturedSeries.primaryMedium}
           </span>
           <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-            Companion: {developersLearnProgram.companionMedium}
+            Companion: {developersLearnFeaturedSeries.companionMedium}
           </span>
           <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
             {course.level}
@@ -119,7 +122,7 @@ export default function DevelopersLearnCoursePage({
           </div>
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
             <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Bootcamp repo
+              Series materials
             </p>
             <a
               href={course.repoUrl}
@@ -142,8 +145,9 @@ export default function DevelopersLearnCoursePage({
           {progress.completedCount}/{progress.totalCount} episodes completed
         </p>
         <p className="mt-2 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
-          Episode pages are companion guides. The primary watch surface will be
-          YouTube as each upload goes live.
+          This track belongs to {developersLearnFeaturedSeries.title}, the
+          current featured series inside Developers Learn. Episode pages remain
+          companion guides, while the primary watch surface is YouTube.
         </p>
 
         {courseUnlocked && nextIncompleteEpisode ? (
@@ -299,8 +303,13 @@ export default function DevelopersLearnCoursePage({
 
           <section className="mt-12">
             <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-              Where this track leads next
+              Where this series expands next
             </h2>
+            <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-300">
+              These are the next planned tracks inside{" "}
+              {developersLearnFeaturedSeries.title}. Other Developers Learn
+              series can sit alongside this roadmap later.
+            </p>
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
               {upcomingTracks.map((track) => (
                 <article

@@ -58,11 +58,30 @@ export type DevelopersLearnRoadmapTrack = {
   outcomes: string[];
 };
 
-export const developersLearnProgram = {
+export const developersLearnHub = {
   kicker: "Developers Learn",
+  title: "Video-first learning for Solana builders",
+  description:
+    "A long-lived learning library for Solana developers. Bootcamp iterations, focused courses, and guided project series can all live here over time.",
+  supportPillars: [
+    "Video-first learning paths",
+    "Structured tracks and episodes",
+    "MDX companion guides",
+    "Local progress without sign-in",
+  ],
+  expansionPaths: [
+    "Annual bootcamp iterations",
+    "Focused project courses",
+    "Tooling and framework deep dives",
+  ],
+} as const;
+
+export const developersLearnFeaturedSeries = {
+  label: "Featured series",
   title: "Solana Bootcamp 2026",
   description:
-    "A video-first YouTube bootcamp that turns the latest Solana curriculum into structured learning tracks. Each episode is paired with companion notes, code, and local progress tracking.",
+    "The 2026 bootcamp iteration inside Developers Learn. It turns the latest Solana curriculum into structured video tracks with companion notes, code, and local progress tracking.",
+  type: "Annual bootcamp iteration",
   primaryMedium: "YouTube",
   companionMedium: "MDX companion guides",
   repoUrl: "https://github.com/solana-foundation/solana-bootcamp-2026",
@@ -109,7 +128,7 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
       "Start from create-solana-dapp",
       "Build with AI while verifying critical blockchain details",
     ],
-    repoUrl: developersLearnProgram.repoUrl,
+    repoUrl: developersLearnFeaturedSeries.repoUrl,
     lessons: [
       {
         id: 1,
@@ -173,7 +192,7 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
         resourceLinks: [
           {
             label: "Bootcamp repo",
-            href: developersLearnProgram.repoUrl,
+            href: developersLearnFeaturedSeries.repoUrl,
           },
         ],
       },

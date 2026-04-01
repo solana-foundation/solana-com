@@ -6,6 +6,7 @@ import { developersLearnSource } from "@@/src/app/sources/developers-learn";
 import DevelopersLearnLessonProgress from "@/components/developers-learn/developers-learn-lesson-progress";
 import DevelopersLearnLessonSidebar from "@/components/developers-learn/developers-learn-lesson-sidebar";
 import {
+  developersLearnFeaturedSeries,
   developersLearnCourses,
   getDevelopersLearnCourseBySlug,
   getDevelopersLearnLesson,
@@ -45,7 +46,7 @@ export default async function Page(props: Props) {
 
       <header className="mb-8 max-w-3xl">
         <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
-          {course.title} · Episode companion
+          {developersLearnFeaturedSeries.title} · {course.title} companion
         </p>
         <h1 className="mb-3 text-4xl font-semibold text-zinc-950 dark:text-zinc-50 md:text-5xl">
           {data.h1 || data.title}
@@ -91,8 +92,9 @@ export default async function Page(props: Props) {
           </div>
         ) : null}
         <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-          Video-first episode. Use this page as the written companion for notes,
-          code, and supporting resources.
+          Part of {developersLearnFeaturedSeries.title} inside Developers Learn.
+          Use this page as the written companion for notes, code, and supporting
+          resources.
         </p>
       </header>
 

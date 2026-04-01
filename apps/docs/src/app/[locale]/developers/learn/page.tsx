@@ -13,9 +13,9 @@ export async function generateMetadata(props: Props) {
   const { locale } = await props.params;
 
   return {
-    title: "Developers Learn | Solana Bootcamp 2026",
+    title: "Developers Learn | Solana developer learning library",
     description:
-      "Video-first Solana learning tracks built from Bootcamp 2026, with YouTube episodes, companion notes, code, and local progress tracking.",
+      "Video-first Solana learning library with bootcamp iterations, focused courses, YouTube episodes, companion notes, code, and local progress tracking.",
     alternates: getAlternates("/developers/learn", locale),
   };
 }

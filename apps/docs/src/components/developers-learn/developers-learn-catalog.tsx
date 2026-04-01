@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useDevelopersLearnProgress } from "@/hooks/useDevelopersLearnProgress";
 import {
-  developersLearnProgram,
+  developersLearnFeaturedSeries,
+  developersLearnHub,
   developersLearnRoadmapTracks,
   getDevelopersLearnCourseBySlug,
   getDevelopersLearnCourseProgress,
@@ -46,23 +47,17 @@ export default function DevelopersLearnCatalog() {
     <div className="container py-8 md:py-12">
       <header className="mb-10 max-w-4xl">
         <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
-          {developersLearnProgram.kicker}
+          {developersLearnHub.kicker}
         </p>
         <h1 className="mb-4 text-4xl font-semibold text-zinc-950 dark:text-zinc-50 md:text-5xl">
-          {developersLearnProgram.title}
+          {developersLearnHub.title}
         </h1>
         <p className="text-lg text-zinc-600 dark:text-zinc-300">
-          {developersLearnProgram.description}
+          {developersLearnHub.description}
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
-            Primary medium: {developersLearnProgram.primaryMedium}
-          </span>
-          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            Companion: {developersLearnProgram.companionMedium}
-          </span>
-          {developersLearnProgram.supportPillars.map((pillar) => (
+          {developersLearnHub.supportPillars.map((pillar) => (
             <span
               key={pillar}
               className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
@@ -83,10 +78,10 @@ export default function DevelopersLearnCatalog() {
             href="/developers/learn/foundations"
             className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
-            Open foundations track
+            Open featured series
           </Link>
           <a
-            href={developersLearnProgram.repoUrl}
+            href={developersLearnFeaturedSeries.repoUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
@@ -107,16 +102,33 @@ export default function DevelopersLearnCatalog() {
 
       <section className="mb-12 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+          <p className="text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
+            {developersLearnFeaturedSeries.label}
+          </p>
           <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-            How the experience should work
+            {developersLearnFeaturedSeries.title}
           </h2>
           <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-            The main surface is the YouTube series. The docs experience exists
-            to organize that series into tracks, keep companion notes close to
-            each episode, and preserve progress locally before sign-in exists.
+            {developersLearnFeaturedSeries.description}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              {developersLearnFeaturedSeries.type}
+            </span>
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+              Primary medium: {developersLearnFeaturedSeries.primaryMedium}
+            </span>
+            <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              Companion: {developersLearnFeaturedSeries.companionMedium}
+            </span>
+          </div>
+          <p className="mt-5 text-sm text-zinc-600 dark:text-zinc-300">
+            This is the current live series inside Developers Learn. Other
+            courses and future bootcamp iterations should be able to sit beside
+            it without rewriting the top-level IA.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {developersLearnProgram.learningLoop.map((step, index) => (
+            {developersLearnFeaturedSeries.learningLoop.map((step, index) => (
               <div
                 key={step}
                 className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/80"
@@ -134,20 +146,30 @@ export default function DevelopersLearnCatalog() {
 
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
           <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-            What this POC proves
+            How Developers Learn can expand
           </h2>
           <div className="mt-4 space-y-4 text-sm text-zinc-600 dark:text-zinc-300">
             <p>
-              Tracks can hold multiple YouTube episodes without pretending the
-              docs page is the primary destination.
+              Bootcamp 2026 is one series, not the whole product. The umbrella
+              should support multiple learning shapes over time.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {developersLearnHub.expansionPaths.map((path) => (
+                <span
+                  key={path}
+                  className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                >
+                  {path}
+                </span>
+              ))}
+            </div>
+            <p>
+              A future 2027 bootcamp, a wallet course, or a focused Anchor
+              series should all feel native here.
             </p>
             <p>
-              Each episode can carry code, scripts, and companion guidance
-              alongside the future video link.
-            </p>
-            <p>
-              Foundations is the only live track for now. The rest of the
-              roadmap stays visible so the IA points toward the full bootcamp.
+              The current POC keeps only Foundations live, while leaving room
+              for more series and tracks later.
             </p>
           </div>
         </div>
@@ -156,14 +178,13 @@ export default function DevelopersLearnCatalog() {
       <section className="mb-12">
         <div className="mb-6 max-w-3xl">
           <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-            Track roadmap
+            {developersLearnFeaturedSeries.title} roadmap
           </h2>
           <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-            We&apos;re organizing the bootcamp as one flagship YouTube program,
-            broken into tracks, then into episodes. Foundations is the first
-            track live in this POC. The next tracks map to the work already
-            planned across program patterns, fullstack apps, and production
-            shipping.
+            Inside this featured series, we&apos;re organizing the bootcamp into
+            tracks and episodes. Foundations is the first live track in the POC.
+            The next tracks map to the work already planned across program
+            patterns, fullstack apps, and production shipping.
           </p>
         </div>
 
@@ -316,12 +337,12 @@ export default function DevelopersLearnCatalog() {
             Shared stack
           </h2>
           <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-            Every track builds on the same stack so the program feels cumulative
-            instead of disconnected.
+            Every track in {developersLearnFeaturedSeries.title} builds on the
+            same stack so the series feels cumulative instead of disconnected.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {developersLearnProgram.stack.map((item) => (
+          {developersLearnFeaturedSeries.stack.map((item) => (
             <span
               key={item}
               className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"

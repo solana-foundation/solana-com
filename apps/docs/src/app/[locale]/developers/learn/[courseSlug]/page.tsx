@@ -35,7 +35,7 @@ export async function generateMetadata(props: Props) {
 
   return {
     title: `${course.title} | Developers Learn`,
-    description: `${course.description} Video-first track with companion notes and code links.`,
+    description: `${course.description} Track from Solana Bootcamp 2026 inside Developers Learn, with video-first delivery, companion notes, and code links.`,
     alternates: getAlternates(`/developers/learn/${courseSlug}`, locale),
   };
 }
