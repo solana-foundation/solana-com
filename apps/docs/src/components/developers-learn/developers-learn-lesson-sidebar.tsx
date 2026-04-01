@@ -34,7 +34,8 @@ export default function DevelopersLearnLessonSidebar({
         Track episodes
       </h2>
       <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-        {courseProgress.completedCount}/{courseProgress.totalCount} completed
+        {courseProgress.completedCount}/{courseProgress.totalCount} companion
+        guides completed
       </p>
 
       <nav className="space-y-2" aria-label="Course navigation">

@@ -56,6 +56,12 @@ export default async function Page(props: Props) {
           </p>
         ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+            {lesson.video.platform}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            {lesson.video.status}
+          </span>
           <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
             {lesson.type}
           </span>
@@ -89,6 +95,53 @@ export default async function Page(props: Props) {
           code, and supporting resources.
         </p>
       </header>
+
+      <section className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Primary medium
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-zinc-950 dark:text-zinc-50">
+            Watch on {lesson.video.platform}
+          </h2>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+            This episode page should sit beside the published video, not replace
+            it.
+          </p>
+          {lesson.video.url ? (
+            <a
+              href={lesson.video.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
+            >
+              Open video
+            </a>
+          ) : (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100">
+              <p className="font-medium">YouTube link publishing soon</p>
+              <p className="mt-1">
+                {lesson.video.note ||
+                  "Add the YouTube URL here once the episode is uploaded."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Companion role
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-zinc-950 dark:text-zinc-50">
+            Use this guide while you watch and build
+          </h2>
+          <div className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <p>Follow the checkpoints and notes from the episode.</p>
+            <p>Open scripts or code without leaving the lesson flow.</p>
+            <p>Mark the episode complete locally when you finish it.</p>
+          </div>
+        </div>
+      </section>
 
       <DevelopersLearnLessonProgress
         courseSlug={courseSlug}

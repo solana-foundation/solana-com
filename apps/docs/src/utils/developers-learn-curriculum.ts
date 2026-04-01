@@ -10,6 +10,13 @@ export type DevelopersLearnResourceLink = {
   href: string;
 };
 
+export type DevelopersLearnVideo = {
+  platform: "YouTube";
+  status: "Publishing soon" | "Live";
+  url?: string;
+  note?: string;
+};
+
 export type DevelopersLearnLesson = {
   id: number;
   slug: string;
@@ -19,6 +26,7 @@ export type DevelopersLearnLesson = {
   description: string;
   expectation: string;
   buildType: DevelopersLearnBuildType;
+  video: DevelopersLearnVideo;
   resourceLinks?: DevelopersLearnResourceLink[];
 };
 
@@ -32,6 +40,7 @@ export type DevelopersLearnCourse = {
   trackNumber: number;
   format: string;
   focus: string;
+  delivery: string;
   outcomes: string[];
   repoUrl: string;
   lessons: DevelopersLearnLesson[];
@@ -54,7 +63,8 @@ export const developersLearnProgram = {
   title: "Solana Bootcamp 2026",
   description:
     "A video-first YouTube bootcamp that turns the latest Solana curriculum into structured learning tracks. Each episode is paired with companion notes, code, and local progress tracking.",
-  primaryMedium: "YouTube episodes",
+  primaryMedium: "YouTube",
+  companionMedium: "MDX companion guides",
   repoUrl: "https://github.com/solana-foundation/solana-bootcamp-2026",
   stack: [
     "create-solana-dapp",
@@ -71,6 +81,12 @@ export const developersLearnProgram = {
     "Code and script links",
     "Local progress without sign-in",
   ],
+  learningLoop: [
+    "Watch the YouTube episode",
+    "Use the companion guide",
+    "Open the code and scripts",
+    "Track progress locally",
+  ],
 } as const;
 
 export const developersLearnCourses: DevelopersLearnCourse[] = [
@@ -83,8 +99,10 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
     level: "beginner",
     estimatedDuration: "4 episodes",
     trackNumber: 1,
-    format: "Video episodes with MDX companion notes",
+    format: "YouTube episodes with MDX companion guides",
     focus: "Mental model, local setup, and your first fullstack Solana app",
+    delivery:
+      "Watch each episode first, then use the companion page for notes, links, and build checkpoints.",
     outcomes: [
       "Understand the Solana mental model",
       "Set up the local developer toolchain",
@@ -103,6 +121,11 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
           "Understand the blockchain mental model and how Solana differs.",
         expectation: "Solana mental model",
         buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Publishing soon",
+          note: "Episode link will be added when the YouTube upload is live.",
+        },
         resourceLinks: [
           {
             label: "Script",
@@ -120,6 +143,11 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
           "Install the shared bootcamp stack and validate a working local setup.",
         expectation: "Local toolchain setup",
         buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Publishing soon",
+          note: "Episode link will be added when the YouTube upload is live.",
+        },
         resourceLinks: [
           {
             label: "Script",
@@ -137,6 +165,11 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
           "Start from create-solana-dapp and ship your first fullstack Solana app.",
         expectation: "create-solana-dapp",
         buildType: "Fullstack",
+        video: {
+          platform: "YouTube",
+          status: "Publishing soon",
+          note: "Episode link will be added when the YouTube upload is live.",
+        },
         resourceLinks: [
           {
             label: "Bootcamp repo",
@@ -154,6 +187,11 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
           "Use AI tools effectively while still verifying blockchain-critical details.",
         expectation: "AI-assisted development discipline",
         buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Publishing soon",
+          note: "Episode link will be added when the YouTube upload is live.",
+        },
       },
     ],
   },

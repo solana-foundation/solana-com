@@ -56,6 +56,12 @@ export default function DevelopersLearnCatalog() {
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
+          <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+            Primary medium: {developersLearnProgram.primaryMedium}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+            Companion: {developersLearnProgram.companionMedium}
+          </span>
           {developersLearnProgram.supportPillars.map((pillar) => (
             <span
               key={pillar}
@@ -99,16 +105,65 @@ export default function DevelopersLearnCatalog() {
         </div>
       </header>
 
+      <section className="mb-12 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+          <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+            How the experience should work
+          </h2>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-300">
+            The main surface is the YouTube series. The docs experience exists
+            to organize that series into tracks, keep companion notes close to
+            each episode, and preserve progress locally before sign-in exists.
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {developersLearnProgram.learningLoop.map((step, index) => (
+              <div
+                key={step}
+                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/80"
+              >
+                <p className="text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
+                  Step {index + 1}
+                </p>
+                <p className="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {step}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+          <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+            What this POC proves
+          </h2>
+          <div className="mt-4 space-y-4 text-sm text-zinc-600 dark:text-zinc-300">
+            <p>
+              Tracks can hold multiple YouTube episodes without pretending the
+              docs page is the primary destination.
+            </p>
+            <p>
+              Each episode can carry code, scripts, and companion guidance
+              alongside the future video link.
+            </p>
+            <p>
+              Foundations is the only live track for now. The rest of the
+              roadmap stays visible so the IA points toward the full bootcamp.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="mb-12">
         <div className="mb-6 max-w-3xl">
           <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-            Program shape
+            Track roadmap
           </h2>
           <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-            We&apos;re organizing the bootcamp as one flagship video program,
+            We&apos;re organizing the bootcamp as one flagship YouTube program,
             broken into tracks, then into episodes. Foundations is the first
             track live in this POC. The next tracks map to the work already
-            planned across programs, fullstack apps, and production shipping.
+            planned across program patterns, fullstack apps, and production
+            shipping.
           </p>
         </div>
 
@@ -169,6 +224,9 @@ export default function DevelopersLearnCatalog() {
                 <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                   {track.estimatedDuration}
                 </p>
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  Primary medium: YouTube episodes
+                </p>
 
                 {course && progress ? (
                   <>
@@ -224,7 +282,9 @@ export default function DevelopersLearnCatalog() {
                         href={`/developers/learn/${course.slug}`}
                         className="mt-5 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
                       >
-                        {progress?.isComplete ? "Review track" : "Open track"}
+                        {progress?.isComplete
+                          ? "Review track"
+                          : "Browse episodes"}
                       </Link>
                       {!progress?.isComplete && nextIncompleteEpisode ? (
                         <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
@@ -240,8 +300,8 @@ export default function DevelopersLearnCatalog() {
                   )
                 ) : (
                   <p className="mt-5 text-sm text-zinc-500 dark:text-zinc-400">
-                    Planned next. This should become its own landing page once
-                    the video series is ready.
+                    Planned next. This should become its own track landing page
+                    once the YouTube series is ready.
                   </p>
                 )}
               </section>

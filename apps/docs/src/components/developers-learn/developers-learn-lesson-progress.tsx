@@ -114,6 +114,10 @@ export default function DevelopersLearnLessonProgress({
         {" · "}
         {courseProgress.percent}%
       </p>
+      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        Progress is stored locally in this browser while the experience remains
+        video-first and unsigned.
+      </p>
     </div>
   );
 }
