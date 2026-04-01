@@ -77,7 +77,7 @@ interface UpgradeCardProps {
 }
 
 function UpgradeCard({ upgrade }: UpgradeCardProps) {
-  const href = upgrade.customPath || `/upgrades/${upgrade.slug}`;
+  const href = `/upgrades/${upgrade.slug}`;
 
   return (
     <Link
