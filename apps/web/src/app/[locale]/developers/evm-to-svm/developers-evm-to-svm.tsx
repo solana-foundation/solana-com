@@ -16,7 +16,7 @@ export function DevelopersEvmToSvmPage() {
     {
       hierarchy: "primary",
       size: "md",
-      url: "/developers/chain-migration/complete-guide",
+      url: "/developers/migrate-to-solana/complete-guide",
       label: t("evmGuidesHeading.buttons.0.label"),
     },
     {

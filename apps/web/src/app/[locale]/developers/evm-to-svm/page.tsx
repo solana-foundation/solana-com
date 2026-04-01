@@ -3,5 +3,5 @@ import { redirect } from "next/navigation";
 export const revalidate = 60;
 
 export default async function Page() {
-  redirect("/developers/chain-migration/ethereum");
+  redirect("/developers/migrate-to-solana/ethereum");
 }

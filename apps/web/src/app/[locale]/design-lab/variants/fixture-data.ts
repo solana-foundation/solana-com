@@ -18,7 +18,7 @@ export const CHAINS = [
     title: "EVM / Ethereum",
     body: "11 guides covering ERC standards, accounts, smart contracts, and key differences between EVM and SVM.",
     cta: "View EVM Guides",
-    url: "/developers/chain-migration/ethereum",
+    url: "/developers/migrate-to-solana/ethereum",
   },
   {
     eyebrow: "Cosmos",

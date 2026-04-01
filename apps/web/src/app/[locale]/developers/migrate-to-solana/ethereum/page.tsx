@@ -16,6 +16,6 @@ export async function generateMetadata({ params }: Props) {
   return {
     title: t("evmPage.meta.seoTitle"),
     description: t("evmPage.meta.seoDescription"),
-    alternates: getAlternates("/developers/chain-migration/ethereum", locale),
+    alternates: getAlternates("/developers/migrate-to-solana/ethereum", locale),
   };
 }

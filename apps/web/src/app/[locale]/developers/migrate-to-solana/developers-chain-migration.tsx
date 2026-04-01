@@ -108,7 +108,7 @@ export function DevelopersChainMigrationPage() {
     {
       hierarchy: "primary",
       label: t("hero.buttons.0.label"),
-      url: "/developers/chain-migration/ethereum",
+      url: "/developers/migrate-to-solana/ethereum",
     },
     {
       hierarchy: "outline",

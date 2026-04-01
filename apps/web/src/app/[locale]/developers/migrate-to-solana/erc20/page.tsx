@@ -1,4 +1,4 @@
-import { DevelopersChainMigrationPage } from "./developers-chain-migration";
+import { DevelopersEvmToSvmErc20Page } from "./developers-evm-to-svm-erc20";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
@@ -7,15 +7,15 @@ type Props = { params: Promise<{ locale: string }> };
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  return <DevelopersChainMigrationPage />;
+  return <DevelopersEvmToSvmErc20Page />;
 }
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations("developers-evm-to-svm");
+  const t = await getTranslations("developers-evm-to-svm-erc20");
   return {
     title: t("meta.seoTitle"),
     description: t("meta.seoDescription"),
-    alternates: getAlternates("/developers/chain-migration", locale),
+    alternates: getAlternates("/developers/migrate-to-solana/erc20", locale),
   };
 }

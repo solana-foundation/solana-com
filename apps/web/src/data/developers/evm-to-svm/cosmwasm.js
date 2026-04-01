@@ -38,7 +38,7 @@ export const META = {
 
 export const CONTENT_EDITOR_CTA = {
   button: {
-    url: "/developers/chain-migration",
+    url: "/developers/migrate-to-solana",
   },
 };
 
@@ -50,7 +50,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "/developers/chain-migration",
+    url: "/developers/migrate-to-solana",
   },
 ];
 

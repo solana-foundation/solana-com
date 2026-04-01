@@ -126,9 +126,9 @@ export const buildTutorialItems: NavItemDefinition[] = [
     icon: MaintenanceIcon,
   },
   {
-    id: "build-evm-to-svm",
-    titleKey: "nav.developers.tutorials.evm-to-svm",
-    href: "/developers/evm-to-svm",
+    id: "build-chain-migration",
+    titleKey: "nav.developers.tutorials.chain-migration",
+    href: "/developers/migrate-to-solana",
     icon: EthereumIcon,
   },
 ];

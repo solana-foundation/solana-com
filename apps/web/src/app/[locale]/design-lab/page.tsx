@@ -40,7 +40,7 @@ export default function DesignLabPage() {
               Design Lab
             </p>
             <h1 className="tw-text-nd-high-em-text tw-font-brand tw-text-lg tw-font-semibold tw-mb-0">
-              developers/chain-migration — 3 variants
+              developers/migrate-to-solana — 3 variants
             </h1>
           </div>
           <p className="tw-text-nd-mid-em-text tw-text-sm tw-text-pretty tw-max-w-md">
