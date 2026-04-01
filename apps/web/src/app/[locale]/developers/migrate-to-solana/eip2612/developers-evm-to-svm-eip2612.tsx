@@ -55,7 +55,7 @@ export function DevelopersEvmToSvmEip2612Page() {
             description: t("contentEditor.callToAction.description"),
             button: {
               label: t("contentEditor.callToAction.button.label"),
-              url: "/developers/chain-migration/erc20",
+              url: "/developers/migrate-to-solana/erc20",
             },
           }}
         >

@@ -36,7 +36,7 @@ export const CHAIN_SELECTOR_CARDS = [
     button: {
       hierarchy: "outline",
       size: "md",
-      url: "/developers/chain-migration/ethereum",
+      url: "/developers/migrate-to-solana/ethereum",
     },
   },
   {
@@ -100,7 +100,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/ethereum",
+        url: "/developers/migrate-to-solana/ethereum",
         size: "md",
         hierarchy: "primary",
       },
@@ -117,7 +117,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/erc20",
+        url: "/developers/migrate-to-solana/erc20",
         size: "md",
         hierarchy: "primary",
       },
@@ -130,7 +130,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/erc721",
+        url: "/developers/migrate-to-solana/erc721",
         size: "md",
         hierarchy: "primary",
       },
@@ -143,7 +143,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/erc4337",
+        url: "/developers/migrate-to-solana/erc4337",
         size: "md",
         hierarchy: "primary",
       },
@@ -156,7 +156,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/erc3643",
+        url: "/developers/migrate-to-solana/erc3643",
         size: "md",
         hierarchy: "primary",
       },
@@ -169,7 +169,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/erc4626",
+        url: "/developers/migrate-to-solana/erc4626",
         size: "md",
         hierarchy: "primary",
       },
@@ -182,7 +182,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/eip2612",
+        url: "/developers/migrate-to-solana/eip2612",
         size: "md",
         hierarchy: "primary",
       },
@@ -195,7 +195,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/consensus",
+        url: "/developers/migrate-to-solana/consensus",
         size: "md",
         hierarchy: "primary",
       },
@@ -208,7 +208,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/accounts",
+        url: "/developers/migrate-to-solana/accounts",
         size: "md",
         hierarchy: "primary",
       },
@@ -221,7 +221,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/smart-contracts",
+        url: "/developers/migrate-to-solana/smart-contracts",
         size: "md",
         hierarchy: "primary",
       },
@@ -234,7 +234,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/chain-migration/client-differences",
+        url: "/developers/migrate-to-solana/client-differences",
         size: "md",
         hierarchy: "primary",
       },
