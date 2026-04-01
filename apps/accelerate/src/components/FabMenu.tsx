@@ -3,5 +3,5 @@
 import { SolanaFabMenu } from "@solana-com/fab-menu/react";
 
 export function FabMenu() {
-  return <SolanaFabMenu position="bottom-right" />;
+  return <SolanaFabMenu position="bottom-right" logoVariant="color" />;
 }

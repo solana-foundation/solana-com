@@ -18,6 +18,9 @@ export interface FabMenuConfig {
   /** Z-index for the FAB and overlay (default: 999999) */
   zIndex?: number;
 
+  /** Logo variant for the FAB button */
+  logoVariant?: "dark-mono" | "light-mono" | "color";
+
   /** Theme overrides — maps to CSS custom properties */
   theme?: Partial<{
     bg: string;

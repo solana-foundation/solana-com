@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import type { FabMenuConfig } from "./types";
 import { SolanaMonoIcon } from "./icons/solana-mono";
+import { SolanaColorIcon } from "./icons/solana-color";
 
 interface FabButtonProps {
   config: FabMenuConfig;
@@ -30,15 +31,30 @@ function getPositionStyle(
   return undefined;
 }
 
+function getVariantClass(variant: FabMenuConfig["logoVariant"]): string {
+  switch (variant) {
+    case "light-mono":
+      return " sfab-button--light-mono";
+    case "color":
+      return " sfab-button--color";
+    case "dark-mono":
+    default:
+      return " sfab-button--dark-mono";
+  }
+}
+
 export function FabButton({ config, onClick }: FabButtonProps) {
   const position = config.position ?? "bottom-right";
+  const variant = config.logoVariant ?? "dark-mono";
   const posClass = getPositionClass(position);
   const posStyle = getPositionStyle(position);
+
+  const Icon = variant === "color" ? SolanaColorIcon : SolanaMonoIcon;
 
   return (
     <button
       type="button"
-      class={`sfab-button${posClass ? ` ${posClass}` : ""}`}
+      class={`sfab-button${posClass ? ` ${posClass}` : ""}${getVariantClass(variant)}`}
       style={{
         "--sfab-z-index": String(config.zIndex ?? 999999),
         ...posStyle,
@@ -46,7 +62,7 @@ export function FabButton({ config, onClick }: FabButtonProps) {
       onClick={onClick}
       aria-label="Get Started with Solana"
     >
-      <SolanaMonoIcon />
+      <Icon />
     </button>
   );
 }

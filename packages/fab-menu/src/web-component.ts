@@ -9,7 +9,7 @@ class SolanaFabMenuElement extends HTMLElement {
   private _mounted = false;
 
   static get observedAttributes() {
-    return ["position", "api-url", "z-index"];
+    return ["position", "api-url", "z-index", "logo-variant"];
   }
 
   connectedCallback() {
@@ -47,6 +47,11 @@ class SolanaFabMenuElement extends HTMLElement {
     const zIndex = this.getAttribute("z-index");
     if (zIndex) {
       this._config.zIndex = parseInt(zIndex, 10);
+    }
+
+    const logoVariant = this.getAttribute("logo-variant");
+    if (logoVariant) {
+      this._config.logoVariant = logoVariant as FabMenuConfig["logoVariant"];
     }
   }
 

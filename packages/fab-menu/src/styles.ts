@@ -30,22 +30,18 @@ export const FAB_STYLES = /* css */ `
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
-  background: var(--sfab-cta);
-  color: var(--sfab-inverse);
   cursor: pointer;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   animation: sfab-entrance 0.4s ease-out;
   padding: 0;
 }
 
 .sfab-button:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.4);
 }
 
 .sfab-button:focus-visible {
@@ -54,8 +50,58 @@ export const FAB_STYLES = /* css */ `
 }
 
 .sfab-button svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Logo Variants ── */
+.sfab-button--dark-mono {
+  background: #F5F3F1;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #0E0E11;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.sfab-button--dark-mono:hover {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.sfab-button--light-mono {
+  background: #111118;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #EDEDEF;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.sfab-button--light-mono:hover {
+  background: #18182A;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 12px 32px rgba(0, 0, 0, 0.32);
+}
+
+.sfab-button--color {
+  background: #1A1A2E;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.sfab-button--color:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 12px 32px rgba(0, 0, 0, 0.32);
 }
 
 /* Positions */
