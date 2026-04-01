@@ -120,7 +120,7 @@ export function DevelopersChainMigrationPage() {
   const chainSelectorCards = CHAIN_SELECTOR_CARDS.map((card, index) => ({
     ...card,
     feature: t(`chainSelector.cards.${index}.feature`),
-    body: t(`chainSelector.cards.${index}.body`),
+    body: "",
     eyebrow: t(`chainSelector.cards.${index}.eyebrow`),
     button: {
       ...card.button,
@@ -142,7 +142,7 @@ export function DevelopersChainMigrationPage() {
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
         body={t.raw("hero.body")}
-        buttons={heroButtons}
+        buttons={[]}
       />
 
       {/* Chain selector */}
