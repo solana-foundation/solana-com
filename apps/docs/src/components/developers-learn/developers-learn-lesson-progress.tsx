@@ -54,14 +54,14 @@ export default function DevelopersLearnLessonProgress({
 
   if (!courseUnlocked || !lessonUnlocked) {
     return (
-      <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+      <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100">
         This lesson is locked. Complete previous lessons from this track first.
       </div>
     );
   }
 
   return (
-    <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 md:p-5">
+    <div className="mb-8 rounded-xl border bg-fd-card p-4 md:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -70,7 +70,7 @@ export default function DevelopersLearnLessonProgress({
               ? markLessonIncomplete(lessonKey)
               : markLessonComplete(lessonKey)
           }
-          className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-zinc-500 hover:bg-zinc-900"
+          className="rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
         >
           {completed ? "Mark as incomplete" : "Mark lesson complete"}
         </button>
@@ -78,7 +78,7 @@ export default function DevelopersLearnLessonProgress({
         {completed && nextLesson ? (
           <Link
             href={`/developers/learn/${courseSlug}/${nextLesson.slug}`}
-            className="rounded-md border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-200"
           >
             Next lesson
           </Link>
@@ -87,7 +87,7 @@ export default function DevelopersLearnLessonProgress({
         {completed && !nextLesson ? (
           <Link
             href={`/developers/learn/${courseSlug}`}
-            className="rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-zinc-500 hover:bg-zinc-900"
+            className="rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
           >
             Back to course
           </Link>
@@ -98,8 +98,8 @@ export default function DevelopersLearnLessonProgress({
             href={`/developers/learn/${nextCourse.slug}`}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               nextCourseUnlocked
-                ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
-                : "border border-zinc-700 text-zinc-400"
+                ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-200"
+                : "border bg-fd-card text-fd-muted-foreground"
             }`}
           >
             Open next course
@@ -107,7 +107,7 @@ export default function DevelopersLearnLessonProgress({
         ) : null}
       </div>
 
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-fd-muted-foreground">
         Course progress: {courseProgress.completedCount}/
         {courseProgress.totalCount}
         {" · "}
