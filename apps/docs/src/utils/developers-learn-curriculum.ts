@@ -1,4 +1,14 @@
 export type DevelopersLearnLessonType = "intro" | "project" | "bonus";
+export type DevelopersLearnBuildType =
+  | "Mixed"
+  | "Program"
+  | "Fullstack"
+  | "Client only";
+
+export type DevelopersLearnResourceLink = {
+  label: string;
+  href: string;
+};
 
 export type DevelopersLearnLesson = {
   id: number;
@@ -7,6 +17,9 @@ export type DevelopersLearnLesson = {
   instructor: string;
   type: DevelopersLearnLessonType;
   description: string;
+  expectation: string;
+  buildType: DevelopersLearnBuildType;
+  resourceLinks?: DevelopersLearnResourceLink[];
 };
 
 export type DevelopersLearnCourse = {
@@ -16,18 +29,69 @@ export type DevelopersLearnCourse = {
   description: string;
   level: "beginner" | "intermediate" | "advanced";
   estimatedDuration: string;
+  trackNumber: number;
+  format: string;
+  focus: string;
+  outcomes: string[];
+  repoUrl: string;
   lessons: DevelopersLearnLesson[];
 };
+
+export type DevelopersLearnRoadmapTrack = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  status: "Available now" | "Coming soon";
+  buildType: DevelopersLearnBuildType;
+  estimatedDuration: string;
+  projects: string[];
+  outcomes: string[];
+};
+
+export const developersLearnProgram = {
+  kicker: "Developers Learn",
+  title: "Solana Bootcamp 2026",
+  description:
+    "A video-first YouTube bootcamp that turns the latest Solana curriculum into structured learning tracks. Each episode is paired with companion notes, code, and local progress tracking.",
+  primaryMedium: "YouTube episodes",
+  repoUrl: "https://github.com/solana-foundation/solana-bootcamp-2026",
+  stack: [
+    "create-solana-dapp",
+    "Anchor v2",
+    "LiteSVM",
+    "Surfpool",
+    "Framework Kit",
+    "Security Roadmap",
+    "Next.js client + server",
+  ],
+  supportPillars: [
+    "Video-first episodes",
+    "Written companion notes",
+    "Code and script links",
+    "Local progress without sign-in",
+  ],
+} as const;
 
 export const developersLearnCourses: DevelopersLearnCourse[] = [
   {
     id: 1,
     slug: "foundations",
-    title: "Solana Bootcamp Foundations",
+    title: "Foundations",
     description:
-      "From blockchain fundamentals to your first on-chain program setup.",
+      "Start with the shared bootcamp stack, learn the Solana mental model, and ship your first end-to-end build.",
     level: "beginner",
-    estimatedDuration: "4 lessons",
+    estimatedDuration: "4 episodes",
+    trackNumber: 1,
+    format: "Video episodes with MDX companion notes",
+    focus: "Mental model, local setup, and your first fullstack Solana app",
+    outcomes: [
+      "Understand the Solana mental model",
+      "Set up the local developer toolchain",
+      "Start from create-solana-dapp",
+      "Build with AI while verifying critical blockchain details",
+    ],
+    repoUrl: developersLearnProgram.repoUrl,
     lessons: [
       {
         id: 1,
@@ -37,35 +101,131 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
         type: "intro",
         description:
           "Understand the blockchain mental model and how Solana differs.",
+        expectation: "Solana mental model",
+        buildType: "Mixed",
+        resourceLinks: [
+          {
+            label: "Script",
+            href: "https://docs.google.com/document/d/1FbwPKniPoPcT2Ikt0vWxuvJUO7-DvNbUGSg4-aUwr7Q/edit?usp=sharing",
+          },
+        ],
       },
       {
         id: 2,
         slug: "local-installation",
-        title: "Project 1: Local Installation",
+        title: "Local Installation",
         instructor: "Bri",
         type: "project",
         description:
-          "Install your local toolchain and validate a working dev setup.",
+          "Install the shared bootcamp stack and validate a working local setup.",
+        expectation: "Local toolchain setup",
+        buildType: "Mixed",
+        resourceLinks: [
+          {
+            label: "Script",
+            href: "https://docs.google.com/document/d/1ih6qpZnXeeDeCdC0Aryhn3wbQlpKmGZVQumCoiwcrek/edit?usp=sharing",
+          },
+        ],
       },
       {
         id: 3,
         slug: "hello-world",
-        title: "Project 2: Hello World",
+        title: "Hello World",
         instructor: "Gui",
         type: "project",
         description:
-          "Build and run your first Solana project end-to-end on local/devnet.",
+          "Start from create-solana-dapp and ship your first fullstack Solana app.",
+        expectation: "create-solana-dapp",
+        buildType: "Fullstack",
+        resourceLinks: [
+          {
+            label: "Bootcamp repo",
+            href: developersLearnProgram.repoUrl,
+          },
+        ],
       },
       {
         id: 4,
         slug: "ai-best-practices",
-        title: "Bonus Lesson 1: AI Best Practices",
+        title: "AI Best Practices",
         instructor: "Gui",
         type: "bonus",
         description:
           "Use AI tools effectively while still verifying blockchain-critical details.",
+        expectation: "AI-assisted development discipline",
+        buildType: "Mixed",
       },
     ],
+  },
+];
+
+export const developersLearnRoadmapTracks: DevelopersLearnRoadmapTrack[] = [
+  {
+    id: 1,
+    slug: "foundations",
+    title: "Foundations",
+    description:
+      "Start here: learn the Solana mental model, set up the stack, and build your first app.",
+    status: "Available now",
+    buildType: "Mixed",
+    estimatedDuration: "4 episodes",
+    projects: [
+      "Quick Intro to Blockchain",
+      "Local Installation",
+      "Hello World",
+      "AI Best Practices",
+    ],
+    outcomes: [
+      "Shared developer stack",
+      "create-solana-dapp",
+      "First end-to-end build",
+    ],
+  },
+  {
+    id: 2,
+    slug: "program-patterns",
+    title: "Program Patterns",
+    description:
+      "Program-first episodes for state, PDAs, token primitives, and security hygiene.",
+    status: "Coming soon",
+    buildType: "Program",
+    estimatedDuration: "4 episodes",
+    projects: [
+      "Voting",
+      "Escrow Application",
+      "Stablecoin",
+      "Security Checklist",
+    ],
+    outcomes: [
+      "Counter state",
+      "PDAs",
+      "Token creation",
+      "Security review muscle",
+    ],
+  },
+  {
+    id: 3,
+    slug: "fullstack-apps",
+    title: "Fullstack Applications",
+    description:
+      "Fullstack builds where the program is only part of the product surface.",
+    status: "Coming soon",
+    buildType: "Fullstack",
+    estimatedDuration: "3 episodes",
+    projects: ["Private Transfers", "Stable Swap", "Prediction Market"],
+    outcomes: ["zkCompression + infra", "Special rules", "Market mechanics"],
+  },
+  {
+    id: 4,
+    slug: "shipping-production",
+    title: "Shipping & Production",
+    description:
+      "Episodes focused on getting from prototype to real-world deployment and monetization.",
+    status: "Coming soon",
+    buildType: "Mixed",
+    estimatedDuration: "3 episodes",
+    projects: ["Production Deployment", "x402", "RWA - Labubu"],
+    outcomes: ["Indexing + prod", "x402 basics", "Anchor + Kit + Codama"],
   },
 ];
 

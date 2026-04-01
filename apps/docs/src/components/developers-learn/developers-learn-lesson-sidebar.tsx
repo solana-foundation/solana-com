@@ -31,7 +31,7 @@ export default function DevelopersLearnLessonSidebar({
   return (
     <aside className="sticky top-24 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
       <h2 className="mb-3 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-        Course lessons
+        Track episodes
       </h2>
       <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
         {courseProgress.completedCount}/{courseProgress.totalCount} completed
@@ -61,7 +61,7 @@ export default function DevelopersLearnLessonSidebar({
               }`}
             >
               <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                Lesson {index + 1}
+                Episode {index + 1}
               </p>
               <p className="font-medium text-zinc-950 dark:text-zinc-50">
                 {lesson.title}

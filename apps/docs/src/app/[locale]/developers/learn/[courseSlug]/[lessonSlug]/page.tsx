@@ -8,6 +8,7 @@ import DevelopersLearnLessonSidebar from "@/components/developers-learn/develope
 import {
   developersLearnCourses,
   getDevelopersLearnCourseBySlug,
+  getDevelopersLearnLesson,
 } from "@/utils/developers-learn-curriculum";
 
 type Props = {
@@ -17,8 +18,9 @@ type Props = {
 export default async function Page(props: Props) {
   const { locale, courseSlug, lessonSlug } = await props.params;
   const course = getDevelopersLearnCourseBySlug(courseSlug);
+  const lesson = getDevelopersLearnLesson(courseSlug, lessonSlug);
 
-  if (!course) {
+  if (!course || !lesson) {
     notFound();
   }
 
@@ -37,13 +39,13 @@ export default async function Page(props: Props) {
           href={`/developers/learn/${courseSlug}`}
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
-          ← {course.title}
+          ← {course.title} track
         </Link>
       </div>
 
       <header className="mb-8 max-w-3xl">
         <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
-          {course.title}
+          {course.title} · Episode companion
         </p>
         <h1 className="mb-3 text-4xl font-semibold text-zinc-950 dark:text-zinc-50 md:text-5xl">
           {data.h1 || data.title}
@@ -53,6 +55,39 @@ export default async function Page(props: Props) {
             {data.description}
           </p>
         ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            {lesson.type}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            {lesson.buildType}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            Instructor: {lesson.instructor}
+          </span>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            Learn: {lesson.expectation}
+          </span>
+        </div>
+        {lesson.resourceLinks?.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {lesson.resourceLinks.map((resource) => (
+              <a
+                key={resource.href}
+                href={resource.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                {resource.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
+        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+          Video-first episode. Use this page as the written companion for notes,
+          code, and supporting resources.
+        </p>
       </header>
 
       <DevelopersLearnLessonProgress

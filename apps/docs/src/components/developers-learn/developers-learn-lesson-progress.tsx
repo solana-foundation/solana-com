@@ -55,7 +55,8 @@ export default function DevelopersLearnLessonProgress({
   if (!courseUnlocked || !lessonUnlocked) {
     return (
       <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100">
-        This lesson is locked. Complete previous lessons from this track first.
+        This episode is locked. Complete previous episodes from this track
+        first.
       </div>
     );
   }
@@ -72,7 +73,7 @@ export default function DevelopersLearnLessonProgress({
           }
           className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
         >
-          {completed ? "Mark as incomplete" : "Mark lesson complete"}
+          {completed ? "Mark episode incomplete" : "Mark episode complete"}
         </button>
 
         {completed && nextLesson ? (
@@ -80,7 +81,7 @@ export default function DevelopersLearnLessonProgress({
             href={`/developers/learn/${courseSlug}/${nextLesson.slug}`}
             className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-200"
           >
-            Next lesson
+            Next episode
           </Link>
         ) : null}
 
@@ -89,7 +90,7 @@ export default function DevelopersLearnLessonProgress({
             href={`/developers/learn/${courseSlug}`}
             className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
-            Back to course
+            Back to track
           </Link>
         ) : null}
 
@@ -102,13 +103,13 @@ export default function DevelopersLearnLessonProgress({
                 : "border border-zinc-300 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400"
             }`}
           >
-            Open next course
+            Open next track
           </Link>
         ) : null}
       </div>
 
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Course progress: {courseProgress.completedCount}/
+        Track progress: {courseProgress.completedCount}/
         {courseProgress.totalCount}
         {" · "}
         {courseProgress.percent}%

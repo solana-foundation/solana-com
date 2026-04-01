@@ -34,8 +34,8 @@ export async function generateMetadata(props: Props) {
   }
 
   return {
-    title: course.title,
-    description: course.description,
+    title: `${course.title} | Developers Learn`,
+    description: `${course.description} Video-first track with companion notes and code links.`,
     alternates: getAlternates(`/developers/learn/${courseSlug}`, locale),
   };
 }
