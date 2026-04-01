@@ -14,8 +14,8 @@ import {
   ApiIcon,
   TemplatesIcon,
   SchoolIcon,
-  EvmIcon,
-  CalendarIcon,
+  ComputerIcon,
+  DiamondIcon,
   CoinIcon,
   TokenizeIcon,
   BankIcon,
@@ -46,8 +46,8 @@ const LINK_ICON_MAP: Record<
   "/docs/rpc": ApiIcon,
   "/developers/templates": TemplatesIcon,
   "/developers": SchoolIcon,
-  "/developers/evm-to-svm": EvmIcon,
-  "/events": CalendarIcon,
+  "/developers/evm-to-svm": ComputerIcon,
+  "/events": DiamondIcon,
   "/solutions/stablecoins": CoinIcon,
   "/solutions/tokenization": TokenizeIcon,
   "/solutions/institutional-payments": BankIcon,
@@ -273,7 +273,7 @@ export function ExplorePanel({ data, config, onClose }: ExplorePanelProps) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Docs
+              docs
             </a>
           </div>
         </div>
