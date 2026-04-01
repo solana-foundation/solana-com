@@ -24,7 +24,10 @@ export default function DevelopersLearnCoursePage({
     return null;
   }
 
-  const progress = getDevelopersLearnCourseProgress(course, completedLessonsSet);
+  const progress = getDevelopersLearnCourseProgress(
+    course,
+    completedLessonsSet,
+  );
   const nextIncompleteLesson = getDevelopersLearnNextIncompleteLesson(
     courseSlug,
     completedLessonsSet,
@@ -102,7 +105,10 @@ export default function DevelopersLearnCoursePage({
         <section className="space-y-4">
           {course.lessons.map((lesson, index) => {
             const previousLesson = index > 0 ? course.lessons[index - 1] : null;
-            const lessonKey = getDevelopersLearnLessonKey(courseSlug, lesson.slug);
+            const lessonKey = getDevelopersLearnLessonKey(
+              courseSlug,
+              lesson.slug,
+            );
             const lessonCompleted = completedLessonsSet.has(lessonKey);
             const lessonUnlocked = isDevelopersLearnLessonUnlocked(
               courseSlug,
@@ -141,7 +147,9 @@ export default function DevelopersLearnCoursePage({
                 <h2 className="mt-3 text-2xl font-semibold text-white">
                   {lesson.title}
                 </h2>
-                <p className="mt-2 text-sm text-zinc-300">{lesson.description}</p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  {lesson.description}
+                </p>
 
                 {lessonUnlocked ? (
                   <Link
@@ -152,8 +160,8 @@ export default function DevelopersLearnCoursePage({
                   </Link>
                 ) : (
                   <p className="mt-4 text-sm text-zinc-500">
-                    Finish {previousLesson?.title || "the previous lesson"} first
-                    to unlock this lesson.
+                    Finish {previousLesson?.title || "the previous lesson"}{" "}
+                    first to unlock this lesson.
                   </p>
                 )}
               </article>

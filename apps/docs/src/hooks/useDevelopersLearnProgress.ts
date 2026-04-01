@@ -129,7 +129,8 @@ export function useDevelopersLearnProgress() {
     completedLessons,
     completedLessonsSet,
     isHydrated,
-    isLessonCompleted: (lessonKey: string) => completedLessonsSet.has(lessonKey),
+    isLessonCompleted: (lessonKey: string) =>
+      completedLessonsSet.has(lessonKey),
     markLessonComplete,
     markLessonIncomplete,
     clearProgress,

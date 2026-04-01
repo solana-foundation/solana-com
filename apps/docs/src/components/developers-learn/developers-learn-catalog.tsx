@@ -105,7 +105,8 @@ export default function DevelopersLearnCatalog() {
                 />
               </div>
               <p className="mb-5 text-sm text-zinc-400">
-                {progress.completedCount}/{progress.totalCount} lessons completed
+                {progress.completedCount}/{progress.totalCount} lessons
+                completed
               </p>
 
               {courseUnlocked ? (

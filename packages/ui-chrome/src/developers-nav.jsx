@@ -96,7 +96,9 @@ export function DevelopersNav({ containerClassName }) {
                   width="16"
                   className="inline-block mr-2"
                 />
-                <span className="align-middle">{t("developers.nav.courses")}</span>
+                <span className="align-middle">
+                  {t("developers.nav.courses")}
+                </span>
               </NavLink>
               <NavLink
                 partiallyActive

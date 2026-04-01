@@ -108,7 +108,8 @@ export default function DevelopersLearnLessonProgress({
       </div>
 
       <p className="text-sm text-zinc-400">
-        Course progress: {courseProgress.completedCount}/{courseProgress.totalCount}
+        Course progress: {courseProgress.completedCount}/
+        {courseProgress.totalCount}
         {" · "}
         {courseProgress.percent}%
       </p>

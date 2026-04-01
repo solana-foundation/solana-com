@@ -37,7 +37,10 @@ export default function DevelopersLearnLessonSidebar({
 
       <nav className="space-y-2" aria-label="Course navigation">
         {course.lessons.map((lesson, index) => {
-          const lessonKey = getDevelopersLearnLessonKey(courseSlug, lesson.slug);
+          const lessonKey = getDevelopersLearnLessonKey(
+            courseSlug,
+            lesson.slug,
+          );
           const lessonCompleted = completedLessonsSet.has(lessonKey);
           const lessonUnlocked = isDevelopersLearnLessonUnlocked(
             courseSlug,

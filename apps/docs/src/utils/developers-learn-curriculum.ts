@@ -78,7 +78,9 @@ export function getDevelopersLearnCourseBySlug(courseSlug: string) {
 }
 
 export function getDevelopersLearnCourseIndex(courseSlug: string) {
-  return developersLearnCourses.findIndex((course) => course.slug === courseSlug);
+  return developersLearnCourses.findIndex(
+    (course) => course.slug === courseSlug,
+  );
 }
 
 export function getDevelopersLearnLesson(
@@ -174,7 +176,9 @@ export function isDevelopersLearnLessonUnlocked(
     return false;
   }
 
-  const lessonIndex = course.lessons.findIndex((lesson) => lesson.slug === lessonSlug);
+  const lessonIndex = course.lessons.findIndex(
+    (lesson) => lesson.slug === lessonSlug,
+  );
   if (lessonIndex < 0) {
     return false;
   }
@@ -198,7 +202,9 @@ export function getDevelopersLearnNextLesson(
     return null;
   }
 
-  const lessonIndex = course.lessons.findIndex((lesson) => lesson.slug === lessonSlug);
+  const lessonIndex = course.lessons.findIndex(
+    (lesson) => lesson.slug === lessonSlug,
+  );
   if (lessonIndex < 0 || lessonIndex >= course.lessons.length - 1) {
     return null;
   }
