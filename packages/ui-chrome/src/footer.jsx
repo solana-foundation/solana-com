@@ -73,7 +73,7 @@ export const Footer = ({ className = "" }) => {
       )}
     >
       <div
-        className="w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat"
+        className="relative z-[1] w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat"
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
         <div className="relative grid grid-cols-2 xl:grid-cols-6 gap-[30px]">
@@ -193,7 +193,7 @@ export const Footer = ({ className = "" }) => {
           </div>
         </div>
       </div>
-      <FooterMouseEffect className="absolute bottom-0 left-0 w-full h-[300px] hidden xl:block" />
+      <FooterMouseEffect className="absolute bottom-0 left-0 w-full h-[300px] hidden xl:block pointer-events-none" />
     </div>
   );
 };
