@@ -4,7 +4,7 @@ import type { FabMenuConfig, MenuData } from "./types";
 import { fetchMenuData } from "./fetch-config";
 import { DEFAULT_MENU_DATA } from "./defaults";
 import { FabButton } from "./fab-button";
-import { GetStartedPanel } from "./get-started-panel";
+import { ExplorePanel } from "./explore-panel";
 
 interface FabAppProps {
   config: FabMenuConfig;
@@ -51,11 +51,7 @@ export function FabApp({ config }: FabAppProps) {
     >
       {!isOpen && <FabButton config={config} onClick={handleOpen} />}
       {isOpen && (
-        <GetStartedPanel
-          data={menuData}
-          config={config}
-          onClose={handleClose}
-        />
+        <ExplorePanel data={menuData} config={config} onClose={handleClose} />
       )}
     </div>
   );

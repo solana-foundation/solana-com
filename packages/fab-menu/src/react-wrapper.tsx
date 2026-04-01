@@ -2,7 +2,15 @@ import { createElement, useEffect, useRef } from "react";
 import type { FabMenuConfig } from "./types";
 
 export type { FabMenuConfig } from "./types";
-export type { MenuData, TabData, LinkData } from "./types";
+export type {
+  MenuData,
+  TabData,
+  LinkData,
+  FeaturedData,
+  StatData,
+  PromoData,
+  TabIcon,
+} from "./types";
 
 interface SolanaFabMenuElement extends HTMLElement {
   configure(config: FabMenuConfig): void;

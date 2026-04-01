@@ -41,19 +41,44 @@ export interface FabMenuConfig {
   onLinkClick?: (href: string, tabId: string) => void;
 }
 
+export type TabIcon = "builder" | "business" | "consumer";
+
 export interface TabData {
   id: string;
   title: string;
-  icon: "bank" | "avatar" | "code";
+  icon: TabIcon;
 }
 
 export interface LinkData {
   title: string;
+  href: string;
+  icon?: string;
+}
+
+export interface FeaturedData {
+  label: string;
+  title: string;
+  ctaText: string;
+  ctaHref: string;
+}
+
+export interface StatData {
+  value: string;
+  label: string;
+}
+
+export interface PromoData {
+  badge: string;
+  text: string;
   href: string;
 }
 
 export interface MenuData {
   title: string;
   tabs: TabData[];
+  featured: Record<string, FeaturedData>;
+  stats: Record<string, StatData>;
   links: Record<string, LinkData[]>;
+  promo?: PromoData;
+  searchUrl?: string;
 }

@@ -1,74 +1,97 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { GET_STARTED_LINKS } from "@/data/index/data";
 
-interface GetStartedMessages {
-  title: string;
-  tabs: Record<string, string>;
-  links: Record<string, string[]>;
-}
+const EXPLORE_MENU = {
+  title: "Explore Solana",
+  tabs: [
+    { id: "builder", title: "Builder", icon: "builder" },
+    { id: "business", title: "Business", icon: "business" },
+    { id: "consumer", title: "Consumer", icon: "consumer" },
+  ],
+  featured: {
+    builder: {
+      label: "Quick Start",
+      title: "Start building on Solana",
+      ctaText: "Quick Start Guide",
+      ctaHref: "/docs/intro/quick-start",
+    },
+    business: {
+      label: "Network Dominance",
+      title: "The leading network for stablecoins & institutional finance",
+      ctaText: "Explore Solutions",
+      ctaHref: "/solutions/stablecoins",
+    },
+    consumer: {
+      label: "Start Here",
+      title: "What is Solana?",
+      ctaText: "Learn the Basics",
+      ctaHref: "/learn/what-is-solana",
+    },
+  },
+  stats: {
+    builder: { value: "4,000+", label: "Active developers monthly" },
+    business: { value: "$12B+", label: "Stablecoin supply" },
+    consumer: { value: "100M+", label: "Active addresses" },
+  },
+  links: {
+    builder: [
+      { title: "Documentation", href: "/docs" },
+      { title: "RPC API", href: "/docs/rpc" },
+      { title: "Templates", href: "/developers/templates" },
+      { title: "Developer Hub", href: "/developers" },
+      { title: "EVM to SVM", href: "/developers/evm-to-svm" },
+      { title: "Hackathons & Events", href: "/events" },
+    ],
+    business: [
+      { title: "Stablecoins", href: "/solutions/stablecoins" },
+      { title: "Tokenization", href: "/solutions/tokenization" },
+      {
+        title: "Institutional Payments",
+        href: "/solutions/institutional-payments",
+      },
+      { title: "Enterprise", href: "/solutions/enterprise" },
+      {
+        title: "Financial Infrastructure",
+        href: "/solutions/financial-infrastructure",
+      },
+      { title: "Real World Assets", href: "/solutions/real-world-assets" },
+    ],
+    consumer: [
+      { title: "Learn Solana", href: "/learn" },
+      { title: "Get a Wallet", href: "/wallets" },
+      { title: "Stake SOL", href: "/staking" },
+      {
+        title: "Explore DeFi",
+        href: "/learn/introduction-to-defi-on-solana",
+      },
+      { title: "Events", href: "/events" },
+      { title: "Community", href: "/community" },
+    ],
+  },
+  promo: {
+    badge: "Event",
+    text: "Solana Accelerate — Join the global builder summit",
+    href: "/accelerate",
+  },
+  searchUrl: "https://solana.com",
+};
 
-async function loadMessages(
-  locale: string,
-): Promise<GetStartedMessages | null> {
-  try {
-    const messages = await import(
-      `@workspace/i18n/messages/web/${locale}/common.json`
-    );
-    return messages.default?.index?.["get-started"] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-const ALLOWED_ORIGIN_PATTERN = /^https?:\/\/([a-z0-9-]+\.)*solana\.com$/;
-
-function getCorsHeaders(origin: string | null) {
-  const headers: Record<string, string> = {
+function getCorsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-    Vary: "Origin",
   };
-
-  if (origin && ALLOWED_ORIGIN_PATTERN.test(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-    headers["Access-Control-Allow-Methods"] = "GET, OPTIONS";
-    headers["Access-Control-Allow-Headers"] = "Content-Type";
-  }
-
-  return headers;
 }
 
-export async function GET(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  const locale = request.nextUrl.searchParams.get("locale") || "en";
-
-  const messages = (await loadMessages(locale)) ?? (await loadMessages("en"))!;
-
-  const tabs = [
-    { id: "institution", title: messages.tabs.institution, icon: "bank" },
-    { id: "user", title: messages.tabs.user, icon: "avatar" },
-    { id: "developer", title: messages.tabs.developer, icon: "code" },
-  ];
-
-  const links: Record<string, { title: string; href: string }[]> = {};
-  for (const [key, items] of Object.entries(GET_STARTED_LINKS)) {
-    const titles = messages.links[key] ?? [];
-    links[key] = items.map((item, i) => ({
-      title: titles[i] ?? "",
-      href: item.href,
-    }));
-  }
-
-  return NextResponse.json(
-    { title: messages.title, tabs, links },
-    { headers: getCorsHeaders(origin) },
-  );
+export async function GET(_request: NextRequest) {
+  return NextResponse.json(EXPLORE_MENU, { headers: getCorsHeaders() });
 }
 
-export async function OPTIONS(request: NextRequest) {
-  const origin = request.headers.get("origin");
+export async function OPTIONS(_request: NextRequest) {
   return new NextResponse(null, {
     status: 204,
-    headers: getCorsHeaders(origin),
+    headers: getCorsHeaders(),
   });
 }
