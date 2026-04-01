@@ -3,7 +3,7 @@ import { parseProps, Block, CodeBlock } from "codehike/blocks";
 import { AnnotationHandler } from "codehike/code";
 import { isValidElement, ReactNode } from "react";
 import { cn } from "@@/src/app/components/utils";
-import { SingleCode, toCodeGroup } from "./code/code";
+import { Code } from "./code/code";
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,7 +20,7 @@ const FieldSchema = BaseFieldSchema.extend({
 });
 
 const Schema = Block.extend({
-  code: CodeBlock,
+  code: z.array(CodeBlock),
   reference: Block.extend({
     blocks: z.array(FieldSchema).optional(),
   }),
@@ -40,11 +40,6 @@ export async function CodeReference(props: unknown) {
     typeof Schema
   >;
 
-  const group = await toCodeGroup({
-    codeblocks: [code],
-    handlers: [hover],
-  });
-
   return (
     <HoverProvider>
       <div
@@ -54,8 +49,9 @@ export async function CodeReference(props: unknown) {
         )}
       >
         <div className="flex flex-col">
-          <SingleCode
-            group={group}
+          <Code
+            codeblocks={code}
+            handlers={[hover]}
             className="flex-1 min-h-0 shrink-0 has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0"
           />
         </div>
