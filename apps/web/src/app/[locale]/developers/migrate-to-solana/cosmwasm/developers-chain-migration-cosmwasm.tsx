@@ -5,21 +5,7 @@ import {
   ResponsiveBox,
   ResponsiveStyles,
 } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@solana-foundation/solana-lib";
-
-const ContentEditor = dynamic(
-  () =>
-    import("@solana-foundation/solana-lib").then((mod) => ({
-      default: mod.ContentEditor,
-    })),
-  { ssr: false },
-);
+import { CardDeck, Heading } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -27,6 +13,11 @@ import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
 } from "@/data/developers/evm-to-svm/cosmwasm";
+
+const UnicornScene = dynamic(
+  () => import("unicornstudio-react").then((mod) => mod.default),
+  { ssr: false },
+);
 
 export function DevelopersChainMigrationCosmwasmPage() {
   const t = useTranslations("developers-chain-migration-cosmwasm");
@@ -55,9 +46,13 @@ export function DevelopersChainMigrationCosmwasmPage() {
     id?: string;
   }) => {
     const content = (
-      <div className="tw-html_parser" id={id}>
-        <HtmlParser rawHtml={t.raw(`contentEditor.blocks.${contentKey}`)} />
-      </div>
+      <div
+        className="tw-html_parser"
+        id={id}
+        dangerouslySetInnerHTML={{
+          __html: t.raw(`contentEditor.blocks.${contentKey}`) as string,
+        }}
+      />
     );
 
     if (!styleKey) {
@@ -75,136 +70,145 @@ export function DevelopersChainMigrationCosmwasmPage() {
 
   return (
     <>
-      <Section>
-        <Hero
-          headingAs="h1"
-          centered={false}
-          newsLetter={false}
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t.raw("hero.body")}
+      {/* Aurora hero */}
+      <section className="relative overflow-hidden bg-black border-b border-white/10">
+        <UnicornScene
+          className="!absolute inset-0 z-0"
+          jsonFilePath="/src/img/solutions/icm/hero-bg.json"
+          width="100%"
+          height="100%"
+          scale={1}
+          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+          fps={30}
+          lazyLoad={true}
+          production={true}
         />
+        <div className="relative z-10 max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-16 md:py-28 xl:py-40 w-full">
+          <div className="flex flex-col gap-6 max-w-2xl">
+            <p className="text-xs font-medium text-sky-300/80 uppercase tracking-widest mb-0">
+              {t("hero.eyebrow")}
+            </p>
+            <h1 className="text-[40px] md:text-[56px] xl:text-[88px] font-brand font-medium text-white leading-[1.1] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px] mb-0">
+              {t("hero.headline")}
+            </h1>
+            <div
+              className="text-[#ABABBA] text-lg md:text-2xl text-pretty leading-[1.33] tracking-[-0.36px] md:tracking-[-0.48px] mb-0 [&_p]:m-0"
+              dangerouslySetInnerHTML={{ __html: t.raw("hero.body") as string }}
+            />
+          </div>
+        </div>
+      </section>
 
-        <ContentEditor
-          tocHeadline={t("contentEditor.tocHeadline")}
-          callToAction={{
-            eyebrow: t("contentEditor.callToAction.eyebrow"),
-            headline: t("contentEditor.callToAction.headline"),
-            description: t("contentEditor.callToAction.description"),
-            button: {
-              label: t("contentEditor.callToAction.button.label"),
-              url: CONTENT_EDITOR_CTA.button.url,
-            },
-          }}
+      {/* Content */}
+      <div className="tw-max-w-screen-xl tw-mx-auto">
+        {renderCopyBlock({
+          contentKey: "overview",
+          styleKey: "spacingWithMargins",
+          id: "overview",
+        })}
+        {renderCopyBlock({
+          contentKey: "phase1",
+          styleKey: "spacing",
+          id: "phase-1-cosmos-wind-down",
+        })}
+        {renderCopyBlock({
+          contentKey: "phase2",
+          styleKey: "spacing",
+          id: "phase-2-state-processing",
+        })}
+        {renderCopyBlock({
+          contentKey: "phase3",
+          styleKey: "spacing",
+          id: "phase-3-solana-deployment",
+        })}
+        {renderCopyBlock({
+          contentKey: "phase4",
+          styleKey: "spacing",
+          id: "phase-4-migration-execution",
+        })}
+        {renderCopyBlock({
+          contentKey: "phase5",
+          styleKey: "spacing",
+          id: "phase-5-post-migration",
+        })}
+        {renderCopyBlock({
+          contentKey: "addressLinking",
+          styleKey: "spacing",
+          id: "address-linking",
+        })}
+        {renderCopyBlock({
+          contentKey: "tokenClaimProgram",
+          styleKey: "spacing",
+          id: "token-claim-program",
+        })}
+        {renderCopyBlock({
+          contentKey: "governanceMigration",
+          styleKey: "spacing",
+          id: "governance-migration",
+        })}
+        {renderCopyBlock({
+          contentKey: "complexStateMigration",
+          styleKey: "spacing",
+          id: "complex-state-migration",
+        })}
+        {renderCopyBlock({
+          contentKey: "architectureDifferences",
+          styleKey: "spacing",
+          id: "architecture-differences",
+        })}
+        <ResponsiveBox
+          responsiveStyles={BLOCK_STYLES.tableWrapper as ResponsiveStyles}
         >
-          <div key="copy-0" id="overview">
-            {renderCopyBlock({
-              contentKey: "overview",
-              styleKey: "spacingWithMargins",
-            })}
-          </div>
-          <div key="copy-1" id="phase-1-cosmos-wind-down">
-            {renderCopyBlock({
-              contentKey: "phase1",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-2" id="phase-2-state-processing">
-            {renderCopyBlock({
-              contentKey: "phase2",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-3" id="phase-3-solana-deployment">
-            {renderCopyBlock({
-              contentKey: "phase3",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-4" id="phase-4-migration-execution">
-            {renderCopyBlock({
-              contentKey: "phase4",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-5" id="phase-5-post-migration">
-            {renderCopyBlock({
-              contentKey: "phase5",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-6" id="address-linking">
-            {renderCopyBlock({
-              contentKey: "addressLinking",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-7" id="token-claim-program">
-            {renderCopyBlock({
-              contentKey: "tokenClaimProgram",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-8" id="governance-migration">
-            {renderCopyBlock({
-              contentKey: "governanceMigration",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-9" id="complex-state-migration">
-            {renderCopyBlock({
-              contentKey: "complexStateMigration",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-10" id="architecture-differences">
-            {renderCopyBlock({
-              contentKey: "architectureDifferences",
-              styleKey: "spacing",
-            })}
-          </div>
-          <ResponsiveBox
-            key="table-11"
-            responsiveStyles={BLOCK_STYLES.tableWrapper}
-          >
-            <div className="tw-html_parser">
-              <HtmlParser rawHtml={t.raw("contentEditor.architectureTable")} />
-            </div>
-          </ResponsiveBox>
-          <div key="copy-12" id="solana-constraints">
-            {renderCopyBlock({
-              contentKey: "solanaConstraints",
-              styleKey: "spacing",
-            })}
-          </div>
-        </ContentEditor>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
+          <div
+            className="tw-html_parser"
+            dangerouslySetInnerHTML={{
+              __html: t.raw("contentEditor.architectureTable") as string,
+            }}
           />
         </ResponsiveBox>
-      </Section>
+        {renderCopyBlock({
+          contentKey: "solanaConstraints",
+          styleKey: "spacing",
+          id: "solana-constraints",
+        })}
+      </div>
+
+      {/* CTA */}
+      <div className="tw-max-w-screen-xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8 tw-py-12">
+        <a
+          href={CONTENT_EDITOR_CTA.button.url}
+          className="tw-inline-flex tw-items-center tw-px-6 tw-py-3 tw-rounded-full tw-text-sm tw-font-brand tw-font-semibold tw-no-underline tw-bg-nd-cta tw-text-nd-on-cta-high-em-text tw-transition-opacity hover:tw-opacity-90"
+        >
+          {t("contentEditor.callToAction.button.label")}
+        </a>
+      </div>
+
+      {/* Nav buttons */}
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
+
+      {/* Resources */}
+      <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
+      <ResponsiveBox
+        responsiveStyles={BLOCK_STYLES.cardDeckWrapper as ResponsiveStyles}
+      >
+        <CardDeck
+          cards={
+            resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
+          }
+          numCols={
+            RESOURCE_CARD_DECK.numCols as React.ComponentProps<
+              typeof CardDeck
+            >["numCols"]
+          }
+          featured={RESOURCE_CARD_DECK.featured}
+        />
+      </ResponsiveBox>
     </>
   );
 }
