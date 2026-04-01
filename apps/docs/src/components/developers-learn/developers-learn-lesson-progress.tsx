@@ -61,7 +61,7 @@ export default function DevelopersLearnLessonProgress({
   }
 
   return (
-    <div className="mb-8 rounded-xl border bg-fd-card p-4 md:p-5">
+    <div className="mb-8 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80 md:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -70,7 +70,7 @@ export default function DevelopersLearnLessonProgress({
               ? markLessonIncomplete(lessonKey)
               : markLessonComplete(lessonKey)
           }
-          className="rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+          className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
         >
           {completed ? "Mark as incomplete" : "Mark lesson complete"}
         </button>
@@ -87,7 +87,7 @@ export default function DevelopersLearnLessonProgress({
         {completed && !nextLesson ? (
           <Link
             href={`/developers/learn/${courseSlug}`}
-            className="rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
             Back to course
           </Link>
@@ -99,7 +99,7 @@ export default function DevelopersLearnLessonProgress({
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               nextCourseUnlocked
                 ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-200"
-                : "border bg-fd-card text-fd-muted-foreground"
+                : "border border-zinc-300 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400"
             }`}
           >
             Open next course
@@ -107,7 +107,7 @@ export default function DevelopersLearnLessonProgress({
         ) : null}
       </div>
 
-      <p className="text-sm text-fd-muted-foreground">
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
         Course progress: {courseProgress.completedCount}/
         {courseProgress.totalCount}
         {" · "}

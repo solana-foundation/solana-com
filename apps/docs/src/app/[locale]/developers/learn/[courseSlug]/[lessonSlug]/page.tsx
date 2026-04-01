@@ -35,21 +35,23 @@ export default async function Page(props: Props) {
       <div className="mb-8">
         <Link
           href={`/developers/learn/${courseSlug}`}
-          className="text-sm text-fd-muted-foreground transition-colors hover:text-fd-accent-foreground"
+          className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
           ← {course.title}
         </Link>
       </div>
 
       <header className="mb-8 max-w-3xl">
-        <p className="mb-2 text-xs tracking-[0.2em] uppercase text-fd-muted-foreground">
+        <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
           {course.title}
         </p>
-        <h1 className="mb-3 text-4xl font-semibold text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
+        <h1 className="mb-3 text-4xl font-semibold text-zinc-950 dark:text-zinc-50 md:text-5xl">
           {data.h1 || data.title}
         </h1>
         {data.description ? (
-          <p className="text-lg text-fd-muted-foreground">{data.description}</p>
+          <p className="text-lg text-zinc-600 dark:text-zinc-300">
+            {data.description}
+          </p>
         ) : null}
       </header>
 

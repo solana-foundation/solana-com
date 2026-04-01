@@ -29,11 +29,11 @@ export default function DevelopersLearnLessonSidebar({
   );
 
   return (
-    <aside className="sticky top-24 rounded-xl border bg-fd-card p-4">
-      <h2 className="mb-3 text-lg font-semibold text-[hsl(var(--fd-accent-foreground))]">
+    <aside className="sticky top-24 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+      <h2 className="mb-3 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
         Course lessons
       </h2>
-      <p className="mb-4 text-sm text-fd-muted-foreground">
+      <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
         {courseProgress.completedCount}/{courseProgress.totalCount} completed
       </p>
 
@@ -57,16 +57,16 @@ export default function DevelopersLearnLessonSidebar({
               className={`rounded-md border p-3 text-sm transition-colors ${
                 isCurrentLesson
                   ? "border-emerald-500/40 bg-emerald-500/10"
-                  : "hover:bg-fd-accent/40"
+                  : "border-zinc-200 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900/80"
               }`}
             >
-              <p className="text-xs uppercase tracking-wide text-fd-muted-foreground">
+              <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Lesson {index + 1}
               </p>
-              <p className="font-medium text-[hsl(var(--fd-accent-foreground))]">
+              <p className="font-medium text-zinc-950 dark:text-zinc-50">
                 {lesson.title}
               </p>
-              <p className="mt-1 text-xs text-fd-muted-foreground">
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 {lessonCompleted
                   ? "Completed"
                   : lessonUnlocked

@@ -47,40 +47,40 @@ export default function DevelopersLearnCoursePage({
       <div className="mb-8">
         <Link
           href="/developers/learn"
-          className="text-sm text-fd-muted-foreground transition-colors hover:text-fd-accent-foreground"
+          className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
           ← All bootcamp courses
         </Link>
       </div>
 
       <header className="mb-8 max-w-3xl">
-        <p className="mb-2 text-xs tracking-[0.2em] uppercase text-fd-muted-foreground">
+        <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
           Course
         </p>
-        <h1 className="mb-3 text-4xl font-semibold text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
+        <h1 className="mb-3 text-4xl font-semibold text-zinc-950 dark:text-zinc-50 md:text-5xl">
           {course.title}
         </h1>
-        <p className="mb-5 text-lg text-fd-muted-foreground">
+        <p className="mb-5 text-lg text-zinc-600 dark:text-zinc-300">
           {course.description}
         </p>
-        <p className="mb-5 text-sm uppercase tracking-wide text-fd-muted-foreground">
+        <p className="mb-5 text-sm uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           {course.level} · {course.estimatedDuration}
         </p>
 
-        <div className="mb-3 h-2 max-w-xl overflow-hidden rounded-full bg-fd-secondary">
+        <div className="mb-3 h-2 max-w-xl overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
             className="h-full rounded-full bg-emerald-400 transition-all"
             style={{ width: `${progress.percent}%` }}
           />
         </div>
-        <p className="text-sm text-fd-muted-foreground">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
           {progress.completedCount}/{progress.totalCount} lessons completed
         </p>
 
         {courseUnlocked && nextIncompleteLesson ? (
           <Link
             href={`/developers/learn/${courseSlug}/${nextIncompleteLesson.slug}`}
-            className="mt-5 inline-flex items-center rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+            className="mt-5 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
             Continue from {nextIncompleteLesson.title}
           </Link>
@@ -122,16 +122,16 @@ export default function DevelopersLearnCoursePage({
             return (
               <article
                 key={lesson.id}
-                className="rounded-xl border bg-fd-card p-5 shadow-sm"
+                className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs tracking-[0.2em] uppercase text-fd-muted-foreground">
+                  <p className="text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
                     Lesson {index + 1}
                   </p>
-                  <span className="rounded-full border bg-fd-secondary px-2 py-0.5 text-xs text-fd-muted-foreground">
+                  <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                     {lesson.type}
                   </span>
-                  <span className="rounded-full border bg-fd-secondary px-2 py-0.5 text-xs text-fd-muted-foreground">
+                  <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                     Instructor: {lesson.instructor}
                   </span>
                   {lessonCompleted ? (
@@ -146,22 +146,22 @@ export default function DevelopersLearnCoursePage({
                   ) : null}
                 </div>
 
-                <h2 className="mt-3 text-2xl font-semibold text-[hsl(var(--fd-accent-foreground))]">
+                <h2 className="mt-3 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
                   {lesson.title}
                 </h2>
-                <p className="mt-2 text-sm text-fd-muted-foreground">
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
                   {lesson.description}
                 </p>
 
                 {lessonUnlocked ? (
                   <Link
                     href={lessonHref}
-                    className="mt-4 inline-flex items-center rounded-md border bg-fd-card px-4 py-2 text-sm font-medium text-[hsl(var(--fd-accent-foreground))] transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+                    className="mt-4 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
                   >
                     {lessonCompleted ? "Review lesson" : "Start lesson"}
                   </Link>
                 ) : (
-                  <p className="mt-4 text-sm text-fd-muted-foreground">
+                  <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
                     Finish {previousLesson?.title || "the previous lesson"}{" "}
                     first to unlock this lesson.
                   </p>
