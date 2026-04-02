@@ -132,6 +132,36 @@ pnpm --filter @solana-com/fab-menu check-types
 pnpm --filter @solana-com/fab-menu lint
 ```
 
+## Publishing
+
+This package publishes to GitHub Packages through
+[`../../.github/workflows/publish-fab-menu.yml`](../../.github/workflows/publish-fab-menu.yml).
+
+The release version comes from [`package.json`](./package.json). The workflow
+enforces that the git tag matches that version exactly.
+
+Release flow from the repo root:
+
+```bash
+pnpm --filter @solana-com/fab-menu build
+git tag -a fab-menu-v$(node -p "require('./packages/fab-menu/package.json').version") -m "Publish fab-menu"
+git push origin refs/tags/fab-menu-v$(node -p "require('./packages/fab-menu/package.json').version")
+```
+
+Before pushing the tag:
+
+- bump the version in `packages/fab-menu/package.json`
+- make sure the package builds cleanly
+- verify the tag does not already exist on `origin`
+
+The publish workflow currently runs on:
+
+- `push` tags matching `fab-menu-v*`
+- `workflow_dispatch`
+
+Example: if the package version is `0.1.1`, the release tag must be
+`fab-menu-v0.1.1`.
+
 Consumer examples in this repo:
 
 - `apps/accelerate/src/components/FabMenu.tsx`
