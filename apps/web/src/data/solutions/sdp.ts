@@ -277,7 +277,7 @@ export const TUTORIALS = [
     platform: "youtube" as const,
   },
   {
-    title: "On-chain Payments",
+    title: "Onchain Payments",
     duration: "2:51",
     thumbnail: "https://img.youtube.com/vi/URAJ2kHHDBg/maxresdefault.jpg",
     videoId: "URAJ2kHHDBg",

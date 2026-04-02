@@ -10,7 +10,7 @@ export const switchboard = {
     summary:
       "Switchboard is a permissionless, multi-chain oracle protocol on Solana that provides customizable data feeds, verifiable randomness, and off-chain compute for smart contracts.",
     description:
-      "Switchboard is a decentralized, community-curated oracle network that brings real-world data on-chain across 10+ blockchains including Solana, Arbitrum, Aptos, and Sui. It serves as the data provider for prominent DeFi projects such as Kamino, Jito, MarginFi, and Drift. The protocol delivers price feeds at sub-100ms latency through its Surge oracle network.",
+      "Switchboard is a decentralized, community-curated oracle network that brings real-world data onchain across 10+ blockchains including Solana, Arbitrum, Aptos, and Sui. It serves as the data provider for prominent DeFi projects such as Kamino, Jito, MarginFi, and Drift. The protocol delivers price feeds at sub-100ms latency through its Surge oracle network.",
     sector: "Infrastructure",
     type: "Protocol",
     links: {
