@@ -70,7 +70,7 @@ const EXPLORE_MENU = {
   },
   promo: {
     badge: "Event",
-    text: "Solana Accelerate — Join the global builder summit",
+    text: "Solana Accelerate — Join us in Miami, Florida USA",
     href: "/accelerate",
   },
   searchUrl: "https://solana.com",

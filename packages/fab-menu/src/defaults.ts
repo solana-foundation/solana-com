@@ -69,7 +69,7 @@ export const DEFAULT_MENU_DATA: MenuData = {
   },
   promo: {
     badge: "Event",
-    text: "Solana Accelerate — Join the global builder summit",
+    text: "Solana Accelerate — Join us in May 2026, Miami, Florida USA",
     href: "/accelerate",
   },
   searchUrl: "https://solana.com",
