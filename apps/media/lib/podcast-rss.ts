@@ -457,7 +457,7 @@ export async function fetchEpisodesFromRSSCached(
       return await fetchEpisodesFromBuzzsprout(rssFeedUrl, podcastSlug);
     }
 
-    let episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
+    const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
 
     return episodes;
   } catch (error) {
