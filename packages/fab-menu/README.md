@@ -12,8 +12,22 @@ A React floating action button menu for Solana properties and external sites.
 }
 ```
 
-For external consumers, install `@solana-com/fab-menu` alongside `react` and
-`react-dom`.
+For consumers outside this monorepo, install `@solana-com/fab-menu` alongside
+`react` and `react-dom`.
+
+This package is published to GitHub Packages and requires registry configuration
+plus an auth token:
+
+```ini
+@solana-com:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then install with:
+
+```bash
+pnpm add @solana-com/fab-menu
+```
 
 ## Usage
 
