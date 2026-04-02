@@ -229,14 +229,21 @@ export interface FeaturedLinksResponse {
   links: LinkItem[];
 }
 
+export interface FeaturedLinksParams {
+  limit?: number;
+  category?: string;
+}
+
 /**
  * Fetch featured links from Keystatic
  */
 export const fetchFeaturedLinks = async (
-  limit: number = 5,
+  params: FeaturedLinksParams = {},
 ): Promise<FeaturedLinksResponse> => {
   try {
     const allSlugs = await reader.collections.links.list();
+    const limit = params.limit ?? 5;
+    const normalizedCategory = params.category?.trim().toLowerCase();
 
     // Fetch featured links
     const featuredLinks: Array<{
@@ -247,7 +254,36 @@ export const fetchFeaturedLinks = async (
 
     for (const slug of allSlugs) {
       const link = await reader.collections.links.read(slug);
-      if (link?.featured) {
+      if (!link?.featured) continue;
+
+      let matchesCategory = !normalizedCategory;
+      if (normalizedCategory && link.categories) {
+        for (const catRef of link.categories) {
+          let categorySlug: string | null = null;
+
+          if (typeof catRef === "string") {
+            categorySlug = catRef;
+          } else if (catRef?.category) {
+            categorySlug = String(catRef.category);
+          }
+
+          if (categorySlug) {
+            const catData =
+              await reader.collections.categories.read(categorySlug);
+            const categoryName = String(catData?.name || "").toLowerCase();
+
+            if (
+              categoryName === normalizedCategory ||
+              categorySlug.toLowerCase() === normalizedCategory
+            ) {
+              matchesCategory = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchesCategory) {
         featuredLinks.push({
           slug,
           date: parsePublishedAt(link.publishedAt),
