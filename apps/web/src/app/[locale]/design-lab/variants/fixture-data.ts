@@ -23,9 +23,9 @@ export const CHAINS = [
   {
     eyebrow: "Cosmos",
     title: "CosmWasm / Cosmos",
-    body: "1 complete walkthrough for migrating a Cosmos app chain to Solana — from chain wind-down to token claims and governance.",
-    cta: "View Cosmos Guide",
-    url: "/developers/cosmos-to-svm",
+    body: "Two targeted paths: one for CosmWasm contract developers and one for teams migrating a full Cosmos app chain.",
+    cta: "View Cosmos Guides",
+    url: "/developers/migrate-to-solana/cosmos",
   },
 ];
 

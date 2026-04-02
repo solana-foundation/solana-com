@@ -51,7 +51,7 @@ export const CHAIN_SELECTOR_CARDS = [
     button: {
       hierarchy: "outline",
       size: "md",
-      url: "/developers/cosmos-to-svm",
+      url: "/developers/migrate-to-solana/cosmos",
     },
   },
 ];
@@ -76,7 +76,7 @@ export const COSMOS_CARD_DECK = {
       },
       backgroundGradient: "aqua",
       callToAction: {
-        url: "/developers/cosmos-to-svm",
+        url: "/developers/migrate-to-solana/cosmos",
         size: "md",
         hierarchy: "primary",
       },

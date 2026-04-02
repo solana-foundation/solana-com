@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ComponentProps, ComponentType } from "react";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   CardDeck,
@@ -14,7 +15,9 @@ import {
   SECONDARY_CARD_DECK,
 } from "@/data/developers/evm-to-svm";
 
-const FeatureHighlightAny = FeatureHighlight as any;
+const FeatureHighlightComponent = FeatureHighlight as unknown as ComponentType<
+  ComponentProps<typeof FeatureHighlight>
+>;
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -104,19 +107,6 @@ export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
   const blockSpacing = { large: { marginTop: "48px" } };
 
-  const heroButtons: HeroButton[] = [
-    {
-      hierarchy: "primary",
-      label: t("hero.buttons.0.label"),
-      url: "/developers/migrate-to-solana/ethereum",
-    },
-    {
-      hierarchy: "outline",
-      label: t("hero.buttons.1.label"),
-      url: "/developers/cosmos-to-svm",
-    },
-  ];
-
   const chainSelectorCards = CHAIN_SELECTOR_CARDS.map((card, index) => ({
     ...card,
     feature: t(`chainSelector.cards.${index}.feature`),
@@ -147,7 +137,7 @@ export function DevelopersChainMigrationPage() {
 
       {/* Chain selector */}
       <ResponsiveBox responsiveStyles={blockSpacing}>
-        <FeatureHighlightAny
+        <FeatureHighlightComponent
           headingAs={CHAIN_SELECTOR.headingAs}
           color={CHAIN_SELECTOR.color}
           eyebrow={t("chainSelector.eyebrow")}
