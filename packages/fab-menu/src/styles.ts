@@ -7,7 +7,7 @@ export const FAB_STYLES = /* css */ `
 /* ── Root tokens ── */
 .sfab-root {
   --sfab-z-index: 999999;
-  --sfab-overlay-bg: rgba(0, 0, 0, 0.5);
+  --sfab-overlay-bg: rgba(0, 0, 0, 0.9);
   --sfab-panel-bg: rgba(25, 24, 27, 0.5);
   --sfab-panel-surface-bg: rgba(25, 24, 27, 0.72);
   --sfab-control-bg: rgba(255, 255, 255, 0.06);
