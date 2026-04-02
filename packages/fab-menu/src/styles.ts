@@ -7,8 +7,8 @@ export const FAB_STYLES = /* css */ `
 /* ── Root tokens ── */
 .sfab-root {
   --sfab-z-index: 999999;
-  --sfab-overlay-bg: rgba(0, 0, 0, 0.9);
-  --sfab-panel-bg: rgba(25, 24, 27, 0.5);
+  --sfab-overlay-bg: rgba(0, 0, 0, 0.8);
+  --sfab-panel-bg: rgba(25, 24, 27, 0);
   --sfab-panel-surface-bg: rgba(25, 24, 27, 0.72);
   --sfab-control-bg: rgba(255, 255, 255, 0.06);
   --sfab-control-bg-hover: rgba(255, 255, 255, 0.08);
@@ -616,6 +616,10 @@ let styleInjected = false;
 
 export function injectStyles(): void {
   if (styleInjected || typeof document === "undefined") return;
+  if (document.querySelector("style[data-sfab]")) {
+    styleInjected = true;
+    return;
+  }
   const style = document.createElement("style");
   style.setAttribute("data-sfab", "");
   style.textContent = FAB_STYLES;
