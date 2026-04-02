@@ -1,5 +1,5 @@
-/** @jsxImportSource preact */
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import type { FabMenuConfig, MenuData } from "./types";
 import { fetchMenuData } from "./fetch-config";
 import { DEFAULT_MENU_DATA } from "./defaults";
@@ -29,10 +29,11 @@ export function FabApp({ config }: FabAppProps) {
   };
 
   const themeVars = config.theme
-    ? Object.entries(config.theme).reduce<Record<string, string>>(
+    ? Object.entries(config.theme).reduce<Record<`--sfab-${string}`, string>>(
         (acc, [key, value]) => {
           if (value) {
-            const cssVar = `--sfab-${key.replace(/([A-Z])/g, "-$1").toLowerCase()}`;
+            const cssVar =
+              `--sfab-${key.replace(/([A-Z])/g, "-$1").toLowerCase()}` as const;
             acc[cssVar] = value;
           }
           return acc;
@@ -41,14 +42,13 @@ export function FabApp({ config }: FabAppProps) {
       )
     : undefined;
 
+  const rootStyle: CSSProperties = {
+    "--sfab-z-index": String(config.zIndex ?? 999999),
+    ...themeVars,
+  } as CSSProperties;
+
   return (
-    <div
-      class="sfab-root"
-      style={{
-        "--sfab-z-index": String(config.zIndex ?? 999999),
-        ...themeVars,
-      }}
-    >
+    <div className="sfab-root" style={rootStyle}>
       {!isOpen && <FabButton config={config} onClick={handleOpen} />}
       {isOpen && (
         <ExplorePanel data={menuData} config={config} onClose={handleClose} />

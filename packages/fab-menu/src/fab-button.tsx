@@ -1,4 +1,4 @@
-/** @jsxImportSource preact */
+import type { CSSProperties } from "react";
 import type { FabMenuConfig } from "./types";
 import { SolanaMonoIcon } from "./icons/solana-mono";
 import { SolanaColorIcon } from "./icons/solana-color";
@@ -48,17 +48,18 @@ export function FabButton({ config, onClick }: FabButtonProps) {
   const variant = config.logoVariant ?? "dark-mono";
   const posClass = getPositionClass(position);
   const posStyle = getPositionStyle(position);
+  const buttonStyle: CSSProperties = {
+    "--sfab-z-index": String(config.zIndex ?? 999999),
+    ...posStyle,
+  } as CSSProperties;
 
   const Icon = variant === "color" ? SolanaColorIcon : SolanaMonoIcon;
 
   return (
     <button
       type="button"
-      class={`sfab-button${posClass ? ` ${posClass}` : ""}${getVariantClass(variant)}`}
-      style={{
-        "--sfab-z-index": String(config.zIndex ?? 999999),
-        ...posStyle,
-      }}
+      className={`sfab-button${posClass ? ` ${posClass}` : ""}${getVariantClass(variant)}`}
+      style={buttonStyle}
       onClick={onClick}
       aria-label="Get Started with Solana"
     >

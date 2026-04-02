@@ -1,7 +1,7 @@
 export { FabApp } from "./fab-app";
 export { FabButton } from "./fab-button";
 export { ExplorePanel } from "./explore-panel";
-export { SolanaFabMenu } from "./react-wrapper";
+export { SolanaFabMenu } from "./solana-fab-menu";
 export { fetchMenuData, clearCache } from "./fetch-config";
 export { injectStyles } from "./styles";
 export { DEFAULT_MENU_DATA, DEFAULT_API_URL } from "./defaults";

@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function AvatarIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function AvatarIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 32 32"

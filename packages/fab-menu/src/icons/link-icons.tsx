@@ -1,10 +1,9 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-type IconProps = JSX.SVGAttributes<SVGSVGElement>;
+type IconProps = SVGProps<SVGSVGElement>;
 
 /** Documentation — newspaper/book icon from nav/build */
-export function DocsIcon(props: IconProps): JSX.Element {
+export function DocsIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
@@ -20,7 +19,7 @@ export function DocsIcon(props: IconProps): JSX.Element {
 }
 
 /** RPC API — concentric circles/connection icon from prototype #ico-api */
-export function ApiIcon(props: IconProps): JSX.Element {
+export function ApiIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
@@ -32,12 +31,12 @@ export function ApiIcon(props: IconProps): JSX.Element {
 }
 
 /** Templates — grid icon from nav/build */
-export function TemplatesIcon(props: IconProps): JSX.Element {
+export function TemplatesIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M3 3H10V10H3V3ZM14 3H21V10H14V3ZM3 14H10V21H3V14ZM14 14H21V21H14V14Z"
         fill="currentColor"
       />
@@ -46,12 +45,12 @@ export function TemplatesIcon(props: IconProps): JSX.Element {
 }
 
 /** Developer Hub — school icon from nav/build */
-export function SchoolIcon(props: IconProps): JSX.Element {
+export function SchoolIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M6 4H18V18.5H19V8H22V18.5H23V20H1V18.5H2V8H5V18.5H6V4ZM14 18.5V15H10V18.5H14Z"
         fill="currentColor"
       />
@@ -60,7 +59,7 @@ export function SchoolIcon(props: IconProps): JSX.Element {
 }
 
 /** EVM to SVM — ethereum diamond in circle from prototype #ico-evm */
-export function ComputerIcon(props: IconProps): JSX.Element {
+export function ComputerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
@@ -72,8 +71,8 @@ export function ComputerIcon(props: IconProps): JSX.Element {
         fill="currentColor"
       />
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M1.66797 10C1.66797 5.39763 5.39893 1.66667 10.0013 1.66667C14.6037 1.66667 18.3346 5.39763 18.3346 10C18.3346 14.6024 14.6037 18.3333 10.0013 18.3333C5.39893 18.3333 1.66797 14.6024 1.66797 10ZM10.0013 3.99985L5.63755 10L10.0013 16.0002L14.3651 10L10.0013 3.99985Z"
         fill="currentColor"
       />
@@ -82,12 +81,12 @@ export function ComputerIcon(props: IconProps): JSX.Element {
 }
 
 /** Hackathons & Events — calendar icon from prototype #ico-cal */
-export function DiamondIcon(props: IconProps): JSX.Element {
+export function DiamondIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M2.5 2.5H17.5V17.5H2.5V2.5ZM16.25 6.66667H3.75V16.25H16.25V6.66667ZM7.91667 11.4583C7.91667 10.3077 8.84941 9.375 10 9.375C11.1506 9.375 12.0833 10.3077 12.0833 11.4583C12.0833 12.6089 11.1506 13.5417 10 13.5417C8.84941 13.5417 7.91667 12.6089 7.91667 11.4583Z"
         fill="currentColor"
       />
@@ -96,12 +95,12 @@ export function DiamondIcon(props: IconProps): JSX.Element {
 }
 
 /** Stablecoins — dollar coin icon from prototype #ico-coin */
-export function CoinIcon(props: IconProps): JSX.Element {
+export function CoinIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M10.0013 1.66666C14.6037 1.66666 18.3346 5.39762 18.3346 9.99999C18.3346 14.6024 14.6037 18.3333 10.0013 18.3333C5.39893 18.3333 1.66797 14.6024 1.66797 9.99999C1.66797 5.39762 5.39893 1.66666 10.0013 1.66666ZM9.16797 4.99999V5.93098C8.73963 6.00539 8.31673 6.16061 7.95866 6.42333C7.43727 6.80593 7.08475 7.39749 7.08464 8.14778C7.08464 9.05561 7.50609 9.68144 8.09538 10.0887C8.61485 10.4477 9.27299 10.6393 9.76123 10.7861C10.3188 10.9538 10.7039 11.0759 10.9681 11.2541C11.1606 11.3839 11.2512 11.5116 11.2513 11.7879C11.2513 11.9513 11.19 12.0689 11.0348 12.1794C10.854 12.3079 10.5527 12.4113 10.1689 12.43C9.34133 12.4703 8.66115 12.1227 8.45508 11.7106L6.96419 12.456C7.40602 13.3397 8.28481 13.8179 9.16797 14.0047V15H10.8346V14.0202C11.2491 13.9366 11.6551 13.7834 12.0016 13.5368C12.5364 13.1561 12.918 12.5598 12.918 11.7879C12.9179 10.8843 12.4874 10.2689 11.8991 9.87222C11.3821 9.52373 10.7254 9.33579 10.2414 9.19026C9.68799 9.02387 9.30437 8.89832 9.04264 8.71744C8.85081 8.58482 8.7513 8.44671 8.7513 8.14778C8.75139 7.97123 8.81557 7.86187 8.94499 7.76692C9.10112 7.65245 9.36872 7.55762 9.71973 7.54475C10.4683 7.51741 11.1216 7.85425 11.3392 8.28938L12.8301 7.54394C12.418 6.71976 11.6409 6.23565 10.8346 6.01724V4.99999H9.16797Z"
         fill="currentColor"
       />
@@ -110,7 +109,7 @@ export function CoinIcon(props: IconProps): JSX.Element {
 }
 
 /** Tokenization — coins-add icon from prototype #ico-tokenize */
-export function TokenizeIcon(props: IconProps): JSX.Element {
+export function TokenizeIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
@@ -118,8 +117,8 @@ export function TokenizeIcon(props: IconProps): JSX.Element {
         fill="currentColor"
       />
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M12.5013 17.5C15.723 17.5 18.3346 14.8883 18.3346 11.6667C18.3346 8.44501 15.723 5.83333 12.5013 5.83333C9.27964 5.83333 6.66797 8.44501 6.66797 11.6667C6.66797 14.8883 9.27964 17.5 12.5013 17.5ZM13.3346 9.16667H11.668V10.8333H10.0013V12.5H11.668V14.1667H13.3346V12.5H15.0013V10.8333H13.3346V9.16667Z"
         fill="currentColor"
       />
@@ -128,12 +127,12 @@ export function TokenizeIcon(props: IconProps): JSX.Element {
 }
 
 /** Institutional Payments — bank/columns icon from prototype #ico-bank */
-export function BankIcon(props: IconProps): JSX.Element {
+export function BankIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M10.0013 1.38306L1.66792 5.59304V8.33329H3.33459V13.75H2.67578L1.42578 17.5H18.5767L17.3267 13.75H16.6679V8.33329H18.3346V5.59304L10.0013 1.38306ZM13.3346 8.33329H15.4179V13.75H13.3346V8.33329ZM6.66792 13.75H4.58459V8.33329H6.66792V13.75ZM7.91792 13.75V8.33329H12.0846V13.75H7.91792Z"
         fill="currentColor"
       />
@@ -142,12 +141,12 @@ export function BankIcon(props: IconProps): JSX.Element {
 }
 
 /** Enterprise — buildings icon from prototype #ico-enterprise */
-export function EnterpriseIcon(props: IconProps): JSX.Element {
+export function EnterpriseIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M19.1654 16.6667V15H17.4987V5.83333H13.332V15H12.4987V2.5H2.4987V15H0.832031V16.6667H19.1654ZM9.16536 6.66667H5.83203V8.33333H9.16536V6.66667ZM9.16536 10H5.83203V11.6667H9.16536V10Z"
         fill="currentColor"
       />
@@ -156,7 +155,7 @@ export function EnterpriseIcon(props: IconProps): JSX.Element {
 }
 
 /** Financial Infrastructure — hub/nodes icon from prototype #ico-infra */
-export function InfraIcon(props: IconProps): JSX.Element {
+export function InfraIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
@@ -176,12 +175,12 @@ export function InfraIcon(props: IconProps): JSX.Element {
 }
 
 /** Real World Assets — storefront/mall icon from prototype #ico-rwa */
-export function RwaIcon(props: IconProps): JSX.Element {
+export function RwaIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M1.66797 3.33333H18.3346V16.6667H1.66797V3.33333ZM13.3346 15.4167V9.16666H10.6263V15.4167H13.3346ZM9.3763 15.4167V9.16666H6.66797V15.4167H9.3763Z"
         fill="currentColor"
       />
@@ -190,12 +189,12 @@ export function RwaIcon(props: IconProps): JSX.Element {
 }
 
 /** Wallet — from nav/learn */
-export function WalletIcon(props: IconProps): JSX.Element {
+export function WalletIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M2 6.5C2 5.12055 3.11658 4 4.49855 4H20V7H22V20H5C3.34315 20 2 18.6569 2 17V6.5ZM4 6.5C4 6.77614 4.22386 7 4.5 7H18V6H4.49855C4.22367 6 4 6.2226 4 6.5ZM15 13.5C15 12.6716 15.6716 12 16.5 12C17.3284 12 18 12.6716 18 13.5C18 14.3284 17.3284 15 16.5 15C15.6716 15 15 14.3284 15 13.5Z"
         fill="currentColor"
       />
@@ -204,12 +203,12 @@ export function WalletIcon(props: IconProps): JSX.Element {
 }
 
 /** Learn — documents icon from nav/learn */
-export function LearnIcon(props: IconProps): JSX.Element {
+export function LearnIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M7 5H4V22H18V19H21V8.5H14.5V2H7V5ZM7 6.5V19H16.5V20.5H5.5V6.5H7Z"
         fill="currentColor"
       />
@@ -219,7 +218,7 @@ export function LearnIcon(props: IconProps): JSX.Element {
 }
 
 /** DeFi — trading-view icon from nav/learn */
-export function DefiIcon(props: IconProps): JSX.Element {
+export function DefiIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
       <path

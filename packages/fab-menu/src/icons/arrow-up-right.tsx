@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function ArrowUpRightIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function ArrowUpRightIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 20 20"
@@ -15,14 +12,14 @@ export function ArrowUpRightIcon(
       <path
         d="M15 12.5V5H7.5"
         stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="square"
+        strokeWidth="2"
+        strokeLinecap="square"
       />
       <path
         d="M5.20703 14.7916L14.1654 5.83331"
         stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="square"
+        strokeWidth="2"
+        strokeLinecap="square"
       />
     </svg>
   );

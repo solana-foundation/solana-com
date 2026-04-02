@@ -1,12 +1,12 @@
 import type { MenuData } from "./types";
 import { DEFAULT_MENU_DATA, DEFAULT_API_URL } from "./defaults";
 
-let cachedData: MenuData | null = null;
+const cachedData = new Map<string, MenuData>();
 
 export async function fetchMenuData(apiUrl?: string): Promise<MenuData> {
-  if (cachedData) return cachedData;
-
   const url = apiUrl ?? DEFAULT_API_URL;
+  const cached = cachedData.get(url);
+  if (cached) return cached;
 
   try {
     const controller = new AbortController();
@@ -15,13 +15,12 @@ export async function fetchMenuData(apiUrl?: string): Promise<MenuData> {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
-    });
-    clearTimeout(timeout);
+    }).finally(() => clearTimeout(timeout));
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data: MenuData = await res.json();
-    cachedData = data;
+    cachedData.set(url, data);
     return data;
   } catch {
     return DEFAULT_MENU_DATA;
@@ -29,5 +28,5 @@ export async function fetchMenuData(apiUrl?: string): Promise<MenuData> {
 }
 
 export function clearCache(): void {
-  cachedData = null;
+  cachedData.clear();
 }

@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function CodeFilledIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function CodeFilledIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 20 20"
@@ -13,8 +10,8 @@ export function CodeFilledIcon(
       {...props}
     >
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M2.5 2.5H17.5V17.5H2.5V2.5ZM8.16074 6.91074L9.33926 8.08926L7.42851 10L9.33926 11.9107L8.16074 13.0893L5.07149 10L8.16074 6.91074ZM10.6607 8.08926L12.5715 10L10.6607 11.9107L11.8393 13.0893L14.9285 10L11.8393 6.91074L10.6607 8.08926Z"
         fill="currentColor"
       />

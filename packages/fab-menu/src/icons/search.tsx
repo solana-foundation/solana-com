@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function SearchIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function SearchIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 16 16"
@@ -13,8 +10,8 @@ export function SearchIcon(
       {...props}
     >
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M11.5 7a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm-.82 4.74a6 6 0 111.06-1.06l3.04 3.04a.75.75 0 11-1.06 1.06l-3.04-3.04z"
         fill="currentColor"
       />

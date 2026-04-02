@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function SolanaMonoIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function SolanaMonoIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 12 12"

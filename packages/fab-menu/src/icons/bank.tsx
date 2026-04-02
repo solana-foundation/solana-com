@@ -1,7 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function BankIcon(props: JSX.SVGAttributes<SVGSVGElement>): JSX.Element {
+export function BankIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -13,8 +12,8 @@ export function BankIcon(props: JSX.SVGAttributes<SVGSVGElement>): JSX.Element {
       <path
         d="M19.25 9.25V17.25M15.25 17.25V9.25M4.75 9.25V17.25M8.75 17.25V9.25M2.75 7.17308L12 2.5L21.25 7.17308V9.25H2.75V7.17308ZM2.75 20.25H21.25L20.25 17.25H3.75L2.75 20.25Z"
         stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="square"
+        strokeWidth="1.5"
+        strokeLinecap="square"
       />
     </svg>
   );

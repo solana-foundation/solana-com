@@ -1,9 +1,6 @@
-/** @jsxImportSource preact */
-import type { JSX } from "preact";
+import type { SVGProps } from "react";
 
-export function SolanaColorIcon(
-  props: JSX.SVGAttributes<SVGSVGElement>,
-): JSX.Element {
+export function SolanaColorIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 12 12"
@@ -21,9 +18,9 @@ export function SolanaColorIcon(
           y2="0.848"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stop-color="#9945FF" />
-          <stop offset="0.5" stop-color="#14F195" />
-          <stop offset="1" stop-color="#00C2FF" />
+          <stop offset="0" stopColor="#9945FF" />
+          <stop offset="0.5" stopColor="#14F195" />
+          <stop offset="1" stopColor="#00C2FF" />
         </linearGradient>
       </defs>
       <path
