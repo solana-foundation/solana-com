@@ -52,9 +52,13 @@ The component injects its own styles on first render.
 
 ## Prototype
 
-A static kitchen-sink prototype lives at:
+A static kitchen-sink prototype is available at:
 
 - `packages/fab-menu/prototype/index.html`
+
+To preview the GitHub version in a browser, use:
+
+- `https://htmlpreview.github.io/?https://github.com/solana-foundation/solana-com/blob/main/packages/fab-menu/prototype/index.html`
 
 It mirrors the current package defaults and includes:
 
