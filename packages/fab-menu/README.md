@@ -1,4 +1,4 @@
-# @solana-com/fab-menu
+# @solana-foundation/fab-menu
 
 A React floating action button menu for Solana properties and external sites.
 
@@ -7,32 +7,32 @@ A React floating action button menu for Solana properties and external sites.
 ```json
 {
   "dependencies": {
-    "@solana-com/fab-menu": "workspace:*"
+    "@solana-foundation/fab-menu": "workspace:*"
   }
 }
 ```
 
-For consumers outside this monorepo, install `@solana-com/fab-menu` alongside
-`react` and `react-dom`.
+For consumers outside this monorepo, install `@solana-foundation/fab-menu`
+alongside `react` and `react-dom`.
 
 This package is published to GitHub Packages and requires registry configuration
 plus an auth token:
 
 ```ini
-@solana-com:registry=https://npm.pkg.github.com
+@solana-foundation:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
 Then install with:
 
 ```bash
-pnpm add @solana-com/fab-menu
+pnpm add @solana-foundation/fab-menu
 ```
 
 ## Usage
 
 ```tsx
-import { SolanaFabMenu } from "@solana-com/fab-menu";
+import { SolanaFabMenu } from "@solana-foundation/fab-menu";
 
 export function App() {
   return (
@@ -126,10 +126,10 @@ hardcoded English defaults bundled in the package.
 From the monorepo root:
 
 ```bash
-pnpm --filter @solana-com/fab-menu build
-pnpm --filter @solana-com/fab-menu dev
-pnpm --filter @solana-com/fab-menu check-types
-pnpm --filter @solana-com/fab-menu lint
+pnpm --filter @solana-foundation/fab-menu build
+pnpm --filter @solana-foundation/fab-menu dev
+pnpm --filter @solana-foundation/fab-menu check-types
+pnpm --filter @solana-foundation/fab-menu lint
 ```
 
 ## Publishing
@@ -143,7 +143,7 @@ enforces that the git tag matches that version exactly.
 Release flow from the repo root:
 
 ```bash
-pnpm --filter @solana-com/fab-menu build
+pnpm --filter @solana-foundation/fab-menu build
 git tag -a fab-menu-v$(node -p "require('./packages/fab-menu/package.json').version") -m "Publish fab-menu"
 git push origin refs/tags/fab-menu-v$(node -p "require('./packages/fab-menu/package.json').version")
 ```
