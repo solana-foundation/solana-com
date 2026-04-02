@@ -237,16 +237,24 @@ export function VideoCarousel() {
 
   return (
     <>
-      <section className="relative bg-black py-10 lg:py-16">
+      <section className="relative overflow-hidden bg-black py-10 lg:py-16">
+        <div className="pointer-events-none absolute inset-0 opacity-25">
+          <Image
+            src={getImagePath("/images/homepage/acc-hero-bg.png")}
+            alt=""
+            fill
+            className="object-cover"
+          />
+        </div>
         {/* Divider line */}
-        <div className="mx-auto max-w-[1480px] px-6">
+        <div className="relative z-10 mx-auto max-w-[1480px] px-6">
           <div className="relative mb-10 lg:mb-14">
             <div className="h-px bg-white/10" />
             <div className="absolute left-0 top-0 h-px w-1/3 bg-accelerate-green/30" />
           </div>
         </div>
 
-        <div className="mx-auto max-w-[1480px] px-6">
+        <div className="relative z-10 mx-auto max-w-[1480px] px-6">
           {/* Header row */}
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-100 md:text-[32px] lg:text-[40px]">

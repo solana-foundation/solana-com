@@ -2,6 +2,7 @@ import { Rss } from "lucide-react";
 import { SiApple, SiSpotify, SiYoutube } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { getSafeExternalUrl } from "@/lib/external-url";
+import { trackPodcastSubscribe } from "@/lib/podcast-analytics";
 import { cn } from "@/lib/utils";
 
 interface SubscribeButtonsProps {
@@ -9,6 +10,8 @@ interface SubscribeButtonsProps {
   spotifyUrl?: string;
   youtubeUrl?: string;
   rssFeedUrl?: string;
+  podcastTitle?: string;
+  podcastSlug?: string;
   className?: string;
 }
 
@@ -17,6 +20,8 @@ export const SubscribeButtons = ({
   spotifyUrl,
   youtubeUrl,
   rssFeedUrl,
+  podcastTitle,
+  podcastSlug,
   className,
 }: SubscribeButtonsProps) => {
   const safeApplePodcastsUrl = getSafeExternalUrl(applePodcastsUrl);
@@ -51,6 +56,13 @@ export const SubscribeButtons = ({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Apple Podcasts"
+              onClick={() =>
+                trackPodcastSubscribe({
+                  podcast_title: podcastTitle,
+                  podcast_slug: podcastSlug,
+                  platform: "apple_podcasts",
+                })
+              }
             >
               <SiApple className="size-3.5" />
               <span>Apple Podcasts</span>
@@ -70,6 +82,13 @@ export const SubscribeButtons = ({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Listen on Spotify"
+              onClick={() =>
+                trackPodcastSubscribe({
+                  podcast_title: podcastTitle,
+                  podcast_slug: podcastSlug,
+                  platform: "spotify",
+                })
+              }
             >
               <SiSpotify className="size-3.5" />
               <span>Spotify</span>
@@ -89,6 +108,13 @@ export const SubscribeButtons = ({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Watch on YouTube"
+              onClick={() =>
+                trackPodcastSubscribe({
+                  podcast_title: podcastTitle,
+                  podcast_slug: podcastSlug,
+                  platform: "youtube",
+                })
+              }
             >
               <SiYoutube className="size-3.5" />
               <span>YouTube</span>
@@ -108,6 +134,13 @@ export const SubscribeButtons = ({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Subscribe via RSS"
+              onClick={() =>
+                trackPodcastSubscribe({
+                  podcast_title: podcastTitle,
+                  podcast_slug: podcastSlug,
+                  platform: "rss",
+                })
+              }
             >
               <Rss className="size-3.5" />
               <span>RSS</span>

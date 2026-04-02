@@ -11,6 +11,7 @@ import { PodcastCard } from "@/components/podcast/podcast-card";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
 import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
 import { usePlayerOptional } from "@/components/podcast/player-context";
+import { trackPodcastPlay } from "@/lib/podcast-analytics";
 import type { PodcastShow } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 
@@ -57,6 +58,12 @@ export default function PodcastsClientPage({
 
   const handlePlayLatest = () => {
     if (!player || !latestPodcast?.latestEpisode) return;
+    trackPodcastPlay({
+      episode_title: latestPodcast.latestEpisode.title,
+      episode_id: latestPodcast.latestEpisode.id,
+      podcast_title: latestPodcast.title,
+      podcast_slug: latestPodcast.slug,
+    });
     player.play(
       latestPodcast.latestEpisode,
       latestPodcast.title,

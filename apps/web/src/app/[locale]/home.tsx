@@ -141,11 +141,12 @@ export function HomePage({
       <Hero
         title={translations.heroTitle}
         subtitle={translations.heroSubtitle}
-        bannerEyebrow="Solana Developer Platform"
-        bannerDescription="Build, deploy, and scale on Solana with enterprise-grade tools and infrastructure."
-        bannerImgSrc="/src/img/solutions/sdp/hero-bg.png"
-        bannerHref="/solutions/sdp"
-        bannerLabel="Explore SDP"
+        bannerEyebrow="Colosseum Frontier Hackathon"
+        bannerDescription="Online hackathon presented by Colosseum & Solana. April 6th – May 11th, 2026."
+        bannerImgSrc="/src/img/hackathon/frontier.webp"
+        bannerHref="https://colosseum.com/frontier"
+        bannerLabel="Sign Up Now"
+        bannerExpiryDate="2026-05-11"
         cta={translations.heroCta}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"

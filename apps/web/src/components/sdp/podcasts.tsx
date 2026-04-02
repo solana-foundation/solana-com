@@ -1,5 +1,11 @@
 "use client";
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 import React from "react";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -38,6 +44,16 @@ const PlayIcon = () => (
   </svg>
 );
 
+const trackSdpPodcastClick = (title: string) => {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", "podcast_episode_click", {
+      episode_title: title,
+      podcast_slug: "sdp",
+      platform: "youtube",
+    });
+  }
+};
+
 const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
   return (
     <a
@@ -45,6 +61,7 @@ const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
       className="group flex items-center xl:items-stretch border-t xl:border-t-0 xl:border-b [&:nth-child(3n)]:border-b-0 border-white/[0.08] hover:bg-[#101013] hover:border-white/[0.12] transition-colors max-xl:px-5 max-xl:py-4"
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => trackSdpPodcastClick(title)}
     >
       {/* Thumbnail */}
       <div className="relative shrink-0 size-10 xl:w-[104px] xl:h-auto xl:aspect-square xl:border-r xl:border-white/[0.08] overflow-hidden">
