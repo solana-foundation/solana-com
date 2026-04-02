@@ -5,5 +5,6 @@ export {
   fetchLinksByTag,
   type LatestLinksParams,
   type LatestLinksResponse,
+  type FeaturedLinksParams,
   type FeaturedLinksResponse,
 } from "./keystatic/link-data";
