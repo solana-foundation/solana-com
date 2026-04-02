@@ -237,12 +237,13 @@ export default function TestPage() {
 
 ## Publishing
 
-The package is configured with `"private": false` and `"files": ["dist"]`. To
+The package is configured as a standard publishable npm package with explicit
+exports, `publishConfig.access = "public"`, and a `prepack` build step. To
 publish:
 
 ```bash
-pnpm --filter @solana-com/fab-menu build
-cd packages/fab-menu
+pnpm --filter @solana-com/fab-menu pack
+# inspect the tarball in packages/fab-menu if needed
 npm publish --access public
 ```
 
