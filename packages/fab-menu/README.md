@@ -36,6 +36,25 @@ export function App() {
 
 The component injects its own styles on first render.
 
+## Prototype
+
+A static kitchen-sink prototype lives at:
+
+- `packages/fab-menu/prototype/index.html`
+
+It mirrors the current package defaults and includes:
+
+- all three FAB button variants: `dark-mono`, `light-mono`, and `color`
+- desktop panel preview
+- mobile sheet preview
+
+Open it directly in a browser, or serve it from the repo root with a simple
+static server, for example:
+
+```bash
+pnpm dlx serve packages/fab-menu/prototype
+```
+
 ## Configuration
 
 All props are optional.
