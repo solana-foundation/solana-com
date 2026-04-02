@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import Script from "next/script";
 import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
 import { PersistentPodcastPlayer, ThemeProvider } from "@solana-com/ui-chrome";
+import { FabMenu } from "@@/src/components/FabMenu";
 import { staticLocales } from "@workspace/i18n/config";
 import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
@@ -123,6 +124,7 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <main className="min-h-screen">{children}</main>
+            <FabMenu />
             <PersistentPodcastPlayer />
           </ThemeProvider>
         </NextIntlClientProvider>
