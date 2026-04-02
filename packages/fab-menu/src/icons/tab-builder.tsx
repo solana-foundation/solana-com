@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 import type { JSX } from "preact";
 
-/** Code/builder icon — simplified from nav/build/code */
+/** Hand/quick-start icon — from prototype #ico-hand */
 export function TabBuilderIcon(
   props: JSX.SVGAttributes<SVGSVGElement>,
 ): JSX.Element {
@@ -16,7 +16,7 @@ export function TabBuilderIcon(
       <path
         fill-rule="evenodd"
         clip-rule="evenodd"
-        d="M6.46 6.46L2.08 10l4.38 3.54.84-1.08L4.42 10l2.88-2.46-.84-1.08Zm7.08 0l4.38 3.54-4.38 3.54-.84-1.08L15.58 10l-2.88-2.46.84-1.08ZM11.2 4.4l-2.4 11.2 1.28.28 2.4-11.2-1.28-.28Z"
+        d="M11.578 1.66666C10.8109 1.66666 10.1891 2.28849 10.1891 3.05555V8.61111H9.26319V3.98148C9.26319 3.21442 8.64136 2.59259 7.8743 2.59259C7.10724 2.59259 6.48541 3.21442 6.48541 3.98148V10.6547L4.84328 9.0126C4.25794 8.42726 3.29377 8.48066 2.77665 9.12706L2.40234 9.59494L5.08058 14.9514C6.11691 17.0241 8.23533 18.3333 10.5526 18.3333C13.9315 18.3333 16.6706 15.5942 16.6706 12.2154V4.67592C16.6706 3.90886 16.0488 3.28703 15.2817 3.28703C14.5146 3.28703 13.8928 3.90886 13.8928 4.67592V9.30555H12.9669V3.05555C12.9669 2.28849 12.3451 1.66666 11.578 1.66666Z"
         fill="currentColor"
       />
     </svg>
