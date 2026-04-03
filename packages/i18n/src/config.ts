@@ -44,6 +44,12 @@ export const languages = {
   hi: "हिन्दी",
 };
 
+export const languageSelectorLanguages = Object.fromEntries(
+  Object.entries(languages).filter(([locale]) => locale !== "hi"),
+) as Record<string, string>;
+
+export const languageSelectorLocales = Object.keys(languageSelectorLanguages);
+
 export const defaultLocale = "en";
 export const namespaces = ["common"];
 export const staticLocales = ["en"];

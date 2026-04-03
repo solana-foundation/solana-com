@@ -3,7 +3,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Globe from "./assets/globe.inline.svg";
 import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg";
-import { languages } from "@workspace/i18n/config";
+import { languageSelectorLanguages } from "@workspace/i18n/config";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 import classNames from "classnames";
@@ -43,14 +43,14 @@ const LanguageSelector = ({ className = "" }) => {
         sideOffset={8}
         className="max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
       >
-        {Object.keys(languages).map((language) => (
+        {Object.keys(languageSelectorLanguages).map((language) => (
           <DropdownMenu.Item asChild key={language}>
             <Link
               href={asPath || "/"}
               locale={language}
               className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
             >
-              {languages[language]}
+              {languageSelectorLanguages[language]}
             </Link>
           </DropdownMenu.Item>
         ))}
