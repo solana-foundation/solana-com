@@ -58,6 +58,7 @@ export function DevelopersChainMigrationCosmosPage() {
         headline={t("hero.headline")}
         body={t.raw("hero.body")}
         buttons={heroButtons}
+        showScene={false}
       />
 
       <ResponsiveBox responsiveStyles={blockSpacing}>

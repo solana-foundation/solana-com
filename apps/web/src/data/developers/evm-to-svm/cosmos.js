@@ -1,5 +1,5 @@
 export const PATH_CARD_DECK = {
-  numCols: 2,
+  numCols: 3,
   featured: false,
   cards: [
     {

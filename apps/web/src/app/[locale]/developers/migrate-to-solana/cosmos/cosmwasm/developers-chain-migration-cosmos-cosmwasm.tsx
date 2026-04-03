@@ -5,15 +5,27 @@ import {
   ResponsiveStyles,
 } from "@/component-library/responsive-box";
 import {
-  CardDeck,
   CodeBlock,
   ContentEditor,
   Heading,
   Hero,
-  HtmlParser,
   Section,
 } from "@solana-foundation/solana-lib";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+
+function ClientOnlyCodeBlock({
+  code,
+  language,
+}: {
+  code: string;
+  language: React.ComponentProps<typeof CodeBlock>["language"];
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return <CodeBlock code={code} language={language} />;
+}
 import {
   BLOCK_STYLES,
   GUIDE_SECTIONS,
@@ -90,11 +102,6 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card) => ({
-    ...card,
-    callToAction: card.callToAction,
-  }));
-
   return (
     <>
       <Section>
@@ -104,7 +111,7 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
           newsLetter={false}
           eyebrow={t("hero.eyebrow")}
           headline={t("hero.headline")}
-          body={t.raw("hero.body")}
+          body={t("hero.body")}
         />
 
         <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
@@ -128,10 +135,17 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
                     {segments.map((segment, i) => {
                       if (segment.type === "html") {
                         if (!segment.html.trim()) return null;
-                        return <HtmlParser key={i} rawHtml={segment.html} />;
+                        return (
+                          <div
+                            key={i}
+                            className="tw-html_parser"
+                            suppressHydrationWarning
+                            dangerouslySetInnerHTML={{ __html: segment.html }}
+                          />
+                        );
                       }
                       return (
-                        <CodeBlock
+                        <ClientOnlyCodeBlock
                           key={i}
                           code={segment.code}
                           language={
@@ -205,10 +219,17 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
                   {segments.map((segment, i) => {
                     if (segment.type === "html") {
                       if (!segment.html.trim()) return null;
-                      return <HtmlParser key={i} rawHtml={segment.html} />;
+                      return (
+                        <div
+                          key={i}
+                          className="tw-html_parser"
+                          suppressHydrationWarning
+                          dangerouslySetInnerHTML={{ __html: segment.html }}
+                        />
+                      );
                     }
                     return (
-                      <CodeBlock
+                      <ClientOnlyCodeBlock
                         key={i}
                         code={segment.code}
                         language={
@@ -243,21 +264,29 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
           body={t("resourceHeading.body")}
         />
 
-        <ResponsiveBox
-          responsiveStyles={BLOCK_STYLES.cardDeckWrapper as ResponsiveStyles}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
+        <div className="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-4 tw-px-4 sm:tw-px-6 lg:tw-px-8 tw-pb-12">
+          {RESOURCE_CARD_DECK.cards.map((card) => (
+            <div
+              key={card.heading}
+              className="tw-relative tw-overflow-hidden tw-rounded-[24px] tw-flex tw-flex-col tw-items-center tw-justify-between tw-p-6 tw-min-h-[280px] tw-bg-cover tw-bg-center"
+              style={{
+                backgroundImage: `url(${card.backgroundImage.src})`,
+              }}
+            >
+              <div className="tw-absolute tw-inset-0 tw-bg-gradient-to-b tw-from-black/30 tw-to-black/60" />
+              <h3 className="tw-relative tw-z-10 tw-text-white tw-text-xl tw-font-brand tw-font-semibold tw-text-center tw-leading-snug tw-mt-1 tw-mb-0">
+                {card.heading}
+              </h3>
+              <a
+                href={card.callToAction.url}
+                className="tw-relative tw-z-10 tw-inline-flex tw-items-center tw-gap-2 tw-rounded-full tw-border tw-border-white/30 tw-bg-black/20 tw-px-5 tw-py-2.5 tw-text-xs tw-font-semibold tw-uppercase tw-tracking-[0.15em] tw-text-white tw-no-underline tw-backdrop-blur-sm tw-transition-colors hover:tw-bg-white/10"
+              >
+                {card.callToAction.label}
+                <span aria-hidden>→</span>
+              </a>
+            </div>
+          ))}
+        </div>
       </Section>
     </>
   );
