@@ -730,7 +730,7 @@ export const QUICK_REFERENCE_ROWS = [
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
-  featured: true,
+  featured: false,
   cards: [
     {
       type: "image",

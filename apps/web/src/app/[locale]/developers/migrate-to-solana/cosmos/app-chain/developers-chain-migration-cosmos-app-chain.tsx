@@ -10,10 +10,23 @@ import {
   ContentEditor,
   Heading,
   Hero,
-  HtmlParser,
   Section,
 } from "@solana-foundation/solana-lib";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+
+function ClientOnlyCodeBlock({
+  code,
+  language,
+}: {
+  code: string;
+  language: React.ComponentProps<typeof CodeBlock>["language"];
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return <CodeBlock code={code} language={language} />;
+}
 import {
   BLOCK_STYLES,
   NAV_BUTTONS,
@@ -118,7 +131,7 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
           newsLetter={false}
           eyebrow={t("hero.eyebrow")}
           headline={t("hero.headline")}
-          body={t.raw("hero.body")}
+          body={t("hero.body")}
         />
 
         <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
@@ -142,10 +155,17 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
                   {segments.map((segment, i) => {
                     if (segment.type === "html") {
                       if (!segment.html.trim()) return null;
-                      return <HtmlParser key={i} rawHtml={segment.html} />;
+                      return (
+                        <div
+                          key={i}
+                          className="tw-html_parser"
+                          suppressHydrationWarning
+                          dangerouslySetInnerHTML={{ __html: segment.html }}
+                        />
+                      );
                     }
                     return (
-                      <CodeBlock
+                      <ClientOnlyCodeBlock
                         key={i}
                         code={segment.code}
                         language={
