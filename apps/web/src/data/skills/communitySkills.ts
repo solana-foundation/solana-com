@@ -68,14 +68,6 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: DEFI,
   },
   {
-    slug: "drift-skill",
-    title: "Drift Skill",
-    description:
-      "AI coding skill for Drift Protocol SDK covering perpetual futures and spot trading on Solana.",
-    url: "https://github.com/sendaifun/skills/tree/main/skills/drift",
-    category: DEFI,
-  },
-  {
     slug: "jupiter-skill",
     title: "Jupiter Skill",
     description:
