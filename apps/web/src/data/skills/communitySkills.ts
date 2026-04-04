@@ -2,6 +2,7 @@ import {
   Category,
   DEFI,
   INFRASTRUCTURE,
+  PAYMENTS,
   TOOLING,
   TESTING,
   PROGRAMS,
@@ -32,6 +33,16 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
       "Solana skills covering program development, security auditing with vulnerability detection, and ZK compression.",
     url: "https://github.com/tenequm/skills/tree/main/skills/solana-development",
     category: PROGRAMS,
+  },
+
+  // ── AI Coding Skills – Payments ────────────────────────────────────
+  {
+    slug: "asterpay-kya-skill",
+    title: "AsterPay KYA Skill",
+    description:
+      "AI agent skill for KYA (Know Your Agent) trust scoring and USDC-to-EUR settlement via SEPA Instant. x402-native, MiCA-compliant.",
+    url: "https://github.com/AsterPay/asterpay-skills",
+    category: PAYMENTS,
   },
 
   // ── AI Coding Skills – DeFi ─────────────────────────────────────────
