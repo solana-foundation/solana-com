@@ -10,6 +10,7 @@ import {
   GetInvolved,
   MiamiSpeakers,
 } from "@/components";
+import { EventLineup } from "@/components/homepage";
 import sponsorsData from "@/data/miami/sponsors.json";
 import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
 import type { Sponsor } from "@/types/sponsors";
@@ -71,6 +72,7 @@ export default async function MiamiPage({ params }: PageProps) {
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
       <MiamiSpeakers locale={locale} />
+      <EventLineup futureOnly />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
