@@ -1,12 +1,11 @@
 "use client";
 
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import { CardDeck, Heading } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import {
-  PATH_CARD_DECK,
-  RESOURCE_CARD_DECK,
+  COSMOS_PATHS,
+  COSMOS_RESOURCES,
 } from "@/data/developers/evm-to-svm/cosmos";
+import { Products } from "@/components/solutions/products.v2";
 import {
   AnimatedHeroSection,
   SectionDivider,
@@ -15,7 +14,6 @@ import {
 
 export function DevelopersChainMigrationCosmosPage() {
   const t = useTranslations("developers-chain-migration-cosmos");
-  const blockSpacing = { large: { marginTop: "48px" } };
 
   const heroButtons: HeroButton[] = [
     {
@@ -30,27 +28,6 @@ export function DevelopersChainMigrationCosmosPage() {
     },
   ];
 
-  const pathCards = PATH_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: t(`pathCardDeck.cards.${index}.eyebrow`),
-    heading: t(`pathCardDeck.cards.${index}.heading`),
-    body: t(`pathCardDeck.cards.${index}.body`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`pathCardDeck.cards.${index}.callToAction.label`),
-    },
-  }));
-
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    body: t(`resourceCardDeck.cards.${index}.body`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
-  }));
-
   return (
     <>
       <AnimatedHeroSection
@@ -58,45 +35,23 @@ export function DevelopersChainMigrationCosmosPage() {
         headline={t("hero.headline")}
         body={t.raw("hero.body")}
         buttons={heroButtons}
-        showScene={false}
+        showScene={true}
       />
 
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          eyebrow={t("pathHeading.eyebrow")}
-          headline={t("pathHeading.headline")}
-          body={t("pathHeading.body")}
-        />
-      </ResponsiveBox>
-
-      <CardDeck
-        cards={pathCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          PATH_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={PATH_CARD_DECK.featured}
+      <Products
+        products={COSMOS_PATHS}
+        title={t("paths.title")}
+        description={t("paths.description")}
+        translationBase="developers-chain-migration-cosmos.paths"
       />
 
       <SectionDivider />
 
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          eyebrow={t("resourceHeading.eyebrow")}
-          headline={t("resourceHeading.headline")}
-          body={t("resourceHeading.body")}
-        />
-      </ResponsiveBox>
-
-      <CardDeck
-        cards={resourceCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={RESOURCE_CARD_DECK.featured}
+      <Products
+        products={COSMOS_RESOURCES}
+        title={t("resources.title")}
+        description={t("resources.description")}
+        translationBase="developers-chain-migration-cosmos.resources"
       />
     </>
   );

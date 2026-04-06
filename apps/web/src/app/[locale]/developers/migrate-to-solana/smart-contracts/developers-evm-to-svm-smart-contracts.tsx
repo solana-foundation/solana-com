@@ -1,42 +1,31 @@
 "use client";
 
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
 import { ResponsiveBox } from "@/component-library/responsive-box";
-import { Columns } from "@/component-library/columns";
 import {
-  CardDeck,
+  ContentEditor,
   Heading,
-  Hero,
   HtmlParser,
-  Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
+import { ResourceList } from "@/components/solutions/resource-list";
 import {
   BLOCK_STYLES,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/smart-contracts";
 
 export function DevelopersEvmToSvmSmartContractsPage() {
   const t = useTranslations("developers-evm-to-svm-smart-contracts");
   const contentBlocks = t.raw("content.blocks") as string[];
-  const tableOfContents = t.raw("tableOfContents") as {
-    title: string;
-    items: string[];
-  };
-
   const navButtons = NAV_BUTTONS.map((button, index) => ({
     ...button,
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card, index) => ({
+    title: t(`resourceCardDeck.cards.${index}.heading`),
+    href: card.callToAction.url,
   }));
 
   const renderCopyBlock = ({
@@ -92,39 +81,15 @@ export function DevelopersEvmToSvmSmartContractsPage() {
 
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
+      <ChainMigrationHero
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
-        body={t.raw("hero.body")}
+        body={t.raw("hero.body") as string}
       />
 
-      <Section>
-        <div key="columns-0">
-          <Columns space={30} stackColumnsAt="tablet">
-            <div key="toc-0">
-              <ResponsiveBox responsiveStyles={BLOCK_STYLES.tocBox}>
-                <p>
-                  <strong>{tableOfContents.title}</strong>
-                </p>
-                {tableOfContents.items.map((item, index) => {
-                  const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-                  return (
-                    <p key={item} style={{ textIndent: "2em" }}>
-                      <a href={href} rel="noopener noreferrer">
-                        {item}
-                      </a>
-                    </p>
-                  );
-                })}
-              </ResponsiveBox>
-            </div>
-            <div key="copy-0">
-              {renderCopyBlock({ index: 0, styleKey: "columnCopy" })}
-            </div>
-          </Columns>
+      <ContentEditor tocHeadline="Contents">
+        <div key="copy-0">
+          {renderCopyBlock({ index: 0, styleKey: "columnCopy" })}
         </div>
         <div key="copy-1">
           {renderCopyBlock({ index: 1, styleKey: "spacing" })}
@@ -173,33 +138,20 @@ export function DevelopersEvmToSvmSmartContractsPage() {
         <div key="copy-11">
           {renderCopyBlock({ index: 9, id: "summary", styleKey: "spacing" })}
         </div>
+      </ContentEditor>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
 
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
     </>
   );
 }

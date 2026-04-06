@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import { CardDeck, Heading } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import {
-  PRIMARY_CARD_DECK,
-  SECONDARY_CARD_DECK,
+  COMPLETE_GUIDE,
+  CONCEPT_COMPARISON,
+  ERC_STANDARDS,
 } from "@/data/developers/evm-to-svm";
+import { COSMOS_RESOURCES } from "@/data/developers/evm-to-svm/cosmos";
+import { Products } from "@/components/solutions/products.v2";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -16,40 +17,19 @@ const UnicornScene = dynamic(
 
 export function DevelopersChainMigrationEthereumPage() {
   const t = useTranslations("developers-evm-to-svm");
-  const blockSpacing = { large: { marginTop: "48px" } };
 
   const heroButtons = [
     {
       hierarchy: "primary",
-      size: "md",
       url: "/developers/migrate-to-solana/complete-guide",
       label: t("evmGuidesHeading.buttons.0.label"),
     },
     {
       hierarchy: "outline",
-      size: "md",
       url: "https://rareskills.io/solana-tutorial",
       label: t("evmGuidesHeading.buttons.1.label"),
     },
   ];
-
-  const primaryCards = PRIMARY_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: t(`primaryCardDeck.cards.${index}.eyebrow`),
-    heading: t(`primaryCardDeck.cards.${index}.heading`),
-    body: t(`primaryCardDeck.cards.${index}.body`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`primaryCardDeck.cards.${index}.callToAction.label`),
-    },
-  }));
-
-  const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: t(`secondaryCardDeck.cards.${index}.eyebrow`),
-    heading: t(`secondaryCardDeck.cards.${index}.heading`),
-    body: t(`secondaryCardDeck.cards.${index}.body`),
-  }));
 
   return (
     <>
@@ -99,32 +79,38 @@ export function DevelopersChainMigrationEthereumPage() {
         </div>
       </section>
 
-      <CardDeck
-        cards={primaryCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          PRIMARY_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={PRIMARY_CARD_DECK.featured}
+      <Products
+        products={COMPLETE_GUIDE}
+        title={t("completeGuide.title")}
+        description={t("completeGuide.description")}
+        translationBase="developers-evm-to-svm.completeGuide"
       />
 
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          eyebrow={t("heading.eyebrow")}
-          headline={t("heading.headline")}
-          body={t("heading.body")}
-        />
-      </ResponsiveBox>
+      <div className="border-t border-white/10" />
 
-      <CardDeck
-        cards={secondaryCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          SECONDARY_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={SECONDARY_CARD_DECK.featured}
+      <Products
+        products={CONCEPT_COMPARISON}
+        title={t("conceptComparison.title")}
+        description={t("conceptComparison.description")}
+        translationBase="developers-evm-to-svm.conceptComparison"
+      />
+
+      <div className="border-t border-white/10" />
+
+      <Products
+        products={ERC_STANDARDS}
+        title={t("ercStandards.title")}
+        description={t("ercStandards.description")}
+        translationBase="developers-evm-to-svm.ercStandards"
+      />
+
+      <div className="border-t border-white/10" />
+
+      <Products
+        products={COSMOS_RESOURCES}
+        title="Core Solana references"
+        description="Shared starting points for either migration path."
+        translationBase="developers-chain-migration-cosmos.resources"
       />
     </>
   );

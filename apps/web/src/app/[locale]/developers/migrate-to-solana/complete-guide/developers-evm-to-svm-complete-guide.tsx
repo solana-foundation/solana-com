@@ -1,16 +1,16 @@
 "use client";
 
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
-  CardDeck,
   CodeBlock,
   ContentEditor,
   Heading,
-  Hero,
   HtmlParser,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
+import { ResourceList } from "@/components/solutions/resource-list";
 import {
   BLOCK_STYLES,
   IMAGE_ASSETS,
@@ -30,13 +30,9 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card, index) => ({
+    title: t(`resourceCardDeck.cards.${index}.heading`),
+    href: card.callToAction.url,
   }));
 
   const renderCopyBlock = ({
@@ -149,13 +145,10 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
 
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
+      <ChainMigrationHero
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
-        body={t.raw("hero.body")}
+        body={t.raw("hero.body") as string}
       />
 
       <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
@@ -225,20 +218,17 @@ pub struct InitializeCounter<'info> {
     payer = payer
   )]
   pub counter: Account<'info, Counter>,
-  pub system_program: Program<'info, System>,
-}
+  pub system_program: Program<'info, System>}
 
 #[derive(Accounts)]
 pub struct Increment<'info> {
   #[account(mut)]
-  pub counter: Account<'info, Counter>,
-}
+  pub counter: Account<'info, Counter>}
 
 #[account]
 #[derive(InitSpace)]
 pub struct Counter {
-  count: u64,
-}`,
+  count: u64}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -375,8 +365,7 @@ pub struct BalanceAccounts<'info> {
     pub balance: Account<'info, BalanceAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
+    pub system_program: Program<'info, System>}
 
 #[account]
 pub struct BalanceAccount {
@@ -416,8 +405,7 @@ pub mod gettingSigners {
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]
-    pub the_signer: Signer<'info>,
-}`,
+    pub the_signer: Signer<'info>}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -444,8 +432,7 @@ pub mod gettingSigners {
 pub struct Initialize<'info> {
     #[account(mut)]
     pub first_signer: Signer<'info>,
-    pub second_signer: Signer<'info>,
-}`,
+    pub second_signer: Signer<'info>}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -552,8 +539,7 @@ pub mod voting {
 #[derive(Accounts)]
 pub struct InitializeCandidate<'info> {
     #[account(mut)]
-    pub payer: Signer<'info>,
-}
+    pub payer: Signer<'info>}
 
 #[derive(Accounts)]
 pub struct VoteCandidate {}
@@ -571,8 +557,7 @@ fn check(ctx: &Context<InitializeCandidate>) -> Result<()> {
 #[error_code]
 pub enum OnlyOwnerError {
     #[msg("Only owner can call this function!")]
-    NotOwner,
-}`,
+    NotOwner}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -585,8 +570,7 @@ pub enum OnlyOwnerError {
             code: `#[account]
 #[derive(InitSpace)]
 pub struct Candidate {
-    pub votes_received: u8,
-}`,
+    pub votes_received: u8}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -610,8 +594,7 @@ pub struct InitializeCandidate<'info> {
         bump,
     )]
     pub candidate: Account<'info, Candidate>,
-    pub system_program: Program<'info, System>,
-}
+    pub system_program: Program<'info, System>}
 
 #[derive(Accounts)]
 #[instruction(_candidate_Name: String)]
@@ -621,8 +604,7 @@ pub struct VoteCandidate<'info> {
         seeds = [_candidate_Name.as_bytes().as_ref()],
         bump,
     )]
-    pub candidate: Account<'info, Candidate>,
-}`,
+    pub candidate: Account<'info, Candidate>}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -680,8 +662,7 @@ pub struct InitializeCandidate<'info> {
         bump,
     )]
     pub candidate: Account<'info, Candidate>,
-    pub system_program: Program<'info, System>,
-}
+    pub system_program: Program<'info, System>}
 
 #[derive(Accounts)]
 #[instruction(_candidate_name: String)]
@@ -691,14 +672,12 @@ pub struct VoteCandidate<'info> {
         seeds = [_candidate_name.as_bytes().as_ref()],
         bump,
     )]
-    pub candidate: Account<'info, Candidate>,
-}
+    pub candidate: Account<'info, Candidate>}
 
 #[account]
 #[derive(InitSpace)]
 pub struct Candidate {
-    pub votes_received: u8,
-}
+    pub votes_received: u8}
 
 fn check(ctx: &Context<InitializeCandidate>) -> Result<()> {
     // Check if signer === owner
@@ -713,8 +692,7 @@ fn check(ctx: &Context<InitializeCandidate>) -> Result<()> {
 #[error_code]
 pub enum OnlyOwnerError {
     #[msg("Only owner can call this function!")]
-    NotOwner,
-}`,
+    NotOwner}`,
             language: "rust",
             styleKey: "codeBlock",
           })}
@@ -768,21 +746,10 @@ pub enum OnlyOwnerError {
         buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
       />
 
-      <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-        <CardDeck
-          cards={
-            resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-          }
-          numCols={
-            RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-              typeof CardDeck
-            >["numCols"]
-          }
-          featured={RESOURCE_CARD_DECK.featured}
-        />
-      </ResponsiveBox>
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
     </>
   );
 }

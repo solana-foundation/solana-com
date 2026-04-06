@@ -1,27 +1,21 @@
 "use client";
 
-import { Columns } from "@/component-library/columns";
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
-  CardDeck,
+  ContentEditor,
   Heading,
-  Hero,
   HtmlParser,
-  Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
+import { ResourceList } from "@/components/solutions/resource-list";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/client-differences";
 
 export function DevelopersEvmToSvmClientDifferencesPage() {
   const t = useTranslations("developers-evm-to-svm-client-differences");
-  const tableOfContents = t.raw("tableOfContents") as {
-    title: string;
-    items: string[];
-  };
   const executionClientsTable = t.raw("executionClientsTable") as {
     headers: string[];
     rows: { cells: string[] }[];
@@ -51,13 +45,9 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card, index) => ({
+    title: t(`resourceCardDeck.cards.${index}.heading`),
+    href: card.callToAction.url,
   }));
 
   const renderTable = (table: {
@@ -90,47 +80,16 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
 
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
+      <ChainMigrationHero
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
-        body={t.raw("hero.body")}
+        body={t.raw("hero.body") as string}
       />
 
-      <Section>
-        <Columns space={30} stackColumnsAt="tablet">
-          <ResponsiveBox
-            responsiveStyles={{
-              large: {
-                paddingTop: "20px",
-                paddingLeft: "20px",
-                paddingBottom: "20px",
-                paddingRight: "20px",
-                backgroundColor: "rgba(21, 21, 21, 1)",
-                borderRadius: "20px",
-              },
-            }}
-          >
-            <p>
-              <strong>{tableOfContents.title}</strong>
-            </p>
-            {tableOfContents.items.map((item, index) => {
-              const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-              return (
-                <p key={item} style={{ textIndent: "2em" }}>
-                  <a href={href} rel="noopener noreferrer">
-                    {item}
-                  </a>
-                </p>
-              );
-            })}
-          </ResponsiveBox>
-          <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <HtmlParser rawHtml={t.raw("intro")} />
-          </ResponsiveBox>
-        </Columns>
+      <ContentEditor tocHeadline="Contents">
+        <div key="intro">
+          <HtmlParser rawHtml={t.raw("intro")} />
+        </div>
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="types-clients">
@@ -260,35 +219,20 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             </div>
           </div>
         </ResponsiveBox>
+      </ContentEditor>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
 
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox
-          responsiveStyles={{ large: { paddingTop: "0px", marginTop: "-3px" } }}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
     </>
   );
 }

@@ -1,27 +1,20 @@
 "use client";
 
-import { Columns } from "@/component-library/columns";
-import { ResponsiveBox } from "@/component-library/responsive-box";
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
 import {
-  CardDeck,
+  ContentEditor,
   Heading,
-  Hero,
   HtmlParser,
-  Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
+import { ResourceList } from "@/components/solutions/resource-list";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/consensus";
 
 export function DevelopersEvmToSvmConsensusPage() {
   const t = useTranslations("developers-evm-to-svm-consensus");
-  const tableOfContents = t.raw("tableOfContents") as {
-    title: string;
-    items: string[];
-  };
   const comparisonTable = t.raw("comparisonTable") as {
     headers: string[];
     rows: { cells: string[] }[];
@@ -35,13 +28,9 @@ export function DevelopersEvmToSvmConsensusPage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card, index) => ({
+    title: t(`resourceCardDeck.cards.${index}.heading`),
+    href: card.callToAction.url,
   }));
 
   const renderTable = (table: {
@@ -74,116 +63,48 @@ export function DevelopersEvmToSvmConsensusPage() {
 
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
+      <ChainMigrationHero
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
-        body={t.raw("hero.body")}
+        body={t.raw("hero.body") as string}
       />
 
-      <Section>
-        <Columns space={30} stackColumnsAt="tablet">
-          <ResponsiveBox
-            responsiveStyles={{
-              large: {
-                paddingTop: "20px",
-                paddingLeft: "20px",
-                paddingBottom: "20px",
-                paddingRight: "20px",
-                backgroundColor: "rgba(21, 21, 21, 1)",
-                borderRadius: "20px",
-              },
-            }}
-          >
-            <p>
-              <strong>{tableOfContents.title}</strong>
-            </p>
-            {tableOfContents.items.map((item, index) => {
-              const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-              return (
-                <p key={item} style={{ textIndent: "2em" }}>
-                  <a href={href} rel="noopener noreferrer">
-                    {item}
-                  </a>
-                </p>
-              );
-            })}
-          </ResponsiveBox>
-          <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <HtmlParser rawHtml={t.raw("intro")} />
-          </ResponsiveBox>
-        </Columns>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="ethereums-original-consensus">
-            <HtmlParser rawHtml={t.raw("ethereumsOriginalConsensus")} />
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="ethereums-current-consensus">
-            <HtmlParser rawHtml={t.raw("ethereumsCurrentConsensus")} />
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="solanas-consensus">
-            <HtmlParser rawHtml={t.raw("solanasConsensusHeading")} />
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
+      <ContentEditor tocHeadline="Contents">
+        <div key="intro">
+          <HtmlParser rawHtml={t.raw("intro")} />
+        </div>
+        <div key="eth-original" id="ethereums-original-consensus">
+          <HtmlParser rawHtml={t.raw("ethereumsOriginalConsensus")} />
+        </div>
+        <div key="eth-current" id="ethereums-current-consensus">
+          <HtmlParser rawHtml={t.raw("ethereumsCurrentConsensus")} />
+        </div>
+        <div key="sol-heading" id="solanas-consensus">
+          <HtmlParser rawHtml={t.raw("solanasConsensusHeading")} />
+        </div>
+        <div key="sol-body">
           <HtmlParser rawHtml={t.raw("solanasConsensusBody")} />
-        </ResponsiveBox>
+        </div>
+        <div key="comparison" className="tw-html_parser">
+          {renderTable(comparisonTable)}
+        </div>
+        <div key="summary" id="summary">
+          <HtmlParser rawHtml={t.raw("summary")} />
+        </div>
+      </ContentEditor>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="tw-html_parser">{renderTable(comparisonTable)}</div>
-        </ResponsiveBox>
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="summary">
-            <HtmlParser rawHtml={t.raw("summary")} />
-          </div>
-        </ResponsiveBox>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox
-          responsiveStyles={{ large: { paddingTop: "0px", marginTop: "-3px" } }}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
     </>
   );
 }

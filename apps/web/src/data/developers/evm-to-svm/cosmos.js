@@ -79,3 +79,17 @@ export const RESOURCE_CARD_DECK = {
     },
   ],
 };
+
+export const COSMOS_PATHS = [
+  { key: "0", href: "/developers/migrate-to-solana/cosmos/cosmwasm" },
+  { key: "1", href: "/developers/migrate-to-solana/cosmos/app-chain" },
+];
+
+export const COSMOS_RESOURCES = [
+  { key: "0", href: "/developers/migrate-to-solana" },
+  { key: "1", href: "/docs/core/accounts" },
+  {
+    key: "2",
+    href: "/developers/guides/getstarted/hello-world-in-your-browser",
+  },
+];

@@ -242,6 +242,36 @@ export const PRIMARY_CARD_DECK = {
   ],
 };
 
+export const COMPLETE_GUIDE = [
+  { key: "0", href: "/developers/migrate-to-solana/complete-guide" },
+];
+
+export const CONCEPT_COMPARISON = [
+  { key: "0", href: "/developers/migrate-to-solana/accounts" },
+  { key: "1", href: "/developers/migrate-to-solana/smart-contracts" },
+  { key: "2", href: "/developers/migrate-to-solana/client-differences" },
+  { key: "3", href: "/developers/migrate-to-solana/consensus" },
+];
+
+export const ERC_STANDARDS = [
+  { key: "0", href: "/developers/migrate-to-solana/erc20" },
+  { key: "1", href: "/developers/migrate-to-solana/erc721" },
+  { key: "2", href: "/developers/migrate-to-solana/erc4337" },
+  { key: "3", href: "/developers/migrate-to-solana/erc3643" },
+  { key: "4", href: "/developers/migrate-to-solana/erc4626" },
+  { key: "5", href: "/developers/migrate-to-solana/eip2612" },
+];
+
+export const EVM_RESOURCES = [
+  {
+    key: "0",
+    href: "/developers/guides/getstarted/hello-world-in-your-browser",
+  },
+  { key: "1", href: "https://www.soldev.app/course" },
+  { key: "2", href: "https://youtu.be/0P8JeL3TURU?feature=shared" },
+  { key: "3", href: "/developers" },
+];
+
 export const FAQ_COUNT = 4;
 
 export const SECONDARY_CARD_DECK = {

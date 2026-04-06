@@ -1,16 +1,16 @@
 "use client";
 
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
-  CardDeck,
   CodeBlock,
   ContentEditor,
   Heading,
-  Hero,
   HtmlParser,
   Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
+import { ResourceList } from "@/components/solutions/resource-list";
 import {
   BLOCK_STYLES,
   CODE_BLOCKS,
@@ -28,13 +28,9 @@ export function DevelopersEvmToSvmErc3643Page() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    heading: t(`resourceCardDeck.cards.${index}.heading`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`resourceCardDeck.cards.${index}.callToAction.label`),
-    },
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card, index) => ({
+    title: t(`resourceCardDeck.cards.${index}.heading`),
+    href: card.callToAction.url,
   }));
 
   const renderCopyBlock = ({
@@ -73,13 +69,10 @@ export function DevelopersEvmToSvmErc3643Page() {
   return (
     <>
       <Section>
-        <Hero
-          headingAs="h1"
-          centered={false}
-          newsLetter={false}
+        <ChainMigrationHero
           eyebrow={t("hero.eyebrow")}
           headline={t("hero.headline")}
-          body={t.raw("hero.body")}
+          body={t.raw("hero.body") as string}
         />
 
         <ContentEditor
@@ -361,21 +354,10 @@ export function DevelopersEvmToSvmErc3643Page() {
           }
         />
 
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
+        <ResourceList
+          title={t("resourceHeading.headline")}
+          items={resourceItems}
+        />
 
         <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
           <HtmlParser rawHtml={t.raw("nodeComparison")} />

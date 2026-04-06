@@ -1,19 +1,23 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   ResponsiveBox,
   ResponsiveStyles,
 } from "@/component-library/responsive-box";
 import {
-  CardDeck,
   CodeBlock,
   ContentEditor,
   Heading,
-  Hero,
-  Section,
 } from "@solana-foundation/solana-lib";
-import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { ChainMigrationHero } from "@/components/developers/chain-migration-hero";
+import { ResourceList } from "@/components/solutions/resource-list";
+import {
+  BLOCK_STYLES,
+  NAV_BUTTONS,
+  RESOURCE_CARD_DECK,
+} from "@/data/developers/evm-to-svm/cosmos-app-chain";
 
 function ClientOnlyCodeBlock({
   code,
@@ -27,11 +31,6 @@ function ClientOnlyCodeBlock({
   if (!mounted) return null;
   return <CodeBlock code={code} language={language} />;
 }
-import {
-  BLOCK_STYLES,
-  NAV_BUTTONS,
-  RESOURCE_CARD_DECK,
-} from "@/data/developers/evm-to-svm/cosmos-app-chain";
 
 const SUPPORTED_CODE_LANGUAGES = new Set([
   "bash",
@@ -117,105 +116,83 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card) => ({
-    ...card,
-    callToAction: card.callToAction,
+  const resourceItems = RESOURCE_CARD_DECK.cards.map((card) => ({
+    title: card.heading,
+    description: card.body,
+    href: card.callToAction.url,
   }));
 
   return (
     <>
-      <Section>
-        <Hero
-          headingAs="h1"
-          centered={false}
-          newsLetter={false}
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t("hero.body")}
-        />
+      <ChainMigrationHero
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body") as string}
+      />
 
-        <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
-          {CONTENT_BLOCK_KEYS.map((key, index) => {
-            const rawHtml = t.raw(`contentEditor.blocks.${key}`);
-            const segments = parseRunbookSegments(rawHtml);
-            const isLast = index === CONTENT_BLOCK_KEYS.length - 1;
-            const styleKey =
-              index === 0
-                ? "spacingWithMargins"
-                : isLast
-                  ? "spacingLastBlock"
-                  : "spacing";
+      <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
+        {CONTENT_BLOCK_KEYS.map((key, index) => {
+          const rawHtml = t.raw(`contentEditor.blocks.${key}`);
+          const segments = parseRunbookSegments(rawHtml);
+          const isLast = index === CONTENT_BLOCK_KEYS.length - 1;
+          const styleKey =
+            index === 0
+              ? "spacingWithMargins"
+              : isLast
+                ? "spacingLastBlock"
+                : "spacing";
 
-            return (
-              <ResponsiveBox
-                key={`block-${key}`}
-                responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
-              >
-                <div className="tw-space-y-5">
-                  {segments.map((segment, i) => {
-                    if (segment.type === "html") {
-                      if (!segment.html.trim()) return null;
-                      return (
-                        <div
-                          key={i}
-                          className="tw-html_parser"
-                          suppressHydrationWarning
-                          dangerouslySetInnerHTML={{ __html: segment.html }}
-                        />
-                      );
-                    }
+          return (
+            <ResponsiveBox
+              key={`block-${key}`}
+              responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
+            >
+              <div className="tw-space-y-5">
+                {segments.map((segment, i) => {
+                  if (segment.type === "html") {
+                    if (!segment.html.trim()) return null;
                     return (
-                      <ClientOnlyCodeBlock
+                      <div
                         key={i}
-                        code={segment.code}
-                        language={
-                          (SUPPORTED_CODE_LANGUAGES.has(segment.language)
-                            ? segment.language
-                            : "bash") as React.ComponentProps<
-                            typeof CodeBlock
-                          >["language"]
-                        }
+                        className="tw-html_parser"
+                        suppressHydrationWarning
+                        dangerouslySetInnerHTML={{ __html: segment.html }}
                       />
                     );
-                  })}
-                </div>
-              </ResponsiveBox>
-            );
-          })}
-        </ContentEditor>
+                  }
+                  return (
+                    <ClientOnlyCodeBlock
+                      key={i}
+                      code={segment.code}
+                      language={
+                        (SUPPORTED_CODE_LANGUAGES.has(segment.language)
+                          ? segment.language
+                          : "bash") as React.ComponentProps<
+                          typeof CodeBlock
+                        >["language"]
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </ResponsiveBox>
+          );
+        })}
+      </ContentEditor>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
 
-        <Heading
-          eyebrow={t("resourceHeading.eyebrow")}
-          headline={t("resourceHeading.headline")}
-          body={t("resourceHeading.body")}
-        />
-
-        <ResponsiveBox
-          responsiveStyles={BLOCK_STYLES.cardDeckWrapper as ResponsiveStyles}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        description={t("resourceHeading.body")}
+        items={resourceItems}
+      />
     </>
   );
 }
