@@ -148,6 +148,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: DEFI,
   },
   {
+    slug: "titan-skill",
+    title: "Titan Skill",
+    description:
+      "AI coding skill for Titan, a Solana meta-aggregator with WebSocket streaming (Titan Direct) and REST API (Titan Gateway) for swap quotes and execution.",
+    url: "https://github.com/Titan-Pathfinder/titan-api-claude-skills",
+    category: DEFI,
+  },
+  {
     slug: "pnp-markets-skill",
     title: "PNP Markets Skill",
     description:
