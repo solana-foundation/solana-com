@@ -7,7 +7,6 @@ import {
 import {
   CardDeck,
   CodeBlock,
-  ContentEditor,
   Heading,
   Hero,
   Section,
@@ -31,6 +30,7 @@ import {
   BLOCK_STYLES,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
+  RUNBOOK_SECTIONS,
 } from "@/data/developers/evm-to-svm/cosmos-app-chain";
 
 const SUPPORTED_CODE_LANGUAGES = new Set([
@@ -38,6 +38,9 @@ const SUPPORTED_CODE_LANGUAGES = new Set([
   "json",
   "rust",
   "typescript",
+  "python",
+  "toml",
+  "text",
   "tsx",
   "jsx",
   "solidity",
@@ -93,21 +96,29 @@ function parseRunbookSegments(html: string): RunbookSegment[] {
   return segments;
 }
 
-const CONTENT_BLOCK_KEYS = [
-  "overview",
-  "preparation",
-  "phase1",
-  "phase2",
-  "phase3",
-  "phase4",
-  "phase5",
-  "addressLinking",
-  "tokenClaimProgram",
-  "governanceMigration",
-  "complexStateMigration",
-  "architectureDifferences",
-  "solanaConstraints",
-];
+function GuideTableOfContents({ headline }: { headline: string }) {
+  return (
+    <aside className="lg:tw-sticky lg:tw-top-28 lg:tw-self-start">
+      <div className="tw-mb-8 tw-border-b tw-border-gray-500 tw-pb-7">
+        <div className="tw-mb-4 tw-text-display-xs tw-font-bold">
+          {headline}
+        </div>
+        <ul className="!tw-pl-0">
+          {RUNBOOK_SECTIONS.map((section) => (
+            <li key={section.id}>
+              <a
+                href={`#${section.id}`}
+                className="tw-block tw-py-3 tw-font-mono !tw-text-md tw-font-light tw-uppercase tw-text-gray-300 no-underline transition-colors hover:tw-text-common-white"
+              >
+                {section.navLabel}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  );
+}
 
 export function DevelopersChainMigrationCosmosAppChainPage() {
   const t = useTranslations("developers-chain-migration-cosmos-app-chain");
@@ -134,55 +145,66 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
           body={t("hero.body")}
         />
 
-        <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
-          {CONTENT_BLOCK_KEYS.map((key, index) => {
-            const rawHtml = t.raw(`contentEditor.blocks.${key}`);
-            const segments = parseRunbookSegments(rawHtml);
-            const isLast = index === CONTENT_BLOCK_KEYS.length - 1;
-            const styleKey =
-              index === 0
-                ? "spacingWithMargins"
-                : isLast
-                  ? "spacingLastBlock"
-                  : "spacing";
+        <Section as="div" className="tw-grid lg:tw-grid-cols-12 lg:tw-gap-9">
+          <div className="lg:tw-col-span-3">
+            <GuideTableOfContents headline={t("contentEditor.tocHeadline")} />
+          </div>
+          <div className="lg:tw-col-span-9">
+            {RUNBOOK_SECTIONS.map((section, index) => {
+              const segments = parseRunbookSegments(section.html);
+              const isLast = index === RUNBOOK_SECTIONS.length - 1;
+              const styleKey =
+                index === 0
+                  ? "spacingWithMargins"
+                  : isLast
+                    ? "spacingLastBlock"
+                    : "spacing";
 
-            return (
-              <ResponsiveBox
-                key={`block-${key}`}
-                responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
-              >
-                <div className="tw-space-y-5">
-                  {segments.map((segment, i) => {
-                    if (segment.type === "html") {
-                      if (!segment.html.trim()) return null;
-                      return (
-                        <div
-                          key={i}
-                          className="tw-html_parser"
-                          suppressHydrationWarning
-                          dangerouslySetInnerHTML={{ __html: segment.html }}
-                        />
-                      );
+              return (
+                <div
+                  key={section.id}
+                  id={section.id}
+                  className="tw-scroll-mt-28"
+                >
+                  <ResponsiveBox
+                    responsiveStyles={
+                      BLOCK_STYLES[styleKey] as ResponsiveStyles
                     }
-                    return (
-                      <ClientOnlyCodeBlock
-                        key={i}
-                        code={segment.code}
-                        language={
-                          (SUPPORTED_CODE_LANGUAGES.has(segment.language)
-                            ? segment.language
-                            : "bash") as React.ComponentProps<
-                            typeof CodeBlock
-                          >["language"]
+                  >
+                    <div className="tw-space-y-5">
+                      {segments.map((segment, i) => {
+                        if (segment.type === "html") {
+                          if (!segment.html.trim()) return null;
+                          return (
+                            <div
+                              key={i}
+                              className="tw-html_parser"
+                              suppressHydrationWarning
+                              dangerouslySetInnerHTML={{ __html: segment.html }}
+                            />
+                          );
                         }
-                      />
-                    );
-                  })}
+                        return (
+                          <ClientOnlyCodeBlock
+                            key={i}
+                            code={segment.code}
+                            language={
+                              (SUPPORTED_CODE_LANGUAGES.has(segment.language)
+                                ? segment.language
+                                : "bash") as React.ComponentProps<
+                                typeof CodeBlock
+                              >["language"]
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </ResponsiveBox>
                 </div>
-              </ResponsiveBox>
-            );
-          })}
-        </ContentEditor>
+              );
+            })}
+          </div>
+        </Section>
 
         <Heading
           variant="centered"
