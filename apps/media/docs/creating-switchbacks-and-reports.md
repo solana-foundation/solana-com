@@ -73,8 +73,8 @@ For a general Keystatic walkthrough, see:
 The existing switchback screenshots in that walkthrough are still accurate for
 finding the collection and creating a new entry:
 
-- `screenshots/09-switchbacks-list.png`
-- `screenshots/10-switchback-create-form.png`
+- `screenshots/09-switchbacks-list.webp`
+- `screenshots/10-switchback-create-form.webp`
 
 No new screenshots were required for this guide.
 

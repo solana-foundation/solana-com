@@ -25,7 +25,7 @@ On the dashboard, confirm the branch selector is set to `staging`.
 
 Then click `New branch...`.
 
-![Create New Branch](screenshots/17-create-new-branch.png)
+![Create New Branch](screenshots/17-create-new-branch.webp)
 
 ## Step 2: Name the Branch
 
@@ -37,7 +37,7 @@ Example:
 
 Keep `Based on` set to `staging`, then click `Create`.
 
-![Name Branch](screenshots/18-name-branch.png)
+![Name Branch](screenshots/18-name-branch.webp)
 
 ## Step 3: Open Posts and Draft on Your Branch
 
@@ -55,7 +55,7 @@ Important fields for release readiness:
 After saving changes on your branch, return to the dashboard and click
 `Create pull request`.
 
-![Create Pull Request](screenshots/19-create-pull-request.png)
+![Create Pull Request](screenshots/19-create-pull-request.webp)
 
 Keystatic opens the GitHub PR screen for the current branch.
 
@@ -69,7 +69,7 @@ The flow in the screenshots shows:
 - `base`: `main`
 - `compare`: your content branch, for example `staging-ek-article-name`
 
-![Open Pull Request in GitHub](screenshots/20-action-in-github.png)
+![Open Pull Request in GitHub](screenshots/20-action-in-github.webp)
 
 If your team wants an intermediate merge into shared `staging` before release,
 adjust the GitHub base branch there before creating the PR.
