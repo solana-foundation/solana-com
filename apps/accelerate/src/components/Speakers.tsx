@@ -7,14 +7,30 @@ import { useTranslations } from "next-intl";
 import speakersData from "../data/speakers.json";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
+import type { Speaker } from "@/types/speakers";
 
-interface Speaker {
-  name: string;
-  firstName: string;
-  lastName: string;
-  title: string;
-  company: string;
-  image: string;
+type SpeakersProps = {
+  speakers?: Speaker[];
+  speakerOrder?: string[] | null;
+};
+
+function getTwitterHref(twitter: string) {
+  return twitter.startsWith("http")
+    ? twitter
+    : `https://x.com/${twitter.replace(/^@/, "")}`;
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
 }
 
 function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
@@ -74,15 +90,29 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
         {/* Company and Title */}
         <div className="flex flex-col gap-0.5 sm:gap-1">
           {/* Company */}
-          <motion.p
-            className="text-[13px] sm:text-[14px] lg:text-[16px]"
-            animate={{
-              color: isHovered ? "#d2d2d2" : "#ffffff",
-            }}
-            transition={{ duration: 0.3 }}
-          >
-            {speaker.company}
-          </motion.p>
+          <div className="flex items-start justify-between gap-2">
+            <motion.p
+              className="min-w-0 flex-1 text-[13px] sm:text-[14px] lg:text-[16px]"
+              animate={{
+                color: isHovered ? "#d2d2d2" : "#ffffff",
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              {speaker.company}
+            </motion.p>
+
+            {speaker.twitter ? (
+              <a
+                href={getTwitterHref(speaker.twitter)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 flex-shrink-0 text-white/50 transition-colors hover:text-[#19fb9b]"
+                aria-label={`${speaker.name} on X`}
+              >
+                <XIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </a>
+            ) : null}
+          </div>
 
           {/* Title */}
           <p className="text-xs text-white/80 sm:text-sm">{speaker.title}</p>
@@ -92,7 +122,10 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
   );
 }
 
-export function Speakers() {
+export function Speakers({
+  speakers = speakersData.speakers as Speaker[],
+  speakerOrder = SPEAKER_ORDER,
+}: SpeakersProps) {
   return (
     <section id="speakers" className="section-accelerate">
       <div className="container-accelerate">
@@ -102,7 +135,7 @@ export function Speakers() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
-          <AllSpeakersSection />
+          <AllSpeakersSection speakers={speakers} speakerOrder={speakerOrder} />
         </motion.div>
       </div>
     </section>
@@ -154,14 +187,17 @@ const SPEAKER_ORDER: string[] = [
 
 const MOBILE_INITIAL_COUNT = 10;
 
-function AllSpeakersSection() {
+function AllSpeakersSection({
+  speakers,
+  speakerOrder,
+}: Required<SpeakersProps>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAllMobile, setShowAllMobile] = useState(false);
   const t = useTranslations("accelerate.speakers");
 
-  // Filter speakers, then sort by SPEAKER_ORDER; any not in the list go at the end
+  // Filter speakers, then optionally sort by speakerOrder; any not in the list go at the end.
   const filteredSpeakers = useMemo(() => {
-    const filtered = speakersData.speakers.filter((speaker) => {
+    const filtered = speakers.filter((speaker) => {
       const matchesSearch =
         searchQuery === "" ||
         speaker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -171,13 +207,17 @@ function AllSpeakersSection() {
       return matchesSearch;
     });
 
-    const orderIndex = new Map(SPEAKER_ORDER.map((slug, i) => [slug, i]));
+    if (!speakerOrder?.length) {
+      return filtered;
+    }
+
+    const orderIndex = new Map(speakerOrder.map((slug, i) => [slug, i]));
     return [...filtered].sort((a, b) => {
-      const ai = orderIndex.get(a.slug) ?? SPEAKER_ORDER.length;
-      const bi = orderIndex.get(b.slug) ?? SPEAKER_ORDER.length;
+      const ai = orderIndex.get(a.slug) ?? speakerOrder.length;
+      const bi = orderIndex.get(b.slug) ?? speakerOrder.length;
       return ai - bi;
     });
-  }, [searchQuery]);
+  }, [searchQuery, speakerOrder, speakers]);
 
   // Clear filters
   const clearFilters = () => {
