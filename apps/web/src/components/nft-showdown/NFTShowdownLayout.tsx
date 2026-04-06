@@ -15,6 +15,7 @@ const NFTShowdownLayout = ({ children }: NFTShowdownLayoutProps) => {
           </div>
         </main>
       </div>
+      {/* eslint-disable-next-line react/no-unknown-property*/}
       <style global jsx>{`
         body {
           background-color: #070708;

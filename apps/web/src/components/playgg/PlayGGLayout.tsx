@@ -38,6 +38,7 @@ const PlayGGLayout = ({ children }: { children?: React.ReactNode }) => {
         </ModalContext.Provider>
       </div>
       <Footer />
+      {/* eslint-disable-next-line react/no-unknown-property*/}
       <style global jsx>{`
         body {
           background: var(--color-playgg-white);

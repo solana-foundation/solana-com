@@ -5,6 +5,7 @@ import {
   CardDeck,
   ConversionPanel,
   FeatureHighlight,
+  FeatureHighlightProps,
   Heading,
   Hero,
   Slider,
@@ -20,8 +21,6 @@ import {
   SLIDER_CARDS,
   STATS_CONFIG,
 } from "@/data/developers/dao";
-
-const FeatureHighlightAny = FeatureHighlight as any;
 
 export function DevelopersDaoPage() {
   const t = useTranslations("developers-dao");
@@ -94,14 +93,20 @@ export function DevelopersDaoPage() {
       </ResponsiveBox>
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
-        <CardDeck cards={cardDeckCards as any} numCols={CARD_DECK_COLUMNS} />
+        <CardDeck
+          cards={
+            cardDeckCards as React.ComponentProps<typeof CardDeck>["cards"]
+          }
+          numCols={CARD_DECK_COLUMNS}
+        />
       </ResponsiveBox>
 
-      <FeatureHighlightAny
+      <FeatureHighlight
         eyebrow={t("featureHighlight.eyebrow")}
         headline={t("featureHighlight.headline")}
         body={t("featureHighlight.body")}
-        cards={featureHighlightCards as any}
+        cards={featureHighlightCards as FeatureHighlightProps["cards"]}
+        valueOf={() => false}
       />
 
       <Heading
@@ -111,7 +116,9 @@ export function DevelopersDaoPage() {
         body={t("headings.floating.body")}
       />
 
-      <Slider cards={sliderCards as any} />
+      <Slider
+        cards={sliderCards as React.ComponentProps<typeof Slider>["cards"]}
+      />
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
         <ConversionPanel
@@ -121,7 +128,11 @@ export function DevelopersDaoPage() {
           buttons={[]}
           logos={[]}
           showLogos={CONVERSION_PANEL.showLogos}
-          listItems={conversionListItems as any}
+          listItems={
+            conversionListItems as React.ComponentProps<
+              typeof ConversionPanel
+            >["listItems"]
+          }
         />
       </ResponsiveBox>
     </>

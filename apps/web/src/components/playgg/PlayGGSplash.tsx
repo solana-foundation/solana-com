@@ -20,7 +20,7 @@ const PlayGGSplash = () => {
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [prefersReducedMotion] = useReducedMotion();
   useEffect(() => {
-    prefersReducedMotion && heroVideoRef.current?.pause();
+    if (prefersReducedMotion) heroVideoRef.current?.pause();
   }, [prefersReducedMotion]);
 
   return (

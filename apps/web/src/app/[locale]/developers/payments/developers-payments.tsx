@@ -4,7 +4,8 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   CardDeck,
   ConversionPanel,
-  FeatureHighlight as FeatureHighlightBase,
+  FeatureHighlight,
+  FeatureHighlightProps,
   Heading,
   Hero,
   Stats,
@@ -24,9 +25,6 @@ import {
   SWITCHBACK_IMAGE,
 } from "@/data/developers/payments";
 import { useTranslations } from "next-intl";
-
-// Cast to avoid valueOf() type conflict in solana-lib types (upstream issue)
-const FeatureHighlight = FeatureHighlightBase as React.ComponentType<any>;
 
 export function DevelopersPaymentsPage() {
   const t = useTranslations("developers-payments");
@@ -50,11 +48,13 @@ export function DevelopersPaymentsPage() {
       label: cardDeckText[index]?.ctaLabel ?? "",
     },
   }));
-  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map((card, index) => ({
-    ...card,
-    feature: t(`featureHighlight.cards.${index}.feature`),
-    body: t(`featureHighlight.cards.${index}.body`),
-  }));
+  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map(
+    ({ variant: _, ...card }, index) => ({
+      ...card,
+      feature: t(`featureHighlight.cards.${index}.feature`),
+      body: t(`featureHighlight.cards.${index}.body`),
+    }),
+  );
   const switchbackButtons = SWITCHBACK_BUTTONS.map((button, index) => ({
     ...button,
     label: t(`switchback.buttons.${index}`),
@@ -109,8 +109,10 @@ export function DevelopersPaymentsPage() {
           body={t("featureHighlight.body")}
           headingAs={"h2"}
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-          cards={featureHighlightCards as any}
+          cards={featureHighlightCards as FeatureHighlightProps["cards"]}
           buttons={[]}
+          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+          valueOf={() => false}
         />
       </ResponsiveBox>
       <ResponsiveBox responsiveStyles={blockSpacing}>

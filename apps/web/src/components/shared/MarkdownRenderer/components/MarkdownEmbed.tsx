@@ -66,7 +66,6 @@ const YouTubeEmbed = ({ videoId }: { videoId: string }) => {
   return (
     <div className={videoStyles["markdown-renderer-video"]}>
       <YoutubeIFrame
-        // @ts-ignore
         url={`https://www.youtube.com/watch?v=${videoId}`}
         loaded={true}
       />

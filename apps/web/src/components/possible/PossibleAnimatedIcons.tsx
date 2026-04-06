@@ -19,7 +19,7 @@ const PossibleAnimatedIcons = ({
       (entries) => {
         const [entry] = entries;
         if (entry.isIntersecting) {
-          videoRef.current && videoRef.current.load();
+          if (videoRef.current) videoRef.current.load();
         }
       },
       {

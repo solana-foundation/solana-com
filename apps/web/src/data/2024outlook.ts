@@ -11,12 +11,12 @@ export const HERO_BUTTON = {
   size: "md",
   iconSize: "md",
   url: "https://solana.com/news/what-solana-devs-can-look-forward-to-in-2024",
-};
+} as const;
 
 export const FEATURE_HIGHLIGHT_CONFIG = {
   color: "green",
   headingAs: "h2",
-};
+} as const;
 
 export const FEATURE_HIGHLIGHT_CARDS = [
   {
@@ -42,7 +42,7 @@ export const DEVELOPER_ECOSYSTEM_PANEL = {
       url: "https://solana.com/news/2023-state-of-solana-developer-ecosystem",
     },
   ],
-};
+} as const;
 
 export const CASE_STUDIES_PANEL = {
   variant: "inline-centered",
@@ -72,7 +72,7 @@ export const CASE_STUDIES_PANEL = {
       url: "https://solana.com/news/tag/case-studies",
     },
   ],
-};
+} as const;
 
 export const RESEARCH_CARDS = [
   {
@@ -119,7 +119,7 @@ export const RESEARCH_CARDS = [
       url: "https://www.developerreport.com/developer-report",
     },
   },
-];
+] as const;
 
 export const RESEARCH_CARD_COLUMNS = 2;
 
@@ -160,7 +160,7 @@ export const CTA_CARDS = [
       size: "md",
     },
   },
-];
+] as const;
 
 export const CTA_CARD_COLUMNS = 2;
 
@@ -189,7 +189,7 @@ export const VIDEO_CARD_CTA = [
     startIcon: "youtube",
     endIcon: "none",
   },
-];
+] as const;
 
 export const VIDEO_CARD_IMAGES = [
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F9bf9f1a510fc48f6b10d5d781819e66e.png",
@@ -216,4 +216,4 @@ export const SWITCHBACK = {
       url: "https://docs.solana.com/",
     },
   ],
-};
+} as const;

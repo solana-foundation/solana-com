@@ -63,7 +63,7 @@ const WalletsLayout = ({ walletData }: WalletsLayoutProps) => {
         body={`<p>${t("wallets.hero.body")}</p>`}
         image={onOffRampHeroImage}
         centered={false}
-        // @ts-ignore Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+        // @ts-expect-error Check if it exists in @solana-foundation/solana-lib after the upstream fix.
         newsletter={false}
       />
       <WalletFilters

@@ -4,6 +4,7 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   ConversionPanel,
   FeatureHighlight,
+  FeatureHighlightProps,
   Heading,
   Hero,
   Quote,
@@ -24,8 +25,6 @@ import {
 } from "@/data/developers/gaming";
 import { useTranslations } from "next-intl";
 
-const FeatureHighlightAny = FeatureHighlight as any;
-
 export function DevelopersGamingPage() {
   const t = useTranslations("developers-gaming");
   const blockSpacing = { large: { marginTop: "20px" } };
@@ -40,11 +39,13 @@ export function DevelopersGamingPage() {
     label: t(`conversionPanels.gamesKit.listItems.${index}`),
   }));
 
-  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map((card, index) => ({
-    ...card,
-    feature: t(`featureHighlight.cards.${index}.feature`),
-    body: t(`featureHighlight.cards.${index}.body`),
-  }));
+  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map(
+    ({ variant: _, ...card }, index) => ({
+      ...card,
+      feature: t(`featureHighlight.cards.${index}.feature`),
+      body: t(`featureHighlight.cards.${index}.body`),
+    }),
+  );
 
   const featureHighlightButtons = FEATURE_HIGHLIGHT.buttons.map(
     (button, index) => ({
@@ -124,15 +125,16 @@ export function DevelopersGamingPage() {
       </ResponsiveBox>
 
       <ResponsiveBox responsiveStyles={blockSpacing}>
-        <FeatureHighlightAny
+        <FeatureHighlight
           eyebrow={t("featureHighlight.eyebrow")}
           headline={t("featureHighlight.headline")}
           body={t("featureHighlight.body")}
           headingAs={FEATURE_HIGHLIGHT.headingAs}
-          color={FEATURE_HIGHLIGHT.color}
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-          cards={featureHighlightCards as any}
-          buttons={featureHighlightButtons as any}
+          cards={featureHighlightCards as FeatureHighlightProps["cards"]}
+          buttons={featureHighlightButtons as FeatureHighlightProps["buttons"]}
+          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+          valueOf={() => false}
         />
       </ResponsiveBox>
 
@@ -173,7 +175,11 @@ export function DevelopersGamingPage() {
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <SwitchbackChain
           hideBackground={SWITCHBACK_CHAIN.hideBackground}
-          switchbacks={switchbackChainItems as any}
+          switchbacks={
+            switchbackChainItems as React.ComponentProps<
+              typeof SwitchbackChain
+            >["switchbacks"]
+          }
         />
       </ResponsiveBox>
 
@@ -191,7 +197,11 @@ export function DevelopersGamingPage() {
           variant={FUNDING_PANEL.variant as "centered"}
           heading={t("conversionPanels.funding.heading")}
           body={t("conversionPanels.funding.body")}
-          buttons={fundingButtons as any}
+          buttons={
+            fundingButtons as React.ComponentProps<
+              typeof ConversionPanel
+            >["buttons"]
+          }
           logos={FUNDING_PANEL.logos}
           listItems={[]}
           showLogos={FUNDING_PANEL.showLogos}
@@ -205,7 +215,11 @@ export function DevelopersGamingPage() {
           body={t("conversionPanels.community.body")}
           buttons={[]}
           logos={[]}
-          listItems={communityListItems as any}
+          listItems={
+            communityListItems as React.ComponentProps<
+              typeof ConversionPanel
+            >["listItems"]
+          }
           showLogos={COMMUNITY_PANEL.showLogos}
         />
       </ResponsiveBox>

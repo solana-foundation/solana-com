@@ -103,7 +103,7 @@ const signupFormEvents: CalendarEvent[] = [];
  */
 export async function fetchCalendarEvents(
   calendarId: string,
-  options: Record<string, any>,
+  options: Record<string, string | number>,
 ): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
@@ -252,7 +252,9 @@ export async function fetchCalendarEvents(
  * @param {object} options Options for the query.
  * @returns {Promise<Array>} An array of events.
  */
-export async function fetchCalendarRiverEvents(options: Record<string, any>) {
+export async function fetchCalendarRiverEvents(
+  options: Record<string, string | number>,
+) {
   if (!process.env.RIVER_KEY) {
     console.warn("RIVER_KEY is not set. Returning dummy data.");
     return dummyEvent;
@@ -264,7 +266,9 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     "https://app.getriver.io/api/v1alpha1/community/solana/list-events",
   );
 
-  getCalendarEventsUrl.search = new URLSearchParams(options).toString();
+  getCalendarEventsUrl.search = new URLSearchParams(
+    options as Record<string, string>,
+  ).toString();
 
   let res: Response;
   try {

@@ -87,26 +87,22 @@ export async function makeRPCCall({
     });
   } else {
     // Normal execution without rate limiting
-    try {
-      const response = await fetch(rpcNodeURL, {
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: getNextRequestId().toString(),
-          method,
-          params,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        signal: abortSignal,
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch RPC data: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (e) {
-      throw e;
+    const response = await fetch(rpcNodeURL, {
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: getNextRequestId().toString(),
+        method,
+        params,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      signal: abortSignal,
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch RPC data: ${response.statusText}`);
     }
+    return await response.json();
   }
 }

@@ -8,9 +8,7 @@ import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
   const eventUrl =
-    event?.platform === "external"
-      ? event.key!
-      : event?.rsvp || event?.lumaUrl!;
+    event?.platform === "external" ? event.key! : event?.rsvp || event?.lumaUrl;
 
   return event ? (
     <Link
@@ -39,7 +37,8 @@ const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from!).getDay() !==
+            event?.schedule?.from &&
+            new Date(event?.schedule?.from).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>

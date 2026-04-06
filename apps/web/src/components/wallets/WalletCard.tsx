@@ -56,6 +56,7 @@ const WalletCard = ({
         href={websiteUrl}
         className={styles["wallet-card-view-details"]}
         target="_blank"
+        rel="noreferrer"
         suppressHydrationWarning
       >
         {t("wallets.card.view-details")}

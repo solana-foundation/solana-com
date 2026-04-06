@@ -43,7 +43,8 @@ const EventsDetailSection = ({
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from!).getDay() !==
+            event?.schedule?.from &&
+            new Date(event?.schedule?.from).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>

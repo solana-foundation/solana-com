@@ -15,7 +15,7 @@ const PossibleHero = () => {
   const [prefersReducedMotion] = useReducedMotion();
 
   useEffect(() => {
-    prefersReducedMotion && heroVideoRef.current?.pause();
+    if (prefersReducedMotion) heroVideoRef.current?.pause();
   }, [prefersReducedMotion]);
 
   return (

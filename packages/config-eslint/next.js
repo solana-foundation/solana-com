@@ -17,6 +17,15 @@ const nextJsRules = {
     {
       argsIgnorePattern: "^_",
       varsIgnorePattern: "^_",
+      ignoreUsingDeclarations: true,
+    },
+  ],
+  "@typescript-eslint/no-unused-vars": [
+    "error",
+    {
+      argsIgnorePattern: "^_",
+      varsIgnorePattern: "^_",
+      ignoreUsingDeclarations: true,
     },
   ],
   "react/display-name": "off",
