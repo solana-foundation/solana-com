@@ -6,7 +6,6 @@ import {
 } from "@/component-library/responsive-box";
 import {
   CodeBlock,
-  ContentEditor,
   Heading,
   Hero,
   Section,
@@ -94,6 +93,30 @@ function parseGuideSegments(html: string): GuideSegment[] {
   return segments;
 }
 
+function GuideTableOfContents({ headline }: { headline: string }) {
+  return (
+    <aside className="lg:tw-sticky lg:tw-top-28 lg:tw-self-start">
+      <div className="tw-mb-8 tw-border-b tw-border-gray-500 tw-pb-7">
+        <div className="tw-mb-4 tw-text-display-xs tw-font-bold">
+          {headline}
+        </div>
+        <ul className="!tw-pl-0">
+          {GUIDE_SECTIONS.map((section) => (
+            <li key={section.id}>
+              <a
+                href={`#${section.id}`}
+                className="tw-block tw-py-3 tw-font-mono !tw-text-md tw-font-light tw-uppercase tw-text-gray-300 no-underline transition-colors hover:tw-text-common-white"
+              >
+                {section.navLabel}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  );
+}
+
 export function DevelopersChainMigrationCosmosCosmwasmPage() {
   const t = useTranslations("developers-chain-migration-cosmos-cosmwasm");
 
@@ -114,139 +137,162 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
           body={t("hero.body")}
         />
 
-        <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
-          {GUIDE_SECTIONS.map((section, index) => {
-            const isLast = index === GUIDE_SECTIONS.length - 1;
-            const styleKey =
-              index === 0
-                ? "spacingWithMargins"
-                : isLast
-                  ? "spacingLastBlock"
-                  : "spacing";
+        <Section as="div" className="tw-grid lg:tw-grid-cols-12 lg:tw-gap-9">
+          <div className="lg:tw-col-span-3">
+            <GuideTableOfContents headline={t("contentEditor.tocHeadline")} />
+          </div>
+          <div className="lg:tw-col-span-9">
+            {GUIDE_SECTIONS.map((section, index) => {
+              const isLast = index === GUIDE_SECTIONS.length - 1;
+              const styleKey =
+                index === 0
+                  ? "spacingWithMargins"
+                  : isLast
+                    ? "spacingLastBlock"
+                    : "spacing";
 
-            if (section.id === "quick-reference") {
-              const segments = parseGuideSegments(section.html);
-              return (
-                <ResponsiveBox
-                  key={section.id}
-                  responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
-                >
-                  <div className="tw-space-y-5">
-                    {segments.map((segment, i) => {
-                      if (segment.type === "html") {
-                        if (!segment.html.trim()) return null;
-                        return (
-                          <div
-                            key={i}
-                            className="tw-html_parser"
-                            suppressHydrationWarning
-                            dangerouslySetInnerHTML={{ __html: segment.html }}
-                          />
-                        );
+              if (section.id === "quick-reference") {
+                const segments = parseGuideSegments(section.html);
+                return (
+                  <div
+                    key={section.id}
+                    id={section.id}
+                    className="tw-scroll-mt-28"
+                  >
+                    <ResponsiveBox
+                      responsiveStyles={
+                        BLOCK_STYLES[styleKey] as ResponsiveStyles
                       }
-                      return (
-                        <ClientOnlyCodeBlock
-                          key={i}
-                          code={segment.code}
-                          language={
-                            (SUPPORTED_CODE_LANGUAGES.has(segment.language)
-                              ? segment.language
-                              : "bash") as React.ComponentProps<
-                              typeof CodeBlock
-                            >["language"]
+                    >
+                      <div className="tw-space-y-5">
+                        {segments.map((segment, i) => {
+                          if (segment.type === "html") {
+                            if (!segment.html.trim()) return null;
+                            return (
+                              <div
+                                key={i}
+                                className="tw-html_parser"
+                                suppressHydrationWarning
+                                dangerouslySetInnerHTML={{
+                                  __html: segment.html,
+                                }}
+                              />
+                            );
                           }
-                        />
-                      );
-                    })}
+                          return (
+                            <ClientOnlyCodeBlock
+                              key={i}
+                              code={segment.code}
+                              language={
+                                (SUPPORTED_CODE_LANGUAGES.has(segment.language)
+                                  ? segment.language
+                                  : "bash") as React.ComponentProps<
+                                  typeof CodeBlock
+                                >["language"]
+                              }
+                            />
+                          );
+                        })}
 
-                    <div className="tw-hidden tw-overflow-x-auto md:tw-block">
-                      <table className="tw-w-full">
-                        <thead>
-                          <tr>
-                            <th className="tw-whitespace-nowrap">CosmWasm</th>
-                            <th>Anchor / Solana</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                        <div className="tw-hidden tw-overflow-x-auto md:tw-block">
+                          <table className="tw-w-full">
+                            <thead>
+                              <tr>
+                                <th className="tw-whitespace-nowrap">
+                                  CosmWasm
+                                </th>
+                                <th>Anchor / Solana</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {QUICK_REFERENCE_ROWS.map(
+                                ([source, destination]: [string, string]) => (
+                                  <tr key={source}>
+                                    <td>{source}</td>
+                                    <td>{destination}</td>
+                                  </tr>
+                                ),
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="tw-grid tw-gap-3 md:tw-hidden">
                           {QUICK_REFERENCE_ROWS.map(
                             ([source, destination]: [string, string]) => (
-                              <tr key={source}>
-                                <td>{source}</td>
-                                <td>{destination}</td>
-                              </tr>
+                              <div
+                                key={source}
+                                className="tw-rounded-[22px] tw-border tw-border-white/10 tw-bg-black/30 tw-p-4"
+                              >
+                                <p className="tw-mb-1 tw-text-[11px] tw-font-semibold tw-uppercase tw-tracking-[0.18em] tw-text-sky-200/80">
+                                  CosmWasm
+                                </p>
+                                <p className="tw-mb-3 tw-break-words tw-font-mono tw-text-sm tw-text-white/95">
+                                  {source}
+                                </p>
+                                <p className="tw-mb-1 tw-text-[11px] tw-font-semibold tw-uppercase tw-tracking-[0.18em] tw-text-emerald-200/80">
+                                  Anchor / Solana
+                                </p>
+                                <p className="tw-mb-0 tw-text-sm tw-leading-6 tw-text-white/72">
+                                  {destination}
+                                </p>
+                              </div>
                             ),
                           )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="tw-grid tw-gap-3 md:tw-hidden">
-                      {QUICK_REFERENCE_ROWS.map(
-                        ([source, destination]: [string, string]) => (
-                          <div
-                            key={source}
-                            className="tw-rounded-[22px] tw-border tw-border-white/10 tw-bg-black/30 tw-p-4"
-                          >
-                            <p className="tw-mb-1 tw-text-[11px] tw-font-semibold tw-uppercase tw-tracking-[0.18em] tw-text-sky-200/80">
-                              CosmWasm
-                            </p>
-                            <p className="tw-mb-3 tw-break-words tw-font-mono tw-text-sm tw-text-white/95">
-                              {source}
-                            </p>
-                            <p className="tw-mb-1 tw-text-[11px] tw-font-semibold tw-uppercase tw-tracking-[0.18em] tw-text-emerald-200/80">
-                              Anchor / Solana
-                            </p>
-                            <p className="tw-mb-0 tw-text-sm tw-leading-6 tw-text-white/72">
-                              {destination}
-                            </p>
-                          </div>
-                        ),
-                      )}
-                    </div>
+                        </div>
+                      </div>
+                    </ResponsiveBox>
                   </div>
-                </ResponsiveBox>
-              );
-            }
+                );
+              }
 
-            const segments = parseGuideSegments(section.html);
+              const segments = parseGuideSegments(section.html);
 
-            return (
-              <ResponsiveBox
-                key={section.id}
-                responsiveStyles={BLOCK_STYLES[styleKey] as ResponsiveStyles}
-              >
-                <div className="tw-space-y-5">
-                  {segments.map((segment, i) => {
-                    if (segment.type === "html") {
-                      if (!segment.html.trim()) return null;
-                      return (
-                        <div
-                          key={i}
-                          className="tw-html_parser"
-                          suppressHydrationWarning
-                          dangerouslySetInnerHTML={{ __html: segment.html }}
-                        />
-                      );
+              return (
+                <div
+                  key={section.id}
+                  id={section.id}
+                  className="tw-scroll-mt-28"
+                >
+                  <ResponsiveBox
+                    responsiveStyles={
+                      BLOCK_STYLES[styleKey] as ResponsiveStyles
                     }
-                    return (
-                      <ClientOnlyCodeBlock
-                        key={i}
-                        code={segment.code}
-                        language={
-                          (SUPPORTED_CODE_LANGUAGES.has(segment.language)
-                            ? segment.language
-                            : "bash") as React.ComponentProps<
-                            typeof CodeBlock
-                          >["language"]
+                  >
+                    <div className="tw-space-y-5">
+                      {segments.map((segment, i) => {
+                        if (segment.type === "html") {
+                          if (!segment.html.trim()) return null;
+                          return (
+                            <div
+                              key={i}
+                              className="tw-html_parser"
+                              suppressHydrationWarning
+                              dangerouslySetInnerHTML={{ __html: segment.html }}
+                            />
+                          );
                         }
-                      />
-                    );
-                  })}
+                        return (
+                          <ClientOnlyCodeBlock
+                            key={i}
+                            code={segment.code}
+                            language={
+                              (SUPPORTED_CODE_LANGUAGES.has(segment.language)
+                                ? segment.language
+                                : "bash") as React.ComponentProps<
+                                typeof CodeBlock
+                              >["language"]
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </ResponsiveBox>
                 </div>
-              </ResponsiveBox>
-            );
-          })}
-        </ContentEditor>
+              );
+            })}
+          </div>
+        </Section>
 
         <Heading
           variant="centered"

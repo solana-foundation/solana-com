@@ -1,11 +1,8 @@
 const CONTENT_BLOCK_STYLE_KEYS = {
   spacing: "spacing",
   spacingWithMargins: "spacingWithMargins",
-  spacingNoBottom: "spacingNoBottom",
   spacingLastBlock: "spacingLastBlock",
-  smallOnly: "smallOnly",
   cardDeckWrapper: "cardDeckWrapper",
-  tableWrapper: "tableWrapper",
 };
 
 /** @type {Record<string, import("@/component-library/responsive-box").ResponsiveStyles>} */
@@ -16,22 +13,11 @@ export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.spacingWithMargins]: {
     large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
   },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingNoBottom]: {
-    large: { paddingTop: "20px", paddingBottom: "0px" },
-  },
   [CONTENT_BLOCK_STYLE_KEYS.spacingLastBlock]: {
     large: { paddingTop: "20px", paddingBottom: "48px" },
   },
-  [CONTENT_BLOCK_STYLE_KEYS.smallOnly]: {
-    large: { display: "none" },
-    medium: { display: "none" },
-    small: { display: "flex" },
-  },
   [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
     large: { paddingTop: "0px", marginTop: "-3px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.tableWrapper]: {
-    large: { paddingTop: "20px", overflowX: "auto" },
   },
 };
 
@@ -64,824 +50,574 @@ export const NAV_BUTTONS = [
 
 export const RUNBOOK_HIGHLIGHTS = {
   banner: {
-    eyebrow: "Runbook framing",
-    title: "This is a product migration, not a chain upgrade.",
-    body: "You are retiring a Cosmos app-chain and moving users, assets, and application state into Solana programs. There is no one-step path, so the shutdown plan, state transformation pipeline, and Solana launch plan have to ship together.",
+    eyebrow: "Migration framing",
+    title: "Treat this as a coordinated shutdown and relaunch.",
+    body: "A Cosmos app-chain migration is not a chain upgrade. You are decommissioning an L1, exporting the obligations it held, then relaunching the product, token, and operational model on Solana with new security, liquidity, and user-experience assumptions.",
   },
   cards: [
     {
       number: "01",
-      title: "Shut down the Cosmos chain safely",
-      body: "Freeze inflows, coordinate governance, halt at an exact height, and produce signed export artifacts you can defend later.",
+      title: "Plan the shutdown before the rewrite",
+      body: "Governance, validator coordination, IBC cutoffs, exchange notice, and archival strategy need to be locked before the destination programs are final.",
     },
     {
       number: "02",
-      title: "Transform Cosmos state into Solana manifests",
-      body: "Normalize balances, vesting, identity links, and protocol state into explicit migration artifacts before anything touches Solana.",
+      title: "Separate token migration from product migration",
+      body: "Snapshot rules, claim flows, bridge mechanics, and unclaimed-token policy should be explicit projects with their own operators and support playbooks.",
     },
     {
       number: "03",
-      title: "Launch the Solana product and move users over",
-      body: "Deploy programs, initialize mints and PDAs, open claims or wallet-linked allocations, and monitor cutover like a product launch.",
+      title: "Launch on Solana like a production cutover",
+      body: "The mint, metadata, vault authorities, claim programs, liquidity, governance, and user comms all need to go live in a sequence you can rehearse and defend.",
     },
   ],
 };
 
 export const RUNBOOK_SECTIONS = [
   {
-    id: "overview",
-    navLabel: "Overview",
-    tone: "overview",
-    html: `
-      <h2>Overview</h2>
-      <p>This runbook assumes you want to preserve product continuity, not preserve the Cosmos chain itself. Treat the migration as a coordinated retirement-and-relaunch process with exact dates, exact heights, explicit asset policies, and reproducible export artifacts.</p>
-      <p>There are three workstreams you cannot split apart:</p>
-      <ol>
-        <li>Shut down the Cosmos chain safely.</li>
-        <li>Transform exported Cosmos state into a Solana-native data model.</li>
-        <li>Launch the Solana product and migrate users, balances, and application state.</li>
-      </ol>
-    `,
-  },
-  {
-    id: "how-to-use-the-examples",
-    navLabel: "How to Use the Examples",
+    id: "why-teams-leave",
+    navLabel: "1. Why Teams Leave",
     tone: "note",
     html: `
-      <h2>How to Use the Examples</h2>
-      <p>The examples on this page are templates, not drop-in commands for every Cosmos chain.</p>
-      <ul>
-        <li>Replace <code>&lt;daemon&gt;</code>, <code>&lt;chain-id&gt;</code>, <code>&lt;halt-height&gt;</code>, <code>&lt;mint&gt;</code>, and <code>&lt;program-id&gt;</code> with your real values.</li>
-        <li>Verify your chain's actual CLI in <code>cmd/&lt;daemon&gt;/root.go</code> and with <code>&lt;daemon&gt; --help</code> before you run anything.</li>
-        <li>Expect to adapt export-parsing examples if your chain added custom modules or changed SDK defaults.</li>
-        <li>Treat Solana program examples as reference implementations for migration patterns such as claim receipts, PDA-owned state, batched writes, and token distribution.</li>
-      </ul>
-    `,
-  },
-  {
-    id: "execution-model-differences",
-    navLabel: "Execution Model Differences",
-    tone: "default",
-    html: `
-      <h2>Execution Model Differences</h2>
-      <p>Treat this migration as an execution-model rewrite, not a deployment target change.</p>
-      <ul>
-        <li>A Cosmos SDK app chain is an application behind ABCI. CometBFT handles networking and consensus; the application owns state transitions.</li>
-        <li>In Cosmos SDK v0.50+, ABCI 2.0 adds <code>FinalizeBlock</code>, and the SDK's execution flow runs begin-block logic, transactions, and end-block logic inside that finalization path.</li>
-        <li>Cosmos state is module-scoped key/value state committed into the chain's <code>AppHash</code>. Do not build migration tooling around a store backend assumption unless you verified the chain version and store implementation.</li>
-        <li>Solana separates executable program accounts from mutable data accounts. Programs are deployed once and manage many owned data accounts.</li>
-        <li>Solana parallelizes execution when transactions do not contend on writable accounts. Hot writable accounts and oversized one-shot migration transactions become bottlenecks quickly.</li>
-      </ul>
-      <p>Inference from the platform models: because Cosmos apps are module-based state machines with lifecycle hooks, and Solana changes state only through transactions and instructions, any automatic per-block product logic on Cosmos must become explicit Solana instructions or off-chain automation.</p>
-    `,
-  },
-  {
-    id: "what-changes-architecturally",
-    navLabel: "Architecture Changes",
-    tone: "default",
-    html: `
-      <h2>What Changes Architecturally</h2>
+      <h2>1. Why Teams Leave Cosmos: Patterns &amp; Lessons</h2>
+      <p>Understanding why other teams migrated or evaluated migration helps you frame your own decision honestly. Most successful moves start with a clear articulation of why the old chain no longer serves the product.</p>
+      <h3>Common reasons cited</h3>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
             <tr>
-              <th>Cosmos app-chain</th>
-              <th>Solana</th>
+              <th>Reason</th>
+              <th>Example</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Your app is its own blockchain, validator set, and fee market. Cosmos SDK applications are deterministic state machines wired in <code>app.go</code>, with modules and lifecycle hooks like <code>BeginBlock</code> and <code>EndBlock</code>.</td>
-              <td>Your app becomes one or more programs on a shared L1. State lives in accounts, each account has an owner program, and transactions execute atomically.</td>
-            </tr>
-            <tr>
-              <td>User-facing addresses are Bech32. Validator operator and consensus addresses are separate address types.</td>
-              <td>Addresses are 32-byte public keys or PDAs. Wallets use Ed25519 keypairs; PDAs are deterministic off-curve addresses controlled by programs.</td>
-            </tr>
-            <tr>
-              <td>Assets may exist as native staking denoms, bank balances, vesting positions, IBC vouchers, and module-owned state.</td>
-              <td>Assets are SPL tokens. A mint defines the token, and each owner needs a token account or ATA for that mint.</td>
-            </tr>
-            <tr>
-              <td>IBC gives you channels, clients, and packet state.</td>
-              <td>There is no IBC-equivalent built into Solana. Any cross-chain connectivity becomes a separate bridge or interoperability project.</td>
-            </tr>
+            <tr><td>Weak economic security or small validator set</td><td>Akash framed Cosmos app-chain security as insufficient for its target workloads.</td></tr>
+            <tr><td>Infrastructure maintenance overhead</td><td>Teams conclude that running an independent chain pulls focus away from the product.</td></tr>
+            <tr><td>Liquidity fragmentation</td><td>Standalone chains struggle to sustain deep token liquidity and composability.</td></tr>
+            <tr><td>Developer ecosystem size</td><td>Solana attracts more tooling, client libraries, managed infra, and wallet integrations.</td></tr>
+            <tr><td>User experience</td><td>Wallet onboarding and transaction UX are often easier on Solana for mainstream users.</td></tr>
+            <tr><td>Enterprise or B2B demands</td><td>Some teams need stronger settlement guarantees and deeper infra support.</td></tr>
+            <tr><td>Token liquidity</td><td>Thin order books and fewer venues constrain distribution and treasury strategy.</td></tr>
           </tbody>
         </table>
       </div>
-    `,
-  },
-  {
-    id: "non-negotiable-facts",
-    navLabel: "Non-Negotiable Facts",
-    tone: "warning",
-    html: `
-      <h2>Non-Negotiable Facts Before You Start</h2>
+      <h3>What worked in prior migrations</h3>
       <ul>
-        <li>You cannot translate Cosmos wallet addresses directly into Solana wallet addresses. Plan a wallet-linking or claim flow.</li>
-        <li>You cannot close ICS-20 transfer channels as your main shutdown mechanism. The transfer module does not support channel closure; you have to drain and disable flows before halt.</li>
-        <li>If IBC vouchers remain outstanding on other chains, users may lose the ability to unwind them back to origin if you let the relevant route die.</li>
-        <li>Your Cosmos validator set does not migrate as app-level security on Solana. Any validator-set-controlled permissions, staking security, or governance model has to be redesigned explicitly.</li>
-        <li>Your existing Cosmos module logic does not port directly. A Solana program manages explicit accounts and instruction flows.</li>
-        <li>Solana imposes hard state and transaction constraints you must design around: account rent, account size, transaction size, account count, and compute budget.</li>
+        <li>One-way migration windows with a public deadline and exchange coordination created urgency and high completion rates.</li>
+        <li>Public request-for-proposal or evaluation processes gave the community a real decision framework instead of a hand-wavy announcement.</li>
+        <li>Long notice periods of 60 to 90 days reduced stranded balances and support chaos.</li>
+        <li>Archiving chain state preserved auditability and historical support data.</li>
+      </ul>
+      <h3>What failed</h3>
+      <ul>
+        <li>Short notice windows stranded meaningful supply.</li>
+        <li>Skipping exchange coordination left custodial users behind.</li>
+        <li>Teams that failed to archive state lost an authoritative record of balances and protocol history.</li>
       </ul>
     `,
   },
   {
-    id: "phase-1-freeze-the-migration-scope",
-    navLabel: "Phase 1: Freeze Scope",
+    id: "decision-framework",
+    navLabel: "2. Decision Framework",
+    tone: "default",
+    html: `
+      <h2>2. Decision Framework: Is Solana the Right Destination?</h2>
+      <p>Do not start a migration because another team did. Validate that Solana fits your product better than continuing on Cosmos or moving to another environment.</p>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Criterion</th>
+              <th>Questions to ask</th>
+              <th>Solana fit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Security</td><td>How much economic security does the destination chain have, and is it proportionate to your product?</td><td>Strong for teams that want deep shared security instead of their own validator set.</td></tr>
+            <tr><td>Liquidity</td><td>Can your token find real liquidity on major venues?</td><td>Strong DEX aggregation and active market structure.</td></tr>
+            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong around Anchor, RPC providers, indexers, wallets, and payment rails.</td></tr>
+            <tr><td>User base</td><td>Do your target users already live here?</td><td>Often strong for consumer, trading, payments, and NFT-adjacent products.</td></tr>
+            <tr><td>IBC compatibility</td><td>Do you still need native Cosmos interoperability after migration?</td><td>Limited. You need bridge or custom interoperability design.</td></tr>
+            <tr><td>Smart contract model</td><td>Can the product survive a rewrite to the account model?</td><td>Good if you can re-architect; poor if you need CosmWasm patterns unchanged.</td></tr>
+            <tr><td>Transaction fees</td><td>Can your users afford frequent activity?</td><td>Very low nominal fees.</td></tr>
+            <tr><td>Community fit</td><td>Will your community actually follow you?</td><td>Depends on vertical, wallet habits, and token-holder expectations.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>When Solana is not the right choice</h3>
+      <ul>
+        <li>Your product depends heavily on native IBC interoperability with multiple Cosmos chains.</li>
+        <li>You need Cosmos governance modules or staking semantics without redesign.</li>
+        <li>Your user base is committed to Cosmos tooling and unlikely to bridge ecosystems.</li>
+        <li>Your team cannot afford the account-model rewrite and client rewrite the move requires.</li>
+      </ul>
+      <p>If your main goal is SVM execution without a full retreat from Cosmos-adjacent ideas, evaluate SVM-based chains or rollups before committing to a full chain shutdown.</p>
+    `,
+  },
+  {
+    id: "planning-announcement",
+    navLabel: "3. Planning & Announcement",
     tone: "phase",
     html: `
-      <h2>Phase 1: Freeze the Migration Scope</h2>
-      <p>Do this before you write Solana code.</p>
+      <h2>3. Phase 0: Planning &amp; Announcement</h2>
+      <h3>Internal alignment</h3>
+      <p>Do this before any public message goes out.</p>
       <ul>
-        <li>Freeze the feature set you are migrating. Do not combine a chain migration with a large product redesign unless you are willing to run both risks at once.</li>
-        <li>Pick the migration date, final snapshot height policy, and post-snapshot support policy.</li>
-        <li>Decide what continuity means: same token economics and new chain, same users and balances with a different token model, same app state with a new execution environment, or governance reset.</li>
-        <li>Decide whether the Cosmos chain will halt permanently, halt after a claim period, or remain online in read-only or archive mode.</li>
+        <li>Agree on a target halt window internally. Ninety days from public announcement is a sensible minimum.</li>
+        <li>Inventory every user-held asset: liquid balances, staked balances, unbondings, LP positions, NFTs, vesting, escrow, and contract balances.</li>
+        <li>Map every contract and module to one of three outcomes: migrate, replace, or deprecate.</li>
+        <li>Audit every active IBC channel and identify external relayer operators and counterparty teams.</li>
+        <li>Contact major validator operators privately before the public announcement.</li>
+        <li>Give listed exchanges meaningful notice before the public migration window begins.</li>
+        <li>Draft the governance proposal and the technical shutdown runbook in parallel.</li>
+        <li>Decide what the migration portal will need to do for identity linking and claims.</li>
       </ul>
-      <h3>Produce these artifacts now</h3>
-      <ul>
-        <li>A module inventory</li>
-        <li>A state inventory</li>
-        <li>A user-impact matrix</li>
-        <li>A token migration policy</li>
-        <li>A cutover calendar with absolute dates and heights</li>
-      </ul>
-      <h3>Decision checklist</h3>
-      <ul>
-        <li>Will users link Solana wallets before shutdown, claim after shutdown, or both?</li>
-        <li>Will you migrate liquid balances only, or liquid plus staked plus pending rewards?</li>
-        <li>Will vesting be preserved exactly, partially, or collapsed into liquid balances?</li>
-        <li>Will governance rights, DAO balances, or protocol permissions carry over?</li>
-        <li>Will any CosmWasm contracts or custom modules be ported, or are they being sunset?</li>
-        <li>What happens to unclaimed allocations at the end of the claim window?</li>
-      </ul>
+      <h3>Community governance</h3>
+      <p>Even if the team can coordinate a validator halt without formal governance, skipping governance usually destroys trust. The operationally clean approach is to publish a temperature-check discussion first and a binding governance action later.</p>
+      <pre><code class="language-text">Title: [Deprecation Proposal] Shut Down CHAIN_NAME and Migrate to Solana
+
+Summary:
+The team proposes to sunset CHAIN_NAME on DATE, migrate TOKEN to Solana as an SPL token,
+and redirect development resources to the Solana ecosystem.
+
+Rationale:
+- Security, liquidity, ecosystem, or product fit reasons
+- Data supporting the decision
+
+Migration plan:
+- Token migration architecture
+- Smart contract migration path
+- Timeline and exchange coordination
+- Unclaimed token policy</code></pre>
+      <h3>Recommended timeline</h3>
+      <pre><code class="language-text">Day 0:   Public announcement and forum proposal
+Day 14:  On-chain governance vote opens
+Day 21:  Governance vote closes
+Day 28:  Migration portal opens and exchange work begins
+Day 90:  Chain halts at the pre-announced block height
+Day 180: Optional migration-claim deadline</code></pre>
+      <p>Large communities should bias toward longer windows, not shorter ones.</p>
     `,
   },
   {
-    id: "phase-2-inventory-the-cosmos-side",
-    navLabel: "Phase 2: Inventory Cosmos",
+    id: "cosmos-shutdown",
+    navLabel: "4. Cosmos Shutdown",
     tone: "phase",
     html: `
-      <h2>Phase 2: Inventory Everything on the Cosmos Side</h2>
-      <p>Start from the chain source, not from UI assumptions.</p>
-      <h3>Chain and module inventory</h3>
-      <p>Inspect these files first:</p>
+      <h2>4. Phase 1: Cosmos Chain Shutdown (Technical)</h2>
+      <h3>Set the halt block height</h3>
+      <p>Choose a height far enough in the future that validators, exchanges, relayers, and users can act. Every validator should configure the same halt height.</p>
+      <pre><code class="language-toml"># ~/.chain/config/app.toml
+halt-height = 12345678</code></pre>
+      <pre><code class="language-bash">chaind start --halt-height=12345678</code></pre>
+      <p>The halt block is committed. Nodes stop before processing the next block. If the chain is on an older Cosmos SDK version, insist on exact binary consistency across validators before the halt.</p>
+      <h3>Export final state</h3>
+      <pre><code class="language-bash">chaind export --height=12345678 --for-zero-height &gt; final_state.json</code></pre>
+      <p>Use the resulting state as the canonical record for balance extraction and later audit work.</p>
+      <pre><code class="language-bash">cat final_state.json | jq '.app_state.bank.balances' &gt; final_balances.json
+cat final_state.json | jq '.app_state.staking.delegations' &gt; final_delegations.json
+cat final_state.json | jq '.app_state.staking.unbonding_delegations' &gt; final_unbonding.json</code></pre>
+      <h3>Compute the canonical snapshot</h3>
+      <p>For a 1:1 token migration, merge bank balances, delegations, unbondings, module balances you intend to honor, and any contract-side token balances you promise to preserve.</p>
+      <pre><code class="language-python"># snapshot_merge.py - pseudocode
+snapshot = {}
+
+for entry in balances:
+    addr = entry["address"]
+    amount = sum(c["amount"] for c in entry["coins"] if c["denom"] == "utoken")
+    snapshot[addr] = snapshot.get(addr, 0) + int(amount)
+
+for delegation in delegations:
+    addr = delegation["delegator_address"]
+    tokens = shares_to_tokens(delegation["shares"], delegation["validator_address"])
+    snapshot[addr] = snapshot.get(addr, 0) + int(tokens)
+
+for entry in unbonding:
+    addr = entry["delegator_address"]
+    for ubd in entry["entries"]:
+        snapshot[addr] = snapshot.get(addr, 0) + int(ubd["balance"])</code></pre>
+      <p>Do not trust the pipeline until totals reconcile to the supply you intend to preserve.</p>
+      <h3>Handle IBC channels</h3>
       <ul>
-        <li><code>app/app.go</code>: every module you actually run</li>
-        <li><code>app/export.go</code>: how the chain exports state and validators</li>
-        <li><code>app/upgrades.go</code>: any prior migration or halt logic</li>
-        <li><code>cmd/&lt;daemon&gt;/root.go</code>: the real CLI subcommands your binary exposes</li>
-        <li><code>x/*</code>: all custom module state and message paths</li>
+        <li>Pause relayers before the halt so no new packets enter the queue.</li>
+        <li>Drain or timeout in-flight packets intentionally.</li>
+        <li>Notify counterparty chains and relayer operators with real dates, not vague warnings.</li>
+        <li>If you can cleanly close routes through governance, do it before the halt.</li>
       </ul>
-      <pre><code class="language-sh">DAEMON=mychaind
-
-"$DAEMON" --help
-"$DAEMON" query --help
-"$DAEMON" tx --help
-"$DAEMON" export --help
-
-rg -n "ExportAppStateAndValidators|SetUpgradeHandler|MsgSoftwareUpgrade" app/ cmd/ x/</code></pre>
-      <pre><code class="language-sh">rg -n "module.NewManager\\(|NewAppModule\\(" app/
-rg -n "StoreKey|KVStoreKey|MemoryStoreKey" app/
-rg -n "BeginBlock|EndBlock|PreBlock|InitGenesis" x/ app/</code></pre>
-      <h3>State inventory</h3>
-      <p>Capture every state domain you need to preserve, unwind, or explicitly discard:</p>
+      <pre><code class="language-bash">chaind tx ibc channel close-init \
+  --port-id transfer \
+  --channel-id channel-0 \
+  --from gov_addr \
+  --chain-id your-chain-id</code></pre>
+      <h3>Validator offboarding</h3>
       <ul>
-        <li>User balances</li>
-        <li>Staking positions, rewards, commissions, and unbondings</li>
-        <li>Vesting accounts and lockups</li>
-        <li>Governance proposals, votes, deposits, and authorities</li>
-        <li>Authz and fee grants</li>
-        <li>IBC clients, connections, channels, packet commitments, and voucher supplies</li>
-        <li>Denom metadata and IBC traces</li>
-        <li>NFTs</li>
-        <li>Module accounts and protocol-owned balances</li>
-        <li>Oracle, AMM, lending, perp, or app-specific custom module state</li>
-        <li>CosmWasm code IDs, contract instances, and contract state if your chain uses CosmWasm</li>
+        <li>Ask validators to archive their final node state and signing-state files.</li>
+        <li>Pay or reconcile any final commission or support obligations before they disappear.</li>
+        <li>Publish a formal validator offboarding memo with the halt height, export steps, and archive expectations.</li>
       </ul>
-      <p>Do not rely on one export artifact alone. Pull a final state export, full node data and snapshots for audit recovery, indexer data if your product depends on derived views, a separate balance ledger for human verification, and a separate entitlement ledger for claims, vesting, and rewards.</p>
-      <pre><code class="language-sh">DENOM=umy
+      <pre><code class="language-text">Subject: Validator Offboarding - Action Required
 
-jq -r '
-  .app_state.bank.balances[]
-  | .address as $address
-  | .coins[]?
-  | select(.denom == env.DENOM)
-  | [$address, .denom, .amount]
-  | @csv
-' export.json &gt; balances.csv</code></pre>
-      <pre><code class="language-sh">jq '
-  .app_state.auth.accounts[]
-  | select(."@type" | test("VestingAccount"))
-' export.json &gt; vesting_accounts.json</code></pre>
+The chain will halt at block HEIGHT on DATE.
+1. Configure halt-height=HEIGHT
+2. Export final state after halt
+3. Archive your node data to cold storage
+4. Confirm your final commission destination</code></pre>
     `,
   },
   {
-    id: "phase-3-migrate-identities",
-    navLabel: "Phase 3: Identity Migration",
+    id: "token-migration-architecture",
+    navLabel: "5. Token Migration",
     tone: "phase",
     html: `
-      <h2>Phase 3: Decide How Users Will Migrate Identities</h2>
-      <p>This is the first product decision that can invalidate the rest of the plan.</p>
-      <h3>Identity facts</h3>
-      <ul>
-        <li>There is no direct key conversion from Cosmos user keys to Solana user keys.</li>
-        <li>Even if a wallet app supports both ecosystems, the user's Cosmos and Solana addresses are still different.</li>
-        <li>If you want deterministic user allocations at launch, collect Solana addresses before the Cosmos halt.</li>
-      </ul>
-      <h3>Three practical migration models</h3>
-      <ol>
-        <li><strong>Fresh-wallet claims:</strong> users connect a Solana wallet after launch and claim what they are owed from a snapshot.</li>
-        <li><strong>Wallet linking before shutdown:</strong> users link a Solana address while the Cosmos chain is still live.</li>
-        <li><strong>Custodial remapping:</strong> your backend migrates identities because the product already uses app accounts, email login, or custodial wallets.</li>
-      </ol>
-      <p>If your chain already runs CosmWasm or a custom module, pre-shutdown wallet linking is usually the cleanest path. Record <code>cosmos_address -&gt; solana_pubkey</code> while users can still authenticate with the old wallet, then import that mapping into your Solana claim manifest.</p>
-      <pre><code class="language-json">[
-  {
-    "cosmos_address": "cosmos1abc...",
-    "solana_address": "8Yh9kQ6dW8oY6yYJ4Y3T5g7uLwM8cR8bN3xj7v8w2iQm",
-    "link_height": 1234567,
-    "link_tx_hash": "4C7D...A1",
-    "linked_at": "2026-03-15T18:22:03Z"
-  }
-]</code></pre>
-      <h3>Advanced path: post-halt secp256k1 claims</h3>
-      <p>This is possible, but it is higher risk than pre-halt registration.</p>
-      <ul>
-        <li>Solana has a native secp256k1 verification precompile.</li>
-        <li>Your claim system has to define a canonical message, verify the secp256k1 proof, and map the recovered key material to the snapshot identity you exported from Cosmos.</li>
-        <li>Replay protection matters. Include domain separation, the recipient Solana address, and the claim context in the signed message.</li>
-      </ul>
-    `,
-  },
-  {
-    id: "phase-4-design-the-solana-state-model",
-    navLabel: "Phase 4: Solana State Model",
-    tone: "phase",
-    html: `
-      <h2>Phase 4: Design the Solana State Model Before You Export Anything</h2>
-      <p>Do not export Cosmos data into JSON and then ask later where it goes on Solana. Define the destination first.</p>
-      <h3>Solana model constraints you must design around</h3>
-      <ul>
-        <li>All persistent state lives in accounts.</li>
-        <li>Only the owning program can mutate an account's data or debit lamports from it.</li>
-        <li>Every account must hold enough lamports to remain rent-exempt.</li>
-        <li>Account data is capped at 10 MiB.</li>
-        <li>Transactions are atomic, capped at 1,232 bytes, and usually limited to 64 accounts unless you use v0 transactions and Address Lookup Tables.</li>
-        <li>Default compute is 200,000 CUs per non-builtin instruction and 1.4 million CUs max per transaction.</li>
-      </ul>
-      <h3>Solana modeling decisions</h3>
-      <ul>
-        <li>Which data becomes a PDA</li>
-        <li>Which data becomes a token mint</li>
-        <li>Which data becomes a token account or ATA</li>
-        <li>Which data stays off-chain and is only proven on-chain when needed</li>
-        <li>Which state is immutable at migration time versus mutable after launch</li>
-        <li>Which authorities control upgrades, minting, freezing, and admin actions</li>
-      </ul>
-      <pre><code class="language-rust">pub const MIGRATION_CONFIG_SEED: &amp;[u8] = b"migration-config";
-pub const CLAIM_RECEIPT_SEED: &amp;[u8] = b"claim-receipt";
+      <h2>5. Phase 2: Token Migration Architecture</h2>
+      <p>Choose the migration architecture deliberately. The right answer depends on community size, address mapping strategy, and whether you want a pre-halt migration window.</p>
+      <h3>Architecture A: Snapshot plus airdrop</h3>
+      <p>Take a final snapshot, map Cosmos addresses to Solana addresses, then distribute SPL balances 1:1. This is the simplest operationally, but it requires a clean address-mapping process.</p>
+      <pre><code class="language-bash">spl-token create-token --decimals 6
 
-#[repr(C)]
-pub struct MigrationConfig {
-    pub admin: Pubkey,
-    pub mint: Pubkey,
-    pub treasury: Pubkey,
-    pub merkle_root: [u8; 32],
-    pub snapshot_height: u64,
-    pub claims_open: bool,
-    pub bump: u8,
-}
+# Bulk transfer once wallet mapping is complete
+spl-token transfer MINT_ADDRESS AMOUNT RECIPIENT_SOLANA_ADDRESS \
+  --fund-recipient \
+  --allow-unfunded-recipient</code></pre>
+      <h3>Architecture B: One-way bridge</h3>
+      <p>Open a pre-halt migration window where users lock or burn Cosmos tokens and receive equivalent SPL balances on Solana. This is heavier operationally but better for large distributions.</p>
+      <pre><code class="language-rust">ExecuteMsg::MigrateTokens { solana_address } =&gt; {
+    ensure!(env.block.height &lt; MIGRATION_CLOSE_HEIGHT, ContractError::MigrationClosed {});
 
-#[repr(C)]
-pub struct ClaimReceipt {
-    pub claimant: Pubkey,
-    pub snapshot_index: u64,
-    pub amount: u64,
-    pub claimed_at_slot: u64,
-    pub bump: u8,
+    let sol_addr_bytes = bs58::decode(&solana_address)
+        .into_vec()
+        .map_err(|_| ContractError::InvalidSolanaAddress {})?;
+    ensure!(sol_addr_bytes.len() == 32, ContractError::InvalidSolanaAddress {});
+
+    let token_amount = info.funds.iter()
+        .find(|c| c.denom == NATIVE_DENOM)
+        .ok_or(ContractError::NoFundsProvided {})?
+        .amount;
+
+    Ok(Response::new()
+        .add_attribute("action", "migrate_tokens")
+        .add_attribute("solana_recipient", solana_address)
+        .add_attribute("amount", token_amount))}</code></pre>
+      <pre><code class="language-typescript">for (const event of events) {
+  const recipientPubkey = new PublicKey(event.solana_recipient);
+  await transferSPLTokens(recipientPubkey, BigInt(event.amount), event.event_id);
+  await cosmosClient.execute(BRIDGE_CONTRACT, {
+    mark_processed: { event_id: event.event_id }
+  }, "auto");
 }</code></pre>
-      <pre><code class="language-text">MigrationConfig PDA: ["migration-config"]
-Treasury PDA:        ["treasury", mint_pubkey]
-ClaimReceipt PDA:    ["claim-receipt", claimant_pubkey, snapshot_index_le_bytes]
-UserState PDA:       ["user-state", claimant_pubkey]</code></pre>
-      <h3>Common Cosmos-to-Solana mapping patterns</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Cosmos concept</th>
-            <th>Typical Solana replacement</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Native chain denom</td><td>SPL mint</td></tr>
-          <tr><td>Bank balance</td><td>Token account balance or PDA-held balance</td></tr>
-          <tr><td>Module account</td><td>Program-owned PDA</td></tr>
-          <tr><td>Validator-set-controlled app behavior</td><td>Program authority, multisig, DAO, or off-chain ops flow</td></tr>
-          <tr><td>BeginBlock / EndBlock logic</td><td>Explicit instructions, lazy settlement, or off-chain cranks</td></tr>
-          <tr><td>IBC vouchers and traces</td><td>Usually unwind before migration; otherwise explicit redemption policy</td></tr>
-          <tr><td>CosmWasm contract state</td><td>Custom program accounts</td></tr>
-        </tbody>
-      </table>
+      <h3>Architecture C: Third-party bridge</h3>
+      <p>Bridge infrastructure such as Wormhole can reduce custom relayer work, but only while the source chain is alive and only if your chain is supported. Treat this as a pre-halt path, not a permanent fallback after shutdown.</p>
+      <h3>Unclaimed token policy</h3>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Policy</th>
+              <th>Description</th>
+              <th>Tradeoff</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Burn</td><td>Unclaimed balances disappear after the window.</td><td>Simple but punitive.</td></tr>
+            <tr><td>Community treasury</td><td>Unclaimed balances move to multisig or DAO control.</td><td>Flexible but politically sensitive.</td></tr>
+            <tr><td>Extended claim escrow</td><td>Hold balances for a longer claim period under a governed escrow.</td><td>User-friendly but more operational work.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A long escrow-based claim window is usually the least hostile choice for real users.</p>
     `,
   },
   {
-    id: "phase-5-design-token-migration",
-    navLabel: "Phase 5: Token Migration",
+    id: "launching-on-solana",
+    navLabel: "6. Launching on Solana",
     tone: "phase",
     html: `
-      <h2>Phase 5: Design Token Migration Separately From Product State Migration</h2>
-      <p>Treat token migration as its own project.</p>
-      <h3>Decide the token standard</h3>
-      <p>Use the original Token Program unless you need a Token-2022 extension. Choose Token-2022 only for a specific feature-driven reason, not because it sounds newer.</p>
-      <h3>Decide the token migration policy</h3>
-      <ul>
-        <li>Is the Cosmos native token becoming one SPL mint?</li>
-        <li>Are staking derivatives, LP shares, escrow receipts, or vouchers becoming separate mints?</li>
-        <li>Are decimals preserved?</li>
-        <li>Are balances migrated 1:1, scaled, or partially redeemed?</li>
-        <li>Is there a claim period after which unclaimed balances are burned, escrowed, or reassigned?</li>
-        <li>Who pays to create ATAs for recipients?</li>
-      </ul>
-      <pre><code class="language-sh">mkdir -p ./keys
-solana config set --url https://api.devnet.solana.com
-solana-keygen new --outfile ./keys/migration-authority.json
+      <h2>6. Phase 3: Launching on Solana</h2>
+      <h3>Create the SPL token</h3>
+      <pre><code class="language-bash">solana-keygen new --outfile migration-authority.json
+solana config set --keypair migration-authority.json
+solana config set --url mainnet-beta
 
-spl-token create-token --decimals 6
-# save the mint address from the output
-
-spl-token create-account &lt;MINT_ADDRESS&gt;
-spl-token mint &lt;MINT_ADDRESS&gt; 1000</code></pre>
-      <pre><code class="language-sh">spl-token create-account &lt;MINT_ADDRESS&gt; --owner &lt;RECIPIENT_SOLANA_ADDRESS&gt;
-spl-token mint &lt;MINT_ADDRESS&gt; &lt;AMOUNT_IN_BASE_UNITS&gt; -- &lt;RECIPIENT_TOKEN_ACCOUNT&gt;</code></pre>
-      <h3>Treat IBC assets as a shutdown problem first</h3>
-      <ul>
-        <li>Stop new IBC deposits into your app chain.</li>
-        <li>Stop new outbound IBC sends from your app chain at a declared cutoff.</li>
-        <li>Drain outstanding routes while the chain is live.</li>
-        <li>Publish the exact denom traces and redemption policy for any assets you will not support on Solana.</li>
-      </ul>
-      <pre><code class="language-sh">DAEMON=mychaind
-
-"$DAEMON" query ibc channel channels --output json
-"$DAEMON" query ibc-transfer denom-traces --output json
-"$DAEMON" query ibc channel packet-commitments transfer channel-0 --output json
-"$DAEMON" query ibc channel unreceived-packets transfer channel-0 --sequences 1,2,3 --output json</code></pre>
-    `,
-  },
-  {
-    id: "phase-6-build-the-cosmos-shutdown-plan",
-    navLabel: "Phase 6: Shutdown Plan",
-    tone: "phase",
-    html: `
-      <h2>Phase 6: Build the Cosmos Shutdown Plan</h2>
-      <p>Shutting down a chain is operational work, governance work, and user communication work.</p>
-      <h3>1. Publish the freeze schedule</h3>
-      <p>Publish, at minimum, the final deposit date, final withdrawal date, final IBC send date, final governance action date, snapshot height or snapshot date, halt height, and Solana claim start date. Use exact calendar dates and exact block heights.</p>
-      <p>Recommended governance sequence:</p>
-      <ol>
-        <li>Publish a non-binding signal proposal or governance discussion with the full migration plan.</li>
-        <li>Publish the IBC cutoff schedule and all affected channel and asset policies.</li>
-        <li>Submit the binding halt proposal with the exact <code>x/upgrade</code> plan name and halt height.</li>
-      </ol>
-      <pre><code class="language-sh">DAEMON=mychaind
-"$DAEMON" query gov params --output json</code></pre>
-      <h3>2. Disable inflows before halt</h3>
-      <ul>
-        <li>Disable front-end actions that create new long-lived state.</li>
-        <li>Disable bridges and relayers you control.</li>
-        <li>Disable market makers or bots that keep opening positions.</li>
-        <li>Stop any cron or automation that creates protocol liabilities after the snapshot window.</li>
-      </ul>
-      <h3>3. Pass the halt proposal</h3>
-      <p>For Cosmos SDK chains, the normal coordinated halt mechanism is <code>x/upgrade</code>.</p>
+spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
+      <h3>Add metadata</h3>
+      <p>Without token metadata, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
+      <pre><code class="language-typescript">await createFungible(umi, {
+  mint: publicKey(MINT_ADDRESS),
+  name: "Your Token Name",
+  symbol: "TKN",
+  uri: "https://your-metadata-server.com/token.json",
+  sellerFeeBasisPoints: { basisPoints: 0n, identifier: "%", decimals: 2 },
+  decimals: 6,
+  isMutable: true,
+}).sendAndConfirm(umi);</code></pre>
       <pre><code class="language-json">{
-  "messages": [
-    {
-      "@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
-      "authority": "&lt;GOV_MODULE_ADDRESS&gt;",
-      "plan": {
-        "name": "final-migration-halt",
-        "height": "5000000",
-        "info": "Permanent halt for Solana migration. See the public migration runbook for details."
-      }
-    }
-  ],
-  "metadata": "ipfs://&lt;MIGRATION_PLAN_CID&gt;",
-  "deposit": "10000000utoken",
-  "title": "Halt Chain for Solana Migration",
-  "summary": "Halts the chain at the declared height so final state can be exported for migration."
+  "name": "Your Token Name",
+  "symbol": "TKN",
+  "description": "Migrated from CHAIN_NAME Cosmos chain to Solana.",
+  "image": "https://your-metadata-server.com/logo.png",
+  "external_url": "https://yourproject.com"
 }</code></pre>
-      <p>Fallback if governance fails: a coordinated validator halt can still stop the chain if enough stake opts in, but treat this as contingency only.</p>
-      <pre><code class="language-toml"># Common example only. Verify your chain and app version.
-halt-height = 5000000
-halt-time = 0</code></pre>
-      <pre><code class="language-sh">mychaind start --halt-height=5000000</code></pre>
-      <pre><code class="language-sh">mkdir -p release
-cp ./build/mychaind ./release/
-shasum -a 256 ./release/mychaind &gt; ./release/mychaind.sha256</code></pre>
-      <h3>4. Export the final state</h3>
-      <p>Use the export mechanism as your migration source of truth.</p>
-      <pre><code class="language-sh">DAEMON=mychaind
-HOME_DIR="$HOME/.mychain"
-HALT_HEIGHT=1234567
-
-"$DAEMON" status | jq '.sync_info.latest_block_height'
-"$DAEMON" query upgrade current-plan
-"$DAEMON" export --help
-
-"$DAEMON" export --home "$HOME_DIR" --height "$HALT_HEIGHT" &gt; artifacts/export.json
-cp "$HOME_DIR/config/genesis.json" artifacts/genesis.json
-cp -R "$HOME_DIR/data" artifacts/data</code></pre>
-      <pre><code class="language-sh">"$DAEMON" validate-genesis artifacts/export.json</code></pre>
-      <pre><code class="language-sh">cd artifacts
-shasum -a 256 export.json genesis.json &gt; SHA256SUMS
-
-cat &gt; migration-manifest.json &lt;&lt;'EOF'
-{
-  "source_chain_id": "mychain-1",
-  "snapshot_height": 1234567,
-  "generated_at": "2026-04-02T18:30:00Z",
-  "artifacts": [
-    "export.json",
-    "genesis.json",
-    "SHA256SUMS"
-  ]
-}
-EOF
-
-gpg --detach-sign --armor migration-manifest.json</code></pre>
-      <h3>5. Decide the old chain's final disposition</h3>
+      <h3>Mint supply and lock authorities deliberately</h3>
+      <pre><code class="language-bash">spl-token create-account MINT_ADDRESS
+spl-token mint MINT_ADDRESS 1000000000
+spl-token authorize MINT_ADDRESS mint --disable
+spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
+      <p>Only revoke mint and freeze authorities after you verify supply, vault custody, and operational signers. These are one-way actions.</p>
+      <h3>Multisig, token lists, and liquidity</h3>
       <ul>
-        <li>Fully off</li>
-        <li>Archive RPC only</li>
-        <li>Internal forensic archive only</li>
+        <li>Move treasury and migration vault control to a multisig such as Squads.</li>
+        <li>Submit token metadata to the venues and registries your users will rely on.</li>
+        <li>Seed at least one meaningful liquidity venue before the migration rush begins.</li>
       </ul>
-      <p>If you leave any public RPC up, label it clearly as retired and read-only.</p>
     `,
   },
   {
-    id: "phase-7-transform-exported-state",
-    navLabel: "Phase 7: Build Manifests",
+    id: "program-migration",
+    navLabel: "7. Programs",
     tone: "phase",
     html: `
-      <h2>Phase 7: Transform Exported Cosmos State Into Solana Manifests</h2>
-      <p>Do not feed the raw Cosmos export directly into Solana programs. Create explicit migration artifacts.</p>
-      <h3>Minimum artifacts</h3>
-      <ul>
-        <li><code>balances.csv</code> or equivalent canonical ledger</li>
-        <li><code>claims.json</code> or equivalent entitlement manifest</li>
-        <li><code>wallet_links.json</code> if you collected mappings before shutdown</li>
-        <li><code>vesting.json</code></li>
-        <li><code>nft_owners.json</code></li>
-        <li><code>protocol_positions.json</code></li>
-        <li><code>migration_report.md</code> with totals and reconciliation notes</li>
-      </ul>
-      <p>Each artifact should include source height, source chain ID, generation timestamp, input hashes, output hashes, and a reproducible generator version.</p>
-      <pre><code class="language-json">[
-  {
-    "snapshot_index": 0,
-    "cosmos_address": "cosmos1abc...",
-    "solana_address": "8Yh9kQ6dW8oY6yYJ4Y3T5g7uLwM8cR8bN3xj7v8w2iQm",
-    "amount": "1500000",
-    "denom": "umy",
-    "proof": [
-      "0x9d59f3...",
-      "0x441e27..."
-    ]
-  }
-]</code></pre>
-      <pre><code class="language-typescript">import { readFileSync, writeFileSync } from "node:fs";
-
-type Coin = { denom: string; amount: string };
-type BankBalance = { address: string; coins: Coin[] };
-type WalletLink = { cosmos_address: string; solana_address: string };
-
-const exportState = JSON.parse(readFileSync("export.json", "utf8"));
-const walletLinks: WalletLink[] = JSON.parse(readFileSync("wallet_links.json", "utf8"));
-const linkMap = new Map(walletLinks.map((x) =&gt; [x.cosmos_address, x.solana_address]));
-
-const balances: BankBalance[] = exportState.app_state.bank.balances;
-const claims = balances.flatMap((balance, snapshotIndex) =&gt; {
-  const coin = balance.coins.find((c) =&gt; c.denom === "umy");
-  if (!coin) return [];
-
-  return [{
-    snapshot_index: snapshotIndex,
-    cosmos_address: balance.address,
-    solana_address: linkMap.get(balance.address) ?? null,
-    amount: coin.amount,
-    denom: coin.denom,
-  }];
-});
-
-writeFileSync("claims.json", JSON.stringify(claims, null, 2));</code></pre>
-      <h3>Reconciliation rules</h3>
-      <p>Reconcile at least these totals:</p>
-      <ul>
-        <li>Total token supply before and after migration</li>
-        <li>Treasury balances</li>
-        <li>Sum of user liquid balances</li>
-        <li>Sum of locked or vested balances</li>
-        <li>Sum of staking principal plus pending rewards if you are honoring them</li>
-        <li>Sum of LP or synthetic liabilities</li>
-      </ul>
-      <pre><code class="language-sh">jq '[.app_state.bank.balances[].coins[] | select(.denom=="umy") | .amount | tonumber] | add' export.json
-jq '.app_state.bank.supply[] | select(.denom=="umy") | .amount' export.json
-jq '.app_state.auth.accounts | length' export.json
-jq '.app_state.bank.balances | length' export.json</code></pre>
-    `,
-  },
-  {
-    id: "phase-8-build-solana-programs-and-clients",
-    navLabel: "Phase 8: Solana Programs",
-    tone: "phase",
-    html: `
-      <h2>Phase 8: Build the Solana Programs and Clients</h2>
-      <h3>Program design</h3>
-      <p>Implement only what the migrated product still needs. For each Cosmos module or contract you preserve, define program responsibilities, account schemas, PDA seeds, authority model, upgrade model, failure modes, and event strategy.</p>
-      <pre><code class="language-rust">pub fn claim(
-    ctx: Context&lt;Claim&gt;,
-    snapshot_index: u64,
-    amount: u64,
-    proof: Vec&lt;[u8; 32]&gt;,
-) -&gt; Result&lt;()&gt; {
-    let config = &amp;ctx.accounts.migration_config;
-    let claimant = ctx.accounts.claimant.key();
-
-    require!(config.claims_open, MigrationError::ClaimsClosed);
-
-    let leaf = hashv(&amp;[
-        &amp;snapshot_index.to_le_bytes(),
-        claimant.as_ref(),
-        &amp;amount.to_le_bytes(),
-    ]);
-
-    require!(
-        verify_merkle_proof(leaf.to_bytes(), &amp;proof, config.merkle_root),
-        MigrationError::InvalidProof
-    );
-
-    let receipt = &amp;mut ctx.accounts.claim_receipt;
-    require!(receipt.claimed_at_slot == 0, MigrationError::AlreadyClaimed);
-
-    mint_to_user(ctx.accounts.into_mint_to_context(), amount)?;
-
-    receipt.claimant = claimant;
-    receipt.snapshot_index = snapshot_index;
-    receipt.amount = amount;
-    receipt.claimed_at_slot = Clock::get()?.slot;
-
-    Ok(())
-}</code></pre>
-      <h3>Account sizing and upgrade control</h3>
-      <p>Cosmos module stores grow over time; Solana accounts are created with an explicit size. Reallocation later costs compute and operational risk.</p>
+      <h2>7. Phase 4: Smart Contract / Program Migration</h2>
+      <p>The contract rewrite itself is a separate guide. Operationally, this phase is about deciding which live chain state must survive and how it will be represented on Solana.</p>
+      <h3>Categorize every contract and module</h3>
+      <pre><code class="language-text">Category A - Migrate with state
+Category B - Migrate logic only
+Category C - Deprecate
+Category D - Replace with native Solana equivalents</code></pre>
+      <h3>Vesting migration</h3>
+      <p>Financial obligations such as vesting schedules need exact treatment. Export them explicitly and initialize equivalent Solana state, not ad-hoc spreadsheets.</p>
+      <pre><code class="language-bash">cat final_state.json | jq '.app_state.wasm.contracts' | \
+  python3 extract_vesting.py &gt; vesting_positions.json</code></pre>
       <pre><code class="language-rust">#[account]
-pub struct UserState {
-    pub owner: Pubkey,
-    pub migrated_amount: u64,
-    pub claim_count: u32,
-    pub created_at: i64,
-    pub reserved: [u8; 32],
+pub struct VestingSchedule {
+    pub recipient: Pubkey,
+    pub total_amount: u64,
+    pub start_timestamp: i64,
+    pub end_timestamp: i64,
+    pub claimed_amount: u64,
+    pub bump: u8,
 }</code></pre>
-      <pre><code class="language-sh">solana program show &lt;PROGRAM_ID&gt;
-solana program set-upgrade-authority &lt;PROGRAM_ID&gt; --new-upgrade-authority &lt;MULTISIG_KEYPAIR_OR_ADDRESS&gt;</code></pre>
-      <pre><code class="language-sh">solana program set-upgrade-authority &lt;PROGRAM_ID&gt; --final</code></pre>
-      <h3>Transaction design</h3>
+      <h3>Governance migration</h3>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Cosmos model</th>
+              <th>Solana destination</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Text proposals</td><td>Snapshot or other off-chain governance process</td></tr>
+            <tr><td>Parameter changes</td><td>Governed admin program or multisig-controlled program authority</td></tr>
+            <tr><td>Upgrade proposals</td><td>Squads or similar controlled authority flow</td></tr>
+            <tr><td>Community pool</td><td>Realms or treasury multisig</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>NFT migration</h3>
       <ul>
-        <li>Split large migrations into batches.</li>
-        <li>Use v0 transactions with ALTs when account lists get large.</li>
-        <li>Simulate transactions to size compute and add a margin.</li>
-        <li>Avoid single-shot "migrate the whole protocol" transactions.</li>
-      </ul>
-      <pre><code class="language-text">Batch 1: create config PDA, treasury PDA, mint authority PDA
-Batch 2: create 1,000 user receipt PDAs
-Batch 3: mint protocol treasury balances
-Batch 4+: process user claims in batches of 100-500 users, depending on compute and account count</code></pre>
-      <pre><code class="language-rust">// Good: one receipt account per user claim
-["claim-receipt", claimant_pubkey, snapshot_index]
-
-// Bad: a single global "processed claims" bitmap you rewrite for every user</code></pre>
-      <h3>Frontend rewrite</h3>
-      <p>Replace all Cosmos assumptions around wallet connection, signing flow, address validation, explorer links, confirmation UX, token account discovery, and error handling.</p>
-      <pre><code class="language-typescript">type ClaimRecord = {
-  snapshot_index: number;
-  amount: string;
-  proof: string[];
-};
-
-async function claimMigration(
-  walletAddress: string,
-  claimRecord: ClaimRecord
-) {
-  const response = await fetch("/api/migration/claim?wallet=" + walletAddress);
-  const entitlement = await response.json();
-
-  if (!entitlement) {
-    throw new Error("No migration entitlement found");
-  }
-
-  // Build the onchain claim instruction with:
-  // - snapshot_index
-  // - amount
-  // - merkle proof
-  // - recipient wallet
-  // Then send and confirm it with the connected wallet.
-}</code></pre>
-      <h3>RPC and indexing</h3>
-      <p>Plan for RPC failover, historical indexing, transaction parsing, program log ingestion, and token-account indexing.</p>
-      <pre><code class="language-sh">curl https://api.devnet.solana.com -s -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc":"2.0",
-    "id":1,
-    "method":"getProgramAccounts",
-    "params":["&lt;PROGRAM_ID&gt;",{"encoding":"base64"}]
-  }'</code></pre>
-      <pre><code class="language-json">{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "programSubscribe",
-  "params": [
-    "&lt;PROGRAM_ID&gt;",
-    { "encoding": "base64" }
-  ]
-}</code></pre>
-      <pre><code class="language-json">{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "logsSubscribe",
-  "params": [
-    { "mentions": ["&lt;PROGRAM_ID_OR_ACCOUNT&gt;"] },
-    { "commitment": "finalized" }
-  ]
-}</code></pre>
-    `,
-  },
-  {
-    id: "phase-9-rehearse-the-migration",
-    navLabel: "Phase 9: Rehearsals",
-    tone: "phase",
-    html: `
-      <h2>Phase 9: Test the Full Migration More Than Once</h2>
-      <p>Run at least three rehearsals from export to Solana launch.</p>
-      <h3>Rehearsal checklist</h3>
-      <ul>
-        <li>Export a representative Cosmos snapshot.</li>
-        <li>Generate all migration artifacts.</li>
-        <li>Deploy Solana programs to a staging cluster.</li>
-        <li>Create the mint or mints.</li>
-        <li>Load protocol-owned PDAs.</li>
-        <li>Execute sample claims.</li>
-        <li>Verify balances and state.</li>
-        <li>Test support flows for linked users, unlinked users, and lost-wallet users.</li>
-        <li>Test failure recovery for partial batches.</li>
-      </ul>
-      <h3>Edge cases to test</h3>
-      <ul>
-        <li>Dust balances</li>
-        <li>Zero-balance but still entitled accounts</li>
-        <li>Delegators with unbondings in progress</li>
-        <li>Slashed or jailed validators if you are honoring staking-derived balances</li>
-        <li>Vested accounts</li>
-        <li>Multisigs</li>
-        <li>Module-owned accounts</li>
-        <li>IBC voucher holders</li>
-        <li>NFT owners with metadata dependencies</li>
-        <li>Users whose first Solana interaction requires ATA creation</li>
+        <li>Export token ownership and metadata dependencies.</li>
+        <li>Pick the Solana NFT or digital-asset standard before writing claim logic.</li>
+        <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
       </ul>
     `,
   },
   {
-    id: "phase-10-launch-and-cut-over",
-    navLabel: "Phase 10: Launch",
+    id: "user-migration",
+    navLabel: "8. User Migration",
     tone: "phase",
     html: `
-      <h2>Phase 10: Launch and Cut Over</h2>
-      <h3>Cutover day sequence</h3>
+      <h2>8. Phase 5: User Migration &amp; Communication</h2>
+      <h3>Communication plan</h3>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Channel</th>
+              <th>Timing</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Blog post</td><td>Day 0</td><td>Full rationale, timeline, and migration mechanics</td></tr>
+            <tr><td>Discord, Telegram, X</td><td>Day 0</td><td>Short-form announcement and reminder cadence</td></tr>
+            <tr><td>Email</td><td>Day 0</td><td>Direct notice to known users and partners</td></tr>
+            <tr><td>In-app banner</td><td>Day 0 to halt</td><td>Persistent countdown and migration CTA</td></tr>
+            <tr><td>Validator and exchange outreach</td><td>Before public launch</td><td>Operational heads-up and cutover coordination</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Migration portal requirements</h3>
+      <ul>
+        <li>Connect Cosmos and Solana wallets in the same flow.</li>
+        <li>Show eligibility and claimable amount from the canonical snapshot.</li>
+        <li>Support your chosen architecture: mapping-only, one-way bridge, or post-snapshot claim.</li>
+        <li>Provide status tracking and a user-visible audit trail.</li>
+      </ul>
+      <pre><code class="language-rust">#[program]
+pub mod migration_claim {
+    use super::*;
+
+    pub fn claim(ctx: Context&lt;Claim&gt;) -&gt; Result&lt;()&gt; {
+        let claim_record = &amp;mut ctx.accounts.claim_record;
+        require!(!claim_record.claimed, ClaimError::AlreadyClaimed);
+
+        let amount = claim_record.amount;
+        claim_record.claimed = true;
+
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.vault.to_account_info(),
+                    to: ctx.accounts.recipient_token_account.to_account_info(),
+                    authority: ctx.accounts.vault_authority.to_account_info(),
+                },
+                &[&amp;[b"vault_authority", &[ctx.bumps.vault_authority]]],
+            ),
+            amount,
+        )?;
+
+        Ok(())
+    }
+}</code></pre>
+      <pre><code class="language-typescript">for (const [cosmosAddr, { solanaAddr, amount }] of Object.entries(snapshot)) {
+  const recipientPubkey = new PublicKey(solanaAddr);
+  const [claimPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("claim"), recipientPubkey.toBuffer()],
+    CLAIM_PROGRAM_ID
+  );
+
+  await program.methods
+    .initializeClaim(new anchor.BN(amount))
+    .accounts({
+      payer: teamWallet.publicKey,
+      claimRecord: claimPda,
+      recipient: recipientPubkey,
+    })
+    .rpc();
+}</code></pre>
+      <h3>Exchange coordination</h3>
+      <p>Custodial platforms need the new mint address, the conversion ratio, the cutover date, a test transaction, and a real technical contact. Large exchanges usually need more notice than your community does.</p>
+    `,
+  },
+  {
+    id: "decommissioning",
+    navLabel: "9. Decommissioning",
+    tone: "phase",
+    html: `
+      <h2>9. Phase 6: Decommissioning Cosmos Infrastructure</h2>
+      <h3>Inventory everything first</h3>
+      <pre><code class="language-text">Validators:
+  - primary validator
+  - sentry nodes
+  - seed nodes
+
+API and RPC:
+  - public RPC
+  - LCD or REST
+  - gRPC
+  - websocket
+
+Indexers and explorers:
+  - Mintscan, Big Dipper, internal explorer
+
+Relayers:
+  - Hermes or Go Relayer instances
+
+Storage and DNS:
+  - databases
+  - snapshots
+  - subdomains</code></pre>
+      <h3>Archive before shutdown</h3>
+      <pre><code class="language-bash">tar -czf chain-archive-final-$(date +%Y%m%d).tar.gz ~/.chain/
+aws s3 cp chain-archive-final-*.tar.gz s3://your-archive-bucket/
+
+chaind export --height=HALT_HEIGHT &gt; final_state_archive.json
+gzip final_state_archive.json
+aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
+      <p>These archives matter for legal support, user disputes, treasury auditability, and historical verification.</p>
+      <h3>Decommissioning sequence</h3>
       <ol>
-        <li>Confirm the Cosmos halt height was reached and no new state is being produced.</li>
-        <li>Produce the final signed export and migration manifests.</li>
-        <li>Re-run reconciliation on the final data set.</li>
-        <li>Deploy or upgrade the Solana programs you already tested.</li>
-        <li>Initialize mints, treasury accounts, PDAs, and claim state.</li>
-        <li>Turn on the Solana frontend and APIs.</li>
-        <li>Open the claim or migration flow.</li>
-        <li>Monitor failed claims, RPC errors, and reconciliation drift.</li>
+        <li>Stop relayers.</li>
+        <li>Halt validators and export final state.</li>
+        <li>Keep read-only RPC or LCD services alive long enough for users and explorers to query history.</li>
+        <li>Redirect old application domains to the new Solana product.</li>
+        <li>Move old infrastructure to an explicit archive or retirement state instead of silently killing it.</li>
       </ol>
-      <pre><code class="language-sh">curl -s https://your-api.example.com/healthz
-curl -s https://your-api.example.com/migration/status | jq
-
-solana program show &lt;PROGRAM_ID&gt;
-spl-token supply &lt;MINT_ADDRESS&gt;
-spl-token accounts --owner &lt;TREASURY_OWNER&gt;</code></pre>
-      <h3>Launch-day communication</h3>
-      <p>Publish the final Cosmos snapshot height, final Cosmos chain ID, Solana program IDs, Solana mint addresses, claim instructions, known unsupported assets or positions, and the support path for broken claims.</p>
-    `,
-  },
-  {
-    id: "phase-11-post-migration-cleanup",
-    navLabel: "Phase 11: Cleanup",
-    tone: "phase",
-    html: `
-      <h2>Phase 11: Post-Migration Cleanup</h2>
+      <h3>Registry and DNS cleanup</h3>
       <ul>
-        <li>Keep the Cosmos export, manifests, and reconciliation reports indefinitely.</li>
-        <li>Keep at least one internal archive node or archive data set until all claims and audits are complete.</li>
-        <li>Publish a final migration report with supply totals and claim policy.</li>
-        <li>Remove or clearly label old Cosmos frontends, RPCs, explorers, relayers, and docs.</li>
-        <li>Revoke or rotate obsolete keys, relayer secrets, and validator ops credentials.</li>
+        <li>Update chain-registry and public docs to mark the chain as retired.</li>
+        <li>Notify relayer operators and counterparties.</li>
+        <li>Redirect or retire old RPC, LCD, and application domains on a known schedule.</li>
+        <li>Mark old token identifiers as deprecated in market-data surfaces where possible.</li>
       </ul>
     `,
   },
   {
-    id: "what-usually-breaks",
-    navLabel: "What Usually Breaks",
-    tone: "warning",
+    id: "case-studies",
+    navLabel: "10. Case Studies",
+    tone: "default",
     html: `
-      <h2>What Usually Breaks</h2>
+      <h2>10. Case Studies</h2>
+      <h3>Nillion</h3>
+      <p>Nillion used a one-way migration window with a public deadline and exchange coordination. The lesson is that hard deadlines can work when the UX is clear and custodial platforms are aligned.</p>
+      <h3>Akash</h3>
+      <p>Akash's public evaluation process made the security and ecosystem tradeoffs visible. The lesson is that chain selection criteria should be explicit, especially if staking and governance models change materially.</p>
+      <h3>Broader 2025 pattern</h3>
+      <p>Multiple smaller app chains discovered that sovereign-chain overhead was too expensive relative to their activity and liquidity. The recurring lesson is that app-chain maintenance is a strategic choice, not a free default.</p>
+      <h3>Operational takeaways</h3>
       <ul>
-        <li>Treating the migration as a token swap instead of a full product rewrite</li>
-        <li>Forgetting module-owned balances and protocol liabilities</li>
-        <li>Leaving IBC vouchers unresolved</li>
-        <li>Assuming wallet addresses can be mapped automatically</li>
-        <li>Preserving balances but not permissions, vesting, or governance rights</li>
-        <li>Designing Solana accounts after exporting Cosmos state instead of before</li>
-        <li>Trying to migrate too much state in one transaction</li>
-        <li>Shipping a new frontend that still assumes Cosmos transaction semantics</li>
+        <li>Large migrations need exchange coordination and a public migration window.</li>
+        <li>Hard deadlines are effective only if the user journey is obvious and well-supported.</li>
+        <li>Security and liquidity arguments resonate best when backed by concrete comparisons.</li>
+        <li>Teams that archive state and publish auditable artifacts preserve trust.</li>
       </ul>
     `,
   },
   {
-    id: "risk-checklist",
-    navLabel: "Risk Checklist",
-    tone: "warning",
-    html: `
-      <h2>Risk Checklist</h2>
-      <ul>
-        <li>Governance quorum, threshold, or timing assumptions do not match the live chain parameters.</li>
-        <li>In-flight IBC packets are still unresolved at the planned halt height.</li>
-        <li>Multiple halted nodes export different state artifacts.</li>
-        <li>Supply reconciliation excludes staked, vested, escrowed, or module-owned balances you intended to preserve.</li>
-        <li>The claim flow lacks replay protection or allows duplicate claims.</li>
-        <li>The distribution process depends on a single RPC provider or a single signer.</li>
-        <li>Program upgrade authority remains on a hot deployer key longer than intended.</li>
-        <li>Token choice creates avoidable ecosystem friction, especially if you choose Token-2022 without a feature-driven reason.</li>
-        <li>User support paths do not cover unregistered users, lost-wallet users, or first-time Solana wallet setup.</li>
-      </ul>
-    `,
-  },
-  {
-    id: "minimum-deliverables",
-    navLabel: "Minimum Deliverables",
+    id: "full-migration-checklist",
+    navLabel: "11. Checklist",
     tone: "success",
     html: `
-      <h2>Minimum Deliverables Before Mainnet Launch</h2>
+      <h2>11. Full Migration Checklist</h2>
+      <h3>Decision and planning</h3>
       <ul>
-        <li>Final Cosmos halt proposal and runbook</li>
-        <li>Final export and archive artifacts</li>
-        <li>Signed migration manifests with hashes</li>
-        <li>Reconciled entitlement ledgers</li>
-        <li>Solana program audit or internal review</li>
-        <li>Staging rehearsal evidence</li>
-        <li>Claim-support playbook</li>
-        <li>Public migration announcement with exact dates, heights, and addresses</li>
+        <li>Align internally on destination chain, migration scope, and halt window.</li>
+        <li>Complete legal review and asset inventory.</li>
+        <li>Classify contracts and modules as migrate, replace, or deprecate.</li>
+        <li>Audit IBC channels, relayers, counterparties, validators, and exchange dependencies.</li>
       </ul>
-    `,
-  },
-  {
-    id: "source-links",
-    navLabel: "Source Links",
-    tone: "sources",
-    html: `
-      <h2>Source Links</h2>
+      <h3>Community and communication</h3>
       <ul>
-        <li><a href="https://docs.cosmos.network/sdk/next/learn/concepts/sdk-structure" target="_blank" rel="noreferrer">Cosmos SDK application structure</a></li>
-        <li><a href="https://docs.cosmos.network/sdk/v0.50/build/abci/introduction" target="_blank" rel="noreferrer">Cosmos ABCI introduction</a></li>
-        <li><a href="https://docs.cosmos.network/v0.50/build/architecture/adr-064-abci-2.0" target="_blank" rel="noreferrer">Cosmos ADR 64: ABCI 2.0</a></li>
-        <li><a href="https://docs.cosmos.network/sdk/v0.50/learn/advanced/upgrade" target="_blank" rel="noreferrer">Cosmos SDK in-place upgrades and export flow</a></li>
-        <li><a href="https://docs.cosmos.network/sdk/v0.53/build/modules/upgrade" target="_blank" rel="noreferrer">Cosmos x/upgrade</a></li>
-        <li><a href="https://docs.cosmos.network/sdk/v0.53/build/spec/addresses/bech32" target="_blank" rel="noreferrer">Cosmos Bech32 address encoding</a></li>
-        <li><a href="https://docs.cosmos.network/sdk/next/learn/concepts/store" target="_blank" rel="noreferrer">Cosmos state and storage</a></li>
-        <li><a href="https://docs.cosmos.network/ibc/v8.5.x/ibc/overview" target="_blank" rel="noreferrer">IBC overview</a></li>
-        <li><a href="https://docs.cosmos.network/ibc/v8.5.x/ibc/apps/ibcmodule" target="_blank" rel="noreferrer">IBCModule interface and callbacks</a></li>
-        <li><a href="https://docs.cosmos.network/docs/ibc/v8.5.x/apps/transfer/overview" target="_blank" rel="noreferrer">IBC transfer overview</a></li>
-        <li><a href="https://solana.com/docs/core/accounts" target="_blank" rel="noreferrer">Solana accounts</a></li>
-        <li><a href="https://solana.com/docs/core/accounts/account-structure" target="_blank" rel="noreferrer">Solana account structure</a></li>
-        <li><a href="https://solana.com/docs/core/transactions" target="_blank" rel="noreferrer">Solana transactions</a></li>
-        <li><a href="https://solana.com/docs/core/transactions/versioned-transactions" target="_blank" rel="noreferrer">Solana versioned transactions</a></li>
-        <li><a href="https://solana.com/docs/core/fees/compute-budget" target="_blank" rel="noreferrer">Solana compute budget</a></li>
-        <li><a href="https://solana.com/docs/core/pda" target="_blank" rel="noreferrer">Solana PDAs</a></li>
-        <li><a href="https://solana.com/docs/core/programs" target="_blank" rel="noreferrer">Solana programs</a></li>
-        <li><a href="https://solana.com/docs/core/programs/precompiles" target="_blank" rel="noreferrer">Solana precompiled programs</a></li>
-        <li><a href="https://solana.com/docs/core/programs/program-deployment" target="_blank" rel="noreferrer">Solana program deployment</a></li>
-        <li><a href="https://solana.com/docs/tokens" target="_blank" rel="noreferrer">Tokens on Solana</a></li>
-        <li><a href="https://solana.com/docs/frontend" target="_blank" rel="noreferrer">Solana frontend docs</a></li>
-        <li><a href="https://solana.com/docs/rpc/http/getprogramaccounts" target="_blank" rel="noreferrer">getProgramAccounts</a></li>
-        <li><a href="https://solana.com/docs/rpc/websocket/programsubscribe" target="_blank" rel="noreferrer">programSubscribe</a></li>
-        <li><a href="https://solana.com/docs/rpc/websocket/logssubscribe" target="_blank" rel="noreferrer">logsSubscribe</a></li>
+        <li>Publish a forum rationale before the binding governance action.</li>
+        <li>Coordinate exchanges, validators, relayers, and counterparties before the public rush.</li>
+        <li>Publish a repeated reminder schedule with exact dates and heights.</li>
+      </ul>
+      <h3>Cosmos shutdown</h3>
+      <ul>
+        <li>Set and verify the halt height across validators.</li>
+        <li>Pause relayers and unwind IBC where needed.</li>
+        <li>Export final state and derive the canonical balance and entitlement ledgers.</li>
+        <li>Archive node data and state artifacts to durable storage.</li>
+      </ul>
+      <h3>SPL launch and migration mechanics</h3>
+      <ul>
+        <li>Create the mint, metadata, treasury accounts, and multisig control plane.</li>
+        <li>Choose the migration architecture: snapshot plus airdrop, one-way bridge, or supported third-party bridge.</li>
+        <li>Define the unclaimed-token policy before launch.</li>
+        <li>Deploy and rehearse the claim or bridge programs.</li>
+      </ul>
+      <h3>Programs and product migration</h3>
+      <ul>
+        <li>Recreate stateful obligations such as vesting, escrow, and rewards intentionally.</li>
+        <li>Move governance to Realms, a multisig, or another explicit Solana governance model.</li>
+        <li>Rewrite the frontend and support tooling for Solana wallets and transaction semantics.</li>
+      </ul>
+      <h3>Post-migration operations</h3>
+      <ul>
+        <li>Monitor claim completion rate and support queues.</li>
+        <li>Publish a post-migration report with totals, deadlines, and leftover policy.</li>
+        <li>Retire or archive remaining Cosmos infrastructure on a public schedule.</li>
       </ul>
     `,
   },
@@ -894,13 +630,43 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Cosmos App Structure",
-      body: "Inspect how real Cosmos chains wire modules, stores, and export paths before you freeze scope.",
+      heading: "Nillion Sunset Coverage",
+      body: "Useful reference for a public shutdown narrative and one-way token migration framing.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://docs.cosmos.network/sdk/next/learn/concepts/sdk-structure",
+        url: "https://thedefiant.io/news/blockchains/nillion-nilchain-leaves-cosmos-for-ethereum",
+        label: "Read article",
+        endIcon: "arrow-right",
+        hierarchy: "outline",
+      },
+    },
+    {
+      type: "image",
+      headingAs: "h3",
+      heading: "Akash Migration Context",
+      body: "Reference point for public chain-selection criteria, security arguments, and migration caution.",
+      backgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+      },
+      callToAction: {
+        url: "https://www.theblock.co/post/374318/akash-network-to-deprecate-its-cosmos-chain-begin-search-for-new-network",
+        label: "Read article",
+        endIcon: "arrow-right",
+        hierarchy: "outline",
+      },
+    },
+    {
+      type: "image",
+      headingAs: "h3",
+      heading: "Cosmos Halt Configuration",
+      body: "Keep the official halt-height and shutdown configuration docs open while coordinating validators.",
+      backgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+      },
+      callToAction: {
+        url: "https://docs.cosmos.network/main/learn/advanced/config",
         label: "Read docs",
         endIcon: "arrow-right",
         hierarchy: "outline",
@@ -909,14 +675,14 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Cosmos x/upgrade",
-      body: "Use the supported governance and halt path instead of inventing a custom stop-the-chain flow.",
+      heading: "Portal Bridge",
+      body: "Review third-party bridge assumptions before choosing it as part of the pre-halt migration path.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://docs.cosmos.network/sdk/v0.53/build/modules/upgrade",
-        label: "Read module docs",
+        url: "https://portalbridge.com/",
+        label: "Open bridge site",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -924,14 +690,14 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "IBC Transfer Overview",
-      body: "Plan IBC shutdown operationally: stop new flows, drain routes, and publish voucher end-state policy.",
+      heading: "Realms Governance",
+      body: "Use this when deciding how token voting, treasury control, and proposal flow should live on Solana.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://docs.cosmos.network/docs/ibc/v8.5.x/apps/transfer/overview",
-        label: "Read transfer guide",
+        url: "https://realms.today",
+        label: "Visit Realms",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -939,44 +705,14 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Solana Accounts and PDAs",
-      body: "Model your destination state before export so you know what becomes a PDA, token account, or off-chain manifest.",
+      heading: "Squads Protocol",
+      body: "Use a multisig instead of a hot single signer for migration vaults, treasury control, and upgrade authority.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://solana.com/docs/core/pda",
-        label: "Read PDA docs",
-        endIcon: "arrow-right",
-        hierarchy: "outline",
-      },
-    },
-    {
-      type: "image",
-      headingAs: "h3",
-      heading: "Tokens on Solana",
-      body: "Choose Token Program versus Token-2022 for explicit reasons, not by default.",
-      backgroundImage: {
-        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
-      },
-      callToAction: {
-        url: "https://solana.com/docs/tokens",
-        label: "Read token docs",
-        endIcon: "arrow-right",
-        hierarchy: "outline",
-      },
-    },
-    {
-      type: "image",
-      headingAs: "h3",
-      heading: "Solana Frontend Docs",
-      body: "Budget for a frontend rewrite that understands Solana wallets, token accounts, and transaction confirmation.",
-      backgroundImage: {
-        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
-      },
-      callToAction: {
-        url: "https://solana.com/docs/frontend",
-        label: "Read frontend docs",
+        url: "https://squads.so",
+        label: "Open Squads",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
