@@ -7,7 +7,6 @@ import {
   ContentEditor,
   Heading,
   HtmlParser,
-  Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import { ResourceList } from "@/components/solutions/resource-list";
@@ -68,301 +67,283 @@ export function DevelopersEvmToSvmErc3643Page() {
 
   return (
     <>
-      <Section>
-        <ChainMigrationHero
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t.raw("hero.body") as string}
-        />
+      <ChainMigrationHero
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body") as string}
+      />
 
-        <ContentEditor
-          tocHeadline={t("contentEditor.tocHeadline")}
-          callToAction={{
-            eyebrow: t("contentEditor.callToAction.eyebrow"),
-            headline: t("contentEditor.callToAction.headline"),
-            description: t("contentEditor.callToAction.description"),
-            button: {
-              label: t("contentEditor.callToAction.button.label"),
-              url: CONTENT_EDITOR_CTA.button.url,
-            },
-          }}
+      <ContentEditor
+        tocHeadline={t("contentEditor.tocHeadline")}
+        callToAction={{
+          eyebrow: t("contentEditor.callToAction.eyebrow"),
+          headline: t("contentEditor.callToAction.headline"),
+          description: t("contentEditor.callToAction.description"),
+          button: {
+            label: t("contentEditor.callToAction.button.label"),
+            url: CONTENT_EDITOR_CTA.button.url,
+          },
+        }}
+      >
+        <div key="copy-0" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacingWithMargins",
+            children: <p>{t("contentEditor.intro")}</p>,
+          })}
+        </div>
+        <div key="copy-1" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.keyCharacteristics.title")}</strong>
+                </h3>
+                <ul>
+                  <li>
+                    <strong>
+                      {t("contentEditor.keyCharacteristics.items.0.label")}
+                    </strong>
+                    :{" "}
+                    {t("contentEditor.keyCharacteristics.items.0.description")}
+                  </li>
+                  <li>
+                    <strong>
+                      {t("contentEditor.keyCharacteristics.items.1.label")}
+                    </strong>
+                    :{" "}
+                    {t("contentEditor.keyCharacteristics.items.1.description")}
+                  </li>
+                  <li>
+                    <strong>
+                      {t("contentEditor.keyCharacteristics.items.2.label")}
+                    </strong>
+                    :{" "}
+                    {t("contentEditor.keyCharacteristics.items.2.description")}
+                  </li>
+                </ul>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-2" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.tokenExtensions.title")}</strong>
+                </h3>
+                <p>{t("contentEditor.tokenExtensions.body")}</p>
+                <p>
+                  <strong>
+                    {t("contentEditor.tokenExtensions.keyFeatures.prefix")}
+                    <a
+                      href={TOKEN_EXTENSION_FEATURES_URL}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {t("contentEditor.tokenExtensions.keyFeatures.linkLabel")}
+                    </a>
+                    {t("contentEditor.tokenExtensions.keyFeatures.suffix")}
+                  </strong>
+                </p>
+                <ul>
+                  <li>
+                    <strong>
+                      {t("contentEditor.tokenExtensions.items.0.label")}
+                    </strong>
+                    : {t("contentEditor.tokenExtensions.items.0.description")}
+                  </li>
+                  <li>
+                    <strong>
+                      {t("contentEditor.tokenExtensions.items.1.label")}
+                    </strong>
+                    : {t("contentEditor.tokenExtensions.items.1.description")}
+                  </li>
+                  <li>
+                    <strong>
+                      {t("contentEditor.tokenExtensions.items.2.label")}
+                    </strong>
+                    : {t("contentEditor.tokenExtensions.items.2.description")}
+                  </li>
+                  <li>
+                    <strong>
+                      {t("contentEditor.tokenExtensions.items.3.label")}
+                    </strong>
+                    : {t("contentEditor.tokenExtensions.items.3.description")}
+                  </li>
+                </ul>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-3" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacingNoBottom",
+            children: (
+              <>
+                <h3>
+                  <strong>
+                    {t("contentEditor.tokenExtensionProgram.title")}
+                  </strong>
+                </h3>
+                <p>{t("contentEditor.tokenExtensionProgram.body")}</p>
+                <p>{t("contentEditor.tokenExtensionProgram.bodyTwo")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="code-4">{renderCodeBlock(0)}</div>
+        <div key="copy-5" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.kycWhitelisting.title")}</strong>
+                </h3>
+                <p>{t("contentEditor.kycWhitelisting.body")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-6" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.freezeEnforcement.title")}</strong>
+                </h3>
+                <p>{t("contentEditor.freezeEnforcement.body")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-7" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>{t("contentEditor.transferHook.title")}</h3>
+                <p>{t("contentEditor.transferHook.intro")}</p>
+                <ul>
+                  <li>{t("contentEditor.transferHook.items.0")}</li>
+                  <li>{t("contentEditor.transferHook.items.1")}</li>
+                  <li>{t("contentEditor.transferHook.items.2")}</li>
+                </ul>
+                <p>{t("contentEditor.transferHook.outro")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-8" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.permanentDelegate.title")}</strong>
+                </h3>
+                <p>{t("contentEditor.permanentDelegate.body")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="copy-9" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <h2>
+                <strong>{t("contentEditor.howTo.title")}</strong>
+              </h2>
+            ),
+          })}
+        </div>
+        <div key="copy-10" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <h3>
+                <strong>{t("contentEditor.conceptualMap.title")}</strong>
+              </h3>
+            ),
+          })}
+        </div>
+        <ResponsiveBox
+          key="table-11"
+          responsiveStyles={BLOCK_STYLES.tableWrapper}
         >
-          <div key="copy-0" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacingWithMargins",
-              children: <p>{t("contentEditor.intro")}</p>,
-            })}
+          <div className="tw-html_parser">
+            <HtmlParser rawHtml={t.raw("contentEditor.conceptualMapTable")} />
           </div>
-          <div key="copy-1" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>
-                      {t("contentEditor.keyCharacteristics.title")}
-                    </strong>
-                  </h3>
-                  <ul>
-                    <li>
-                      <strong>
-                        {t("contentEditor.keyCharacteristics.items.0.label")}
-                      </strong>
-                      :{" "}
-                      {t(
-                        "contentEditor.keyCharacteristics.items.0.description",
-                      )}
-                    </li>
-                    <li>
-                      <strong>
-                        {t("contentEditor.keyCharacteristics.items.1.label")}
-                      </strong>
-                      :{" "}
-                      {t(
-                        "contentEditor.keyCharacteristics.items.1.description",
-                      )}
-                    </li>
-                    <li>
-                      <strong>
-                        {t("contentEditor.keyCharacteristics.items.2.label")}
-                      </strong>
-                      :{" "}
-                      {t(
-                        "contentEditor.keyCharacteristics.items.2.description",
-                      )}
-                    </li>
-                  </ul>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-2" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>{t("contentEditor.tokenExtensions.title")}</strong>
-                  </h3>
-                  <p>{t("contentEditor.tokenExtensions.body")}</p>
-                  <p>
-                    <strong>
-                      {t("contentEditor.tokenExtensions.keyFeatures.prefix")}
-                      <a
-                        href={TOKEN_EXTENSION_FEATURES_URL}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {t(
-                          "contentEditor.tokenExtensions.keyFeatures.linkLabel",
-                        )}
-                      </a>
-                      {t("contentEditor.tokenExtensions.keyFeatures.suffix")}
-                    </strong>
-                  </p>
-                  <ul>
-                    <li>
-                      <strong>
-                        {t("contentEditor.tokenExtensions.items.0.label")}
-                      </strong>
-                      : {t("contentEditor.tokenExtensions.items.0.description")}
-                    </li>
-                    <li>
-                      <strong>
-                        {t("contentEditor.tokenExtensions.items.1.label")}
-                      </strong>
-                      : {t("contentEditor.tokenExtensions.items.1.description")}
-                    </li>
-                    <li>
-                      <strong>
-                        {t("contentEditor.tokenExtensions.items.2.label")}
-                      </strong>
-                      : {t("contentEditor.tokenExtensions.items.2.description")}
-                    </li>
-                    <li>
-                      <strong>
-                        {t("contentEditor.tokenExtensions.items.3.label")}
-                      </strong>
-                      : {t("contentEditor.tokenExtensions.items.3.description")}
-                    </li>
-                  </ul>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-3" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacingNoBottom",
-              children: (
-                <>
-                  <h3>
-                    <strong>
-                      {t("contentEditor.tokenExtensionProgram.title")}
-                    </strong>
-                  </h3>
-                  <p>{t("contentEditor.tokenExtensionProgram.body")}</p>
-                  <p>{t("contentEditor.tokenExtensionProgram.bodyTwo")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="code-4">{renderCodeBlock(0)}</div>
-          <div key="copy-5" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>{t("contentEditor.kycWhitelisting.title")}</strong>
-                  </h3>
-                  <p>{t("contentEditor.kycWhitelisting.body")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-6" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>
-                      {t("contentEditor.freezeEnforcement.title")}
-                    </strong>
-                  </h3>
-                  <p>{t("contentEditor.freezeEnforcement.body")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-7" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>{t("contentEditor.transferHook.title")}</h3>
-                  <p>{t("contentEditor.transferHook.intro")}</p>
-                  <ul>
-                    <li>{t("contentEditor.transferHook.items.0")}</li>
-                    <li>{t("contentEditor.transferHook.items.1")}</li>
-                    <li>{t("contentEditor.transferHook.items.2")}</li>
-                  </ul>
-                  <p>{t("contentEditor.transferHook.outro")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-8" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>
-                      {t("contentEditor.permanentDelegate.title")}
-                    </strong>
-                  </h3>
-                  <p>{t("contentEditor.permanentDelegate.body")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="copy-9" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <h2>
-                  <strong>{t("contentEditor.howTo.title")}</strong>
-                </h2>
-              ),
-            })}
-          </div>
-          <div key="copy-10" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <h3>
-                  <strong>{t("contentEditor.conceptualMap.title")}</strong>
-                </h3>
-              ),
-            })}
-          </div>
-          <ResponsiveBox
-            key="table-11"
-            responsiveStyles={BLOCK_STYLES.tableWrapper}
-          >
-            <div className="tw-html_parser">
-              <HtmlParser rawHtml={t.raw("contentEditor.conceptualMapTable")} />
-            </div>
-          </ResponsiveBox>
-          <div key="copy-12" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <h3>
-                  <strong>{t("contentEditor.callFlow.title")}</strong>
-                </h3>
-              ),
-            })}
-          </div>
-          <div key="code-13">{renderCodeBlock(1)}</div>
-          <div key="copy-14" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: <p>{t("contentEditor.callFlow.body")}</p>,
-            })}
-          </div>
-          <div key="copy-15" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>
-                      {t("contentEditor.minimalTransferHook.title")}
-                    </strong>
-                  </h3>
-                  <p>{t("contentEditor.minimalTransferHook.body")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="code-16">{renderCodeBlock(2)}</div>
-          <div key="copy-17" className="tw-html_parser">
-            {renderCopyBlock({
-              styleKey: "spacing",
-              children: (
-                <>
-                  <h3>
-                    <strong>{t("contentEditor.cliQuickstart.title")}</strong>
-                  </h3>
-                  <p>{t("contentEditor.cliQuickstart.body")}</p>
-                </>
-              ),
-            })}
-          </div>
-          <div key="code-18">{renderCodeBlock(3)}</div>
-        </ContentEditor>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <ResourceList
-          title={t("resourceHeading.headline")}
-          items={resourceItems}
-        />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
-          <HtmlParser rawHtml={t.raw("nodeComparison")} />
         </ResponsiveBox>
-      </Section>
+        <div key="copy-12" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <h3>
+                <strong>{t("contentEditor.callFlow.title")}</strong>
+              </h3>
+            ),
+          })}
+        </div>
+        <div key="code-13">{renderCodeBlock(1)}</div>
+        <div key="copy-14" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: <p>{t("contentEditor.callFlow.body")}</p>,
+          })}
+        </div>
+        <div key="copy-15" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>
+                    {t("contentEditor.minimalTransferHook.title")}
+                  </strong>
+                </h3>
+                <p>{t("contentEditor.minimalTransferHook.body")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="code-16">{renderCodeBlock(2)}</div>
+        <div key="copy-17" className="tw-html_parser">
+          {renderCopyBlock({
+            styleKey: "spacing",
+            children: (
+              <>
+                <h3>
+                  <strong>{t("contentEditor.cliQuickstart.title")}</strong>
+                </h3>
+                <p>{t("contentEditor.cliQuickstart.body")}</p>
+              </>
+            ),
+          })}
+        </div>
+        <div key="code-18">{renderCodeBlock(3)}</div>
+      </ContentEditor>
+
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
+
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
+
+      <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
+        <HtmlParser rawHtml={t.raw("nodeComparison")} />
+      </ResponsiveBox>
     </>
   );
 }

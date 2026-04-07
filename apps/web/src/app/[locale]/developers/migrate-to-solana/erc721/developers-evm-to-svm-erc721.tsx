@@ -7,7 +7,6 @@ import {
   ContentEditor,
   Heading,
   HtmlParser,
-  Section,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import { ResourceList } from "@/components/solutions/resource-list";
@@ -71,206 +70,202 @@ export function DevelopersEvmToSvmErc721Page() {
 
   return (
     <>
-      <Section>
-        <ChainMigrationHero
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t.raw("hero.body") as string}
-        />
+      <ChainMigrationHero
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body") as string}
+      />
 
-        <ContentEditor
-          tocHeadline={t("contentEditor.tocHeadline")}
-          callToAction={{
-            eyebrow: t("contentEditor.callToAction.eyebrow"),
-            headline: t("contentEditor.callToAction.headline"),
-            description: t("contentEditor.callToAction.description"),
-            button: {
-              label: t("contentEditor.callToAction.button.label"),
-              url: CONTENT_EDITOR_CTA.button.url,
-            },
-          }}
+      <ContentEditor
+        tocHeadline={t("contentEditor.tocHeadline")}
+        callToAction={{
+          eyebrow: t("contentEditor.callToAction.eyebrow"),
+          headline: t("contentEditor.callToAction.headline"),
+          description: t("contentEditor.callToAction.description"),
+          button: {
+            label: t("contentEditor.callToAction.button.label"),
+            url: CONTENT_EDITOR_CTA.button.url,
+          },
+        }}
+      >
+        <div key="copy-0" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "intro",
+            styleKey: "spacingWithMargins",
+          })}
+        </div>
+        <div key="copy-1" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "tokenProgram",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-2" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "mintAddresses",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-3" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "approvalFlow",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-4" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "tokenProgramIntro",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-5">{renderCodeBlock(0)}</div>
+        <div key="copy-6" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "tokenProgramSummary",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-7" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "metadata",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-8" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "tradeoffs",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-9" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "comparisonIntro",
+            styleKey: "spacing",
+          })}
+        </div>
+        <ResponsiveBox
+          key="table-10"
+          responsiveStyles={BLOCK_STYLES.tableWrapper}
         >
-          <div key="copy-0" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "intro",
-              styleKey: "spacingWithMargins",
-            })}
+          <div className="tw-html_parser">
+            <HtmlParser
+              rawHtml={t.raw("contentEditor.blocks.comparisonTable")}
+            />
           </div>
-          <div key="copy-1" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "tokenProgram",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-2" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "mintAddresses",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-3" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "approvalFlow",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-4" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "tokenProgramIntro",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-5">{renderCodeBlock(0)}</div>
-          <div key="copy-6" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "tokenProgramSummary",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-7" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "metadata",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-8" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "tradeoffs",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-9" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "comparisonIntro",
-              styleKey: "spacing",
-            })}
-          </div>
-          <ResponsiveBox
-            key="table-10"
-            responsiveStyles={BLOCK_STYLES.tableWrapper}
-          >
-            <div className="tw-html_parser">
-              <HtmlParser
-                rawHtml={t.raw("contentEditor.blocks.comparisonTable")}
-              />
-            </div>
-          </ResponsiveBox>
-          <div key="copy-11" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "mintGuide",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-12" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToIntro",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="copy-13" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToName",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-14">{renderCodeBlock(1)}</div>
-          <div key="copy-15" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "nameDescription",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-16">{renderCodeBlock(2)}</div>
-          <div key="copy-17" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToSymbol",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-18">{renderCodeBlock(3)}</div>
-          <div key="copy-19" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "symbolDescription",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-20">{renderCodeBlock(4)}</div>
-          <div key="copy-21" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToTokenUri",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-22">{renderCodeBlock(5)}</div>
-          <div key="copy-23" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "tokenUriDescription",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-24">{renderCodeBlock(6)}</div>
-          <div key="copy-25" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToOwnerOf",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-26">{renderCodeBlock(7)}</div>
-          <div key="copy-27" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "ownerOfDescription",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-28">{renderCodeBlock(8)}</div>
-          <div key="copy-29" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "howToTransferFrom",
-              styleKey: "spacingWithOffset",
-            })}
-          </div>
-          <div key="code-30">{renderCodeBlock(9)}</div>
-          <div key="copy-31" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "transferFromIntro",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-32">{renderCodeBlock(10)}</div>
-          <div key="copy-33" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "transferFromAta",
-              styleKey: "spacing",
-            })}
-          </div>
-          <div key="code-34">{renderCodeBlock(11)}</div>
-          <div key="copy-35" className="tw-html_parser">
-            {renderCopyBlock({
-              contentKey: "exploreMore",
-              styleKey: "spacing",
-            })}
-          </div>
-        </ContentEditor>
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
-          <HtmlParser rawHtml={t.raw("nodeComparison")} />
         </ResponsiveBox>
+        <div key="copy-11" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "mintGuide",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-12" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToIntro",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="copy-13" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToName",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-14">{renderCodeBlock(1)}</div>
+        <div key="copy-15" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "nameDescription",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-16">{renderCodeBlock(2)}</div>
+        <div key="copy-17" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToSymbol",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-18">{renderCodeBlock(3)}</div>
+        <div key="copy-19" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "symbolDescription",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-20">{renderCodeBlock(4)}</div>
+        <div key="copy-21" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToTokenUri",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-22">{renderCodeBlock(5)}</div>
+        <div key="copy-23" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "tokenUriDescription",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-24">{renderCodeBlock(6)}</div>
+        <div key="copy-25" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToOwnerOf",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-26">{renderCodeBlock(7)}</div>
+        <div key="copy-27" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "ownerOfDescription",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-28">{renderCodeBlock(8)}</div>
+        <div key="copy-29" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "howToTransferFrom",
+            styleKey: "spacingWithOffset",
+          })}
+        </div>
+        <div key="code-30">{renderCodeBlock(9)}</div>
+        <div key="copy-31" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "transferFromIntro",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-32">{renderCodeBlock(10)}</div>
+        <div key="copy-33" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "transferFromAta",
+            styleKey: "spacing",
+          })}
+        </div>
+        <div key="code-34">{renderCodeBlock(11)}</div>
+        <div key="copy-35" className="tw-html_parser">
+          {renderCopyBlock({
+            contentKey: "exploreMore",
+            styleKey: "spacing",
+          })}
+        </div>
+      </ContentEditor>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
+      <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
+        <HtmlParser rawHtml={t.raw("nodeComparison")} />
+      </ResponsiveBox>
 
-        <ResourceList
-          title={t("resourceHeading.headline")}
-          items={resourceItems}
-        />
-      </Section>
+      <Heading
+        variant="centered"
+        eyebrow={t("navHeading.eyebrow")}
+        headline=""
+        body=""
+        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
+      />
+
+      <ResourceList
+        title={t("resourceHeading.headline")}
+        items={resourceItems}
+      />
     </>
   );
 }
