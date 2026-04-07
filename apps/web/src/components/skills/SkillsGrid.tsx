@@ -13,6 +13,15 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { cn } from "@/app/components/utils";
 
+function getPinnedRefLabel(url: string) {
+  const match = url.match(/\/tree\/([0-9a-f]{7,40})(?:\/|$)/i);
+  if (match) {
+    return `@ ${match[1].slice(0, 7)}`;
+  }
+
+  return undefined;
+}
+
 type SkillsGridProps = {
   endorsedSkills: SkillItem[];
   communitySkills: CommunitySkill[];
@@ -82,53 +91,53 @@ export function SkillsGrid({
 
   return (
     <div className="flex flex-col">
-      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-[32px] md:py-[48px]">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative group/search">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within/search:text-white/50 transition-colors pointer-events-none"
-              aria-hidden={true}
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={translations.searchPlaceholder}
-              className="h-[28px] pl-8 pr-3 text-xs bg-white/5 border border-white/15 rounded-full text-white placeholder:text-white/30 outline-none focus:border-white/40 focus:bg-white/[0.08] focus:shadow-[0_0_0_1px_rgba(255,255,255,0.05)] transition-all duration-200 w-[160px] md:w-[200px] backdrop-blur-sm"
-            />
+      <div className="sticky top-[57px] xl:top-[65px] z-40 bg-black/80 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative group/search">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within/search:text-white/50 transition-colors pointer-events-none"
+                aria-hidden={true}
+              />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={translations.searchPlaceholder}
+                className="h-[28px] pl-8 pr-3 text-xs bg-white/5 border border-white/15 rounded-full text-white placeholder:text-white/30 outline-none focus:border-white/40 focus:bg-white/[0.08] focus:shadow-[0_0_0_1px_rgba(255,255,255,0.05)] transition-all duration-200 w-[160px] md:w-[200px]"
+              />
+            </div>
+            <button
+              onClick={() => setSelected(null)}
+              className={`px-3 py-1 text-xs font-medium uppercase tracking-wider rounded-full border transition-colors cursor-pointer ${
+                selected === null
+                  ? "border-white/40 bg-white/10 text-white"
+                  : "border-white/15 text-white/40 hover:border-white/30 hover:text-white/60"
+              }`}
+            >
+              {translations.filterAll}
+            </button>
+            {categoryKeys.map((key) => {
+              const active = selected === key;
+              const label = translations.categories[key] ?? key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSelected(active ? null : key)}
+                  className={`px-3 py-1 text-xs font-medium uppercase tracking-wider rounded-full border transition-colors cursor-pointer ${
+                    active
+                      ? "border-white/40 bg-white/10 text-white"
+                      : "border-white/15 text-white/40 hover:border-white/30 hover:text-white/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
-          <button
-            onClick={() => setSelected(null)}
-            className={`px-3 py-1 text-xs font-medium uppercase tracking-wider rounded-full border transition-colors cursor-pointer ${
-              selected === null
-                ? "border-white/40 bg-white/10 text-white"
-                : "border-white/15 text-white/40 hover:border-white/30 hover:text-white/60"
-            }`}
-          >
-            {translations.filterAll}
-          </button>
-          {categoryKeys.map((key) => {
-            const active = selected === key;
-            const label = translations.categories[key] ?? key;
-            return (
-              <button
-                key={key}
-                onClick={() => setSelected(active ? null : key)}
-                className={`px-3 py-1 text-xs font-medium uppercase tracking-wider rounded-full border transition-colors cursor-pointer ${
-                  active
-                    ? "border-white/40 bg-white/10 text-white"
-                    : "border-white/15 text-white/40 hover:border-white/30 hover:text-white/60"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
         </div>
       </div>
-
-      <Divider />
 
       {filteredEndorsed.length > 0 && (
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-[64px] md:py-[112px] xl:py-[160px]">
@@ -199,6 +208,8 @@ export function SkillsGrid({
                     title: skill.title,
                     description: skill.description,
                     githubUrl: skill.url,
+                    sourceType: "community",
+                    pinnedRef: getPinnedRefLabel(skill.url),
                   }}
                   linkLabel={translations.viewSkill}
                   categories={translations.categories}
