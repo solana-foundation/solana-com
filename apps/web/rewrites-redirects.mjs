@@ -382,8 +382,9 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    // /upgrades now has its own dedicated page
-    { source: "/upgrade", destination: "/upgrades" },
+    // TODO: set to newws/upgrades when we have articles
+    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
+    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
