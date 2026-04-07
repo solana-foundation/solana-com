@@ -547,6 +547,99 @@ export default config({
         }),
       },
     }),
+
+    upgrades: collection({
+      label: "Upgrades",
+      slugField: "slug",
+      path: "content/upgrades/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["simdNumber", "title", "status", "updatedDate", "featured"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        simdNumber: fields.text({
+          label: "SIMD Number",
+          validation: { isRequired: true },
+        }),
+        title: fields.text({
+          label: "Title",
+          validation: { isRequired: true },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: [
+            { label: "Idea", value: "idea" },
+            { label: "Draft", value: "draft" },
+            { label: "Review", value: "review" },
+            { label: "Accepted", value: "accepted" },
+            { label: "Implemented", value: "implemented" },
+            { label: "Activated", value: "activated" },
+            { label: "Withdrawn", value: "withdrawn" },
+            { label: "Stagnant", value: "stagnant" },
+            { label: "Living", value: "living" },
+          ],
+          defaultValue: "draft",
+        }),
+        category: fields.select({
+          label: "Category",
+          options: [
+            { label: "Standard", value: "standard" },
+            { label: "Meta", value: "meta" },
+            { label: "Advisory", value: "advisory" },
+          ],
+          defaultValue: "standard",
+        }),
+        type: fields.text({ label: "Type" }),
+        authors: fields.array(fields.text({ label: "Author" }), {
+          label: "Authors",
+          itemLabel: (props) => props.value || "Author",
+        }),
+        createdDate: fields.text({ label: "Created Date" }),
+        updatedDate: fields.text({ label: "Updated Date" }),
+        featureGate: fields.text({ label: "Feature Gate" }),
+        githubUrl: fields.text({
+          label: "GitHub URL",
+          validation: { isRequired: true },
+        }),
+        discussionUrl: fields.text({ label: "Discussion URL" }),
+        summary: fields.text({
+          label: "Summary",
+          multiline: true,
+        }),
+        relatedSimds: fields.array(fields.text({ label: "Related SIMD" }), {
+          label: "Related SIMDs",
+          itemLabel: (props) => props.value || "SIMD",
+        }),
+        sourceSha: fields.text({ label: "Source SHA" }),
+        editorialNote: fields.text({
+          label: "Editorial Note",
+          multiline: true,
+        }),
+        featured: fields.checkbox({
+          label: "Featured",
+          description: "Pin this upgrade near the top of the overview page",
+        }),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          },
+        ),
+        heroImage: fields.image({
+          label: "Hero Image",
+          directory: "public/uploads/upgrades",
+          publicPath: "/uploads/upgrades",
+        }),
+      },
+    }),
   },
 
   singletons: {
@@ -569,6 +662,48 @@ export default config({
             }),
           },
           { label: "Theme" },
+        ),
+      },
+    }),
+    upgradesPage: singleton({
+      label: "Upgrades Overview",
+      path: "content/global/upgrades",
+      format: { data: "json" },
+      schema: {
+        eyebrow: fields.text({ label: "Eyebrow" }),
+        title: fields.text({
+          label: "Title",
+          validation: { isRequired: true },
+        }),
+        intro: fields.text({
+          label: "Intro",
+          multiline: true,
+          validation: { isRequired: true },
+        }),
+        currentFocus: fields.text({
+          label: "Current Focus",
+          multiline: true,
+        }),
+        statusGuide: fields.text({
+          label: "Status Guide",
+          multiline: true,
+        }),
+        lastReviewed: fields.text({ label: "Last Reviewed" }),
+        resources: fields.array(
+          fields.object({
+            label: fields.text({
+              label: "Label",
+              validation: { isRequired: true },
+            }),
+            url: fields.text({
+              label: "URL",
+              validation: { isRequired: true },
+            }),
+          }),
+          {
+            label: "Resources",
+            itemLabel: (props) => props.fields.label.value || "Resource",
+          },
         ),
       },
     }),

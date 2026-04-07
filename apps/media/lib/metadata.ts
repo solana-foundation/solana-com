@@ -11,6 +11,7 @@ import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
+import { fetchUpgradeOverview } from "@/lib/upgrade-data";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 const { publicUrl, siteMetadata, social } = config;
@@ -174,6 +175,39 @@ export async function categoryListingMetadata(
   const title = `${categoryName} News`;
   const description = `Latest ${categoryName} news and updates from the Solana ecosystem.`;
   const canonicalUrl = `${publicUrl}/news/category/${categoryParam}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Upgrades listing  /upgrades
+// ---------------------------------------------------------------------------
+
+export async function upgradesListingMetadata(): Promise<Metadata> {
+  const overview = await fetchUpgradeOverview();
+  const canonicalUrl = `${publicUrl}/upgrades`;
+  const title = overview?.title || "Solana Upgrades";
+  const description =
+    overview?.intro?.split("\n")[0] ||
+    "Track major protocol upgrades and related SIMDs across the Solana network.";
 
   return {
     title,
