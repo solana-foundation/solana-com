@@ -14,7 +14,11 @@ import {
   isDevelopersLearnCourseUnlocked,
 } from "@/utils/developers-learn-curriculum";
 
-export default function DevelopersLearnCatalog() {
+export default function DevelopersLearnCatalog({
+  embedded = false,
+}: {
+  embedded?: boolean;
+}) {
   const { completedLessonsSet, isHydrated, clearProgress } =
     useDevelopersLearnProgress();
 
@@ -44,7 +48,7 @@ export default function DevelopersLearnCatalog() {
   }, [completedLessonsSet]);
 
   return (
-    <div className="container py-8 md:py-12">
+    <div className={embedded ? "py-8 md:py-12" : "container py-8 md:py-12"}>
       <header className="mb-10 max-w-4xl">
         <p className="mb-2 text-xs tracking-[0.2em] uppercase text-zinc-500 dark:text-zinc-400">
           {developersLearnHub.kicker}
@@ -56,17 +60,6 @@ export default function DevelopersLearnCatalog() {
           {developersLearnHub.description}
         </p>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {developersLearnHub.supportPillars.map((pillar) => (
-            <span
-              key={pillar}
-              className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-            >
-              {pillar}
-            </span>
-          ))}
-        </div>
-
         <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
           {isHydrated
             ? `${summary.completedCount} of ${summary.totalEpisodeCount} episodes complete`
@@ -75,11 +68,19 @@ export default function DevelopersLearnCatalog() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            href="/developers/learn/foundations"
+            href="/developers/bootcamp/foundations"
             className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
-            Open featured series
+            Start with Foundations
           </Link>
+          <a
+            href={developersLearnFeaturedSeries.videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+          >
+            Watch bootcamp overview
+          </a>
           <a
             href={developersLearnFeaturedSeries.repoUrl}
             target="_blank"
@@ -115,6 +116,12 @@ export default function DevelopersLearnCatalog() {
             <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
               {developersLearnFeaturedSeries.type}
             </span>
+            <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              {developersLearnFeaturedSeries.trackCount} tracks
+            </span>
+            <span className="rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              {developersLearnFeaturedSeries.episodeCount} episodes
+            </span>
             <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
               Primary medium: {developersLearnFeaturedSeries.primaryMedium}
             </span>
@@ -142,6 +149,24 @@ export default function DevelopersLearnCatalog() {
               </div>
             ))}
           </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a
+              href={developersLearnFeaturedSeries.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
+            >
+              Open overview video
+            </a>
+            <a
+              href={developersLearnFeaturedSeries.repoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+            >
+              Open bootcamp repo
+            </a>
+          </div>
         </div>
 
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -168,8 +193,8 @@ export default function DevelopersLearnCatalog() {
               series should all feel native here.
             </p>
             <p>
-              The current POC keeps only Foundations live, while leaving room
-              for more series and tracks later.
+              Bootcamp 2026 now spans four live tracks while still leaving room
+              for future series and later bootcamp iterations.
             </p>
           </div>
         </div>
@@ -181,10 +206,9 @@ export default function DevelopersLearnCatalog() {
             {developersLearnFeaturedSeries.title} roadmap
           </h2>
           <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-            Inside this featured series, we&apos;re organizing the bootcamp into
-            tracks and episodes. Foundations is the first live track in the POC.
-            The next tracks map to the work already planned across program
-            patterns, fullstack apps, and production shipping.
+            The bootcamp is organized into four sequential tracks. Start with
+            Foundations, then move into reusable program patterns, fullstack
+            application builds, and the final production-focused episodes.
           </p>
         </div>
 
@@ -300,7 +324,7 @@ export default function DevelopersLearnCatalog() {
                   courseUnlocked ? (
                     <>
                       <Link
-                        href={`/developers/learn/${course.slug}`}
+                        href={`/developers/bootcamp/${course.slug}`}
                         className="mt-5 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
                       >
                         {progress?.isComplete

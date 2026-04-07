@@ -51,7 +51,7 @@ export default function DevelopersLearnCoursePage({
     <div className="container py-8 md:py-12">
       <div className="mb-8">
         <Link
-          href="/developers/learn"
+          href="/developers/bootcamp"
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
           ← All Developers Learn series
@@ -152,7 +152,7 @@ export default function DevelopersLearnCoursePage({
 
         {courseUnlocked && nextIncompleteEpisode ? (
           <Link
-            href={`/developers/learn/${courseSlug}/${nextIncompleteEpisode.slug}`}
+            href={`/developers/bootcamp/${courseSlug}/${nextIncompleteEpisode.slug}`}
             className="mt-5 inline-flex items-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
           >
             Continue with {nextIncompleteEpisode.title}
@@ -169,7 +169,7 @@ export default function DevelopersLearnCoursePage({
           </p>
           {prerequisiteTrack ? (
             <Link
-              href={`/developers/learn/${prerequisiteTrack.slug}`}
+              href={`/developers/bootcamp/${prerequisiteTrack.slug}`}
               className="inline-flex items-center rounded-md border border-amber-400/50 px-4 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-400/10 dark:text-amber-100"
             >
               Open prerequisite track
@@ -208,7 +208,7 @@ export default function DevelopersLearnCoursePage({
                 lesson.slug,
                 completedLessonsSet,
               );
-              const lessonHref = `/developers/learn/${courseSlug}/${lesson.slug}`;
+              const lessonHref = `/developers/bootcamp/${courseSlug}/${lesson.slug}`;
 
               return (
                 <article

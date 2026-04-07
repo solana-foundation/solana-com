@@ -51,7 +51,7 @@ export default function DevelopersLearnLessonSidebar({
             completedLessonsSet,
           );
           const isCurrentLesson = lesson.slug === currentLessonSlug;
-          const lessonHref = `/developers/learn/${courseSlug}/${lesson.slug}`;
+          const lessonHref = `/developers/bootcamp/${courseSlug}/${lesson.slug}`;
 
           const itemContent = (
             <div

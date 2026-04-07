@@ -36,7 +36,7 @@ export async function GET(
     page = guidesSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "developers" && slug[1] === "cookbook") {
     page = cookbookSource.getPage(slug.slice(2), defaultLocale);
-  } else if (slug[0] === "developers" && slug[1] === "learn") {
+  } else if (slug[0] === "developers" && slug[1] === "bootcamp") {
     page = developersLearnSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "learn") {
     page = learnSource.getPage(slug.slice(1), defaultLocale);

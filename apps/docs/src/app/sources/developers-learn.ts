@@ -10,6 +10,6 @@ export const developersLearnSource = loader({
     hideLocale: "default-locale",
     parser: "dir",
   },
-  baseUrl: "/developers/learn",
+  baseUrl: "/developers/bootcamp",
   source: createMDXSource(developersLearn, developersLearnMeta),
 });

@@ -88,7 +88,7 @@ export function DevelopersNav({ containerClassName }) {
               </NavLink>
               <NavLink
                 partiallyActive
-                to="/developers/learn"
+                to="/developers/bootcamp"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <CoursesIcon
@@ -97,7 +97,7 @@ export function DevelopersNav({ containerClassName }) {
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
-                  {t("developers.nav.courses")}
+                  {t("developers.nav.bootcamp")}
                 </span>
               </NavLink>
               <NavLink

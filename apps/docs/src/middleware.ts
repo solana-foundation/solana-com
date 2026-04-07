@@ -16,7 +16,7 @@ const MARKDOWN_PREFIXES = [
   "/docs",
   "/developers/guides",
   "/developers/cookbook",
-  "/developers/learn",
+  "/developers/bootcamp",
   "/learn",
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
@@ -126,6 +126,19 @@ export default async function middleware(
     ? pathSegments.slice(1)
     : pathSegments;
   const normalizedPath = `/${normalizedSegments.join("/")}`;
+
+  if (
+    normalizedSegments[0] === "developers" &&
+    normalizedSegments[1] === "learn"
+  ) {
+    const redirectedSegments = [...normalizedSegments];
+    redirectedSegments[1] = "bootcamp";
+    const url = req.nextUrl.clone();
+    url.pathname = hasLocalePrefix
+      ? `/${[pathSegments[0], ...redirectedSegments].join("/")}`
+      : `/${redirectedSegments.join("/")}`;
+    return NextResponse.redirect(url, 308);
+  }
 
   // Accept header content negotiation for markdown
   const acceptHeader = req.headers.get("accept") || "";
