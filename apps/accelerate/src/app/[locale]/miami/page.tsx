@@ -45,7 +45,7 @@ export async function generateMetadata({
 }
 
 export default async function MiamiPage({ params }: PageProps) {
-  const { locale } = await params;
+  await params;
   const sponsors = composeSponsors(
     sponsorsData.sponsors as SponsorAugmentation[],
   );
@@ -71,7 +71,7 @@ export default async function MiamiPage({ params }: PageProps) {
         showTicketsRow={false}
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
-      <MiamiSpeakers locale={locale} />
+      <MiamiSpeakers />
       <EventLineup futureOnly />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ

@@ -1,16 +1,8 @@
-import { getTranslations } from "next-intl/server";
 import { getMiamiSpeakers } from "@/lib/miami-speakers";
-import { MiamiSpeakersCarousel } from "./MiamiSpeakersCarousel";
+import { Speakers } from "./Speakers";
 
-type MiamiSpeakersProps = {
-  locale: string;
-};
+export async function MiamiSpeakers() {
+  const speakers = await getMiamiSpeakers();
 
-export async function MiamiSpeakers({ locale }: MiamiSpeakersProps) {
-  const [t, speakers] = await Promise.all([
-    getTranslations({ locale, namespace: "accelerate.speakers" }),
-    getMiamiSpeakers(),
-  ]);
-
-  return <MiamiSpeakersCarousel heading={t("heading")} speakers={speakers} />;
+  return <Speakers speakers={speakers} speakerOrder={null} />;
 }
