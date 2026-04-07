@@ -77,17 +77,18 @@ export function SkillsGrid({
     return true;
   });
 
+  const revealObserverOptions = {
+    // Mobile renders these grids as a single tall column, so requiring 10%
+    // visibility can leave the section permanently hidden.
+    threshold: 0,
+    triggerOnce: true,
+  } as const;
+
   const { ref: endorsedRef, isIntersecting: endorsedVisible } =
-    useIntersectionObserver<HTMLDivElement>({
-      threshold: 0.1,
-      triggerOnce: true,
-    });
+    useIntersectionObserver<HTMLDivElement>(revealObserverOptions);
 
   const { ref: communityRef, isIntersecting: communityVisible } =
-    useIntersectionObserver<HTMLDivElement>({
-      threshold: 0.1,
-      triggerOnce: true,
-    });
+    useIntersectionObserver<HTMLDivElement>(revealObserverOptions);
 
   return (
     <div className="flex flex-col">
