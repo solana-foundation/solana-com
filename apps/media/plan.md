@@ -1,142 +1,149 @@
-# /upgrades — SIMD Tracker for Solana Media
+# /upgrades — SIMD Tracker for Solana Media (V1)
 
 ## Goal
 
-Create a new media-owned `/upgrades` section on `solana.com` for tracking Solana
-Improvement Documents (SIMDs) from idea through activation.
+Create a media-owned `/upgrades` section on `solana.com` that gives the Solana
+community a clear, low-maintenance view of major protocol upgrades and their
+related SIMDs.
 
-This should be:
+This V1 should:
 
-- media-owned from a routing and deployment perspective
-- GitHub-synced for authoritative proposal metadata
-- Keystatic-editable for DevRel editorial context
-- production-safe under the existing monorepo rewrite model
+- preserve authoritative SIMD metadata from GitHub
+- keep editorial maintenance light for DevRel
+- make updates easy to publish every 2 to 4 weeks
+- surface relationships between upgrades and SIMDs clearly
+- fit the existing media-app workflow without introducing unnecessary content
+  complexity
 
 ---
 
-## Product Scope
+## Product Shape
 
-The Solana DevRel team needs a centralized place to track and communicate SIMD
-proposals as they move from idea to activation. Current tracking is fragmented
-across community tools and the raw GitHub repo. None provide an authoritative
-Foundation editorial layer.
+The current `/news/solana-network-upgrades` page has worked because it is a
+single editorial source that gets refreshed periodically. The new `/upgrades`
+experience should keep that strength instead of turning every SIMD into a
+mini-article.
 
-This feature adds:
+V1 product model:
 
-- a new media-owned route: `/[locale]/upgrades`
-- a new Keystatic collection: `upgrades`
-- an automated sync pipeline from
-  `solana-foundation/solana-improvement-documents`
-- editorial enrichment fields for DevRel
-- listing and detail pages in `apps/media`
-- main-site rewrite/proxy support so `solana.com/upgrades` resolves to the media
-  app
+- one media-owned upgrades landing page
+- a synced dataset of SIMDs
+- a lightweight editorial layer on top of that dataset
+- optional SIMD detail pages only if the data supports them cleanly
 
-Out of scope:
-
-- replacing the source SIMD repository
-- editing proposal source markdown in Keystatic
-- building a generalized governance platform beyond SIMDs
+The core editorial object is not “a rich body for every SIMD.” The core
+editorial object is “an upgrades surface that is easy to refresh and easy to
+scan.”
 
 ---
 
 ## Ownership And Routing
 
-`/upgrades` is media-owned, but because the repo is split across multiple Next
-apps, that ownership must be reflected in both `apps/media` and the app that
-proxies media routes behind `solana.com`.
+`/upgrades` is media-owned and must be routed the same way `/news` and
+`/podcasts` are routed today.
 
-Required routing changes:
+Required scope:
 
-- `apps/media` adds `app/[locale]/upgrades/*`
-- main-site rewrites are updated so `/upgrades` and `/[locale]/upgrades` resolve
-  to the media deployment, the same way `/news` and `/podcasts` do
-- shared cross-app navigation config is updated if `/upgrades` is linked from
-  shared chrome
-- media middleware is reviewed so the new route behaves correctly with i18n and
-  lowercase normalization
+- add `/[locale]/upgrades` to `apps/media`
+- update main-site rewrites so `/upgrades` resolves to the media app
+- review shared chrome/navigation only if this route will be linked globally
+- preserve normal media i18n behavior and lowercase normalization
 
-Implementation note:
-
-- this is not a media-only change set; the rewrite owner must be included in the
-  implementation plan
+This is still a cross-app implementation, but the feature itself remains simple:
+one route family owned by media.
 
 ---
 
-## Content Model
+## V1 Content Model
 
-### Collection: `upgrades`
+### Principle
 
-Add a new Keystatic collection under `content/upgrades/*`.
+Do not over-model the editorial side.
 
-Recommended file format:
+DevRel is unlikely to update every SIMD individually on a frequent basis. The
+content model should therefore optimize for:
 
-- use `format: { data: "yaml" }` if supported cleanly by the existing Keystatic
-  version for data-only entries
-- otherwise store each entry as a minimal content-backed file and keep editorial
-  MDX fields inside the schema
+- easy periodic refreshes
+- simple editorial control
+- low risk of stale per-item longform copy
 
-Target entry shape:
+### Recommended Structure
 
-```text
-content/upgrades/
-├── simd-0001.yaml
-├── simd-0048.yaml
-├── simd-0286.yaml
-└── ...
-```
+V1 should use two layers:
 
-### Synced Fields
+1. page-level editorial content for the overall upgrades narrative
+2. per-SIMD structured metadata with only minimal editorial overrides
 
-These are source-of-truth fields and are overwritten by sync:
+### Page-Level Editorial Content
 
-| Field           | Type             | Source                              |
-| --------------- | ---------------- | ----------------------------------- |
-| `simdNumber`    | text             | filename / proposal id              |
-| `title`         | text             | frontmatter                         |
-| `status`        | select           | frontmatter                         |
-| `category`      | select           | frontmatter                         |
-| `type`          | select, optional | frontmatter                         |
-| `authors`       | array of text    | frontmatter                         |
-| `createdDate`   | date             | frontmatter                         |
-| `updatedDate`   | date             | git history or frontmatter fallback |
-| `featureGate`   | text, optional   | frontmatter                         |
-| `supersedes`    | array of text    | frontmatter                         |
-| `supersededBy`  | array of text    | frontmatter                         |
-| `githubUrl`     | text             | constructed                         |
-| `discussionUrl` | text, optional   | frontmatter `discussions-to`        |
-| `summary`       | text             | extracted from `## Summary`         |
-| `sourceSha`     | text             | last synced upstream blob sha       |
+Add a singleton or page-level content source for `/upgrades` containing:
 
-### Editorial Fields
+- page title
+- intro / explanation of what this page tracks
+- optional “last reviewed” text
+- optional top-level highlights or callouts
+- optional resources / CTA links
 
-These are preserved by sync:
+This is where DevRel can explain:
 
-| Field               | Type                             | Purpose                                                   |
-| ------------------- | -------------------------------- | --------------------------------------------------------- |
-| `editorialSummary`  | text                             | plain-language explanation                                |
-| `impactAnalysis`    | mdx                              | who is affected and why                                   |
-| `developerGuidance` | mdx                              | action-oriented guidance                                  |
-| `relatedLinks`      | array of object `{ label, url }` | supporting resources                                      |
-| `tags`              | relationship[] → `tags`          | reuse existing taxonomy                                   |
-| `featured`          | checkbox                         | pin on listing                                            |
-| `heroImage`         | image, optional                  | social/share art                                          |
-| `editorialStatus`   | select, optional                 | internal marker like `not-started`, `drafted`, `reviewed` |
+- what major upgrades matter right now
+- how to interpret statuses
+- what changed since the last editorial refresh
 
-Schema guidance:
+This matches the proven workflow of the existing upgrades post much better than
+asking editors to maintain longform content on dozens of entries.
 
-- use arrays for `authors`, `supersedes`, and `supersededBy` rather than
-  comma-separated text
-- keep `status`, `category`, and `type` normalized to lowercase enum values
-- preserve `summary` as plain text for cards, search, API responses, and SEO
+### Per-SIMD Entry Model
+
+Create a new `upgrades` collection under `content/upgrades/*`.
+
+Each entry should be primarily structured data.
+
+Synced fields:
+
+| Field           | Type             | Notes                           |
+| --------------- | ---------------- | ------------------------------- |
+| `simdNumber`    | text             | canonical proposal number       |
+| `title`         | text             | from source frontmatter         |
+| `status`        | select           | normalized enum                 |
+| `category`      | select           | normalized enum                 |
+| `type`          | select, optional | normalized enum                 |
+| `authors`       | array of text    | structured, not comma-separated |
+| `createdDate`   | date             | from source                     |
+| `updatedDate`   | date             | git history or source fallback  |
+| `featureGate`   | text, optional   | from source                     |
+| `supersedes`    | array of text    | structured relationship hints   |
+| `supersededBy`  | array of text    | structured relationship hints   |
+| `githubUrl`     | text             | constructed                     |
+| `discussionUrl` | text, optional   | from source                     |
+| `summary`       | text             | extracted from source           |
+| `sourceSha`     | text             | upstream sync marker            |
+
+Minimal editorial fields:
+
+| Field           | Type                               | Purpose                                |
+| --------------- | ---------------------------------- | -------------------------------------- |
+| `editorialNote` | text, optional                     | short plain-language note from DevRel  |
+| `featured`      | checkbox                           | promote on default listing             |
+| `tags`          | relationship[] to `tags`, optional | reuse existing taxonomy if useful      |
+| `heroImage`     | image, optional                    | only if needed for featured/social use |
+
+V1 deliberately does not include:
+
+- per-SIMD `impactAnalysis` MDX
+- per-SIMD `developerGuidance` MDX
+- per-SIMD longform editorial bodies
+
+Those can be added later if actual editorial usage proves the need.
 
 ---
 
-## Sync Workflow
+## Sync Model
 
 ### Objective
 
-Automate sync so production content stays current without manual file creation.
+Keep SIMD metadata current automatically while making editorial refreshes easy
+and infrequent.
 
 ### File
 
@@ -144,7 +151,7 @@ Automate sync so production content stays current without manual file creation.
 
 ### Runtime
 
-Add `tsx` to `apps/media` and run the script with:
+Use a simple script runner in `apps/media`, for example:
 
 ```bash
 pnpm --filter solana-com-media sync:simds
@@ -152,135 +159,145 @@ pnpm --filter solana-com-media sync:simds
 
 ### Source
 
-Repository: `solana-foundation/solana-improvement-documents`
-
-Expected upstream process:
-
-1. list proposal markdown files from `proposals/`
-2. fetch file contents and metadata from GitHub
-3. parse frontmatter
-4. extract the first paragraph under `## Summary`
-5. determine `updatedDate` from Git history when available
-6. upsert local `content/upgrades/*` entries
-7. preserve editorial-only fields on update
-8. emit a machine-readable summary of created, updated, unchanged, and failed
-   entries
+`solana-foundation/solana-improvement-documents`
 
 ### Sync Rules
 
-- create new entries when upstream proposals appear
-- update synced fields when upstream changes
-- do not overwrite editorial fields
-- optionally mark missing upstream proposals as `withdrawn` or `archived` only
-  if the upstream repo makes that state explicit
-- fail the run if parsing changes would silently drop data
+The sync script should:
 
-### Automation Strategy
+1. list SIMD proposal files from the upstream repo
+2. fetch file contents and metadata
+3. parse frontmatter
+4. extract a short summary from the proposal body
+5. write or update local `content/upgrades/*` entries
+6. preserve editorial-only fields
+7. output created / updated / unchanged / failed counts
 
-Preferred option: scheduled GitHub Action that commits synced content changes
-back into this repo automatically.
+The sync script owns only synced fields.
 
-Why this is the right default:
+Editors own only the minimal editorial fields.
 
-- production in this app is GitHub-backed, not local-filesystem-backed
-- synced content should follow the same audited git history as other content
-- Keystatic editors can continue enriching entries in normal repo workflows
+### Automation
 
-Recommended automation design:
+Use an automated GitHub workflow that persists generated changes back to this
+repo, ideally by opening or updating a dedicated sync PR.
 
-1. run nightly and optionally on-demand via `workflow_dispatch`
-2. execute `pnpm --filter solana-com-media sync:simds`
-3. if generated files changed, open or update a dedicated PR
-4. auto-label it `content` / `simd-sync`
-5. optionally auto-merge if CI passes and the repo policy allows it
+That keeps production current without making editors run the sync manually, but
+still preserves normal git review and history.
 
-Fallback:
+Recommended cadence:
 
-- if fully automatic PR merge is not acceptable, still generate the PR
-  automatically so the sync remains low-touch
+- scheduled daily or several times per week for metadata freshness
+- editorial refreshes remain manual and happen roughly every 2 to 4 weeks
 
-Do not treat “scheduled action” as sufficient by itself; the workflow must
-persist changes back to git.
+This split is important:
+
+- metadata can stay fresh automatically
+- editorial commentary can stay intentionally slower and more selective
 
 ---
 
-## Routes
+## Route Structure
 
-### Listing
+### V1 Listing Page
 
-Route:
+Primary route:
 
 - `/[locale]/upgrades`
 
-Files:
+This page should do the real work in V1.
 
-```text
-app/[locale]/upgrades/
-├── page.tsx
-└── client-page.tsx
-```
+It should combine:
 
-Behavior:
+- page-level editorial framing
+- a “what changed recently” feel through fresh metadata
+- a structured list of tracked SIMDs
 
-- server component fetches initial slice for SEO and first paint
-- client component owns filter/search/sort state and calls the API route for
-  subsequent queries
-- featured entries are rendered first, but only on the unfiltered default view
+Recommended sections:
 
-Filters:
+1. Hero / intro
+2. Optional “currently notable” featured upgrades
+3. Main upgrades list
+4. Supporting resources / GitHub CTA
 
-- status: `all`, `idea`, `draft`, `review`, `accepted`, `implemented`,
-  `activated`, `withdrawn`, `stagnant`, `living`
-- class: `all`, `standard`, `meta`, `advisory`
-- standard type: `all`, `core`, `networking`, `interfaces`
-- search: SIMD number or title
-- sort: `updated-desc` default, `created-desc`, `simd-asc`
+### SIMD Detail Pages
 
-Important adjustment:
+V1 can support `/[locale]/upgrades/[slug]` if implementation cost stays low, but
+they should remain data-first and lightweight.
 
-- do not collapse `category` and `type` into a single API field
-- expose them separately so `standard + core` and `standard + interfaces` are
-  first-class filters
+If included, each detail page should show:
 
-Card content:
+- SIMD number
+- title
+- status
+- category and type
+- authors
+- dates
+- feature gate
+- summary
+- short editorial note, if present
+- links to discussion and GitHub
+- related SIMDs via `supersedes` and `supersededBy`
+
+If detail pages add too much complexity for V1, keep the first release focused
+on the listing page and link directly to GitHub for full proposal details.
+
+---
+
+## How To Surface Updates Simply
+
+The design should reflect a periodic-review workflow, not a newsroom workflow.
+
+That means:
+
+- avoid layouts that imply constant editorial churn
+- emphasize status, recency, and relationship over long prose
+- make it obvious what changed without requiring custom writing for each item
+
+Recommended listing behavior:
+
+- default sort: recently updated
+- simple filters: status, category, optional type
+- search by SIMD number or title
+- featured SIMDs pinned only on the default view
+- each card shows the key metadata at a glance
+
+Recommended card structure:
 
 - SIMD badge
 - title
 - status badge
-- category and type badges
+- category / type badges
 - summary
 - updated date
-- featured treatment when applicable
+- optional editorial note snippet
 
-Pagination:
+This gives DevRel one easy place to review the current state of upgrades and add
+lightweight context only where needed.
 
-- cursor-based API pagination
-- cursor should encode the active sort basis plus slug, not just raw slug
-- any filter/search/sort change resets pagination
+---
 
-### Detail
+## SIMD Relationship Model
 
-Route:
+The relationship layer still matters in V1.
 
-- `/[locale]/upgrades/[slug]`
+We should preserve and surface:
 
-Files:
+- `supersedes`
+- `supersededBy`
+- category
+- type
+- links to source proposal and discussion
 
-```text
-app/[locale]/upgrades/[slug]/
-└── page.tsx
-```
+How to honor that structure in the UI:
 
-Layout:
+- show relationship links on each detail page, if detail pages exist
+- on the listing page, optionally show a small related-SIMD row for entries that
+  supersede or are superseded
+- keep relationship data structured in the content model, not embedded in prose
 
-- header with SIMD number, title, status, category, type
-- lifecycle bar based on normalized status
-- metadata sidebar with authors, dates, feature gate, GitHub, discussion link
-- synced summary section
-- editorial summary, impact analysis, developer guidance when present
-- related links when present
-- related SIMDs from `supersedes` and `supersededBy`
-- footer CTA to full GitHub proposal
+This keeps the experience useful for technical readers without requiring heavy
+custom editorial content.
 
 ---
 
@@ -288,10 +305,10 @@ Layout:
 
 ### Types
 
-Create `lib/upgrade-types.ts`.
+Create `lib/upgrade-types.ts` with a lean shape:
 
 ```ts
-import type { ContentDocument, PageInfo } from "./post-types";
+import type { PageInfo } from "./post-types";
 
 export type SIMDStatus =
   | "idea"
@@ -324,12 +341,9 @@ export type UpgradeItem = {
   githubUrl: string;
   discussionUrl?: string;
   summary: string;
-  editorialSummary?: string;
-  impactAnalysis?: ContentDocument;
-  developerGuidance?: ContentDocument;
-  relatedLinks: { label: string; url: string }[];
-  tags: string[];
+  editorialNote?: string;
   featured: boolean;
+  tags: string[];
   heroImage?: string | null;
   cursor?: string;
   url: string;
@@ -351,70 +365,56 @@ export type FetchUpgradesResponse = {
 };
 ```
 
-### Reader/Data Functions
-
-Create `lib/keystatic/upgrade-data.ts`.
-
-Follow existing media patterns:
-
-- `transformUpgrade(slug, entry) => Promise<UpgradeItem | null>`
-- `fetchUpgrades(params) => Promise<FetchUpgradesResponse>`
-- `fetchUpgradeBySlug(slug) => Promise<UpgradeItem | null>`
-- `fetchFeaturedUpgrades(limit?) => Promise<UpgradeItem[]>`
-
-Implementation requirements:
-
-- resolve tag relationships to string names
-- normalize enum casing
-- sort server-side before pagination
-- apply search/filter server-side, not only in the client
-- preserve JSON-serializable content documents for RSC boundaries
-
-Add a thin re-export file:
-
-- `lib/upgrade-data.ts`
-
-### API Route
+### Data Functions
 
 Create:
 
-- `app/api/upgrades/latest/route.ts`
+- `lib/keystatic/upgrade-data.ts`
+- `lib/upgrade-data.ts`
 
-Query params:
+Core functions:
 
-- `limit`
-- `cursor`
-- `status`
-- `category`
-- `type`
-- `search`
-- `sort`
+- `fetchUpgrades(params)`
+- `fetchUpgradeBySlug(slug)` if detail pages are included
+- `fetchFeaturedUpgrades()`
 
-Caching:
+Requirements:
 
-- use `unstable_cache`
-- `revalidate: 300`
-- distinct cache keys per query combination
-- return plain-text-safe fields for listing cards
+- server-side filtering
+- server-side sorting
+- cursor-based pagination if needed
+- relationship fields preserved in normalized structured form
 
-### Metadata
+Do not overbuild the query layer beyond what the listing page needs.
 
-Add to `lib/metadata.ts`:
+---
 
-- `upgradeListingMetadata()`
-- `upgradeDetailMetadata(slug)`
+## Metadata Strategy
 
-Metadata expectations:
+We still need to honor the metadata around SIMDs and the process.
 
-- canonical URLs use `/upgrades`
-- detail pages prefer `heroImage`, then site fallback image
-- noindex on missing entries
+That means the product should reliably expose:
+
+- lifecycle status
+- proposal category / type
+- authorship
+- creation and update timing
+- proposal source link
+- discussion link
+- proposal relationships
+
+Metadata should carry most of the information burden in V1.
+
+This is the right fit for a page that is updated every few weeks by humans but
+refreshed continuously by sync automation.
 
 ---
 
 ## Components
 
-Create:
+Keep the component set small.
+
+Suggested V1 components:
 
 ```text
 components/upgrades/
@@ -422,18 +422,20 @@ components/upgrades/
 ├── upgrade-filters.tsx
 ├── status-badge.tsx
 ├── category-badge.tsx
-├── lifecycle-bar.tsx
-├── upgrade-header.tsx
-├── upgrade-meta-sidebar.tsx
+├── upgrade-hero.tsx
 └── related-simds.tsx
 ```
 
-Component guidance:
+Optional detail-page components:
 
-- keep listing cards compact and text-forward
-- use separate badges for `category` and `type`
-- lifecycle bar should be derived from normalized status, not hardcoded per page
-- keep editorial sections visually distinct from synced source data
+```text
+components/upgrades/
+├── upgrade-header.tsx
+└── upgrade-meta-sidebar.tsx
+```
+
+Avoid introducing extra component types unless the listing page actually needs
+them.
 
 ---
 
@@ -448,8 +450,6 @@ apps/media/
 ├── app/[locale]/upgrades/
 │   ├── page.tsx
 │   └── client-page.tsx
-├── app/[locale]/upgrades/[slug]/
-│   └── page.tsx
 ├── app/api/upgrades/latest/
 │   └── route.ts
 ├── components/upgrades/
@@ -457,72 +457,55 @@ apps/media/
 │   ├── upgrade-filters.tsx
 │   ├── status-badge.tsx
 │   ├── category-badge.tsx
-│   ├── lifecycle-bar.tsx
-│   ├── upgrade-header.tsx
-│   ├── upgrade-meta-sidebar.tsx
+│   ├── upgrade-hero.tsx
 │   └── related-simds.tsx
 └── scripts/sync-simds.ts
 ```
 
-### Likely Files To Modify In `apps/media`
+Optional V1 detail-page files:
 
-| File                   | Change                                                                |
-| ---------------------- | --------------------------------------------------------------------- |
-| `keystatic.config.tsx` | add `upgrades` collection                                             |
-| `lib/metadata.ts`      | add listing/detail metadata helpers                                   |
-| `package.json`         | add `sync:simds` script and `tsx`                                     |
-| `middleware.ts`        | confirm route handling remains correct                                |
-| `next.config.ts`       | review `outputFileTracingIncludes` if content glob assumptions change |
-| `__tests__/`           | add data-layer and API coverage                                       |
+```text
+apps/media/
+├── app/[locale]/upgrades/[slug]/page.tsx
+├── components/upgrades/upgrade-header.tsx
+└── components/upgrades/upgrade-meta-sidebar.tsx
+```
 
-### Likely Files To Modify Outside `apps/media`
+Likely files to modify:
 
-| File Area                | Change                         |
-| ------------------------ | ------------------------------ |
-| main-site rewrite owner  | proxy `/upgrades` to media     |
-| shared chrome/nav config | add `/upgrades` link if needed |
+- `apps/media/keystatic.config.tsx`
+- `apps/media/lib/metadata.ts`
+- `apps/media/package.json`
+- `apps/media/middleware.ts`
+- main-site rewrite config
 
 ---
 
 ## Design Direction
 
-### Aesthetic
+The design should feel more like a maintained technical tracker than a stream of
+articles.
 
-Match the media site’s dark, editorial, developer-facing tone:
+V1 should emphasize:
 
-- information-dense
-- scannable
-- visually structured, not decorative
-- stronger hierarchy than the current `/news` card grid
+- clarity
+- scanability
+- stable structure
+- low editorial overhead
 
-### Listing
+Avoid:
 
-- hero with concise explanation of what SIMDs are and why this page exists
-- horizontal filter row with status pills plus separate class/type controls
-- search field for SIMD number/title
-- grid of cards with clear hierarchy: number, title, status, summary, date
-- featured entries use a larger, more prominent card only in default view
+- article-heavy layouts
+- too many content blocks
+- interfaces that depend on frequent copy edits to stay useful
 
-### Detail
+A good visual direction is:
 
-- document-style layout with metadata sidebar on desktop
-- lifecycle bar near the top
-- source-derived content and editorial content clearly separated
-- strong CTA to GitHub for full proposal text
-
-### Status Color Mapping
-
-- `draft`: subdued neutral
-- `review`: amber
-- `accepted`: violet
-- `implemented`: cyan
-- `activated`: green
-- `withdrawn`: orange/red
-- `stagnant`: muted
-- `idea` and `living`: define explicit colors during implementation
-
-Avoid locking exact token names in the plan unless they already exist in the
-design system.
+- strong page intro
+- compact featured area
+- clean filter row
+- dense but readable cards
+- metadata-forward presentation
 
 ---
 
@@ -530,51 +513,48 @@ design system.
 
 ### Automated
 
-1. add unit tests for SIMD parsing helpers
-2. add tests for `fetchUpgrades` filtering, sorting, and pagination
-3. add API route tests for query parsing and cached response shape
-4. run `pnpm --filter solana-com-media typecheck`
-5. run `pnpm --filter solana-com-media test`
-6. run `pnpm --filter solana-com-media lint`
-7. run `pnpm --filter solana-com-media build`
+1. test SIMD parsing helpers
+2. test sync preservation of editorial fields
+3. test `fetchUpgrades` filtering and sorting
+4. test API query parsing and response shape
+5. run `pnpm --filter solana-com-media typecheck`
+6. run `pnpm --filter solana-com-media test`
+7. run `pnpm --filter solana-com-media lint`
+8. run `pnpm --filter solana-com-media build`
 
 ### Manual
 
 1. run `pnpm --filter solana-com-media sync:simds`
-2. verify new content files are created or updated without wiping editorial
-   fields
-3. verify `/[locale]/upgrades` renders correctly with filter changes, search,
-   sort, and load-more behavior
-4. verify detail pages render editorial sections conditionally
-5. verify `/keystatic` can edit the new collection in local mode
-6. verify the proxied `solana.com/upgrades` route works once rewrites are in
-   place
+2. verify new and updated entries are generated correctly
+3. verify `/[locale]/upgrades` is useful without any per-SIMD longform content
+4. verify editorial notes remain easy to edit in Keystatic
+5. verify related SIMD links render correctly
+6. verify proxied `/upgrades` works on staging
 
 ---
 
 ## Implementation Order
 
-1. define route ownership and add main-site rewrite/proxy work to the scope
-2. add the `upgrades` Keystatic collection and types
-3. implement the sync script and verify idempotent content generation
-4. add automated sync workflow that commits or PRs generated changes
-5. build the reader/data layer
-6. add API route and tests
-7. build detail page
-8. build listing page with server-driven filter/search/sort state
-9. add metadata and route-level polish
-10. validate proxied routing and editorial workflow end-to-end
+1. confirm rewrite ownership for `/upgrades`
+2. add the lean `upgrades` collection
+3. implement the sync script
+4. add automated sync PR workflow
+5. build the listing data layer and API
+6. build the listing page and lightweight components
+7. add optional detail pages only if they remain cheap and data-first
+8. add metadata polish and end-to-end verification
 
 ---
 
 ## Definition Of Done
 
-This plan is complete when:
+V1 is done when:
 
-- `/upgrades` is owned by media and reachable on `solana.com`
+- `/upgrades` is reachable as a media-owned route on `solana.com`
 - SIMD metadata sync runs automatically and persists changes back to git
-- DevRel can enrich synced entries in Keystatic without losing editorial fields
-- listing and detail pages work for locale-prefixed routes
-- server-side filtering, sorting, search, and pagination behave consistently
-- tests cover the core data and API behavior
-- the media app builds cleanly and the proxy route works in staging
+- DevRel can make lightweight editorial updates without managing many content
+  types
+- the listing page clearly surfaces upgrade status, recency, and relationships
+- related SIMDs are preserved and visible
+- the experience remains useful even if editorial updates only happen every 2 to
+  4 weeks
