@@ -5,6 +5,7 @@ import sharp from "sharp";
 
 const cliArgs = process.argv.slice(2).filter((arg) => arg !== "--");
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
+const MODERN_IMAGE_EXTENSIONS = new Set([".webp", ".avif"]);
 const TEXT_EXTENSIONS = new Set([
   ".md",
   ".mdx",
@@ -149,7 +150,24 @@ async function optimizeImage(inputPath) {
   }
 
   const originalStats = await fs.stat(absoluteInputPath);
-  const metadata = await sharp(absoluteInputPath).metadata();
+
+  let metadata;
+  try {
+    metadata = await sharp(absoluteInputPath).metadata();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`skip ${inputPath} (invalid image: ${message})`);
+    return;
+  }
+
+  if (
+    MODERN_IMAGE_EXTENSIONS.has(extension) &&
+    (metadata.width ?? 0) <= MAX_WIDTH
+  ) {
+    console.log(`skip ${inputPath} (already optimized ${extension})`);
+    return;
+  }
+
   const hasAlpha = Boolean(metadata.hasAlpha);
   const targetExtension = extension === ".avif" ? ".avif" : ".webp";
   const outputPath =
