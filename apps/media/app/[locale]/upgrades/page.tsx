@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import UpgradesClientPage from "./client-page";
-import { UpgradesStatusGuide } from "@/components/upgrades/upgrades-status-guide";
 import {
   fetchFeaturedUpgrades,
   fetchLatestNotes,
@@ -9,7 +8,7 @@ import {
   fetchUpgradeOverview,
   fetchUpgrades,
 } from "@/lib/upgrade-data";
-import type { UpgradeNote } from "@/lib/upgrade-types";
+import type { SIMDStatus, UpgradeNote } from "@/lib/upgrade-types";
 import { upgradesListingMetadata } from "@/lib/metadata";
 
 export const revalidate = 300;
@@ -41,68 +40,95 @@ export default async function UpgradesPage() {
   const featuredIds = new Set(featured.map((f) => f.id));
   const listUpgrades = upgrades.items.filter((u) => !featuredIds.has(u.id));
 
-  return (
-    <div className="bg-black">
-      {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden text-left text-white">
-        <div className="mx-auto max-w-[1440px] px-[20px] py-[64px] md:px-[32px] md:py-[112px] xl:px-[40px] xl:py-[160px]">
-          <div className="max-w-5xl">
-            <p className="mb-4 text-[13px] font-medium uppercase tracking-[0.35em] text-[#CA9FF5]">
-              {overview?.eyebrow || "Solana Upgrades"}
-            </p>
-            <h1 className="m-0 font-sans font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
-              {overview?.title || "Protocol upgrades, tracked with context."}
-            </h1>
+  // Compute status counts across ALL upgrades for the stats bar
+  const allItems = [...featured, ...listUpgrades];
+  const statusCounts: Record<string, number> = {};
+  for (const item of allItems) {
+    statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+  }
 
-            <div className="mt-[12px] xl:mt-[24px] space-y-3">
-              {(overview?.intro || "")
-                .split(/\n\s*\n/)
-                .filter(Boolean)
-                .map((paragraph, index) => (
-                  <p
-                    key={index}
-                    className="m-0 max-w-xl text-[#ABABBA] text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]"
-                  >
-                    {paragraph.trim()}
-                  </p>
-                ))}
+  return (
+    <div className="min-h-screen bg-black">
+      {/* ─── Compact Header ─── */}
+      <header className="border-b border-white/[0.06]">
+        <div className="mx-auto max-w-[1600px] px-5 md:px-8">
+          <div className="flex flex-col gap-4 py-6 md:flex-row md:items-end md:justify-between md:py-8">
+            <div className="min-w-0">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#CA9FF5]">
+                {overview?.eyebrow || "Solana Upgrades"}
+              </p>
+              <h1 className="m-0 font-sans text-[24px] font-medium leading-tight tracking-[-0.48px] text-white md:text-[32px] md:tracking-[-0.64px]">
+                {overview?.title || "Protocol upgrades, tracked with context."}
+              </h1>
+              {overview?.intro ? (
+                <p className="m-0 mt-1.5 max-w-2xl text-[15px] leading-relaxed text-[#8A8A9A]">
+                  {overview.intro.split(/\n\s*\n/)[0]?.trim()}
+                </p>
+              ) : null}
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-6">
+            <div className="flex shrink-0 items-center gap-5">
               {overview?.lastReviewed ? (
-                <span className="text-[13px] font-medium uppercase tracking-[0.22em] text-[#555568]">
-                  Last reviewed {overview.lastReviewed}
+                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#555568]">
+                  Updated {overview.lastReviewed}
                 </span>
               ) : null}
-
-              {overview?.resources && overview.resources.length > 0 ? (
-                <div className="flex flex-wrap gap-5 text-sm">
-                  {overview.resources.map((resource) => (
-                    <Link
-                      key={resource.url}
-                      href={resource.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[#ABABBA] underline decoration-white/15 underline-offset-4 transition-colors hover:text-white hover:decoration-white/60"
-                    >
-                      {resource.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
+              {overview?.resources?.map((resource) => (
+                <Link
+                  key={resource.url}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] text-[#8A8A9A] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-white/40"
+                >
+                  {resource.label}
+                </Link>
+              ))}
             </div>
           </div>
+
+          {/* ─── Status Stats Bar ─── */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] py-3">
+            <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#555568]">
+              {allItems.length} SIMDs
+            </span>
+            {(
+              [
+                "review",
+                "accepted",
+                "implemented",
+                "activated",
+                "draft",
+                "idea",
+              ] as SIMDStatus[]
+            ).map((s) =>
+              statusCounts[s] ? (
+                <span
+                  key={s}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1 text-[11px] font-medium tracking-wide text-[#8A8A9A]"
+                >
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      s === "review"
+                        ? "bg-amber-400"
+                        : s === "accepted"
+                          ? "bg-violet-400"
+                          : s === "implemented"
+                            ? "bg-sky-400"
+                            : s === "activated"
+                              ? "bg-emerald-400"
+                              : s === "draft"
+                                ? "bg-zinc-400"
+                                : "bg-zinc-600"
+                    }`}
+                  />
+                  {statusCounts[s]} {s}
+                </span>
+              ) : null,
+            )}
+          </div>
         </div>
-      </section>
-
-      {/* ─── Divider ─── */}
-      <hr className="m-0 border-t border-white/10" />
-
-      {/* ─── Status Guide ─── */}
-      <UpgradesStatusGuide body={overview?.statusGuide} />
-
-      {/* ─── Divider ─── */}
-      <hr className="m-0 border-t border-white/10" />
+      </header>
 
       {/* ─── Interactive Content ─── */}
       <UpgradesClientPage
@@ -110,6 +136,7 @@ export default async function UpgradesPage() {
         upgrades={listUpgrades}
         latestNotes={latestNotes}
         notesMap={notesMap}
+        statusGuide={overview?.statusGuide}
       />
     </div>
   );
