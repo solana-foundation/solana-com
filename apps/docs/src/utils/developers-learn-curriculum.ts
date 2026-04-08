@@ -62,7 +62,7 @@ export const developersLearnHub = {
   kicker: "Developers Learn",
   title: "Video-first learning for Solana builders",
   description:
-    "A long-lived learning library for Solana developers. The 2026 bootcamp is live now, and future focused courses can sit beside it over time.",
+    "A long-lived learning library for Solana developers. The 2026 bootcamp remains the featured series, and focused courses like Solana Crashcourse and DePIN can sit beside it over time.",
   supportPillars: [
     "Video-first learning paths",
     "Structured tracks and episodes",
@@ -80,7 +80,7 @@ export const developersLearnFeaturedSeries = {
   label: "Featured series",
   title: "Solana Developer Bootcamp 2026",
   description:
-    "The full 2026 bootcamp lives inside Developers Learn as four linked tracks with YouTube episodes, MDX companion guides, code, and local progress tracking.",
+    "The full 2026 bootcamp remains the featured series inside Developers Learn as four linked tracks with YouTube episodes, MDX companion guides, code, and local progress tracking.",
   type: "Annual bootcamp iteration",
   primaryMedium: "YouTube",
   companionMedium: "MDX companion guides",
@@ -537,6 +537,211 @@ export const developersLearnCourses: DevelopersLearnCourse[] = [
             href: developersLearnFeaturedSeries.repoUrl,
           },
         ],
+      },
+    ],
+  },
+  {
+    id: 5,
+    slug: "solana-crashcourse",
+    title: "Solana Crashcourse",
+    description:
+      "A quick-start course for builders who want the roadmap, a working environment, and a first deployed app on Solana without going through the full bootcamp.",
+    level: "beginner",
+    estimatedDuration: "3 live episodes",
+    trackNumber: 5,
+    format: "YouTube episodes with MDX companion guides",
+    focus: "Roadmap, environment setup, and a fast first deploy",
+    delivery:
+      "Watch the short episodes in order, then use the companion pages for notes and follow-up links.",
+    outcomes: [
+      "Understand the Solana developer roadmap",
+      "Set up a working local environment",
+      "Build and deploy a first app quickly",
+    ],
+    repoUrl: "",
+    lessons: [
+      {
+        id: 1,
+        slug: "developer-roadmap",
+        title: "Solana Developer Roadmap",
+        instructor: "Solana Dev Team",
+        type: "intro",
+        description:
+          "Map the fastest route from first concepts to building and shipping on Solana.",
+        expectation: "Learning roadmap",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/4mKS99k-bMo?si=b0KZUT8yOyi5LquT",
+        },
+      },
+      {
+        id: 2,
+        slug: "set-up-your-solana-environment",
+        title: "Set Up Your Solana Environment",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Install the Solana tools and validate a working local development setup.",
+        expectation: "Working dev environment",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/_eaiNOeE8Tc?si=7AA_MEhmiiv-2ioP",
+        },
+      },
+      {
+        id: 3,
+        slug: "build-and-deploy-an-app-on-solana-in-5-minutes",
+        title: "Build and Deploy an App on Solana in 5 Minutes",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Go from zero to a deployed Solana app in a short end-to-end walkthrough.",
+        expectation: "First deployed app",
+        buildType: "Fullstack",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/JJe9oh15xRI?si=1vwIjfkGv0xyT-UJ",
+        },
+      },
+    ],
+  },
+  {
+    id: 6,
+    slug: "depin",
+    title: "DePIN",
+    description:
+      "A hardware-focused course for builders connecting Raspberry Pi projects, AI workflows, and Solana data to real-world devices.",
+    level: "beginner",
+    estimatedDuration: "7 live episodes",
+    trackNumber: 6,
+    format: "YouTube episodes with MDX companion guides",
+    focus:
+      "Raspberry Pi setup, webhooks, Solana event flows, and connected-device prototypes",
+    delivery:
+      "Watch the episodes in sequence if you are setting up the hardware from scratch, or jump to a specific build when you need it.",
+    outcomes: [
+      "Provision a Raspberry Pi for Solana-connected workflows",
+      "Use webhooks and events to drive device behavior",
+      "Prototype DePIN-style hardware and notification flows",
+    ],
+    repoUrl: "",
+    lessons: [
+      {
+        id: 1,
+        slug: "intro-to-raspberry-pi-and-ai",
+        title: "Intro to Raspberry Pi and AI",
+        instructor: "Solana Dev Team",
+        type: "intro",
+        description:
+          "Understand the hardware setup and how AI can fit into a Solana-connected device workflow.",
+        expectation: "Hardware overview",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/RjPsl0zFPyw?si=CqZhS1fCuyQDNTVN",
+        },
+      },
+      {
+        id: 2,
+        slug: "raspberry-pi-headless-wi-fi-setup",
+        title: "Raspberry Pi Headless Wi-Fi Setup",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Provision a Raspberry Pi headlessly and get it online without attaching a display.",
+        expectation: "Headless device setup",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/KA178idv-cs?si=RvrbD6t2HqkwwAJ0",
+        },
+      },
+      {
+        id: 3,
+        slug: "connect-your-raspberry-pi-to-the-solana-blockchain",
+        title: "Connect Your Raspberry Pi to the Solana Blockchain",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Link the device to Solana so it can read chain data and participate in onchain flows.",
+        expectation: "Device-to-chain connectivity",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/xphKzB0C66o?si=u0ygs-EjLxuQmAw1",
+        },
+      },
+      {
+        id: 4,
+        slug: "reading-solana-blockchain-transactions-out-loud",
+        title: "Reading Solana Blockchain Transactions Out Loud",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Turn live transaction data into a hardware-driven output flow that speaks updates aloud.",
+        expectation: "Readable onchain event output",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/jEB7MGDf65U?si=X8U6FVzdmP7jUaAa",
+        },
+      },
+      {
+        id: 5,
+        slug: "using-webhooks-to-fetch-solana-transactions",
+        title: "Using Webhooks to Fetch Solana Transactions",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Use webhooks to capture transaction activity and drive device or application behavior.",
+        expectation: "Webhook-based transaction feeds",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/l87HG34s9cQ?si=SlI_jR0EU14ngicf",
+        },
+      },
+      {
+        id: 6,
+        slug: "solana-drink-dispenser",
+        title: "Solana Drink Dispenser",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Build a connected dispenser flow that reacts to Solana-triggered logic in the physical world.",
+        expectation: "DePIN prototype build",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/xjUPrugbCJ0?si=kq8rzOcTnAE_YIJ5",
+        },
+      },
+      {
+        id: 7,
+        slug: "connecting-smart-contract-events-to-telegram",
+        title: "Connecting Smart Contract Events to Telegram",
+        instructor: "Solana Dev Team",
+        type: "project",
+        description:
+          "Route smart contract events into Telegram so operators or devices can react in real time.",
+        expectation: "Realtime notifications",
+        buildType: "Mixed",
+        video: {
+          platform: "YouTube",
+          status: "Live",
+          url: "https://youtu.be/B9IFkFjB5qI?si=fLYI6gq5UtYcZTE0",
+        },
       },
     ],
   },
