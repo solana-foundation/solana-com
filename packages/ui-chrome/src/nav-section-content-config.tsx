@@ -110,14 +110,6 @@ export const buildPrimaryItems: NavItemDefinition[] = [
     icon: SchoolIcon,
     variant: "large",
   },
-  {
-    id: "build-learn",
-    titleKey: "developers.nav.bootcamp",
-    descriptionKey: "developers.courses.description",
-    href: "/developers/bootcamp",
-    icon: SchoolIcon,
-    variant: "large",
-  },
 ];
 
 export const buildTutorialItems: NavItemDefinition[] = [
