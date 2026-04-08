@@ -120,8 +120,12 @@ export function DocsCodeSnippet({
         </button>
       </div>
 
-      <pre className="m-0 overflow-x-auto bg-[#171717] px-0 py-3 font-mono text-sm leading-6 text-[#d4d4d4]">
+      <pre
+        suppressHydrationWarning
+        className="m-0 overflow-x-auto bg-[#171717] px-0 py-3 font-mono text-sm leading-6 text-[#d4d4d4]"
+      >
         <code
+          suppressHydrationWarning
           className={cn(
             styles.code,
             "block min-w-full whitespace-pre px-4",

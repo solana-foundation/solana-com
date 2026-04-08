@@ -197,6 +197,8 @@ export function DevelopersChainMigrationPage() {
         </div>
       </ResponsiveBox>
 
+      <SectionDivider />
+
       <style jsx global>{`
         .chain-selector-override section,
         .chain-selector-override section > div {
