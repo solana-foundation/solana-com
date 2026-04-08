@@ -347,7 +347,7 @@ function DenseRow({
         <p className="m-0 truncate text-[13px] font-medium leading-snug text-white group-hover:text-[#e8e0f8]">
           {upgrade.title}
         </p>
-        <p className="m-0 truncate text-[12px] leading-snug text-[#555568]">
+        <p className="m-0 truncate text-[12px] leading-snug text-[#6B6B7B]">
           {upgrade.description || upgrade.editorialNote || upgrade.summary}
         </p>
       </div>
@@ -369,7 +369,7 @@ function DenseRow({
       </div>
 
       {/* Updated date */}
-      <span className="w-[52px] shrink-0 text-right font-mono text-[11px] tabular-nums text-[#444454]">
+      <span className="w-[52px] shrink-0 text-right font-mono text-[11px] tabular-nums text-[#555568]">
         {relativeDate(upgrade.updatedDate || upgrade.createdDate)}
       </span>
 
@@ -403,8 +403,8 @@ function ActivitySidebar({
   if (notes.length === 0) return null;
 
   return (
-    <aside className="w-full lg:w-[320px] xl:w-[360px] shrink-0">
-      <div className="sticky top-0">
+    <aside className="w-full shrink-0 lg:w-[280px] lg:border-l lg:border-white/[0.06] lg:pl-6 xl:w-[320px]">
+      <div className="sticky top-0 pt-1">
         <div className="mb-3 flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
             Recent activity
@@ -426,14 +426,14 @@ function ActivitySidebar({
                   <span className="font-mono text-[11px] font-medium text-[#CA9FF5]">
                     {note.simdNumber}
                   </span>
-                  <span className="text-[11px] text-[#444454]">
+                  <span className="text-[11px] text-[#555568]">
                     {formatDate(note.publishedAt)}
                   </span>
                 </div>
                 <p className="m-0 mt-0.5 text-[12px] font-medium leading-snug text-[#ABABBA] group-hover:text-white">
                   {note.upgradeTitle}
                 </p>
-                <p className="m-0 mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-[#555568]">
+                <p className="m-0 mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-[#6B6B7B]">
                   {note.body}
                 </p>
               </div>
@@ -495,8 +495,8 @@ export default function UpgradesClientPage({
 
   return (
     <>
-      <div className="mx-auto max-w-[1600px] px-5 md:px-8">
-        <div className="flex gap-8 py-5 lg:gap-10">
+      <div className="mx-auto max-w-[1440px] px-5 md:px-8">
+        <div className="flex gap-0 py-5 lg:gap-0">
           {/* ─── Main Column ─── */}
           <div className="min-w-0 flex-1">
             {/* Status guide toggle */}
@@ -505,7 +505,7 @@ export default function UpgradesClientPage({
             </div>
 
             {/* Sticky filter bar */}
-            <div className="sticky top-0 z-20 -mx-5 bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
+            <div className="sticky top-0 z-20 -mx-5 border-b border-white/[0.06] bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
               <Filters
                 status={status}
                 category={category}

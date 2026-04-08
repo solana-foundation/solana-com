@@ -51,35 +51,37 @@ export default async function UpgradesPage() {
     <div className="min-h-screen bg-black">
       {/* ─── Compact Header ─── */}
       <header className="border-b border-white/[0.06]">
-        <div className="mx-auto max-w-[1600px] px-5 md:px-8">
-          <div className="flex flex-col gap-4 py-6 md:flex-row md:items-end md:justify-between md:py-8">
+        <div className="mx-auto max-w-[1440px] px-5 md:px-8">
+          <div className="flex flex-col gap-3 py-5 md:flex-row md:items-end md:justify-between md:py-6">
             <div className="min-w-0">
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#CA9FF5]">
-                {overview?.eyebrow || "Solana Upgrades"}
-              </p>
-              <h1 className="m-0 font-sans text-[24px] font-medium leading-tight tracking-[-0.48px] text-white md:text-[32px] md:tracking-[-0.64px]">
+              <div className="mb-1 flex items-center gap-3">
+                <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#CA9FF5]">
+                  {overview?.eyebrow || "Solana Upgrades"}
+                </p>
+                {overview?.lastReviewed ? (
+                  <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#444454]">
+                    / Updated {overview.lastReviewed}
+                  </span>
+                ) : null}
+              </div>
+              <h1 className="m-0 font-sans text-[20px] font-medium leading-snug tracking-[-0.3px] text-white md:text-[26px] md:tracking-[-0.52px]">
                 {overview?.title || "Protocol upgrades, tracked with context."}
               </h1>
               {overview?.intro ? (
-                <p className="m-0 mt-1.5 max-w-2xl text-[15px] leading-relaxed text-[#8A8A9A]">
+                <p className="m-0 mt-1 max-w-2xl text-[13px] leading-relaxed text-[#6B6B7B]">
                   {overview.intro.split(/\n\s*\n/)[0]?.trim()}
                 </p>
               ) : null}
             </div>
 
-            <div className="flex shrink-0 items-center gap-5">
-              {overview?.lastReviewed ? (
-                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#555568]">
-                  Updated {overview.lastReviewed}
-                </span>
-              ) : null}
+            <div className="flex shrink-0 items-center gap-4">
               {overview?.resources?.map((resource) => (
                 <Link
                   key={resource.url}
                   href={resource.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[13px] text-[#8A8A9A] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-white/40"
+                  className="text-[12px] text-[#6B6B7B] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-white/40"
                 >
                   {resource.label}
                 </Link>
@@ -88,9 +90,9 @@ export default async function UpgradesPage() {
           </div>
 
           {/* ─── Status Stats Bar ─── */}
-          <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] py-3">
-            <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#555568]">
-              {allItems.length} SIMDs
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] py-2.5">
+            <span className="mr-1.5 text-[11px] font-semibold tabular-nums tracking-wide text-[#555568]">
+              {allItems.length} tracked
             </span>
             {(
               [
@@ -105,10 +107,10 @@ export default async function UpgradesPage() {
               statusCounts[s] ? (
                 <span
                   key={s}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1 text-[11px] font-medium tracking-wide text-[#8A8A9A]"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-0.5 text-[11px] tabular-nums tracking-wide text-[#6B6B7B]"
                 >
                   <span
-                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    className={`inline-block h-[5px] w-[5px] rounded-full ${
                       s === "review"
                         ? "bg-amber-400"
                         : s === "accepted"
