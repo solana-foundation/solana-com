@@ -54,7 +54,7 @@ export default function DevelopersLearnCoursePage({
           href="/developers/bootcamp"
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
         >
-          ← All Developers Learn series
+          ← All bootcamp courses
         </Link>
       </div>
 
@@ -146,7 +146,7 @@ export default function DevelopersLearnCoursePage({
         </p>
         <p className="mt-2 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
           This track belongs to {developersLearnFeaturedSeries.title}, the
-          current featured series inside Developers Learn. Episode pages remain
+          current featured series in this library. Episode pages remain
           companion guides, while the primary watch surface is YouTube.
         </p>
 
@@ -307,8 +307,8 @@ export default function DevelopersLearnCoursePage({
             </h2>
             <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-300">
               These are the next planned tracks inside{" "}
-              {developersLearnFeaturedSeries.title}. Other Developers Learn
-              series can sit alongside this roadmap later.
+              {developersLearnFeaturedSeries.title}. Other courses can sit
+              alongside this roadmap later.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
               {upcomingTracks.map((track) => (

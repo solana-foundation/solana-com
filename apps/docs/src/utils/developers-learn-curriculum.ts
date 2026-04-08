@@ -59,7 +59,7 @@ export type DevelopersLearnRoadmapTrack = {
 };
 
 export const developersLearnHub = {
-  kicker: "Developers Learn",
+  kicker: "Solana Courses",
   title: "Video-first learning for Solana builders",
   description:
     "A long-lived learning library for Solana developers. The 2026 bootcamp remains the featured series, and focused courses like Solana Crashcourse and DePIN can sit beside it over time.",
@@ -80,7 +80,7 @@ export const developersLearnFeaturedSeries = {
   label: "Featured series",
   title: "Solana Developer Bootcamp 2026",
   description:
-    "The full 2026 bootcamp remains the featured series inside Developers Learn as four linked tracks with YouTube episodes, MDX companion guides, code, and local progress tracking.",
+    "The full 2026 bootcamp remains the featured series in this learning library as four linked tracks with YouTube episodes, MDX companion guides, code, and local progress tracking.",
   type: "Annual bootcamp iteration",
   primaryMedium: "YouTube",
   companionMedium: "MDX companion guides",

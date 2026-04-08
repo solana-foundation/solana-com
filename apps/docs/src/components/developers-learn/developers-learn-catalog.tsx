@@ -130,9 +130,9 @@ export default function DevelopersLearnCatalog({
             </span>
           </div>
           <p className="mt-5 text-sm text-zinc-600 dark:text-zinc-300">
-            This is the current live series inside Developers Learn. Other
-            courses and future bootcamp iterations should be able to sit beside
-            it without rewriting the top-level IA.
+            This is the current live featured series. Other courses and future
+            bootcamp iterations should be able to sit beside it without
+            rewriting the top-level IA.
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {developersLearnFeaturedSeries.learningLoop.map((step, index) => (
@@ -171,7 +171,7 @@ export default function DevelopersLearnCatalog({
 
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
           <h2 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
-            How Developers Learn can expand
+            How the library can expand
           </h2>
           <div className="mt-4 space-y-4 text-sm text-zinc-600 dark:text-zinc-300">
             <p>
