@@ -4,25 +4,19 @@ import {
   DocsCodeSnippet,
   type DocsCodeSnippetProps,
 } from "@/app/components/docs-code-snippet";
+import { cn } from "@/app/components/utils";
 import {
-  ResponsiveBox,
-  ResponsiveStyles,
-} from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  Section,
-} from "@solana-foundation/solana-lib";
-import { useTranslations } from "next-intl";
-import {
-  BLOCK_STYLES,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
+  RUNBOOK_HIGHLIGHTS,
   RUNBOOK_SECTIONS,
 } from "@/data/developers/evm-to-svm/cosmos-app-chain";
+import { ChevronRight, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import styles from "./developers-chain-migration-cosmos-app-chain.module.css";
 
-const SUPPORTED_CODE_LANGUAGES = new Set([
+const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
   "bash",
   "json",
   "rust",
@@ -85,27 +79,107 @@ function parseRunbookSegments(html: string): RunbookSegment[] {
   return segments;
 }
 
-function GuideTableOfContents({ headline }: { headline: string }) {
+function renderRunbookSegment(segment: RunbookSegment, key: number) {
+  if (segment.type === "html") {
+    if (!segment.html.trim()) return null;
+    return (
+      <div
+        key={key}
+        className={cn("tw-html_parser", styles.articleHtml)}
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: segment.html }}
+      />
+    );
+  }
   return (
-    <aside className="lg:tw-sticky lg:tw-top-28 lg:tw-self-start">
-      <div className="tw-mb-8 tw-border-b tw-border-gray-500 tw-pb-7">
-        <div className="tw-mb-4 tw-text-display-xs tw-font-bold">
-          {headline}
-        </div>
-        <ul className="!tw-pl-0">
+    <DocsCodeSnippet
+      key={key}
+      code={segment.code}
+      language={
+        (SUPPORTED_CODE_LANGUAGES.has(
+          segment.language as DocsCodeSnippetProps["language"],
+        )
+          ? (segment.language as DocsCodeSnippetProps["language"])
+          : "bash") as DocsCodeSnippetProps["language"]
+      }
+    />
+  );
+}
+
+function LeftSidebar() {
+  return (
+    <nav className={styles.leftSidebar} aria-label="Guide navigation">
+      <div className={styles.sidebarCategory}>
+        <span className={styles.sidebarCategoryLabel}>Migration Guides</span>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          <li>
+            <Link
+              href="/developers/migrate-to-solana"
+              className={styles.sidebarLink}
+            >
+              ← Migrate to Solana
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/developers/migrate-to-solana/cosmos"
+              className={styles.sidebarLink}
+            >
+              Cosmos
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/developers/migrate-to-solana/cosmos/cosmwasm"
+              className={cn(styles.sidebarLink, styles.sidebarLinkIndented)}
+            >
+              CosmWasm
+            </Link>
+          </li>
+          <li>
+            <span
+              className={cn(
+                styles.sidebarLink,
+                styles.sidebarLinkIndented,
+                styles.sidebarLinkActive,
+              )}
+            >
+              App Chain
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <div className={styles.sidebarCategory}>
+        <span className={styles.sidebarCategoryLabel}>On this page</span>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {RUNBOOK_SECTIONS.map((section) => (
             <li key={section.id}>
-              <a
-                href={`#${section.id}`}
-                className="tw-block tw-py-3 tw-font-mono !tw-text-md tw-font-light tw-uppercase tw-text-gray-300 no-underline transition-colors hover:tw-text-common-white"
-              >
+              <a href={`#${section.id}`} className={styles.sidebarLink}>
                 {section.navLabel}
               </a>
             </li>
           ))}
         </ul>
       </div>
-    </aside>
+    </nav>
+  );
+}
+
+function RightTOC({ headline }: { headline: string }) {
+  return (
+    <nav className={styles.rightToc} aria-label="Table of contents">
+      <span className={styles.tocLabel}>{headline}</span>
+      <ul className={styles.tocList}>
+        {RUNBOOK_SECTIONS.map((section) => (
+          <li key={section.id}>
+            <a href={`#${section.id}`} className={styles.tocLink}>
+              {section.navLabel}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
@@ -117,114 +191,176 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
     label: t(`navHeading.buttons.${index}.label`),
   }));
 
-  const resourceCards = RESOURCE_CARD_DECK.cards.map((card) => ({
-    ...card,
-    callToAction: card.callToAction,
-  }));
-
   return (
-    <>
-      <Section>
-        <Hero
-          headingAs="h1"
-          centered={false}
-          newsLetter={false}
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t("hero.body")}
-        />
+    <div className={styles.page}>
+      <div className={styles.layout}>
+        {/* Left sidebar */}
+        <LeftSidebar />
 
-        <Section as="div" className="tw-grid lg:tw-grid-cols-12 lg:tw-gap-9">
-          <div className="lg:tw-col-span-3">
-            <GuideTableOfContents headline={t("contentEditor.tocHeadline")} />
+        {/* Main article */}
+        <main className={styles.main}>
+          {/* Breadcrumbs */}
+          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
+            <Link href="/developers" className={styles.breadcrumbLink}>
+              Developers
+            </Link>
+            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
+            <Link
+              href="/developers/migrate-to-solana"
+              className={styles.breadcrumbLink}
+            >
+              Migrate to Solana
+            </Link>
+            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
+            <Link
+              href="/developers/migrate-to-solana/cosmos"
+              className={styles.breadcrumbLink}
+            >
+              Cosmos
+            </Link>
+            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
+            <span style={{ color: "rgb(255 255 255 / 0.8)" }}>App Chain</span>
+          </nav>
+
+          {/* Hero */}
+          <header className={styles.hero}>
+            <p className={styles.heroEyebrow}>{t("hero.eyebrow")}</p>
+            <h1 className={styles.heroHeadline}>{t("hero.headline")}</h1>
+            <div
+              className={styles.heroBody}
+              dangerouslySetInnerHTML={{ __html: t("hero.body") }}
+            />
+            <div className={styles.heroButtons}>
+              {navButtons.map((button) => (
+                <a
+                  key={button.url}
+                  href={button.url}
+                  className={styles.heroButton}
+                >
+                  {button.label}
+                  <ChevronRight
+                    style={{ width: "0.875rem", height: "0.875rem" }}
+                    aria-hidden
+                  />
+                </a>
+              ))}
+            </div>
+          </header>
+
+          {/* Highlights */}
+          <div className={styles.highlights}>
+            <div className={styles.highlightBanner}>
+              <p className={styles.highlightBannerEyebrow}>
+                {RUNBOOK_HIGHLIGHTS.banner.eyebrow}
+              </p>
+              <h2 className={styles.highlightBannerTitle}>
+                {RUNBOOK_HIGHLIGHTS.banner.title}
+              </h2>
+              <p className={styles.highlightBannerBody}>
+                {RUNBOOK_HIGHLIGHTS.banner.body}
+              </p>
+            </div>
+            {RUNBOOK_HIGHLIGHTS.cards.map((card) => (
+              <div key={card.number} className={styles.highlightCard}>
+                <p className={styles.highlightCardNumber}>{card.number}</p>
+                <h3 className={styles.highlightCardTitle}>{card.title}</h3>
+                <p className={styles.highlightCardBody}>{card.body}</p>
+              </div>
+            ))}
           </div>
-          <div className="lg:tw-col-span-9">
-            {RUNBOOK_SECTIONS.map((section, index) => {
-              const segments = parseRunbookSegments(section.html);
-              const isLast = index === RUNBOOK_SECTIONS.length - 1;
-              const styleKey =
-                index === 0
-                  ? "spacingWithMargins"
-                  : isLast
-                    ? "spacingLastBlock"
-                    : "spacing";
 
+          {/* Mobile TOC */}
+          <div className={styles.mobileToc}>
+            <p className={styles.mobileTocLabel}>
+              {t("contentEditor.tocHeadline")}
+            </p>
+            <ul className={styles.mobileTocList}>
+              {RUNBOOK_SECTIONS.map((section) => (
+                <li key={section.id}>
+                  <a href={`#${section.id}`} className={styles.mobileTocLink}>
+                    {section.navLabel}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Article sections */}
+          <article>
+            {RUNBOOK_SECTIONS.map((section) => {
+              const segments = parseRunbookSegments(section.html);
               return (
-                <div
+                <section
                   key={section.id}
                   id={section.id}
-                  className="tw-scroll-mt-28"
+                  className={cn(styles.articleSection, "tw-scroll-mt-20")}
                 >
-                  <ResponsiveBox
-                    responsiveStyles={
-                      BLOCK_STYLES[styleKey] as ResponsiveStyles
-                    }
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1.25rem",
+                    }}
                   >
-                    <div className="tw-space-y-5">
-                      {segments.map((segment, i) => {
-                        if (segment.type === "html") {
-                          if (!segment.html.trim()) return null;
-                          return (
-                            <div
-                              key={i}
-                              className="tw-html_parser"
-                              suppressHydrationWarning
-                              dangerouslySetInnerHTML={{ __html: segment.html }}
-                            />
-                          );
-                        }
-                        return (
-                          <DocsCodeSnippet
-                            key={i}
-                            code={segment.code}
-                            language={
-                              (SUPPORTED_CODE_LANGUAGES.has(segment.language)
-                                ? segment.language
-                                : "bash") as DocsCodeSnippetProps["language"]
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  </ResponsiveBox>
-                </div>
+                    {segments.map((segment, i) =>
+                      renderRunbookSegment(segment, i),
+                    )}
+                  </div>
+                </section>
               );
             })}
+          </article>
+
+          {/* Resources */}
+          <div className={styles.resources}>
+            <p className={styles.resourcesEyebrow}>
+              {t("resourceHeading.eyebrow")}
+            </p>
+            <h2 className={styles.resourcesHeadline}>
+              {t("resourceHeading.headline")}
+            </h2>
+            <p className={styles.resourcesBody}>{t("resourceHeading.body")}</p>
+            <div className={styles.resourceGrid}>
+              {RESOURCE_CARD_DECK.cards.map((card) => {
+                const isExternal = card.callToAction.url.startsWith("http");
+                return (
+                  <a
+                    key={card.heading}
+                    href={card.callToAction.url}
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noreferrer noopener" : undefined}
+                    className={styles.resourceCard}
+                  >
+                    <div>
+                      <h3 className={styles.resourceCardTitle}>
+                        {card.heading}
+                      </h3>
+                      <p className={styles.resourceCardBody}>{card.body}</p>
+                    </div>
+                    <span className={styles.resourceCardCta}>
+                      {card.callToAction.label}
+                      {isExternal ? (
+                        <ExternalLink
+                          style={{ width: "0.875rem", height: "0.875rem" }}
+                          aria-hidden
+                        />
+                      ) : (
+                        <ChevronRight
+                          style={{ width: "0.875rem", height: "0.875rem" }}
+                          aria-hidden
+                        />
+                      )}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
           </div>
-        </Section>
+        </main>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading
-          eyebrow={t("resourceHeading.eyebrow")}
-          headline={t("resourceHeading.headline")}
-          body={t("resourceHeading.body")}
-        />
-
-        <ResponsiveBox
-          responsiveStyles={BLOCK_STYLES.cardDeckWrapper as ResponsiveStyles}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
-    </>
+        {/* Right TOC */}
+        <RightTOC headline={t("contentEditor.tocHeadline")} />
+      </div>
+    </div>
   );
 }
