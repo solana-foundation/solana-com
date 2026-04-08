@@ -19,7 +19,9 @@ function matchesSearch(upgrade: UpgradeItem, search: string) {
     upgrade.simdNumber,
     upgrade.title,
     upgrade.summary,
+    upgrade.description || "",
     upgrade.editorialNote || "",
+    upgrade.expectedRelease || "",
   ]
     .join(" ")
     .toLowerCase();

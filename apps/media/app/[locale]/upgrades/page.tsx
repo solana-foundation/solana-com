@@ -4,6 +4,7 @@ import { UpgradesOverview } from "@/components/upgrades/upgrades-overview";
 import { UpgradesStatusGuide } from "@/components/upgrades/upgrades-status-guide";
 import {
   fetchFeaturedUpgrades,
+  fetchLatestNotes,
   fetchUpgradeOverview,
   fetchUpgrades,
 } from "@/lib/upgrade-data";
@@ -16,10 +17,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function UpgradesPage() {
-  const [overview, featured, upgrades] = await Promise.all([
+  const [overview, featured, upgrades, latestNotes] = await Promise.all([
     fetchUpgradeOverview(),
     fetchFeaturedUpgrades(),
     fetchUpgrades({ sort: "updated-desc" }),
+    fetchLatestNotes(10),
   ]);
 
   return (
@@ -27,7 +29,11 @@ export default async function UpgradesPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_0%_0%,rgba(153,69,255,0.18),transparent_60%),radial-gradient(ellipse_55%_50%_at_100%_0%,rgba(20,241,149,0.08),transparent_50%),linear-gradient(180deg,rgba(7,8,14,1),rgba(9,11,18,0.96))]" />
 
       <div className="relative mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-5 pb-16 pt-12 md:px-8 md:pb-20 md:pt-16 xl:px-10 xl:pt-[110px]">
-        <UpgradesOverview overview={overview} featured={featured} />
+        <UpgradesOverview
+          overview={overview}
+          featured={featured}
+          latestNotes={latestNotes}
+        />
         <UpgradesStatusGuide body={overview?.statusGuide} />
         <UpgradesClientPage upgrades={upgrades.items} />
       </div>

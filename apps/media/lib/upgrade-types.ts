@@ -25,10 +25,12 @@ export type UpgradeItem = {
   authors: string[];
   createdDate: string | null;
   updatedDate: string | null;
+  expectedRelease?: string;
   featureGate?: string;
   githubUrl: string;
   discussionUrl?: string;
   summary: string;
+  description?: string;
   editorialNote?: string;
   relatedSimds: string[];
   featured: boolean;
@@ -61,4 +63,13 @@ export type FetchUpgradesParams = {
 export type FetchUpgradesResponse = {
   items: UpgradeItem[];
   pageInfo: PageInfo;
+};
+
+export type UpgradeNote = {
+  slug: string;
+  upgradeSlug: string;
+  upgradeTitle: string;
+  simdNumber: string;
+  publishedAt: string;
+  body: string;
 };

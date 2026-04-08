@@ -598,6 +598,11 @@ export default config({
         }),
         createdDate: fields.text({ label: "Created Date" }),
         updatedDate: fields.text({ label: "Updated Date" }),
+        expectedRelease: fields.text({
+          label: "Expected Release",
+          description:
+            'Target client version, e.g. "Agave 4.1" or "Available in Agave 3.0+"',
+        }),
         featureGate: fields.text({ label: "Feature Gate" }),
         githubUrl: fields.text({
           label: "GitHub URL",
@@ -613,6 +618,12 @@ export default config({
           itemLabel: (props) => props.value || "SIMD",
         }),
         sourceSha: fields.text({ label: "Source SHA" }),
+        description: fields.text({
+          label: "Description",
+          multiline: true,
+          description:
+            "Editorial description for the upgrades page — why this upgrade matters, written for a general audience (distinct from the SIMD summary)",
+        }),
         editorialNote: fields.text({
           label: "Editorial Note",
           multiline: true,
@@ -637,6 +648,37 @@ export default config({
           label: "Hero Image",
           directory: "public/uploads/upgrades",
           publicPath: "/uploads/upgrades",
+        }),
+      },
+    }),
+
+    upgradeNotes: collection({
+      label: "Upgrade Notes",
+      slugField: "slug",
+      path: "content/upgrade-notes/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["upgrade", "publishedAt"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        upgrade: fields.relationship({
+          label: "SIMD",
+          collection: "upgrades",
+          validation: { isRequired: true },
+        }),
+        publishedAt: fields.datetime({
+          label: "Published Date",
+          description: "When this note was published (UTC)",
+          validation: { isRequired: true },
+        }),
+        body: fields.text({
+          label: "Note",
+          multiline: true,
+          description:
+            "What changed or is notable about this SIMD since the last update",
+          validation: { isRequired: true },
         }),
       },
     }),

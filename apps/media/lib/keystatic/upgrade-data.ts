@@ -146,6 +146,11 @@ async function transformUpgrade(
       typeof upgrade.createdDate === "string" ? upgrade.createdDate : null,
     updatedDate:
       typeof upgrade.updatedDate === "string" ? upgrade.updatedDate : null,
+    expectedRelease:
+      typeof upgrade.expectedRelease === "string" &&
+      upgrade.expectedRelease.trim()
+        ? upgrade.expectedRelease
+        : undefined,
     featureGate:
       typeof upgrade.featureGate === "string" && upgrade.featureGate.trim()
         ? upgrade.featureGate
@@ -156,6 +161,10 @@ async function transformUpgrade(
         ? upgrade.discussionUrl
         : undefined,
     summary: String(upgrade.summary || ""),
+    description:
+      typeof upgrade.description === "string" && upgrade.description.trim()
+        ? upgrade.description
+        : undefined,
     editorialNote:
       typeof upgrade.editorialNote === "string" && upgrade.editorialNote.trim()
         ? upgrade.editorialNote
@@ -241,7 +250,9 @@ export async function fetchUpgrades(
           upgrade.simdNumber,
           upgrade.title,
           upgrade.summary,
+          upgrade.description || "",
           upgrade.editorialNote || "",
+          upgrade.expectedRelease || "",
         ]
           .join(" ")
           .toLowerCase();

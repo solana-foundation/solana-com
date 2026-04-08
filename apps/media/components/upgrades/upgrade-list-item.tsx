@@ -36,6 +36,11 @@ export function UpgradeListItem({ upgrade }: { upgrade: UpgradeItem }) {
           SIMD-{upgrade.simdNumber}
         </div>
         <StatusBadge status={upgrade.status} />
+        {upgrade.expectedRelease ? (
+          <div className="text-[11px] tracking-[0.1em] text-[#8f8fa3]">
+            {upgrade.expectedRelease}
+          </div>
+        ) : null}
       </div>
 
       <div className="min-w-0 space-y-3">
@@ -55,7 +60,7 @@ export function UpgradeListItem({ upgrade }: { upgrade: UpgradeItem }) {
         </div>
 
         <p className="max-w-3xl text-sm leading-7 text-[#c5c5d1]">
-          {upgrade.editorialNote || upgrade.summary}
+          {upgrade.description || upgrade.editorialNote || upgrade.summary}
         </p>
 
         <RelatedSIMDs relatedSimds={upgrade.relatedSimds} />

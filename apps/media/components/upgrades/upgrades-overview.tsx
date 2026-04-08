@@ -1,12 +1,30 @@
 import Link from "next/link";
-import type { UpgradeItem, UpgradeOverview } from "@/lib/upgrade-types";
+import type {
+  UpgradeItem,
+  UpgradeNote,
+  UpgradeOverview,
+} from "@/lib/upgrade-types";
+
+function formatNoteDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
 
 export function UpgradesOverview({
   overview,
   featured,
+  latestNotes = [],
 }: {
   overview: UpgradeOverview | null;
   featured: UpgradeItem[];
+  latestNotes?: UpgradeNote[];
 }) {
   return (
     <section className="space-y-8">
@@ -73,13 +91,44 @@ export function UpgradesOverview({
                       {item.title}
                     </div>
                     <p className="mt-1 text-sm leading-6 text-[#a8a8ba]">
-                      {item.editorialNote || item.summary}
+                      {item.description || item.editorialNote || item.summary}
                     </p>
                   </li>
                 ))}
               </ol>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {latestNotes.length > 0 ? (
+        <div className="space-y-4 rounded-3xl border border-[rgba(236,228,253,0.12)] bg-[linear-gradient(180deg,rgba(18,20,31,0.95),rgba(11,13,22,0.85))] p-6">
+          <h2 className="text-sm font-medium uppercase tracking-[0.25em] text-[#ca9ff5]">
+            Latest updates
+          </h2>
+          <ol className="space-y-4 text-sm text-[#d4d4df]">
+            {latestNotes.map((note) => (
+              <li
+                key={note.slug}
+                className="border-b border-[rgba(236,228,253,0.12)] pb-4 last:border-b-0 last:pb-0"
+              >
+                <div className="flex items-baseline gap-3">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[#8f8fa3]">
+                    SIMD-{note.simdNumber}
+                  </span>
+                  <span className="text-[11px] text-[#66667a]">
+                    {formatNoteDate(note.publishedAt)}
+                  </span>
+                </div>
+                <div className="mt-1 font-medium text-white">
+                  {note.upgradeTitle}
+                </div>
+                <p className="mt-1 text-sm leading-6 text-[#a8a8ba]">
+                  {note.body}
+                </p>
+              </li>
+            ))}
+          </ol>
         </div>
       ) : null}
 

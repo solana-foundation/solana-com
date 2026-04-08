@@ -5,6 +5,12 @@ export {
   fetchUpgrades,
 } from "./keystatic/upgrade-data";
 
+export {
+  fetchLatestNotes,
+  fetchNotesForUpgrade,
+  fetchUpgradeNotes,
+} from "./keystatic/upgrade-note-data";
+
 export type {
   FetchUpgradesParams,
   FetchUpgradesResponse,
@@ -12,5 +18,6 @@ export type {
   SIMDStatus,
   SIMDType,
   UpgradeItem,
+  UpgradeNote,
   UpgradeOverview,
 } from "./upgrade-types";
