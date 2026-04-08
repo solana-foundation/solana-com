@@ -188,9 +188,9 @@ export function DevelopersChainMigrationPage() {
           <FeatureHighlightComponent
             headingAs={CHAIN_SELECTOR.headingAs}
             color={CHAIN_SELECTOR.color}
-            eyebrow={t("chainSelector.eyebrow")}
+            eyebrow=""
             headline={t("chainSelector.headline")}
-            body={t("chainSelector.body")}
+            body=""
             cards={chainSelectorCards}
             buttons={[]}
           />
@@ -210,6 +210,22 @@ export function DevelopersChainMigrationPage() {
         .chain-selector-override .tw-glass-card {
           min-height: 220px !important;
           padding: 2rem !important;
+        }
+        .chain-selector-override .tw-glass-card h3 {
+          font-size: 2rem !important;
+          line-height: 1.2 !important;
+        }
+        .chain-selector-override .tw-glass-card a,
+        .chain-selector-override .tw-glass-card button {
+          text-transform: none !important;
+          letter-spacing: normal !important;
+          border-color: rgba(255, 255, 255, 0.3) !important;
+          font-size: 0.875rem !important;
+          padding: 0.75rem 1.5rem !important;
+          border-radius: 9999px !important;
+          font-weight: 600 !important;
+          background: transparent !important;
+          color: white !important;
         }
         .chain-selector-override h2 {
           font-size: 32px !important;
@@ -250,16 +266,13 @@ export function DevelopersChainMigrationPage() {
             lazyLoad={true}
             production={true}
           />
-          <Container className="pt-10 pb-[120px] flex flex-col justify-between">
+          <Container className="pt-[120px] pb-[120px] flex flex-col justify-between">
             <EarthAnimation className="absolute bottom-0 left-[-20%] md:left-[-10%] xl:left-0 w-[140%] md:w-[120%] xl:w-full mix-blend-overlay" />
             <div className="absolute top-0 left-0 right-0 h-[80%] bg-gradient-to-b from-[#0B0A10] via-[#0B0A10] via-19% to-transparent pointer-events-none" />
-            <div className="xl:flex xl:justify-between xl:items-center relative">
-              <h2 className="nd-heading-l xl:max-w-[50%]">
+            <div className="relative">
+              <h2 className="nd-heading-l">
                 {t("chainMigrationResources.headline")}
               </h2>
-              <p className="nd-body-xl max-xl:mt-3 xl:py-3 xl:pl-6 xl:max-w-[40%] relative xl:before:absolute xl:before:top-0 xl:before:left-0 xl:before:w-px xl:before:h-full xl:before:bg-gradient-to-b xl:before:from-[#D884F0] xl:before:to-[#44EBA6]">
-                {t("chainMigrationResources.body")}
-              </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mt-10 relative">
               {secondaryCards.map((card) => (

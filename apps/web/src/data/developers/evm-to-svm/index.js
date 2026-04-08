@@ -255,7 +255,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers/guides/getstarted/hello-world-in-your-browser",
+        url: "https://solana.com/docs",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -267,7 +267,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://solana.com/docs/core",
+        url: "https://solana.com/skills",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -279,7 +279,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://www.youtube.com/watch?v=amAq-WHAFs8&list=PLilwLeBwGuK7HN8ZnXpGAD9q6i4syhnVc",
+        url: "https://solana.com/developers/bootcamp",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -291,7 +291,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers",
+        url: "https://solana.com/developers/templates",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
