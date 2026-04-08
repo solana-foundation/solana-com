@@ -13,6 +13,7 @@ import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
 import { coinbase } from "./records/coinbase";
+import { comicbook } from "./records/comicbook";
 import { dabba } from "./records/dabba";
 import { darkresearch } from "./records/darkresearch";
 import { doublezero } from "./records/doublezero";
@@ -30,6 +31,7 @@ import { mantleByreal } from "./records/mantle-byreal";
 import { openmined } from "./records/openmined";
 import { osl } from "./records/osl";
 import { phantom } from "./records/phantom";
+import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
 import { rockawayx } from "./records/rockawayx";
@@ -64,6 +66,7 @@ export const companies = [
   bydfi,
   byreal,
   coinbase,
+  comicbook,
   dabba,
   darkresearch,
   doublezero,
@@ -81,6 +84,7 @@ export const companies = [
   openmined,
   osl,
   phantom,
+  pipeNetwork,
   playSolana,
   quicknode,
   rockawayx,

@@ -1,6 +1,9 @@
 import type { CompanyRecord } from "../../types";
-import bonkLogo from "../../../assets/companies/bonk/logo.webp";
-import bonkMark from "../../../assets/companies/bonk/mark.svg";
+import bonkLogoLight from "../../../assets/companies/bonk/logo-light.png";
+import bonkLogoDark from "../../../assets/companies/bonk/logo-dark.png";
+import bonkLogoMonotone from "../../../assets/companies/bonk/logo-monotone.svg";
+import bonkLogoGrayscale from "../../../assets/companies/bonk/logo-grayscale.png";
+import bonkMark from "../../../assets/companies/bonk/mark.png";
 
 export const bonk = {
   id: "bonk",
@@ -25,19 +28,39 @@ export const bonk = {
       github: "https://github.com/BonkLabs",
     },
   },
-  defaultLogoId: "mark",
+  defaultLogoId: "logo-dark",
   logos: [
     {
-      id: "logo",
-      fileName: "logo.webp",
-      format: "webp",
-      source: bonkLogo,
-      kind: "logo",
+      id: "logo-light",
+      fileName: "logo-light.png",
+      format: "png",
+      source: bonkLogoLight,
+      theme: "light",
+    },
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.png",
+      format: "png",
+      source: bonkLogoDark,
+      theme: "dark",
+    },
+    {
+      id: "logo-monotone",
+      fileName: "logo-monotone.svg",
+      format: "svg",
+      source: bonkLogoMonotone,
+      treatment: "monotone",
+    },
+    {
+      id: "logo-grayscale",
+      fileName: "logo-grayscale.png",
+      format: "png",
+      source: bonkLogoGrayscale,
     },
     {
       id: "mark",
-      fileName: "mark.svg",
-      format: "svg",
+      fileName: "mark.png",
+      format: "png",
       source: bonkMark,
       kind: "mark",
     },
