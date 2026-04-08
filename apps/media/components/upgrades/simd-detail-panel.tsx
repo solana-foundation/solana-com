@@ -30,11 +30,11 @@ function MetaRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-white/[0.06] py-2.5">
-      <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.2em] text-[#66667a]">
+    <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-3.5">
+      <span className="shrink-0 text-[13px] font-medium uppercase tracking-[0.2em] text-[#555568]">
         {label}
       </span>
-      <span className="text-right text-sm text-[#c5c5d1]">{children}</span>
+      <span className="text-right text-[15px] text-[#ABABBA]">{children}</span>
     </div>
   );
 }
@@ -63,14 +63,14 @@ export function SIMDDetailPanel({
                 transition
                 className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-out data-[closed]:translate-x-full"
               >
-                <div className="flex h-full flex-col overflow-y-auto border-l border-white/[0.08] bg-[#0a0c14]">
+                <div className="flex h-full flex-col overflow-y-auto border-l border-white/10 bg-black">
                   {upgrade ? (
                     <>
                       {/* Header */}
-                      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.08] bg-[#0a0c14]/95 px-6 py-4 backdrop-blur-sm">
+                      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-black/95 px-6 py-5 backdrop-blur-sm">
                         <button
                           onClick={onClose}
-                          className="flex items-center gap-2 text-sm text-[#8f8fa3] transition-colors hover:text-white"
+                          className="flex items-center gap-2 text-[15px] text-[#ABABBA] transition-colors hover:text-white"
                         >
                           <svg
                             className="h-4 w-4"
@@ -87,21 +87,21 @@ export function SIMDDetailPanel({
                           </svg>
                           Back
                         </button>
-                        <span className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#ca9ff5]">
+                        <span className="text-[13px] font-medium uppercase tracking-[0.28em] text-[#CA9FF5]">
                           SIMD-{upgrade.simdNumber}
                         </span>
                       </div>
 
-                      <div className="flex-1 space-y-6 px-6 py-6">
+                      <div className="flex-1 space-y-8 px-6 py-8">
                         {/* Title + Status */}
                         <div className="space-y-4">
-                          <h2 className="text-2xl font-medium leading-tight text-white">
+                          <h2 className="m-0 font-sans font-medium text-[28px] md:text-[32px] leading-[1.2] tracking-[-0.84px] md:tracking-[-0.96px] text-white">
                             {upgrade.title}
                           </h2>
                           <div className="flex items-center gap-3">
                             <StatusBadge status={upgrade.status} />
                             {upgrade.expectedRelease ? (
-                              <span className="text-xs tracking-wide text-[#8f8fa3]">
+                              <span className="text-[13px] tracking-wide text-[#ABABBA]">
                                 {upgrade.expectedRelease}
                               </span>
                             ) : null}
@@ -109,7 +109,7 @@ export function SIMDDetailPanel({
                         </div>
 
                         {/* Progress */}
-                        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                           <StatusProgress status={upgrade.status} />
                         </div>
 
@@ -117,11 +117,11 @@ export function SIMDDetailPanel({
                         {upgrade.description ||
                         upgrade.editorialNote ||
                         upgrade.summary ? (
-                          <div className="space-y-2">
-                            <h3 className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#ca9ff5]">
+                          <div className="space-y-3">
+                            <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
                               About
                             </h3>
-                            <p className="text-sm leading-7 text-[#c5c5d1]">
+                            <p className="m-0 text-[#ABABBA] text-base tracking-[-0.16px] leading-[1.65]">
                               {upgrade.description ||
                                 upgrade.editorialNote ||
                                 upgrade.summary}
@@ -152,7 +152,7 @@ export function SIMDDetailPanel({
                           !upgrade.featureGate.includes("fill in") &&
                           !upgrade.featureGate.includes("TBD") ? (
                             <MetaRow label="Feature Gate">
-                              <code className="text-xs text-[#a8a8ba]">
+                              <code className="text-[13px] text-[#ABABBA]">
                                 {upgrade.featureGate}
                               </code>
                             </MetaRow>
@@ -161,15 +161,15 @@ export function SIMDDetailPanel({
 
                         {/* Related SIMDs */}
                         {upgrade.relatedSimds.length > 0 ? (
-                          <div className="space-y-2">
-                            <h3 className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#ca9ff5]">
+                          <div className="space-y-3">
+                            <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
                               Related SIMDs
                             </h3>
                             <div className="flex flex-wrap gap-2">
                               {upgrade.relatedSimds.map((simd) => (
                                 <span
                                   key={simd}
-                                  className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-[#a8a8ba]"
+                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA]"
                                 >
                                   SIMD-{simd}
                                 </span>
@@ -179,15 +179,15 @@ export function SIMDDetailPanel({
                         ) : null}
 
                         {/* Links */}
-                        <div className="flex flex-wrap gap-4">
+                        <div className="flex flex-wrap gap-5">
                           <Link
                             href={upgrade.githubUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sm text-white underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white"
+                            className="inline-flex items-center gap-2 text-[15px] text-white underline decoration-white/15 underline-offset-4 transition-colors hover:decoration-white"
                           >
                             <svg
-                              className="h-3.5 w-3.5"
+                              className="h-4 w-4"
                               fill="currentColor"
                               viewBox="0 0 24 24"
                             >
@@ -200,37 +200,40 @@ export function SIMDDetailPanel({
                               href={upgrade.discussionUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-sm text-white underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white"
+                              className="text-[15px] text-white underline decoration-white/15 underline-offset-4 transition-colors hover:decoration-white"
                             >
                               Discussion
                             </Link>
                           ) : null}
                         </div>
 
+                        {/* Divider */}
+                        <hr className="m-0 border-t border-white/10" />
+
                         {/* Update History */}
-                        <div className="space-y-3 pt-2">
-                          <h3 className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#ca9ff5]">
+                        <div className="space-y-4">
+                          <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
                             Update history
                           </h3>
                           {notes.length > 0 ? (
-                            <ol className="space-y-0">
+                            <ol className="m-0 list-none p-0">
                               {notes.map((note) => (
                                 <li
                                   key={note.slug}
-                                  className="relative border-l-2 border-white/[0.08] py-3 pl-5"
+                                  className="relative border-l-2 border-white/10 py-4 pl-6"
                                 >
-                                  <div className="absolute -left-[5px] top-4 h-2 w-2 rounded-full border-2 border-[#0a0c14] bg-[#ca9ff5]" />
-                                  <div className="text-[11px] uppercase tracking-[0.18em] text-[#66667a]">
+                                  <div className="absolute -left-[5px] top-5 h-2 w-2 rounded-full border-2 border-black bg-[#CA9FF5]" />
+                                  <div className="text-[13px] uppercase tracking-[0.18em] text-[#555568]">
                                     {formatDate(note.publishedAt)}
                                   </div>
-                                  <p className="mt-1.5 text-sm leading-6 text-[#c5c5d1]">
+                                  <p className="m-0 mt-2 text-[#ABABBA] text-base tracking-[-0.16px] leading-[1.65]">
                                     {note.body}
                                   </p>
                                 </li>
                               ))}
                             </ol>
                           ) : (
-                            <p className="text-sm text-[#66667a]">
+                            <p className="m-0 text-[15px] text-[#555568]">
                               No update notes yet.
                             </p>
                           )}

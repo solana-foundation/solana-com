@@ -40,6 +40,12 @@ function matchesSearch(upgrade: UpgradeItem, search: string) {
   return haystack.includes(search);
 }
 
+/* ─── Divider ─── */
+
+function Divider() {
+  return <hr className="m-0 border-t border-white/10" />;
+}
+
 /* ─── Notes Feed ─── */
 
 function NotesFeed({
@@ -52,42 +58,73 @@ function NotesFeed({
   if (notes.length === 0) return null;
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-[#ca9ff5]">
-          Latest updates
-        </h2>
-        <span className="text-[11px] uppercase tracking-[0.2em] text-[#66667a]">
-          {notes.length} note{notes.length !== 1 ? "s" : ""}
-        </span>
-      </div>
+    <section className="relative text-left text-white">
+      <div className="mx-auto max-w-[1440px] px-[20px] py-[64px] md:px-[32px] md:py-[112px] xl:px-[40px] xl:py-[160px]">
+        <div className="mb-[32px] xl:mb-[48px]">
+          <h2 className="m-0 font-sans font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
+            Latest updates
+          </h2>
+          <p className="m-0 mt-2 text-[#ABABBA] text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
+            {notes.length} recent note{notes.length !== 1 ? "s" : ""} across
+            tracked SIMDs
+          </p>
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {notes.map((note) => (
-          <button
-            key={note.slug}
-            type="button"
-            onClick={() => onSelectSimd(note.upgradeSlug)}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 text-left transition-all hover:border-[#ca9ff5]/30 hover:bg-white/[0.04]"
-          >
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ca9ff5]/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#ca9ff5]">
-                SIMD-{note.simdNumber}
-              </span>
-              <span className="text-[10px] text-[#555568]">
-                {formatDate(note.publishedAt)}
-              </span>
-            </div>
-            <div className="mt-1.5 text-sm font-medium text-white">
-              {note.upgradeTitle}
-            </div>
-            <p className="mt-1.5 line-clamp-3 text-[13px] leading-[1.6] text-[#a8a8ba]">
-              {note.body}
-            </p>
-          </button>
-        ))}
+        <ul className="m-0 list-none p-0 divide-y divide-white/10">
+          {notes.map((note) => (
+            <li key={note.slug} className="p-0">
+              <button
+                type="button"
+                onClick={() => onSelectSimd(note.upgradeSlug)}
+                className="group flex w-full flex-row items-start gap-4 p-[24px_0] xl:p-[24px_12px] text-left transition-colors"
+              >
+                <div className="shrink-0 leading-4 md:leading-6 text-[#CA9FF5] group-hover:text-white transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
+                  </svg>
+                </div>
+                <div className="min-w-0 grow">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
+                      SIMD-{note.simdNumber}
+                    </span>
+                    <span className="text-[13px] text-[#555568]">
+                      {formatDate(note.publishedAt)}
+                    </span>
+                  </div>
+                  <p className="m-0 mt-1 font-medium text-base md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.5] md:leading-[1.33]">
+                    {note.upgradeTitle}
+                  </p>
+                  <p className="m-0 mt-1 line-clamp-2 text-[#ABABBA] text-base md:text-lg tracking-[-0.16px] md:tracking-[-0.18px] leading-[1.5] md:leading-[1.77]">
+                    {note.body}
+                  </p>
+                </div>
+                <div className="shrink-0 leading-4 md:leading-6">
+                  <svg
+                    className="text-[#ABABBA] group-hover:text-white transition-colors"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -106,26 +143,24 @@ function FeaturedCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(160deg,rgba(153,69,255,0.06),transparent_50%)] p-5 text-left transition-all hover:border-[#ca9ff5]/25"
+      className="group flex w-full flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-6 md:p-8 text-left transition-all hover:border-[#CA9FF5]/30 hover:bg-white/[0.04]"
     >
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ca9ff5]/30 to-transparent" />
-
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#ca9ff5]">
+          <span className="text-[13px] font-medium uppercase tracking-[0.28em] text-[#CA9FF5]">
             SIMD-{upgrade.simdNumber}
           </span>
           <StatusBadge status={upgrade.status} />
         </div>
 
-        <h3 className="text-lg font-medium leading-snug text-white">
+        <h3 className="m-0 font-sans font-medium text-[18px] md:text-[24px] leading-[1.33] tracking-[-0.54px] md:tracking-[-0.48px] text-white">
           {upgrade.title}
         </h3>
 
         {upgrade.expectedRelease ? (
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[11px] tracking-wide text-[#a8a8ba]">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] tracking-wide text-[#ABABBA]">
             <svg
-              className="h-3 w-3 text-[#8f8fa3]"
+              className="h-3.5 w-3.5 text-[#555568]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -141,13 +176,13 @@ function FeaturedCard({
           </div>
         ) : null}
 
-        <p className="line-clamp-3 text-sm leading-6 text-[#a8a8ba]">
+        <p className="m-0 line-clamp-3 text-[#ABABBA] text-base md:text-lg tracking-[-0.16px] md:tracking-[-0.18px] leading-[1.5] md:leading-[1.77]">
           {upgrade.description || upgrade.editorialNote || upgrade.summary}
         </p>
+      </div>
 
-        <div className="pt-1">
-          <StatusProgress status={upgrade.status} />
-        </div>
+      <div className="mt-6 pt-6 border-t border-white/10">
+        <StatusProgress status={upgrade.status} />
       </div>
     </button>
   );
@@ -185,18 +220,18 @@ function Filters({
   onSearchChange: (v: string) => void;
 }) {
   return (
-    <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-[rgba(9,11,20,0.7)] p-4 md:p-5">
+    <div className="space-y-5">
       {/* Status tabs */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {STATUS_OPTIONS.map((opt) => (
           <button
             key={opt.value}
             type="button"
             onClick={() => onStatusChange(opt.value)}
-            className={`rounded-full border px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.15em] transition-colors ${
+            className={`rounded-full border px-4 py-2 text-[13px] font-medium tracking-[-0.13px] transition-colors ${
               status === opt.value
                 ? "border-white bg-white text-black"
-                : "border-white/[0.1] text-[#b3b3c2] hover:border-white/[0.25] hover:text-white"
+                : "border-white/10 text-[#ABABBA] hover:border-white/25 hover:text-white"
             }`}
           >
             {opt.label}
@@ -205,20 +240,20 @@ function Filters({
       </div>
 
       {/* Search + dropdowns */}
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_160px]">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search SIMD number or title..."
-          className="h-10 w-full rounded-xl border border-white/[0.1] bg-transparent px-3.5 text-sm text-white placeholder:text-[#555568] focus:border-[#ca9ff5]/40 focus:outline-none"
+          className="h-11 w-full rounded-xl border border-white/10 bg-transparent px-4 text-[15px] text-white placeholder:text-[#555568] focus:border-[#CA9FF5]/40 focus:outline-none transition-colors"
         />
         <select
           value={category}
           onChange={(e) =>
             onCategoryChange(e.target.value as SIMDCategory | "all")
           }
-          className="h-10 rounded-xl border border-white/[0.1] bg-[#0d0f18] px-3 text-sm text-white focus:border-[#ca9ff5]/40 focus:outline-none"
+          className="h-11 rounded-xl border border-white/10 bg-black px-4 text-[15px] text-white focus:border-[#CA9FF5]/40 focus:outline-none transition-colors"
         >
           <option value="all">All categories</option>
           <option value="standard">Standard</option>
@@ -228,7 +263,7 @@ function Filters({
         <select
           value={type}
           onChange={(e) => onTypeChange(e.target.value as SIMDType | "all")}
-          className="h-10 rounded-xl border border-white/[0.1] bg-[#0d0f18] px-3 text-sm text-white focus:border-[#ca9ff5]/40 focus:outline-none"
+          className="h-11 rounded-xl border border-white/10 bg-black px-4 text-[15px] text-white focus:border-[#CA9FF5]/40 focus:outline-none transition-colors"
         >
           <option value="all">All types</option>
           <option value="core">Core</option>
@@ -253,43 +288,50 @@ function SIMDListItem({
     <button
       type="button"
       onClick={onClick}
-      className="group grid w-full gap-3 border-b border-white/[0.06] py-4 text-left transition-colors hover:bg-white/[0.01] md:grid-cols-[90px_minmax(0,1fr)_180px_200px] md:gap-4 md:px-2"
+      className="group flex w-full flex-row items-start gap-4 border-b border-white/10 p-[24px_0] xl:p-[24px_12px] text-left transition-colors"
     >
-      {/* SIMD number + badge */}
-      <div className="space-y-1.5">
-        <div className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#ca9ff5]">
-          SIMD-{upgrade.simdNumber}
-        </div>
-        <StatusBadge status={upgrade.status} />
+      {/* Cross icon */}
+      <div className="hidden shrink-0 pt-1 md:block leading-6 text-[#555568] group-hover:text-[#CA9FF5] transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
+        </svg>
       </div>
 
-      {/* Title + description */}
-      <div className="min-w-0 space-y-1">
-        <h3 className="truncate text-[15px] font-medium text-white group-hover:text-[#e8e0f8]">
+      {/* Content */}
+      <div className="min-w-0 grow">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[13px] font-medium uppercase tracking-[0.25em] text-[#CA9FF5]">
+            SIMD-{upgrade.simdNumber}
+          </span>
+          <StatusBadge status={upgrade.status} />
+          {upgrade.expectedRelease ? (
+            <span className="text-[13px] tracking-wide text-[#555568]">
+              {upgrade.expectedRelease}
+            </span>
+          ) : null}
+        </div>
+        <p className="m-0 mt-1 font-medium text-base md:text-xl tracking-[-0.16px] md:tracking-[-0.2px] leading-[1.5] md:leading-[1.4] text-white group-hover:text-[#e8e0f8] transition-colors">
           {upgrade.title}
-        </h3>
-        <p className="line-clamp-1 text-[13px] leading-relaxed text-[#8f8fa3]">
+        </p>
+        <p className="m-0 mt-1 line-clamp-1 text-[#ABABBA] text-base tracking-[-0.16px] leading-[1.5]">
           {upgrade.description || upgrade.editorialNote || upgrade.summary}
         </p>
-        {upgrade.expectedRelease ? (
-          <span className="text-[11px] tracking-wide text-[#66667a]">
-            {upgrade.expectedRelease}
-          </span>
-        ) : null}
       </div>
 
-      {/* Progress */}
-      <div className="flex items-center">
+      {/* Progress + Date */}
+      <div className="hidden shrink-0 flex-col items-end gap-3 md:flex">
         <StatusProgress status={upgrade.status} compact />
-      </div>
-
-      {/* Date */}
-      <div className="flex items-center justify-end text-right">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#555568]">
+        <div className="text-right">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-[#555568]">
             Updated
           </div>
-          <div className="text-xs text-[#8f8fa3]">
+          <div className="text-[13px] text-[#ABABBA]">
             {formatDate(upgrade.updatedDate || upgrade.createdDate)}
           </div>
         </div>
@@ -352,66 +394,78 @@ export default function UpgradesClientPage({
         onSelectSimd={(slug) => setSelectedSlug(slug)}
       />
 
+      <Divider />
+
       {/* Featured */}
       {!isFiltered && featured.length > 0 ? (
-        <section className="space-y-4">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-[#ca9ff5]">
-            Featured upgrades
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((upgrade) => (
-              <FeaturedCard
-                key={upgrade.id}
-                upgrade={upgrade}
-                onClick={() => setSelectedSlug(upgrade.slug)}
-              />
-            ))}
-          </div>
-        </section>
+        <>
+          <section className="relative text-left text-white">
+            <div className="mx-auto max-w-[1440px] px-[20px] py-[64px] md:px-[32px] md:py-[112px] xl:px-[40px] xl:py-[160px]">
+              <div className="mb-[32px] xl:mb-[48px]">
+                <h2 className="m-0 font-sans font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
+                  Featured upgrades
+                </h2>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {featured.map((upgrade) => (
+                  <FeaturedCard
+                    key={upgrade.id}
+                    upgrade={upgrade}
+                    onClick={() => setSelectedSlug(upgrade.slug)}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <Divider />
+        </>
       ) : null}
 
       {/* Filters + List */}
-      <section className="space-y-4">
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.3em] text-[#ca9ff5]">
-          All tracked SIMDs
-        </h2>
-
-        <Filters
-          status={status}
-          category={category}
-          type={type}
-          search={search}
-          onStatusChange={setStatus}
-          onCategoryChange={setCategory}
-          onTypeChange={setType}
-          onSearchChange={setSearch}
-        />
-
-        <div>
-          <div className="flex items-baseline justify-between border-b border-white/[0.08] pb-3">
-            <span className="text-xs text-[#8f8fa3]">
+      <section className="relative text-left text-white">
+        <div className="mx-auto max-w-[1440px] px-[20px] py-[64px] md:px-[32px] md:py-[112px] xl:px-[40px] xl:py-[160px]">
+          <div className="mb-[32px] xl:mb-[48px]">
+            <h2 className="m-0 font-sans font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
+              All tracked SIMDs
+            </h2>
+            <p className="m-0 mt-2 text-[#ABABBA] text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
               {filteredUpgrades.length} result
               {filteredUpgrades.length !== 1 ? "s" : ""}
-            </span>
+            </p>
           </div>
 
-          {filteredUpgrades.length > 0 ? (
-            <div>
-              {filteredUpgrades.map((upgrade) => (
-                <SIMDListItem
-                  key={upgrade.id}
-                  upgrade={upgrade}
-                  onClick={() => setSelectedSlug(upgrade.slug)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.01] py-16">
-              <p className="text-sm text-[#66667a]">
-                No SIMDs match the current filters.
-              </p>
-            </div>
-          )}
+          <Filters
+            status={status}
+            category={category}
+            type={type}
+            search={search}
+            onStatusChange={setStatus}
+            onCategoryChange={setCategory}
+            onTypeChange={setType}
+            onSearchChange={setSearch}
+          />
+
+          <div className="mt-8">
+            {filteredUpgrades.length > 0 ? (
+              <div>
+                {filteredUpgrades.map((upgrade) => (
+                  <SIMDListItem
+                    key={upgrade.id}
+                    upgrade={upgrade}
+                    onClick={() => setSelectedSlug(upgrade.slug)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center rounded-2xl border border-white/10 py-24">
+                <p className="m-0 text-[#555568] text-lg">
+                  No SIMDs match the current filters.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
