@@ -1,31 +1,20 @@
 "use client";
 
 import {
+  DocsCodeSnippet,
+  type DocsCodeSnippetProps,
+} from "@/app/components/docs-code-snippet";
+import {
   ResponsiveBox,
   ResponsiveStyles,
 } from "@/component-library/responsive-box";
 import {
   CardDeck,
-  CodeBlock,
   Heading,
   Hero,
   Section,
 } from "@solana-foundation/solana-lib";
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-
-function ClientOnlyCodeBlock({
-  code,
-  language,
-}: {
-  code: string;
-  language: React.ComponentProps<typeof CodeBlock>["language"];
-}) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  return <CodeBlock code={code} language={language} />;
-}
 import {
   BLOCK_STYLES,
   NAV_BUTTONS,
@@ -185,15 +174,13 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
                           );
                         }
                         return (
-                          <ClientOnlyCodeBlock
+                          <DocsCodeSnippet
                             key={i}
                             code={segment.code}
                             language={
                               (SUPPORTED_CODE_LANGUAGES.has(segment.language)
                                 ? segment.language
-                                : "bash") as React.ComponentProps<
-                                typeof CodeBlock
-                              >["language"]
+                                : "bash") as DocsCodeSnippetProps["language"]
                             }
                           />
                         );
