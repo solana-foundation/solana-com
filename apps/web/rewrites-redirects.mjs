@@ -313,6 +313,16 @@ export default {
         destination: `${DOCS_APP_URL}/developers/guides/:path*`,
         locale: false,
       },
+      {
+        source: "/developers/bootcamp",
+        destination: `${DOCS_APP_URL}/developers/bootcamp`,
+        locale: false,
+      },
+      {
+        source: "/developers/bootcamp/:path*",
+        destination: `${DOCS_APP_URL}/developers/bootcamp/:path*`,
+        locale: false,
+      },
       // Docs app with locale
       {
         source: "/:locale/docs",
@@ -372,6 +382,16 @@ export default {
       {
         source: "/:locale/developers/guides/:path*",
         destination: `${DOCS_APP_URL}/:locale/developers/guides/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/bootcamp",
+        destination: `${DOCS_APP_URL}/:locale/developers/bootcamp`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/bootcamp/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/bootcamp/:path*`,
         locale: false,
       },
     ],
