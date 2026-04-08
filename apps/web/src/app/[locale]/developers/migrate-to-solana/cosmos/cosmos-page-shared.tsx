@@ -19,12 +19,14 @@ export function AnimatedHeroSection({
   body,
   buttons,
   showScene = true,
+  compact = false,
 }: {
   eyebrow: string;
   headline: string;
   body: string;
   buttons: HeroButton[];
   showScene?: boolean;
+  compact?: boolean;
 }) {
   return (
     <section className="relative overflow-hidden bg-black border-b border-white/10">
@@ -42,18 +44,42 @@ export function AnimatedHeroSection({
         />
       ) : null}
 
-      <div className="relative z-10 max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-16 md:py-28 xl:py-40 w-full">
-        <div className="flex flex-col gap-6 max-w-3xl">
+      <div
+        className={[
+          "relative z-10 max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 w-full",
+          compact
+            ? "pt-10 pb-12 md:pt-12 md:pb-14 xl:pt-14 xl:pb-16"
+            : "py-16 md:py-28 xl:py-40",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "flex flex-col gap-6",
+            compact ? "max-w-2xl" : "max-w-3xl",
+          ].join(" ")}
+        >
           {eyebrow && (
             <p className="text-xs font-medium text-sky-300/80 uppercase tracking-widest mb-0">
               {eyebrow}
             </p>
           )}
-          <h1 className="text-[40px] md:text-[56px] xl:text-[88px] font-brand font-medium text-white leading-[1.1] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px] mb-0">
+          <h1
+            className={[
+              "font-brand font-medium text-white leading-[1.1] mb-0",
+              compact
+                ? "text-[40px] md:text-[50px] xl:text-[62px] tracking-[-1.6px] md:tracking-[-2px] xl:tracking-[-2.48px]"
+                : "text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]",
+            ].join(" ")}
+          >
             {headline}
           </h1>
           <div
-            className="text-[#ABABBA] text-lg md:text-2xl text-pretty leading-[1.33] tracking-[-0.36px] md:tracking-[-0.48px] mb-0 [&_p]:m-0"
+            className={[
+              "text-[#ABABBA] text-pretty leading-[1.33] mb-0 [&_p]:m-0",
+              compact
+                ? "text-lg md:text-xl tracking-[-0.36px] md:tracking-[-0.4px]"
+                : "text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px]",
+            ].join(" ")}
             dangerouslySetInnerHTML={{ __html: body }}
           />
           {buttons.length > 0 && (

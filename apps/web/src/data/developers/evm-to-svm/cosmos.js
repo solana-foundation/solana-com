@@ -1,5 +1,5 @@
 export const PATH_CARD_DECK = {
-  numCols: 3,
+  numCols: 2,
   featured: false,
   cards: [
     {
@@ -8,7 +8,7 @@ export const PATH_CARD_DECK = {
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff1d4c0384bf94fd4bd51807305310e9e.png",
       },
-      backgroundGradient: "aqua",
+      backgroundGradient: "purple",
       callToAction: {
         url: "/developers/migrate-to-solana/cosmos/cosmwasm",
         size: "md",

@@ -7,32 +7,15 @@ import {
   PATH_CARD_DECK,
   RESOURCE_CARD_DECK,
 } from "@/data/developers/evm-to-svm/cosmos";
-import {
-  AnimatedHeroSection,
-  SectionDivider,
-  type HeroButton,
-} from "./cosmos-page-shared";
+import { AnimatedHeroSection, SectionDivider } from "./cosmos-page-shared";
 
 export function DevelopersChainMigrationCosmosPage() {
   const t = useTranslations("developers-chain-migration-cosmos");
   const blockSpacing = { large: { marginTop: "48px" } };
 
-  const heroButtons: HeroButton[] = [
-    {
-      hierarchy: "primary",
-      label: t("hero.buttons.0.label"),
-      url: "/developers/migrate-to-solana/cosmos/cosmwasm",
-    },
-    {
-      hierarchy: "outline",
-      label: t("hero.buttons.1.label"),
-      url: "/developers/migrate-to-solana/cosmos/app-chain",
-    },
-  ];
-
   const pathCards = PATH_CARD_DECK.cards.map((card, index) => ({
     ...card,
-    eyebrow: t(`pathCardDeck.cards.${index}.eyebrow`),
+    eyebrow: "",
     heading: t(`pathCardDeck.cards.${index}.heading`),
     body: t(`pathCardDeck.cards.${index}.body`),
     callToAction: {
@@ -57,27 +40,32 @@ export function DevelopersChainMigrationCosmosPage() {
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
         body={t.raw("hero.body")}
-        buttons={heroButtons}
-        showScene={false}
+        buttons={[
+          {
+            label: "Smart Contract Developers",
+            url: "/developers/migrate-to-solana/cosmos/cosmwasm",
+            hierarchy: "primary",
+          },
+          {
+            label: "App Chain Developers",
+            url: "/developers/migrate-to-solana/cosmos/app-chain",
+            hierarchy: "outline",
+          },
+        ]}
+        showScene={true}
       />
 
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <Heading
-          eyebrow={t("pathHeading.eyebrow")}
-          headline={t("pathHeading.headline")}
-          body={t("pathHeading.body")}
+      <div className="cosmos-path-card-deck">
+        <CardDeck
+          cards={pathCards as React.ComponentProps<typeof CardDeck>["cards"]}
+          numCols={
+            PATH_CARD_DECK.numCols as React.ComponentProps<
+              typeof CardDeck
+            >["numCols"]
+          }
+          featured={PATH_CARD_DECK.featured}
         />
-      </ResponsiveBox>
-
-      <CardDeck
-        cards={pathCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          PATH_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={PATH_CARD_DECK.featured}
-      />
+      </div>
 
       <SectionDivider />
 
@@ -98,6 +86,23 @@ export function DevelopersChainMigrationCosmosPage() {
         }
         featured={RESOURCE_CARD_DECK.featured}
       />
+
+      <style jsx global>{`
+        .cosmos-path-card-deck
+          a[href^="/developers/migrate-to-solana/cosmos/"] {
+          justify-content: flex-start !important;
+        }
+        @media (max-width: 767px) {
+          .cosmos-path-card-deck
+            a[href^="/developers/migrate-to-solana/cosmos/"] {
+            height: auto !important;
+            min-height: 0 !important;
+            padding-top: 1.25rem !important;
+            padding-bottom: 1.25rem !important;
+            gap: 0.875rem !important;
+          }
+        }
+      `}</style>
     </>
   );
 }
