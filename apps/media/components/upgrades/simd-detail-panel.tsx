@@ -33,7 +33,7 @@ function MetaRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-3.5">
+    <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-2">
       <span className="shrink-0 text-xs font-medium uppercase tracking-[0.2em] text-[#555568]">
         {label}
       </span>
@@ -189,7 +189,7 @@ export function SIMDDetailPanel({
                         {/* Related SIMDs */}
                         {upgrade.relatedSimds.length > 0 ? (
                           <div className="space-y-3">
-                            <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
+                            <h3 className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                               Related SIMDs
                             </h3>
                             <div className="flex flex-wrap gap-2">
@@ -241,12 +241,9 @@ export function SIMDDetailPanel({
                           ) : null}
                         </div>
 
-                        {/* Divider */}
-                        <hr className="m-0 border-t border-white/10" />
-
                         {/* Update History */}
                         <div className="space-y-4">
-                          <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
+                          <h3 className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                             Update history
                           </h3>
                           {notes.length > 0 ? (
