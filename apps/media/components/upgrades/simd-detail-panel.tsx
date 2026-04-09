@@ -26,6 +26,19 @@ function formatDate(value: string | null | undefined) {
   }).format(date);
 }
 
+function getMostRecentNoteDate(notes: UpgradeNote[]) {
+  const mostRecentTimestamp = notes.reduce<number | null>((latest, note) => {
+    const timestamp = new Date(note.publishedAt).getTime();
+    if (Number.isNaN(timestamp)) return latest;
+    if (latest === null || timestamp > latest) return timestamp;
+    return latest;
+  }, null);
+
+  return mostRecentTimestamp === null
+    ? null
+    : new Date(mostRecentTimestamp).toISOString();
+}
+
 function MetaRow({
   label,
   children,
@@ -60,6 +73,10 @@ export function SIMDDetailPanel({
   const expectedRelease = notes.find(
     (note) => note.expectedRelease,
   )?.expectedRelease;
+  const lastUpdated =
+    getMostRecentNoteDate(notes) ||
+    upgrade?.updatedDate ||
+    upgrade?.createdDate;
 
   return (
     <Dialog open={!!upgrade} onClose={onClose} className="relative z-50">
@@ -173,9 +190,7 @@ export function SIMDDetailPanel({
                             {formatDate(upgrade.createdDate)}
                           </MetaRow>
                           <MetaRow label="Updated">
-                            {formatDate(
-                              upgrade.updatedDate || upgrade.createdDate,
-                            )}
+                            {formatDate(lastUpdated)}
                           </MetaRow>
                           {upgrade.featureGate &&
                           !upgrade.featureGate.includes("fill in") &&
