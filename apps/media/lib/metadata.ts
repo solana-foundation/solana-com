@@ -204,7 +204,7 @@ export async function categoryListingMetadata(
 export async function upgradesListingMetadata(): Promise<Metadata> {
   const overview = await fetchUpgradeOverview();
   const canonicalUrl = `${publicUrl}/upgrades`;
-  const title = overview?.title || "Solana Upgrades";
+  const title = "Solana Upgrades";
   const description =
     overview?.intro?.split("\n")[0] ||
     "Track major protocol upgrades and related SIMDs across the Solana network.";
