@@ -33,6 +33,10 @@ async function transformNote(
     upgradeTitle,
     simdNumber,
     publishedAt: typeof note.publishedAt === "string" ? note.publishedAt : "",
+    expectedRelease:
+      typeof note.expectedRelease === "string" && note.expectedRelease.trim()
+        ? note.expectedRelease
+        : undefined,
     body: String(note.body || ""),
   };
 }

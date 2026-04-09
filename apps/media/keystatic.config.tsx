@@ -589,11 +589,6 @@ export default config({
         }),
         createdDate: fields.text({ label: "Created Date" }),
         updatedDate: fields.text({ label: "Updated Date" }),
-        expectedRelease: fields.text({
-          label: "Expected Release",
-          description:
-            'Target client version, e.g. "Agave 4.1" or "Available in Agave 3.0+"',
-        }),
         featureGate: fields.text({ label: "Feature Gate" }),
         githubUrl: fields.text({
           label: "GitHub URL",
@@ -663,6 +658,11 @@ export default config({
           label: "Published Date",
           description: "When this note was published (UTC)",
           validation: { isRequired: true },
+        }),
+        expectedRelease: fields.text({
+          label: "Expected Release",
+          description:
+            'Target client version, e.g. "Agave 4.1" or "Available in Agave 3.0+"',
         }),
         body: fields.text({
           label: "Note",

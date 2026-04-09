@@ -6,6 +6,7 @@ import {
   DialogPanel,
   TransitionChild,
 } from "@headlessui/react";
+import { Github } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,10 @@ export function SIMDDetailPanel({
   onClose: () => void;
   onSelectSimd: (_slug: string) => void;
 }) {
+  const expectedRelease = notes.find(
+    (note) => note.expectedRelease,
+  )?.expectedRelease;
+
   return (
     <Dialog open={!!upgrade} onClose={onClose} className="relative z-50">
       <DialogBackdrop
@@ -95,9 +100,21 @@ export function SIMDDetailPanel({
                           </svg>
                           Back
                         </Button>
-                        <span className="text-[13px] font-medium uppercase tracking-[0.28em] text-[#CA9FF5]">
-                          SIMD-{upgrade.simdNumber}
-                        </span>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full border-white/15 bg-white/[0.04] px-3 text-[13px] font-medium uppercase tracking-[0.28em] text-[#CA9FF5] hover:border-white/25 hover:bg-white/[0.08] hover:text-white dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+                        >
+                          <Link
+                            href={upgrade.githubUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Github className="size-4 text-white" />
+                            SIMD-{upgrade.simdNumber}
+                          </Link>
+                        </Button>
                       </div>
 
                       <div className="flex-1 space-y-8 px-6 py-8">
@@ -108,9 +125,9 @@ export function SIMDDetailPanel({
                           </h2>
                           <div className="flex items-center gap-3">
                             <StatusBadge status={upgrade.status} />
-                            {upgrade.expectedRelease ? (
+                            {expectedRelease ? (
                               <span className="text-[13px] tracking-wide text-[#ABABBA]">
-                                {upgrade.expectedRelease}
+                                {expectedRelease}
                               </span>
                             ) : null}
                           </div>
@@ -207,26 +224,6 @@ export function SIMDDetailPanel({
 
                         {/* Links */}
                         <div className="flex flex-wrap gap-5">
-                          <Button
-                            asChild
-                            variant="link"
-                            className="h-auto px-0 text-[15px] text-white decoration-white/15 hover:decoration-white"
-                          >
-                            <Link
-                              href={upgrade.githubUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-                              </svg>
-                              Proposal
-                            </Link>
-                          </Button>
                           {upgrade.discussionUrl ? (
                             <Button
                               asChild

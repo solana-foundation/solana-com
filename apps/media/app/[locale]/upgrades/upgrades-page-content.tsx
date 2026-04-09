@@ -27,11 +27,19 @@ export async function UpgradesPageContent({
     ]);
 
   const notesMap: Record<string, UpgradeNote[]> = {};
+  const expectedReleaseByUpgradeSlug: Record<string, string> = {};
   for (const note of allNotes) {
     if (!notesMap[note.upgradeSlug]) {
       notesMap[note.upgradeSlug] = [];
     }
     notesMap[note.upgradeSlug].push(note);
+
+    if (
+      !expectedReleaseByUpgradeSlug[note.upgradeSlug] &&
+      note.expectedRelease
+    ) {
+      expectedReleaseByUpgradeSlug[note.upgradeSlug] = note.expectedRelease;
+    }
   }
 
   const featuredIds = new Set(featured.map((f) => f.id));
@@ -98,6 +106,7 @@ export async function UpgradesPageContent({
         upgrades={listUpgrades}
         latestNotes={latestNotes}
         notesMap={notesMap}
+        expectedReleaseByUpgradeSlug={expectedReleaseByUpgradeSlug}
         statusGuide={overview?.statusGuide}
         initialSelectedSlug={initialSelectedSlug}
       />

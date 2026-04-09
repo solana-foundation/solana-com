@@ -146,11 +146,6 @@ async function transformUpgrade(
       typeof upgrade.createdDate === "string" ? upgrade.createdDate : null,
     updatedDate:
       typeof upgrade.updatedDate === "string" ? upgrade.updatedDate : null,
-    expectedRelease:
-      typeof upgrade.expectedRelease === "string" &&
-      upgrade.expectedRelease.trim()
-        ? upgrade.expectedRelease
-        : undefined,
     featureGate:
       typeof upgrade.featureGate === "string" && upgrade.featureGate.trim()
         ? upgrade.featureGate
@@ -252,7 +247,6 @@ export async function fetchUpgrades(
           upgrade.summary,
           upgrade.description || "",
           upgrade.editorialNote || "",
-          upgrade.expectedRelease || "",
         ]
           .join(" ")
           .toLowerCase();
