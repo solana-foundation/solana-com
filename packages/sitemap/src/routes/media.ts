@@ -1,14 +1,16 @@
-const fs = require("fs");
-const path = require("path");
-const {
-  createSitemapEntry,
+import fs from "node:fs";
+import path from "node:path";
+import { repoRoot } from "../constants";
+import type { RouteGenerator } from "../types";
+import {
+  createLocalizedEntries,
   dedupeEntries,
-  localizedPaths,
-} = require("./shared");
+  getFileLastModified,
+} from "../utils";
 
-const MEDIA_CONTENT_ROOT = path.join(__dirname, "../../../../media/content");
+const mediaContentRoot = path.join(repoRoot, "apps", "media", "content");
 
-function parseScalar(value) {
+function parseScalar(value: string) {
   const trimmed = value.trim();
 
   if (
@@ -25,7 +27,7 @@ function parseScalar(value) {
   return trimmed;
 }
 
-function parseFrontmatter(fileContents) {
+function parseFrontmatter(fileContents: string) {
   if (!fileContents.startsWith("---\n")) {
     return {};
   }
@@ -36,8 +38,8 @@ function parseFrontmatter(fileContents) {
   }
 
   const frontmatter = fileContents.slice(4, endIndex);
-  const data = {};
-  let currentArrayKey = null;
+  const data: Record<string, unknown> = {};
+  let currentArrayKey: string | null = null;
 
   for (const rawLine of frontmatter.split("\n")) {
     const line = rawLine.replace(/\r$/, "");
@@ -49,13 +51,21 @@ function parseFrontmatter(fileContents) {
 
     const arrayItemMatch = trimmedLine.match(/^-\s+([A-Za-z0-9_]+):\s*(.*)$/);
     if (arrayItemMatch && currentArrayKey) {
-      const [, key, value] = arrayItemMatch;
+      const arrayKey = currentArrayKey;
+      const key = arrayItemMatch[1];
+      const value = arrayItemMatch[2] ?? "";
 
-      if (!Array.isArray(data[currentArrayKey])) {
-        data[currentArrayKey] = [];
+      if (!key) {
+        continue;
       }
 
-      data[currentArrayKey].push({ [key]: parseScalar(value) });
+      if (!Array.isArray(data[arrayKey])) {
+        data[arrayKey] = [];
+      }
+
+      (data[arrayKey] as Array<Record<string, unknown>>).push({
+        [key]: parseScalar(value),
+      });
       continue;
     }
 
@@ -64,7 +74,12 @@ function parseFrontmatter(fileContents) {
       continue;
     }
 
-    const [, key, value] = keyMatch;
+    const key = keyMatch[1];
+    const value = keyMatch[2] ?? "";
+
+    if (!key) {
+      continue;
+    }
 
     if (!value) {
       data[key] = [];
@@ -79,8 +94,24 @@ function parseFrontmatter(fileContents) {
   return data;
 }
 
-function readContentEntries(relativeDir, { filter, mapEntry }) {
-  const contentDir = path.join(MEDIA_CONTENT_ROOT, relativeDir);
+function readContentEntries<T>(
+  relativeDir: string,
+  options: {
+    filter?: (entry: {
+      data: Record<string, unknown>;
+      content: string;
+      fileName: string;
+      filePath: string;
+    }) => boolean;
+    mapEntry: (entry: {
+      data: Record<string, unknown>;
+      content: string;
+      fileName: string;
+      filePath: string;
+    }) => T;
+  },
+) {
+  const contentDir = path.join(mediaContentRoot, relativeDir);
 
   if (!fs.existsSync(contentDir)) {
     return [];
@@ -100,29 +131,29 @@ function readContentEntries(relativeDir, { filter, mapEntry }) {
           ? { data: parseFrontmatter(fileContents), content: fileContents }
           : { data: {}, content: fileContents };
 
-        if (filter && !filter({ ...parsed, fileName, filePath })) {
+        if (
+          options.filter &&
+          !options.filter({ ...parsed, fileName, filePath })
+        ) {
           return [];
         }
 
-        return mapEntry({ ...parsed, fileName, filePath });
+        return options.mapEntry({ ...parsed, fileName, filePath });
       } catch (error) {
-        console.error(`Error processing ${filePath}:`, error.message);
+        console.error(
+          `Error processing media sitemap source ${filePath}`,
+          error,
+        );
         return [];
       }
     });
 }
 
-function createLocalizedEntries(routePath, options = {}) {
-  return localizedPaths(routePath).map((loc) =>
-    createSitemapEntry(loc, options),
-  );
-}
-
-function getMediaPostUrls() {
-  const categoryPaths = new Set();
+function getMediaPostEntries() {
+  const categoryPaths = new Set<string>();
   const entries = [
     ...createLocalizedEntries("/news", {
-      changefreq: "daily",
+      changeFrequency: "daily",
       priority: 0.8,
     }),
   ];
@@ -130,12 +161,14 @@ function getMediaPostUrls() {
   const postEntries = readContentEntries("posts", {
     filter: ({ data }) => data.status === "published",
     mapEntry: ({ data, fileName }) => {
-      const slug = data.slug || fileName.replace(/\.mdx$/, "");
-      const lastmod = data.publishedAt
-        ? new Date(data.publishedAt).toISOString()
+      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const lastModified = data.publishedAt
+        ? new Date(String(data.publishedAt)).toISOString()
         : undefined;
 
-      for (const categoryItem of data.categories || []) {
+      for (const categoryItem of (data.categories as Array<
+        string | { category?: string }
+      >) || []) {
         const categorySlug =
           typeof categoryItem === "string"
             ? categoryItem
@@ -147,8 +180,8 @@ function getMediaPostUrls() {
       }
 
       return createLocalizedEntries(`/news/${slug}`, {
-        lastmod,
-        changefreq: "weekly",
+        lastModified,
+        changeFrequency: "weekly",
         priority: 0.7,
       });
     },
@@ -157,7 +190,7 @@ function getMediaPostUrls() {
   for (const categoryPath of categoryPaths) {
     entries.push(
       ...createLocalizedEntries(categoryPath, {
-        changefreq: "weekly",
+        changeFrequency: "weekly",
         priority: 0.6,
       }),
     );
@@ -166,10 +199,10 @@ function getMediaPostUrls() {
   return dedupeEntries([...entries, ...postEntries.flat()]);
 }
 
-function getMediaPodcastUrls() {
+function getMediaPodcastEntries() {
   const entries = [
     ...createLocalizedEntries("/podcasts", {
-      changefreq: "weekly",
+      changeFrequency: "weekly",
       priority: 0.8,
     }),
   ];
@@ -177,14 +210,14 @@ function getMediaPodcastUrls() {
   const podcastEntries = readContentEntries("podcasts", {
     filter: ({ data }) => data.status !== "inactive",
     mapEntry: ({ data, fileName }) => {
-      const slug = data.slug || fileName.replace(/\.mdx$/, "");
-      const lastmod = data.firstEpisodeDate
-        ? new Date(data.firstEpisodeDate).toISOString()
+      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const lastModified = data.firstEpisodeDate
+        ? new Date(String(data.firstEpisodeDate)).toISOString()
         : undefined;
 
       return createLocalizedEntries(`/podcasts/${slug}`, {
-        lastmod,
-        changefreq: "weekly",
+        lastModified,
+        changeFrequency: "weekly",
         priority: 0.7,
       });
     },
@@ -193,10 +226,10 @@ function getMediaPodcastUrls() {
   return dedupeEntries([...entries, ...podcastEntries.flat()]);
 }
 
-function getMediaReportUrls() {
+function getMediaReportEntries() {
   const entries = [
     ...createLocalizedEntries("/reports", {
-      changefreq: "weekly",
+      changeFrequency: "weekly",
       priority: 0.8,
     }),
   ];
@@ -204,14 +237,14 @@ function getMediaReportUrls() {
   const reportEntries = readContentEntries("switchbacks", {
     filter: ({ data }) => Boolean(data.isReport) && data.status === "published",
     mapEntry: ({ data, fileName }) => {
-      const slug = data.slug || fileName.replace(/\.mdx$/, "");
-      const lastmod = data.publishedAt
-        ? new Date(data.publishedAt).toISOString()
+      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const lastModified = data.publishedAt
+        ? new Date(String(data.publishedAt)).toISOString()
         : undefined;
 
       return createLocalizedEntries(`/reports/${slug}`, {
-        lastmod,
-        changefreq: "monthly",
+        lastModified,
+        changeFrequency: "monthly",
         priority: 0.7,
       });
     },
@@ -220,8 +253,8 @@ function getMediaReportUrls() {
   return dedupeEntries([...entries, ...reportEntries.flat()]);
 }
 
-function getUpgradeUrls() {
-  const upgradesDir = path.join(MEDIA_CONTENT_ROOT, "upgrades");
+function getUpgradeEntries() {
+  const upgradesDir = path.join(mediaContentRoot, "upgrades");
 
   if (!fs.existsSync(upgradesDir)) {
     return [];
@@ -229,7 +262,7 @@ function getUpgradeUrls() {
 
   const entries = [
     ...createLocalizedEntries("/upgrades", {
-      changefreq: "weekly",
+      changeFrequency: "weekly",
       priority: 0.8,
     }),
   ];
@@ -244,8 +277,8 @@ function getUpgradeUrls() {
 
     entries.push(
       ...createLocalizedEntries(`/upgrades/${slug}`, {
-        lastmod: fs.statSync(filePath).mtime.toISOString(),
-        changefreq: "weekly",
+        lastModified: getFileLastModified(filePath),
+        changeFrequency: "weekly",
         priority: 0.7,
       }),
     );
@@ -254,9 +287,16 @@ function getUpgradeUrls() {
   return dedupeEntries(entries);
 }
 
-module.exports = {
-  getMediaPodcastUrls,
-  getMediaPostUrls,
-  getMediaReportUrls,
-  getUpgradeUrls,
+export const mediaRoutes: RouteGenerator = () => {
+  try {
+    return dedupeEntries([
+      ...getMediaPostEntries(),
+      ...getMediaPodcastEntries(),
+      ...getMediaReportEntries(),
+      ...getUpgradeEntries(),
+    ]);
+  } catch (error) {
+    console.error("Failed to build media sitemap routes", error);
+    return [];
+  }
 };
