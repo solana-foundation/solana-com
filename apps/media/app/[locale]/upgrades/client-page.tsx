@@ -218,6 +218,8 @@ const STATUS_OPTIONS: { label: string; value: SIMDStatus | "all" }[] = [
   { label: "Activated", value: "activated" },
 ];
 
+const STICKY_HEADER_OFFSET_CLASS = "top-[65px]";
+
 function Filters({
   status,
   category,
@@ -491,7 +493,7 @@ function ActivitySidebar({
       aria-label="Recent activity"
       className="w-full shrink-0 lg:w-[280px] lg:pl-6 xl:w-[320px]"
     >
-      <div className="sticky top-0 pt-1">
+      <div className={`sticky ${STICKY_HEADER_OFFSET_CLASS} pt-1`}>
         <div className="mb-3 flex items-center gap-2">
           <h2 className="m-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
             Recent activity
@@ -667,7 +669,9 @@ export default function UpgradesClientPage({
             </div>
 
             {/* Sticky filter bar */}
-            <div className="sticky top-0 z-20 -mx-5 bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
+            <div
+              className={`sticky ${STICKY_HEADER_OFFSET_CLASS} z-20 -mx-5 bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8`}
+            >
               <Filters
                 status={status}
                 category={category}
