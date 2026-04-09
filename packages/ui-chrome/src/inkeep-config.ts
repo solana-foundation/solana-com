@@ -815,9 +815,41 @@ export function InkeepProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!shouldForceSearchView || !isOpen) return;
 
-    searchFunctionsRef.current?.updateQuery(searchQuery);
-    searchFunctionsRef.current?.focusInput();
-  }, [isOpen, searchQuery, shouldForceSearchView]);
+    let frameId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+
+    const syncSearchQuery = () => {
+      const searchFunctions = searchFunctionsRef.current;
+
+      if (searchFunctions) {
+        searchFunctions.updateQuery(searchQuery);
+        searchFunctions.focusInput();
+        return;
+      }
+
+      if (attempts >= 10) {
+        return;
+      }
+
+      attempts += 1;
+      timeoutId = setTimeout(() => {
+        frameId = window.requestAnimationFrame(syncSearchQuery);
+      }, 50);
+    };
+
+    syncSearchQuery();
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isOpen, searchQuery, shouldForceSearchView, shouldRenderModal]);
 
   const value = useMemo<InkeepConfigContextValue>(
     () => ({
