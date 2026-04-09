@@ -1,7 +1,15 @@
 const {
+  getUpgradeUrls,
+  getMediaReportUrls,
   getMediaPostUrls,
   getMediaPodcastUrls,
 } = require("./src/lib/sitemap/media-urls");
+const { getDocsUrls } = require("./src/lib/sitemap/docs-urls");
+const {
+  createSitemapEntry,
+  dedupeEntries,
+  localizedPaths,
+} = require("./src/lib/sitemap/shared");
 const https = require("https");
 const accelerateSitemapRoutes = require("../accelerate/src/app/sitemap-routes.json");
 
@@ -46,41 +54,55 @@ module.exports = {
     };
   },
   additionalPaths: async () => {
-    // Fetch media app posts (replaces old Builder post model)
     const mediaPostUrls = getMediaPostUrls();
-
-    // Fetch media app podcasts
     const mediaPodcastUrls = getMediaPodcastUrls();
+    const mediaReportUrls = getMediaReportUrls();
+    const upgradeUrls = getUpgradeUrls();
+    const docsUrls = getDocsUrls();
 
-    // Fetch templates and add to sitemap
     const templates = await fetchTemplates();
     const templateUrls = [
-      {
-        loc: "/templates",
+      createSitemapEntry("/developers/templates", {
         lastmod: new Date().toISOString(),
         changefreq: "weekly",
         priority: 0.8,
-      },
-      ...templates.map((template) => ({
-        loc: `/templates/${template.name}`,
+      }),
+      ...templates.map((template) =>
+        createSitemapEntry(`/developers/templates/${template.name}`, {
+          lastmod: new Date().toISOString(),
+          changefreq: "weekly",
+          priority: 0.7,
+        }),
+      ),
+    ];
+
+    const accelerateUrls = accelerateSitemapRoutes.flatMap((route) =>
+      localizedPaths(`/accelerate${route.path}`).map((loc) =>
+        createSitemapEntry(loc, {
+          lastmod: new Date().toISOString(),
+          changefreq: route.changeFrequency,
+          priority: route.priority,
+        }),
+      ),
+    );
+
+    const breakpointUrls = localizedPaths("/breakpoint").map((loc) =>
+      createSitemapEntry(loc, {
         lastmod: new Date().toISOString(),
         changefreq: "weekly",
-        priority: 0.7,
-      })),
-    ];
+        priority: 0.8,
+      }),
+    );
 
-    const accelerateUrls = accelerateSitemapRoutes.map((route) => ({
-      loc: `/accelerate${route.path}`,
-      lastmod: new Date().toISOString(),
-      changefreq: route.changeFrequency,
-      priority: route.priority,
-    }));
-
-    return [
+    return dedupeEntries([
+      ...docsUrls,
       ...mediaPostUrls,
       ...mediaPodcastUrls,
+      ...mediaReportUrls,
+      ...upgradeUrls,
       ...templateUrls,
       ...accelerateUrls,
-    ];
+      ...breakpointUrls,
+    ]);
   },
 };
