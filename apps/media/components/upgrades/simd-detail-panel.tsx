@@ -8,6 +8,7 @@ import {
 } from "@headlessui/react";
 import { Github } from "lucide-react";
 import Link from "next/link";
+import { Link as LocalizedLink } from "@workspace/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { UpgradeItem, UpgradeNote } from "@/lib/upgrade-types";
@@ -45,15 +46,16 @@ function MetaRow({
 export function SIMDDetailPanel({
   upgrade,
   notes,
-  relatedSimdSlugByNumber,
+  relatedSimdsByNumber,
   onClose,
-  onSelectSimd,
 }: {
   upgrade: UpgradeItem | null;
   notes: UpgradeNote[];
-  relatedSimdSlugByNumber: Record<string, string>;
+  relatedSimdsByNumber: Record<
+    string,
+    { slug: string; simdNumber: string; title: string }
+  >;
   onClose: () => void;
-  onSelectSimd: (_slug: string) => void;
 }) {
   const expectedRelease = notes.find(
     (note) => note.expectedRelease,
@@ -192,33 +194,33 @@ export function SIMDDetailPanel({
                             <h3 className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                               Related SIMDs
                             </h3>
-                            <div className="flex flex-wrap gap-2">
-                              {upgrade.relatedSimds.map((simd) =>
-                                relatedSimdSlugByNumber[simd] ? (
-                                  <Button
-                                    key={simd}
-                                    type="button"
-                                    onClick={() =>
-                                      onSelectSimd(
-                                        relatedSimdSlugByNumber[simd],
-                                      )
-                                    }
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-auto rounded-full border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-[#ABABBA] hover:border-[#CA9FF5]/30 hover:bg-white/[0.03] hover:text-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.03]"
-                                  >
-                                    SIMD-{simd}
-                                  </Button>
-                                ) : (
-                                  <span
-                                    key={simd}
-                                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-[#ABABBA]"
-                                  >
-                                    SIMD-{simd}
-                                  </span>
-                                ),
-                              )}
-                            </div>
+                            <ul className="m-0 space-y-2 p-0">
+                              {upgrade.relatedSimds.map((simd) => {
+                                const relatedSimd = relatedSimdsByNumber[simd];
+
+                                return (
+                                  <li key={simd} className="list-none">
+                                    {relatedSimd ? (
+                                      <LocalizedLink
+                                        href={`/upgrades/${relatedSimd.slug}`}
+                                        className="text-sm leading-relaxed text-[#ABABBA] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-[#CA9FF5]"
+                                      >
+                                        <span className="font-mono text-[#CA9FF5]">
+                                          SIMD-{relatedSimd.simdNumber}
+                                        </span>
+                                        {`: ${relatedSimd.title}`}
+                                      </LocalizedLink>
+                                    ) : (
+                                      <span className="text-sm leading-relaxed text-[#ABABBA]">
+                                        <span className="font-mono text-[#CA9FF5]">
+                                          SIMD-{simd}
+                                        </span>
+                                      </span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
                           </div>
                         ) : null}
 
