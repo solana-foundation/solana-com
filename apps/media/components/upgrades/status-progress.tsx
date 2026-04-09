@@ -30,7 +30,9 @@ function getStepState(step: SIMDStatus, currentStatus: SIMDStatus): StepState {
 
   if (currentIndex < 0) return "pending";
   if (stepIndex < currentIndex) return "completed";
-  if (stepIndex === currentIndex) return "current";
+  if (stepIndex === currentIndex) {
+    return step === "activated" ? "completed" : "current";
+  }
   return "pending";
 }
 
