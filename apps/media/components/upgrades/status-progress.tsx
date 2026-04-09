@@ -144,7 +144,7 @@ export function StatusProgress({
         );
       })}
 
-      {isTerminal ? (
+      {isTerminal && !compact ? (
         <span
           className={`${compact ? "ml-1 text-[7px]" : "ml-2 text-[9px]"} font-medium uppercase tracking-wider ${
             status === "withdrawn" ? "text-rose-500/60" : "text-zinc-600"
