@@ -13,10 +13,8 @@ import {
 import type { UpgradeNote } from "@/lib/upgrade-types";
 
 export async function UpgradesPageContent({
-  locale,
   initialSelectedSlug = null,
 }: {
-  locale: string;
   initialSelectedSlug?: string | null;
 }) {
   const [overview, featured, upgrades, latestNotes, allNotes] =
@@ -96,7 +94,6 @@ export async function UpgradesPageContent({
       </header>
 
       <UpgradesClientPage
-        locale={locale}
         featured={featured}
         upgrades={listUpgrades}
         latestNotes={latestNotes}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "@workspace/i18n/routing";
 import {
   Disclosure,
   DisclosureButton,
@@ -504,7 +505,6 @@ function ActivitySidebar({
 /* ─── Main Client Page ─── */
 
 export default function UpgradesClientPage({
-  locale,
   featured,
   upgrades,
   latestNotes,
@@ -512,7 +512,6 @@ export default function UpgradesClientPage({
   statusGuide,
   initialSelectedSlug = null,
 }: {
-  locale: string;
   featured: UpgradeItem[];
   upgrades: UpgradeItem[];
   latestNotes: UpgradeNote[];
@@ -524,6 +523,8 @@ export default function UpgradesClientPage({
   const [category, setCategory] = useState<SIMDCategory | "all">("all");
   const [type, setType] = useState<SIMDType | "all">("all");
   const [search, setSearch] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(
@@ -539,7 +540,7 @@ export default function UpgradesClientPage({
       Object.fromEntries(allItems.map((item) => [item.simdNumber, item.slug])),
     [allItems],
   );
-  const basePath = `/${locale}/upgrades`;
+  const basePath = "/upgrades";
   const selectedUpgrade = useMemo(
     () => allItems.find((u) => u.slug === selectedSlug) ?? null,
     [allItems, selectedSlug],
@@ -566,43 +567,36 @@ export default function UpgradesClientPage({
   }, [initialSelectedSlug]);
 
   useEffect(() => {
-    function syncSelectedSlugFromLocation() {
-      const currentPath = window.location.pathname.replace(/\/$/, "");
-      const detailPrefix = `${basePath}/`;
+    const currentPath = pathname.replace(/\/$/, "") || "/";
+    const detailPrefix = `${basePath}/`;
 
-      if (currentPath.startsWith(detailPrefix)) {
-        const nextSlug = decodeURIComponent(
-          currentPath.slice(detailPrefix.length),
-        );
-        setSelectedSlug(
-          allItems.some((item) => item.slug === nextSlug) ? nextSlug : null,
-        );
-        return;
-      }
-
-      setSelectedSlug(null);
+    if (currentPath.startsWith(detailPrefix)) {
+      const nextSlug = decodeURIComponent(
+        currentPath.slice(detailPrefix.length),
+      );
+      setSelectedSlug(
+        allItems.some((item) => item.slug === nextSlug) ? nextSlug : null,
+      );
+      return;
     }
 
-    window.addEventListener("popstate", syncSelectedSlugFromLocation);
-    return () => {
-      window.removeEventListener("popstate", syncSelectedSlugFromLocation);
-    };
-  }, [allItems, basePath]);
+    setSelectedSlug(null);
+  }, [allItems, pathname]);
 
   function selectSimd(slug: string) {
     setSelectedSlug(slug);
 
     const detailPath = `${basePath}/${slug}`;
-    if (window.location.pathname !== detailPath) {
-      window.history.pushState({ simdSlug: slug }, "", detailPath);
+    if (pathname !== detailPath) {
+      router.push(detailPath, { scroll: false });
     }
   }
 
   function closePanel() {
     setSelectedSlug(null);
 
-    if (window.location.pathname !== basePath) {
-      window.history.pushState({}, "", basePath);
+    if (pathname !== basePath) {
+      router.push(basePath, { scroll: false });
     }
   }
 

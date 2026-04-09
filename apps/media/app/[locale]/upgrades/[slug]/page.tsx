@@ -13,7 +13,7 @@ export default async function UpgradeDetailPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { slug } = await params;
 
-  return <UpgradesPageContent locale={locale} initialSelectedSlug={slug} />;
+  return <UpgradesPageContent initialSelectedSlug={slug} />;
 }

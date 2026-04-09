@@ -13,7 +13,7 @@ export default async function UpgradesPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  await params;
 
-  return <UpgradesPageContent locale={locale} />;
+  return <UpgradesPageContent />;
 }
