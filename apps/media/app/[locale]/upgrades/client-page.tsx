@@ -266,6 +266,7 @@ function Filters({
         <div className="flex items-center gap-2">
           <select
             value={category}
+            aria-label="Filter by category"
             onChange={(e) =>
               onCategoryChange(e.target.value as SIMDCategory | "all")
             }
@@ -278,6 +279,7 @@ function Filters({
           </select>
           <select
             value={type}
+            aria-label="Filter by type"
             onChange={(e) => onTypeChange(e.target.value as SIMDType | "all")}
             className="h-8 cursor-pointer rounded-md border border-white/[0.08] bg-transparent px-2.5 text-[12px] text-[#8A8A9A] focus:border-[#CA9FF5]/30 focus:outline-none"
           >
@@ -309,6 +311,7 @@ function Filters({
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
+            aria-label="Search SIMDs"
             placeholder="Search by SIMD number, title, or keyword..."
             className="h-8 w-full rounded-md border border-white/[0.08] bg-transparent pl-9 pr-3 text-[13px] text-white placeholder:text-[#444454] focus:border-[#CA9FF5]/30 focus:outline-none"
           />
