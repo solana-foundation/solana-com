@@ -57,11 +57,6 @@ export async function UpgradesPageContent({
                 <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#CA9FF5]">
                   {overview?.eyebrow || "Solana Upgrades"}
                 </p>
-                {overview?.lastReviewed ? (
-                  <span className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#444454]">
-                    / Updated {overview.lastReviewed}
-                  </span>
-                ) : null}
               </div>
               <h1 className="m-0 font-sans text-[20px] font-medium leading-snug tracking-[-0.3px] text-white md:text-[26px] md:tracking-[-0.52px]">
                 {overview?.title || "Protocol upgrades, tracked with context."}
