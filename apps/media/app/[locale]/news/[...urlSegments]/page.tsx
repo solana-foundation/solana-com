@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowLeft } from "lucide-react";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
+import { Button } from "@/components/ui/button";
 import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
@@ -74,10 +77,19 @@ export default async function PostPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="relative w-full py-12 pt-8 md:pt-16">
+        <div className="relative w-full py-12 pt-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
           <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
+            <div className="mb-6">
+              <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
+                <Link href="/news">
+                  <ArrowLeft className="size-4" />
+                  <span>Back to News</span>
+                </Link>
+              </Button>
+            </div>
+
             <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
               {categoryName && (
                 <span className="text-primary font-semibold uppercase tracking-wider text-xs">
