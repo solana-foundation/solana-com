@@ -88,7 +88,9 @@ function readContentEntries(relativeDir, { filter, mapEntry }) {
 
   return fs
     .readdirSync(contentDir)
-    .filter((fileName) => fileName.endsWith(".mdx") || fileName.endsWith(".yaml"))
+    .filter(
+      (fileName) => fileName.endsWith(".mdx") || fileName.endsWith(".yaml"),
+    )
     .flatMap((fileName) => {
       const filePath = path.join(contentDir, fileName);
 
@@ -111,7 +113,9 @@ function readContentEntries(relativeDir, { filter, mapEntry }) {
 }
 
 function createLocalizedEntries(routePath, options = {}) {
-  return localizedPaths(routePath).map((loc) => createSitemapEntry(loc, options));
+  return localizedPaths(routePath).map((loc) =>
+    createSitemapEntry(loc, options),
+  );
 }
 
 function getMediaPostUrls() {
@@ -198,8 +202,7 @@ function getMediaReportUrls() {
   ];
 
   const reportEntries = readContentEntries("switchbacks", {
-    filter: ({ data }) =>
-      Boolean(data.isReport) && data.status === "published",
+    filter: ({ data }) => Boolean(data.isReport) && data.status === "published",
     mapEntry: ({ data, fileName }) => {
       const slug = data.slug || fileName.replace(/\.mdx$/, "");
       const lastmod = data.publishedAt
