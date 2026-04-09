@@ -79,6 +79,19 @@ export function SIMDDetailPanel({
     getMostRecentNoteDate(notes) ||
     upgrade?.updatedDate ||
     upgrade?.createdDate;
+  const resolvedRelatedSimds = upgrade
+    ? upgrade.relatedSimds
+        .map((simd) => relatedSimdsByNumber[simd])
+        .filter(
+          (
+            relatedSimd,
+          ): relatedSimd is {
+            slug: string;
+            simdNumber: string;
+            title: string;
+          } => Boolean(relatedSimd),
+        )
+    : [];
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
@@ -215,34 +228,27 @@ export function SIMDDetailPanel({
                       </div>
 
                       {/* Related SIMDs */}
-                      {upgrade.relatedSimds.length > 0 ? (
+                      {resolvedRelatedSimds.length > 0 ? (
                         <div className="space-y-3">
                           <h3 className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                             Related SIMDs
                           </h3>
                           <ul className="m-0 space-y-2 p-0">
-                            {upgrade.relatedSimds.map((simd) => {
-                              const relatedSimd = relatedSimdsByNumber[simd];
-
+                            {resolvedRelatedSimds.map((relatedSimd) => {
                               return (
-                                <li key={simd} className="list-none">
-                                  {relatedSimd ? (
-                                    <LocalizedLink
-                                      href={`/upgrades/${relatedSimd.slug}`}
-                                      className="text-sm leading-relaxed text-[#ABABBA] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-[#CA9FF5]"
-                                    >
-                                      <span className="font-mono text-[#CA9FF5]">
-                                        SIMD-{relatedSimd.simdNumber}
-                                      </span>
-                                      {`: ${relatedSimd.title}`}
-                                    </LocalizedLink>
-                                  ) : (
-                                    <span className="text-sm leading-relaxed text-[#ABABBA]">
-                                      <span className="font-mono text-[#CA9FF5]">
-                                        SIMD-{simd}
-                                      </span>
+                                <li
+                                  key={relatedSimd.simdNumber}
+                                  className="list-none"
+                                >
+                                  <LocalizedLink
+                                    href={`/upgrades/${relatedSimd.slug}`}
+                                    className="text-sm leading-relaxed text-[#ABABBA] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-[#CA9FF5]"
+                                  >
+                                    <span className="font-mono text-[#CA9FF5]">
+                                      SIMD-{relatedSimd.simdNumber}
                                     </span>
-                                  )}
+                                    {`: ${relatedSimd.title}`}
+                                  </LocalizedLink>
                                 </li>
                               );
                             })}
