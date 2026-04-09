@@ -39,6 +39,24 @@ export default async function PostPage({
     author = await reader.collections.authors.read(post.author);
   }
 
+  // Resolve category
+  let categoryName: string | null = null;
+  if (post.categories) {
+    for (const catItem of post.categories) {
+      if (catItem && typeof catItem === "object" && "category" in catItem) {
+        if (catItem.category) {
+          const catData = await reader.collections.categories.read(
+            catItem.category,
+          );
+          if (catData?.name) {
+            categoryName = String(catData.name);
+            break;
+          }
+        }
+      }
+    }
+  }
+
   // Resolve CTA
   let cta = null;
   if (post.cta) {
@@ -59,45 +77,36 @@ export default async function PostPage({
         <div className="relative w-full py-12 pt-8 md:pt-16">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
-          <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-8">
-            <div className="flex flex-col lg:flex-row lg:gap-12 lg:items-start">
-              <div className="flex-1 lg:max-w-xl">
-                <h1 className="w-full mb-6 text-5xl md:text-6xl font-bold tracking-tight text-left">
-                  {String(post.title)}
-                </h1>
-
-                <SocialShare
-                  title={String(post.title)}
-                  className="gap-3 mb-6"
-                />
-
-                <p className="text-base text-gray-400 mb-8 lg:mb-0">
-                  <span>{formattedDate}</span>
-                  {author && (
-                    <>
-                      <span>, by </span>
-                      <span>{String(author.name)}</span>
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {post.heroImage && (
-                <div className="flex-1 lg:max-w-md mt-8 lg:mt-0">
-                  <div className="relative">
-                    <Image
-                      priority={true}
-                      src={post.heroImage}
-                      alt={String(post.title)}
-                      width={400}
-                      height={400}
-                      className="relative z-10 block w-full h-auto opacity-100"
-                      style={{ maxWidth: "100%" }}
-                    />
-                  </div>
-                </div>
+          <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
+            <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              {categoryName && (
+                <span className="text-primary font-semibold uppercase tracking-wider text-xs">
+                  {categoryName}
+                </span>
+              )}
+              <span className="text-gray-400">{formattedDate}</span>
+              {author && (
+                <span className="text-gray-400">by {String(author.name)}</span>
               )}
             </div>
+
+            <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
+              {String(post.title)}
+            </h1>
+
+            {post.heroImage && (
+              <div className="rounded-lg overflow-hidden">
+                <Image
+                  priority={true}
+                  src={post.heroImage}
+                  alt={String(post.title)}
+                  width={720}
+                  height={400}
+                  className="w-full h-auto"
+                  style={{ maxWidth: "100%" }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -107,10 +116,10 @@ export default async function PostPage({
 
           if (cta) {
             return (
-              <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-12">
-                  <div className="min-w-0 lg:flex-1">
-                    <div className="prose dark:prose-dark w-full max-w-none">
+              <div className="max-w-5xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:gap-12">
+                  <div className="min-w-0 lg:flex-1 max-w-[720px]">
+                    <article className="prose prose-lg dark:prose-dark w-full max-w-none">
                       <MDXRemote
                         source={mdxSource}
                         components={mdxComponents}
@@ -118,7 +127,12 @@ export default async function PostPage({
                           mdxOptions: { remarkPlugins: [remarkGfm] },
                         }}
                       />
-                    </div>
+                    </article>
+
+                    <SocialShare
+                      title={String(post.title)}
+                      className="mt-12 pt-8 border-t border-white/10 gap-3"
+                    />
                   </div>
 
                   <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
@@ -141,8 +155,8 @@ export default async function PostPage({
           }
 
           return (
-            <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-              <div className="prose dark:prose-dark w-full max-w-none">
+            <div className="max-w-[720px] mx-auto mt-12 px-4 md:px-6 lg:px-8">
+              <article className="prose prose-lg dark:prose-dark w-full max-w-none">
                 <MDXRemote
                   source={mdxSource}
                   components={mdxComponents}
@@ -150,7 +164,12 @@ export default async function PostPage({
                     mdxOptions: { remarkPlugins: [remarkGfm] },
                   }}
                 />
-              </div>
+              </article>
+
+              <SocialShare
+                title={String(post.title)}
+                className="mt-12 pt-8 border-t border-white/10 gap-3"
+              />
             </div>
           );
         })()}
