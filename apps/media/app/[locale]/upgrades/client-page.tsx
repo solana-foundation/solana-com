@@ -554,9 +554,18 @@ export default function UpgradesClientPage({
     () => [...featured, ...upgrades],
     [featured, upgrades],
   );
-  const simdSlugByNumber = useMemo(
+  const simdMetaByNumber = useMemo(
     () =>
-      Object.fromEntries(allItems.map((item) => [item.simdNumber, item.slug])),
+      Object.fromEntries(
+        allItems.map((item) => [
+          item.simdNumber,
+          {
+            slug: item.slug,
+            simdNumber: item.simdNumber,
+            title: item.title,
+          },
+        ]),
+      ),
     [allItems],
   );
   const basePath = "/upgrades";
@@ -714,9 +723,8 @@ export default function UpgradesClientPage({
       <SIMDDetailPanel
         upgrade={selectedUpgrade}
         notes={selectedNotes}
-        relatedSimdSlugByNumber={simdSlugByNumber}
+        relatedSimdsByNumber={simdMetaByNumber}
         onClose={closePanel}
-        onSelectSimd={selectSimd}
       />
     </>
   );
