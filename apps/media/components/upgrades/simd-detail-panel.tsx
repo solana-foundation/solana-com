@@ -42,11 +42,15 @@ function MetaRow({
 export function SIMDDetailPanel({
   upgrade,
   notes,
+  relatedSimdSlugByNumber,
   onClose,
+  onSelectSimd,
 }: {
   upgrade: UpgradeItem | null;
   notes: UpgradeNote[];
+  relatedSimdSlugByNumber: Record<string, string>;
   onClose: () => void;
+  onSelectSimd: (_slug: string) => void;
 }) {
   return (
     <Dialog open={!!upgrade} onClose={onClose} className="relative z-50">
@@ -166,14 +170,29 @@ export function SIMDDetailPanel({
                               Related SIMDs
                             </h3>
                             <div className="flex flex-wrap gap-2">
-                              {upgrade.relatedSimds.map((simd) => (
-                                <span
-                                  key={simd}
-                                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA]"
-                                >
-                                  SIMD-{simd}
-                                </span>
-                              ))}
+                              {upgrade.relatedSimds.map((simd) =>
+                                relatedSimdSlugByNumber[simd] ? (
+                                  <button
+                                    key={simd}
+                                    type="button"
+                                    onClick={() =>
+                                      onSelectSimd(
+                                        relatedSimdSlugByNumber[simd],
+                                      )
+                                    }
+                                    className="cursor-pointer rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA] transition-colors hover:border-[#CA9FF5]/30 hover:text-white"
+                                  >
+                                    SIMD-{simd}
+                                  </button>
+                                ) : (
+                                  <span
+                                    key={simd}
+                                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA]"
+                                  >
+                                    SIMD-{simd}
+                                  </span>
+                                ),
+                              )}
                             </div>
                           </div>
                         ) : null}

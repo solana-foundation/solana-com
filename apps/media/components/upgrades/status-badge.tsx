@@ -21,7 +21,7 @@ export function StatusBadge({ status }: { status: SIMDStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.22em]",
+        "inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.22em]",
         STATUS_STYLES[status],
       )}
     >

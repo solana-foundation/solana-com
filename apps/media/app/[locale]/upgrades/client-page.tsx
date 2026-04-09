@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   Disclosure,
   DisclosureButton,
@@ -24,17 +24,6 @@ function formatDate(value: string | null | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-function formatDateFull(value: string | null | undefined) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en", {
-    year: "numeric",
     month: "short",
     day: "numeric",
   }).format(date);
@@ -146,7 +135,7 @@ function FeaturedStrip({
   onSelect,
 }: {
   items: UpgradeItem[];
-  onSelect: (slug: string) => void;
+  onSelect: (_slug: string) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -164,7 +153,7 @@ function FeaturedStrip({
             key={upgrade.id}
             type="button"
             onClick={() => onSelect(upgrade.slug)}
-            className="group flex items-start gap-3 rounded-lg border border-[#CA9FF5]/10 bg-[#CA9FF5]/[0.02] p-3 text-left transition-all hover:border-[#CA9FF5]/25 hover:bg-[#CA9FF5]/[0.05]"
+            className="group flex cursor-pointer items-start gap-3 rounded-lg border border-[#CA9FF5]/10 bg-[#CA9FF5]/[0.02] p-3 text-left transition-all hover:border-[#CA9FF5]/25 hover:bg-[#CA9FF5]/[0.05]"
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -230,10 +219,10 @@ function Filters({
   type: SIMDType | "all";
   search: string;
   resultCount: number;
-  onStatusChange: (v: SIMDStatus | "all") => void;
-  onCategoryChange: (v: SIMDCategory | "all") => void;
-  onTypeChange: (v: SIMDType | "all") => void;
-  onSearchChange: (v: string) => void;
+  onStatusChange: (_value: SIMDStatus | "all") => void;
+  onCategoryChange: (_value: SIMDCategory | "all") => void;
+  onTypeChange: (_value: SIMDType | "all") => void;
+  onSearchChange: (_value: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -330,7 +319,7 @@ function DenseRow({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-3 border-b border-white/[0.04] px-2 py-2.5 text-left transition-colors hover:bg-white/[0.02]"
+      className="group flex w-full cursor-pointer items-center gap-3 border-b border-white/[0.04] px-2 py-2.5 text-left transition-colors hover:bg-white/[0.02]"
     >
       {/* SIMD number — monospace */}
       <span className="w-[52px] shrink-0 font-mono text-[12px] font-medium tabular-nums text-[#CA9FF5]">
@@ -398,7 +387,7 @@ function ActivitySidebar({
   onSelectSimd,
 }: {
   notes: UpgradeNote[];
-  onSelectSimd: (slug: string) => void;
+  onSelectSimd: (_slug: string) => void;
 }) {
   if (notes.length === 0) return null;
 
@@ -418,7 +407,7 @@ function ActivitySidebar({
               key={note.slug}
               type="button"
               onClick={() => onSelectSimd(note.upgradeSlug)}
-              className="group flex w-full gap-3 py-3 text-left transition-colors first:pt-0"
+              className="group flex w-full cursor-pointer gap-3 py-3 text-left transition-colors first:pt-0"
             >
               <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#CA9FF5]/40 group-hover:bg-[#CA9FF5]" />
               <div className="min-w-0 flex-1">
@@ -448,17 +437,21 @@ function ActivitySidebar({
 /* ─── Main Client Page ─── */
 
 export default function UpgradesClientPage({
+  locale,
   featured,
   upgrades,
   latestNotes,
   notesMap,
   statusGuide,
+  initialSelectedSlug = null,
 }: {
+  locale: string;
   featured: UpgradeItem[];
   upgrades: UpgradeItem[];
   latestNotes: UpgradeNote[];
   notesMap: Record<string, UpgradeNote[]>;
   statusGuide?: string;
+  initialSelectedSlug?: string | null;
 }) {
   const [status, setStatus] = useState<SIMDStatus | "all">("all");
   const [category, setCategory] = useState<SIMDCategory | "all">("all");
@@ -466,12 +459,20 @@ export default function UpgradesClientPage({
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(
+    initialSelectedSlug,
+  );
 
   const allItems = useMemo(
     () => [...featured, ...upgrades],
     [featured, upgrades],
   );
+  const simdSlugByNumber = useMemo(
+    () =>
+      Object.fromEntries(allItems.map((item) => [item.simdNumber, item.slug])),
+    [allItems],
+  );
+  const basePath = `/${locale}/upgrades`;
   const selectedUpgrade = useMemo(
     () => allItems.find((u) => u.slug === selectedSlug) ?? null,
     [allItems, selectedSlug],
@@ -492,6 +493,51 @@ export default function UpgradesClientPage({
     category !== "all" ||
     type !== "all" ||
     deferredSearch.length > 0;
+
+  useEffect(() => {
+    setSelectedSlug(initialSelectedSlug);
+  }, [initialSelectedSlug]);
+
+  useEffect(() => {
+    function syncSelectedSlugFromLocation() {
+      const currentPath = window.location.pathname.replace(/\/$/, "");
+      const detailPrefix = `${basePath}/`;
+
+      if (currentPath.startsWith(detailPrefix)) {
+        const nextSlug = decodeURIComponent(
+          currentPath.slice(detailPrefix.length),
+        );
+        setSelectedSlug(
+          allItems.some((item) => item.slug === nextSlug) ? nextSlug : null,
+        );
+        return;
+      }
+
+      setSelectedSlug(null);
+    }
+
+    window.addEventListener("popstate", syncSelectedSlugFromLocation);
+    return () => {
+      window.removeEventListener("popstate", syncSelectedSlugFromLocation);
+    };
+  }, [allItems, basePath]);
+
+  function selectSimd(slug: string) {
+    setSelectedSlug(slug);
+
+    const detailPath = `${basePath}/${slug}`;
+    if (window.location.pathname !== detailPath) {
+      window.history.pushState({ simdSlug: slug }, "", detailPath);
+    }
+  }
+
+  function closePanel() {
+    setSelectedSlug(null);
+
+    if (window.location.pathname !== basePath) {
+      window.history.pushState({}, "", basePath);
+    }
+  }
 
   return (
     <>
@@ -523,7 +569,7 @@ export default function UpgradesClientPage({
 
             {/* Featured strip (when not filtering) */}
             {!isFiltered && featured.length > 0 ? (
-              <FeaturedStrip items={featured} onSelect={setSelectedSlug} />
+              <FeaturedStrip items={featured} onSelect={selectSimd} />
             ) : null}
 
             {/* Column headers */}
@@ -551,7 +597,7 @@ export default function UpgradesClientPage({
                   <DenseRow
                     key={upgrade.id}
                     upgrade={upgrade}
-                    onClick={() => setSelectedSlug(upgrade.slug)}
+                    onClick={() => selectSimd(upgrade.slug)}
                   />
                 ))
               ) : (
@@ -566,16 +612,13 @@ export default function UpgradesClientPage({
 
           {/* ─── Activity Sidebar ─── */}
           <div className="hidden lg:block">
-            <ActivitySidebar
-              notes={latestNotes}
-              onSelectSimd={setSelectedSlug}
-            />
+            <ActivitySidebar notes={latestNotes} onSelectSimd={selectSimd} />
           </div>
         </div>
 
         {/* Mobile: Activity section below list */}
         <div className="border-t border-white/[0.06] py-6 lg:hidden">
-          <ActivitySidebar notes={latestNotes} onSelectSimd={setSelectedSlug} />
+          <ActivitySidebar notes={latestNotes} onSelectSimd={selectSimd} />
         </div>
       </div>
 
@@ -583,7 +626,9 @@ export default function UpgradesClientPage({
       <SIMDDetailPanel
         upgrade={selectedUpgrade}
         notes={selectedNotes}
-        onClose={() => setSelectedSlug(null)}
+        relatedSimdSlugByNumber={simdSlugByNumber}
+        onClose={closePanel}
+        onSelectSimd={selectSimd}
       />
     </>
   );
