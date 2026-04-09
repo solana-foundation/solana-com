@@ -140,10 +140,7 @@ export default async function PostPage({
                       />
                     </article>
 
-                    <SocialShare
-                      title={String(post.title)}
-                      className="mt-12 pt-8 border-t border-white/10 gap-3"
-                    />
+                    <SocialShare title={String(post.title)} variant="card" />
                   </div>
 
                   <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
@@ -177,10 +174,7 @@ export default async function PostPage({
                 />
               </article>
 
-              <SocialShare
-                title={String(post.title)}
-                className="mt-12 pt-8 border-t border-white/10 gap-3"
-              />
+              <SocialShare title={String(post.title)} variant="card" />
             </div>
           );
         })()}
