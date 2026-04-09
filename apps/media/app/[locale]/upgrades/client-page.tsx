@@ -96,6 +96,7 @@ function StatusGuideToggle({ body }: { body?: string }) {
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -188,6 +189,7 @@ function FeaturedStrip({
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -299,6 +301,7 @@ function Filters({
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -444,12 +447,13 @@ function UpgradeTable({
                 <td className="px-2 py-3 align-top text-right font-mono text-[11px] tabular-nums text-[#555568]">
                   {relativeDate(upgrade.updatedDate || upgrade.createdDate)}
                 </td>
-                <td className="px-2 py-3 align-top">
+                <td className="px-2 py-3 align-top" aria-hidden="true">
                   <svg
                     className="ml-auto h-3 w-3 shrink-0 text-[#333344] transition-colors group-hover:text-[#CA9FF5]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -497,7 +501,10 @@ function ActivitySidebar({
               onClick={() => onSelectSimd(note.upgradeSlug)}
               className="group flex w-full cursor-pointer gap-3 py-3 text-left transition-colors first:pt-0"
             >
-              <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#CA9FF5]/40 group-hover:bg-[#CA9FF5]" />
+              <div
+                className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#CA9FF5]/40 group-hover:bg-[#CA9FF5]"
+                aria-hidden="true"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] font-medium text-[#CA9FF5]">

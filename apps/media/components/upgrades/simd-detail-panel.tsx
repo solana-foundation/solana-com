@@ -109,6 +109,7 @@ export function SIMDDetailPanel({
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
+                            aria-hidden="true"
                           >
                             <path
                               strokeLinecap="round"
@@ -270,7 +271,10 @@ export function SIMDDetailPanel({
                                   key={note.slug}
                                   className="relative border-l-2 border-white/10 py-4 pl-6"
                                 >
-                                  <div className="absolute -left-[5px] top-5 h-2 w-2 rounded-full border-2 border-black bg-[#CA9FF5]" />
+                                  <div
+                                    className="absolute -left-[5px] top-5 h-2 w-2 rounded-full border-2 border-black bg-[#CA9FF5]"
+                                    aria-hidden="true"
+                                  />
                                   <div className="text-xs uppercase tracking-[0.2em] text-[#555568]">
                                     {formatDate(note.publishedAt)}
                                   </div>
