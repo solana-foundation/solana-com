@@ -64,20 +64,20 @@ export const CookieConsent = () => {
   useEffect(() => {
     const windowWithGtag = window as WindowWithGtag;
 
-    if (typeof windowWithGtag.gtag !== "undefined" && isLoaded) {
-      if (cookieConsent === null) {
-        return;
-      }
+    if (!isLoaded || cookieConsent === null) {
+      return;
+    }
 
-      setLocalStorage("cookie_consent", cookieConsent);
+    setLocalStorage("cookie_consent", cookieConsent);
+    windowWithGtag.builderNoTrack = !cookieConsent;
+
+    if (typeof windowWithGtag.gtag !== "undefined") {
       windowWithGtag.gtag("consent", "update", {
         ad_storage: cookieConsent ? "granted" : "denied",
         ad_user_data: cookieConsent ? "granted" : "denied",
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
-
-      windowWithGtag.builderNoTrack = !cookieConsent;
     }
   }, [cookieConsent, isLoaded]);
 

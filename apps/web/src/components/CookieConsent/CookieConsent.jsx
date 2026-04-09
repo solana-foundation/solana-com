@@ -40,38 +40,44 @@ const setLocalStorage = function (key, value) {
 export default function CookieConsent() {
   const t = useTranslations();
 
-  // cookieConsent is blank by default
-  const [cookieConsent, setCookieConsent] = useState("");
+  // cookieConsent is null by default
+  const [cookieConsent, setCookieConsent] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // check if it has previously set within localStorage, or null otherwise
   useEffect(() => {
     const consent = getLocalStorage("cookie_consent", null);
     setCookieConsent(consent);
+    setIsLoaded(true);
 
     // set builderNoTrack based on the previously set consent
-    if (typeof window !== "undefined" && consent) {
+    if (typeof window !== "undefined" && consent !== null) {
       window.builderNoTrack = !consent;
     }
-  }, [setCookieConsent]);
+  }, []);
 
   // update when cookieConsent is changed via onClick
   useEffect(() => {
-    if (typeof window.gtag !== "undefined" && cookieConsent !== "") {
-      setLocalStorage("cookie_consent", cookieConsent);
+    if (!isLoaded || cookieConsent === null) {
+      return;
+    }
+
+    setLocalStorage("cookie_consent", cookieConsent);
+    window.builderNoTrack = !cookieConsent;
+
+    if (typeof window.gtag !== "undefined") {
       window.gtag("consent", "update", {
         ad_storage: cookieConsent ? "granted" : "denied",
         ad_user_data: cookieConsent ? "granted" : "denied",
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
-
-      window.builderNoTrack = !cookieConsent;
     }
-  }, [cookieConsent]);
+  }, [cookieConsent, isLoaded]);
 
   return (
     <>
-      {cookieConsent === null ? (
+      {isLoaded && cookieConsent === null ? (
         <div
           className={classNames(
             "border bg-black p-4 rounded",

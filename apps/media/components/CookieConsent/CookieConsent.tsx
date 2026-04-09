@@ -57,20 +57,20 @@ export const CookieConsent = () => {
 
   // update when cookieConsent is changed via onClick
   useEffect(() => {
-    if (
-      typeof (window as any).gtag !== "undefined" &&
-      cookieConsent !== null &&
-      isLoaded
-    ) {
-      setLocalStorage("cookie_consent", cookieConsent);
+    if (!isLoaded || cookieConsent === null) {
+      return;
+    }
+
+    setLocalStorage("cookie_consent", cookieConsent);
+    (window as any).builderNoTrack = !cookieConsent;
+
+    if (typeof (window as any).gtag !== "undefined") {
       (window as any).gtag("consent", "update", {
         ad_storage: cookieConsent ? "granted" : "denied",
         ad_user_data: cookieConsent ? "granted" : "denied",
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
-
-      (window as any).builderNoTrack = !cookieConsent;
     }
   }, [cookieConsent, isLoaded]);
 
