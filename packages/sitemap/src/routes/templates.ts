@@ -1,4 +1,4 @@
-import type { SitemapEntry, RouteGenerator } from "../types";
+import type { SitemapEntry } from "../types";
 import { createEntry } from "../utils";
 
 type Template = {
@@ -8,8 +8,6 @@ type Template = {
 type TemplateGroup = {
   templates?: Template[];
 };
-
-type TemplatesFetcher = () => Promise<Template[]>;
 
 const templatesUrl =
   "https://raw.githubusercontent.com/solana-foundation/templates/main/templates.json";
@@ -56,6 +54,3 @@ export async function templatesRoutes(
     return [];
   }
 }
-
-const _templatesRoutesTypecheck: RouteGenerator = templatesRoutes;
-void _templatesRoutesTypecheck;

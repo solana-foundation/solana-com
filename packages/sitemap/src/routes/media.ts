@@ -27,21 +27,11 @@ function parseScalar(value: string) {
   return trimmed;
 }
 
-function parseFrontmatter(fileContents: string) {
-  if (!fileContents.startsWith("---\n")) {
-    return {};
-  }
-
-  const endIndex = fileContents.indexOf("\n---", 4);
-  if (endIndex === -1) {
-    return {};
-  }
-
-  const frontmatter = fileContents.slice(4, endIndex);
+function parseYamlLines(yamlContent: string) {
   const data: Record<string, unknown> = {};
   let currentArrayKey: string | null = null;
 
-  for (const rawLine of frontmatter.split("\n")) {
+  for (const rawLine of yamlContent.split("\n")) {
     const line = rawLine.replace(/\r$/, "");
     const trimmedLine = line.trim();
 
@@ -94,6 +84,19 @@ function parseFrontmatter(fileContents: string) {
   return data;
 }
 
+function parseFrontmatter(fileContents: string) {
+  if (!fileContents.startsWith("---\n")) {
+    return {};
+  }
+
+  const endIndex = fileContents.indexOf("\n---", 4);
+  if (endIndex === -1) {
+    return {};
+  }
+
+  return parseYamlLines(fileContents.slice(4, endIndex));
+}
+
 function readContentEntries<T>(
   relativeDir: string,
   options: {
@@ -129,7 +132,7 @@ function readContentEntries<T>(
         const fileContents = fs.readFileSync(filePath, "utf8");
         const parsed = fileName.endsWith(".mdx")
           ? { data: parseFrontmatter(fileContents), content: fileContents }
-          : { data: {}, content: fileContents };
+          : { data: parseYamlLines(fileContents), content: fileContents };
 
         if (
           options.filter &&
@@ -161,7 +164,7 @@ function getMediaPostEntries() {
   const postEntries = readContentEntries("posts", {
     filter: ({ data }) => data.status === "published",
     mapEntry: ({ data, fileName }) => {
-      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.publishedAt
         ? new Date(String(data.publishedAt)).toISOString()
         : undefined;
@@ -210,7 +213,7 @@ function getMediaPodcastEntries() {
   const podcastEntries = readContentEntries("podcasts", {
     filter: ({ data }) => data.status !== "inactive",
     mapEntry: ({ data, fileName }) => {
-      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.firstEpisodeDate
         ? new Date(String(data.firstEpisodeDate)).toISOString()
         : undefined;
@@ -237,7 +240,7 @@ function getMediaReportEntries() {
   const reportEntries = readContentEntries("switchbacks", {
     filter: ({ data }) => Boolean(data.isReport) && data.status === "published",
     mapEntry: ({ data, fileName }) => {
-      const slug = String(data.slug || fileName.replace(/\.mdx$/, ""));
+      const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.publishedAt
         ? new Date(String(data.publishedAt)).toISOString()
         : undefined;

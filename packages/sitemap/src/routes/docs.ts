@@ -40,7 +40,7 @@ function getLocalizedContentEntries(contentDir: string, baseRoute: string) {
     }
 
     for (const filePath of walkFiles(localeDir)) {
-      if (!filePath.endsWith(".mdx") || filePath.endsWith("meta.json")) {
+      if (!filePath.endsWith(".mdx")) {
         continue;
       }
 
@@ -100,6 +100,10 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
+      ...createLocalizedEntries("/developers/bootcamp", {
+        changeFrequency: "weekly",
+        priority: 0.8,
+      }),
     ];
 
     return dedupeEntries([
@@ -119,6 +123,10 @@ export const docsRoutes: RouteGenerator = () => {
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "guides"),
         "/developers/guides",
+      ),
+      ...getLocalizedContentEntries(
+        path.join(docsContentRoot, "developers-learn"),
+        "/developers/bootcamp",
       ),
     ]);
   } catch (error) {
