@@ -375,8 +375,6 @@ function UpgradeTable({
           <col className="w-[72px]" />
           <col className="w-[120px]" />
           <col />
-          <col className="w-[96px]" />
-          <col className="w-[96px]" />
           <col className="w-[132px]" />
           <col className="w-[84px]" />
           <col className="w-[28px]" />
@@ -386,8 +384,6 @@ function UpgradeTable({
             <th className="px-2 py-2 text-left">SIMD</th>
             <th className="px-2 py-2 text-left">Status</th>
             <th className="px-2 py-2 text-left">Title</th>
-            <th className="px-2 py-2 text-right">Category</th>
-            <th className="px-2 py-2 text-right">Release</th>
             <th className="px-2 py-2 text-right">Progress</th>
             <th className="px-2 py-2 text-right">Updated</th>
             <th className="px-2 py-2" aria-hidden="true" />
@@ -416,22 +412,26 @@ function UpgradeTable({
                 <td className="px-2 py-3 align-top">
                   <StatusBadge status={upgrade.status} />
                 </td>
-                <td className="min-w-0 px-2 py-3 align-top">
+                <td className="min-w-0 px-2 lg:pr-6 py-3 align-top">
                   <p className="m-0 truncate text-[13px] font-medium leading-snug text-white group-hover:text-[#e8e0f8]">
                     {upgrade.title}
                   </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                    <span className="uppercase tracking-[0.12em] text-[#444454]">
+                      {upgrade.category}
+                      {upgrade.type ? `/${upgrade.type.slice(0, 4)}` : ""}
+                    </span>
+                    {expectedRelease ? (
+                      <span className="tracking-wide text-[#555568]">
+                        {expectedRelease}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="m-0 mt-0.5 truncate text-[12px] leading-snug text-[#6B6B7B]">
                     {upgrade.description ||
                       upgrade.editorialNote ||
                       upgrade.summary}
                   </p>
-                </td>
-                <td className="px-2 py-3 align-top text-right text-[11px] uppercase tracking-[0.12em] text-[#444454]">
-                  {upgrade.category}
-                  {upgrade.type ? `/${upgrade.type.slice(0, 4)}` : ""}
-                </td>
-                <td className="px-2 py-3 align-top text-right text-[11px] tracking-wide text-[#555568]">
-                  {expectedRelease || ""}
                 </td>
                 <td className="px-2 py-3 align-top">
                   <div className="flex justify-end">

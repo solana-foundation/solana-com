@@ -698,47 +698,5 @@ export default config({
         ),
       },
     }),
-    upgradesPage: singleton({
-      label: "Upgrades Overview",
-      path: "content/global/upgrades",
-      format: { data: "json" },
-      schema: {
-        eyebrow: fields.text({ label: "Eyebrow" }),
-        title: fields.text({
-          label: "Title",
-          validation: { isRequired: true },
-        }),
-        intro: fields.text({
-          label: "Intro",
-          multiline: true,
-          validation: { isRequired: true },
-        }),
-        currentFocus: fields.text({
-          label: "Current Focus",
-          multiline: true,
-        }),
-        statusGuide: fields.text({
-          label: "Status Guide",
-          multiline: true,
-        }),
-        lastReviewed: fields.text({ label: "Last Reviewed" }),
-        resources: fields.array(
-          fields.object({
-            label: fields.text({
-              label: "Label",
-              validation: { isRequired: true },
-            }),
-            url: fields.text({
-              label: "URL",
-              validation: { isRequired: true },
-            }),
-          }),
-          {
-            label: "Resources",
-            itemLabel: (props) => props.fields.label.value || "Resource",
-          },
-        ),
-      },
-    }),
   },
 });

@@ -45,7 +45,6 @@ export type UpgradeOverview = {
   intro: string;
   currentFocus?: string;
   statusGuide?: string;
-  lastReviewed?: string;
   resources: { label: string; url: string }[];
 };
 

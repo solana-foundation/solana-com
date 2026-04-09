@@ -1,4 +1,5 @@
 import { reader } from "../reader";
+import { getTranslations } from "next-intl/server";
 import type {
   FetchUpgradesParams,
   FetchUpgradesResponse,
@@ -176,36 +177,20 @@ async function transformUpgrade(
 }
 
 export async function fetchUpgradeOverview(): Promise<UpgradeOverview | null> {
-  const overview = await reader.singletons.upgradesPage.read();
-  if (!overview) {
-    return null;
-  }
+  const t = await getTranslations("upgradeOverview");
 
   return {
-    eyebrow:
-      typeof overview.eyebrow === "string" && overview.eyebrow.trim()
-        ? overview.eyebrow
-        : undefined,
-    title: String(overview.title || "Solana Upgrades"),
-    intro: String(overview.intro || ""),
-    currentFocus:
-      typeof overview.currentFocus === "string" && overview.currentFocus.trim()
-        ? overview.currentFocus
-        : undefined,
-    statusGuide:
-      typeof overview.statusGuide === "string" && overview.statusGuide.trim()
-        ? overview.statusGuide
-        : undefined,
-    lastReviewed:
-      typeof overview.lastReviewed === "string" && overview.lastReviewed.trim()
-        ? overview.lastReviewed
-        : undefined,
-    resources: (overview.resources || [])
-      .map((item) => ({
-        label: String(item?.label || ""),
-        url: String(item?.url || ""),
-      }))
-      .filter((item) => item.label && item.url),
+    eyebrow: t("eyebrow").trim() || undefined,
+    title: t("title"),
+    intro: t("intro"),
+    currentFocus: t("currentFocus").trim() || undefined,
+    statusGuide: t("statusGuide").trim() || undefined,
+    resources: [
+      {
+        label: t("resources.simdRepository.label"),
+        url: t("resources.simdRepository.url"),
+      },
+    ].filter((item) => item.label && item.url),
   };
 }
 
