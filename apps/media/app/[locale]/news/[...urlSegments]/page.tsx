@@ -78,7 +78,7 @@ export default async function PostPage({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
           <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
-            <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
               {categoryName && (
                 <span className="text-primary font-semibold uppercase tracking-wider text-xs">
                   {categoryName}
@@ -86,7 +86,18 @@ export default async function PostPage({
               )}
               <span className="text-gray-400">{formattedDate}</span>
               {author && (
-                <span className="text-gray-400">by {String(author.name)}</span>
+                <span className="flex items-center gap-2 text-gray-400">
+                  <span>by</span>
+                  {author.avatar && (
+                    <Image
+                      src={author.avatar}
+                      alt={String(author.name)}
+                      width={12}
+                      height={12}
+                    />
+                  )}
+                  <span>{String(author.name)}</span>
+                </span>
               )}
             </div>
 
