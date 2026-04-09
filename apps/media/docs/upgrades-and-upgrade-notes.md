@@ -44,8 +44,8 @@ What the sync script does:
 
 - fetches proposal frontmatter and markdown from GitHub
 - derives `slug`, `simdNumber`, `title`, `status`, `category`, `type`,
-  `createdDate`, `updatedDate`, `githubUrl`, `discussionUrl`, `summary`, and
-  `relatedSimds`
+  `authors`, `createdDate`, `updatedDate`, `featureGate`, `githubUrl`,
+  `discussionUrl`, `summary`, `relatedSimds`, and `sourceSha`
 - preserves local editorial fields already present in the YAML: `editorialNote`,
   `featured`, `tags`, and `heroImage`
 
@@ -102,8 +102,8 @@ Useful local commands:
 - `NEXT_PUBLIC_KEYSTATIC_LOCAL=true pnpm --filter solana-com-media dev`
 - `pnpm --filter solana-com-media sync:simds`
 
-All screenshots below were captured with Playwright against local Keystatic on
-April 9, 2026.
+All screenshots below were captured with Playwright against the local dev server
+on April 9, 2026.
 
 ## Keystatic Screens
 
@@ -135,12 +135,11 @@ This is the main authoring screen for new progress notes.
 
 ### Upgrades Overview Copy
 
-This copy is now maintained in the media i18n catalog under the
-`upgradeOverview` namespace instead of a Keystatic singleton. That includes the
-page eyebrow, title, intro, status guide, last-reviewed label, and resource
-links.
-
-![Upgrades Overview](screenshots/25-upgrades-overview.png)
+The overview copy for `/upgrades` is maintained in the media i18n catalog under
+the `upgradeOverview` namespace, not in Keystatic. Edit
+[`packages/i18n/messages/media/en/common.json`](/Users/karambit/Sites/solana-com/packages/i18n/messages/media/en/common.json)
+for the page eyebrow, title, intro, status guide, last-reviewed label, and
+resource links.
 
 ## Data Model You Need To Preserve
 
