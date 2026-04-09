@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Github } from "lucide-react";
 import UpgradesClientPage from "./client-page";
+import { Button } from "@/components/ui/button";
 import {
   fetchFeaturedUpgrades,
   fetchLatestNotes,
@@ -9,7 +10,7 @@ import {
   fetchUpgradeOverview,
   fetchUpgrades,
 } from "@/lib/upgrade-data";
-import type { SIMDStatus, UpgradeNote } from "@/lib/upgrade-types";
+import type { UpgradeNote } from "@/lib/upgrade-types";
 
 export async function UpgradesPageContent({
   locale,
@@ -46,11 +47,6 @@ export async function UpgradesPageContent({
     notFound();
   }
 
-  const statusCounts: Record<string, number> = {};
-  for (const item of allItems) {
-    statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
-  }
-
   return (
     <div className="min-h-screen bg-black">
       <header className="border-b border-white/[0.06]">
@@ -79,62 +75,27 @@ export async function UpgradesPageContent({
 
             <div className="flex shrink-0 items-center gap-4">
               {overview?.resources?.map((resource) => (
-                <Link
+                <Button
                   key={resource.url}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-[#b9b9c8] transition-colors hover:border-[#ca9ff5]/30 hover:bg-white/[0.06] hover:text-white"
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="h-auto rounded-full border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-[#b9b9c8] hover:border-[#ca9ff5]/30 hover:bg-white/[0.06] hover:text-white dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
                 >
-                  {resource.url.includes("github.com") ? (
-                    <Github className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  {resource.label}
-                </Link>
+                  <Link href={resource.url} target="_blank" rel="noreferrer">
+                    {resource.url.includes("github.com") ? (
+                      <Github className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <ArrowUpRight
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                    )}
+                    {resource.label}
+                  </Link>
+                </Button>
               ))}
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] py-2.5">
-            <span className="mr-1.5 text-[11px] font-semibold tabular-nums tracking-wide text-[#555568]">
-              {allItems.length} tracked
-            </span>
-            {(
-              [
-                "review",
-                "accepted",
-                "implemented",
-                "activated",
-                "draft",
-                "idea",
-              ] as SIMDStatus[]
-            ).map((s) =>
-              statusCounts[s] ? (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-0.5 text-[11px] tabular-nums tracking-wide text-[#6B6B7B]"
-                >
-                  <span
-                    className={`inline-block h-[5px] w-[5px] rounded-full ${
-                      s === "review"
-                        ? "bg-amber-400"
-                        : s === "accepted"
-                          ? "bg-violet-400"
-                          : s === "implemented"
-                            ? "bg-sky-400"
-                            : s === "activated"
-                              ? "bg-emerald-400"
-                              : s === "draft"
-                                ? "bg-zinc-400"
-                                : "bg-zinc-600"
-                    }`}
-                  />
-                  {statusCounts[s]} {s}
-                </span>
-              ) : null,
-            )}
           </div>
         </div>
       </header>
