@@ -147,7 +147,6 @@ function FeaturedStrip({
         <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
           Pinned
         </span>
-        <div className="h-px flex-1 bg-white/[0.06]" />
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((upgrade) => (
@@ -555,7 +554,7 @@ export default function UpgradesClientPage({
             </div>
 
             {/* Sticky filter bar */}
-            <div className="sticky top-0 z-20 -mx-5 border-b border-white/[0.06] bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
+            <div className="sticky top-0 z-20 -mx-5 bg-black/95 px-5 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
               <Filters
                 status={status}
                 category={category}
