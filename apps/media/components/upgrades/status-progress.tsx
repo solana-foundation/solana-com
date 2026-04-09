@@ -93,7 +93,11 @@ export function StatusProgress({
   const isTerminal = status === "withdrawn" || status === "stagnant";
 
   return (
-    <div className="flex items-center justify-start gap-0">
+    <div
+      className="flex items-center justify-start gap-0"
+      role="img"
+      aria-label={`Status: ${statusLabel(status)}`}
+    >
       {STEPS.map((step, index) => {
         const state = getStepState(step, status);
         const style = STATE_DOT[state];

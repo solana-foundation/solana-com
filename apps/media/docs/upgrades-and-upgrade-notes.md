@@ -15,13 +15,6 @@ The media app has two separate but connected content layers:
    attached to an upgrade. Each note points to one upgrade entry and adds a
    dated explanation of what changed.
 
-Page-level overview copy for `/upgrades` is no longer stored in Keystatic. It
-now lives in the media app i18n messages:
-
-- English source:
-  [`packages/i18n/messages/media/en/common.json`](/Users/karambit/Sites/solana-com/packages/i18n/messages/media/en/common.json)
-- Namespace: `upgradeOverview`
-
 The public UI reads both layers together:
 
 - Upgrade list and detail page:
