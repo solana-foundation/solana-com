@@ -309,9 +309,9 @@ function Filters({
   );
 }
 
-/* ─── Dense List Row ─── */
+/* ─── Mobile List Row ─── */
 
-function DenseRow({
+function MobileRow({
   upgrade,
   onClick,
 }: {
@@ -380,6 +380,108 @@ function DenseRow({
         />
       </svg>
     </button>
+  );
+}
+
+/* ─── Desktop Table ─── */
+
+function UpgradeTable({
+  upgrades,
+  onSelect,
+}: {
+  upgrades: UpgradeItem[];
+  onSelect: (_slug: string) => void;
+}) {
+  return (
+    <div className="hidden overflow-x-auto lg:block">
+      <table className="w-full table-fixed border-collapse">
+        <colgroup>
+          <col className="w-[72px]" />
+          <col className="w-[120px]" />
+          <col />
+          <col className="w-[96px]" />
+          <col className="w-[96px]" />
+          <col className="w-[132px]" />
+          <col className="w-[84px]" />
+          <col className="w-[28px]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-white/[0.08] text-[10px] font-semibold uppercase tracking-[0.16em] text-[#444454]">
+            <th className="px-2 py-2 text-left">SIMD</th>
+            <th className="px-2 py-2 text-left">Status</th>
+            <th className="px-2 py-2 text-left">Title</th>
+            <th className="px-2 py-2 text-right">Category</th>
+            <th className="px-2 py-2 text-right">Release</th>
+            <th className="px-2 py-2 text-right">Progress</th>
+            <th className="px-2 py-2 text-right">Updated</th>
+            <th className="px-2 py-2" aria-hidden="true" />
+          </tr>
+        </thead>
+        <tbody>
+          {upgrades.map((upgrade) => (
+            <tr
+              key={upgrade.id}
+              tabIndex={0}
+              onClick={() => onSelect(upgrade.slug)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(upgrade.slug);
+                }
+              }}
+              className="group cursor-pointer border-b border-white/[0.04] text-left transition-colors hover:bg-white/[0.02] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CA9FF5]/40"
+            >
+              <td className="px-2 py-3 align-top font-mono text-[12px] font-medium tabular-nums text-[#CA9FF5]">
+                {upgrade.simdNumber}
+              </td>
+              <td className="px-2 py-3 align-top">
+                <StatusBadge status={upgrade.status} />
+              </td>
+              <td className="min-w-0 px-2 py-3 align-top">
+                <p className="m-0 truncate text-[13px] font-medium leading-snug text-white group-hover:text-[#e8e0f8]">
+                  {upgrade.title}
+                </p>
+                <p className="m-0 mt-0.5 truncate text-[12px] leading-snug text-[#6B6B7B]">
+                  {upgrade.description ||
+                    upgrade.editorialNote ||
+                    upgrade.summary}
+                </p>
+              </td>
+              <td className="px-2 py-3 align-top text-right text-[11px] uppercase tracking-[0.12em] text-[#444454]">
+                {upgrade.category}
+                {upgrade.type ? `/${upgrade.type.slice(0, 4)}` : ""}
+              </td>
+              <td className="px-2 py-3 align-top text-right text-[11px] tracking-wide text-[#555568]">
+                {upgrade.expectedRelease || ""}
+              </td>
+              <td className="px-2 py-3 align-top">
+                <div className="flex justify-end">
+                  <StatusProgress status={upgrade.status} compact />
+                </div>
+              </td>
+              <td className="px-2 py-3 align-top text-right font-mono text-[11px] tabular-nums text-[#555568]">
+                {relativeDate(upgrade.updatedDate || upgrade.createdDate)}
+              </td>
+              <td className="px-2 py-3 align-top">
+                <svg
+                  className="ml-auto h-3 w-3 shrink-0 text-[#333344] transition-colors group-hover:text-[#CA9FF5]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="m9 5 7 7-7 7"
+                  />
+                </svg>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -575,34 +677,24 @@ export default function UpgradesClientPage({
               <FeaturedStrip items={featured} onSelect={selectSimd} />
             ) : null}
 
-            {/* Column headers */}
-            <div className="flex items-center gap-3 border-b border-white/[0.08] px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#444454]">
-              <span className="w-[52px] shrink-0">SIMD</span>
-              <span className="w-[88px] shrink-0">Status</span>
-              <span className="min-w-0 flex-1">Title</span>
-              <span className="hidden w-[72px] shrink-0 text-right lg:block">
-                Category
-              </span>
-              <span className="hidden w-[80px] shrink-0 text-right xl:block">
-                Release
-              </span>
-              <span className="hidden w-[120px] shrink-0 text-right md:block">
-                Progress
-              </span>
-              <span className="w-[52px] shrink-0 text-right">Updated</span>
-              <span className="w-3 shrink-0" />
-            </div>
-
             {/* List */}
             <div>
               {filteredUpgrades.length > 0 ? (
-                filteredUpgrades.map((upgrade) => (
-                  <DenseRow
-                    key={upgrade.id}
-                    upgrade={upgrade}
-                    onClick={() => selectSimd(upgrade.slug)}
+                <>
+                  <UpgradeTable
+                    upgrades={filteredUpgrades}
+                    onSelect={selectSimd}
                   />
-                ))
+                  <div className="lg:hidden">
+                    {filteredUpgrades.map((upgrade) => (
+                      <MobileRow
+                        key={upgrade.id}
+                        upgrade={upgrade}
+                        onClick={() => selectSimd(upgrade.slug)}
+                      />
+                    ))}
+                  </div>
+                </>
               ) : (
                 <Card className="my-6 border border-white/[0.06] bg-white/[0.02] py-0 text-white shadow-none">
                   <CardContent className="flex items-center justify-center px-6 py-16">
