@@ -190,6 +190,18 @@ const nextConfig: NextConfig = {
     styledComponents: true,
   },
 
+  // Include files read at runtime by the sitemap route
+  outputFileTracingIncludes: {
+    "/sitemap.xml": [
+      "./rewrites-redirects.mjs",
+      "./src/app/[[]locale[]]/**/page.{tsx,jsx,js,mdx}",
+      "../../apps/accelerate/src/app/sitemap-routes.json",
+      "../../apps/docs/content/**/*.mdx",
+      "../../apps/media/content/**/*.mdx",
+      "../../apps/media/content/**/*.yaml",
+    ],
+  },
+
   async headers() {
     return [
       {
