@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { statusLabel } from "@/lib/upgrade-status";
 import type { SIMDStatus } from "@/lib/upgrade-types";
 
 const STATUS_STYLES: Record<SIMDStatus, string> = {
@@ -12,10 +13,6 @@ const STATUS_STYLES: Record<SIMDStatus, string> = {
   stagnant: "border-zinc-700/70 bg-zinc-700/20 text-zinc-400",
   living: "border-cyan-400/40 bg-cyan-400/12 text-cyan-200",
 };
-
-export function statusLabel(status: SIMDStatus) {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
 
 export function StatusBadge({ status }: { status: SIMDStatus }) {
   return (

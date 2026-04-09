@@ -74,7 +74,7 @@ export function SIMDDetailPanel({
                       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-black/95 px-6 py-5 backdrop-blur-sm">
                         <button
                           onClick={onClose}
-                          className="flex items-center gap-2 text-[15px] text-[#ABABBA] transition-colors hover:text-white"
+                          className="flex cursor-pointer items-center gap-2 text-[15px] text-[#ABABBA] transition-colors hover:text-white"
                         >
                           <svg
                             className="h-4 w-4"

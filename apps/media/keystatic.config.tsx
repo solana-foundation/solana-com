@@ -7,6 +7,7 @@ import {
   type GitHubConfig,
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
+import { STATUS_OPTIONS } from "./lib/upgrade-status";
 
 // Keep local filesystem mode for local development only.
 // On Vercel, always use GitHub mode so /keystatic can bootstrap GitHub App setup.
@@ -569,17 +570,7 @@ export default config({
         }),
         status: fields.select({
           label: "Status",
-          options: [
-            { label: "Idea", value: "idea" },
-            { label: "Draft", value: "draft" },
-            { label: "Review", value: "review" },
-            { label: "Accepted", value: "accepted" },
-            { label: "Implemented", value: "implemented" },
-            { label: "Activated", value: "activated" },
-            { label: "Withdrawn", value: "withdrawn" },
-            { label: "Stagnant", value: "stagnant" },
-            { label: "Living", value: "living" },
-          ],
+          options: STATUS_OPTIONS,
           defaultValue: "draft",
         }),
         category: fields.select({

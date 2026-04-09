@@ -1,3 +1,4 @@
+import { STATUS_LABELS, statusLabel } from "@/lib/upgrade-status";
 import type { SIMDStatus } from "@/lib/upgrade-types";
 
 const STEPS: SIMDStatus[] = [
@@ -8,15 +9,6 @@ const STEPS: SIMDStatus[] = [
   "implemented",
   "activated",
 ];
-
-const STEP_LABELS: Record<string, string> = {
-  idea: "Idea",
-  draft: "Draft",
-  review: "Review",
-  accepted: "Accept",
-  implemented: "Implement",
-  activated: "Active",
-};
 
 type StepState = "completed" | "current" | "pending" | "withdrawn" | "stagnant";
 
@@ -132,7 +124,7 @@ export function StatusProgress({
                 <span
                   className={`mt-0.5 text-[8px] font-medium text-center leading-tight ${style.text}`}
                 >
-                  {STEP_LABELS[step]}
+                  {STATUS_LABELS[step]}
                 </span>
               ) : null}
             </div>
@@ -165,8 +157,4 @@ export function StatusProgress({
   );
 }
 
-export function statusLabel(status: SIMDStatus): string {
-  return (
-    STEP_LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1)
-  );
-}
+export { statusLabel };

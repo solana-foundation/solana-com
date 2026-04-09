@@ -83,7 +83,7 @@ const STATUS_GUIDE_ITEMS = [
 function StatusGuideToggle({ body }: { body?: string }) {
   return (
     <Disclosure>
-      <DisclosureButton className="group flex w-full items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.015] px-3.5 py-2.5 text-left text-[12px] font-medium text-[#8A8A9A] transition-colors hover:border-white/[0.1] hover:bg-white/[0.03] hover:text-white">
+      <DisclosureButton className="group flex w-full cursor-pointer items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.015] px-3.5 py-2.5 text-left text-[12px] font-medium text-[#8A8A9A] transition-colors hover:border-white/[0.1] hover:bg-white/[0.03] hover:text-white">
         <svg
           className="h-3.5 w-3.5 shrink-0 text-[#555568] transition-transform group-data-[open]:rotate-90"
           fill="none"
@@ -234,7 +234,7 @@ function Filters({
               key={opt.value}
               type="button"
               onClick={() => onStatusChange(opt.value)}
-              className={`rounded-md px-2.5 py-1.5 text-[12px] font-medium tracking-[-0.12px] transition-colors ${
+              className={`cursor-pointer rounded-md px-2.5 py-1.5 text-[12px] font-medium tracking-[-0.12px] transition-colors ${
                 status === opt.value
                   ? "bg-white text-black"
                   : "text-[#6B6B7B] hover:bg-white/[0.04] hover:text-white"
@@ -254,7 +254,7 @@ function Filters({
             onChange={(e) =>
               onCategoryChange(e.target.value as SIMDCategory | "all")
             }
-            className="h-8 rounded-md border border-white/[0.08] bg-transparent px-2.5 text-[12px] text-[#8A8A9A] focus:border-[#CA9FF5]/30 focus:outline-none"
+            className="h-8 cursor-pointer rounded-md border border-white/[0.08] bg-transparent px-2.5 text-[12px] text-[#8A8A9A] focus:border-[#CA9FF5]/30 focus:outline-none"
           >
             <option value="all">All categories</option>
             <option value="standard">Standard</option>
@@ -264,7 +264,7 @@ function Filters({
           <select
             value={type}
             onChange={(e) => onTypeChange(e.target.value as SIMDType | "all")}
-            className="h-8 rounded-md border border-white/[0.08] bg-transparent px-2.5 text-[12px] text-[#8A8A9A] focus:border-[#CA9FF5]/30 focus:outline-none"
+            className="h-8 cursor-pointer rounded-md border border-white/[0.08] bg-transparent px-2.5 text-[12px] text-[#8A8A9A] focus:border-[#CA9FF5]/30 focus:outline-none"
           >
             <option value="all">All types</option>
             <option value="core">Core</option>
