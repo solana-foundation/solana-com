@@ -9,12 +9,15 @@ import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
 import { CallToAction } from "@/components/ui/call-to-action";
+import { TableOfContents } from "@/components/ui/table-of-contents";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
+import { extractHeadings } from "@/lib/extract-headings";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
@@ -136,26 +139,30 @@ export default async function PostPage({
         {await (async () => {
           const rawMdxSource = await post.body();
           const mdxSource = preprocessMDX(rawMdxSource);
+          const headings = extractHeadings(rawMdxSource);
 
-          if (cta) {
-            return (
-              <div className="max-w-5xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:gap-12">
-                  <div className="min-w-0 lg:flex-1 max-w-[720px]">
-                    <article className="prose prose-lg dark:prose-dark w-full max-w-none">
-                      <MDXRemote
-                        source={mdxSource}
-                        components={mdxComponents}
-                        options={{
-                          mdxOptions: { remarkPlugins: [remarkGfm] },
-                        }}
-                      />
-                    </article>
+          return (
+            <div className="relative mx-auto mt-12 max-w-[720px] px-4 md:px-6 lg:px-8">
+              <article className="prose prose-lg dark:prose-dark w-full max-w-none">
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: {
+                      remarkPlugins: [remarkGfm],
+                      rehypePlugins: [rehypeSlug],
+                    },
+                  }}
+                />
+              </article>
 
-                    <SocialShare title={String(post.title)} variant="card" />
-                  </div>
+              <SocialShare title={String(post.title)} variant="card" />
 
-                  <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
+              <aside className="hidden lg:block absolute top-0 bottom-0 left-full ml-12 w-56">
+                <div className="sticky top-24 space-y-8">
+                  <TableOfContents headings={headings} />
+
+                  {cta && (
                     <CallToAction
                       eyebrow={cta.eyebrow || undefined}
                       headline={cta.headline || undefined}
@@ -164,29 +171,11 @@ export default async function PostPage({
                         label: cta.button?.label || "",
                         url: cta.button?.url || "",
                       }}
-                      className={["sticky top-24", cta.className]
-                        .filter(Boolean)
-                        .join(" ")}
+                      className={cta.className || undefined}
                     />
-                  </aside>
+                  )}
                 </div>
-              </div>
-            );
-          }
-
-          return (
-            <div className="max-w-[720px] mx-auto mt-12 px-4 md:px-6 lg:px-8">
-              <article className="prose prose-lg dark:prose-dark w-full max-w-none">
-                <MDXRemote
-                  source={mdxSource}
-                  components={mdxComponents}
-                  options={{
-                    mdxOptions: { remarkPlugins: [remarkGfm] },
-                  }}
-                />
-              </article>
-
-              <SocialShare title={String(post.title)} variant="card" />
+              </aside>
             </div>
           );
         })()}
@@ -209,10 +198,12 @@ export default async function PostPage({
                 }}
               />
             }
-            buttons={switchback.buttons?.map((button) => ({
-              label: button?.label || "",
-              url: button?.url || "",
-            }))}
+            buttons={switchback.buttons?.map(
+              (button: { label?: string; url?: string } | undefined) => ({
+                label: button?.label || "",
+                url: button?.url || "",
+              }),
+            )}
             isReport={switchback.isReport || undefined}
             hubspotForm={
               switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
