@@ -403,6 +403,8 @@ function UpgradeTable({
               <tr
                 key={upgrade.id}
                 tabIndex={0}
+                role="link"
+                aria-label={`View SIMD-${upgrade.simdNumber}: ${upgrade.title}`}
                 onClick={() => onSelect(upgrade.slug)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
