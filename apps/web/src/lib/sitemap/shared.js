@@ -1,25 +1,7 @@
-const DEFAULT_LOCALE = "en";
-const LOCALES = [
-  "en",
-  "ar",
-  "de",
-  "el",
-  "es",
-  "fi",
-  "fr",
-  "id",
-  "it",
-  "ja",
-  "ko",
-  "nl",
-  "pl",
-  "pt",
-  "ru",
-  "tr",
-  "uk",
-  "vi",
-  "zh",
-];
+const {
+  defaultLocale: DEFAULT_LOCALE,
+  locales: LOCALES,
+} = require("@workspace/i18n/config");
 
 function normalizePath(routePath) {
   if (!routePath || routePath === "/") {
