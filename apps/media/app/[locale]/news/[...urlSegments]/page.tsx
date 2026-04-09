@@ -158,7 +158,7 @@ export default async function PostPage({
 
               <SocialShare title={String(post.title)} variant="card" />
 
-              <aside className="hidden lg:block absolute top-0 bottom-0 left-full ml-12 w-56">
+              <aside className="hidden xl:block absolute top-0 bottom-0 left-full ml-12 w-56">
                 <div className="sticky top-24 space-y-8">
                   <TableOfContents headings={headings} />
 
