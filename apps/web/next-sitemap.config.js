@@ -11,6 +11,9 @@ const {
   dedupeEntries,
   localizedPaths,
 } = require("./src/lib/sitemap/shared");
+const {
+  excludeRedirectSources,
+} = require("./src/lib/sitemap/redirect-sources");
 const https = require("https");
 const accelerateSitemapRoutes = require("../accelerate/src/app/sitemap-routes.json");
 
@@ -102,16 +105,18 @@ module.exports = {
       }),
     );
 
-    return dedupeEntries([
-      ...appRouteUrls,
-      ...docsUrls,
-      ...mediaPostUrls,
-      ...mediaPodcastUrls,
-      ...mediaReportUrls,
-      ...upgradeUrls,
-      ...templateUrls,
-      ...accelerateUrls,
-      ...breakpointUrls,
-    ]);
+    return excludeRedirectSources(
+      dedupeEntries([
+        ...appRouteUrls,
+        ...docsUrls,
+        ...mediaPostUrls,
+        ...mediaPodcastUrls,
+        ...mediaReportUrls,
+        ...upgradeUrls,
+        ...templateUrls,
+        ...accelerateUrls,
+        ...breakpointUrls,
+      ]),
+    );
   },
 };
