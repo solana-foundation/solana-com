@@ -24,38 +24,50 @@ function getRedirectBlockSource() {
 }
 
 export function getRedirectSourceUrls() {
-  const redirectBlock = getRedirectBlockSource();
-  const matches = [...redirectBlock.matchAll(/source:\s*"([^"]+)"/g)];
-  const localizedSources = new Set<string>();
+  try {
+    const redirectBlock = getRedirectBlockSource();
+    const matches = [...redirectBlock.matchAll(/source:\s*"([^"]+)"/g)];
+    const localizedSources = new Set<string>();
 
-  for (const match of matches) {
-    const source = match[1];
+    for (const match of matches) {
+      const source = match[1];
 
-    if (!source) {
-      continue;
-    }
-
-    if (source.includes(":") || source.includes("(") || source.includes("*")) {
-      continue;
-    }
-
-    const normalizedSource = normalizePath(source);
-    localizedSources.add(toAbsoluteUrl(normalizedSource));
-
-    if (normalizedSource === "/") {
-      continue;
-    }
-
-    for (const locale of LOCALES) {
-      if (locale === DEFAULT_LOCALE) {
+      if (!source) {
         continue;
       }
 
-      localizedSources.add(toAbsoluteUrl(`/${locale}${normalizedSource}`));
-    }
-  }
+      if (
+        source.includes(":") ||
+        source.includes("(") ||
+        source.includes("*")
+      ) {
+        continue;
+      }
 
-  return localizedSources;
+      const normalizedSource = normalizePath(source);
+      localizedSources.add(toAbsoluteUrl(normalizedSource));
+
+      if (normalizedSource === "/") {
+        continue;
+      }
+
+      for (const locale of LOCALES) {
+        if (locale === DEFAULT_LOCALE) {
+          continue;
+        }
+
+        localizedSources.add(toAbsoluteUrl(`/${locale}${normalizedSource}`));
+      }
+    }
+
+    return localizedSources;
+  } catch (error) {
+    console.error(
+      "Failed to read redirect sources for sitemap filtering",
+      error,
+    );
+    return new Set<string>();
+  }
 }
 
 export function excludeRedirectSources(entries: SitemapEntry[]) {
