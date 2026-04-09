@@ -4,6 +4,7 @@ import {
   Dialog,
   DialogBackdrop,
   DialogPanel,
+  DialogTitle,
   TransitionChild,
 } from "@headlessui/react";
 import { Github } from "lucide-react";
@@ -140,9 +141,9 @@ export function SIMDDetailPanel({
                       <div className="flex-1 space-y-8 px-6 py-8">
                         {/* Title + Status */}
                         <div className="space-y-4">
-                          <h2 className="m-0 font-sans font-medium text-[1.75rem] md:text-[2rem] leading-tight tracking-tight text-white">
+                          <DialogTitle className="m-0 font-sans font-medium text-[1.75rem] md:text-[2rem] leading-tight tracking-tight text-white">
                             {upgrade.title}
-                          </h2>
+                          </DialogTitle>
                           <div className="flex items-center gap-3">
                             <StatusBadge status={upgrade.status} />
                             {expectedRelease ? (
