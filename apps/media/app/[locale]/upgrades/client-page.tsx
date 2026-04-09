@@ -153,9 +153,9 @@ function FeaturedStrip({
   return (
     <div className="mb-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
+        <h2 className="m-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
           Pinned
-        </span>
+        </h2>
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((upgrade) => {
@@ -489,9 +489,9 @@ function ActivitySidebar({
     <aside className="w-full shrink-0 lg:w-[280px] lg:pl-6 xl:w-[320px]">
       <div className="sticky top-0 pt-1">
         <div className="mb-3 flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
+          <h2 className="m-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
             Recent activity
-          </span>
+          </h2>
           <div className="h-px flex-1 bg-white/[0.06]" />
         </div>
 
