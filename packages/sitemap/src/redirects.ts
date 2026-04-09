@@ -25,13 +25,13 @@ function getRedirectBlockSource() {
 
 export function getRedirectSourceUrls() {
   try {
+    const localizedSources = new Set<string>();
+
     const redirectBlock = getRedirectBlockSource();
     const matches = [...redirectBlock.matchAll(/source:\s*"([^"]+)"/g)];
-    const localizedSources = new Set<string>();
 
     for (const match of matches) {
       const source = match[1];
-
       if (!source) {
         continue;
       }
