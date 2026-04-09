@@ -114,7 +114,7 @@ export function StatusProgress({
               <div className="relative">
                 {state === "current" && style.ping ? (
                   <div
-                    className={`absolute inset-0 rounded-full animate-ping opacity-30 ${style.ping}`}
+                    className={`absolute inset-0 rounded-full motion-safe:animate-ping opacity-30 ${style.ping}`}
                   />
                 ) : null}
                 <div

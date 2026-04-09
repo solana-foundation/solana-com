@@ -249,6 +249,7 @@ function Filters({
               key={opt.value}
               type="button"
               onClick={() => onStatusChange(opt.value)}
+              aria-pressed={status === opt.value}
               variant="ghost"
               size="sm"
               className={`h-auto px-2.5 py-1.5 text-[12px] font-medium tracking-[-0.12px] ${
@@ -486,7 +487,10 @@ function ActivitySidebar({
   if (notes.length === 0) return null;
 
   return (
-    <aside className="w-full shrink-0 lg:w-[280px] lg:pl-6 xl:w-[320px]">
+    <aside
+      aria-label="Recent activity"
+      className="w-full shrink-0 lg:w-[280px] lg:pl-6 xl:w-[320px]"
+    >
       <div className="sticky top-0 pt-1">
         <div className="mb-3 flex items-center gap-2">
           <h2 className="m-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
