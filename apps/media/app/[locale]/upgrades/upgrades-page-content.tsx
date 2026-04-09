@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowUpRight, Github } from "lucide-react";
 import UpgradesClientPage from "./client-page";
 import {
   fetchFeaturedUpgrades,
@@ -83,8 +84,13 @@ export async function UpgradesPageContent({
                   href={resource.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[12px] text-[#6B6B7B] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-white/40"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-[#b9b9c8] transition-colors hover:border-[#ca9ff5]/30 hover:bg-white/[0.06] hover:text-white"
                 >
+                  {resource.url.includes("github.com") ? (
+                    <Github className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
                   {resource.label}
                 </Link>
               ))}
