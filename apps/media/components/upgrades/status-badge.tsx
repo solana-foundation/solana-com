@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { statusLabel } from "@/lib/upgrade-status";
 import type { SIMDStatus } from "@/lib/upgrade-types";
 
@@ -16,13 +17,13 @@ const STATUS_STYLES: Record<SIMDStatus, string> = {
 
 export function StatusBadge({ status }: { status: SIMDStatus }) {
   return (
-    <span
+    <Badge
       className={cn(
-        "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.22em]",
+        "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.22em]",
         STATUS_STYLES[status],
       )}
     >
       {statusLabel(status)}
-    </span>
+    </Badge>
   );
 }

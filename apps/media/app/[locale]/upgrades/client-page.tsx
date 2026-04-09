@@ -6,6 +6,8 @@ import {
   DisclosureButton,
   DisclosurePanel,
 } from "@headlessui/react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import type {
   SIMDCategory,
   SIMDStatus,
@@ -230,18 +232,20 @@ function Filters({
         {/* Status pills */}
         <div className="flex flex-wrap gap-1">
           {STATUS_OPTIONS.map((opt) => (
-            <button
+            <Button
               key={opt.value}
               type="button"
               onClick={() => onStatusChange(opt.value)}
-              className={`cursor-pointer rounded-md px-2.5 py-1.5 text-[12px] font-medium tracking-[-0.12px] transition-colors ${
+              variant="ghost"
+              size="sm"
+              className={`h-auto px-2.5 py-1.5 text-[12px] font-medium tracking-[-0.12px] ${
                 status === opt.value
                   ? "bg-white text-black"
                   : "text-[#6B6B7B] hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               {opt.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -601,11 +605,13 @@ export default function UpgradesClientPage({
                   />
                 ))
               ) : (
-                <div className="flex items-center justify-center py-16">
-                  <p className="m-0 text-[13px] text-[#555568]">
-                    No SIMDs match the current filters.
-                  </p>
-                </div>
+                <Card className="my-6 border border-white/[0.06] bg-white/[0.02] py-0 text-white shadow-none">
+                  <CardContent className="flex items-center justify-center px-6 py-16">
+                    <p className="m-0 text-[13px] text-[#555568]">
+                      No SIMDs match the current filters.
+                    </p>
+                  </CardContent>
+                </Card>
               )}
             </div>
           </div>
