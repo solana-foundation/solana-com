@@ -41,6 +41,11 @@ vi.mock("@/lib/podcast-data", () => ({
   fetchEpisodesForPodcast: vi.fn(),
 }));
 
+vi.mock("@/lib/upgrade-data", () => ({
+  fetchUpgradeBySlug: vi.fn(),
+  fetchUpgradeOverview: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -49,10 +54,12 @@ import { config } from "@/lib/config";
 import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
+import { fetchUpgradeBySlug } from "@/lib/upgrade-data";
 import {
   newsListingMetadata,
   newsPostMetadata,
   categoryListingMetadata,
+  upgradeDetailMetadata,
   podcastsListingMetadata,
   podcastShowMetadata,
   podcastEpisodeMetadata,
@@ -63,6 +70,7 @@ const mockReader = reader as any;
 const mockFetchCategory = fetchCategoryByPath as ReturnType<typeof vi.fn>;
 const mockFetchPodcast = fetchPodcastBySlug as ReturnType<typeof vi.fn>;
 const mockFetchEpisode = fetchEpisodeById as ReturnType<typeof vi.fn>;
+const mockFetchUpgrade = fetchUpgradeBySlug as ReturnType<typeof vi.fn>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,6 +130,29 @@ const MOCK_CATEGORY = { name: "Ecosystem" };
 const MOCK_TAGS: Record<string, { name: string }> = {
   defi: { name: "DeFi" },
   nft: { name: "NFT" },
+};
+
+const MOCK_UPGRADE = {
+  id: "simd-0088",
+  slug: "simd-0088",
+  simdNumber: "0088",
+  title: "Enable Core BPF Programs",
+  status: "activated" as const,
+  category: "standard" as const,
+  type: "core" as const,
+  authors: ["Joe Caulfield (Anza)"],
+  createdDate: "2024-03-15",
+  updatedDate: "2024-06-20",
+  githubUrl:
+    "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0088-enable-core-bpf-programs.md",
+  summary:
+    "Migrate core built-in programs to BPF for easier upgrades and maintenance.",
+  description: "Detailed description of SIMD-0088.",
+  relatedSimds: ["simd-0089"],
+  featured: true,
+  tags: ["Core", "Runtime"],
+  heroImage: "/uploads/simd-0088-hero.jpg",
+  url: "/upgrades/simd-0088",
 };
 
 const MOCK_PODCAST = {
@@ -487,5 +518,95 @@ describe("podcastEpisodeMetadata", () => {
     mockFetchEpisode.mockResolvedValue(null);
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
     expect(meta.title).toBe("Episode Not Found");
+  });
+});
+
+// ---- Upgrade Detail ----
+
+describe("upgradeDetailMetadata", () => {
+  const slug = "simd-0088";
+
+  beforeEach(() => {
+    mockFetchUpgrade.mockResolvedValue(MOCK_UPGRADE);
+  });
+
+  it("sets title with SIMD number and name", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expect(meta.title).toBe("SIMD-0088: Enable Core BPF Programs");
+  });
+
+  it("uses summary as description", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expect(meta.description).toBe(MOCK_UPGRADE.summary);
+  });
+
+  it("sets og:type to article", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expect((meta.openGraph as any).type).toBe("article");
+  });
+
+  it("has complete OpenGraph with all required fields", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    const og = meta.openGraph as any;
+
+    expectOgFields(og);
+    expect(og.publishedTime).toBe(MOCK_UPGRADE.createdDate);
+    expect(og.modifiedTime).toBe(MOCK_UPGRADE.updatedDate);
+    expect(og.authors).toEqual(["Joe Caulfield (Anza)"]);
+    expect(og.tags).toEqual(["Core", "Runtime"]);
+  });
+
+  it("has complete Twitter card", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expectTwitterFields(meta.twitter as any);
+  });
+
+  it("uses hero image for OG and Twitter", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expect((meta.openGraph as any).images[0].url).toBe(MOCK_UPGRADE.heroImage);
+    expect((meta.twitter as any).images[0]).toBe(MOCK_UPGRADE.heroImage);
+  });
+
+  it("falls back to default image when no hero", async () => {
+    mockFetchUpgrade.mockResolvedValue({ ...MOCK_UPGRADE, heroImage: null });
+    const meta = await upgradeDetailMetadata(slug);
+    expect((meta.openGraph as any).images[0].url).toBe(
+      config.siteMetadata.socialShare,
+    );
+  });
+
+  it("sets canonical to /upgrades/{slug}", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expectCanonical(meta.alternates, `/upgrades/${slug}`);
+  });
+
+  it("uses only public URLs", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expectNoInternalUrls(meta.openGraph, meta.alternates);
+  });
+
+  it("sets robots with googleBot directives", async () => {
+    const meta = await upgradeDetailMetadata(slug);
+    expect(meta.robots).toEqual({
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    });
+  });
+
+  it("returns noindex fallback when upgrade not found", async () => {
+    mockFetchUpgrade.mockResolvedValue(null);
+    const meta = await upgradeDetailMetadata(slug);
+    expect(meta.title).toBe("Upgrade Not Found");
+    expect(meta.robots).toEqual({
+      index: false,
+      follow: false,
+    });
   });
 });
