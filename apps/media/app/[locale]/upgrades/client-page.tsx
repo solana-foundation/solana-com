@@ -116,19 +116,20 @@ function StatusGuideToggle({ body }: { body?: string }) {
               {body.split(/\n\s*\n/)[0]?.trim()}
             </p>
           ) : null}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {STATUS_GUIDE_ITEMS.map((item) => (
-              <div
-                key={item.status}
-                className="flex items-start gap-2.5 rounded-md p-2"
-              >
-                <StatusBadge status={item.status} />
-                <span className="text-[12px] leading-snug text-[#6B6B7B]">
-                  {item.body}
-                </span>
-              </div>
-            ))}
-          </div>
+          <table className="w-full border-collapse">
+            <tbody>
+              {STATUS_GUIDE_ITEMS.map((item) => (
+                <tr key={item.status}>
+                  <td className="w-0 whitespace-nowrap py-1.5 pr-3 align-middle">
+                    <StatusBadge status={item.status} />
+                  </td>
+                  <td className="py-1.5 align-middle text-[12px] leading-snug text-[#6B6B7B]">
+                    {item.body}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </DisclosurePanel>
     </Disclosure>
@@ -476,7 +477,7 @@ function ActivitySidebar({
   if (notes.length === 0) return null;
 
   return (
-    <aside className="w-full shrink-0 lg:w-[280px] lg:border-l lg:border-white/[0.06] lg:pl-6 xl:w-[320px]">
+    <aside className="w-full shrink-0 lg:w-[280px] lg:pl-6 xl:w-[320px]">
       <div className="sticky top-0 pt-1">
         <div className="mb-3 flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">

@@ -34,10 +34,10 @@ function MetaRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-white/10 py-3.5">
-      <span className="shrink-0 text-[13px] font-medium uppercase tracking-[0.2em] text-[#555568]">
+      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.2em] text-[#555568]">
         {label}
       </span>
-      <span className="text-right text-[15px] text-[#ABABBA]">{children}</span>
+      <span className="text-right text-sm text-[#ABABBA]">{children}</span>
     </div>
   );
 }
@@ -83,7 +83,7 @@ export function SIMDDetailPanel({
                           onClick={onClose}
                           variant="ghost"
                           size="sm"
-                          className="h-auto px-0 text-[15px] text-[#ABABBA] hover:bg-transparent hover:text-white"
+                          className="h-auto px-0 text-sm text-[#ABABBA] hover:bg-transparent hover:text-white"
                         >
                           <svg
                             className="h-4 w-4"
@@ -104,7 +104,7 @@ export function SIMDDetailPanel({
                           asChild
                           variant="outline"
                           size="sm"
-                          className="rounded-full border-white/15 bg-white/[0.04] px-3 text-[13px] font-medium uppercase tracking-[0.28em] text-[#CA9FF5] hover:border-white/25 hover:bg-white/[0.08] hover:text-white dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+                          className="rounded-full border-white/15 bg-white/[0.04] px-3 text-xs font-medium uppercase tracking-[0.2em] text-[#CA9FF5] hover:border-white/25 hover:bg-white/[0.08] hover:text-white dark:border-white/15 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                         >
                           <Link
                             href={upgrade.githubUrl}
@@ -120,13 +120,13 @@ export function SIMDDetailPanel({
                       <div className="flex-1 space-y-8 px-6 py-8">
                         {/* Title + Status */}
                         <div className="space-y-4">
-                          <h2 className="m-0 font-sans font-medium text-[28px] md:text-[32px] leading-[1.2] tracking-[-0.84px] md:tracking-[-0.96px] text-white">
+                          <h2 className="m-0 font-sans font-medium text-[1.75rem] md:text-[2rem] leading-tight tracking-tight text-white">
                             {upgrade.title}
                           </h2>
                           <div className="flex items-center gap-3">
                             <StatusBadge status={upgrade.status} />
                             {expectedRelease ? (
-                              <span className="text-[13px] tracking-wide text-[#ABABBA]">
+                              <span className="text-xs tracking-wide text-[#ABABBA]">
                                 {expectedRelease}
                               </span>
                             ) : null}
@@ -145,10 +145,10 @@ export function SIMDDetailPanel({
                         upgrade.editorialNote ||
                         upgrade.summary ? (
                           <div className="space-y-3">
-                            <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
+                            <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                               About
                             </h3>
-                            <p className="m-0 text-[#ABABBA] text-base tracking-[-0.16px] leading-[1.65]">
+                            <p className="m-0 text-base leading-relaxed text-[#ABABBA]">
                               {upgrade.description ||
                                 upgrade.editorialNote ||
                                 upgrade.summary}
@@ -179,7 +179,7 @@ export function SIMDDetailPanel({
                           !upgrade.featureGate.includes("fill in") &&
                           !upgrade.featureGate.includes("TBD") ? (
                             <MetaRow label="Feature Gate">
-                              <code className="text-[13px] text-[#ABABBA]">
+                              <code className="text-xs text-[#ABABBA]">
                                 {upgrade.featureGate}
                               </code>
                             </MetaRow>
@@ -189,7 +189,7 @@ export function SIMDDetailPanel({
                         {/* Related SIMDs */}
                         {upgrade.relatedSimds.length > 0 ? (
                           <div className="space-y-3">
-                            <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
+                            <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                               Related SIMDs
                             </h3>
                             <div className="flex flex-wrap gap-2">
@@ -205,14 +205,14 @@ export function SIMDDetailPanel({
                                     }
                                     variant="outline"
                                     size="sm"
-                                    className="h-auto rounded-full border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA] hover:border-[#CA9FF5]/30 hover:bg-white/[0.03] hover:text-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.03]"
+                                    className="h-auto rounded-full border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-[#ABABBA] hover:border-[#CA9FF5]/30 hover:bg-white/[0.03] hover:text-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.03]"
                                   >
                                     SIMD-{simd}
                                   </Button>
                                 ) : (
                                   <span
                                     key={simd}
-                                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] font-medium text-[#ABABBA]"
+                                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-[#ABABBA]"
                                   >
                                     SIMD-{simd}
                                   </span>
@@ -228,7 +228,7 @@ export function SIMDDetailPanel({
                             <Button
                               asChild
                               variant="link"
-                              className="h-auto px-0 text-[15px] text-white decoration-white/15 hover:decoration-white"
+                              className="h-auto px-0 text-sm text-white decoration-white/15 hover:decoration-white"
                             >
                               <Link
                                 href={upgrade.discussionUrl}
@@ -246,7 +246,7 @@ export function SIMDDetailPanel({
 
                         {/* Update History */}
                         <div className="space-y-4">
-                          <h3 className="m-0 text-[13px] font-medium uppercase tracking-[0.22em] text-[#CA9FF5]">
+                          <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.2em] text-[#CA9FF5]">
                             Update history
                           </h3>
                           {notes.length > 0 ? (
@@ -257,17 +257,17 @@ export function SIMDDetailPanel({
                                   className="relative border-l-2 border-white/10 py-4 pl-6"
                                 >
                                   <div className="absolute -left-[5px] top-5 h-2 w-2 rounded-full border-2 border-black bg-[#CA9FF5]" />
-                                  <div className="text-[13px] uppercase tracking-[0.18em] text-[#555568]">
+                                  <div className="text-xs uppercase tracking-[0.2em] text-[#555568]">
                                     {formatDate(note.publishedAt)}
                                   </div>
-                                  <p className="m-0 mt-2 text-[#ABABBA] text-base tracking-[-0.16px] leading-[1.65]">
+                                  <p className="m-0 mt-2 text-base leading-relaxed text-[#ABABBA]">
                                     {note.body}
                                   </p>
                                 </li>
                               ))}
                             </ol>
                           ) : (
-                            <p className="m-0 text-[15px] text-[#555568]">
+                            <p className="m-0 text-sm text-[#555568]">
                               No update notes yet.
                             </p>
                           )}
