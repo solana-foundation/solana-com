@@ -1,9 +1,12 @@
-import { redirect } from "next/navigation";
+import { redirect } from "@workspace/i18n/routing";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ locale: string }> },
 ) {
   const { locale } = await params;
-  redirect(`/${locale}/news`);
+  redirect({
+    href: "/news",
+    locale,
+  });
 }
