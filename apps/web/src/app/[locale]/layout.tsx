@@ -16,6 +16,8 @@ import {
   ThemeProvider,
   SitewideTopAlert,
   InkeepChatButton,
+  InkeepModal,
+  InkeepProvider,
   PersistentPodcastPlayer,
 } from "@solana-com/ui-chrome";
 import { ChromeWrapper } from "@/components/ChromeWrapper";
@@ -53,18 +55,21 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider messages={messages} locale={locale}>
           <PostHogProvider>
             <ThemeProvider>
-              <GTMTrackingSnippet />
-              <SitewideTopAlert />
-              <CookieConsent />
-              <ChromeWrapper>
-                <Header />
-              </ChromeWrapper>
-              {children}
-              <ChromeWrapper>
-                <Footer />
-              </ChromeWrapper>
-              <PersistentPodcastPlayer />
-              <InkeepChatButton />
+              <InkeepProvider>
+                <GTMTrackingSnippet />
+                <SitewideTopAlert />
+                <CookieConsent />
+                <ChromeWrapper>
+                  <Header />
+                </ChromeWrapper>
+                {children}
+                <ChromeWrapper>
+                  <Footer />
+                </ChromeWrapper>
+                <PersistentPodcastPlayer />
+                <InkeepChatButton />
+                <InkeepModal />
+              </InkeepProvider>
               <Script
                 id="signals-script"
                 strategy="afterInteractive"

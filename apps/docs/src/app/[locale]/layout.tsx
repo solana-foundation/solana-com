@@ -13,6 +13,8 @@ import { getLangDir } from "rtl-detect";
 import {
   Header,
   Footer,
+  InkeepModal,
+  InkeepProvider,
   PersistentPodcastPlayer,
   ThemeProvider,
   SitewideTopAlert,
@@ -45,13 +47,16 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider messages={messages} locale={locale}>
           <PostHogProvider>
             <ThemeProvider>
-              <GTMTrackingSnippet />
-              <SitewideTopAlert />
-              <CookieConsent />
-              <Header />
-              {children}
-              <Footer />
-              <PersistentPodcastPlayer />
+              <InkeepProvider>
+                <GTMTrackingSnippet />
+                <SitewideTopAlert />
+                <CookieConsent />
+                <Header />
+                {children}
+                <Footer />
+                <PersistentPodcastPlayer />
+                <InkeepModal />
+              </InkeepProvider>
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>

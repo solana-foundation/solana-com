@@ -3,6 +3,8 @@ import { NextIntlClientProvider } from "next-intl";
 import {
   Header,
   Footer,
+  InkeepModal,
+  InkeepProvider,
   PersistentPodcastPlayer,
   ThemeProvider,
 } from "@solana-com/ui-chrome";
@@ -49,12 +51,15 @@ export default async function RootLayout({ children }: Props) {
         </noscript>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
-            <GTMTrackingSnippet />
-            <CookieConsent />
-            <Header showLanguage={false} showDevelopersNav={false} />
-            <main className="min-h-screen">{children}</main>
-            <Footer />
-            <PersistentPodcastPlayer />
+            <InkeepProvider>
+              <GTMTrackingSnippet />
+              <CookieConsent />
+              <Header showLanguage={false} showDevelopersNav={false} />
+              <main className="min-h-screen">{children}</main>
+              <Footer />
+              <PersistentPodcastPlayer />
+              <InkeepModal />
+            </InkeepProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

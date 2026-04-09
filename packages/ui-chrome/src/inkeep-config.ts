@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+"use client";
+
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import faviconPng from "./assets/favicon.png";
 import type {
@@ -761,19 +771,28 @@ const aiChatSettings: InkeepAIChatSettings = {
   ],
 };
 
-export function useInkeepConfig(): {
+type InkeepConfigContextValue = {
   baseSettings: InkeepBaseSettings;
   searchSettings: InkeepSearchSettings;
   aiChatSettings: InkeepAIChatSettings;
   shouldForceSearchView: boolean;
+  shouldRenderModal: boolean;
+  ensureModalLoaded: () => void;
   modalSettings: {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
   };
-} {
+};
+
+const InkeepConfigContext = createContext<InkeepConfigContextValue | null>(
+  null,
+);
+
+export function InkeepProvider({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [syncTarget, setSyncTarget] = useState<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldRenderModal, setShouldRenderModal] = useState(false);
   const searchFunctionsRef = useRef<{
     updateQuery: (query: string) => void;
     focusInput: () => void;
@@ -789,6 +808,7 @@ export function useInkeepConfig(): {
   useEffect(() => {
     if (!shouldForceSearchView) return;
 
+    setShouldRenderModal(true);
     setIsOpen(true);
   }, [shouldForceSearchView]);
 
@@ -799,27 +819,59 @@ export function useInkeepConfig(): {
     searchFunctionsRef.current?.focusInput();
   }, [isOpen, searchQuery, shouldForceSearchView]);
 
-  return {
-    baseSettings: {
-      ...baseSettings,
-      colorMode: {
-        sync: {
-          target: syncTarget,
-          attributes: ["class"],
-          isDarkMode: (attributes) => !!attributes.class?.includes("dark"),
+  const value = useMemo<InkeepConfigContextValue>(
+    () => ({
+      baseSettings: {
+        ...baseSettings,
+        colorMode: {
+          sync: {
+            target: syncTarget,
+            attributes: ["class"],
+            isDarkMode: (attributes) => !!attributes.class?.includes("dark"),
+          },
         },
       },
-    },
-    modalSettings: {
-      isOpen,
-      onOpenChange: setIsOpen,
-    },
-    shouldForceSearchView,
-    searchSettings: {
-      ...searchSettings,
-      defaultQuery: searchQuery,
-      searchFunctionsRef,
-    },
-    aiChatSettings,
+      modalSettings: {
+        isOpen,
+        onOpenChange: (nextIsOpen) => {
+          if (nextIsOpen) {
+            setShouldRenderModal(true);
+          }
+
+          setIsOpen(nextIsOpen);
+        },
+      },
+      shouldForceSearchView,
+      shouldRenderModal,
+      ensureModalLoaded: () => setShouldRenderModal(true),
+      searchSettings: {
+        ...searchSettings,
+        defaultQuery: searchQuery,
+        searchFunctionsRef,
+      },
+      aiChatSettings,
+    }),
+    [isOpen, searchQuery, shouldForceSearchView, shouldRenderModal, syncTarget],
+  );
+
+  return createElement(InkeepConfigContext.Provider, { value }, children);
+}
+
+export function useInkeepConfig(): InkeepConfigContextValue {
+  const context = useContext(InkeepConfigContext);
+
+  if (!context) {
+    throw new Error("useInkeepConfig must be used within an InkeepProvider");
+  }
+
+  return context;
+}
+
+export function useOpenInkeep() {
+  const { ensureModalLoaded, modalSettings } = useInkeepConfig();
+
+  return () => {
+    ensureModalLoaded();
+    modalSettings.onOpenChange(true);
   };
 }

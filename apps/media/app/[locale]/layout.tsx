@@ -7,6 +7,8 @@ import { getLangDir } from "rtl-detect";
 import {
   Header,
   Footer,
+  InkeepModal,
+  InkeepProvider,
   PersistentPodcastPlayer,
   ThemeProvider,
 } from "@solana-com/ui-chrome";
@@ -121,17 +123,20 @@ export default async function LocaleLayout({ children, params }: Props) {
       {/* End Google Tag Manager (noscript) */}
       <NextIntlClientProvider messages={messages} locale={locale}>
         <ThemeProvider>
-          <GTMTrackingSnippet />
-          <CookieConsent />
-          <LayoutProvider globalSettings={globalData.global} pageData={null}>
-            <VideoDialogProvider>
-              <Header />
-              <main>{children}</main>
-              <Footer />
-              <PersistentPodcastPlayer />
-              <VideoDialog />
-            </VideoDialogProvider>
-          </LayoutProvider>
+          <InkeepProvider>
+            <GTMTrackingSnippet />
+            <CookieConsent />
+            <LayoutProvider globalSettings={globalData.global} pageData={null}>
+              <VideoDialogProvider>
+                <Header />
+                <main>{children}</main>
+                <Footer />
+                <PersistentPodcastPlayer />
+                <InkeepModal />
+                <VideoDialog />
+              </VideoDialogProvider>
+            </LayoutProvider>
+          </InkeepProvider>
         </ThemeProvider>
       </NextIntlClientProvider>
       <TailwindIndicator />

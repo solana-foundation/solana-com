@@ -18,6 +18,8 @@ export { Footer } from "./footer";
 export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
+export { InkeepProvider } from "./inkeep-config";
+export { InkeepModal } from "./inkeep-modal";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
 export { PersistentPodcastPlayer } from "./persistent-podcast-player";
