@@ -322,63 +322,25 @@ function MobileRow({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full cursor-pointer items-center gap-3 border-b border-white/[0.04] px-2 py-2.5 text-left transition-colors hover:bg-white/[0.02]"
+      className="group block w-full cursor-pointer border-b border-white/[0.04] px-2 py-3 text-left transition-colors hover:bg-white/[0.02]"
     >
-      {/* SIMD number — monospace */}
-      <span className="w-[52px] shrink-0 font-mono text-[12px] font-medium tabular-nums text-[#CA9FF5]">
-        {upgrade.simdNumber}
-      </span>
-
-      {/* Status badge */}
-      <div className="w-[88px] shrink-0">
-        <StatusBadge status={upgrade.status} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="shrink-0 font-mono text-[12px] font-medium tabular-nums text-[#CA9FF5]">
+            {upgrade.simdNumber}
+          </span>
+          <StatusBadge status={upgrade.status} />
+        </div>
+        <span className="shrink-0 pt-0.5 text-right font-mono text-[11px] tabular-nums text-[#555568]">
+          {relativeDate(upgrade.updatedDate || upgrade.createdDate)}
+        </span>
       </div>
 
-      {/* Title + description */}
-      <div className="min-w-0 flex-1">
-        <p className="m-0 truncate text-[13px] font-medium leading-snug text-white group-hover:text-[#e8e0f8]">
+      <div className="mt-2 min-w-0">
+        <p className="m-0 line-clamp-2 text-[14px] font-medium leading-snug text-white group-hover:text-[#e8e0f8]">
           {upgrade.title}
         </p>
-        <p className="m-0 truncate text-[12px] leading-snug text-[#6B6B7B]">
-          {upgrade.description || upgrade.editorialNote || upgrade.summary}
-        </p>
       </div>
-
-      {/* Category/Type */}
-      <span className="hidden w-[72px] shrink-0 text-right text-[11px] uppercase tracking-[0.12em] text-[#444454] lg:block">
-        {upgrade.category}
-        {upgrade.type ? `/${upgrade.type.slice(0, 4)}` : ""}
-      </span>
-
-      {/* Expected release */}
-      <span className="hidden w-[80px] shrink-0 text-right text-[11px] tracking-wide text-[#555568] xl:block">
-        {upgrade.expectedRelease || ""}
-      </span>
-
-      {/* Progress dots */}
-      <div className="hidden w-[120px] shrink-0 justify-end md:flex">
-        <StatusProgress status={upgrade.status} compact />
-      </div>
-
-      {/* Updated date */}
-      <span className="w-[52px] shrink-0 text-right font-mono text-[11px] tabular-nums text-[#555568]">
-        {relativeDate(upgrade.updatedDate || upgrade.createdDate)}
-      </span>
-
-      {/* Chevron */}
-      <svg
-        className="h-3 w-3 shrink-0 text-[#333344] transition-colors group-hover:text-[#CA9FF5]"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="m9 5 7 7-7 7"
-        />
-      </svg>
     </button>
   );
 }
