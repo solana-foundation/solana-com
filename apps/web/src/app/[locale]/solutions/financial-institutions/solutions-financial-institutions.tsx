@@ -1,174 +1,183 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { useState } from "react";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Projects } from "@/components/solutions/projects.v2";
 import {
-  CardDeck,
-  Carousel,
-  Heading,
-  Hero,
-  Section,
-  Slider,
-  SwitchbackChain,
-  Trustbar,
-} from "@solana-foundation/solana-lib";
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CAROUSEL,
-  CAROUSEL_SLIDES,
-  HERO_BUTTON,
-  HERO_IMAGE,
-  HERO_RIGHT_IMAGE,
-  SLIDER_CARDS,
-  SWITCHBACKS,
-  TOOL_SPOTLIGHT_CARD,
-  TRUSTBAR_LOGOS,
+  LOGOS,
+  PRODUCTS,
+  PROJECTS,
+  USE_CASES,
+  VIDEOS,
+  LATEST_NEWS,
 } from "@/data/solutions/financial-institutions";
+import { Products } from "@/components/solutions/products.v2";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
+import { VideoPlayerModal } from "@/component-library/video-modal";
+import { EmailModal } from "@/components/solutions/EmailModal";
+import { Performance } from "@/components/solutions/performance.v2";
+import { LatestNews } from "@/components/solutions/latest-news.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 export function SolutionsFinancialInstitutionsPage() {
-  const t = useTranslations("financial-institutions-solution");
+  const t = useTranslations();
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
-  const toolSpotlightCards = [
+  const stats: SolutionHeroStat[] = [
     {
-      ...TOOL_SPOTLIGHT_CARD,
-      eyebrow: t("cardDecks.toolSpotlight.eyebrow"),
-      heading: t("cardDecks.toolSpotlight.heading"),
-      body: t("cardDecks.toolSpotlight.body"),
-      callToAction: {
-        ...TOOL_SPOTLIGHT_CARD.callToAction,
-        label: t("cardDecks.toolSpotlight.ctaLabel"),
-      },
+      value: t("financial-institutions-solution.hero.stats.0.value"),
+      label: t("financial-institutions-solution.hero.stats.0.label"),
+      Icon: "/src/img/solutions/financial-institutions/icon-1.svg",
+    },
+    {
+      value: t("financial-institutions-solution.hero.stats.1.value"),
+      label: t("financial-institutions-solution.hero.stats.1.label"),
+      Icon: "/src/img/solutions/financial-institutions/icon-2.svg",
+    },
+    {
+      value: t("financial-institutions-solution.hero.stats.2.value"),
+      label: t("financial-institutions-solution.hero.stats.2.label"),
+      Icon: "/src/img/solutions/financial-institutions/icon-3.svg",
     },
   ];
 
-  const sliderCards = SLIDER_CARDS.map((card, index) => ({
-    ...card,
-    title: t(`slider.cards.${index}.title`),
-    body: t.raw(`slider.cards.${index}.body`),
-    button: {
-      ...card.button,
-      label: t(`slider.cards.${index}.buttonLabel`),
-    },
-  }));
-
-  const switchbacks = SWITCHBACKS.map((switchback, index) => ({
-    assetSide: "right",
-    image: {
-      src: switchback.image,
-      alt: t(`switchbacks.${index}.headline`),
-    },
-    eyebrow: "",
-    headline: t(`switchbacks.${index}.headline`),
-    body: t.raw(`switchbacks.${index}.body`),
-    placeholder: "",
-    emailError: "",
-    submitError: "",
-    successMessage: "",
-    buttons: [
-      {
-        ...switchback.button,
-        label: t(`switchbacks.${index}.buttonLabel`),
-      },
-    ],
-  }));
-
-  const carouselSlides = CAROUSEL_SLIDES.map((slide, index) => ({
-    ...slide,
-    image: {
-      ...slide.image,
-      alt: t(`carousel.slides.${index}.alt`),
-    },
-    label: t(`carousel.slides.${index}.label`),
-    headline: t(`carousel.slides.${index}.headline`),
-    body: t.raw(`carousel.slides.${index}.body`),
-    button: {
-      ...slide.button,
-      label: t(`carousel.slides.${index}.buttonLabel`),
-    },
-  }));
-
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-        buttons={
-          [
-            {
-              ...HERO_BUTTON,
-              label: t("buttons.connect"),
-            },
-          ] as React.ComponentProps<typeof Hero>["buttons"]
-        }
-        image={{
-          alt: t("hero.headline"),
-          src: HERO_IMAGE,
-        }}
-        rightImage={{
-          alt: t("hero.headline"),
-          src: HERO_RIGHT_IMAGE,
-        }}
-      />
+      <SelectionColor selectionColor="#1E40AF" selectionTextColor="#FFFFFF" />
 
-      <Trustbar
-        variant="grid"
-        eyebrow={t("trustbar.eyebrow")}
-        logos={TRUSTBAR_LOGOS as React.ComponentProps<typeof Trustbar>["logos"]}
-      />
-
-      <Heading
-        eyebrow={t("headings.tools.eyebrow")}
-        headline={t("headings.tools.headline")}
-        body={t("headings.tools.body")}
-      />
-
-      <CardDeck
-        cards={
-          toolSpotlightCards as React.ComponentProps<typeof CardDeck>["cards"]
-        }
-      />
-
-      <Slider cards={sliderCards} />
-
-      <Heading
-        variant="centered"
-        eyebrow={t("headings.trusted.eyebrow")}
-        headline={t("headings.trusted.headline")}
-        body={t("headings.trusted.body")}
-      />
-
-      <SwitchbackChain
-        hideBackground={true}
-        switchbacks={
-          switchbacks as React.ComponentProps<
-            typeof SwitchbackChain
-          >["switchbacks"]
-        }
-      />
-      <ResponsiveBox
-        responsiveStyles={{
-          large: { marginBottom: "-100px" },
-          small: { marginBottom: "-45px" },
-        }}
+      <div
+        id="fin-institutions-page"
+        aria-labelledby="hero-title"
+        className="bg-black"
       >
-        <Heading
-          variant="centered"
-          eyebrow={t("headings.worldsMostUsed.eyebrow")}
-          headline={t("headings.worldsMostUsed.headline")}
-          body={t("headings.worldsMostUsed.body")}
+        <SolutionHero
+          title={t("financial-institutions-solution.hero.title")}
+          subtitle={t("financial-institutions-solution.hero.subtitle")}
+          reportEyebrow={t(
+            "financial-institutions-solution.hero.reportEyebrow",
+          )}
+          reportDescription={t(
+            "financial-institutions-solution.hero.reportDescription",
+          )}
+          emailCta={t("financial-institutions-solution.hero.emailCta")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          stats={stats}
+          reportImgSrc="/src/img/solutions/icm/hero-download.webp"
+          bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
         />
-      </ResponsiveBox>
 
-      <Section>
-        <Carousel
-          autoplay={CAROUSEL.autoplay}
-          autoplaySpeed={CAROUSEL.autoplaySpeed}
-          slides={carouselSlides}
+        <Divider />
+
+        <WhatIsIt
+          title={t.rich("financial-institutions-solution.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          description={t(
+            "financial-institutions-solution.features.description",
+          )}
+          imageSrc="/src/img/solutions/icm/what-is.webp"
+          highlightColor="#1E40AF"
         />
-      </Section>
+
+        <Projects
+          title={t.rich("financial-institutions-solution.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
+          })}
+          projects={PROJECTS}
+          translationBase="financial-institutions-solution.projects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
+        />
+
+        <Divider />
+
+        <Performance
+          title={t("financial-institutions-solution.useCases.title")}
+          items={USE_CASES}
+          translationBase="financial-institutions-solution.useCases.items"
+        />
+
+        <Divider />
+
+        <Products
+          className="z-1"
+          title={t("financial-institutions-solution.products.title")}
+          description={t(
+            "financial-institutions-solution.products.description",
+          )}
+          products={PRODUCTS}
+          translationBase="financial-institutions-solution.products"
+          highlightColor="#1E40AF"
+        />
+
+        <Decor imageSrc="/src/img/solutions/icm/bg-1.webp" />
+
+        <VideoGrid
+          title={t("financial-institutions-solution.videoPlayer.title")}
+          subtitle={t("financial-institutions-solution.videoPlayer.subtitle")}
+          videos={VIDEOS(t)}
+        />
+
+        <Divider />
+
+        <LatestNews
+          title={t.rich("financial-institutions-solution.news.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          items={LATEST_NEWS(t)}
+        />
+
+        <Divider hideOnDesktop />
+
+        <SolutionReport
+          eyebrow={t("financial-institutions-solution.cta.reportTitle")}
+          description={t(
+            "financial-institutions-solution.cta.reportDescription",
+          )}
+          emailCta={t("financial-institutions-solution.cta.downloadReport")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          imgSrc="/src/img/solutions/icm/hero-download.webp"
+          linksTitle={t("financial-institutions-solution.cta.whatElseTitle")}
+          links={[
+            {
+              title: t("financial-institutions-solution.cta.items.0.label"),
+              href: "/solutions/solana-permissioned-environments",
+            },
+            {
+              title: t("financial-institutions-solution.cta.items.1.label"),
+              href: "/solutions/digital-assets",
+            },
+            {
+              title: t("financial-institutions-solution.cta.items.2.label"),
+              href: "/solutions/real-world-assets",
+            },
+          ]}
+          bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
+        />
+      </div>
+
+      <VideoPlayerModal />
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        formUrl="https://solanafoundation.typeform.com/to/L2kwha4R"
+      />
     </>
   );
 }

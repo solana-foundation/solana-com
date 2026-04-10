@@ -8,10 +8,12 @@ import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
 import { bhutan } from "./records/bhutan";
+import { blackrock } from "./records/blackrock";
 import { bonk } from "./records/bonk";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
+import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
 import { dabba } from "./records/dabba";
@@ -19,15 +21,18 @@ import { darkresearch } from "./records/darkresearch";
 import { doublezero } from "./records/doublezero";
 import { dynamic } from "./records/dynamic";
 import { fireblocks } from "./records/fireblocks";
+import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
 import { gradient } from "./records/gradient";
 import { jito } from "./records/jito";
+import { jpmorgan } from "./records/jpmorgan";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
 import { matcha } from "./records/matcha";
 import { mantleByreal } from "./records/mantle-byreal";
+import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
 import { osl } from "./records/osl";
 import { phantom } from "./records/phantom";
@@ -36,11 +41,14 @@ import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
 import { rockawayx } from "./records/rockawayx";
 import { safepalWallet } from "./records/safepal-wallet";
+import { societeGenerale } from "./records/societe-generale";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
 import { solflare } from "./records/solflare";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
+import { stateStreet } from "./records/state-street";
+import { stripe } from "./records/stripe";
 import { sunrise } from "./records/sunrise";
 import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
@@ -61,10 +69,12 @@ export const companies = [
   arcium,
   atxp,
   bhutan,
+  blackrock,
   bonk,
   bridge,
   bydfi,
   byreal,
+  citi,
   coinbase,
   comicbook,
   dabba,
@@ -72,15 +82,18 @@ export const companies = [
   doublezero,
   dynamic,
   fireblocks,
+  franklinTempleton,
   frodobots,
   galaxy,
   gradient,
   jito,
+  jpmorgan,
   kast,
   kazakhstan,
   libeara,
   matcha,
   mantleByreal,
+  morganStanley,
   openmined,
   osl,
   phantom,
@@ -89,11 +102,14 @@ export const companies = [
   quicknode,
   rockawayx,
   safepalWallet,
+  societeGenerale,
   solanaSpaces,
   solayer,
   solflare,
   spi,
   squads,
+  stateStreet,
+  stripe,
   sunrise,
   superteamUsa,
   switchboard,

@@ -14,8 +14,8 @@ export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations("financial-institutions-solution");
   return {
-    title: t("meta.seoTitle"),
-    description: t("meta.seoDescription"),
+    title: t("meta.title"),
+    description: t("meta.description"),
     alternates: getAlternates("/solutions/financial-institutions", locale),
   };
 }
