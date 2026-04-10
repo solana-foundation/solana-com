@@ -15,6 +15,7 @@ import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { SingleVideo } from "@/components/solutions/single-video.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import { CoinsIcon, WalletIcon, StepsIcon } from "@solana-com/ui-chrome/icons";
 
 export function SolutionsBtcfiPage() {
   const t = useTranslations();
@@ -23,22 +24,22 @@ export function SolutionsBtcfiPage() {
     {
       value: t("btcfi.hero.stats.0.value"),
       label: t("btcfi.hero.stats.0.label"),
-      Icon: "/src/img/solutions/btcfi/icons/coins.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("btcfi.hero.stats.1.value"),
       label: t("btcfi.hero.stats.1.label"),
-      Icon: "/src/img/solutions/btcfi/icons/coins.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("btcfi.hero.stats.2.value"),
       label: t("btcfi.hero.stats.2.label"),
-      Icon: "/src/img/solutions/btcfi/icons/wallet.svg",
+      Icon: WalletIcon,
     },
     {
       value: t("btcfi.hero.stats.3.value"),
       label: t("btcfi.hero.stats.3.label"),
-      Icon: "/src/img/solutions/btcfi/icons/steps.svg",
+      Icon: StepsIcon,
     },
   ];
 

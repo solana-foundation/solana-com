@@ -23,6 +23,11 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  ClockIcon,
+  DollarSignIcon,
+  ActivityIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export function SolutionsFinancialInstitutionsPage() {
   const t = useTranslations();
@@ -32,17 +37,17 @@ export function SolutionsFinancialInstitutionsPage() {
     {
       value: t("financial-institutions-solution.hero.stats.0.value"),
       label: t("financial-institutions-solution.hero.stats.0.label"),
-      Icon: "/src/img/solutions/financial-institutions/icon-1.svg",
+      Icon: ClockIcon,
     },
     {
       value: t("financial-institutions-solution.hero.stats.1.value"),
       label: t("financial-institutions-solution.hero.stats.1.label"),
-      Icon: "/src/img/solutions/financial-institutions/icon-2.svg",
+      Icon: DollarSignIcon,
     },
     {
       value: t("financial-institutions-solution.hero.stats.2.value"),
       label: t("financial-institutions-solution.hero.stats.2.label"),
-      Icon: "/src/img/solutions/financial-institutions/icon-3.svg",
+      Icon: ActivityIcon,
     },
   ];
 

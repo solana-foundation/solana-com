@@ -20,6 +20,12 @@ import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 
+import {
+  FlowIcon,
+  ArrowsIcon,
+  DiscountIcon,
+} from "@solana-com/ui-chrome/icons";
+
 export function SolutionsStablecoinsPage() {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -28,17 +34,17 @@ export function SolutionsStablecoinsPage() {
     {
       value: t("stablecoins.hero.stats.0.value"),
       label: t("stablecoins.hero.stats.0.label"),
-      Icon: "/src/img/solutions/stablecoins/icons/flow.svg",
+      Icon: FlowIcon,
     },
     {
       value: t("stablecoins.hero.stats.1.value"),
       label: t("stablecoins.hero.stats.1.label"),
-      Icon: "/src/img/solutions/stablecoins/icons/arrows.svg",
+      Icon: ArrowsIcon,
     },
     {
       value: t("stablecoins.hero.stats.2.value"),
       label: t("stablecoins.hero.stats.2.label"),
-      Icon: "/src/img/solutions/stablecoins/icons/discount.svg",
+      Icon: DiscountIcon,
     },
   ];
 

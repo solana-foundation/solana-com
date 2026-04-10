@@ -20,6 +20,12 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  TokenIcon,
+  CoinsIcon,
+  LedgerIcon,
+  StepsIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export function SolutionsTokenizationPage() {
   const t = useTranslations();
@@ -29,22 +35,22 @@ export function SolutionsTokenizationPage() {
     {
       value: t("icm.hero.stats.0.value"),
       label: t("icm.hero.stats.0.label"),
-      Icon: "/src/img/solutions/icm/icon-1.svg",
+      Icon: TokenIcon,
     },
     {
       value: t("icm.hero.stats.2.value"),
       label: t("icm.hero.stats.2.label"),
-      Icon: "/src/img/solutions/icm/icon-2.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("icm.hero.stats.3.value"),
       label: t("icm.hero.stats.3.label"),
-      Icon: "/src/img/solutions/icm/icon-3.svg",
+      Icon: LedgerIcon,
     },
     {
       value: t("icm.hero.stats.1.value"),
       label: t("icm.hero.stats.1.label"),
-      Icon: "/src/img/solutions/icm/icon-4.svg",
+      Icon: StepsIcon,
     },
   ];
 

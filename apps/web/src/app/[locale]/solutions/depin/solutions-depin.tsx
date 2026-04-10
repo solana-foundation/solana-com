@@ -21,6 +21,7 @@ import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import { CoinsIcon, PulseIcon, UsersIcon } from "@solana-com/ui-chrome/icons";
 
 export function SolutionsDepinPage() {
   const t = useTranslations();
@@ -30,17 +31,17 @@ export function SolutionsDepinPage() {
     {
       value: t("depin.hero.stats.0.value"),
       label: t("depin.hero.stats.0.label"),
-      Icon: "/src/img/solutions/depin/icon-1.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("depin.hero.stats.1.value"),
       label: t("depin.hero.stats.1.label"),
-      Icon: "/src/img/solutions/depin/icon-2.svg",
+      Icon: PulseIcon,
     },
     {
       value: t("depin.hero.stats.2.value"),
       label: t("depin.hero.stats.2.label"),
-      Icon: "/src/img/solutions/depin/icon-3.svg",
+      Icon: UsersIcon,
     },
   ];
 

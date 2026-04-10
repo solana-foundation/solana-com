@@ -14,6 +14,12 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  WalletIcon,
+  DiscountIcon,
+  MoneyIcon,
+  CoinsIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export function SolutionsConsumerPage() {
   const t = useTranslations();
@@ -23,22 +29,22 @@ export function SolutionsConsumerPage() {
     {
       value: t("consumer.hero.stats.0.value"),
       label: t("consumer.hero.stats.0.label"),
-      Icon: "/src/img/solutions/consumer/icons/wallet.svg",
+      Icon: WalletIcon,
     },
     {
       value: t("consumer.hero.stats.1.value"),
       label: t("consumer.hero.stats.1.label"),
-      Icon: "/src/img/solutions/consumer/icons/discount.svg",
+      Icon: DiscountIcon,
     },
     {
       value: t("consumer.hero.stats.2.value"),
       label: t("consumer.hero.stats.2.label"),
-      Icon: "/src/img/solutions/consumer/icons/money.svg",
+      Icon: MoneyIcon,
     },
     {
       value: t("consumer.hero.stats.3.value"),
       label: t("consumer.hero.stats.3.label"),
-      Icon: "/src/img/solutions/consumer/icons/coins.svg",
+      Icon: CoinsIcon,
     },
   ];
 

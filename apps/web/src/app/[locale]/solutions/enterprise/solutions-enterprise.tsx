@@ -13,6 +13,11 @@ import {
   FAQ_ITEMS,
   RESOURCES,
 } from "@/data/solutions/enterprise";
+import {
+  FlowIcon,
+  ArrowsIcon,
+  DiscountIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export function SolutionsEnterprisePage() {
   const t = useTranslations();
@@ -21,17 +26,17 @@ export function SolutionsEnterprisePage() {
     {
       value: t("partners.hero.stats.0.value"),
       label: t("partners.hero.stats.0.label"),
-      Icon: "/src/img/solutions/institutional-payments/icons/flow.svg",
+      Icon: FlowIcon,
     },
     {
       value: t("partners.hero.stats.1.value"),
       label: t("partners.hero.stats.1.label"),
-      Icon: "/src/img/solutions/institutional-payments/icons/arrows.svg",
+      Icon: ArrowsIcon,
     },
     {
       value: t("partners.hero.stats.2.value"),
       label: t("partners.hero.stats.2.label"),
-      Icon: "/src/img/solutions/institutional-payments/icons/discount.svg",
+      Icon: DiscountIcon,
     },
   ];
 
