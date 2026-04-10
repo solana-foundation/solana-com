@@ -68,6 +68,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: DEFI,
   },
   {
+    slug: "glam-skill",
+    title: "GLAM Skill",
+    description:
+      "AI coding skill for GLAM Protocol covering Solana vault management, tokenized vaults, and DeFi integrations.",
+    url: "https://github.com/glamsystems/glam-skill/tree/v1.0.0",
+    category: DEFI,
+  },
+  {
     slug: "jupiter-skill",
     title: "Jupiter Skill",
     description:
