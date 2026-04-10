@@ -27,7 +27,7 @@ export const PROJECTS = [
 
 export const LOGOS = [
   {
-    src: getCompanyLogoSrc("visa") ?? "",
+    src: getCompanyLogoSrc("visa", { theme: "dark" }) ?? "",
     alt: "Visa",
   },
   {
@@ -43,7 +43,7 @@ export const LOGOS = [
     alt: "BlackRock",
   },
   {
-    src: getCompanyLogoSrc("galaxy") ?? "",
+    src: getCompanyLogoSrc("galaxy", { theme: "dark" }) ?? "",
     alt: "Galaxy",
   },
 ];
