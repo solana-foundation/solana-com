@@ -95,7 +95,7 @@ export function SolutionsDefiPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("defi.products.title")}
           description={t("defi.products.description")}
           products={PRODUCTS}

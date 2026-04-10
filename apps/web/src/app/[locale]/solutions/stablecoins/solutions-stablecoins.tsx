@@ -99,7 +99,7 @@ export function SolutionsStablecoinsPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("stablecoins.products.title")}
           description={t("stablecoins.products.description")}
           products={PRODUCTS}

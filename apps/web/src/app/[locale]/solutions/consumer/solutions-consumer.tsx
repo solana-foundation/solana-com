@@ -95,7 +95,7 @@ export function SolutionsConsumerPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("consumer.products.title")}
           description={t("consumer.products.description")}
           products={PRODUCTS}

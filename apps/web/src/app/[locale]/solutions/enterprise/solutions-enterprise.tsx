@@ -75,7 +75,7 @@ export function SolutionsEnterprisePage() {
 
         {/* Solutions Section */}
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("partners.solutions.title")}
           description={t("partners.solutions.description")}
           products={SOLUTION_LINKS}

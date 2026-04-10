@@ -116,7 +116,7 @@ export function SolutionsFinancialInstitutionsPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("financial-institutions-solution.products.title")}
           description={t(
             "financial-institutions-solution.products.description",

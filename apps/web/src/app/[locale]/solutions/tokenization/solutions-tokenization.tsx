@@ -114,7 +114,7 @@ export function SolutionsTokenizationPage() {
 
         {/* Products Section */}
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("icm.products.title")}
           description={t("icm.products.description")}
           products={PRODUCTS}

@@ -100,7 +100,7 @@ export function SolutionsDepinPage() {
 
         {/* Products Section */}
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("depin.products.title")}
           description={t("depin.products.description")}
           products={PRODUCTS}
