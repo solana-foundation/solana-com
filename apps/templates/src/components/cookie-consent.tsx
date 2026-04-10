@@ -1,87 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useCookieConsent } from "@solana-com/ui-chrome";
 import Link from "next/link";
 import { Button } from "@workspace/ui";
 
-type CookieConsentStore = {
-  value: boolean;
-  timeToExpire: number;
-};
-
-type WindowWithGtag = Window & {
-  gtag?: (...args: unknown[]) => void;
-  builderNoTrack?: boolean;
-};
-
-const getLocalStorage = (key: string, defaultValue: boolean | null) => {
-  const now = new Date().getTime();
-  let sticky: CookieConsentStore | null = null;
-
-  try {
-    const stored = JSON.parse(
-      localStorage.getItem(key) || "null",
-    ) as CookieConsentStore | null;
-    sticky = stored;
-  } catch (error) {
-    console.error(error);
-  }
-
-  if (sticky !== null) {
-    if (now > sticky.timeToExpire) {
-      localStorage.removeItem(key);
-    }
-    return sticky.value;
-  }
-
-  return defaultValue;
-};
-
-const setLocalStorage = (key: string, value: boolean) => {
-  const now = new Date().getTime();
-  const timeToExpire = 15778476000; // 6 months
-
-  const obj = { value, timeToExpire: now + timeToExpire };
-  localStorage.setItem(key, JSON.stringify(obj));
-};
-
 export const CookieConsent = () => {
   const t = useTranslations();
-  const [cookieConsent, setCookieConsent] = useState<boolean | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { shouldShowBanner, setCookieConsent } = useCookieConsent();
 
-  useEffect(() => {
-    const consent = getLocalStorage("cookie_consent", null);
-    setCookieConsent(consent);
-    setIsLoaded(true);
-
-    if (typeof window !== "undefined" && consent !== null) {
-      (window as WindowWithGtag).builderNoTrack = !consent;
-    }
-  }, []);
-
-  useEffect(() => {
-    const windowWithGtag = window as WindowWithGtag;
-
-    if (typeof windowWithGtag.gtag !== "undefined" && isLoaded) {
-      if (cookieConsent === null) {
-        return;
-      }
-
-      setLocalStorage("cookie_consent", cookieConsent);
-      windowWithGtag.gtag("consent", "update", {
-        ad_storage: cookieConsent ? "granted" : "denied",
-        ad_user_data: cookieConsent ? "granted" : "denied",
-        ad_personalization: cookieConsent ? "granted" : "denied",
-        analytics_storage: cookieConsent ? "granted" : "denied",
-      });
-
-      windowWithGtag.builderNoTrack = !cookieConsent;
-    }
-  }, [cookieConsent, isLoaded]);
-
-  if (!isLoaded || cookieConsent !== null) {
+  if (!shouldShowBanner) {
     return null;
   }
 
