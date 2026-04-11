@@ -1,4 +1,5 @@
 export const COOKIE_CONSENT_KEY = "cookie_consent";
+// ~182.6 days (~6 months); 15778476000 = 6 × 30.436875d in ms
 export const COOKIE_CONSENT_TTL_MS = 15778476000;
 
 type CookieConsentStore = {
