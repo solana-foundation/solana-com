@@ -1,6 +1,7 @@
 "use client";
 
 import Script from "next/script";
+import { getCookieConsentBootstrapScript } from "@solana-com/ui-chrome";
 import { config } from "src/config";
 
 const GTMTrackingSnippet = () => {
@@ -20,17 +21,7 @@ const GTMTrackingSnippet = () => {
 
       {/* The consent */}
       <Script strategy="afterInteractive" id="gtag-invocation">
-        {`
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('consent', 'default', {
-          'ad_storage': 'denied',
-          'ad_user_data': 'denied',
-          'ad_personalization': 'denied',
-          'analytics_storage': 'denied'
-        });
-        `}
+        {getCookieConsentBootstrapScript()}
       </Script>
     </>
   );

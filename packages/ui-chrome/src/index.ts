@@ -23,11 +23,14 @@ export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export {
   applyCookieConsent,
+  COOKIE_CONSENT_EVENT,
   COOKIE_CONSENT_KEY,
   COOKIE_CONSENT_TTL_MS,
+  getCookieConsentBootstrapScript,
   persistCookieConsent,
   readCookieConsent,
 } from "./cookie-consent";
+export type { CookieConsentValue, CookieConsentWindow } from "./cookie-consent";
 export { useCookieConsent } from "./use-cookie-consent";
 export { PersistentPodcastPlayer } from "./persistent-podcast-player";
 export {
