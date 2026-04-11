@@ -3,6 +3,7 @@ import Script from "next/script";
 import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
 import {
   CookieConsentBanner,
+  getCookieConsentDefaultScript,
   PersistentPodcastPlayer,
   ThemeProvider,
 } from "@solana-com/ui-chrome";
@@ -112,6 +113,9 @@ export default async function RootLayout({ children, params }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
+        <Script strategy="beforeInteractive" id="consent-default">
+          {getCookieConsentDefaultScript()}
+        </Script>
         {/* Google tag (gtag.js) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"
@@ -119,15 +123,7 @@ export default async function RootLayout({ children, params }: Props) {
         />
         <Script id="google-analytics" strategy="afterInteractive">
           {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('consent', 'default', {
-              ad_storage: 'denied',
-              ad_user_data: 'denied',
-              ad_personalization: 'denied',
-              analytics_storage: 'denied',
-            });
             gtag('config', 'G-1YDTXXYYQ4');
           `}
         </Script>

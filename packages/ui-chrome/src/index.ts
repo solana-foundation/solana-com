@@ -25,6 +25,7 @@ export {
   applyCookieConsent,
   COOKIE_CONSENT_KEY,
   COOKIE_CONSENT_TTL_MS,
+  getCookieConsentDefaultScript,
   persistCookieConsent,
   readCookieConsent,
 } from "./cookie-consent";

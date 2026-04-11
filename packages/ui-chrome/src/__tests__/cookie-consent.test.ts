@@ -4,6 +4,7 @@ import {
   applyCookieConsent,
   COOKIE_CONSENT_KEY,
   COOKIE_CONSENT_TTL_MS,
+  getCookieConsentDefaultScript,
   persistCookieConsent,
   readCookieConsent,
 } from "../cookie-consent";
@@ -97,5 +98,15 @@ describe("cookie consent helpers", () => {
       ad_personalization: "granted",
       analytics_storage: "granted",
     });
+  });
+
+  it("includes denied-by-default consent mode settings for pre-GTM bootstrap", () => {
+    expect(getCookieConsentDefaultScript()).toContain(
+      "window.gtag('consent', 'default'",
+    );
+    expect(getCookieConsentDefaultScript()).toContain(
+      "security_storage: 'granted'",
+    );
+    expect(getCookieConsentDefaultScript()).toContain("wait_for_update: 500");
   });
 });
