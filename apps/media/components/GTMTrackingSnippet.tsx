@@ -1,7 +1,10 @@
 "use client";
 
 import Script from "next/script";
-import { getCookieConsentDefaultScript } from "@solana-com/ui-chrome";
+import {
+  getCookieConsentBootstrapScript,
+  getCookieConsentDefaultScript,
+} from "@solana-com/ui-chrome";
 import { config } from "@/lib/config";
 
 export const GTMTrackingSnippet = () => {
@@ -21,6 +24,10 @@ export const GTMTrackingSnippet = () => {
         j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
         })(window,document,'script','dataLayer','${id}');
       `}
+      </Script>
+      {/* Default consent configuration */}
+      <Script strategy="afterInteractive" id="gtag-invocation">
+        {getCookieConsentBootstrapScript()}
       </Script>
     </>
   );

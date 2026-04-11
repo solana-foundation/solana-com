@@ -3,6 +3,7 @@ import Script from "next/script";
 import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
 import {
   CookieConsentBanner,
+  getCookieConsentBootstrapScript,
   getCookieConsentDefaultScript,
   PersistentPodcastPlayer,
   ThemeProvider,
@@ -122,10 +123,9 @@ export default async function RootLayout({ children, params }: Props) {
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            gtag('js', new Date());
-            gtag('config', 'G-1YDTXXYYQ4');
-          `}
+          {getCookieConsentBootstrapScript({
+            gaMeasurementId: "G-1YDTXXYYQ4",
+          })}
         </Script>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
