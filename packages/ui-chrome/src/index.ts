@@ -20,6 +20,7 @@ export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
+export { CookieConsentBanner } from "./cookie-consent-banner";
 export {
   applyCookieConsent,
   COOKIE_CONSENT_KEY,

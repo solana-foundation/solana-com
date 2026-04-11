@@ -4,7 +4,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { PersistentPodcastPlayer } from "@solana-com/ui-chrome";
+import {
+  CookieConsentBanner,
+  PersistentPodcastPlayer,
+} from "@solana-com/ui-chrome";
 import { getBaseMetadata } from "@/app/metadata";
 import { FabMenu } from "@/components/FabMenu";
 
@@ -74,6 +77,7 @@ export default async function LocaleLayout({
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
         <FabMenu />
+        <CookieConsentBanner />
         <PersistentPodcastPlayer />
       </NextIntlClientProvider>
     </div>

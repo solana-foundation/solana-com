@@ -1,7 +1,11 @@
 import { ReactNode } from "react";
 import Script from "next/script";
 import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
-import { PersistentPodcastPlayer, ThemeProvider } from "@solana-com/ui-chrome";
+import {
+  CookieConsentBanner,
+  PersistentPodcastPlayer,
+  ThemeProvider,
+} from "@solana-com/ui-chrome";
 import { FabMenu } from "@@/src/components/FabMenu";
 import { staticLocales } from "@workspace/i18n/config";
 import { loadMergedMessages } from "@workspace/i18n/messages";
@@ -118,6 +122,12 @@ export default async function RootLayout({ children, params }: Props) {
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
+            gtag('consent', 'default', {
+              ad_storage: 'denied',
+              ad_user_data: 'denied',
+              ad_personalization: 'denied',
+              analytics_storage: 'denied',
+            });
             gtag('config', 'G-1YDTXXYYQ4');
           `}
         </Script>
@@ -125,6 +135,7 @@ export default async function RootLayout({ children, params }: Props) {
           <ThemeProvider>
             <main className="min-h-screen">{children}</main>
             <FabMenu />
+            <CookieConsentBanner />
             <PersistentPodcastPlayer />
           </ThemeProvider>
         </NextIntlClientProvider>
