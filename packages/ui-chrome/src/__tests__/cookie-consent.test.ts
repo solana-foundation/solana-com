@@ -30,6 +30,26 @@ describe("cookie consent helpers", () => {
     expect(removeItem).toHaveBeenCalledWith(COOKIE_CONSENT_KEY);
   });
 
+  it("returns null and removes malformed consent without a value", () => {
+    const removeItem = vi.fn();
+    const storage = {
+      getItem: vi.fn(() =>
+        JSON.stringify({
+          timeToExpire: 100,
+        }),
+      ),
+      removeItem,
+    };
+
+    const consent = readCookieConsent({
+      now: 10,
+      storage,
+    });
+
+    expect(consent).toBeNull();
+    expect(removeItem).toHaveBeenCalledWith(COOKIE_CONSENT_KEY);
+  });
+
   it("persists consent with the shared ttl", () => {
     const setItem = vi.fn();
 

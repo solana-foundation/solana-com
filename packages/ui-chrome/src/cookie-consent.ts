@@ -47,6 +47,16 @@ export const readCookieConsent = ({
     return null;
   }
 
+  // Clear malformed consent objects instead of treating them as a valid choice.
+  if (
+    typeof sticky.value !== "boolean" ||
+    typeof sticky.timeToExpire !== "number" ||
+    Number.isNaN(sticky.timeToExpire)
+  ) {
+    storage.removeItem(key);
+    return null;
+  }
+
   if (now > sticky.timeToExpire) {
     storage.removeItem(key);
     return null;

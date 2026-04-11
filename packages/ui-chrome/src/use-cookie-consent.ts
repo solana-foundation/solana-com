@@ -30,7 +30,7 @@ export const useCookieConsent = () => {
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || cookieConsent === null) {
+    if (!isLoaded || typeof cookieConsent !== "boolean") {
       return;
     }
 
