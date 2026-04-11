@@ -8,8 +8,25 @@ type CookieConsentStore = {
 };
 
 type ConsentMode = "granted" | "denied";
+type CookieConsentLegacyValue = CookieConsentValue | 0 | 1 | string;
 
 export type CookieConsentValue = boolean | null;
+
+const normalizeCookieConsentValue = (value: unknown): CookieConsentValue => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === 1 || value === "1" || value === "true") {
+    return true;
+  }
+
+  if (value === 0 || value === "0" || value === "false") {
+    return false;
+  }
+
+  return null;
+};
 
 export type CookieConsentWindow = {
   builderNoTrack?: boolean;
@@ -34,7 +51,7 @@ export const readCookieConsent = ({
   now?: number;
   storage: Pick<Storage, "getItem" | "removeItem">;
 }): CookieConsentValue => {
-  let sticky: CookieConsentStore | null = null;
+  let sticky: CookieConsentStore | CookieConsentLegacyValue | null = null;
 
   try {
     sticky = JSON.parse(storage.getItem(key) || "null") as CookieConsentStore;
@@ -47,9 +64,19 @@ export const readCookieConsent = ({
     return null;
   }
 
-  // Clear malformed consent objects instead of treating them as a valid choice.
+  const legacyValue = normalizeCookieConsentValue(sticky);
+  if (legacyValue !== null) {
+    return legacyValue;
+  }
+
+  if (typeof sticky !== "object") {
+    storage.removeItem(key);
+    return null;
+  }
+
+  const consentValue = normalizeCookieConsentValue(sticky.value);
   if (
-    typeof sticky.value !== "boolean" ||
+    consentValue === null ||
     typeof sticky.timeToExpire !== "number" ||
     Number.isNaN(sticky.timeToExpire)
   ) {
@@ -62,7 +89,7 @@ export const readCookieConsent = ({
     return null;
   }
 
-  return sticky.value;
+  return consentValue;
 };
 
 export const persistCookieConsent = ({

@@ -50,6 +50,34 @@ describe("cookie consent helpers", () => {
     expect(removeItem).toHaveBeenCalledWith(COOKIE_CONSENT_KEY);
   });
 
+  it("accepts legacy numeric consent values", () => {
+    const consent = readCookieConsent({
+      storage: {
+        getItem: vi.fn(() => "1"),
+        removeItem: vi.fn(),
+      },
+    });
+
+    expect(consent).toBe(true);
+  });
+
+  it("accepts legacy string values inside the consent object", () => {
+    const consent = readCookieConsent({
+      now: 10,
+      storage: {
+        getItem: vi.fn(() =>
+          JSON.stringify({
+            value: "0",
+            timeToExpire: 100,
+          }),
+        ),
+        removeItem: vi.fn(),
+      },
+    });
+
+    expect(consent).toBe(false);
+  });
+
   it("persists consent with the shared ttl", () => {
     const setItem = vi.fn();
 

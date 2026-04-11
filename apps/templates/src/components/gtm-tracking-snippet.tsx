@@ -21,14 +21,35 @@ export const GTMTrackingSnippet = () => {
       <Script strategy="afterInteractive" id="gtag-invocation">
         {`
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('consent', 'default', {
+        window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
+        var rawConsent = localStorage.getItem('cookie_consent');
+        var parsedConsent = null;
+        try {
+          parsedConsent = JSON.parse(rawConsent || 'null');
+        } catch (_) {
+          parsedConsent = rawConsent;
+        }
+        var consentValue =
+          typeof parsedConsent === 'boolean' ? parsedConsent :
+          parsedConsent === 1 || parsedConsent === '1' || parsedConsent === 'true' ? true :
+          parsedConsent === 0 || parsedConsent === '0' || parsedConsent === 'false' ? false :
+          parsedConsent && typeof parsedConsent === 'object' && typeof parsedConsent.value === 'boolean' ? parsedConsent.value :
+          null;
+        window.gtag('js', new Date());
+        window.gtag('consent', 'default', {
           'ad_storage': 'denied',
           'ad_user_data': 'denied',
           'ad_personalization': 'denied',
           'analytics_storage': 'denied'
         });
+        if (consentValue !== null) {
+          window.gtag('consent', 'update', {
+            'ad_storage': consentValue ? 'granted' : 'denied',
+            'ad_user_data': consentValue ? 'granted' : 'denied',
+            'ad_personalization': consentValue ? 'granted' : 'denied',
+            'analytics_storage': consentValue ? 'granted' : 'denied'
+          });
+        }
         `}
       </Script>
     </>
