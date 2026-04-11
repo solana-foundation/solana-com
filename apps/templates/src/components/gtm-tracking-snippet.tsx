@@ -1,7 +1,10 @@
 "use client";
 
 import Script from "next/script";
-import { getCookieConsentBootstrapScript } from "@solana-com/ui-chrome";
+import {
+  getCookieConsentBootstrapScript,
+  getCookieConsentDefaultScript,
+} from "@solana-com/ui-chrome";
 import { config } from "@/config";
 
 export const GTMTrackingSnippet = () => {
@@ -9,6 +12,10 @@ export const GTMTrackingSnippet = () => {
 
   return (
     <>
+      <Script strategy="beforeInteractive" id="consent-default">
+        {getCookieConsentDefaultScript()}
+      </Script>
+
       <Script strategy="afterInteractive" id="gtm-invocation">
         {`
         (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -18,7 +25,6 @@ export const GTMTrackingSnippet = () => {
         })(window,document,'script','dataLayer','${id}');
       `}
       </Script>
-
       <Script strategy="afterInteractive" id="gtag-invocation">
         {getCookieConsentBootstrapScript()}
       </Script>

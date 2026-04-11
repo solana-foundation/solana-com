@@ -4,6 +4,7 @@ import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
 import {
   CookieConsentBanner,
   getCookieConsentBootstrapScript,
+  getCookieConsentDefaultScript,
   PersistentPodcastPlayer,
   ThemeProvider,
 } from "@solana-com/ui-chrome";
@@ -113,6 +114,9 @@ export default async function RootLayout({ children, params }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
+        <Script strategy="beforeInteractive" id="consent-default">
+          {getCookieConsentDefaultScript()}
+        </Script>
         {/* Google tag (gtag.js) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"

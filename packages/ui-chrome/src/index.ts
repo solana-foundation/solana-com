@@ -26,6 +26,7 @@ export {
   COOKIE_CONSENT_EVENT,
   COOKIE_CONSENT_KEY,
   COOKIE_CONSENT_TTL_MS,
+  getCookieConsentDefaultScript,
   getCookieConsentBootstrapScript,
   persistCookieConsent,
   readCookieConsent,
