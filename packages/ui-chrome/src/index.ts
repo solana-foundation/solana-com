@@ -20,6 +20,15 @@ export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
+export { CookieConsentBanner } from "./cookie-consent-banner";
+export {
+  applyCookieConsent,
+  COOKIE_CONSENT_KEY,
+  COOKIE_CONSENT_TTL_MS,
+  persistCookieConsent,
+  readCookieConsent,
+} from "./cookie-consent";
+export { useCookieConsent } from "./use-cookie-consent";
 export { PersistentPodcastPlayer } from "./persistent-podcast-player";
 export {
   DEFAULT_PODCAST_PLAYER_STATE,
