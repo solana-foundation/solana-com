@@ -11,6 +11,59 @@ import {
   readCookieConsent,
 } from "../cookie-consent";
 
+const evaluateBootstrapConsent = ({
+  now,
+  storedValue,
+}: {
+  now: number;
+  storedValue: string | null;
+}) => {
+  const gtag = vi.fn();
+  const removeItem = vi.fn();
+  const script = getCookieConsentBootstrapScript();
+
+  class MockDate extends Date {
+    static now() {
+      return now;
+    }
+  }
+
+  const windowObject: {
+    builderNoTrack: boolean;
+    dataLayer: unknown[];
+    gtag: typeof gtag;
+    localStorage?: object;
+    window?: object;
+  } = {
+    dataLayer: [],
+    builderNoTrack: false,
+    gtag,
+  };
+  const context = {
+    Date: MockDate,
+    localStorage: {
+      getItem: vi.fn(() => storedValue),
+      removeItem,
+    },
+    window: windowObject,
+  };
+
+  windowObject.window = windowObject;
+  windowObject.localStorage = context.localStorage;
+  vm.runInNewContext(script, context);
+
+  const consentUpdateCall = gtag.mock.calls.find(
+    ([command, action]) => command === "consent" && action === "update",
+  );
+
+  return {
+    consentUpdateCall,
+    gtag,
+    removeItem,
+    windowObject,
+  };
+};
+
 describe("cookie consent helpers", () => {
   it("returns null and removes expired consent instead of reviving it", () => {
     const removeItem = vi.fn();
@@ -163,53 +216,114 @@ describe("cookie consent helpers", () => {
     });
   });
 
-  it("bootstrap script keeps denied consent when stored value is expired", () => {
-    const gtag = vi.fn();
-    const removeItem = vi.fn();
-    const script = getCookieConsentBootstrapScript();
-    class MockDate extends Date {
-      static now() {
-        return 11;
-      }
-    }
-    const windowObject: {
-      builderNoTrack: boolean;
-      dataLayer: unknown[];
-      gtag: typeof gtag;
-      localStorage?: object;
-      window?: object;
-    } = {
-      dataLayer: [],
-      builderNoTrack: false,
-      gtag,
-    };
-    const context = {
-      Date: MockDate,
-      localStorage: {
-        getItem: vi.fn(() =>
-          JSON.stringify({
-            value: true,
-            timeToExpire: 10,
-          }),
-        ),
-        removeItem,
+  it("bootstrap script stays in parity with readCookieConsent across storage shapes", () => {
+    const cases = [
+      { label: "no value", now: 10, storedValue: null },
+      { label: "legacy numeric true", now: 10, storedValue: "1" },
+      { label: "legacy numeric false", now: 10, storedValue: "0" },
+      { label: "legacy string true", now: 10, storedValue: '"true"' },
+      { label: "legacy string false", now: 10, storedValue: '"false"' },
+      {
+        label: "object true",
+        now: 10,
+        storedValue: JSON.stringify({
+          value: true,
+          timeToExpire: 100,
+        }),
       },
-      window: windowObject,
-    };
+      {
+        label: "object false via string",
+        now: 10,
+        storedValue: JSON.stringify({
+          value: "0",
+          timeToExpire: 100,
+        }),
+      },
+      {
+        label: "expired object",
+        now: 11,
+        storedValue: JSON.stringify({
+          value: true,
+          timeToExpire: 10,
+        }),
+      },
+      {
+        label: "malformed object",
+        now: 10,
+        storedValue: JSON.stringify({
+          timeToExpire: 100,
+        }),
+      },
+      { label: "invalid json", now: 10, storedValue: "{" },
+    ] as const;
 
-    windowObject.window = windowObject;
-    windowObject.localStorage = context.localStorage;
-    vm.runInNewContext(script, context);
+    for (const testCase of cases) {
+      const removeItem = vi.fn();
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      const expectedConsent = readCookieConsent({
+        now: testCase.now,
+        storage: {
+          getItem: vi.fn(() => testCase.storedValue),
+          removeItem,
+        },
+      });
+      consoleError.mockRestore();
 
-    expect(removeItem).toHaveBeenCalledWith(COOKIE_CONSENT_KEY);
-    expect(windowObject.builderNoTrack).toBe(true);
-    expect(gtag).toHaveBeenNthCalledWith(1, "js", expect.any(Date));
-    expect(gtag).toHaveBeenNthCalledWith(2, "consent", "default", {
-      ad_storage: "denied",
-      ad_user_data: "denied",
-      ad_personalization: "denied",
-      analytics_storage: "denied",
-    });
-    expect(gtag).toHaveBeenCalledTimes(2);
+      const bootstrapResult = evaluateBootstrapConsent(testCase);
+
+      expect(
+        bootstrapResult.gtag.mock.calls[0],
+        `${testCase.label}: initializes gtag`,
+      ).toMatchObject(["js", expect.any(Date)]);
+      expect(
+        bootstrapResult.gtag.mock.calls[1],
+        `${testCase.label}: sets denied default`,
+      ).toEqual([
+        "consent",
+        "default",
+        {
+          ad_storage: "denied",
+          ad_user_data: "denied",
+          ad_personalization: "denied",
+          analytics_storage: "denied",
+        },
+      ]);
+
+      if (expectedConsent === null) {
+        expect(
+          bootstrapResult.consentUpdateCall,
+          `${testCase.label}: should not grant consent`,
+        ).toBeUndefined();
+        expect(
+          bootstrapResult.windowObject.builderNoTrack,
+          `${testCase.label}: builder should stay blocked`,
+        ).toBe(true);
+      } else {
+        expect(
+          bootstrapResult.consentUpdateCall,
+          `${testCase.label}: should update consent`,
+        ).toEqual([
+          "consent",
+          "update",
+          {
+            ad_storage: expectedConsent ? "granted" : "denied",
+            ad_user_data: expectedConsent ? "granted" : "denied",
+            ad_personalization: expectedConsent ? "granted" : "denied",
+            analytics_storage: expectedConsent ? "granted" : "denied",
+          },
+        ]);
+        expect(
+          bootstrapResult.windowObject.builderNoTrack,
+          `${testCase.label}: builder should match consent`,
+        ).toBe(!expectedConsent);
+      }
+
+      expect(
+        bootstrapResult.removeItem.mock.calls,
+        `${testCase.label}: cleanup parity`,
+      ).toEqual(removeItem.mock.calls);
+    }
   });
 });

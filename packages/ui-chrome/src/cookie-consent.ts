@@ -9,7 +9,6 @@ type CookieConsentStore = {
 };
 
 type ConsentMode = "granted" | "denied";
-type CookieConsentLegacyValue = CookieConsentValue | 0 | 1 | string;
 
 export type CookieConsentValue = boolean | null;
 
@@ -54,10 +53,10 @@ export const readCookieConsent = ({
   now?: number;
   storage: Pick<Storage, "getItem" | "removeItem">;
 }): CookieConsentValue => {
-  let sticky: CookieConsentStore | CookieConsentLegacyValue | null = null;
+  let sticky: unknown = null;
 
   try {
-    sticky = JSON.parse(storage.getItem(key) || "null") as CookieConsentStore;
+    sticky = JSON.parse(storage.getItem(key) || "null");
   } catch (error) {
     console.error(error);
     storage.removeItem(key);
@@ -78,17 +77,19 @@ export const readCookieConsent = ({
     return null;
   }
 
-  const consentValue = normalizeCookieConsentValue(sticky.value);
+  const stickyStore = sticky as Partial<CookieConsentStore>;
+
+  const consentValue = normalizeCookieConsentValue(stickyStore.value);
   if (
     consentValue === null ||
-    typeof sticky.timeToExpire !== "number" ||
-    Number.isNaN(sticky.timeToExpire)
+    typeof stickyStore.timeToExpire !== "number" ||
+    Number.isNaN(stickyStore.timeToExpire)
   ) {
     storage.removeItem(key);
     return null;
   }
 
-  if (now > sticky.timeToExpire) {
+  if (now > stickyStore.timeToExpire) {
     storage.removeItem(key);
     return null;
   }
@@ -124,20 +125,14 @@ export const applyCookieConsent = ({
 }) => {
   targetWindow.builderNoTrack = !value;
 
-  if (typeof targetWindow.gtag === "undefined") {
-    dispatchCookieConsentChange({
-      targetWindow,
-      value,
+  if (typeof targetWindow.gtag !== "undefined") {
+    targetWindow.gtag("consent", "update", {
+      ad_storage: value ? "granted" : "denied",
+      ad_user_data: value ? "granted" : "denied",
+      ad_personalization: value ? "granted" : "denied",
+      analytics_storage: value ? "granted" : "denied",
     });
-    return;
   }
-
-  targetWindow.gtag("consent", "update", {
-    ad_storage: value ? "granted" : "denied",
-    ad_user_data: value ? "granted" : "denied",
-    ad_personalization: value ? "granted" : "denied",
-    analytics_storage: value ? "granted" : "denied",
-  });
 
   dispatchCookieConsentChange({
     targetWindow,
@@ -204,6 +199,10 @@ window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
     var legacyValue = normalizeConsentValue(value);
     if (legacyValue !== null) {
       return legacyValue;
+    }
+
+    if (value === null) {
+      return null;
     }
 
     if (!value || typeof value !== 'object') {
