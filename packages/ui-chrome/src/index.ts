@@ -27,8 +27,8 @@ export {
   COOKIE_CONSENT_TTL_MS,
   persistCookieConsent,
   readCookieConsent,
-  useCookieConsent,
 } from "./cookie-consent";
+export { useCookieConsent } from "./use-cookie-consent";
 export { PersistentPodcastPlayer } from "./persistent-podcast-player";
 export {
   DEFAULT_PODCAST_PLAYER_STATE,

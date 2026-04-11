@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Shield } from "react-feather";
 import { Button } from "@workspace/ui";
-import { useCookieConsent } from "./cookie-consent";
+import { useCookieConsent } from "./use-cookie-consent";
 import { Link } from "./link";
 
 export function CookieConsentBanner() {

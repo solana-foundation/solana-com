@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 export const COOKIE_CONSENT_KEY = "cookie_consent";
 export const COOKIE_CONSENT_TTL_MS = 15778476000;
 
@@ -94,47 +92,4 @@ export const applyCookieConsent = ({
     ad_personalization: value ? "granted" : "denied",
     analytics_storage: value ? "granted" : "denied",
   });
-};
-
-export const useCookieConsent = () => {
-  const [cookieConsent, setCookieConsent] = useState<CookieConsentValue>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    const consent = readCookieConsent({
-      storage: window.localStorage,
-    });
-
-    setCookieConsent(consent);
-    setIsLoaded(true);
-
-    if (consent !== null) {
-      applyCookieConsent({
-        value: consent,
-        targetWindow: window as CookieConsentWindow,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded || cookieConsent === null) {
-      return;
-    }
-
-    persistCookieConsent({
-      storage: window.localStorage,
-      value: cookieConsent,
-    });
-    applyCookieConsent({
-      value: cookieConsent,
-      targetWindow: window as CookieConsentWindow,
-    });
-  }, [cookieConsent, isLoaded]);
-
-  return {
-    cookieConsent,
-    isLoaded,
-    setCookieConsent,
-    shouldShowBanner: isLoaded && cookieConsent === null,
-  };
 };
