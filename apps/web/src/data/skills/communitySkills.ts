@@ -84,6 +84,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: DEFI,
   },
   {
+    slug: "venum-skills",
+    title: "Venum Skills",
+    description:
+      "Agent skills for Venum covering prices, quotes, swap build and submit, tx monitoring, and end-to-end Solana execution workflows.",
+    url: "https://github.com/venumhq/solana-venum-skills/tree/v0.1.0/skills/venum-agent-trading-workflows",
+    category: DEFI,
+  },
+  {
     slug: "kamino-skill",
     title: "Kamino Skill",
     description:
