@@ -43,132 +43,144 @@ though in practice you may want to split larger programs into multiple files.
 
 <CodeTabs>
 
-```rs !! title="src/lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs title="lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
-// Program entrypoint
 entrypoint!(process_instruction);
 
-// Function to route instructions to the correct handler
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Unpack instruction data
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    // Match instruction type
+    // Dispatch to the correct instruction handler
     match instruction {
         CounterInstruction::InitializeCounter { initial_value } => {
             process_initialize_counter(program_id, accounts, initial_value)?
         }
         CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
-    };
+    }
+
     Ok(())
 }
 
-// Instructions that our program can execute
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 }, // variant 0
-    IncrementCounter,                         // variant 1
+    // Create a new counter with the provided starting value
+    InitializeCounter { initial_value: u64 },
+    // Increment an existing counter by 1
+    IncrementCounter,
 }
 
-// Initialize a new counter account
+// Create and initialize a new counter account
 fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &[AccountView],
     initial_value: u64,
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
+    // Accounts: counter account, payer, system program
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    // Size of our counter account
-    let account_space = 8; // u64 requires 8 bytes
-
-    // Calculate minimum balance for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create the counter account
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,    // Account paying for the new account
-            counter_account.key,  // Account to be created
-            required_lamports,    // Amount of lamports to transfer to the new account
-            account_space as u64, // Size in bytes to allocate for the data field
-            program_id,           // Set program owner to our program
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    // Create a new CounterAccount struct with the initial value
     let counter_data = CounterAccount {
         count: initial_value,
     };
+    // Calculate the serialized size and rent needed for the new account
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
 
-    // Get a mutable reference to the counter account's data
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
+    // The System Program must be present because only it can create accounts
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
 
-    // Serialize the CounterAccount struct into the account's data
-    counter_data.serialize(&mut account_data)?;
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
 
-    msg!("Counter initialized with value: {}", initial_value);
+    // Encode the System Program's CreateAccount instruction data
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    // Create the account via CPI to the System Program
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    // Write the initial counter value into the new account
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
 
     Ok(())
 }
 
-// Update an existing counter's value
-fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let counter_account = next_account_info(accounts_iter)?;
+// Increment an existing counter account
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    // Accounts: counter account
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
-    // Verify account ownership
-    if counter_account.owner != program_id {
+    let mut counter_account = counter_account.clone();
+
+    // Verify that this program owns the account before mutating it
+    if !counter_account.owned_by(program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    // Mutable borrow the account data
-    let mut data = counter_account.data.borrow_mut();
+    let mut data = counter_account.try_borrow_mut()?;
+    // Access the account data as a mutable CounterAccount using zero-copy deserialization
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
-    // Deserialize the account data into our CounterAccount struct
-    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
-
-    // Increment the counter value
+    // Safely increment the counter
     counter_data.count = counter_data
         .count
         .checked_add(1)
         .ok_or(ProgramError::InvalidAccountData)?;
 
-    // Serialize the updated counter data back into the account
-    counter_data.serialize(&mut &mut data[..])?;
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
 
-    msg!("Counter incremented to: {}", counter_data.count);
     Ok(())
 }
 
-// Struct representing our counter account's data
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
     count: u64,
 }
@@ -182,7 +194,6 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
@@ -190,58 +201,64 @@ mod test {
     fn test_counter_program() {
         // Create a new LiteSVM instance
         let mut svm = LiteSVM::new();
-
         // Create a keypair for the transaction payer
         let payer = Keypair::new();
 
-        // Airdrop some lamports to the payer
+        // Airdrop lamports to pay for transactions and account creation
         svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
 
-        // Load our program
+        // Load the compiled program into the test environment
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
         svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
             .unwrap();
 
-        // Create a new keypair to use as the address for our counter account
+        // Create a keypair for the counter account
         let counter_keypair = Keypair::new();
-        let initial_value: u64 = 42;
+        let initial_value = 42u64;
 
         // Step 1: Initialize the counter
         println!("Testing counter initialization...");
 
-        // Use Borsh serialization for the instruction
-        let init_instruction_data =
-            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-                .expect("Failed to serialize instruction");
+        // Serialize the initialize instruction data
+        let mut init_instruction_data = [0u8; 12];
+        wincode::serialize_into(
+            &mut init_instruction_data[..],
+            &CounterInstruction::InitializeCounter { initial_value },
+        )
+        .expect("Failed to serialize instruction");
 
+        // Build the initialize instruction
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
             &init_instruction_data,
             vec![
                 AccountMeta::new(counter_keypair.pubkey(), true),
                 AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
+                AccountMeta::new_readonly(solana_system_interface::program::ID, false),
             ],
         );
 
-        // Create transaction
+        // Send the initialize transaction
         let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
-        let transaction = Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
+        let transaction =
+            Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
 
-        // Send transaction
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Initialize transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Initialize transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
 
-        // Check account data
+        // Verify the counter account data after initialization
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
         assert_eq!(counter.count, 42);
         println!(
@@ -252,33 +269,41 @@ mod test {
         // Step 2: Increment the counter
         println!("Testing counter increment...");
 
-        // Use Borsh serialization for increment instruction
-        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
-            .expect("Failed to serialize instruction");
+        // Serialize the increment instruction data
+        let mut increment_data = [0u8; 4];
+        wincode::serialize_into(
+            &mut increment_data[..],
+            &CounterInstruction::IncrementCounter,
+        )
+        .expect("Failed to serialize instruction");
 
+        // Build the increment instruction
         let increment_instruction = Instruction::new_with_bytes(
             program_id,
             &increment_data,
             vec![AccountMeta::new(counter_keypair.pubkey(), true)],
         );
 
-        // Create transaction
+        // Send the increment transaction
         let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
-        let transaction = Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
+        let transaction =
+            Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
 
-        // Send transaction
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Increment transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Increment transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
 
-        // Check account data
+        // Verify the updated counter value
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
         assert_eq!(counter.count, 43);
         println!("Counter incremented successfully to: {}", counter.count);
@@ -289,36 +314,35 @@ mod test {
 ```rs !! title="examples/client.rs"
 use counter_program::CounterInstruction;
 use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    system_program,
     transaction::Transaction,
 };
 use std::str::FromStr;
 
 #[tokio::main]
 async fn main() {
-    // Replace with your actual program ID from deployment
-    let program_id = Pubkey::from_str("AUia4JuToXDAB4gR2ZXWqJ6kDyCqn7WqunGAgw1KxdKU")
+    // Replace with your actual program ID from deployment.
+    let program_id = Pubkey::from_str("7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH")
         .expect("Invalid program ID");
 
-    // Connect to local cluster
+    // Connect to the local validator
     let rpc_url = String::from("http://localhost:8899");
     let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
 
-    // Generate a new keypair for paying fees
+    // Generate a new keypair for the payer
     let payer = Keypair::new();
 
-    // Request airdrop of 1 SOL for transaction fees
+    // Request an airdrop to fund transactions
     println!("Requesting airdrop...");
     let airdrop_signature = client
         .request_airdrop(&payer.pubkey(), 1_000_000_000)
         .expect("Failed to request airdrop");
 
-    // Wait for airdrop confirmation
+    // Wait for the airdrop to finalize
     loop {
         if client
             .confirm_transaction(&airdrop_signature)
@@ -330,27 +354,34 @@ async fn main() {
     }
     println!("Airdrop confirmed");
 
+    // Create and initialize a new counter account
     println!("\nInitializing counter...");
     let counter_keypair = Keypair::new();
     let initial_value = 100u64;
 
     // Serialize the initialize instruction data
-    let instruction_data = borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-        .expect("Failed to serialize instruction");
+    let mut instruction_data = [0u8; 12];
+    wincode::serialize_into(
+        &mut instruction_data[..],
+        &CounterInstruction::InitializeCounter { initial_value },
+    )
+    .expect("Failed to serialize instruction");
 
+    // Build the initialize instruction
     let initialize_instruction = Instruction::new_with_bytes(
         program_id,
         &instruction_data,
         vec![
             AccountMeta::new(counter_keypair.pubkey(), true),
             AccountMeta::new(payer.pubkey(), true),
-            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(solana_system_interface::program::ID, false),
         ],
     );
 
     let mut transaction =
         Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
 
+    // Sign and send the initialize transaction
     let blockhash = client
         .get_latest_blockhash()
         .expect("Failed to get blockhash");
@@ -368,11 +399,16 @@ async fn main() {
         }
     }
 
+    // Increment the counter account
     println!("\nIncrementing counter...");
-    // Serialize the increment instruction data
-    let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
-        .expect("Failed to serialize instruction");
+    let mut increment_data = [0u8; 4];
+    wincode::serialize_into(
+        &mut increment_data[..],
+        &CounterInstruction::IncrementCounter,
+    )
+    .expect("Failed to serialize instruction");
 
+    // Build the increment instruction
     let increment_instruction = Instruction::new_with_bytes(
         program_id,
         &increment_data,
@@ -382,6 +418,10 @@ async fn main() {
     let mut transaction =
         Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
 
+    // Sign and send the increment transaction
+    let blockhash = client
+        .get_latest_blockhash()
+        .expect("Failed to get blockhash");
     transaction.sign(&[&payer, &counter_keypair], blockhash);
 
     match client.send_and_confirm_transaction(&transaction) {
@@ -406,14 +446,19 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-borsh = "1.5.7"
-solana-program = "2.2.0"
+wincode = { version = "0.5.1", default-features = false, features = ["derive"] }
+pinocchio = { version = "0.11.1", features = ["cpi"] }
+pinocchio-system = "0.6.0"
+solana-rent = "4.2.0"
+solana-program-log = "1.1.0"
 
 [dev-dependencies]
-litesvm = "0.6.1"
-solana-client = "2.2.0"
-solana-sdk = "2.2.0"
-tokio = "1.47.1"
+litesvm = "0.9.1"
+solana-client = "3.0.14"
+solana-commitment-config = "3.1.0"
+solana-sdk = "3.0.0"
+solana-system-interface = "3.0.0"
+tokio = "1.49.0"
 
 [[example]]
 name = "client"
@@ -444,7 +489,7 @@ $ cd counter_program
 You should see the default `src/lib.rs` and `Cargo.toml` files.
 
 <Callout type="warn">
-  Update the `edition` field in `Cargo.toml` to 2021. Otherwise, you might
+  Update the `edition` field in `Cargo.toml` to `2021`. Otherwise, you might
   encounter an error when building the program.
 </Callout>
 
@@ -458,7 +503,7 @@ edition = "2021"
 [dependencies]
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
@@ -477,12 +522,17 @@ mod tests {
 
 ## !!steps Add dependencies
 
-Now let's add the necessary dependencies for building a Solana program. We need
-`solana-program` for the core SDK and `borsh` for serialization.
+Now let's add the necessary dependencies for building a Solana program. We'll
+use `pinocchio` for the core program SDK, `pinocchio-system` for the System
+Program ID, `solana-rent` for rent calculations, `solana-program-log` for
+logging, and `wincode` for serialization.
 
 ```terminal
-$ cargo add solana-program@2.2.0
-$ cargo add borsh
+$ cargo add wincode@0.5.1 --features derive --no-default-features
+$ cargo add pinocchio@0.11.1 --features cpi
+$ cargo add pinocchio-system@0.6.0
+$ cargo add solana-rent@4.2.0
+$ cargo add solana-program-log@1.1.0
 ```
 
 ```toml !! title="Cargo.toml"
@@ -492,16 +542,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# !focus(1:4)
-# Borsh is used for serializing/deserializing
-borsh = "1.5.7"
-# The core Solana program SDK
-solana-program = "2.2.0"
+# !focus(1:7)
+wincode = { version = "0.5.1", default-features = false, features = ["derive"] }
+pinocchio = { version = "0.11.1", features = ["cpi"] }
+pinocchio-system = "0.6.0"
+solana-rent = "4.2.0"
+solana-program-log = "1.1.0"
 ```
 
 <Callout type="info">
-  There is no requirement to use Borsh. However, it is a commonly used
-  serialization library for Solana programs.
+  There is no requirement to use `wincode`. However, it provides efficient
+  serialization and zero-copy account access patterns that fit Solana programs
+  well.
 </Callout>
 
 ## !!steps Configure crate-type
@@ -525,12 +577,15 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-borsh = "1.5.7"
-solana-program = "2.2.0"
+wincode = { version = "0.5.1", default-features = false, features = ["derive"] }
+pinocchio = { version = "0.11.1", features = ["cpi"] }
+pinocchio-system = "0.6.0"
+solana-rent = "4.2.0"
+solana-program-log = "1.1.0"
 ```
 
 <Callout type="warn">
-  If you don't include this config, the target/deploy directory will not be
+  If you don't include this config, the `target/deploy` directory will not be
   generated when you build the program.
 </Callout>
 
@@ -543,32 +598,55 @@ the program and setting up the entrypoint.
 Add the following code to `lib.rs`:
 
 ```rs title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
     Ok(())
 }
 ```
 
-The
-[entrypoint](https://github.com/anza-xyz/solana-sdk/blob/449d97c0ed164611dae538e2ee91ca0caaaec515/program-entrypoint/src/lib.rs#L126-L140)
+```rs !! title="src/lib.rs"
+// !focus(1:20)
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+// Program entrypoint
+entrypoint!(process_instruction);
+
+// Route incoming instructions to the appropriate handler
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    Ok(())
+}
+```
+
+The [`entrypoint`](https://docs.rs/pinocchio/0.11.1/pinocchio/macro.entrypoint.html)
 macro handles the deserialization of the `input` data into the parameters of the
 `process_instruction` function.
 
@@ -580,35 +658,6 @@ are free to create their own implementation of the `entrypoint` function.
 pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64;
 ```
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
-};
-
-// This macro defines the program's entrypoint
-// !mark
-entrypoint!(process_instruction);
-
-// The main function that processes all incoming instructions
-pub fn process_instruction(
-    program_id: &Pubkey,      // This program's public key
-    accounts: &[AccountInfo],  // Accounts passed to the instruction
-    instruction_data: &[u8],   // Raw instruction data as bytes
-) -> ProgramResult {
-    // Program logic will go here
-    Ok(())
-}
-```
-
 ## !!steps Define program state
 
 Now let's define the data structure that will be stored in our counter accounts.
@@ -617,43 +666,43 @@ This is the data that will be stored in the `data` field of the account.
 Add the following code to `lib.rs`:
 
 ```rs title="lib.rs"
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    pub count: u64,
+    count: u64,
 }
 ```
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
     Ok(())
 }
 
 // !focus(1:7)
-// Define the data structure for our counter account
-// The derive macros enable automatic serialization/deserialization
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    // Store the counter value
-    pub count: u64,
+    count: u64,
 }
 ```
 
@@ -665,115 +714,117 @@ each variant represents a different instruction.
 Add the following code to `lib.rs`:
 
 ```rs title="lib.rs"
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
     InitializeCounter { initial_value: u64 },
     IncrementCounter,
 }
 ```
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
     Ok(())
 }
 
-// !focus(1:8)
-// Define the instructions our program can execute
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// !focus(1:5)
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
-    // Variant 0: Initialize a counter with a starting value
+    // Create a new counter with the provided starting value
     InitializeCounter { initial_value: u64 },
-    // Variant 1: Increment an existing counter by 1
+    // Increment an existing counter by 1
     IncrementCounter,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    pub count: u64,
+    count: u64,
 }
 ```
 
 ## !!steps Implement instruction deserialization
 
 Now we need to deserialize the `instruction_data` (raw bytes) into one of our
-`CounterInstruction` enum variants. The Borsh `try_from_slice` method handles
-this conversion automatically.
+`CounterInstruction` enum variants. The `wincode::deserialize_exact` function
+handles this conversion and rejects trailing bytes.
 
-Update the `process_instruction` function to use Borsh deserialization:
+Update the `process_instruction` function to use `wincode` deserialization:
 
 ```rs title="lib.rs"
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     Ok(())
 }
 ```
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
 entrypoint!(process_instruction);
 
 // !focus(1:10)
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Deserialize instruction data using Borsh
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     Ok(())
 }
 
-// !focus(1:8)
-// Instructions are automatically serialized/deserialized by Borsh
-// The enum variants are numbered 0, 1, etc. in order of declaration
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 },  // Variant 0
-    IncrementCounter,                          // Variant 1
+    // Create a new counter with the provided starting value
+    InitializeCounter { initial_value: u64 },
+    // Increment an existing counter by 1
+    IncrementCounter,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    pub count: u64,
+    count: u64,
 }
 ```
 
@@ -793,107 +844,100 @@ instructions:
 
 ```rs title="lib.rs"
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     match instruction {
         CounterInstruction::InitializeCounter { initial_value } => {
             process_initialize_counter(program_id, accounts, initial_value)?
         }
-        CounterInstruction::IncrementCounter => {
-            process_increment_counter(program_id, accounts)?
-        }
-    };
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
     Ok(())
 }
 
 fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &[AccountView],
     initial_value: u64,
 ) -> ProgramResult {
     Ok(())
 }
 
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
     Ok(())
 }
 ```
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
 entrypoint!(process_instruction);
 
-// !focus(1:40)
+// !focus(1:34)
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Deserialize the instruction using Borsh
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    // Route to the appropriate handler based on the instruction
+    // Dispatch to the correct instruction handler
     match instruction {
         CounterInstruction::InitializeCounter { initial_value } => {
             process_initialize_counter(program_id, accounts, initial_value)?
         }
-        CounterInstruction::IncrementCounter => {
-            process_increment_counter(program_id, accounts)?
-        }
-    };
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
 
     Ok(())
 }
 
-// Handler function for initializing a counter
-fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    initial_value: u64,
-) -> ProgramResult {
-    // Implementation coming next
-    Ok(())
-}
-
-// Handler function for incrementing a counter
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    // Implementation coming next
-    Ok(())
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
+    // Create a new counter with the provided starting value
     InitializeCounter { initial_value: u64 },
+    // Increment an existing counter by 1
     IncrementCounter,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Create and initialize a new counter account
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    Ok(())
+}
+
+// Increment an existing counter account
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    Ok(())
+}
+
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    pub count: u64,
+    count: u64,
 }
 ```
 
@@ -912,46 +956,177 @@ function:
 
 ```rs title="lib.rs"
 fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &[AccountView],
     initial_value: u64,
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    let account_space = 8;
-
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,
-            counter_account.key,
-            required_lamports,
-            account_space as u64,
-            program_id,
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
     let counter_data = CounterAccount {
         count: initial_value,
     };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
 
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-    counter_data.serialize(&mut account_data)?;
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
 
-    msg!("Counter initialized with value: {}", initial_value);
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
 
     Ok(())
+}
+```
+
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+// Program entrypoint
+entrypoint!(process_instruction);
+
+// Route incoming instructions to the appropriate handler
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // Dispatch to the correct instruction handler
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    // Create a new counter with the provided starting value
+    InitializeCounter { initial_value: u64 },
+    // Increment an existing counter by 1
+    IncrementCounter,
+}
+
+// !focus(1:52)
+// Create and initialize a new counter account
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    // Accounts: counter account, payer, system program
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    // Calculate the serialized size and rent needed for the new account
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    // The System Program must be present because only it can create accounts
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    // Encode the System Program's CreateAccount instruction data
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    // Create the account via CPI to the System Program
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    // Write the initial counter value into the new account
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    Ok(())
+}
+
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
 }
 ```
 
@@ -959,113 +1134,6 @@ fn process_initialize_counter(
   This instruction is for demonstration purposes only. It does not include
   security and validation checks that are required for production programs.
 </Callout>
-
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint,
-    entrypoint::ProgramResult,
-    msg,                      // For logging messages
-    program::invoke,          // For Cross Program Invocations
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,       // System Program instructions
-    sysvar::{rent::Rent, Sysvar},  // For rent calculations
-};
-
-entrypoint!(process_instruction);
-
-pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    match instruction {
-        CounterInstruction::InitializeCounter { initial_value } => {
-            process_initialize_counter(program_id, accounts, initial_value)?
-        }
-        CounterInstruction::IncrementCounter => {
-            process_increment_counter(program_id, accounts)?
-        }
-    };
-
-    Ok(())
-}
-
-// !focus(1:50)
-fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    initial_value: u64,
-) -> ProgramResult {
-    // Create an iterator over the accounts
-    let accounts_iter = &mut accounts.iter();
-
-    // Extract the required accounts in order
-    let counter_account = next_account_info(accounts_iter)?;  // The new counter account
-    let payer_account = next_account_info(accounts_iter)?;    // Who pays for the account
-    let system_program = next_account_info(accounts_iter)?;   // System Program for CPI
-
-    // Calculate the space needed for our counter data
-    let account_space = 8; // 8 bytes for a u64
-
-    // Get the minimum balance required for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create the counter account via CPI to the System Program
-    // !focus(1:15)
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,    // Account paying for creation
-            counter_account.key,  // New account being created
-            required_lamports,    // Lamports to transfer
-            account_space as u64, // Space to allocate in bytes
-            program_id,          // Program that will own this account (our program)
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    // Initialize the counter data
-    let counter_data = CounterAccount {
-        count: initial_value,
-    };
-
-    // Serialize and write the data to the account
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-    counter_data.serialize(&mut account_data)?;
-
-    msg!("Counter initialized with value: {}", initial_value);
-
-    Ok(())
-}
-
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    Ok(())
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 },
-    IncrementCounter,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct CounterAccount {
-    pub count: u64,
-}
-```
 
 ## !!steps Implement increment handler
 
@@ -1073,40 +1141,176 @@ Now let's implement the handler that increments an existing counter. This
 instruction:
 
 - Reads the account `data` field for the `counter_account`
-- Deserializes it into a `CounterAccount` struct
+- Accesses it as a zero-copy `CounterAccount` struct
 - Increments the `count` field by 1
-- Serializes the `CounterAccount` struct back into the account's `data` field
 
 Add the following code to `lib.rs` updating the `process_increment_counter`
 function:
 
 ```rs title="lib.rs"
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
-    let counter_account = next_account_info(accounts_iter)?;
+    let mut counter_account = counter_account.clone();
 
-    if counter_account.owner != program_id {
+    if !counter_account.owned_by(program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    let mut data = counter_account.data.borrow_mut();
-
-    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
     counter_data.count = counter_data
         .count
         .checked_add(1)
         .ok_or(ProgramError::InvalidAccountData)?;
 
-    counter_data.serialize(&mut &mut data[..])?;
-
-    msg!("Counter incremented to: {}", counter_data.count);
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
 
     Ok(())
+}
+```
+
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+// Program entrypoint
+entrypoint!(process_instruction);
+
+// Route incoming instructions to the appropriate handler
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // Dispatch to the correct instruction handler
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    // Create a new counter with the provided starting value
+    InitializeCounter { initial_value: u64 },
+    // Increment an existing counter by 1
+    IncrementCounter,
+}
+
+// Create and initialize a new counter account
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+// !focus(1:24)
+// Increment an existing counter account
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    // Accounts: counter account
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    // Verify that this program owns the account before mutating it
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    // Access the account data as a mutable CounterAccount using zero-copy deserialization
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    // Safely increment the counter
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
 }
 ```
 
@@ -1114,132 +1318,6 @@ fn process_increment_counter(
   This instruction is for demonstration purposes only. It does not include
   security and validation checks that are required for production programs.
 </Callout>
-
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
-};
-
-entrypoint!(process_instruction);
-
-pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    match instruction {
-        CounterInstruction::InitializeCounter { initial_value } => {
-            process_initialize_counter(program_id, accounts, initial_value)?
-        }
-        CounterInstruction::IncrementCounter => {
-            process_increment_counter(program_id, accounts)?
-        }
-    };
-
-    Ok(())
-}
-
-fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    initial_value: u64,
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    let account_space = 8;
-
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,
-            counter_account.key,
-            required_lamports,
-            account_space as u64,
-            program_id,
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    let counter_data = CounterAccount {
-        count: initial_value,
-    };
-
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-    counter_data.serialize(&mut account_data)?;
-
-    msg!("Counter initialized with value: {}", initial_value);
-
-    Ok(())
-}
-
-// !focus(1:33)
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    // Get the counter account to increment
-    let counter_account = next_account_info(accounts_iter)?;
-
-    // Security check: Verify this program owns the account
-    if counter_account.owner != program_id {
-        return Err(ProgramError::IncorrectProgramId);
-    }
-
-    // Get a mutable reference to the account's data
-    let mut data = counter_account.data.borrow_mut();
-
-    // Deserialize the current counter value
-    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
-
-    // Increment the counter value
-    counter_data.count = counter_data
-        .count
-        .checked_add(1)
-        .ok_or(ProgramError::InvalidAccountData)?;
-
-    // Serialize the updated data back to the account
-    counter_data.serialize(&mut &mut data[..])?;
-
-    msg!("Counter incremented to: {}", counter_data.count);
-
-    Ok(())
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 },
-    IncrementCounter,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct CounterAccount {
-    pub count: u64,
-}
-```
 
 ## !!steps Completed Program
 
@@ -1257,146 +1335,148 @@ basic structure shared by all Solana programs:
 
 The next step is to test the program to ensure everything works correctly.
 
-```rs !! title="lib.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
     entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
 };
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
-// Program entrypoint - this is where execution starts
+// Program entrypoint
 entrypoint!(process_instruction);
 
-/// Main instruction processing function
-/// Routes incoming instructions to appropriate handlers
+// Route incoming instructions to the appropriate handler
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &mut [AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Parse instruction data
-    let instruction = CounterInstruction::try_from_slice(instruction_data)
+    // Deserialize the raw instruction bytes
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    // Route to appropriate handler
+    // Dispatch to the correct instruction handler
     match instruction {
         CounterInstruction::InitializeCounter { initial_value } => {
-            msg!("Instruction: Initialize Counter");
             process_initialize_counter(program_id, accounts, initial_value)?
         }
-        CounterInstruction::IncrementCounter => {
-            msg!("Instruction: Increment Counter");
-            process_increment_counter(program_id, accounts)?
-        }
-    };
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
 
     Ok(())
 }
 
-/// Instructions supported by the counter program
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Instructions supported by this program
+#[derive(SchemaWrite, SchemaRead, Debug)]
 pub enum CounterInstruction {
-    /// Initialize a new counter with the given value
+    // Create a new counter with the provided starting value
     InitializeCounter { initial_value: u64 },
-
-    /// Increment an existing counter by 1
+    // Increment an existing counter by 1
     IncrementCounter,
 }
 
-/// Initialize a new counter account
-///
-/// Accounts expected:
-/// 1. `[signer, writable]` Counter account to create
-/// 2. `[signer, writable]` Payer account
-/// 3. `[]` System Program
+// Create and initialize a new counter account
 fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    program_id: &Address,
+    accounts: &[AccountView],
     initial_value: u64,
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
+    // Accounts: counter account, payer, system program
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    let account_space = 8;
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create account via CPI to System Program
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,
-            counter_account.key,
-            required_lamports,
-            account_space as u64,
-            program_id,
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    // Initialize counter data
     let counter_data = CounterAccount {
         count: initial_value,
     };
+    // Calculate the serialized size and rent needed for the new account
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
 
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-    counter_data.serialize(&mut account_data)?;
+    // The System Program must be present because only it can create accounts
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
 
-    msg!("Counter initialized with value: {}", initial_value);
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    // Encode the System Program's CreateAccount instruction data
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    // Create the account via CPI to the System Program
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    // Write the initial counter value into the new account
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
 
     Ok(())
 }
 
-/// Increment an existing counter
-///
-/// Accounts expected:
-/// 1. `[writable]` Counter account to increment
-fn process_increment_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let counter_account = next_account_info(accounts_iter)?;
+// Increment an existing counter account
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    // Accounts: counter account
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
 
-    // Verify ownership
-    if counter_account.owner != program_id {
+    let mut counter_account = counter_account.clone();
+
+    // Verify that this program owns the account before mutating it
+    if !counter_account.owned_by(program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    // Read, update, write
-    let mut data = counter_account.data.borrow_mut();
-    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
+    let mut data = counter_account.try_borrow_mut()?;
+    // Access the account data as a mutable CounterAccount using zero-copy deserialization
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
+    // Safely increment the counter
     counter_data.count = counter_data
         .count
         .checked_add(1)
         .ok_or(ProgramError::InvalidAccountData)?;
 
-    counter_data.serialize(&mut &mut data[..])?;
-
-    msg!("Counter incremented to: {}", counter_data.count);
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
 
     Ok(())
 }
 
-/// Counter account data structure
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+// Account data stored by the program
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
 pub struct CounterAccount {
-    /// Current counter value
-    pub count: u64,
+    count: u64,
 }
 ```
 
@@ -1413,11 +1493,12 @@ test programs without deploying to a cluster.
 ## !!steps Add test dependencies
 
 First, let's add the dependencies needed for testing. We'll use `litesvm` for
-testing and `solana-sdk`.
+testing, plus the modern split Solana crates used by the test and client code.
 
 ```terminal
-$ cargo add litesvm@0.6.1 --dev
-$ cargo add solana-sdk@2.2.0 --dev
+$ cargo add litesvm@0.9.1 --dev
+$ cargo add solana-sdk@3.0.0 --dev
+$ cargo add solana-system-interface@3.0.0 --dev
 ```
 
 ```toml !! title="Cargo.toml"
@@ -1430,13 +1511,17 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-borsh = "1.5.7"
-solana-program = "2.2.0"
+wincode = { version = "0.5.1", default-features = false, features = ["derive"] }
+pinocchio = { version = "0.11.1", features = ["cpi"] }
+pinocchio-system = "0.6.0"
+solana-rent = "4.2.0"
+solana-program-log = "1.1.0"
 
-# !focus(1:3)
+# !focus(1:4)
 [dev-dependencies]
-litesvm = "0.6.1"
-solana-sdk = "2.2.0"
+litesvm = "0.9.1"
+solana-sdk = "3.0.0"
+solana-system-interface = "3.0.0"
 ```
 
 ## !!steps Create test module
@@ -1456,32 +1541,148 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
-    fn test_counter_program() {
-        // Test implementation will go here
-    }
+    fn test_counter_program() {}
 }
 ```
 
-```rs !! title="lib.rs"
-// ... (program code above) ...
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
 
-// !focus(1:22)
-// Test module - only compiled when running tests
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
+// !focus(1:17)
 #[cfg(test)]
 mod test {
-    use super::*;  // Import everything from the parent module
+    use super::*;
     use litesvm::LiteSVM;
     use solana_sdk::{
         account::ReadableAccount,
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
@@ -1513,7 +1714,130 @@ svm.airdrop(&payer.pubkey(), 1_000_000_000)
     .expect("Failed to airdrop");
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1523,21 +1847,18 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
-        // !focus(1:12)
-        // Create a new instance of the Solana VM for testing
+        // !focus(1:5)
+        // Create a new LiteSVM instance
         let mut svm = LiteSVM::new();
-
         // Create a keypair for the transaction payer
         let payer = Keypair::new();
 
-        // Fund the payer account with 1 SOL (1 billion lamports)
-        // This is needed to pay for transaction fees and account creation
+        // Airdrop lamports to pay for transactions and account creation
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
     }
@@ -1567,10 +1888,8 @@ environment.
 let program_keypair = Keypair::new();
 let program_id = program_keypair.pubkey();
 
-svm.add_program_from_file(
-    program_id,
-    "target/deploy/counter_program.so"
-).expect("Failed to load program");
+svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+    .expect("Failed to load program");
 ```
 
 <Callout type="warn">
@@ -1578,7 +1897,130 @@ svm.add_program_from_file(
   file. The test loads the compiled program.
 </Callout>
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1588,28 +2030,24 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
         let mut svm = LiteSVM::new();
-
         let payer = Keypair::new();
+
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
 
-        // !focus(1:11)
-        // Load our compiled program into the test environment
+        // !focus(1:5)
+        // Load the compiled program into the test environment
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
 
-        // Load the compiled program
-        svm.add_program_from_file(
-            program_id,
-            "target/deploy/counter_program.so"
-        ).expect("Failed to load program");
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .expect("Failed to load program");
     }
 }
 ```
@@ -1627,9 +2065,12 @@ let initial_value: u64 = 42;
 
 println!("Testing counter initialization...");
 
-let init_instruction_data =
-    borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-        .expect("Failed to serialize instruction");
+let mut init_instruction_data = [0u8; 12];
+wincode::serialize_into(
+    &mut init_instruction_data[..],
+    &CounterInstruction::InitializeCounter { initial_value },
+)
+.expect("Failed to serialize instruction");
 
 let initialize_instruction = Instruction::new_with_bytes(
     program_id,
@@ -1637,7 +2078,7 @@ let initialize_instruction = Instruction::new_with_bytes(
     vec![
         AccountMeta::new(counter_keypair.pubkey(), true),
         AccountMeta::new(payer.pubkey(), true),
-        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(solana_system_interface::program::ID, false),
     ],
 );
 
@@ -1649,13 +2090,139 @@ let transaction = Transaction::new(
 );
 
 let result = svm.send_transaction(transaction);
-assert!(result.is_ok(), "Initialize transaction should succeed");
+assert!(
+    result.is_ok(),
+    "Initialize transaction should succeed: {result:#?}"
+);
 
 let logs = result.unwrap().logs;
-println!("Transaction logs:\n{:#?}", logs);
+println!("Transaction logs:\n{logs:#?}");
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1665,64 +2232,66 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
         let mut svm = LiteSVM::new();
-
         let payer = Keypair::new();
+
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
 
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
-        svm.add_program_from_file(
-            program_id,
-            "target/deploy/counter_program.so"
-        ).expect("Failed to load program");
 
-        // !focus(1:38)
-        // Step 1: Initialize the counter
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .expect("Failed to load program");
+
+        // !focus(1:37)
+        // Create a keypair for the counter account
         let counter_keypair = Keypair::new();
         let initial_value: u64 = 42;
 
+        // Step 1: Initialize the counter
         println!("Testing counter initialization...");
 
-        // Use Borsh serialization for the instruction
-        let init_instruction_data =
-            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-                .expect("Failed to serialize instruction");
+        // Serialize the initialize instruction data
+        let mut init_instruction_data = [0u8; 12];
+        wincode::serialize_into(
+            &mut init_instruction_data[..],
+            &CounterInstruction::InitializeCounter { initial_value },
+        )
+        .expect("Failed to serialize instruction");
 
-        // Create the initialization instruction
+        // Build the initialize instruction
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
             &init_instruction_data,
             vec![
-                // Account 1: Counter account (signer, writable)
                 AccountMeta::new(counter_keypair.pubkey(), true),
-                // Account 2: Payer (signer, writable)
                 AccountMeta::new(payer.pubkey(), true),
-                // Account 3: System Program (not signer, not writable)
-                AccountMeta::new_readonly(system_program::id(), false),
+                AccountMeta::new_readonly(solana_system_interface::program::ID, false),
             ],
         );
 
-        // Build and send the transaction
+        // Send the initialize transaction
         let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
         let transaction = Transaction::new(
-            &[&payer, &counter_keypair],  // Signers
+            &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Initialize transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Initialize transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
     }
 }
 ```
@@ -1739,14 +2308,137 @@ let account = svm
     .get_account(&counter_keypair.pubkey())
     .expect("Failed to get counter account");
 
-let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+let counter = CounterAccount::from_bytes(account.data())
     .expect("Failed to deserialize counter data");
 
 assert_eq!(counter.count, 42);
 println!("Counter initialized successfully with value: {}", counter.count);
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1756,32 +2448,34 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
         let mut svm = LiteSVM::new();
-
         let payer = Keypair::new();
+
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
 
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
+
         svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
-            .unwrap();
+            .expect("Failed to load program");
 
         let counter_keypair = Keypair::new();
         let initial_value: u64 = 42;
 
         println!("Testing counter initialization...");
 
-        // Use Borsh serialization for the instruction
-        let init_instruction_data =
-            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-                .expect("Failed to serialize instruction");
+        let mut init_instruction_data = [0u8; 12];
+        wincode::serialize_into(
+            &mut init_instruction_data[..],
+            &CounterInstruction::InitializeCounter { initial_value },
+        )
+        .expect("Failed to serialize instruction");
 
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
@@ -1789,7 +2483,7 @@ mod test {
             vec![
                 AccountMeta::new(counter_keypair.pubkey(), true),
                 AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
+                AccountMeta::new_readonly(solana_system_interface::program::ID, false),
             ],
         );
 
@@ -1797,23 +2491,25 @@ mod test {
         let transaction = Transaction::new(
             &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Initialize transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Initialize transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
 
-        // !focus(1:14)
-        // Check account data after initialization
+        // !focus(1:8)
+        // Verify the counter account data after initialization
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        // Deserialize and verify the counter data
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
 
         assert_eq!(counter.count, 42);
@@ -1832,9 +2528,12 @@ Add the following code to `lib.rs` updating the `test_counter_program` function:
 ```rs title="lib.rs"
 println!("Testing counter increment...");
 
-let increment_instruction_data =
-    borsh::to_vec(&CounterInstruction::IncrementCounter)
-        .expect("Failed to serialize instruction");
+let mut increment_instruction_data = [0u8; 4];
+wincode::serialize_into(
+    &mut increment_instruction_data[..],
+    &CounterInstruction::IncrementCounter,
+)
+.expect("Failed to serialize instruction");
 
 let increment_instruction = Instruction::new_with_bytes(
     program_id,
@@ -1850,13 +2549,139 @@ let transaction = Transaction::new(
 );
 
 let result = svm.send_transaction(transaction);
-assert!(result.is_ok(), "Increment transaction should succeed");
+assert!(
+    result.is_ok(),
+    "Increment transaction should succeed: {result:#?}"
+);
 
 let logs = result.unwrap().logs;
-println!("Transaction logs:\n{:#?}", logs);
+println!("Transaction logs:\n{logs:#?}");
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1866,33 +2691,34 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
         let mut svm = LiteSVM::new();
-
         let payer = Keypair::new();
+
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
 
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
+
         svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
-            .unwrap();
+            .expect("Failed to load program");
 
         let counter_keypair = Keypair::new();
         let initial_value: u64 = 42;
 
-        // Step 1: Initialize the counter
         println!("Testing counter initialization...");
 
-        // Use Borsh serialization for the instruction
-        let init_instruction_data =
-            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-                .expect("Failed to serialize instruction");
+        let mut init_instruction_data = [0u8; 12];
+        wincode::serialize_into(
+            &mut init_instruction_data[..],
+            &CounterInstruction::InitializeCounter { initial_value },
+        )
+        .expect("Failed to serialize instruction");
 
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
@@ -1900,7 +2726,7 @@ mod test {
             vec![
                 AccountMeta::new(counter_keypair.pubkey(), true),
                 AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
+                AccountMeta::new_readonly(solana_system_interface::program::ID, false),
             ],
         );
 
@@ -1908,49 +2734,63 @@ mod test {
         let transaction = Transaction::new(
             &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Initialize transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Initialize transaction should succeed: {result:#?}"
+        );
 
-        // Check account data
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{logs:#?}");
+
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
+
         assert_eq!(counter.count, 42);
         println!("Counter initialized successfully with value: {}", counter.count);
 
-        // !focus(1:26)
+        // !focus(1:30)
         // Step 2: Increment the counter
         println!("Testing counter increment...");
 
-        // Use Borsh serialization for increment instruction
-        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
-            .expect("Failed to serialize instruction");
+        // Serialize the increment instruction data
+        let mut increment_instruction_data = [0u8; 4];
+        wincode::serialize_into(
+            &mut increment_instruction_data[..],
+            &CounterInstruction::IncrementCounter,
+        )
+        .expect("Failed to serialize instruction");
 
+        // Build the increment instruction
         let increment_instruction = Instruction::new_with_bytes(
             program_id,
-            &increment_data,
+            &increment_instruction_data,
             vec![AccountMeta::new(counter_keypair.pubkey(), true)],
         );
 
-        // Build and send increment transaction
+        // Send the increment transaction
         let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
         let transaction = Transaction::new(
             &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Increment transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Increment transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
     }
 }
 ```
@@ -1967,13 +2807,136 @@ let account = svm
     .get_account(&counter_keypair.pubkey())
     .expect("Failed to get counter account");
 
-let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+let counter = CounterAccount::from_bytes(account.data())
     .expect("Failed to deserialize counter data");
 assert_eq!(counter.count, 43);
 println!("Counter incremented successfully to: {}", counter.count);
 ```
 
-```rs !! title="lib.rs"
+```rs !! title="src/lib.rs"
+use pinocchio::{
+    cpi::invoke_signed,
+    entrypoint,
+    error::ProgramError,
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+use solana_rent::Rent;
+use wincode::{SchemaRead, SchemaWrite, ZeroCopy};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &mut [AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = wincode::deserialize_exact::<CounterInstruction>(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+    }
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+fn process_initialize_counter(
+    program_id: &Address,
+    accounts: &[AccountView],
+    initial_value: u64,
+) -> ProgramResult {
+    let [counter_account, payer_account, system_program, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+    let account_space = usize::try_from(
+        wincode::serialized_size(&counter_data).map_err(|_| ProgramError::InvalidAccountData)?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_lamports = Rent::default().minimum_balance(account_space);
+
+    if system_program.address() != &SYSTEM_PROGRAM_ID {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let instruction_accounts = [
+        InstructionAccount::writable_signer(payer_account.address()),
+        InstructionAccount::writable_signer(counter_account.address()),
+    ];
+
+    let mut instruction_data = [0u8; 52];
+    instruction_data[4..12].copy_from_slice(&required_lamports.to_le_bytes());
+    instruction_data[12..20].copy_from_slice(&(account_space as u64).to_le_bytes());
+    instruction_data[20..52].copy_from_slice(program_id.as_ref());
+
+    let instruction = InstructionView {
+        program_id: system_program.address(),
+        accounts: &instruction_accounts,
+        data: &instruction_data,
+    };
+
+    invoke_signed(
+        &instruction,
+        &[payer_account, counter_account, system_program],
+        &[],
+    )?;
+
+    let mut counter_account = counter_account.clone();
+    let mut account_data = counter_account.try_borrow_mut()?;
+    wincode::serialize_into(&mut account_data[..], &counter_data)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
+    let [counter_account, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let mut counter_account = counter_account.clone();
+
+    if !counter_account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut data = counter_account.try_borrow_mut()?;
+    let counter_data = CounterAccount::from_bytes_mut(&mut data[..])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    solana_program_log::log!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+#[derive(SchemaWrite, SchemaRead, Debug)]
+#[repr(C)]
+#[wincode(assert_zero_copy)]
+pub struct CounterAccount {
+    count: u64,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1983,33 +2946,34 @@ mod test {
         instruction::{AccountMeta, Instruction},
         message::Message,
         signature::{Keypair, Signer},
-        system_program,
         transaction::Transaction,
     };
 
     #[test]
     fn test_counter_program() {
         let mut svm = LiteSVM::new();
-
         let payer = Keypair::new();
+
         svm.airdrop(&payer.pubkey(), 1_000_000_000)
             .expect("Failed to airdrop");
 
         let program_keypair = Keypair::new();
         let program_id = program_keypair.pubkey();
+
         svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
-            .unwrap();
+            .expect("Failed to load program");
 
         let counter_keypair = Keypair::new();
         let initial_value: u64 = 42;
 
-        // Step 1: Initialize the counter
         println!("Testing counter initialization...");
 
-        // Use Borsh serialization for the instruction
-        let init_instruction_data =
-            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-                .expect("Failed to serialize instruction");
+        let mut init_instruction_data = [0u8; 12];
+        wincode::serialize_into(
+            &mut init_instruction_data[..],
+            &CounterInstruction::InitializeCounter { initial_value },
+        )
+        .expect("Failed to serialize instruction");
 
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
@@ -2017,7 +2981,7 @@ mod test {
             vec![
                 AccountMeta::new(counter_keypair.pubkey(), true),
                 AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
+                AccountMeta::new_readonly(solana_system_interface::program::ID, false),
             ],
         );
 
@@ -2025,56 +2989,65 @@ mod test {
         let transaction = Transaction::new(
             &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Initialize transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Initialize transaction should succeed: {result:#?}"
+        );
 
-        // Check account data
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{logs:#?}");
+
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
         assert_eq!(counter.count, 42);
         println!("Counter initialized successfully with value: {}", counter.count);
 
-        // Step 2: Increment the counter
         println!("Testing counter increment...");
 
-        // Use Borsh serialization for increment instruction
-        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
-            .expect("Failed to serialize instruction");
+        let mut increment_instruction_data = [0u8; 4];
+        wincode::serialize_into(
+            &mut increment_instruction_data[..],
+            &CounterInstruction::IncrementCounter,
+        )
+        .expect("Failed to serialize instruction");
 
         let increment_instruction = Instruction::new_with_bytes(
             program_id,
-            &increment_data,
+            &increment_instruction_data,
             vec![AccountMeta::new(counter_keypair.pubkey(), true)],
         );
 
-        // Build and send increment transaction
         let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
         let transaction = Transaction::new(
             &[&payer, &counter_keypair],
             message,
-            svm.latest_blockhash()
+            svm.latest_blockhash(),
         );
 
         let result = svm.send_transaction(transaction);
-        assert!(result.is_ok(), "Increment transaction should succeed");
+        assert!(
+            result.is_ok(),
+            "Increment transaction should succeed: {result:#?}"
+        );
 
         let logs = result.unwrap().logs;
-        println!("Transaction logs:\n{:#?}", logs);
+        println!("Transaction logs:\n{logs:#?}");
 
-        // !focus(1:11)
-        // Check account data
+        // !focus(1:8)
+        // Verify the updated counter value
         let account = svm
             .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+        let counter = CounterAccount::from_bytes(account.data())
             .expect("Failed to deserialize counter data");
         assert_eq!(counter.count, 43);
         println!("Counter incremented successfully to: {}", counter.count);
@@ -2091,25 +3064,25 @@ $ cargo test -- --nocapture
 
 Expected output:
 
-```
+```txt title="Terminal"
 Testing counter initialization...
 Transaction logs:
 [
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq invoke [1]",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj invoke [1]",
     "Program 11111111111111111111111111111111 invoke [2]",
     "Program 11111111111111111111111111111111 success",
     "Program log: Counter initialized with value: 42",
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq consumed 3803 of 200000 compute units",
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq success",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj consumed 1499 of 200000 compute units",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj success",
 ]
 Counter initialized successfully with value: 42
 Testing counter increment...
 Transaction logs:
 [
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq invoke [1]",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj invoke [1]",
     "Program log: Counter incremented to: 43",
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq consumed 762 of 200000 compute units",
-    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq success",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj consumed 259 of 200000 compute units",
+    "Program 8N1Pe92Fo9nXQUDfuxuWzoSeoekM2qNZTaPHZ5EkDyVj success",
 ]
 Counter incremented successfully to: 43
 ```
@@ -2127,7 +3100,7 @@ Now let's add a client script to invoke the program.
 Let's create a Rust client to interact with our deployed program.
 
 ```terminal
-$ mkdir examples
+$ mkdir -p examples
 $ touch examples/client.rs
 ```
 
@@ -2149,15 +3122,20 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-borsh = "1.5.7"
-solana-program = "2.2.0"
+wincode = { version = "0.5.1", default-features = false, features = ["derive"] }
+pinocchio = { version = "0.11.1", features = ["cpi"] }
+pinocchio-system = "0.6.0"
+solana-rent = "4.2.0"
+solana-program-log = "1.1.0"
 
 [dev-dependencies]
-litesvm = "0.6.1"
-solana-sdk = "2.2.0"
-# !focus(1:2)
-solana-client = "2.2.0"
-tokio = "1.47.1"
+litesvm = "0.9.1"
+solana-client = "3.0.14"
+solana-commitment-config = "3.1.0"
+solana-sdk = "3.0.0"
+solana-system-interface = "3.0.0"
+# !mark
+tokio = "1.49.0"
 
 # !focus(1:3)
 [[example]]
@@ -2168,8 +3146,10 @@ path = "examples/client.rs"
 Install the client dependencies:
 
 ```terminal
-$ cargo add solana-client@2.2.0 --dev
-$ cargo add tokio --dev
+$ cargo add solana-client@3.0.14 --dev
+$ cargo add solana-commitment-config@3.1.0 --dev
+$ cargo add solana-system-interface@3.0.0 --dev
+$ cargo add tokio@1.49.0 --dev
 ```
 
 ## !!steps Implement client code
@@ -2187,46 +3167,41 @@ the output of the previous command:
 
 ```rs title="examples/client.rs"
 // !mark
-let program_id = Pubkey::from_str("BDLLezrtFEXVGYqG3aS7eAC7GVeojJ4JHhKJM6pAFCDH")
+let program_id = Pubkey::from_str("7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH")
     .expect("Invalid program ID");
 ```
 
 <CodePlaceholder title="examples/client.rs" />
 
 ```rs !! title="examples/client.rs"
+use counter_program::CounterInstruction;
 use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    system_program,
     transaction::Transaction,
 };
 use std::str::FromStr;
-use counter_program::CounterInstruction;
 
 #[tokio::main]
 async fn main() {
-    // Replace with your actual program ID from deployment
+    // Replace with your actual program ID from deployment.
     // !mark
-    let program_id = Pubkey::from_str("BDLLezrtFEXVGYqG3aS7eAC7GVeojJ4JHhKJM6pAFCDH")
+    let program_id = Pubkey::from_str("7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH")
         .expect("Invalid program ID");
 
-    // Connect to local cluster
     let rpc_url = String::from("http://localhost:8899");
     let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
 
-    // Generate a new keypair for paying fees
     let payer = Keypair::new();
 
-    // Request airdrop of 1 SOL for transaction fees
     println!("Requesting airdrop...");
     let airdrop_signature = client
         .request_airdrop(&payer.pubkey(), 1_000_000_000)
         .expect("Failed to request airdrop");
 
-    // Wait for airdrop confirmation
     loop {
         if client
             .confirm_transaction(&airdrop_signature)
@@ -2242,9 +3217,12 @@ async fn main() {
     let counter_keypair = Keypair::new();
     let initial_value = 100u64;
 
-    // Serialize the initialize instruction data
-    let instruction_data = borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
-        .expect("Failed to serialize instruction");
+    let mut instruction_data = [0u8; 12];
+    wincode::serialize_into(
+        &mut instruction_data[..],
+        &CounterInstruction::InitializeCounter { initial_value },
+    )
+    .expect("Failed to serialize instruction");
 
     let initialize_instruction = Instruction::new_with_bytes(
         program_id,
@@ -2252,7 +3230,7 @@ async fn main() {
         vec![
             AccountMeta::new(counter_keypair.pubkey(), true),
             AccountMeta::new(payer.pubkey(), true),
-            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(solana_system_interface::program::ID, false),
         ],
     );
 
@@ -2277,9 +3255,12 @@ async fn main() {
     }
 
     println!("\nIncrementing counter...");
-    // Serialize the increment instruction data
-    let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
-        .expect("Failed to serialize instruction");
+    let mut increment_data = [0u8; 4];
+    wincode::serialize_into(
+        &mut increment_data[..],
+        &CounterInstruction::IncrementCounter,
+    )
+    .expect("Failed to serialize instruction");
 
     let increment_instruction = Instruction::new_with_bytes(
         program_id,
@@ -2290,6 +3271,9 @@ async fn main() {
     let mut transaction =
         Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
 
+    let blockhash = client
+        .get_latest_blockhash()
+        .expect("Failed to get blockhash");
     transaction.sign(&[&payer, &counter_keypair], blockhash);
 
     match client.send_and_confirm_transaction(&transaction) {
@@ -2339,8 +3323,8 @@ $ solana address -k ./target/deploy/counter_program-keypair.json
 
 Example output:
 
-```
-HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+```txt
+7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH
 ```
 
 </Step>
@@ -2359,7 +3343,7 @@ $ solana config set -ul
 
 Example output:
 
-```
+```txt
 Config File: ~/.config/solana/cli/config.yml
 RPC URL: http://localhost:8899
 WebSocket URL: ws://localhost:8900/ (computed)
@@ -2387,29 +3371,29 @@ $ solana program deploy ./target/deploy/counter_program.so
 
 Example output:
 
-```
-Program Id: HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+```txt
+Program Id: 7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH
 
-Signature: 5xKdnh3dDFnZXB5UevYYkFBpCVcuqo5SaUPLnryFWY7eQD2CJxaeVDKjQ4ezQVJfkGNqZGYqMZBNqymPKwCQQx5h
+Signature: 3ngsjaUBsrknjvfXtqp3g754W4SWs3WFjmFQjWXeMArRnB3HFrmeCMkMbn2Ni79onpf9ByttS8w4YxuT1KKdWSqN
 ```
 
 You can verify the deployment using the `solana program show` command with your
 program ID:
 
 ```terminal
-$ solana program show HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+$ solana program show 7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH
 ```
 
 Example output:
 
-```
-Program Id: HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+```txt
+Program Id: 7bYKEZWKWrKg7uWGYoMRcnpLuTA6ffNDgur4zHxbV8VH
 Owner: BPFLoaderUpgradeab1e11111111111111111111111
-ProgramData Address: 47MVf5tRZ4zWXQMX7ydrkgcFQr8XTk1QBjohwsUzaiuM
-Authority: 4kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
-Last Deployed In Slot: 16
-Data Length: 82696 (0x14308) bytes
-Balance: 0.57676824 SOL
+ProgramData Address: 2z2C9e6qH7XjujZ2eF9GAkWXiMiy4ddP9GAgBkWGtF2P
+Authority: 5BsbqMmBydCDg336P5317mY5XU3tznokUBzuPMK9c51x
+Last Deployed In Slot: 50
+Data Length: 6840 (0x1ab8) bytes
+Balance: 0.04881048 SOL
 ```
 
 </Step>
@@ -2426,18 +3410,18 @@ $ cargo run --example client
 
 Expected output:
 
-```
+```txt
 Requesting airdrop...
 Airdrop confirmed
 
 Initializing counter...
 Counter initialized!
-Transaction: 2uenChtqNeLC1fitqoVE2LBeygSBTDchMZ4gGqs7AiDvZZVJguLDE5PfxsfkgY7xs6zFWnYsbEtb82dWv9tDT14k
-Counter address: EppPAmwqD42u4SCPWpPT7wmWKdFad5VnM9J4R9Zfofcy
+Transaction: 3dTKBYFgBNVpuqcTGvq6gdWvF8miPuiViUJCJEEwu41E8h7xv3yfJh6GUo1xB4CUeFdFzbdAgWeaaGyFqSxRdiVg
+Counter address: 4fxH8tAQNWnCHkg9bnZ43FiojAz5ZfM6bbpsijYFMkyR
 
 Incrementing counter...
 Counter incremented!
-Transaction: 4qv1Rx6FHu1M3woVgDQ6KtYUaJgBzGcHnhej76ZpaKGCgsTorbcHnPKxoH916UENw7X5ppnQ8PkPnhXxEwrYuUxS
+Transaction: 2ydSAzzB5A91hhA3HyGTQRT7Sf7Hb5AhtDa78tUsJCxnan41voo3cq5Jx1sgb7uEmTNscc8XwtBhs8EZwbkhW5EX
 ```
 
 With the local validator running, you can view the transactions on
