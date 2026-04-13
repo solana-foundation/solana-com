@@ -20,7 +20,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   {
     key: "Content-Security-Policy",
     value:
-      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234",
+      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234 https://*.cloud.databricks.com https://cloud.databricks.com",
   },
 ];
 
