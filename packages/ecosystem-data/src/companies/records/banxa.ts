@@ -9,11 +9,11 @@ export const banxa = {
   slug: "banxa",
   name: "Banxa",
   profile: {
-    tagline: "Seamless crypto and fiat conversions",
+    tagline: "One Network. Local Everywhere.",
     summary:
-      "Banxa is a regulated fiat-to-crypto infrastructure provider that enables businesses to embed on-ramp and off-ramp payment solutions with end-to-end compliance.",
+      "Banxa, an OSL company, is the leading provider of embedded crypto infrastructure — powering seamless integration of digital assets into existing platforms.",
     description:
-      "Banxa provides plug-and-play fiat-to-crypto on-ramp and off-ramp infrastructure for fintechs, exchanges, and wallets. Founded in 2014 and publicly listed on TSX-V, the company operates across the USA, Europe, and Asia-Pacific with regulatory licenses in multiple jurisdictions. Banxa supports the Solana ecosystem as an on-ramp provider, enabling users to purchase SOL and Solana-based tokens directly with fiat currency through its API-first platform.",
+      "Over the past decade Banxa has built global and local payment solutions backed by an international licensing network, enabling 400+ businesses to deliver crypto and stablecoin access to millions of users around the world. Headquartered in the United States, Europe, and Asia-Pacific, Banxa supports over 30 fiat currencies, 300+ cryptocurrencies, and has processed $10bn+ in cumulative transactions for 8m+ users globally. Banxa supports the Solana ecosystem as an on-ramp provider, enabling users to purchase SOL and Solana-based tokens directly with fiat currency.",
     sector: "Payments",
     type: "Company",
     links: {
