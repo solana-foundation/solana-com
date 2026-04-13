@@ -42,6 +42,7 @@ import { quicknode } from "./records/quicknode";
 import { rockawayx } from "./records/rockawayx";
 import { safepalWallet } from "./records/safepal-wallet";
 import { societeGenerale } from "./records/societe-generale";
+import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
 import { solflare } from "./records/solflare";
@@ -103,6 +104,7 @@ export const companies = [
   rockawayx,
   safepalWallet,
   societeGenerale,
+  sofi,
   solanaSpaces,
   solayer,
   solflare,
