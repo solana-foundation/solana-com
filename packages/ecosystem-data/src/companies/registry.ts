@@ -27,6 +27,7 @@ import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
 import { matcha } from "./records/matcha";
+import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
 import { openmined } from "./records/openmined";
 import { osl } from "./records/osl";
@@ -81,6 +82,7 @@ export const companies = [
   kazakhstan,
   libeara,
   matcha,
+  mantle,
   mantleByreal,
   openmined,
   osl,
