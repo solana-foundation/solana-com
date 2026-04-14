@@ -1,15 +1,10 @@
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
-import { staticLocales } from "@workspace/i18n/config";
-import { getLangDir } from "rtl-detect";
-import {
-  CookieConsentBanner,
-  PersistentPodcastPlayer,
-} from "@solana-com/ui-chrome";
-import { getBaseMetadata } from "@/app/metadata";
-import { FabMenu } from "@/components/FabMenu";
+import type { Metadata } from "next";
+import { locales } from "@workspace/i18n/config";
+import { getBaseMetadata } from "../metadata";
+import { loadBreakpointMessages } from "@/i18n/request";
 
 const displayFont = localFont({
   src: "../../../public/fonts/fh-lecturis/FHLecturis-Regular.woff2",
@@ -45,15 +40,15 @@ const monoFont = localFont({
   display: "swap",
 });
 
-export function generateStaticParams() {
-  return staticLocales.map((locale) => ({ locale }));
+export async function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>;
-}) {
+}): Promise<Metadata> {
   const { locale } = await params;
   return getBaseMetadata(locale);
 }
@@ -66,19 +61,17 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const messages = await getMessages();
+  const { messages } = await loadBreakpointMessages(locale);
+  const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
     <div
-      dir={getLangDir(locale)}
+      dir={dir}
       data-locale={locale}
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
-        <FabMenu />
-        <CookieConsentBanner />
-        <PersistentPodcastPlayer />
       </NextIntlClientProvider>
     </div>
   );

@@ -19,6 +19,8 @@ const appMessageLoaders: Partial<Record<AppId, MessageLoader>> = {
   accelerate: (locale) =>
     import(`../messages/accelerate/${locale}/common.json`),
   media: (locale) => import(`../messages/media/${locale}/common.json`),
+  breakpoint: (locale) =>
+    import(`../messages/breakpoint/${locale}/breakpoint.json`),
   templates: (locale) => import(`../messages/templates/${locale}/common.json`),
 };
 
