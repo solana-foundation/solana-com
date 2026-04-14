@@ -30,13 +30,8 @@ type RecentPublishedPost = {
   publishedAt: Date;
 };
 
-async function getRecentPublishedPosts(
-  now: Date = new Date(),
-): Promise<RecentPublishedPost[]> {
+async function getPublishedPosts(): Promise<RecentPublishedPost[]> {
   const allSlugs = await reader.collections.posts.list();
-  const minPublishedAt = new Date(
-    now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
-  );
   const posts: RecentPublishedPost[] = [];
 
   for (const slug of allSlugs) {
@@ -46,7 +41,7 @@ async function getRecentPublishedPosts(
     }
 
     const publishedAt = parsePublishedAt(post.publishedAt);
-    if (!publishedAt || publishedAt < minPublishedAt || publishedAt > now) {
+    if (!publishedAt) {
       continue;
     }
 
@@ -67,23 +62,37 @@ async function getRecentPublishedPosts(
 async function buildGoogleNewsSitemapXml(
   now: Date = new Date(),
 ): Promise<string> {
-  const posts = await getRecentPublishedPosts(now);
+  const minNewsPublishedAt = new Date(
+    now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
+  );
+  const posts = await getPublishedPosts();
   const urls = posts.map((post) => {
     const loc = `${NEWS_URL}/${post.slug}`;
+    const isGoogleNewsEligible =
+      post.publishedAt >= minNewsPublishedAt && post.publishedAt <= now;
 
-    return [
+    const lines = [
       "<url>",
       `<loc>${escapeXml(loc)}</loc>`,
-      "<news:news>",
-      "<news:publication>",
-      `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
-      `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
-      "</news:publication>",
-      `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
-      `<news:title>${escapeXml(post.title)}</news:title>`,
-      "</news:news>",
-      "</url>",
-    ].join("");
+      `<lastmod>${escapeXml(post.publishedAt.toISOString())}</lastmod>`,
+    ];
+
+    if (isGoogleNewsEligible) {
+      lines.push(
+        "<news:news>",
+        "<news:publication>",
+        `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
+        `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
+        "</news:publication>",
+        `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
+        `<news:title>${escapeXml(post.title)}</news:title>`,
+        "</news:news>",
+      );
+    }
+
+    lines.push("</url>");
+
+    return lines.join("");
   });
 
   return [

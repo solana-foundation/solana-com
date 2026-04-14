@@ -79,7 +79,9 @@ describe("getGoogleNewsSitemapResponse", () => {
       "<news:publication_date>2026-04-13T13:00:00.000Z</news:publication_date>",
     );
     expect(xml).toContain("<news:title>Fresh Solana News</news:title>");
-    expect(xml).not.toContain("stale-post");
+    expect(xml).toContain("<loc>https://solana.com/news/stale-post</loc>");
+    expect(xml).toContain("<lastmod>2026-04-11T11:59:59.000Z</lastmod>");
+    expect(xml).not.toContain("<news:title>Old Solana News</news:title>");
     expect(xml).not.toContain("draft-post");
     expect(xml).not.toContain("future-post");
   });
