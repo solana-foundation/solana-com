@@ -4,6 +4,7 @@ import { alchemy } from "./records/alchemy";
 import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
+import { anchorage } from "./records/anchorage";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
@@ -58,6 +59,7 @@ export const companies = [
   altitude,
   allnodes,
   ampPay,
+  anchorage,
   banxa,
   arcium,
   atxp,
