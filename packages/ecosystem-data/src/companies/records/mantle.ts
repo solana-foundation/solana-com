@@ -1,5 +1,7 @@
 import type { CompanyRecord } from "../../types";
-import mantleLogo from "../../../assets/companies/mantle/logo.svg";
+import mantleLogoDark from "../../../assets/companies/mantle/logo-dark.svg";
+import mantleLogoLight from "../../../assets/companies/mantle/logo-light.svg";
+import mantleLogoBrand from "../../../assets/companies/mantle/logo-brand.svg";
 
 export const mantle = {
   id: "mantle",
@@ -22,15 +24,31 @@ export const mantle = {
       telegram: "https://t.me/mantlenetwork",
     },
   },
-  defaultLogoId: "logo",
+  defaultLogoId: "logo-dark",
   logos: [
     {
-      id: "logo",
-      fileName: "logo.svg",
+      id: "logo-dark",
+      fileName: "logo-dark.svg",
       format: "svg",
-      source: mantleLogo,
+      source: mantleLogoDark,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: mantleLogoLight,
       theme: "dark",
-      kind: "wordmark",
+      kind: "logo",
+    },
+    {
+      id: "logo-brand",
+      fileName: "logo-brand.svg",
+      format: "svg",
+      source: mantleLogoBrand,
+      treatment: "brand",
+      kind: "logo",
     },
   ],
 } satisfies CompanyRecord;
