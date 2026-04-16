@@ -38,28 +38,28 @@ export default function TicketsSection() {
           />
         </div>
 
-        <div className="relative mt-6 overflow-hidden border border-white/15 bg-[#140d1f]">
-          <div className="absolute inset-y-0 right-0 hidden w-[44%] md:block">
+        <div className="relative mt-6 overflow-hidden border border-white/15 bg-[#1e1e1e]">
+          <div className="absolute inset-y-0 right-0 hidden w-[42%] md:block">
             <img
               src="/img/tower-bridge.png"
               alt=""
               aria-hidden="true"
-              className="h-full w-full object-cover object-center opacity-40 mix-blend-screen"
+              className="h-full w-full object-cover object-center opacity-35 mix-blend-screen"
             />
           </div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_24%,rgba(171,102,253,0.38),transparent_32%),linear-gradient(90deg,rgba(5,3,10,0.96)_0%,rgba(20,13,31,0.72)_62%,rgba(20,13,31,0.2)_100%)]" />
-          <div className="relative z-10 flex min-h-[251px] flex-col justify-between gap-8 p-6 md:max-w-[58%] md:p-8">
-            <div className="space-y-4">
-              <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-purple">
-                London 2026
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,16,0.98)_0%,rgba(18,12,29,0.88)_58%,rgba(30,30,30,0.12)_100%)]" />
+          <div className="relative z-10 flex min-h-[251px] flex-col justify-between gap-8 p-6 md:flex-row md:items-end md:gap-10 md:p-20">
+            <div className="max-w-[38rem] space-y-6">
+              <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-white/72">
+                {t("participate.eyebrow")}
               </span>
-              <p className="max-w-[24ch] font-sans text-[1.75rem] leading-[1.05] tracking-[-0.04em] text-white md:text-[2.5rem]">
-                Three days of launches, internet capital markets, and the
-                builders shaping what comes next.
+              <p className="max-w-[20ch] font-sans text-[2rem] leading-[1.05] tracking-[-0.035em] text-white md:text-[2.5rem]">
+                {t("participate.headline")}
               </p>
             </div>
-            <div>
-              <Button label={t("tickets.cta")} variant="secondary" />
+            <div className="flex flex-wrap gap-4">
+              <Button label="Become a Sponsor" variant="primary" />
+              <Button label="Apply to Speak" variant="secondary" />
             </div>
           </div>
         </div>
