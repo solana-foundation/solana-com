@@ -166,8 +166,8 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     if (titleMatch) {
       metadata.title = titleMatch[1]
-        .replace(/&amp;/g, "&")
-        .replace(/&#39;/g, "'");
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&");
     }
   }
 
@@ -178,11 +178,11 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
   // Decode HTML entities
   if (metadata.description) {
     metadata.description = metadata.description
-      .replace(/&amp;/g, "&")
       .replace(/&#39;/g, "'")
       .replace(/&quot;/g, '"')
       .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">");
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
   }
 
   return metadata;
