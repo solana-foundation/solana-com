@@ -21,16 +21,14 @@ export const FEATURE_HIGHLIGHT_CONFIG = {
 export const FEATURE_HIGHLIGHT_CARDS = [
   {
     color: "purple",
-    variant: "none",
   },
   {
     color: "purple",
-    variant: "none",
   },
   {},
   {},
   {},
-];
+] as const;
 
 export const DEVELOPER_ECOSYSTEM_PANEL = {
   variant: "inline-centered",

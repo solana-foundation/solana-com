@@ -5,7 +5,6 @@ import {
   CardDeck,
   ConversionPanel,
   FeatureHighlight,
-  FeatureHighlightProps,
   Heading,
   Hero,
   Slider,
@@ -105,7 +104,8 @@ export function DevelopersDaoPage() {
         eyebrow={t("featureHighlight.eyebrow")}
         headline={t("featureHighlight.headline")}
         body={t("featureHighlight.body")}
-        cards={featureHighlightCards as FeatureHighlightProps["cards"]}
+        cards={featureHighlightCards}
+        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
         valueOf={() => false}
       />
 

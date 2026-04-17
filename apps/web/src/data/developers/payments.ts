@@ -69,12 +69,7 @@ export const FEATURE_HIGHLIGHT = {
   },
 } as const;
 
-export const FEATURE_HIGHLIGHT_CARDS = [
-  { variant: "none" },
-  { variant: "none", color: "aqua" },
-  { variant: "none" },
-  { variant: "none" },
-] as const;
+export const FEATURE_HIGHLIGHT_CARDS = [{}, { color: "aqua" }, {}, {}] as const;
 
 export const SWITCHBACK_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F3c38f6e5bf9e4abcaf744ba0a78dc01e.png";

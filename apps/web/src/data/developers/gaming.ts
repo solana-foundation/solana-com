@@ -46,12 +46,7 @@ export const FEATURE_HIGHLIGHT = {
   ],
 } as const;
 
-export const FEATURE_HIGHLIGHT_CARDS = [
-  { variant: "none" },
-  { variant: "none", color: "aqua" },
-  { variant: "none" },
-  { variant: "none" },
-] as const;
+export const FEATURE_HIGHLIGHT_CARDS = [{}, { color: "aqua" }, {}, {}] as const;
 
 export const SHOWCASE_SWITCHBACK = {
   assetSide: "left",

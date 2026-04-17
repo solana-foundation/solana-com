@@ -238,8 +238,6 @@ const RampLayout = ({
           body={`<p>${t("on-off-ramp.hero.body")}</p>`}
           image={onOffRampHeroImage}
           centered={false}
-          // @ts-expect-error Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-          newsletter={false}
         />
       </div>
       <div className={`relative ${styles["ramps-layout"]}`}>

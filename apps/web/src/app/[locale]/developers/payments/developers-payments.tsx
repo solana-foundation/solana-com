@@ -5,7 +5,6 @@ import {
   CardDeck,
   ConversionPanel,
   FeatureHighlight,
-  FeatureHighlightProps,
   Heading,
   Hero,
   Stats,
@@ -49,7 +48,7 @@ export function DevelopersPaymentsPage() {
     },
   }));
   const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map(
-    ({ variant: _, ...card }, index) => ({
+    ({ ...card }, index) => ({
       ...card,
       feature: t(`featureHighlight.cards.${index}.feature`),
       body: t(`featureHighlight.cards.${index}.body`),
@@ -109,7 +108,7 @@ export function DevelopersPaymentsPage() {
           body={t("featureHighlight.body")}
           headingAs={"h2"}
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-          cards={featureHighlightCards as FeatureHighlightProps["cards"]}
+          cards={featureHighlightCards}
           buttons={[]}
           // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
           valueOf={() => false}

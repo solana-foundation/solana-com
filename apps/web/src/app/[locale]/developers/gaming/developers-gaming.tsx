@@ -4,7 +4,6 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   ConversionPanel,
   FeatureHighlight,
-  FeatureHighlightProps,
   Heading,
   Hero,
   Quote,
@@ -40,7 +39,7 @@ export function DevelopersGamingPage() {
   }));
 
   const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map(
-    ({ variant: _, ...card }, index) => ({
+    ({ ...card }, index) => ({
       ...card,
       feature: t(`featureHighlight.cards.${index}.feature`),
       body: t(`featureHighlight.cards.${index}.body`),
@@ -131,8 +130,8 @@ export function DevelopersGamingPage() {
           body={t("featureHighlight.body")}
           headingAs={FEATURE_HIGHLIGHT.headingAs}
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-          cards={featureHighlightCards as FeatureHighlightProps["cards"]}
-          buttons={featureHighlightButtons as FeatureHighlightProps["buttons"]}
+          cards={featureHighlightCards}
+          buttons={featureHighlightButtons}
           // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
           valueOf={() => false}
         />

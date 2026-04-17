@@ -5,7 +5,6 @@ import {
   CardDeck,
   CommunityGallery,
   FeatureHighlight,
-  FeatureHighlightProps,
   Heading,
   Hero,
   Stats,
@@ -158,8 +157,8 @@ export function DevelopersNftsPage() {
         headline={t("featureHighlight.headline")}
         body={t("featureHighlight.body")}
         desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-        cards={featureHighlightCards as FeatureHighlightProps["cards"]}
-        buttons={featureHighlightButtons as FeatureHighlightProps["buttons"]}
+        cards={featureHighlightCards}
+        buttons={featureHighlightButtons}
         // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
         valueOf={() => false}
       />
