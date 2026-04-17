@@ -36,6 +36,10 @@ for (const inputPath of args) {
   const absolutePath = resolveInputPath(inputPath);
   const extension = path.extname(absolutePath).toLowerCase();
 
+  if (!fsSync.existsSync(absolutePath)) {
+    continue;
+  }
+
   if (!IMAGE_EXTENSIONS.has(extension)) {
     continue;
   }

@@ -4,6 +4,7 @@ import { alchemy } from "./records/alchemy";
 import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
+import { anchorage } from "./records/anchorage";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
@@ -13,6 +14,7 @@ import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
 import { coinbase } from "./records/coinbase";
+import { comicbook } from "./records/comicbook";
 import { dabba } from "./records/dabba";
 import { darkresearch } from "./records/darkresearch";
 import { doublezero } from "./records/doublezero";
@@ -26,14 +28,17 @@ import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
 import { matcha } from "./records/matcha";
+import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
 import { openmined } from "./records/openmined";
 import { osl } from "./records/osl";
 import { phantom } from "./records/phantom";
+import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
 import { rockawayx } from "./records/rockawayx";
 import { safepalWallet } from "./records/safepal-wallet";
+import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
 import { solflare } from "./records/solflare";
@@ -55,6 +60,7 @@ export const companies = [
   altitude,
   allnodes,
   ampPay,
+  anchorage,
   banxa,
   arcium,
   atxp,
@@ -64,6 +70,7 @@ export const companies = [
   bydfi,
   byreal,
   coinbase,
+  comicbook,
   dabba,
   darkresearch,
   doublezero,
@@ -77,14 +84,17 @@ export const companies = [
   kazakhstan,
   libeara,
   matcha,
+  mantle,
   mantleByreal,
   openmined,
   osl,
   phantom,
+  pipeNetwork,
   playSolana,
   quicknode,
   rockawayx,
   safepalWallet,
+  sofi,
   solanaSpaces,
   solayer,
   solflare,

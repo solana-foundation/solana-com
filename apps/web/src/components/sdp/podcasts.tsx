@@ -132,7 +132,7 @@ export const Podcasts = ({
           <Carousel
             ref={carouselRef}
             controlsInline={false}
-            lastPageOffset={1}
+            lastPageOffset={isDesktop ? 2 : 1}
             panels={isDesktop ? 2 : 1}
             panelsPerNav={1}
             enableSwipe={true}

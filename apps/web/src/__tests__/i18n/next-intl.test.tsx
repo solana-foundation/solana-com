@@ -157,7 +157,7 @@ describe.skip("Translations", () => {
   const enTranslations = loadMessages("en");
 
   readdirSync(localesDir).forEach((locale) => {
-    if (locale !== "en" && locale !== "hi") {
+    if (locale !== "en") {
       it(`has no missing keys for ${locale}`, () => {
         const translations = JSON.parse(
           readFileSync(`${localesDir}/${locale}/common.json`, "utf8"),
@@ -172,12 +172,6 @@ describe.skip("Translations", () => {
 
 describe("Smoke Tests for UI Elements Across Locales", () => {
   SUPPORTED_LOCALES.forEach((locale) => {
-    const isIncompleteLocale = locale === "hi";
-    if (isIncompleteLocale) {
-      describe.skip(`Locale: ${locale} (skipped due to incomplete translations)`, () => {});
-      return;
-    }
-
     describe(`Locale: ${locale}`, () => {
       let messages: Awaited<ReturnType<typeof loadMessages>>;
 
