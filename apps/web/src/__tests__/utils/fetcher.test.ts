@@ -1,5 +1,5 @@
 import fetcher from "@/utils/fetcher";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 describe("fetcher", () => {
   beforeEach(() => {
@@ -8,7 +8,7 @@ describe("fetcher", () => {
         json: () => Promise.resolve({ success: true }),
       }),
     ) as unknown as typeof fetch;
-    (global.fetch as jest.Mock).mockClear();
+    (global.fetch as Mock).mockClear();
   });
 
   it("should fetch page", async () => {

@@ -5,7 +5,7 @@ import FooterMouseEffectSvg from "./assets/footer-mouse-effect.inline.svg";
 
 interface FooterMouseEffectProps {
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const FooterMouseEffect: React.FC<FooterMouseEffectProps> = ({

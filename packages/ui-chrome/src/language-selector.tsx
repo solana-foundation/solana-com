@@ -9,11 +9,11 @@ import { useLocale } from "next-intl";
 import classNames from "classnames";
 import { twMerge } from "tailwind-merge";
 
-function cn(...inputs) {
+function cn(...inputs: classNames.ArgumentArray) {
   return twMerge(classNames(inputs));
 }
 
-const LanguageSelector = ({ className = "" }) => {
+const LanguageSelector = ({ className = "" }: { className?: string }) => {
   const currentLocale = useLocale();
   const asPath = usePathname();
 
@@ -50,7 +50,7 @@ const LanguageSelector = ({ className = "" }) => {
               locale={language}
               className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
             >
-              {languages[language]}
+              {languages[language as keyof typeof languages]}
             </Link>
           </DropdownMenu.Item>
         ))}

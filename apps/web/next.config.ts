@@ -1,6 +1,6 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
-import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
+import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
@@ -82,10 +82,12 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map((redirect: Redirect) => ({
-        ...redirect,
-        permanent: redirect.permanent ?? true,
-      })),
+      ...rewritesAndRedirectsJson.redirects.map(
+        (redirect): Redirect => ({
+          ...redirect,
+          permanent: redirect.permanent ?? true,
+        }),
+      ),
     ];
 
     return existingRedirects;

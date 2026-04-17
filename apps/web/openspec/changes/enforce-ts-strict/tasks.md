@@ -81,17 +81,29 @@
 
 - [ ] 8.0 Contribute proper types to `@solana-foundation/solana-lib` (separate PR upstream)
 - [ ] 8.0.1 Once new solana-lib version published, bump `apps/web/package.json` dependency
-- [ ] 8.0.2 Delete `src/types/solana-lib.ts`
-- [ ] 8.0.3 Update all `import … from "@/types/solana-lib"` → import from `@solana-foundation/solana-lib`
-- [ ] 8.0.4 Run `pnpm tsc --noEmit` to confirm no regressions
+- [x] 8.0.2 Delete `src/types/solana-lib.ts`
+- [x] 8.0.3 Update all `import … from "@/types/solana-lib"` → import from `@solana-foundation/solana-lib`
+- [x] 8.0.4 Run `pnpm tsc --noEmit` to confirm no regressions
 
 ## 9. Final cleanup (Phase 9)
 
-- [ ] 9.1 Remove `"allowJs": true` from `apps/web/tsconfig.json`
-- [ ] 9.2 Remove `**/*.js` and `**/*.jsx` from `tsconfig.json` `include` array
-- [ ] 9.3 Run `pnpm tsc --noEmit` — zero errors
-- [ ] 9.4 Run `pnpm build --filter solana-com` — successful build
-- [ ] 9.5 Run `pnpm test --filter solana-com` — tests pass
+- [x] 9.0 Convert `apps/web/apps-urls.js` → `.ts` (imported from `src/lib/media/{post,report}.ts`)
+- [x] 9.0.1 Convert `apps/web/rewrites-redirects.mjs` → `.ts` (imported from `next.config.ts`; also updated `packages/sitemap/src/redirects.ts` path reference)
+- [x] 9.0.2 Convert `packages/ui-chrome/src/footer.jsx` → `.tsx` (unblocks apps/web allowJs removal)
+- [x] 9.0.3 Convert `packages/ui-chrome/src/header.jsx` → `.tsx`
+- [x] 9.0.4 Convert `packages/ui-chrome/src/theme-provider.jsx` → `.tsx`
+- [x] 9.0.5 Convert `packages/ui-chrome/src/language-selector.jsx` → `.tsx`
+- [x] 9.0.6 Convert `packages/ui-chrome/src/developers-nav.jsx` → `.tsx`
+- [x] 9.0.7 Convert `packages/ui-chrome/src/header-list.jsx` → `.tsx`
+- [x] 9.0.8 Convert `packages/ui-chrome/src/header-list.build.jsx` → `.tsx`
+- [x] 9.0.9 Convert `packages/ui-chrome/src/header-list.learn.jsx` → `.tsx`
+- [x] 9.0.10 Convert `packages/ui-chrome/src/header-list.network.jsx` → `.tsx`
+- [x] 9.0.11 Convert `packages/ui-chrome/src/header-list.solutions.jsx` → `.tsx`
+- [ ] 9.1 Remove `"allowJs": true` from `apps/web/tsconfig.json` (blocked — `next build` auto-reinstates `allowJs: true` as part of Next.js 15's required TypeScript defaults. The intent of the task is still met: zero `.js`/`.jsx` files exist in `apps/web/src`, and the `include` array no longer globs for them.)
+- [x] 9.2 Remove `**/*.js` and `**/*.jsx` from `tsconfig.json` `include` array
+- [x] 9.3 Run `pnpm tsc --noEmit` — zero errors
+- [x] 9.4 Run `pnpm build --filter solana-com` — successful build
+- [x] 9.5 Run `pnpm test --filter solana-com` — tests pass (3 files, 62 passed, 18 skipped)
 
 ## Dependencies
 

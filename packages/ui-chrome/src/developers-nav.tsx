@@ -12,8 +12,9 @@ import {
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
   DocsSidebarToggleIcon,
 } from "./docs-sidebar-toggle";
+import type { ComponentProps } from "react";
 
-function NavLink(props) {
+function NavLink(props: ComponentProps<typeof Link>) {
   return (
     <Link
       {...props}
@@ -22,7 +23,11 @@ function NavLink(props) {
   );
 }
 
-export function DevelopersNav({ containerClassName }) {
+export function DevelopersNav({
+  containerClassName,
+}: {
+  containerClassName?: string;
+}) {
   const t = useTranslations();
   const router = useRouter();
   const pathname = router.asPath.split(/[?#]/)[0];

@@ -21,7 +21,6 @@ const FooterMouseEffect = dynamic(
   () => import("./footer-mouse-effect").then((mod) => mod.FooterMouseEffect),
   {
     ssr: false,
-    fallback: <div />,
   },
 );
 

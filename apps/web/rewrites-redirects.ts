@@ -9,13 +9,21 @@ import { locales } from "@workspace/i18n/config";
 
 const LOCALE_REGEX = locales.join("|");
 
+type RedirectInput = {
+  source: string;
+  destination: string;
+  permanent?: boolean;
+};
+
+type LocaleRedirect = RedirectInput & { locale: false };
+
 /**
  * Generates both bare-path and locale-prefixed versions of each redirect.
  * - For internal destinations: `:locale` param is prepended to both source and destination
  * - For external destinations (http/https): `:locale` param is only prepended to source
  * - All generated redirects use `locale: false` for explicit path control
  */
-function withLocaleRedirects(redirects) {
+function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
   return redirects.flatMap(({ source, destination, ...rest }) => {
     const isExternalDest =
       destination.startsWith("https://") || destination.startsWith("http://");

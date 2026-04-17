@@ -3,12 +3,21 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "@workspace/i18n/routing";
 
-const ThemeContext = createContext({
+type Theme = "dark" | "light";
+
+interface ThemeContextValue {
+  theme: Theme;
+  toggleTheme: () => void;
+  isThemePage: boolean;
+}
+
+const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
   toggleTheme: () => {},
+  isThemePage: false,
 });
 
-export const ThemeProvider = ({ children }) => {
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const isThemePage = pathname
     ? pathname.startsWith("/docs") ||
@@ -16,12 +25,12 @@ export const ThemeProvider = ({ children }) => {
       pathname.startsWith("/developers/guides") ||
       pathname.startsWith("/developers/bootcamp")
     : false;
-  const [theme, setTheme] = useState("dark"); // Initial theme state; will be updated by useEffect.
+  const [theme, setTheme] = useState<Theme>("dark"); // Initial theme state; will be updated by useEffect.
 
   useEffect(() => {
     if (isThemePage) {
       // Function to update the theme based on the passed theme name
-      const updateTheme = (newTheme) => {
+      const updateTheme = (newTheme: Theme) => {
         setTheme(newTheme);
         document.documentElement.classList.remove(
           "dark",
@@ -35,7 +44,7 @@ export const ThemeProvider = ({ children }) => {
 
       // Check if user has a theme preference in localStorage
       const localTheme = localStorage.getItem("theme");
-      if (localTheme) {
+      if (localTheme === "dark" || localTheme === "light") {
         updateTheme(localTheme);
       } else {
         // Use system color scheme if no local preference
@@ -48,8 +57,8 @@ export const ThemeProvider = ({ children }) => {
 
       // Listen for system theme changes
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const mediaQueryListener = (e) => {
-        const newTheme = e.matches ? "dark" : "light";
+      const mediaQueryListener = (e: MediaQueryListEvent) => {
+        const newTheme: Theme = e.matches ? "dark" : "light";
         updateTheme(newTheme);
       };
       mediaQuery.addListener(mediaQueryListener);
