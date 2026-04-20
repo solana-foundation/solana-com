@@ -23,7 +23,7 @@
 - [x] 2.12 `src/hooks/useTransactionStats.js` → `.ts`
 - [x] 2.13 `src/lib/markdown/index.js` → `.ts`
 - [x] 2.14 `src/lib/podcast/index.js` → `.ts`
-- [ ] 2.15 `src/lib/sitemap/media-urls.js` → `.ts` (deferred — CJS required by `next-sitemap.config.js` at runtime; convert alongside that file in Phase 6)
+- [x] 2.15 `src/lib/sitemap/media-urls.js` → `.ts` (obsolete — file removed in PR #1359 when sitemap config moved to `@solana-foundation/solana-com-sitemap` package)
 - [x] 2.16 `src/constants/developerContentConfig.js` → `.ts`
 
 ## 3. Convert data files (Phase 3)

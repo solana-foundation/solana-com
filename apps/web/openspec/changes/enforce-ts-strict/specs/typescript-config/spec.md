@@ -17,9 +17,7 @@ and `"allowJs": false` (or `allowJs` removed) once all JS/JSX files are converte
 
 ### Requirement: Null Safety Violations Fixed
 
-All null / undefined dereference patterns surfaced by enabling `strictNullChecks`
-SHALL be resolved. Both `strict` and `strictNullChecks` are currently `false` —
-enabling them will expose violations that must be fixed.
+The codebase SHALL resolve all null / undefined dereference patterns surfaced by enabling `strictNullChecks`. Both `strict` and `strictNullChecks` are currently `false` — enabling them will expose violations that must be fixed.
 
 #### Scenario: null dereference caught
 
