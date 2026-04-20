@@ -91,30 +91,7 @@ const dummyEvent = [
 ];
 
 /** Static signup form events (e.g. link-in-bio) shown on the events calendar */
-const signupFormEvents: CalendarEvent[] = [
-  {
-    key: "mtndao-signup",
-    title: "MTN DAO",
-    description: "Sign up for MTN DAO.",
-    rsvp: "https://lnk.bio/mtndao",
-    schedule: {
-      from: "2026-02-01T00:00:00-07:00",
-      to: "2026-02-28T23:59:59-07:00",
-      timezone: "America/Denver",
-    },
-    img: {
-      primary: "/images/events/mtndao-hero.webp",
-      alt: "MTN DAO",
-    },
-    venue: {
-      city: "Salt Lake City",
-      region: "UT",
-      city_state: "Salt Lake City, UT",
-      country: "USA",
-      address: null,
-    },
-  },
-];
+const signupFormEvents: CalendarEvent[] = [];
 
 /**
  *

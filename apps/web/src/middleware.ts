@@ -23,6 +23,7 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/developers/templates") ||
     pathname.startsWith("/developers/cookbook") ||
     pathname.startsWith("/developers/guides") ||
+    pathname.startsWith("/developers/bootcamp") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
     (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||

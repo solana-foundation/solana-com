@@ -3,8 +3,9 @@ import fsSync from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
-const args = process.argv.slice(2).filter((arg) => arg !== "--");
+const cliArgs = process.argv.slice(2).filter((arg) => arg !== "--");
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif"]);
+const MODERN_IMAGE_EXTENSIONS = new Set([".webp", ".avif"]);
 const TEXT_EXTENSIONS = new Set([
   ".md",
   ".mdx",
@@ -22,11 +23,6 @@ const MAX_WIDTH = 2000;
 const repoRoot = process.env.INIT_CWD
   ? path.resolve(process.env.INIT_CWD)
   : process.cwd();
-
-if (args.length === 0) {
-  console.error("Usage: node scripts/optimize-images.mjs <image-path> [...]");
-  process.exit(1);
-}
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
@@ -46,6 +42,10 @@ function resolveInputPath(inputPath) {
 }
 
 async function walk(dir) {
+  if (!fsSync.existsSync(dir)) {
+    return [];
+  }
+
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const files = await Promise.all(
     entries.map(async (entry) => {
@@ -59,6 +59,19 @@ async function walk(dir) {
   );
 
   return files.flat();
+}
+
+async function collectImagePaths() {
+  const discoveredFiles = await Promise.all([
+    walk(MEDIA_CONTENT_ROOT),
+    walk(MEDIA_PUBLIC_ROOT),
+  ]);
+
+  return discoveredFiles
+    .flat()
+    .filter((filePath) =>
+      IMAGE_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
+    );
 }
 
 async function updateReferences(oldAbsolutePath, newAbsolutePath) {
@@ -137,7 +150,24 @@ async function optimizeImage(inputPath) {
   }
 
   const originalStats = await fs.stat(absoluteInputPath);
-  const metadata = await sharp(absoluteInputPath).metadata();
+
+  let metadata;
+  try {
+    metadata = await sharp(absoluteInputPath).metadata();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`skip ${inputPath} (invalid image: ${message})`);
+    return;
+  }
+
+  if (
+    MODERN_IMAGE_EXTENSIONS.has(extension) &&
+    (metadata.width ?? 0) <= MAX_WIDTH
+  ) {
+    console.log(`skip ${inputPath} (already optimized ${extension})`);
+    return;
+  }
+
   const hasAlpha = Boolean(metadata.hasAlpha);
   const targetExtension = extension === ".avif" ? ".avif" : ".webp";
   const outputPath =
@@ -180,6 +210,17 @@ async function optimizeImage(inputPath) {
   );
 }
 
-for (const inputPath of args) {
+const inputPaths = cliArgs.length > 0 ? cliArgs : await collectImagePaths();
+
+if (inputPaths.length === 0) {
+  console.log("No media images found to optimize.");
+  process.exit(0);
+}
+
+if (cliArgs.length === 0) {
+  console.log(`Discovered ${inputPaths.length} media images to optimize.`);
+}
+
+for (const inputPath of inputPaths) {
   await optimizeImage(inputPath);
 }
