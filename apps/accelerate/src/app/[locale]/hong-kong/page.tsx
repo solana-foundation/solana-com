@@ -3,7 +3,7 @@ import {
   Hero,
   EventDetails,
   AgendaBanner,
-  Speakers,
+  HongKongSpeakers,
   Sponsors,
   FAQ,
   GettingThere,
@@ -56,7 +56,7 @@ export default function HongKongPage() {
       <Hero />
       <EventDetails />
       <AgendaBanner />
-      <Speakers />
+      <HongKongSpeakers />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ />
       <GettingThere />

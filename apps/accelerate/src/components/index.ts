@@ -3,6 +3,7 @@ export { EventDetails } from "./EventDetails";
 export { AgendaBanner } from "./AgendaBanner";
 export { Speakers } from "./Speakers";
 export { MiamiSpeakers } from "./MiamiSpeakers";
+export { HongKongSpeakers } from "./HongKongSpeakers";
 export { Sponsors } from "./Sponsors";
 export { FAQ } from "./FAQ";
 export { GettingThere } from "./GettingThere";

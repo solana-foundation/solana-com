@@ -4,13 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import speakersData from "../data/speakers.json";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
 import type { Speaker } from "@/types/speakers";
 
 type SpeakersProps = {
-  speakers?: Speaker[];
+  speakers: Speaker[];
   speakerOrder?: string[] | null;
 };
 
@@ -123,7 +122,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
 }
 
 export function Speakers({
-  speakers = speakersData.speakers as Speaker[],
+  speakers,
   speakerOrder = SPEAKER_ORDER,
 }: SpeakersProps) {
   return (
