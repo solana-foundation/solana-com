@@ -21,16 +21,23 @@ import { useTerminal } from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
-export const CATEGORIES: Record<
-  string,
-  {
-    id: string;
-    name: string;
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    color: string;
-    bg: string;
-  }
-> = {
+type CategoryDef = {
+  id: string;
+  name: string;
+  Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  color: string;
+  bg: string;
+};
+
+const DEFAULT_CATEGORY: CategoryDef = {
+  id: "ecosystem",
+  name: "Ecosystem",
+  Icon: Bezier,
+  color: "text-nd-highlight-gold",
+  bg: "#FFC526",
+};
+
+export const CATEGORIES: Record<string, CategoryDef> = {
   all: {
     id: "all",
     name: "All",
@@ -73,6 +80,43 @@ export const CATEGORIES: Record<
     color: "text-nd-highlight-gold",
     bg: "#FFC526",
   },
+};
+
+const LISTED_CATEGORY_IDS = new Set(
+  Object.keys(CATEGORIES).filter((categoryId) => categoryId !== "all"),
+);
+
+const getListedCategoryFromUrl = (url: string): string | undefined => {
+  try {
+    const parsedUrl = new URL(url);
+    const categoryValues = [
+      ...parsedUrl.searchParams.getAll("category"),
+      ...parsedUrl.searchParams.getAll("categories"),
+    ];
+
+    for (const value of categoryValues) {
+      const matchedCategoryId = value
+        .split(",")
+        .map((categoryId) => categoryId.trim().toLowerCase())
+        .find((categoryId) => LISTED_CATEGORY_IDS.has(categoryId));
+
+      if (matchedCategoryId) return matchedCategoryId;
+    }
+  } catch {
+    return undefined;
+  }
+};
+
+const getResolvedCategoryId = (item: { categoryId: string; url: string }) => {
+  if (
+    item.categoryId !== DEFAULT_CATEGORY.id &&
+    item.categoryId in CATEGORIES &&
+    item.categoryId !== "all"
+  ) {
+    return item.categoryId;
+  }
+
+  return getListedCategoryFromUrl(item.url) || item.categoryId;
 };
 
 export type WhatsUpProps = {
@@ -334,8 +378,14 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                         if (page === 2 && index < 5) return null;
                       }
 
-                      const category = CATEGORIES[item.categoryId];
-                      const CategoryIcon = category?.Icon;
+                      const resolvedCategoryId = getResolvedCategoryId(item);
+                      const category =
+                        CATEGORIES[resolvedCategoryId] || DEFAULT_CATEGORY;
+                      const CategoryIcon = category.Icon;
+                      const categoryLabel =
+                        resolvedCategoryId in CATEGORIES
+                          ? t(`terminal.categories.${resolvedCategoryId}`)
+                          : t("terminal.categories.ecosystem");
                       const isNewItem = newItemIds.includes(item.id);
                       const content = (
                         <>
@@ -352,16 +402,14 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                             </div>
                           </div>
                           <div className="shrink-0 grow-0 px-5 hidden xl:flex items-center justify-start w-[180px]">
-                            {CategoryIcon && (
-                              <CategoryIcon
-                                className={cn(
-                                  "w-4 h-4 mr-2.5 -mt-0.5",
-                                  category?.color,
-                                )}
-                              />
-                            )}
+                            <CategoryIcon
+                              className={cn(
+                                "w-4 h-4 mr-2.5 -mt-0.5",
+                                category.color,
+                              )}
+                            />
                             <span className="font-brand-mono font-medium text-[14px] leading-[1.42] uppercase">
-                              {t(`terminal.categories.${item.categoryId}`)}
+                              {categoryLabel}
                             </span>
                           </div>
                           {/* Date temporarily removed
@@ -426,7 +474,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           )}
                           style={
                             {
-                              "--flash-bg-color": category?.bg,
+                              "--flash-bg-color": category.bg,
                             } as React.CSSProperties
                           }
                         >

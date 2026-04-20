@@ -10,6 +10,7 @@ import {
   GetInvolved,
   MiamiSpeakers,
 } from "@/components";
+import { EventLineup } from "@/components/homepage";
 import sponsorsData from "@/data/miami/sponsors.json";
 import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
 import type { Sponsor } from "@/types/sponsors";
@@ -44,7 +45,7 @@ export async function generateMetadata({
 }
 
 export default async function MiamiPage({ params }: PageProps) {
-  const { locale } = await params;
+  await params;
   const sponsors = composeSponsors(
     sponsorsData.sponsors as SponsorAugmentation[],
   );
@@ -70,7 +71,8 @@ export default async function MiamiPage({ params }: PageProps) {
         showTicketsRow={false}
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
-      <MiamiSpeakers locale={locale} />
+      <MiamiSpeakers />
+      <EventLineup futureOnly />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}

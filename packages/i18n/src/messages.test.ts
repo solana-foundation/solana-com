@@ -48,6 +48,24 @@ describe("@workspace/i18n messages", () => {
     expect(mediaMessages.nav).toEqual(webMessages.nav);
   });
 
+  it("inherits shared web messages for accelerate", async () => {
+    const messages = await loadMergedMessages({
+      app: "accelerate",
+      locale: "en",
+    });
+
+    expect(messages).toHaveProperty("cookie-consent");
+  });
+
+  it("inherits shared web messages for breakpoint", async () => {
+    const messages = await loadMergedMessages({
+      app: "breakpoint",
+      locale: "en",
+    });
+
+    expect(messages).toHaveProperty("cookie-consent");
+  });
+
   it("does not let primitives overwrite structured English objects", () => {
     const merged = deepMergeMessages(
       { nested: { label: "English" } },

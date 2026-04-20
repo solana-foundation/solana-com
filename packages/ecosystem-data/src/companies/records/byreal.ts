@@ -1,8 +1,14 @@
 import type { CompanyRecord } from "../../types";
 import byrealLogoLight from "../../../assets/companies/byreal/logo-light.svg";
 import byrealLogoDark from "../../../assets/companies/byreal/logo-dark.svg";
+import byrealLogoVerticalLight from "../../../assets/companies/byreal/logo-vertical-light.svg";
+import byrealLogoVerticalDark from "../../../assets/companies/byreal/logo-vertical-dark.svg";
 import byrealMarkLight from "../../../assets/companies/byreal/mark-light.svg";
 import byrealMarkDark from "../../../assets/companies/byreal/mark-dark.svg";
+import byrealMarkSecondaryLight from "../../../assets/companies/byreal/mark-secondary-light.svg";
+import byrealMarkSecondaryDark from "../../../assets/companies/byreal/mark-secondary-dark.svg";
+import byrealWordmarkLight from "../../../assets/companies/byreal/wordmark-light.svg";
+import byrealWordmarkDark from "../../../assets/companies/byreal/wordmark-dark.svg";
 
 export const byreal = {
   id: "byreal",
@@ -32,6 +38,7 @@ export const byreal = {
       format: "svg",
       source: byrealLogoLight,
       theme: "light",
+      kind: "logo",
     },
     {
       id: "logo-dark",
@@ -39,6 +46,39 @@ export const byreal = {
       format: "svg",
       source: byrealLogoDark,
       theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-vertical-light",
+      fileName: "logo-vertical-light.svg",
+      format: "svg",
+      source: byrealLogoVerticalLight,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-vertical-dark",
+      fileName: "logo-vertical-dark.svg",
+      format: "svg",
+      source: byrealLogoVerticalDark,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "wordmark-light",
+      fileName: "wordmark-light.svg",
+      format: "svg",
+      source: byrealWordmarkLight,
+      theme: "light",
+      kind: "wordmark",
+    },
+    {
+      id: "wordmark-dark",
+      fileName: "wordmark-dark.svg",
+      format: "svg",
+      source: byrealWordmarkDark,
+      theme: "dark",
+      kind: "wordmark",
     },
     {
       id: "mark-light",
@@ -53,6 +93,22 @@ export const byreal = {
       fileName: "mark-dark.svg",
       format: "svg",
       source: byrealMarkDark,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-secondary-light",
+      fileName: "mark-secondary-light.svg",
+      format: "svg",
+      source: byrealMarkSecondaryLight,
+      theme: "light",
+      kind: "mark",
+    },
+    {
+      id: "mark-secondary-dark",
+      fileName: "mark-secondary-dark.svg",
+      format: "svg",
+      source: byrealMarkSecondaryDark,
       theme: "dark",
       kind: "mark",
     },

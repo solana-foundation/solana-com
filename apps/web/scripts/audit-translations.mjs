@@ -29,7 +29,6 @@ const locales = [
   "es",
   "fi",
   "fr",
-  "hi",
   "id",
   "it",
   "ja",
@@ -244,7 +243,7 @@ function main() {
     }
 
     const commonlyMissing = Object.entries(keyMissingCounts)
-      .filter(([_, count]) => count >= Math.ceil(localesWithMissing.length / 2))
+      .filter(([, count]) => count >= Math.ceil(localesWithMissing.length / 2))
       .sort((a, b) => b[1] - a[1]);
 
     if (commonlyMissing.length > 0) {

@@ -25,9 +25,9 @@ const appMessageLoaders: Partial<Record<AppId, MessageLoader>> = {
 const appInheritance: Record<AppId, AppId[]> = {
   web: [],
   docs: ["web"],
-  accelerate: [],
+  accelerate: ["web"],
   media: ["web"],
-  breakpoint: [],
+  breakpoint: ["web"],
   templates: ["web"],
 };
 

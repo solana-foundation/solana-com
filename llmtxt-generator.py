@@ -97,7 +97,7 @@ ENGLISH_EXTRAS = {
         ("Transfer Hook", "developers/guides/token-extensions/transfer-hook", "Implement custom logic on token transfers"),
     ],
     "Program Development": [
-        ("Developing Programs", "docs/programs", "Build on-chain programs"),
+        ("Developing Programs", "docs/programs", "Build onchain programs"),
         ("Anchor Framework", "docs/programs/anchor", "High-level framework for Solana programs"),
         ("Testing Programs", "docs/programs/testing", "Test programs with bankrun and other tools"),
     ],

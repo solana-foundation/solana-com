@@ -138,7 +138,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const panelsToNav = panelsPerNav
       ? Math.max(1, Math.min(panelsPerNav, count))
       : panelsToShow;
-    const numPages = Math.ceil(count / panelsToShow);
+    const numPages = Math.ceil(count / panelsToNav);
     const lastPage = Math.max(0, numPages - lastPageOffset);
 
     const [currentPage, setCurrentPage] = useState(0);

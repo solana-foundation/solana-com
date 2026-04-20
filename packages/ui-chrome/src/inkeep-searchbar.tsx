@@ -61,6 +61,8 @@ export function InkeepSearchBar({ className, expanded }: InkeepSearchBarProps) {
       </div>
 
       <InkeepModalSearchAndChat
+        defaultView="search"
+        forceDefaultView={inkeepConfig.shouldForceSearchView}
         baseSettings={inkeepConfig.baseSettings}
         searchSettings={inkeepConfig.searchSettings}
         aiChatSettings={inkeepConfig.aiChatSettings}

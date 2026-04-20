@@ -531,10 +531,10 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
                 <div
                   className={`flex flex-wrap items-center justify-center ${
                     tier.level === "headline"
-                      ? "gap-8 sm:gap-16"
+                      ? "gap-x-8 gap-y-6 sm:gap-12 lg:gap-16"
                       : tier.level === "signature"
-                        ? "gap-6 sm:gap-12 lg:gap-[60px]"
-                        : "gap-4 sm:gap-8 lg:gap-12"
+                        ? "gap-x-6 gap-y-4 sm:gap-x-10 sm:gap-y-6 lg:gap-x-[60px] lg:gap-y-8"
+                        : "gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-5 lg:gap-x-12 lg:gap-y-8"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -546,10 +546,10 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
                       aria-label={t("openProfile", { name: sponsor.name })}
                       className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
-                          ? "h-[100px] w-[260px] sm:h-[168px] sm:w-[400px]"
+                          ? "h-[80px] w-[200px] sm:h-[168px] sm:w-[400px]"
                           : tier.level === "signature"
-                            ? "h-[80px] w-[200px] sm:h-[134px] sm:w-[320px]"
-                            : "h-[56px] w-[150px] sm:h-[80px] sm:w-[200px]"
+                            ? "h-[56px] w-[145px] sm:h-[100px] sm:w-[260px] lg:h-[134px] lg:w-[320px]"
+                            : "h-[40px] w-[120px] sm:h-[64px] sm:w-[180px] lg:h-[80px] lg:w-[200px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
@@ -570,7 +570,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
               }
             }}
           >
-            <DialogContent className="max-w-[980px] overflow-hidden border-white/10 bg-[#07070a] p-0 text-white shadow-[0_30px_80px_rgba(0,0,0,0.65)]">
+            <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-[calc(100%-4rem)] lg:max-w-[980px] overflow-hidden border-white/10 bg-[#07070a] p-0 text-white shadow-[0_30px_80px_rgba(0,0,0,0.65)]">
               <div className="relative">
                 <div className="pointer-events-none absolute inset-0">
                   <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_5%_0%,rgba(153,69,255,0.22),transparent_55%)]" />

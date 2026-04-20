@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Facebook, Linkedin, Send, Link2 } from "lucide-react";
+import { Facebook, Linkedin, Send, Link2, Check } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +40,7 @@ export interface SocialShareProps {
   /**
    * Visual variant for styling
    */
-  variant?: "default" | "dark" | "light";
+  variant?: "default" | "dark" | "light" | "card";
 }
 
 const defaultIconSize = "size-5";
@@ -49,26 +49,9 @@ const variantStyles = {
   default: "text-purple-400 hover:text-purple-300",
   dark: "text-white hover:opacity-60",
   light: "text-gray-700 hover:text-gray-900",
+  card: "",
 };
 
-/**
- * SocialShare component for sharing content across social media platforms
- *
- * @example
- * // Dynamic sharing (for individual posts)
- * <SocialShare
- *   url={shareUrl}
- *   title={shareTitle}
- *   variant="default"
- * />
- *
- * @example
- * // Static links (for homepage/listing pages)
- * <SocialShare
- *   items={customSocialItems}
- *   variant="dark"
- * />
- */
 export function SocialShare({
   items,
   url,
@@ -79,6 +62,7 @@ export function SocialShare({
   variant = "default",
 }: SocialShareProps) {
   const [mounted, setMounted] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -102,9 +86,15 @@ export function SocialShare({
 
   const handleCopyLink = React.useCallback(() => {
     if (typeof window !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(shareUrl).catch(() => {
-        /* no-op */
-      });
+      navigator.clipboard
+        .writeText(shareUrl)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch(() => {
+          /* no-op */
+        });
     }
   }, [shareUrl]);
 
@@ -136,6 +126,62 @@ export function SocialShare({
       onClick: handleCopyLink,
     },
   ];
+
+  if (variant === "card") {
+    const CopyIcon = copied ? Check : Link2;
+    return (
+      <div
+        className={cn(
+          "mt-16 border-t border-b border-white/10 pt-8 pb-8",
+          className,
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
+            Share this article
+          </span>
+          <div className="flex items-center gap-2">
+            {socialItems.map(({ label, icon: Icon, href, onClick }) => {
+              const isCopy = label === "Copy link";
+              const DisplayIcon = isCopy ? CopyIcon : Icon;
+              const sharedClassName = cn(
+                "flex items-center justify-center size-10 rounded-full",
+                "bg-white/[0.04] border border-white/[0.08]",
+                "text-white/40 transition-all duration-300",
+                "hover:bg-white/[0.08] hover:border-white/15 hover:text-[#CA9FF5]",
+                isCopy &&
+                  copied &&
+                  "!border-emerald-500/30 !bg-emerald-500/10 !text-emerald-400",
+              );
+
+              return href ? (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={sharedClassName}
+                  aria-label={label}
+                >
+                  <DisplayIcon className="size-4" />
+                </a>
+              ) : (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={onClick}
+                  className={cn(sharedClassName, "cursor-pointer")}
+                  aria-label={isCopy && copied ? "Copied!" : label}
+                >
+                  <DisplayIcon className="size-4" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const baseItemClassName = cn(
     "group flex cursor-pointer items-center justify-center transition",

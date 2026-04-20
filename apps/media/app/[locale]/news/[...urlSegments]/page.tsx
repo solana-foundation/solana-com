@@ -3,15 +3,21 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowLeft } from "lucide-react";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
+import { Button } from "@/components/ui/button";
 import { CallToAction } from "@/components/ui/call-to-action";
+import { TableOfContents } from "@/components/ui/table-of-contents";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
+import { extractHeadings } from "@/lib/extract-headings";
 import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
@@ -39,6 +45,24 @@ export default async function PostPage({
     author = await reader.collections.authors.read(post.author);
   }
 
+  // Resolve category
+  let categoryName: string | null = null;
+  if (post.categories) {
+    for (const catItem of post.categories) {
+      if (catItem && typeof catItem === "object" && "category" in catItem) {
+        if (catItem.category) {
+          const catData = await reader.collections.categories.read(
+            catItem.category,
+          );
+          if (catData?.name) {
+            categoryName = String(catData.name);
+            break;
+          }
+        }
+      }
+    }
+  }
+
   // Resolve CTA
   let cta = null;
   if (post.cta) {
@@ -56,72 +80,89 @@ export default async function PostPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="relative w-full py-12 pt-8 md:pt-16">
+        <div className="relative w-full py-12 pt-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
-          <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-8">
-            <div className="flex flex-col lg:flex-row lg:gap-12 lg:items-start">
-              <div className="flex-1 lg:max-w-xl">
-                <h1 className="w-full mb-6 text-5xl md:text-6xl font-bold tracking-tight text-left">
-                  {String(post.title)}
-                </h1>
+          <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
+            <div className="mb-6">
+              <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
+                <Link href="/news">
+                  <ArrowLeft className="size-4" />
+                  <span>Back to News</span>
+                </Link>
+              </Button>
+            </div>
 
-                <SocialShare
-                  title={String(post.title)}
-                  className="gap-3 mb-6"
-                />
-
-                <p className="text-base text-gray-400 mb-8 lg:mb-0">
-                  <span>{formattedDate}</span>
-                  {author && (
-                    <>
-                      <span>, by </span>
-                      <span>{String(author.name)}</span>
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {post.heroImage && (
-                <div className="flex-1 lg:max-w-md mt-8 lg:mt-0">
-                  <div className="relative">
+            <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {categoryName && (
+                <span className="text-primary font-semibold uppercase tracking-wider text-xs">
+                  {categoryName}
+                </span>
+              )}
+              <span className="text-gray-400">{formattedDate}</span>
+              {author && (
+                <span className="flex items-center gap-2 text-gray-400">
+                  <span>by</span>
+                  {author.avatar && (
                     <Image
-                      priority={true}
-                      src={post.heroImage}
-                      alt={String(post.title)}
-                      width={400}
-                      height={400}
-                      className="relative z-10 block w-full h-auto opacity-100"
-                      style={{ maxWidth: "100%" }}
+                      src={author.avatar}
+                      alt={String(author.name)}
+                      width={12}
+                      height={12}
                     />
-                  </div>
-                </div>
+                  )}
+                  <span>{String(author.name)}</span>
+                </span>
               )}
             </div>
+
+            <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
+              {String(post.title)}
+            </h1>
+
+            {post.heroImage && (
+              <div className="rounded-lg overflow-hidden">
+                <Image
+                  priority={true}
+                  src={post.heroImage}
+                  alt={String(post.title)}
+                  width={720}
+                  height={400}
+                  className="w-full h-auto"
+                  style={{ maxWidth: "100%" }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
         {await (async () => {
           const rawMdxSource = await post.body();
           const mdxSource = preprocessMDX(rawMdxSource);
+          const headings = extractHeadings(rawMdxSource);
 
-          if (cta) {
-            return (
-              <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-12">
-                  <div className="min-w-0 lg:flex-1">
-                    <div className="prose dark:prose-dark w-full max-w-none">
-                      <MDXRemote
-                        source={mdxSource}
-                        components={mdxComponents}
-                        options={{
-                          mdxOptions: { remarkPlugins: [remarkGfm] },
-                        }}
-                      />
-                    </div>
-                  </div>
+          return (
+            <div className="relative mx-auto mt-12 max-w-[720px] px-4 md:px-6 lg:px-8">
+              <article className="prose prose-lg dark:prose-dark w-full max-w-none">
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: {
+                      remarkPlugins: [remarkGfm],
+                      rehypePlugins: [rehypeSlug],
+                    },
+                  }}
+                />
+              </article>
 
-                  <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
+              <SocialShare title={String(post.title)} variant="card" />
+
+              <aside className="hidden xl:block absolute top-0 bottom-0 left-full ml-12 w-56">
+                <div className="sticky top-24 space-y-8">
+                  <TableOfContents headings={headings} />
+
+                  {cta && (
                     <CallToAction
                       eyebrow={cta.eyebrow || undefined}
                       headline={cta.headline || undefined}
@@ -130,27 +171,11 @@ export default async function PostPage({
                         label: cta.button?.label || "",
                         url: cta.button?.url || "",
                       }}
-                      className={["sticky top-24", cta.className]
-                        .filter(Boolean)
-                        .join(" ")}
+                      className={cta.className || undefined}
                     />
-                  </aside>
+                  )}
                 </div>
-              </div>
-            );
-          }
-
-          return (
-            <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-              <div className="prose dark:prose-dark w-full max-w-none">
-                <MDXRemote
-                  source={mdxSource}
-                  components={mdxComponents}
-                  options={{
-                    mdxOptions: { remarkPlugins: [remarkGfm] },
-                  }}
-                />
-              </div>
+              </aside>
             </div>
           );
         })()}
@@ -173,10 +198,12 @@ export default async function PostPage({
                 }}
               />
             }
-            buttons={switchback.buttons?.map((button) => ({
-              label: button?.label || "",
-              url: button?.url || "",
-            }))}
+            buttons={switchback.buttons?.map(
+              (button: { label?: string; url?: string } | undefined) => ({
+                label: button?.label || "",
+                url: button?.url || "",
+              }),
+            )}
             isReport={switchback.isReport || undefined}
             hubspotForm={
               switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
