@@ -8,36 +8,27 @@ export default function GallerySection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="relative overflow-hidden py-2xl md:py-3xl">
-      <div
-        className="pointer-events-none absolute left-0 top-1/2 z-0 -translate-y-1/2 select-none whitespace-nowrap font-display text-[200px] uppercase tracking-wide text-neutral-800 opacity-50 md:text-[300px]"
-        aria-hidden="true"
-      >
-        BREAKPOINT
-      </div>
-
-      <div className="relative z-10 px-[20px] md:px-m">
+    <section className="bg-black px-5 pt-20 md:px-8 md:pt-[120px]">
+      <div className="mx-auto w-full max-w-[1376px]">
         <div
-          className="image-filter relative h-[420px] w-full overflow-hidden md:h-[600px]"
+          className="image-filter relative aspect-[2/1] w-full overflow-hidden"
           style={{ "--tint": "#aa67fb" } as React.CSSProperties}
         >
           <img
             src="/img/gallery/photo-1.jpg"
             alt=""
             aria-hidden="true"
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-10">
-            <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-white/80">
+          <div className="absolute inset-y-0 left-[4.6%] flex w-full max-w-[500px] flex-col justify-center gap-6">
+            <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
               {t("gallery.eyebrow")}
-            </span>
-            <div className="flex flex-col gap-6 md:max-w-[560px]">
-              <h2 className="font-sans text-[2rem] leading-[1.05] tracking-[-0.035em] text-white md:text-[3rem]">
-                {t("gallery.headline")}
-              </h2>
-              <div>
-                <Button label={t("gallery.cta")} variant="primary" arrow />
-              </div>
+            </p>
+            <p className="font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
+              {t("gallery.headline")}
+            </p>
+            <div>
+              <Button label={t("gallery.cta")} variant="primary" arrow />
             </div>
           </div>
         </div>

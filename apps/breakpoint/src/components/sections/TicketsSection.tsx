@@ -9,18 +9,18 @@ export default function TicketsSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="mx-auto w-full max-w-[1920px] px-5 py-20 md:px-8 md:py-[120px]">
-      <div className="max-w-[1376px]">
-        <div className="flex max-w-[680px] flex-col gap-4">
-          <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-white/68">
+    <section className="bg-black px-5 pt-20 md:px-8 md:pt-[120px]">
+      <div className="mx-auto flex max-w-[1376px] flex-col gap-12">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
             {t("tickets.eyebrow")}
-          </span>
-          <h2 className="font-sans text-[2.25rem] leading-[1] tracking-[-0.04em] text-white md:text-[4rem]">
+          </p>
+          <p className="font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
             {t("tickets.headline")}
-          </h2>
+          </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="flex flex-col gap-6 md:grid md:grid-cols-3">
           <Card
             variant="ticket"
             heading={t("tickets.categories.general.label")}
@@ -38,29 +38,18 @@ export default function TicketsSection() {
           />
         </div>
 
-        <div className="relative mt-6 overflow-hidden border border-white/15 bg-[#1e1e1e]">
-          <div className="absolute inset-y-0 right-0 hidden w-[42%] md:block">
-            <img
-              src="/img/tower-bridge.png"
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-cover object-center opacity-35 mix-blend-screen"
-            />
+        <div className="flex flex-col gap-8 bg-[#1e1e1e] p-8 md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
+          <div className="flex flex-col gap-4">
+            <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
+              {t("participate.eyebrow")}
+            </p>
+            <p className="font-sans !text-[28px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[40px]">
+              {t("participate.headline")}
+            </p>
           </div>
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,8,16,0.98)_0%,rgba(18,12,29,0.88)_58%,rgba(30,30,30,0.12)_100%)]" />
-          <div className="relative z-10 flex min-h-[251px] flex-col justify-between gap-8 p-6 md:flex-row md:items-end md:gap-10 md:p-20">
-            <div className="max-w-[38rem] space-y-6">
-              <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-white/72">
-                {t("participate.eyebrow")}
-              </span>
-              <p className="max-w-[20ch] font-sans text-[2rem] leading-[1.05] tracking-[-0.035em] text-white md:text-[2.5rem]">
-                {t("participate.headline")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <Button label="Become a Sponsor" variant="primary" arrow />
-              <Button label="Apply to Speak" variant="secondary" arrow />
-            </div>
+          <div className="flex flex-wrap gap-4">
+            <Button label="Become a Sponsor" variant="primary" arrow />
+            <Button label="Apply to Speak" variant="secondary" arrow />
           </div>
         </div>
       </div>

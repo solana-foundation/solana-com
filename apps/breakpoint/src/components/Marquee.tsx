@@ -45,8 +45,8 @@ function TickerRow() {
 
 export default function Marquee() {
   return (
-    <div className="w-full overflow-hidden border-y border-white/10 bg-black">
-      <div className="flex h-[82px] whitespace-nowrap">
+    <div className="w-full overflow-hidden bg-black pt-[64px]">
+      <div className="flex whitespace-nowrap">
         <span className="inline-flex min-w-max animate-ticker items-center font-mono text-[14px] uppercase tracking-[0.08em] leading-[1.3]">
           <TickerRow />
         </span>

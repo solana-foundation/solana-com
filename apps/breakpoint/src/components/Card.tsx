@@ -41,22 +41,22 @@ function TicketCard({
   href,
 }: TicketCardProps) {
   return (
-    <div className="flex min-h-[332px] flex-col justify-between overflow-hidden border border-white/15 bg-white/[0.02] p-6 md:min-h-[404px] md:p-8">
-      <div>
+    <div className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-[#353535] p-8">
+      <div className="flex flex-col gap-1">
         {heading && (
-          <h3 className="font-sans text-[1.5rem] font-medium leading-[1.1] tracking-[-0.03em] text-white">
+          <p className="font-sans !text-[24px] !font-bold !leading-[1.18] !tracking-[-0.01em] !text-white">
             {heading}
-          </h3>
+          </p>
         )}
         {subhead && (
-          <p className="mt-3 text-[1rem] leading-[1.4] text-white/64 md:max-w-[26ch] md:text-[1.125rem]">
+          <p className="!text-[18px] !leading-[1.45] !text-text-secondary opacity-80">
             {subhead}
           </p>
         )}
       </div>
       <div>
         {price && (
-          <p className="font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]">
+          <p className="font-display !text-[64px] uppercase !leading-[1.18] !tracking-[0.04em] !text-white">
             {price}
           </p>
         )}
