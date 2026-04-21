@@ -16,6 +16,7 @@ import { byreal } from "./records/byreal";
 import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
 import { dabba } from "./records/dabba";
+import { delorean } from "./records/delorean";
 import { darkresearch } from "./records/darkresearch";
 import { doublezero } from "./records/doublezero";
 import { dynamic } from "./records/dynamic";
@@ -73,6 +74,7 @@ export const companies = [
   coinbase,
   comicbook,
   dabba,
+  delorean,
   darkresearch,
   doublezero,
   dynamic,
