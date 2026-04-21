@@ -20,11 +20,15 @@ export default function HeroSection() {
           playsInline
           preload="metadata"
           poster="/assets/hero-architecture-poster.webp"
-          className="absolute inset-0 h-full w-full object-cover brightness-[0.55] saturate-[0.9]"
+          className="absolute inset-0 h-full w-full object-cover"
         >
           <source src="/assets/hero-architecture.webm" type="video/webm" />
           <source src="/assets/hero-architecture.mp4" type="video/mp4" />
         </video>
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.98)_0%,rgba(0,0,0,0.92)_20%,rgba(0,0,0,0.35)_40%,transparent_60%)]"
+        />
       </div>
 
       <div className="relative z-10 mx-auto h-full w-full max-w-[1440px]">

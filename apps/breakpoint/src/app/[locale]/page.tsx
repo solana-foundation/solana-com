@@ -8,6 +8,7 @@ import StatsSection from "@/components/sections/StatsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
+import Footer from "@/components/sections/Footer";
 
 export default function HomePage() {
   return (
@@ -23,6 +24,7 @@ export default function HomePage() {
       <HighlightsSection />
       <AnnouncementsSection />
       <FAQSection />
+      <Footer />
     </main>
   );
 }

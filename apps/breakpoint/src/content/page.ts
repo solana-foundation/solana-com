@@ -83,6 +83,9 @@ export type BreakpointMessages = {
     >;
   };
   footer: {
+    copyright: string;
+    contact: string;
+    codeOfConduct: string;
     countdown: {
       days: string;
       hours: string;
