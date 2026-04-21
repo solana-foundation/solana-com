@@ -38,9 +38,9 @@ function ArrowUpRight() {
   return (
     <svg
       aria-hidden="true"
-      width="8"
+      width="8.02"
       height="8"
-      viewBox="0 0 8 9"
+      viewBox="0 0 8.01975 8"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className="block"
@@ -94,7 +94,7 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
   return (
     <a
       href={href}
-      className="inline-flex items-center justify-center gap-[12px] font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70"
+      className="inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70"
     >
       {label}
       <span className="relative inline-flex size-[12px] items-center justify-center">
@@ -153,7 +153,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <p className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-neutral-900">
+        <p className="whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-neutral-900">
           {t("copyright")}
         </p>
 
