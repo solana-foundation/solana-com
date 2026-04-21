@@ -8,7 +8,6 @@ import StatsSection from "@/components/sections/StatsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
-import FooterSection from "@/components/sections/FooterSection";
 
 export default function HomePage() {
   return (
@@ -20,10 +19,10 @@ export default function HomePage() {
       <TicketsSection />
       <GallerySection />
       <StatsSection />
+      <Marquee />
       <HighlightsSection />
       <AnnouncementsSection />
       <FAQSection />
-      <FooterSection />
     </main>
   );
 }

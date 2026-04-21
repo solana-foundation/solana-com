@@ -46,7 +46,7 @@ export default function Button({
   className = "",
 }: ButtonProps) {
   const baseClasses =
-    "inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200";
+    "inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] !font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200";
 
   const variantClasses =
     variant === "primary"
