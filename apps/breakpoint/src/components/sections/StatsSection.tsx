@@ -33,24 +33,30 @@ const statItems: StatItem[] = [
   },
 ];
 
+const stripImages = [
+  "/img/gallery/photo-1.jpg",
+  "/img/gallery/photo-2.jpg",
+  "/img/gallery/photo-3.jpg",
+  "/img/gallery/photo-4.jpg",
+  "/img/gallery/photo-5.jpg",
+  "/img/gallery/photo-6.jpg",
+];
+const widths = [
+  "md:w-[569px]",
+  "md:w-[320px]",
+  "md:w-[256px]",
+  "md:w-[400px]",
+  "md:w-[320px]",
+  "md:w-[400px]",
+];
+
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
-  const stripImages = [
-    "/img/gallery/photo-1.jpg",
-    "/img/gallery/photo-2.jpg",
-    "/img/gallery/photo-3.jpg",
-    "/img/gallery/photo-4.jpg",
-    "/img/gallery/photo-5.jpg",
-    "/img/gallery/photo-6.jpg",
-  ];
-  const widths = [
-    "md:w-[569px]",
-    "md:w-[320px]",
-    "md:w-[256px]",
-    "md:w-[400px]",
-    "md:w-[320px]",
-    "md:w-[400px]",
-  ];
 
   return (
     <section className="border-t border-neutral-700 px-5 py-[120px] md:px-8">
@@ -72,29 +78,39 @@ export default function StatsSection() {
         ))}
       </div>
 
-      <div className="scrollbar-hidden mt-16 flex gap-4 overflow-x-auto md:gap-0">
-        {stripImages.map((src, index) => (
-          <div
-            key={src}
-            className={`relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[index]}`}
-          >
-            <img
-              src={src}
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-cover grayscale"
-            />
-            <div
-              className={`absolute inset-0 mix-blend-multiply ${
-                index % 3 === 0
-                  ? "bg-[#14f195]"
-                  : index % 3 === 1
-                    ? "bg-[#aa67fb]"
-                    : "bg-[#3c91ff]"
-              }`}
-            />
-          </div>
-        ))}
+      <div className="mt-16 w-full overflow-hidden" aria-hidden="true">
+        <div className="photo-strip-track flex w-max gap-4 md:gap-0">
+          {[...stripImages, ...stripImages].map((src, index) => {
+            const position = index % stripImages.length;
+            const delay = seededRandom(index + 1) * 11;
+            const duration = 9 + seededRandom(index + 100) * 6;
+            return (
+              <div
+                key={index}
+                className={`photo-strip-item relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[position]}`}
+                style={{
+                  animationDelay: `-${delay.toFixed(2)}s`,
+                  animationDuration: `${duration.toFixed(2)}s`,
+                }}
+              >
+                <img
+                  src={src}
+                  alt=""
+                  className="h-full w-full object-cover grayscale"
+                />
+                <div
+                  className={`absolute inset-0 mix-blend-multiply ${
+                    position % 3 === 0
+                      ? "bg-[#14f195]"
+                      : position % 3 === 1
+                        ? "bg-[#aa67fb]"
+                        : "bg-[#3c91ff]"
+                  }`}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
