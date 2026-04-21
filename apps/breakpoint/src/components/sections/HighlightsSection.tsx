@@ -46,7 +46,7 @@ export default function HighlightsSection() {
             <p className="font-sans text-[1.75rem] leading-[1.15] tracking-[-0.04em] md:text-[2rem]">
               {t("highlights.quote.text")}
             </p>
-            <span className="font-sans text-[1.25rem] font-medium leading-none underline underline-offset-4">
+            <span className="font-sans text-[1.25rem] leading-none underline underline-offset-4">
               @
               {t("highlights.quote.author")
                 .replace(/^@/, "")

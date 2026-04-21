@@ -2,35 +2,13 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import SectionHeadline from "@/components/SectionHeadline";
 import Button from "@/components/Button";
-
-const GALLERY_PHOTOS = [
-  "/img/gallery/photo-1.jpg",
-  "/img/gallery/photo-2.jpg",
-  "/img/gallery/photo-3.jpg",
-  "/img/gallery/photo-4.jpg",
-  "/img/gallery/photo-5.jpg",
-  "/img/gallery/photo-6.jpg",
-  "/img/gallery/photo-7.jpg",
-];
 
 export default function GallerySection() {
   const t = useTranslations("breakpoint");
 
   return (
     <section className="relative overflow-hidden py-2xl md:py-3xl">
-      {/* Header */}
-      <div className="flex items-end justify-between px-[20px] md:px-m">
-        <SectionHeadline
-          eyebrow={t("gallery.eyebrow")}
-          headline={t("gallery.headline")}
-          alignment="left"
-        />
-        <Button label={t("gallery.cta")} variant="secondary" />
-      </div>
-
-      {/* BREAKPOINT watermark */}
       <div
         className="pointer-events-none absolute left-0 top-1/2 z-0 -translate-y-1/2 select-none whitespace-nowrap font-display text-[200px] uppercase tracking-wide text-neutral-800 opacity-50 md:text-[300px]"
         aria-hidden="true"
@@ -38,21 +16,31 @@ export default function GallerySection() {
         BREAKPOINT
       </div>
 
-      {/* Photo carousel */}
-      <div className="scrollbar-hidden relative z-10 mt-l flex gap-xs overflow-x-auto px-[20px] md:px-m">
-        {GALLERY_PHOTOS.map((src, i) => (
-          <div
-            key={i}
-            className="image-filter h-[300px] min-w-[300px] shrink-0 snap-start md:h-[400px] md:min-w-[400px]"
-            style={{ "--tint": "#aa67fb" } as React.CSSProperties}
-          >
-            <img
-              src={src}
-              alt={`Breakpoint gallery photo ${i + 1}`}
-              className="h-full w-full object-cover"
-            />
+      <div className="relative z-10 px-[20px] md:px-m">
+        <div
+          className="image-filter relative h-[420px] w-full overflow-hidden md:h-[600px]"
+          style={{ "--tint": "#aa67fb" } as React.CSSProperties}
+        >
+          <img
+            src="/img/gallery/photo-1.jpg"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-10">
+            <span className="font-mono text-[0.9375rem] uppercase tracking-[0.09em] text-white/80">
+              {t("gallery.eyebrow")}
+            </span>
+            <div className="flex flex-col gap-6 md:max-w-[560px]">
+              <h2 className="font-sans text-[2rem] leading-[1.05] tracking-[-0.035em] text-white md:text-[3rem]">
+                {t("gallery.headline")}
+              </h2>
+              <div>
+                <Button label={t("gallery.cta")} variant="primary" arrow />
+              </div>
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

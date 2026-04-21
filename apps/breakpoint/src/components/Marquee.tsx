@@ -1,34 +1,60 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
 
-function TickerContent({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
+const NOISE_A = "#∞@±∑!÷?^&∆*≠6≈%{/~|]!^";
+const NOISE_B = "÷∆*?∞±#≈1%}";
+const NOISE_C = "÷!∑∆^*?&±#≈%2|~][/∆÷≈!^#∑@&≠*?5±∞%[~}|/*?!≈∑÷@^∆#&±≠∞%7[/~{}";
+const NOISE_D = "±∑!÷?^&∆*≠6≈%{/~|";
+const NOISE_E = "#∞@±∑!÷?^&∆*≠6≈%{/~|]!^#∞@±∑!÷?^&∆*≠6≈%{/~|]!^";
+
+const TICKER: { text: string; highlight?: boolean }[] = [
+  { text: NOISE_A },
+  { text: "BP26", highlight: true },
+  { text: NOISE_B },
+  { text: "LDN", highlight: true },
+  { text: NOISE_C },
+  { text: "BUILD", highlight: true },
+  { text: NOISE_D },
+  { text: "DEPLOY", highlight: true },
+  { text: NOISE_E },
+  { text: "SHIP MORE", highlight: true },
+  { text: NOISE_B + NOISE_C },
+  { text: "BUILD", highlight: true },
+  { text: NOISE_D },
+  { text: "DEPLOY", highlight: true },
+  { text: NOISE_A },
+];
+
+function TickerRow() {
   return (
     <>
-      <span className="text-white/32">{text}</span>
-      <span className="px-4 text-purple">{highlight}</span>
+      {TICKER.map((segment, i) => (
+        <span
+          key={i}
+          className={
+            segment.highlight ? "px-4 text-purple" : "text-neutral-600"
+          }
+        >
+          {segment.text}
+        </span>
+      ))}
     </>
   );
 }
 
 export default function Marquee() {
-  const t = useTranslations("breakpoint.marquee");
-
   return (
     <div className="w-full overflow-hidden border-y border-white/10 bg-black">
       <div className="flex h-[82px] whitespace-nowrap">
-        <span className="inline-flex min-w-max animate-ticker items-center font-mono text-[0.9375rem] uppercase tracking-[0.08em]">
-          <TickerContent text={t("text")} highlight={t("highlight")} />
+        <span className="inline-flex min-w-max animate-ticker items-center font-mono text-[14px] uppercase tracking-[0.08em] leading-[1.3]">
+          <TickerRow />
         </span>
-        <span className="inline-flex min-w-max animate-ticker items-center pl-4 font-mono text-[0.9375rem] uppercase tracking-[0.08em]">
-          <TickerContent text={t("suffix")} highlight={t("highlight")} />
+        <span
+          className="inline-flex min-w-max animate-ticker items-center pl-4 font-mono text-[14px] uppercase tracking-[0.08em] leading-[1.3]"
+          aria-hidden="true"
+        >
+          <TickerRow />
         </span>
       </div>
     </div>

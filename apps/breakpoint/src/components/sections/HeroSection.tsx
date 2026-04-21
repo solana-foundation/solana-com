@@ -33,7 +33,7 @@ export default function HeroSection() {
               {t("hero.headline")}
             </h1>
             <div>
-              <Button label={t("hero.cta")} variant="primary" />
+              <Button label={t("hero.cta")} variant="primary" arrow />
             </div>
           </div>
 

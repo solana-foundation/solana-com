@@ -55,7 +55,7 @@ export default function StatsSection() {
   return (
     <section className="border-t border-neutral-700 px-5 py-[120px] md:px-8">
       <SectionHeadline headline={t("stats.headline")} alignment="center">
-        <Button label={t("stats.cta")} variant="primary" />
+        <Button label={t("stats.cta")} variant="primary" arrow />
       </SectionHeadline>
 
       <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">

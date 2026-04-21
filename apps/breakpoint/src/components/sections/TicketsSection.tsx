@@ -58,8 +58,8 @@ export default function TicketsSection() {
               </p>
             </div>
             <div className="flex flex-wrap gap-4">
-              <Button label="Become a Sponsor" variant="primary" />
-              <Button label="Apply to Speak" variant="secondary" />
+              <Button label="Become a Sponsor" variant="primary" arrow />
+              <Button label="Apply to Speak" variant="secondary" arrow />
             </div>
           </div>
         </div>

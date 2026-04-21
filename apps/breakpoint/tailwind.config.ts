@@ -35,12 +35,12 @@ export default {
         "primary-wisp": "#e7d2f9",
       },
       fontFamily: {
-        sans: ["var(--font-abc-diatype)", "Arial", "sans-serif"],
-        mono: ["var(--font-macan-mono)", "monospace"],
-        display: ["var(--font-fh-lecturis)", "Arial", "sans-serif"],
-        "abc-diatype": ["var(--font-abc-diatype)", "Arial", "sans-serif"],
-        "fh-lecturis": ["var(--font-fh-lecturis)", "Arial", "sans-serif"],
-        "macan-mono": ["var(--font-macan-mono)", "monospace"],
+        sans: ["var(--font-abc-favorit)", "Arial", "sans-serif"],
+        mono: ["var(--font-abc-favorit-mono)", "monospace"],
+        display: ["var(--font-bp26)", "Arial", "sans-serif"],
+        "abc-favorit": ["var(--font-abc-favorit)", "Arial", "sans-serif"],
+        "abc-favorit-mono": ["var(--font-abc-favorit-mono)", "monospace"],
+        bp26: ["var(--font-bp26)", "Arial", "sans-serif"],
       },
       fontSize: {
         "3xs": "0.6875rem" /* 11px */,
