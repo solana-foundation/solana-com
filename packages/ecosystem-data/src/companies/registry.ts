@@ -5,6 +5,7 @@ import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
 import { anchorage } from "./records/anchorage";
+import { anoma } from "./records/anoma";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
@@ -16,6 +17,7 @@ import { byreal } from "./records/byreal";
 import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
 import { dabba } from "./records/dabba";
+import { delorean } from "./records/delorean";
 import { darkresearch } from "./records/darkresearch";
 import { doublezero } from "./records/doublezero";
 import { dynamic } from "./records/dynamic";
@@ -62,6 +64,7 @@ export const companies = [
   allnodes,
   ampPay,
   anchorage,
+  anoma,
   banxa,
   arcium,
   atxp,
@@ -73,6 +76,7 @@ export const companies = [
   coinbase,
   comicbook,
   dabba,
+  delorean,
   darkresearch,
   doublezero,
   dynamic,
