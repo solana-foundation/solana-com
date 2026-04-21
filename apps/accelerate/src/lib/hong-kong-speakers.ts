@@ -4,10 +4,6 @@ import type { Speaker } from "@/types/speakers";
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60 * 30;
 
-const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
-const DEFAULT_TABLE_ID = "tbljHJh3sx1zrwMSD";
-const DEFAULT_VIEW_ID = "viwK6atCbxFZWGyvk";
-
 type AirtableAttachment = {
   url?: string;
   thumbnails?: {
@@ -228,13 +224,13 @@ function normalizeSpeakerRecord(
 
 async function fetchAirtableSpeakers(): Promise<Speaker[] | null> {
   const token = process.env.AIRTABLE_PAT;
-  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS ?? DEFAULT_BASE_ID;
-  const tableId = process.env.AIRTABLE_TABLE_ID_SPEAKERS ?? DEFAULT_TABLE_ID;
-  const viewId = process.env.AIRTABLE_VIEW_ID_SPEAKERS ?? DEFAULT_VIEW_ID;
+  const baseId = process.env.AIRTABLE_BASE_ID_HK_SPEAKERS;
+  const tableId = process.env.AIRTABLE_TABLE_ID_HK_SPEAKERS;
+  const viewId = process.env.AIRTABLE_VIEW_ID_HK_SPEAKERS;
 
-  if (!token) {
+  if (!token || !baseId || !tableId || !viewId) {
     console.warn(
-      "Miami speakers Airtable PAT missing; hiding speakers section",
+      "Hong Kong speaker Airtable config missing; hiding speakers section",
     );
     return null;
   }
@@ -259,7 +255,7 @@ async function fetchAirtableSpeakers(): Promise<Speaker[] | null> {
           },
           next: {
             revalidate: AIRTABLE_CACHE_SECONDS,
-            tags: ["miami-speakers"],
+            tags: ["hong-kong-speakers"],
           },
         },
       );
@@ -292,14 +288,14 @@ async function fetchAirtableSpeakers(): Promise<Speaker[] | null> {
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((entry) => entry.speaker);
   } catch (error) {
-    console.error("Failed to load Miami speakers from Airtable", error);
+    console.error("Failed to load Hong Kong speakers from Airtable", error);
     return null;
   }
 }
 
-export const getMiamiSpeakers =
+export const getHongKongSpeakers =
   process.env.NODE_ENV === "production"
-    ? unstable_cache(fetchAirtableSpeakers, ["miami-speakers-airtable"], {
+    ? unstable_cache(fetchAirtableSpeakers, ["hong-kong-speakers-airtable"], {
         revalidate: AIRTABLE_CACHE_SECONDS,
       })
     : fetchAirtableSpeakers;

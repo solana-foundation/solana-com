@@ -53,6 +53,7 @@ import { triton } from "./records/triton";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
 import { wyoming } from "./records/wyoming";
+import { zerion } from "./records/zerion";
 
 export const companies = [
   aisa,
@@ -109,6 +110,7 @@ export const companies = [
   veliaNet,
   visa,
   wyoming,
+  zerion,
 ] as const satisfies readonly CompanyRecord[];
 
 export type CompanyId = (typeof companies)[number]["id"];
