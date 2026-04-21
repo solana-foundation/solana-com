@@ -15,21 +15,23 @@ interface ButtonProps {
 
 function ArrowUpRight() {
   return (
-    <svg
-      aria-hidden="true"
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M2 8L8 2M8 2H3.2M8 2V6.8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="square"
-      />
-    </svg>
+    <span className="inline-flex size-[12px] items-center justify-center">
+      <svg
+        aria-hidden="true"
+        width="8"
+        height="8"
+        viewBox="0 0 8 8"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M1.6 6.4L6.4 1.6M6.4 1.6H2.56M6.4 1.6V5.44"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="square"
+        />
+      </svg>
+    </span>
   );
 }
 
@@ -44,7 +46,7 @@ export default function Button({
   className = "",
 }: ButtonProps) {
   const baseClasses =
-    "inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono text-[14px] font-bold uppercase tracking-[0.08em] leading-[0.9] transition-colors duration-200";
+    "inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200";
 
   const variantClasses =
     variant === "primary"

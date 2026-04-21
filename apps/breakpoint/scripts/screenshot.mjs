@@ -20,6 +20,7 @@ for (const vp of viewports) {
   const ctx = await browser.newContext({
     viewport: { width: vp.width, height: vp.height },
     deviceScaleFactor: 1,
+    reducedMotion: "reduce",
   });
   const page = await ctx.newPage();
   console.log(`[${vp.name}] navigating ${url}`);
@@ -31,6 +32,12 @@ for (const vp of viewports) {
     path: resolve(outDir, `home-${vp.name}.png`),
     fullPage: true,
   });
+  const heroEl = await page.$("section:first-of-type");
+  if (heroEl) {
+    await heroEl.screenshot({
+      path: resolve(outDir, `hero-${vp.name}.png`),
+    });
+  }
   console.log(`[${vp.name}] saved`);
   await ctx.close();
 }

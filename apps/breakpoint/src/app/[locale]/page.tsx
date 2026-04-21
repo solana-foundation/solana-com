@@ -1,4 +1,5 @@
 import HeroSection from "@/components/sections/HeroSection";
+import Navigation from "@/components/Navigation";
 import Marquee from "@/components/Marquee";
 import NarrativeSection from "@/components/sections/NarrativeSection";
 import TicketsSection from "@/components/sections/TicketsSection";
@@ -11,7 +12,8 @@ import FooterSection from "@/components/sections/FooterSection";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="relative min-h-screen bg-black text-white">
+      <Navigation />
       <HeroSection />
       <NarrativeSection />
       <Marquee />
