@@ -185,36 +185,55 @@ export default function HighlightsSection() {
           animation: glitch-jitter ${GLITCH_MS}ms steps(8, end) 1;
         }
 
-        .glitch-slice {
-          mix-blend-mode: difference;
+        .glitch-slice::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          mix-blend-mode: multiply;
         }
 
         .glitch-slice-1 {
           animation: glitch-slice-a ${GLITCH_MS}ms steps(10, end) 1;
         }
+        .glitch-slice-1::after {
+          background: #a665f6;
+        }
+
         .glitch-slice-2 {
           animation: glitch-slice-b ${GLITCH_MS}ms steps(10, end) 1;
         }
+        .glitch-slice-2::after {
+          background: rgb(105, 52, 171);
+        }
+
         .glitch-slice-3 {
           animation: glitch-slice-c ${GLITCH_MS}ms steps(10, end) 1;
+        }
+        .glitch-slice-3::after {
+          background: #c695ff;
         }
 
         .glitch-scanlines {
           background-image: repeating-linear-gradient(
             to bottom,
-            rgba(0, 0, 0, 0) 0px,
-            rgba(0, 0, 0, 0) 2px,
-            rgba(0, 0, 0, 0.35) 2px,
-            rgba(0, 0, 0, 0.35) 3px
+            rgba(40, 8, 80, 0) 0px,
+            rgba(40, 8, 80, 0) 2px,
+            rgba(40, 8, 80, 0.45) 2px,
+            rgba(40, 8, 80, 0.45) 3px
           );
           mix-blend-mode: multiply;
           animation: glitch-flicker ${GLITCH_MS}ms steps(12, end) 1;
         }
 
         .glitch-static {
-          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.667  0 0 0 0 0.404  0 0 0 0 0.984  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-          background-size: 160px 160px;
-          mix-blend-mode: difference;
+          background-image:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.667  0 0 0 0 0.404  0 0 0 0 0.984  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='2.2' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 0.306  0 0 0 0 1  0 0 0 0 0.631  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+          background-size:
+            160px 160px,
+            140px 140px;
+          mix-blend-mode: multiply;
           opacity: 0;
           animation: glitch-static-burst ${GLITCH_MS}ms steps(14, end) 1;
         }
