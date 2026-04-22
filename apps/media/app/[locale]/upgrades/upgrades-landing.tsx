@@ -4,6 +4,66 @@ import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FeatureCard } from "@/lib/keystatic/feature-data";
 
+// Placeholder content — shown until the Keystatic `feature-upgrades`
+// collection has entries. Jacob owes real writeups; once any card lands in
+// Keystatic we swap entirely to that source.
+const PLACEHOLDER_FEATURES: FeatureCard[] = [
+  {
+    slug: "alpenglow",
+    title: "Alpenglow",
+    summary:
+      "A consensus overhaul that cuts time-to-finality by replacing TowerBFT with Votor and Rotor.",
+    quarter: "Q3 2026",
+    order: 0,
+    heroImage: null,
+  },
+  {
+    slug: "asynchronous-execution",
+    title: "Asynchronous Execution",
+    summary:
+      "Decouples transaction execution from block production so validators can vote faster and use more time to run programs.",
+    quarter: "Q3 2026",
+    order: 1,
+    heroImage: null,
+  },
+  {
+    slug: "direct-mapping",
+    title: "Direct Mapping",
+    summary:
+      "Lets programs read and write account data in place instead of copying buffers — faster execution, lower memory pressure.",
+    quarter: "Q2 2026",
+    order: 0,
+    heroImage: null,
+  },
+  {
+    slug: "application-fees",
+    title: "Application-Defined Fees",
+    summary:
+      "Gives programs a first-class way to charge and route fees, unlocking new business models for Solana apps.",
+    quarter: "Q4 2026",
+    order: 0,
+    heroImage: null,
+  },
+  {
+    slug: "validator-client-diversity",
+    title: "Validator Client Diversity",
+    summary:
+      "Multiple independent validator clients — Agave, Firedancer, Sig — reduce single-client risk and harden the network.",
+    quarter: "Q2 2026",
+    order: 1,
+    heroImage: null,
+  },
+  {
+    slug: "token-extensions",
+    title: "Token Extensions",
+    summary:
+      "New primitives for confidential transfers, transfer hooks, and metadata that make SPL tokens programmable.",
+    quarter: "Shipping",
+    order: 0,
+    heroImage: null,
+  },
+];
+
 function HeroSection() {
   return (
     <section className="border-b border-white/[0.06]">
@@ -113,10 +173,14 @@ function FeatureCard({ feature }: { feature: FeatureCard }) {
         </p>
         {feature.href ? (
           <span className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#CA9FF5] transition-colors group-hover:text-white">
-            Read the proposal
+            Learn more
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
-        ) : null}
+        ) : (
+          <span className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#555568]">
+            Writeup coming soon
+          </span>
+        )}
       </div>
     </div>
   );
@@ -140,38 +204,24 @@ function FeatureGrid({ features }: { features: FeatureCard[] }) {
           What upgrades are coming to Solana?
         </h2>
         <p className="m-0 mt-3 max-w-2xl text-[14px] leading-relaxed text-[#8A8A9A]">
-          Each card highlights a SIMD marked as featured by the editorial team.
-          Ship windows come from the latest release note attached to the
-          proposal.
+          Each card groups the protocol work behind a single capability. Ship
+          dates tighten from quarters to months as upgrades near activation.
         </p>
-        {features.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-white/[0.06] bg-white/[0.015] px-6 py-12 text-center">
-            <p className="m-0 text-[14px] leading-relaxed text-[#8A8A9A]">
-              No featured upgrades yet. Mark a SIMD as{" "}
-              <code className="font-mono text-[#CA9FF5]">featured</code> in
-              Keystatic to see it here.
-            </p>
-            <Link
-              href="/upgrades/proposals"
-              className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#CA9FF5] transition-colors hover:text-white"
-            >
-              Browse every SIMD
-              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <FeatureCard key={feature.slug} feature={feature} />
-            ))}
-          </div>
-        )}
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature) => (
+            <FeatureCard key={feature.slug} feature={feature} />
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-export function UpgradesLanding({ features }: { features: FeatureCard[] }) {
+export function UpgradesLanding({
+  features = PLACEHOLDER_FEATURES,
+}: {
+  features?: FeatureCard[];
+}) {
   return (
     <div className="min-h-screen bg-black">
       <HeroSection />

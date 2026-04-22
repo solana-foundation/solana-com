@@ -1,6 +1,4 @@
-import { fetchFeaturedUpgrades } from "./upgrade-data";
-import { fetchUpgradeNotes } from "./upgrade-note-data";
-import type { SIMDStatus, UpgradeNote } from "../upgrade-types";
+import { reader } from "../reader";
 
 export type FeatureCard = {
   slug: string;
@@ -12,85 +10,122 @@ export type FeatureCard = {
   href?: string;
 };
 
-const STATUS_LABEL: Record<SIMDStatus, string> = {
-  idea: "Idea",
-  draft: "Draft",
-  review: "In review",
-  accepted: "Accepted",
-  implemented: "Implemented",
-  activated: "Shipping",
-  withdrawn: "Withdrawn",
-  stagnant: "Stagnant",
-  living: "Living",
-};
+const QUARTER_PATTERN = /^Q([1-4])\s+(\d{4})$/i;
+const MONTH_NAMES = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
 
-function latestNoteForUpgrade(
-  upgradeSlug: string,
-  notes: UpgradeNote[],
-): UpgradeNote | null {
-  const forUpgrade = notes.filter((note) => note.upgradeSlug === upgradeSlug);
-  if (forUpgrade.length === 0) return null;
-  return forUpgrade.reduce((latest, current) => {
-    const latestTs = new Date(latest.publishedAt).getTime();
-    const currentTs = new Date(current.publishedAt).getTime();
-    return currentTs > latestTs ? current : latest;
-  });
+// Turn a ship-window label ("Q3 2026", "May 2026", "2026-05-01") into a number
+// we can sort ascending. Returns null for values we can't parse so they sink
+// to the bottom instead of silently reordering the grid.
+function parseShipWindow(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const quarterMatch = trimmed.match(QUARTER_PATTERN);
+  if (quarterMatch) {
+    const quarter = Number(quarterMatch[1]);
+    const year = Number(quarterMatch[2]);
+    const month = (quarter - 1) * 3;
+    return new Date(Date.UTC(year, month, 1)).getTime();
+  }
+
+  const monthYearMatch = trimmed.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (monthYearMatch) {
+    const monthIndex = MONTH_NAMES.indexOf(monthYearMatch[1].toLowerCase());
+    const year = Number(monthYearMatch[2]);
+    if (monthIndex >= 0) {
+      return new Date(Date.UTC(year, monthIndex, 1)).getTime();
+    }
+  }
+
+  const parsed = Date.parse(trimmed);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-// Non-technical landing page for /upgrades reads the featured SIMDs from the
-// same `upgrades` collection the SIMD sync writes. Editorial fields
-// (`description`, `heroImage`, `featured`) are Jacob-editable in Keystatic;
-// everything else is synced from the SIMDs GitHub repo.
+function isShipping(value: string): boolean {
+  return value.trim().toLowerCase() === "shipping";
+}
+
+// Sort order: "Shipping" pinned to the top, then ship-window ascending,
+// unparseable windows last. Within each bucket, `order` ascending, then slug.
+function compareFeatures(a: FeatureCard, b: FeatureCard): number {
+  const aShipping = isShipping(a.quarter);
+  const bShipping = isShipping(b.quarter);
+  if (aShipping !== bShipping) return aShipping ? -1 : 1;
+
+  if (!aShipping) {
+    const aTime = parseShipWindow(a.quarter);
+    const bTime = parseShipWindow(b.quarter);
+    if (aTime === null && bTime !== null) return 1;
+    if (bTime === null && aTime !== null) return -1;
+    if (aTime !== null && bTime !== null && aTime !== bTime) {
+      return aTime - bTime;
+    }
+  }
+
+  if (a.order !== b.order) return a.order - b.order;
+  return a.slug.localeCompare(b.slug);
+}
+
+function transformFeature(
+  slug: string,
+  entry: Awaited<
+    ReturnType<typeof reader.collections.featureUpgrades.read>
+  > | null,
+): FeatureCard | null {
+  if (!entry) return null;
+
+  const title = typeof entry.title === "string" ? entry.title.trim() : "";
+  const summary = typeof entry.summary === "string" ? entry.summary.trim() : "";
+  const quarter = typeof entry.quarter === "string" ? entry.quarter.trim() : "";
+  if (!title || !summary || !quarter) return null;
+
+  const href =
+    typeof entry.href === "string" && entry.href.trim()
+      ? entry.href.trim()
+      : undefined;
+
+  return {
+    slug,
+    title,
+    summary,
+    quarter,
+    order: typeof entry.order === "number" ? entry.order : 0,
+    heroImage: entry.heroImage ? String(entry.heroImage) : null,
+    href,
+  };
+}
+
 export async function fetchFeatureCards(): Promise<FeatureCard[]> {
   try {
-    const [featured, allNotes] = await Promise.all([
-      fetchFeaturedUpgrades(Number.MAX_SAFE_INTEGER),
-      fetchUpgradeNotes(),
-    ]);
+    const slugs = await reader.collections.featureUpgrades.list();
+    const cards: FeatureCard[] = [];
 
-    const cards: FeatureCard[] = featured
-      .map((upgrade): FeatureCard | null => {
-        const latestNote = latestNoteForUpgrade(upgrade.slug, allNotes);
-        const summary =
-          upgrade.description?.trim() ||
-          upgrade.editorialNote?.trim() ||
-          upgrade.summary?.trim() ||
-          "";
-        if (!summary) return null;
+    for (const slug of slugs) {
+      try {
+        const entry = await reader.collections.featureUpgrades.read(slug);
+        const card = transformFeature(slug, entry);
+        if (card) cards.push(card);
+      } catch (error) {
+        console.error(`Failed to read feature upgrade "${slug}":`, error);
+      }
+    }
 
-        const quarter =
-          latestNote?.expectedRelease?.trim() ||
-          STATUS_LABEL[upgrade.status] ||
-          "In progress";
-
-        const latestNoteTs = latestNote
-          ? new Date(latestNote.publishedAt).getTime()
-          : null;
-        const updatedTs = upgrade.updatedDate
-          ? new Date(upgrade.updatedDate).getTime()
-          : null;
-        const sortTs = latestNoteTs ?? updatedTs ?? 0;
-
-        return {
-          slug: upgrade.slug,
-          title: upgrade.title,
-          summary,
-          quarter,
-          order: -sortTs,
-          heroImage: upgrade.heroImage ? String(upgrade.heroImage) : null,
-          href: `/upgrades/proposals/${upgrade.slug}`,
-        };
-      })
-      .filter((card): card is FeatureCard => card !== null);
-
-    cards.sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
-      return a.slug.localeCompare(b.slug);
-    });
-
-    return cards;
+    return cards.sort(compareFeatures);
   } catch (error) {
-    console.error("Failed to fetch landing feature cards:", error);
+    console.error("Failed to fetch feature upgrades:", error);
     return [];
   }
 }
