@@ -673,6 +673,51 @@ export default config({
         }),
       },
     }),
+
+    featureUpgrades: collection({
+      label: "Feature Upgrades",
+      slugField: "slug",
+      path: "content/features/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["title", "quarter", "order"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        title: fields.text({
+          label: "Title",
+          validation: { isRequired: true },
+        }),
+        summary: fields.text({
+          label: "Summary",
+          multiline: true,
+          validation: { isRequired: true },
+          description:
+            "One-to-two sentence pitch shown on the card for a general audience",
+        }),
+        quarter: fields.text({
+          label: "Ship Window",
+          validation: { isRequired: true },
+          description:
+            'e.g. "Q3 2026", "May 2026", or "Shipping" (pinned to the top of the grid)',
+        }),
+        order: fields.number({
+          label: "Order",
+          description:
+            "Lower numbers sort earlier within the same ship window. Defaults to 0.",
+        }),
+        heroImage: fields.image({
+          label: "Hero Image",
+          directory: "public/uploads/features",
+          publicPath: "/uploads/features",
+        }),
+        href: fields.text({
+          label: "Deep-dive URL",
+          description: "Optional link to a longer writeup about this upgrade",
+        }),
+      },
+    }),
   },
 
   singletons: {

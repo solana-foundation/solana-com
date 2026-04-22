@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { UpgradesLanding } from "./upgrades-landing";
 import { upgradesLandingMetadata } from "@/lib/metadata";
+import { fetchFeatureCards } from "@/lib/keystatic/feature-data";
 
 export const revalidate = 300;
 
@@ -14,6 +15,7 @@ export default async function UpgradesPage({
   params: Promise<{ locale: string }>;
 }) {
   await params;
+  const features = await fetchFeatureCards();
 
-  return <UpgradesLanding />;
+  return <UpgradesLanding features={features.length ? features : undefined} />;
 }

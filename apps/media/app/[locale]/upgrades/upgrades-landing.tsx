@@ -1,17 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { FeatureCard } from "@/lib/keystatic/feature-data";
 
-type FeatureCard = {
-  slug: string;
-  title: string;
-  summary: string;
-  quarter: string;
-  href?: string;
-};
-
-// Placeholder content — Jacob owes real writeups. These slots exist so the
-// layout can be reviewed end-to-end; copy lands via the Keystatic collection.
+// Placeholder content — shown until the Keystatic `feature-upgrades`
+// collection has entries. Jacob owes real writeups; once any card lands in
+// Keystatic we swap entirely to that source.
 const PLACEHOLDER_FEATURES: FeatureCard[] = [
   {
     slug: "alpenglow",
@@ -19,6 +14,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "A consensus overhaul that cuts time-to-finality by replacing TowerBFT with Votor and Rotor.",
     quarter: "Q3 2026",
+    order: 0,
+    heroImage: null,
   },
   {
     slug: "asynchronous-execution",
@@ -26,6 +23,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "Decouples transaction execution from block production so validators can vote faster and use more time to run programs.",
     quarter: "Q3 2026",
+    order: 1,
+    heroImage: null,
   },
   {
     slug: "direct-mapping",
@@ -33,6 +32,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "Lets programs read and write account data in place instead of copying buffers — faster execution, lower memory pressure.",
     quarter: "Q2 2026",
+    order: 0,
+    heroImage: null,
   },
   {
     slug: "application-fees",
@@ -40,6 +41,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "Gives programs a first-class way to charge and route fees, unlocking new business models for Solana apps.",
     quarter: "Q4 2026",
+    order: 0,
+    heroImage: null,
   },
   {
     slug: "validator-client-diversity",
@@ -47,6 +50,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "Multiple independent validator clients — Agave, Firedancer, Sig — reduce single-client risk and harden the network.",
     quarter: "Q2 2026",
+    order: 1,
+    heroImage: null,
   },
   {
     slug: "token-extensions",
@@ -54,6 +59,8 @@ const PLACEHOLDER_FEATURES: FeatureCard[] = [
     summary:
       "New primitives for confidential transfers, transfer hooks, and metadata that make SPL tokens programmable.",
     quarter: "Shipping",
+    order: 0,
+    heroImage: null,
   },
 ];
 
@@ -139,7 +146,19 @@ function IntroSection() {
 function FeatureCard({ feature }: { feature: FeatureCard }) {
   const card = (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.015] transition-all hover:border-[#CA9FF5]/25 hover:bg-white/[0.03]">
-      <div className="aspect-[16/10] w-full bg-gradient-to-br from-[#CA9FF5]/10 via-transparent to-white/[0.02]" />
+      {feature.heroImage ? (
+        <div className="relative aspect-[16/10] w-full overflow-hidden">
+          <Image
+            src={feature.heroImage}
+            alt=""
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+            className="object-cover"
+          />
+        </div>
+      ) : (
+        <div className="aspect-[16/10] w-full bg-gradient-to-br from-[#CA9FF5]/10 via-transparent to-white/[0.02]" />
+      )}
       <div className="flex flex-1 flex-col gap-3 p-5 md:p-6">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#CA9FF5]">
