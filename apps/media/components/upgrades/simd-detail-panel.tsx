@@ -241,7 +241,7 @@ export function SIMDDetailPanel({
                                   className="list-none"
                                 >
                                   <LocalizedLink
-                                    href={`/upgrades/${relatedSimd.slug}`}
+                                    href={`/upgrades/proposals/${relatedSimd.slug}`}
                                     className="text-sm leading-relaxed text-[#ABABBA] underline decoration-white/10 underline-offset-4 transition-colors hover:text-white hover:decoration-[#CA9FF5]"
                                   >
                                     <span className="font-mono text-[#CA9FF5]">

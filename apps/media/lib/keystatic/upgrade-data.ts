@@ -172,7 +172,7 @@ async function transformUpgrade(
     tags,
     heroImage: upgrade.heroImage || null,
     cursor: slug,
-    url: `/upgrades/${slug}`,
+    url: `/upgrades/proposals/${slug}`,
   };
 }
 

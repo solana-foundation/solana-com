@@ -586,7 +586,7 @@ export default function UpgradesClientPage({
       ),
     [allItems],
   );
-  const basePath = "/upgrades";
+  const basePath = "/upgrades/proposals";
   const selectedUpgrade = useMemo(
     () => allItems.find((u) => u.slug === selectedSlug) ?? null,
     [allItems, selectedSlug],

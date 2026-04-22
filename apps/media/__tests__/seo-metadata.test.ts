@@ -152,7 +152,7 @@ const MOCK_UPGRADE = {
   featured: true,
   tags: ["Core", "Runtime"],
   heroImage: "/uploads/simd-0088-hero.jpg",
-  url: "/upgrades/simd-0088",
+  url: "/upgrades/proposals/simd-0088",
 };
 
 const MOCK_PODCAST = {
@@ -575,9 +575,9 @@ describe("upgradeDetailMetadata", () => {
     );
   });
 
-  it("sets canonical to /upgrades/{slug}", async () => {
+  it("sets canonical to /upgrades/proposals/{slug}", async () => {
     const meta = await upgradeDetailMetadata(slug);
-    expectCanonical(meta.alternates, `/upgrades/${slug}`);
+    expectCanonical(meta.alternates, `/upgrades/proposals/${slug}`);
   });
 
   it("uses only public URLs", async () => {

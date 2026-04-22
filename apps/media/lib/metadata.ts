@@ -198,13 +198,13 @@ export async function categoryListingMetadata(
 }
 
 // ---------------------------------------------------------------------------
-// Upgrades listing  /upgrades
+// Proposals listing  /upgrades/proposals
 // ---------------------------------------------------------------------------
 
-export async function upgradesListingMetadata(): Promise<Metadata> {
+export async function proposalsListingMetadata(): Promise<Metadata> {
   const overview = await fetchUpgradeOverview();
-  const canonicalUrl = `${publicUrl}/upgrades`;
-  const title = "Solana Upgrades";
+  const canonicalUrl = `${publicUrl}/upgrades/proposals`;
+  const title = "Solana Upgrade Proposals";
   const description =
     overview?.intro?.split("\n")[0] ||
     "Track major protocol upgrades and related SIMDs across the Solana network.";
@@ -231,7 +231,7 @@ export async function upgradesListingMetadata(): Promise<Metadata> {
 }
 
 // ---------------------------------------------------------------------------
-// Upgrade detail  /upgrades/[slug]
+// Upgrade detail  /upgrades/proposals/[slug]
 // ---------------------------------------------------------------------------
 
 export async function upgradeDetailMetadata(slug: string): Promise<Metadata> {
@@ -253,7 +253,7 @@ export async function upgradeDetailMetadata(slug: string): Promise<Metadata> {
     upgrade.summary ||
     upgrade.description ||
     `Details for Solana Improvement Document ${upgrade.simdNumber}.`;
-  const canonicalUrl = `${publicUrl}/upgrades/${slug}`;
+  const canonicalUrl = `${publicUrl}/upgrades/proposals/${slug}`;
   const ogImage = upgrade.heroImage || siteMetadata.socialShare;
 
   return {
