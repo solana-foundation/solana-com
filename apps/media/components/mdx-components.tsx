@@ -598,7 +598,6 @@ export const mdxComponents: Record<string, React.ComponentType<any>> = {
   Gallery: GalleryBlock,
   Stats: StatsBlock,
   Blockquote: BlockquoteBlock,
-  BlockQuote: BlockquoteBlock,
   Datetime: DatetimeBlock,
   Newslettersignup: NewslettersignupBlock,
   Footnotes: FootnotesBlock,
