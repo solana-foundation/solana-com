@@ -198,6 +198,37 @@ export async function categoryListingMetadata(
 }
 
 // ---------------------------------------------------------------------------
+// Upgrades landing  /upgrades
+// ---------------------------------------------------------------------------
+
+export async function upgradesLandingMetadata(): Promise<Metadata> {
+  const canonicalUrl = `${publicUrl}/upgrades`;
+  const title = "Solana Upgrades";
+  const description =
+    "Core protocol work being done to improve security, increase bandwidth, and reduce latency on Solana.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Proposals listing  /upgrades/proposals
 // ---------------------------------------------------------------------------
 
