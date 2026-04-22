@@ -102,6 +102,16 @@ export default {
         locale: false,
       },
       {
+        source: "/upgrades",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades/:path*",
+        destination: `${MEDIA_APP_URL}/upgrades/:path*`,
+        locale: false,
+      },
+      {
         source: "/podcasts/:path*",
         destination: `${MEDIA_APP_URL}/podcasts/:path*`,
         locale: false,
@@ -129,6 +139,16 @@ export default {
       {
         source: "/:locale/podcasts",
         destination: `${MEDIA_APP_URL}/:locale/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades/:path*`,
         locale: false,
       },
       {
@@ -402,9 +422,7 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    // TODO: set to newws/upgrades when we have articles
-    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
-    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
+    { source: "/upgrade", destination: "/upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },

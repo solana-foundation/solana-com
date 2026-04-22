@@ -11,6 +11,7 @@ import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
+import { fetchUpgradeBySlug, fetchUpgradeOverview } from "@/lib/upgrade-data";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 const { publicUrl, siteMetadata, social } = config;
@@ -191,6 +192,134 @@ export async function categoryListingMetadata(
       title,
       description,
       images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Upgrades landing  /upgrades
+// ---------------------------------------------------------------------------
+
+export async function upgradesLandingMetadata(): Promise<Metadata> {
+  const canonicalUrl = `${publicUrl}/upgrades`;
+  const title = "Solana Upgrades";
+  const description =
+    "Core protocol work being done to improve security, increase bandwidth, and reduce latency on Solana.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Proposals listing  /upgrades/proposals
+// ---------------------------------------------------------------------------
+
+export async function proposalsListingMetadata(): Promise<Metadata> {
+  const overview = await fetchUpgradeOverview();
+  const canonicalUrl = `${publicUrl}/upgrades/proposals`;
+  const title = "Solana Upgrade Proposals";
+  const description =
+    overview?.intro?.split("\n")[0] ||
+    "Track major protocol upgrades and related SIMDs across the Solana network.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: { canonical: canonicalUrl },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Upgrade detail  /upgrades/proposals/[slug]
+// ---------------------------------------------------------------------------
+
+export async function upgradeDetailMetadata(slug: string): Promise<Metadata> {
+  const upgrade = await fetchUpgradeBySlug(slug);
+
+  if (!upgrade) {
+    return {
+      title: "Upgrade Not Found",
+      description: "",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title = `SIMD-${upgrade.simdNumber}: ${upgrade.title}`;
+  const description =
+    upgrade.summary ||
+    upgrade.description ||
+    `Details for Solana Improvement Document ${upgrade.simdNumber}.`;
+  const canonicalUrl = `${publicUrl}/upgrades/proposals/${slug}`;
+  const ogImage = upgrade.heroImage || siteMetadata.socialShare;
+
+  return {
+    title,
+    description,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "article",
+      siteName: siteMetadata.title,
+      images: ogImage
+        ? [{ url: ogImage, width: 1200, height: 630, alt: title }]
+        : undefined,
+      publishedTime: upgrade.createdDate || undefined,
+      modifiedTime: upgrade.updatedDate || undefined,
+      authors: upgrade.authors.length > 0 ? upgrade.authors : undefined,
+      tags: upgrade.tags.length > 0 ? upgrade.tags : undefined,
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
     },
     alternates: { canonical: canonicalUrl },
   };

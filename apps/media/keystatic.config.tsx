@@ -7,6 +7,7 @@ import {
   type GitHubConfig,
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
+import { STATUS_OPTIONS } from "./lib/upgrade-status";
 
 // Keep local filesystem mode for local development only.
 // On Vercel, always use GitHub mode so /keystatic can bootstrap GitHub App setup.
@@ -544,6 +545,176 @@ export default config({
         featured: fields.checkbox({
           label: "Featured",
           description: "Display this link in the featured section",
+        }),
+      },
+    }),
+
+    upgrades: collection({
+      label: "Upgrades",
+      slugField: "slug",
+      path: "content/upgrades/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["simdNumber", "title", "status", "updatedDate", "featured"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        simdNumber: fields.text({
+          label: "SIMD Number",
+          validation: { isRequired: true },
+        }),
+        title: fields.text({
+          label: "Title",
+          validation: { isRequired: true },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: STATUS_OPTIONS,
+          defaultValue: "draft",
+        }),
+        category: fields.select({
+          label: "Category",
+          options: [
+            { label: "Standard", value: "standard" },
+            { label: "Meta", value: "meta" },
+            { label: "Advisory", value: "advisory" },
+          ],
+          defaultValue: "standard",
+        }),
+        type: fields.text({ label: "Type" }),
+        authors: fields.array(fields.text({ label: "Author" }), {
+          label: "Authors",
+          itemLabel: (props) => props.value || "Author",
+        }),
+        createdDate: fields.text({ label: "Created Date" }),
+        updatedDate: fields.text({ label: "Updated Date" }),
+        featureGate: fields.text({ label: "Feature Gate" }),
+        githubUrl: fields.text({
+          label: "GitHub URL",
+          validation: { isRequired: true },
+        }),
+        discussionUrl: fields.text({ label: "Discussion URL" }),
+        summary: fields.text({
+          label: "Summary",
+          multiline: true,
+        }),
+        relatedSimds: fields.array(fields.text({ label: "Related SIMD" }), {
+          label: "Related SIMDs",
+          itemLabel: (props) => props.value || "SIMD",
+        }),
+        sourceSha: fields.text({ label: "Source SHA" }),
+        description: fields.text({
+          label: "Description",
+          multiline: true,
+          description:
+            "Editorial description for the upgrades page — why this upgrade matters, written for a general audience (distinct from the SIMD summary)",
+        }),
+        editorialNote: fields.text({
+          label: "Editorial Note",
+          multiline: true,
+        }),
+        featured: fields.checkbox({
+          label: "Featured",
+          description: "Pin this upgrade near the top of the overview page",
+        }),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          },
+        ),
+        heroImage: fields.image({
+          label: "Hero Image",
+          directory: "public/uploads/upgrades",
+          publicPath: "/uploads/upgrades",
+        }),
+      },
+    }),
+
+    upgradeNotes: collection({
+      label: "Upgrade Notes",
+      slugField: "slug",
+      path: "content/upgrade-notes/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["upgrade", "publishedAt"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        upgrade: fields.relationship({
+          label: "SIMD",
+          collection: "upgrades",
+          validation: { isRequired: true },
+        }),
+        publishedAt: fields.datetime({
+          label: "Published Date",
+          description: "When this note was published (UTC)",
+          validation: { isRequired: true },
+        }),
+        expectedRelease: fields.text({
+          label: "Expected Release",
+          description:
+            'Target client version, e.g. "Agave 4.1" or "Available in Agave 3.0+"',
+        }),
+        body: fields.text({
+          label: "Note",
+          multiline: true,
+          description:
+            "What changed or is notable about this SIMD since the last update",
+          validation: { isRequired: true },
+        }),
+      },
+    }),
+
+    featureUpgrades: collection({
+      label: "Feature Upgrades",
+      slugField: "slug",
+      path: "content/features/*",
+      format: "yaml",
+      entryLayout: "form",
+      columns: ["title", "quarter", "order"],
+      schema: {
+        slug: fields.slug({
+          name: { label: "Slug", validation: { isRequired: true } },
+        }),
+        title: fields.text({
+          label: "Title",
+          validation: { isRequired: true },
+        }),
+        summary: fields.text({
+          label: "Summary",
+          multiline: true,
+          validation: { isRequired: true },
+          description:
+            "One-to-two sentence pitch shown on the card for a general audience",
+        }),
+        quarter: fields.text({
+          label: "Ship Window",
+          validation: { isRequired: true },
+          description:
+            'e.g. "Q3 2026", "May 2026", or "Shipping" (pinned to the top of the grid)',
+        }),
+        order: fields.number({
+          label: "Order",
+          description:
+            "Lower numbers sort earlier within the same ship window. Defaults to 0.",
+        }),
+        heroImage: fields.image({
+          label: "Hero Image",
+          directory: "public/uploads/features",
+          publicPath: "/uploads/features",
+        }),
+        href: fields.text({
+          label: "Deep-dive URL",
+          description: "Optional link to a longer writeup about this upgrade",
         }),
       },
     }),

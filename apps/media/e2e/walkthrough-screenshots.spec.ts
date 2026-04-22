@@ -16,7 +16,6 @@ async function gotoKeystatic(page: Page) {
     waitUntil: "domcontentloaded",
   });
   await page.waitForSelector('nav a:has-text("Posts")', { timeout: 30_000 });
-  await page.getByRole("combobox", { name: "Current branch" }).waitFor();
   await page.waitForLoadState("networkidle");
 }
 
@@ -106,4 +105,22 @@ test("Keystatic walkthrough screenshots", async ({ page }) => {
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Global Settings");
   await snap(page, "15-global-settings.webp");
+
+  // 21 — Upgrades list
+  await gotoKeystatic(page);
+  await clickSidebarLink(page, "Upgrades");
+  await snap(page, "21-upgrades-list.png");
+
+  // 22 — Upgrade create form
+  await clickAddButton(page);
+  await snap(page, "22-upgrade-create-form.png");
+
+  // 23 — Upgrade Notes list
+  await gotoKeystatic(page);
+  await clickSidebarLink(page, "Upgrade Notes");
+  await snap(page, "23-upgrade-notes-list.png");
+
+  // 24 — Upgrade Note create form
+  await clickAddButton(page);
+  await snap(page, "24-upgrade-note-create-form.png");
 });
