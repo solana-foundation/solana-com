@@ -7,7 +7,6 @@ import {
   GettingThere,
   FooterCTA,
   HashScroll,
-  GetInvolved,
   MiamiSpeakers,
 } from "@/components";
 import { EventLineup } from "@/components/homepage";
@@ -70,7 +69,6 @@ export default async function MiamiPage({ params }: PageProps) {
         showFocusTopics={false}
         showTicketsRow={false}
       />
-      <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
       <MiamiSpeakers />
       <EventLineup futureOnly />
       <Sponsors sponsors={sponsors as Sponsor[]} />

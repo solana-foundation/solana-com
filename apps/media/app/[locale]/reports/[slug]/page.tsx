@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Download, ArrowUpRight, ArrowLeft } from "lucide-react";
+import { ArrowDownToLine, ArrowUpRight, ArrowLeft } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
@@ -53,138 +53,135 @@ export default async function ReportPage({
 
   return (
     <ErrorBoundary>
-      <article className="relative min-h-screen bg-background text-white">
-        {/* Ambient background glow */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_0%,rgba(153,69,255,0.1),transparent_60%),radial-gradient(ellipse_60%_40%_at_80%_0%,rgba(20,241,149,0.06),transparent_50%)]" />
-
+      <article className="relative min-h-screen bg-black text-white text-left">
         {/* Hero section */}
-        <div className="relative border-b border-[rgba(236,228,253,0.12)]">
-          <div className="mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10">
-            <div className="flex flex-col gap-10 pb-10 pt-8 lg:flex-row lg:items-center lg:gap-16 lg:pb-16 lg:pt-12">
-              {/* Text content */}
-              <div className="flex flex-1 flex-col gap-6">
-                <Link
-                  href="/reports"
-                  className="inline-flex w-fit items-center gap-2 text-sm text-[#ABABBA] transition-colors hover:text-white"
-                >
-                  <ArrowLeft className="size-4" />
-                  Back to Reports
-                </Link>
+        <div className="relative mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
+          <div className="pt-8 md:pt-10 xl:pt-12">
+            <Link
+              href="/reports"
+              className="inline-flex items-center gap-2 text-sm tracking-[-0.14px] text-white opacity-[0.64] transition-opacity hover:opacity-100"
+            >
+              <ArrowLeft className="size-4" />
+              Back to Reports
+            </Link>
+          </div>
+          <div className="flex flex-col gap-10 pb-[64px] pt-8 md:pb-[112px] md:pt-10 lg:flex-row lg:items-start lg:gap-14 xl:pb-[160px] xl:pt-12">
+            {/* Text content */}
+            <div className="flex flex-1 flex-col">
+              {report.eyebrow && (
+                <p className="m-0 mb-4 md:mb-6 font-medium text-base md:text-lg tracking-[-0.16px] md:tracking-[-0.18px] text-white opacity-[0.64]">
+                  {String(report.eyebrow)}
+                </p>
+              )}
+              <h1 className="m-0 max-w-3xl font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
+                {headline}
+              </h1>
+              {report.description && (
+                <p className="max-w-xl text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33] text-white opacity-[0.64]">
+                  {String(report.description)}
+                </p>
+              )}
 
-                <div className="flex flex-col gap-4">
-                  {report.eyebrow && (
-                    <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#CA9FF5]">
-                      {String(report.eyebrow)}
-                    </span>
-                  )}
-                  <h1 className="max-w-3xl text-[clamp(2rem,5vw,4rem)] font-medium leading-[1.05] tracking-[-0.02em]">
-                    {headline}
-                  </h1>
-                  {report.description && (
-                    <p className="max-w-2xl text-base leading-7 text-[#ABABBA] md:text-lg">
-                      {String(report.description)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Meta row */}
-                <div className="flex flex-wrap items-center gap-3 text-sm text-[#ABABBA]">
+              {/* Meta row */}
+              {(formattedDate || categories.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 mt-8 md:mt-10">
                   {formattedDate && (
-                    <span className="uppercase tracking-[0.15em]">
+                    <span className="text-[13px] font-medium tracking-[-0.13px] text-white opacity-[0.64]">
                       {formattedDate}
                     </span>
                   )}
-                  {formattedDate && categories.length > 0 && (
-                    <span className="text-[rgba(236,228,253,0.2)]">/</span>
-                  )}
                   {categories.map((category) => (
-                    <span key={category}>
-                      <span className="rounded-full border border-[rgba(236,228,253,0.12)] px-3 py-1 text-[11px] capitalize text-[#CA9FF5]">
-                        {category}
-                      </span>
+                    <span
+                      key={category}
+                      className="rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] capitalize tracking-[-0.11px] text-white/80"
+                    >
+                      {category}
                     </span>
                   ))}
                 </div>
+              )}
 
-                {/* Body content */}
-                <div className="prose prose-lg max-w-2xl prose-headings:font-medium prose-headings:tracking-[-0.01em] prose-a:text-[#55E9AB] prose-a:no-underline hover:prose-a:underline prose-strong:text-white">
-                  <MDXRemote
-                    source={preprocessMDX(await report.body())}
-                    components={mdxComponents}
-                    options={{
-                      mdxOptions: { remarkPlugins: [remarkGfm] },
-                    }}
-                  />
-                </div>
-
-                {/* CTA buttons */}
-                <div className="flex flex-wrap gap-3 pt-2">
-                  {report.hubspotForm?.portalId &&
-                    report.hubspotForm?.formId && (
-                      <ReportFormModal
-                        buttonLabel={
-                          report.hubspotForm.buttonLabel ||
-                          "Get the full report"
-                        }
-                        portalId={String(report.hubspotForm.portalId)}
-                        formId={String(report.hubspotForm.formId)}
-                        title={headline}
-                      />
-                    )}
-
-                  {report.pdfUrl && (
-                    <Button
-                      asChild
-                      size="lg"
-                      className="rounded-full bg-white px-6 text-sm font-medium text-black hover:bg-white/90"
-                    >
-                      <a
-                        href={String(report.pdfUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Download className="size-4" />
-                        Download Report
-                      </a>
-                    </Button>
-                  )}
-
-                  {buttons.map((button) => (
-                    <Button
-                      key={`${slug}-${button.label}-${button.url}`}
-                      asChild
-                      variant="outline"
-                      size="lg"
-                      className="rounded-full border-[rgba(236,228,253,0.12)] bg-transparent px-6 text-sm font-medium text-white hover:border-[rgba(236,228,253,0.32)] hover:bg-white/5 hover:text-white"
-                    >
-                      <a
-                        href={button.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {button.label}
-                        <ArrowUpRight className="size-4" />
-                      </a>
-                    </Button>
-                  ))}
-                </div>
+              {/* Body content */}
+              <div className="prose prose-lg max-w-xl mt-8 md:mt-10 prose-headings:font-medium prose-headings:tracking-[-0.01em] prose-p:text-white/[0.64] prose-p:tracking-[-0.18px] prose-p:leading-[1.5] prose-a:text-[#14F195] prose-a:no-underline hover:prose-a:underline prose-strong:text-white">
+                <MDXRemote
+                  source={preprocessMDX(await report.body())}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                  }}
+                />
               </div>
 
-              {/* Report image — right-aligned */}
-              {report.image?.src && (
-                <div className="min-w-[280px] shrink-0 self-start lg:max-w-[480px] xl:max-w-[520px]">
+              {/* CTA buttons */}
+              <div className="flex flex-wrap gap-3 mt-8 md:mt-10">
+                {report.hubspotForm?.portalId && report.hubspotForm?.formId && (
+                  <ReportFormModal
+                    buttonLabel={
+                      report.hubspotForm.buttonLabel || "Get the full report"
+                    }
+                    portalId={String(report.hubspotForm.portalId)}
+                    formId={String(report.hubspotForm.formId)}
+                    title={headline}
+                  />
+                )}
+
+                {report.pdfUrl && (
+                  <Button
+                    asChild
+                    size="lg"
+                    className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  >
+                    <a
+                      href={String(report.pdfUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ArrowDownToLine
+                        aria-hidden
+                        className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
+                        strokeWidth={3}
+                      />
+                      Download Report
+                    </a>
+                  </Button>
+                )}
+
+                {buttons.map((button) => (
+                  <Button
+                    key={`${slug}-${button.label}-${button.url}`}
+                    asChild
+                    size="lg"
+                    className="rounded-full text-base md:text-lg px-5 bg-white/10 text-white hover:!bg-white/15 tracking-[-0.16px] md:tracking-[-0.18px] backdrop-blur-sm"
+                  >
+                    <a
+                      href={button.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {button.label}
+                      <ArrowUpRight className="size-4" />
+                    </a>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Report image — right-aligned */}
+            {report.image?.src && (
+              <div className="shrink-0 grow-0 self-start lg:sticky lg:top-10">
+                <div className="relative aspect-[1062/1500] w-[200px] md:w-[280px] xl:w-[360px] overflow-hidden rounded-md">
                   <Image
                     src={report.image.src}
                     alt={report.image.alt || headline}
-                    width={1062}
-                    height={1500}
+                    fill
                     priority
-                    sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 100vw"
-                    className="h-auto w-full rounded-2xl border border-[rgba(236,228,253,0.12)]"
+                    sizes="(min-width: 1280px) 360px, (min-width: 768px) 280px, 200px"
+                    className="object-cover"
+                    quality={100}
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </article>

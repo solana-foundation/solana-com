@@ -46,6 +46,83 @@ type GalleryImage = {
   square?: boolean;
 };
 
+function readJsExpression(
+  input: string,
+  start: number,
+): { expression: string; end: number } | null {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | null = null;
+  let escaped = false;
+
+  for (let i = start; i < input.length; i++) {
+    const char = input[i];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "{" || char === "[" || char === "(") {
+      depth++;
+      continue;
+    }
+
+    if (char === "}" || char === "]" || char === ")") {
+      if (depth === 0) {
+        return {
+          expression: input.slice(start, i),
+          end: i,
+        };
+      }
+      depth--;
+    }
+  }
+
+  return null;
+}
+
+function serializeLegacyGalleryProps(source: string): string {
+  return source.replace(/<Gallery\b[\s\S]*?\/>/g, (tag) => {
+    const imagesPropIndex = tag.indexOf("images={");
+    if (imagesPropIndex === -1) {
+      return tag;
+    }
+
+    const expressionStart = imagesPropIndex + "images={".length;
+    const parsedExpression = readJsExpression(tag, expressionStart);
+    if (!parsedExpression) {
+      return tag;
+    }
+
+    const backgroundMatch = tag.match(/\sbackground="([^"]+)"/);
+    const backgroundProp = backgroundMatch
+      ? ` background="${backgroundMatch[1]}"`
+      : "";
+
+    const serializedImages = Buffer.from(
+      parsedExpression.expression.trim(),
+      "utf8",
+    ).toString("base64");
+
+    return `<Gallery${backgroundProp} imagesRaw="${serializedImages}" />`;
+  });
+}
+
 // Keystatic DocumentRenderer renderers for MDX content
 // Using 'as any' to work around complex type constraints in DocumentRendererProps
 // Custom component blocks are added via the 'component' property
@@ -359,7 +436,7 @@ export function preprocessMDX(source: string): string {
       (_, slash, _name, after) => `<${slash}${capitalized}${after}`,
     );
   }
-  return result;
+  return serializeLegacyGalleryProps(result);
 }
 
 // Component implementations for custom MDX blocks.
@@ -405,7 +482,19 @@ const IframeBlock = (props: {
 const GalleryBlock = (props: {
   background?: string;
   images?: GalleryImage[];
-}) => <Gallery {...(props as any)} />;
+  imagesRaw?: string;
+  data?: {
+    background?: string;
+    images?: GalleryImage[];
+    imagesRaw?: string;
+  };
+}) => (
+  <Gallery
+    background={props.background ?? props.data?.background}
+    images={props.images ?? props.data?.images}
+    imagesRaw={props.imagesRaw ?? props.data?.imagesRaw}
+  />
+);
 
 const StatsBlock = (props: StatsBlockData) => {
   const statsData = {
