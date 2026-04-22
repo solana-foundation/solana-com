@@ -1,8 +1,8 @@
 ---
 title: Memo Transfer
 description:
-  Require incoming Token-2022 transfers to include a memo by enabling the
-  MemoTransfer account extension.
+  Require incoming transfers to include a memo by enabling the MemoTransfer
+  account extension on a Token Extension Program token account.
 url: /docs/tokens/extensions/memo-transfer
 type: tutorial
 prerequisites:
@@ -16,12 +16,11 @@ related:
 
 The Token Extension Program's _rs`MemoTransfer`_ account extension requires a
 memo instruction immediately before any incoming transfer to that token account.
-Outgoing transfers from that token account do not require a memo. The memo
-requirement only applies to incoming transfers to that token account.
+Outgoing transfers from that token account do not require a memo.
 
 The extension is configured on the destination token account, not on the mint.
 Once enabled, transfers without a memo fail with _rs`TokenError::NoMemo`_ until
-the token account owner disables the requirement again.
+the token account owner disables the requirement.
 
 ## How to Create a Token Account with MemoTransfer Enabled
 
@@ -34,51 +33,55 @@ To create a token account with _rs`MemoTransfer`_ enabled:
 4. _rs`Transfer`_ and _rs`TransferChecked`_ instructions to that token account
    must include a memo instruction immediately before the transfer instruction.
 
-### Source Reference
+<ScrollyCoding>
 
-| Item                                            | Description                                                                                              | Source                                                                                                                                     |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| _rs`MemoTransfer`_                              | Account extension that stores whether incoming transfers require a memo.                                 | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/mod.rs#L17-L22)         |
-| _rs`RequiredMemoTransfersInstruction::Enable`_  | Instruction that enables memo-required transfers on a token account.                                     | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/instruction.rs#L19-L76) |
-| _rs`RequiredMemoTransfersInstruction::Disable`_ | Instruction that disables memo-required transfers on a token account.                                    | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/instruction.rs#L19-L94) |
-| _rs`process_toggle_required_memo_transfers`_    | Processor logic that initializes or rewrites the _rs`MemoTransfer`_ extension after verifying ownership. | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/memo_transfer/processor.rs#L18-L56)     |
+## !!steps Create and initialize the mint
 
-### Typescript
+Create and initialize the mint that the token account will use.
 
-The `Kit` example below uses the generated instructions directly. Legacy
-examples using `@solana/web3.js`, `@solana/spl-token`, and `@solana/spl-memo`
-are included for reference.
+<CodePlaceholder title="Example" />
 
-#### Kit
-
-<CodeTabs storage="token-ts-kit" flags="r">
-
-```ts !! title="Instructions"
-import { generateKeyPairSigner } from "@solana/kit";
-import { createLocalClient } from "@solana/kit-client-rpc";
-import { getAddMemoInstruction } from "@solana-program/memo";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  extension,
-  fetchToken,
-  getDisableMemoTransfersInstruction,
-  findAssociatedTokenPda,
-  getCreateAssociatedTokenInstructionAsync,
-  getEnableMemoTransfersInstruction,
-  getInitializeAccountInstruction,
-  getInitializeMintInstruction,
-  getMintSize,
-  getMintToCheckedInstruction,
-  getTokenSize,
-  getTransferCheckedInstruction,
-  TOKEN_2022_PROGRAM_ADDRESS
-} from "@solana-program/token-2022";
-
+```ts !! title="Example"
 const client = await createLocalClient();
-
 const mint = await generateKeyPairSigner();
-const destinationOwner = await generateKeyPairSigner();
-const memoToken = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
+
+const mintSpace = BigInt(getMintSize());
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+// !focus(1:15)
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+```
+
+## !!steps Calculate token account size
+
+Calculate the token account size for the base token account plus the
+_rs`MemoTransfer`_ extension. This is the size used in _rs`CreateAccount`_.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createLocalClient();
+const mint = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
 
 const mintSpace = BigInt(getMintSize());
 const mintRent = await client.rpc
@@ -101,83 +104,335 @@ await client.sendTransaction([
   })
 ]);
 
-const [sourceToken] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: client.payer.address,
-  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+// !focus(1:4)
+const memoTransferAccountExtension = extension("MemoTransfer", {
+  requireIncomingTransferMemos: false
 });
+const tokenSpace = BigInt(getTokenSize([memoTransferAccountExtension]));
+```
+
+## !!steps Calculate rent
+
+Calculate rent using the token account size needed for the _rs`MemoTransfer`_
+extension.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createLocalClient();
+const mint = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
+
+const mintSpace = BigInt(getMintSize());
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+
+const memoTransferAccountExtension = extension("MemoTransfer", {
+  requireIncomingTransferMemos: false
+});
+const tokenSpace = BigInt(getTokenSize([memoTransferAccountExtension]));
+
+// !focus(1:3)
+const tokenRent = await client.rpc
+  .getMinimumBalanceForRentExemption(tokenSpace)
+  .send();
+```
+
+## !!steps Create and initialize the token account
+
+Create the token account with the calculated space and lamports, then initialize
+it for the mint.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createLocalClient();
+const mint = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
+
+const mintSpace = BigInt(getMintSize());
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
 
 const memoTransferExtension = extension("MemoTransfer", {
   requireIncomingTransferMemos: false
 });
 const tokenSpace = BigInt(getTokenSize([memoTransferExtension]));
+
+const tokenRent = await client.rpc
+  .getMinimumBalanceForRentExemption(tokenSpace)
+  .send();
+
+// !focus(1:14)
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: tokenAccount,
+    lamports: tokenRent,
+    space: tokenSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeAccountInstruction({
+    account: tokenAccount.address,
+    mint: mint.address,
+    owner: tokenOwner.address
+  })
+]);
+```
+
+## !!steps Enable MemoTransfer
+
+Enable _rs`MemoTransfer`_ on the token account.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createLocalClient();
+const mint = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
+
+const mintSpace = BigInt(getMintSize());
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+
+const memoTransferExtension = extension("MemoTransfer", {
+  requireIncomingTransferMemos: false
+});
+const tokenSpace = BigInt(getTokenSize([memoTransferExtension]));
+
+const tokenRent = await client.rpc
+  .getMinimumBalanceForRentExemption(tokenSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: tokenAccount,
+    lamports: tokenRent,
+    space: tokenSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeAccountInstruction({
+    account: tokenAccount.address,
+    mint: mint.address,
+    owner: tokenOwner.address
+  })
+]);
+
+// !focus(1:6)
+await client.sendTransaction([
+  getEnableMemoTransfersInstruction({
+    token: tokenAccount.address,
+    owner: tokenOwner
+  })
+]);
+```
+
+</ScrollyCoding>
+
+### Source Reference
+
+| Item                                            | Description                                                                                              | Source                                                                                                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| _rs`MemoTransfer`_                              | Account extension that stores whether incoming transfers require a memo.                                 | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/mod.rs#L17-L22)         |
+| _rs`RequiredMemoTransfersInstruction::Enable`_  | Instruction that enables memo-required transfers on a token account.                                     | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/instruction.rs#L50-L71) |
+| _rs`RequiredMemoTransfersInstruction::Disable`_ | Instruction that disables memo-required transfers on a token account.                                    | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/memo_transfer/instruction.rs#L74-L95) |
+| _rs`process_toggle_required_memo_transfers`_    | Processor logic that initializes or rewrites the _rs`MemoTransfer`_ extension after verifying ownership. | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/memo_transfer/processor.rs#L20-L48)     |
+
+### Typescript
+
+The `Kit` example below uses the generated instructions directly. Legacy
+examples using `@solana/web3.js`, `@solana/spl-token`, and `@solana/spl-memo`
+are included for reference.
+
+#### Kit
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Instructions"
+import { generateKeyPairSigner, unwrapOption } from "@solana/kit";
+import { createLocalClient } from "@solana/kit-client-rpc";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  fetchToken,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
+  getDisableMemoTransfersInstruction,
+  getEnableMemoTransfersInstruction,
+  getInitializeAccountInstruction,
+  getInitializeMintInstruction,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getTokenSize,
+  getTransferCheckedInstruction,
+  isExtension,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const client = await createLocalClient();
+
+const mint = await generateKeyPairSigner();
+const tokenOwner = await generateKeyPairSigner();
+const tokenAccount = await generateKeyPairSigner();
+const tokenAmount = 1n;
+
+const mintSpace = BigInt(getMintSize());
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer, // Account funding the new mint account.
+    newAccount: mint, // New mint account to create.
+    lamports: mintRent, // Lamports funding the mint account rent.
+    space: mintSpace, // Account size in bytes for the mint.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the mint account.
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address, // Mint account to initialize.
+    decimals: 0, // Number of decimals for the token.
+    mintAuthority: client.payer.address, // Authority allowed to mint new tokens.
+    freezeAuthority: client.payer.address // Authority allowed to freeze token accounts.
+  })
+]);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.address, // Mint for the source token account.
+  owner: client.payer.address, // Owner of the source token account.
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // Token program that owns the token account.
+});
+
+const memoTransferAccountExtension = extension("MemoTransfer", {
+  requireIncomingTransferMemos: false
+});
+const tokenSpace = BigInt(getTokenSize([memoTransferAccountExtension]));
 const tokenRent = await client.rpc
   .getMinimumBalanceForRentExemption(tokenSpace)
   .send();
 
 await client.sendTransaction([
   await getCreateAssociatedTokenInstructionAsync({
-    payer: client.payer,
-    mint: mint.address,
-    owner: client.payer.address
+    payer: client.payer, // Account funding the associated token account creation.
+    mint: mint.address, // Mint for the associated token account.
+    owner: client.payer.address // Owner of the associated token account.
   }),
   getMintToCheckedInstruction({
-    mint: mint.address,
-    token: sourceToken,
-    mintAuthority: client.payer,
-    amount: 1n,
-    decimals: 0
+    mint: mint.address, // Mint account that issues the tokens.
+    token: sourceToken, // Token account receiving the newly minted tokens.
+    mintAuthority: client.payer, // Signer authorized to mint new tokens.
+    amount: tokenAmount, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
   }),
   getCreateAccountInstruction({
-    payer: client.payer,
-    newAccount: memoToken,
-    lamports: tokenRent,
-    space: tokenSpace,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    payer: client.payer, // Account funding the new token account.
+    newAccount: tokenAccount, // New token account to create.
+    lamports: tokenRent, // Lamports funding the token account rent.
+    space: tokenSpace, // Account size in bytes for the token account plus MemoTransfer.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the token account.
   }),
   getInitializeAccountInstruction({
-    account: memoToken.address,
-    mint: mint.address,
-    owner: destinationOwner.address
+    account: tokenAccount.address, // Token account to initialize.
+    mint: mint.address, // Mint for the token account.
+    owner: tokenOwner.address // Owner of the token account.
   })
 ]);
 
 await client.sendTransaction([
   // !mark(1:4)
   getEnableMemoTransfersInstruction({
-    token: memoToken.address, // Token account that stores the MemoTransfer extension.
-    owner: destinationOwner // Token account owner authorized to toggle memo requirements.
+    token: tokenAccount.address, // Token account that stores the MemoTransfer extension.
+    owner: tokenOwner // Token account owner authorized to toggle memo requirements.
   })
 ]);
 
 await client.sendTransaction([
   getAddMemoInstruction({
-    memo: "memo required"
+    memo: "memo required" // Memo string required by the destination token account.
   }),
   getTransferCheckedInstruction({
-    source: sourceToken,
-    mint: mint.address,
-    destination: memoToken.address,
-    authority: client.payer,
-    amount: 1n,
-    decimals: 0
+    source: sourceToken, // Token account sending the transfer.
+    mint: mint.address, // Mint for the transfer.
+    destination: tokenAccount.address, // Token account receiving the transfer.
+    authority: client.payer, // Owner of the source token account.
+    amount: tokenAmount, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
   })
 ]);
 
 await client.sendTransaction([
   // !mark(1:4)
   getDisableMemoTransfersInstruction({
-    token: memoToken.address, // Token account that stores the MemoTransfer extension.
-    owner: destinationOwner // Token account owner authorized to toggle memo requirements.
+    token: tokenAccount.address, // Token account that stores the MemoTransfer extension.
+    owner: tokenOwner // Token account owner authorized to toggle memo requirements.
   })
 ]);
 
-const tokenAccount = await fetchToken(client.rpc, memoToken.address);
+const tokenAccountData = await fetchToken(client.rpc, tokenAccount.address);
+const memoTransferExtension = (
+  unwrapOption(tokenAccountData.data.extensions) ?? []
+).find((item) => isExtension("MemoTransfer", item));
 
 console.log("Mint Address:", mint.address);
-console.log("Memo Transfer Token:", memoToken.address);
-console.log("Destination Amount:", tokenAccount.data.amount);
-console.dir(tokenAccount.data.extensions, { depth: null });
+console.log("Token Account:", tokenAccount.address);
+console.log("Destination Amount:", tokenAccountData.data.amount);
+console.log("MemoTransfer Extension:", memoTransferExtension);
 ```
 
 </CodeTabs>
@@ -193,212 +448,178 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
-  LAMPORTS_PER_SOL,
-  PublicKey
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  createInitializeMintInstruction,
-  ExtensionType,
-  getMintLen,
-  TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
-  getAccount,
-  getMemoTransfer,
-  createMintToInstruction,
-  getAccountLen,
-  createInitializeAccountInstruction,
   createDisableRequiredMemoTransfersInstruction,
   createEnableRequiredMemoTransfersInstruction,
-  createTransferInstruction
+  createInitializeAccountInstruction,
+  createInitializeMintInstruction,
+  getAccount,
+  getAccountLen,
+  getMemoTransfer,
+  createMintToCheckedInstruction,
+  createTransferCheckedInstruction,
+  ExtensionType,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID
 } from "@solana/spl-token";
 import { createMemoInstruction } from "@solana/spl-memo";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
 
 const feePayer = Keypair.generate();
-
-const destination = Keypair.generate();
+const tokenOwner = Keypair.generate();
+const tokenAmount = 1;
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
   5 * LAMPORTS_PER_SOL
 );
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
+await connection.confirmTransaction(airdropSignature, "confirmed");
 
 const mint = Keypair.generate();
 
 const mintLength = getMintLen([]);
 
 const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
-
-const createMintAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: mintLength,
-  lamports: mintRent,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  9, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-const associatedTokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey, // mint pubkey
-  feePayer.publicKey, // feepayer/authority
-  false, // allowOwnerOffCurve
-  TOKEN_2022_PROGRAM_ID, // token program address
-  ASSOCIATED_TOKEN_PROGRAM_ID /// associated token program address
-);
-
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account address
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_2022_PROGRAM_ID, // token 22 program address
-  ASSOCIATED_TOKEN_PROGRAM_ID // associated token program address
-);
-
-const mintAmount = 1000_000_000_000;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey, // mint
-  associatedTokenAccount, // destination
-  feePayer.publicKey, // authority
-  mintAmount, // amount
-  [], // multiSigners
-  TOKEN_2022_PROGRAM_ID // programId
-);
-
-const tokenAccount = new Keypair();
-
 const extensions = [ExtensionType.MemoTransfer];
-
+const tokenAccount = Keypair.generate();
 const tokenAccountLen = getAccountLen(extensions);
-
 const tokenAccountRent =
   await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
 
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // Mint account to initialize.
+  0, // Number of decimals for the token.
+  feePayer.publicKey, // Authority allowed to mint new tokens.
+  feePayer.publicKey, // Authority allowed to freeze token accounts.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the mint account.
+);
+
+const sourceToken = getAssociatedTokenAddressSync(
+  mint.publicKey, // Mint for the source token account.
+  feePayer.publicKey, // Owner of the source token account.
+  false, // Whether the owner is a PDA.
+  TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+  ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that derives the ATA.
+);
+
+const createSourceTokenInstruction = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // Account funding the associated token account creation.
+  sourceToken, // Associated token account address to create.
+  feePayer.publicKey, // Owner of the associated token account.
+  mint.publicKey, // Mint for the associated token account.
+  TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+  ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
+);
+
+const mintToInstruction = createMintToCheckedInstruction(
+  mint.publicKey, // Mint account that issues the tokens.
+  sourceToken, // Token account receiving the newly minted tokens.
+  feePayer.publicKey, // Signer authorized to mint new tokens.
+  tokenAmount, // Token amount in base units.
+  0, // Decimals defined on the mint.
+  [], // Additional multisig signers.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the mint and token account.
+);
+
 const createTokenAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: tokenAccount.publicKey,
-  space: tokenAccountLen,
-  lamports: tokenAccountRent,
-  programId: TOKEN_2022_PROGRAM_ID
+  fromPubkey: feePayer.publicKey, // Account funding the new token account.
+  newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+  space: tokenAccountLen, // Account size in bytes for the token account plus MemoTransfer.
+  lamports: tokenAccountRent, // Lamports funding the token account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the token account.
 });
 
 const initializeTokenAccountInstruction = createInitializeAccountInstruction(
-  tokenAccount.publicKey,
-  mint.publicKey,
-  feePayer.publicKey,
-  TOKEN_2022_PROGRAM_ID
+  tokenAccount.publicKey, // Token account to initialize.
+  mint.publicKey, // Mint for the token account.
+  tokenOwner.publicKey, // Owner of the token account.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
 );
 
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createMintAccountInstruction,
-  initializeMintInstruction,
-  createAssociatedTokenAccountIx,
-  mintToInstruction,
-  createTokenAccountInstruction,
-  initializeTokenAccountInstruction
-);
-
-const transactionSignature = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transaction,
-  [feePayer, mint, tokenAccount]
+  new Transaction().add(
+    createMintAccountInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
 );
 
-console.log("Mint Address:", mint.publicKey.toBase58());
-console.log("Setup Transaction Signature:", transactionSignature);
-
-const latestBlockhash2 = await connection.getLatestBlockhash();
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createSourceTokenInstruction,
+    mintToInstruction,
+    createTokenAccountInstruction,
+    initializeTokenAccountInstruction
+  ),
+  [feePayer, tokenAccount]
+);
 
 // !mark(1:7)
 const enableMemoTransferExtensionInstruction =
   createEnableRequiredMemoTransfersInstruction(
     tokenAccount.publicKey, // Token account that stores the MemoTransfer extension.
-    feePayer.publicKey, // Token account owner authorized to toggle memo requirements.
-    undefined, // Additional multisig signers.
+    tokenOwner.publicKey, // Token account owner authorized to toggle memo requirements.
+    [], // Additional multisig signers.
     TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
   );
 
-const enableMemoTransferTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash2.blockhash,
-  lastValidBlockHeight: latestBlockhash2.lastValidBlockHeight
-}).add(enableMemoTransferExtensionInstruction);
-
-const transactionSignature2 = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  enableMemoTransferTransaction,
-  [feePayer]
+  new Transaction().add(enableMemoTransferExtensionInstruction),
+  [feePayer, tokenOwner]
 );
-
-const latestBlockhash3 = await connection.getLatestBlockhash();
 
 const memoIx = createMemoInstruction(
-  "This transfer requires a memo to accompany it",
-  [feePayer.publicKey]
+  "memo required", // Memo string required by the destination token account.
+  [feePayer.publicKey] // Accounts to include in the memo instruction.
 );
 
-const transferInstruction = createTransferInstruction(
-  associatedTokenAccount, // source
-  tokenAccount.publicKey, // destination
-  feePayer.publicKey, // owner
-  1_000_000_000, // amount
-  [], // multiSigners
-  TOKEN_2022_PROGRAM_ID // programId
+const transferInstruction = createTransferCheckedInstruction(
+  sourceToken, // Token account sending the transfer.
+  mint.publicKey, // Mint for the transfer.
+  tokenAccount.publicKey, // Token account receiving the transfer.
+  feePayer.publicKey, // Owner of the source token account.
+  tokenAmount, // Token amount in base units.
+  0, // Decimals defined on the mint.
+  [], // Additional multisig signers.
+  TOKEN_2022_PROGRAM_ID // Token program that processes the transfer.
 );
 
-const transferWithMemoTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash3.blockhash,
-  lastValidBlockHeight: latestBlockhash3.lastValidBlockHeight
-}).add(memoIx, transferInstruction);
-
-const transactionSignature3 = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transferWithMemoTransaction,
+  new Transaction().add(memoIx, transferInstruction),
   [feePayer]
 );
-
-const latestBlockhash4 = await connection.getLatestBlockhash();
 
 // !mark(1:7)
 const disableMemoTransferExtensionInstruction =
   createDisableRequiredMemoTransfersInstruction(
     tokenAccount.publicKey, // Token account that stores the MemoTransfer extension.
-    feePayer.publicKey, // Token account owner authorized to toggle memo requirements.
-    undefined, // Additional multisig signers.
+    tokenOwner.publicKey, // Token account owner authorized to toggle memo requirements.
+    [], // Additional multisig signers.
     TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
   );
 
-const disableMemoTransferTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash4.blockhash,
-  lastValidBlockHeight: latestBlockhash4.lastValidBlockHeight
-}).add(disableMemoTransferExtensionInstruction);
-
-const transactionSignature4 = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  disableMemoTransferTransaction,
-  [feePayer]
+  new Transaction().add(disableMemoTransferExtensionInstruction),
+  [feePayer, tokenOwner]
 );
 
 const tokenAccountData = await getAccount(
@@ -407,13 +628,12 @@ const tokenAccountData = await getAccount(
   "confirmed",
   TOKEN_2022_PROGRAM_ID
 );
-const memoTransfer = getMemoTransfer(tokenAccountData);
+const memoTransferExtension = getMemoTransfer(tokenAccountData);
 
-console.log("Enable Transaction Signature:", transactionSignature2);
-console.log("Transfer Transaction Signature:", transactionSignature3);
-console.log("Disable Transaction Signature:", transactionSignature4);
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Token Account:", tokenAccount.publicKey.toBase58());
 console.log("Destination Amount:", tokenAccountData.amount.toString());
-console.dir(memoTransfer, { depth: null });
+console.log("MemoTransfer Extension:", memoTransferExtension);
 ```
 
 </CodeTabs>
@@ -424,7 +644,7 @@ console.dir(memoTransfer, { depth: null });
 
 ```rust !! title="Rust"
 use anyhow::Result;
-use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
     program_pack::Pack,
@@ -432,9 +652,6 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use solana_system_interface::instruction::create_account;
-use solana_transaction_status_client_types::{
-    option_serializer::OptionSerializer, UiTransactionEncoding,
-};
 use spl_associated_token_account_interface::{
     address::get_associated_token_address_with_program_id,
     instruction::create_associated_token_account,
@@ -448,7 +665,7 @@ use spl_token_2022_interface::{
         },
         BaseStateWithExtensions, ExtensionType, StateWithExtensions,
     },
-    instruction::{initialize_account, initialize_mint, mint_to, transfer_checked},
+    instruction::{initialize_account, initialize_mint, mint_to_checked, transfer_checked},
     state::{Account, Mint},
     ID as TOKEN_2022_PROGRAM_ID,
 };
@@ -460,6 +677,8 @@ async fn main() -> Result<()> {
         CommitmentConfig::confirmed(),
     );
     let fee_payer = Keypair::new();
+    let token_owner = Keypair::new();
+    let token_amount = 1u64;
 
     let airdrop_signature = client
         .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
@@ -480,43 +699,53 @@ async fn main() -> Result<()> {
         .await?;
 
     let create_mint_account_instruction = create_account(
-        &fee_payer.pubkey(),    // payer
-        &mint.pubkey(),         // new account (mint)
-        mint_rent,              // lamports
-        mint_space as u64,      // space
-        &TOKEN_2022_PROGRAM_ID, // program id
+        &fee_payer.pubkey(),    // Account funding the new mint account.
+        &mint.pubkey(),         // New mint account to create.
+        mint_rent,              // Lamports funding the mint account rent.
+        mint_space as u64,      // Account size in bytes for the mint.
+        &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
     );
 
     let initialize_mint_instruction = initialize_mint(
-        &TOKEN_2022_PROGRAM_ID,    // program id
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        9,                         // decimals
+        &TOKEN_2022_PROGRAM_ID,    // Program that owns the mint account.
+        &mint.pubkey(),            // Mint account to initialize.
+        &fee_payer.pubkey(),       // Authority allowed to mint new tokens.
+        Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
+        0,                         // Number of decimals for the token.
     )?;
 
-    let associated_token_address = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(),    // owner
-        &mint.pubkey(),         // mint
-        &TOKEN_2022_PROGRAM_ID, // program_id
+    let create_mint_transaction = Transaction::new_signed_with_payer(
+        &[create_mint_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        client.get_latest_blockhash().await?,
     );
 
-    let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(),    // funding address
-        &fee_payer.pubkey(),    // wallet address
-        &mint.pubkey(),         // mint address
-        &TOKEN_2022_PROGRAM_ID, // program id
+    client
+        .send_and_confirm_transaction(&create_mint_transaction)
+        .await?;
+
+    let source_token = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),    // Owner of the associated token account.
+        &mint.pubkey(),         // Mint for the associated token account.
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
     );
 
-    let amount = 100_000_000_000;
+    let create_source_token_instruction = create_associated_token_account(
+        &fee_payer.pubkey(),    // Account funding the associated token account creation.
+        &fee_payer.pubkey(),    // Owner of the associated token account.
+        &mint.pubkey(),         // Mint for the associated token account.
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+    );
 
-    let mint_to_instruction = mint_to(
-        &TOKEN_2022_PROGRAM_ID,    // program_id
-        &mint.pubkey(),            // mint
-        &associated_token_address, // destination
-        &fee_payer.pubkey(),       // authority
-        &[&fee_payer.pubkey()],    // signer
-        amount,                    // amount
+    let mint_to_instruction = mint_to_checked(
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint and token account.
+        &mint.pubkey(),         // Mint account that issues the tokens.
+        &source_token,          // Token account receiving the newly minted tokens.
+        &fee_payer.pubkey(),    // Signer authorized to mint new tokens.
+        &[],                    // Additional multisig signers.
+        token_amount,           // Token amount in base units.
+        0,                      // Decimals defined on the mint.
     )?;
 
     let token_account = Keypair::new();
@@ -529,31 +758,29 @@ async fn main() -> Result<()> {
         .await?;
 
     let create_token_account_instruction = create_account(
-        &fee_payer.pubkey(),        // payer
-        &token_account.pubkey(),    // new account (token account)
-        token_account_rent,         // rent
-        token_account_space as u64, // space
-        &TOKEN_2022_PROGRAM_ID,     // program id
+        &fee_payer.pubkey(),        // Account funding the new token account.
+        &token_account.pubkey(),    // New token account to create.
+        token_account_rent,         // Lamports funding the token account rent.
+        token_account_space as u64, // Account size in bytes for the token account plus MemoTransfer.
+        &TOKEN_2022_PROGRAM_ID,     // Program that owns the token account.
     );
 
     let initialize_token_account = initialize_account(
-        &TOKEN_2022_PROGRAM_ID,  // program_id
-        &token_account.pubkey(), // token account
-        &mint.pubkey(),          //  mint
-        &fee_payer.pubkey(),     // authority
+        &TOKEN_2022_PROGRAM_ID,  // Token program that owns the token account.
+        &token_account.pubkey(), // Token account to initialize.
+        &mint.pubkey(),          // Mint for the token account.
+        &token_owner.pubkey(),   // Owner of the token account.
     )?;
 
     let setup_transaction = Transaction::new_signed_with_payer(
         &[
-            create_mint_account_instruction,
-            initialize_mint_instruction,
-            create_ata_instruction,
+            create_source_token_instruction,
             mint_to_instruction,
             create_token_account_instruction,
             initialize_token_account,
         ],
         Some(&fee_payer.pubkey()),
-        &[&fee_payer, &mint, &token_account],
+        &[&fee_payer, &token_account],
         client.get_latest_blockhash().await?,
     );
 
@@ -561,17 +788,17 @@ async fn main() -> Result<()> {
 
     // !mark(1:6)
     let enable_memo_transfer_instruction = enable_required_transfer_memos(
-        &TOKEN_2022_PROGRAM_ID,  // program_id
-        &token_account.pubkey(), // token account
-        &fee_payer.pubkey(),     // authority
-        &[&fee_payer.pubkey()],  // signers
+        &TOKEN_2022_PROGRAM_ID,  // Token program that owns the token account.
+        &token_account.pubkey(), // Token account that stores the MemoTransfer extension.
+        &token_owner.pubkey(),   // Token account owner authorized to toggle memo requirements.
+        &[],                     // Additional multisig signers.
     )?;
 
     let enable_blockhash = client.get_latest_blockhash().await?;
     let enable_transaction = Transaction::new_signed_with_payer(
         &[enable_memo_transfer_instruction],
         Some(&fee_payer.pubkey()),
-        &[&fee_payer],
+        &[&fee_payer, &token_owner],
         enable_blockhash,
     );
 
@@ -579,52 +806,48 @@ async fn main() -> Result<()> {
         .send_and_confirm_transaction(&enable_transaction)
         .await?;
 
-    println!(
-        "Token Account with memo transfer enabled: {}",
-        token_account.pubkey()
+    let memo_instruction = build_memo(
+        &MEMO_PROGRAM_ID,       // Memo program that records the memo string.
+        b"memo required",       // Memo string required by the destination token account.
+        &[&fee_payer.pubkey()], // Accounts to include in the memo instruction.
     );
-    println!("\nSuccessfully enabled memo transfer extension on token account");
 
     let transfer_instruction = transfer_checked(
-        &TOKEN_2022_PROGRAM_ID,    // program id
-        &associated_token_address, // source
-        &mint.pubkey(),            // mint
-        &token_account.pubkey(),   // destination
-        &fee_payer.pubkey(),       // owner of source
-        &[&fee_payer.pubkey()],    // signers
-        1_000_000_000,             // amount
-        9,                         // decimals
+        &TOKEN_2022_PROGRAM_ID,  // Token program that processes the transfer.
+        &source_token,           // Token account sending the transfer.
+        &mint.pubkey(),          // Mint for the transfer.
+        &token_account.pubkey(), // Token account receiving the transfer.
+        &fee_payer.pubkey(),     // Owner of the source token account.
+        &[],                     // Additional multisig signers.
+        token_amount,            // Token amount in base units.
+        0,                       // Decimals defined on the mint.
     )?;
 
-    let memo = String::from("This transfer requires a memo to accompany it");
-    let memo_instruction = build_memo(&MEMO_PROGRAM_ID, memo.as_bytes(), &[&fee_payer.pubkey()]);
-
     let transfer_blockhash = client.get_latest_blockhash().await?;
-    let transaction = Transaction::new_signed_with_payer(
+    let transfer_transaction = Transaction::new_signed_with_payer(
         &[memo_instruction, transfer_instruction],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
         transfer_blockhash,
     );
 
-    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
-
-    println!("\nSuccessfully transferred tokens with memo transfer extension enabled");
-    println!("Transaction Signature: {}", transaction_signature);
+    client
+        .send_and_confirm_transaction(&transfer_transaction)
+        .await?;
 
     // !mark(1:6)
     let disable_memo_transfer_instruction = disable_required_transfer_memos(
-        &TOKEN_2022_PROGRAM_ID,  // program_id
-        &token_account.pubkey(), // token account
-        &fee_payer.pubkey(),     // authority
-        &[&fee_payer.pubkey()],  // signers
+        &TOKEN_2022_PROGRAM_ID,  // Token program that owns the token account.
+        &token_account.pubkey(), // Token account that stores the MemoTransfer extension.
+        &token_owner.pubkey(),   // Token account owner authorized to toggle memo requirements.
+        &[],                     // Additional multisig signers.
     )?;
 
     let disable_blockhash = client.get_latest_blockhash().await?;
     let disable_transaction = Transaction::new_signed_with_payer(
         &[disable_memo_transfer_instruction],
         Some(&fee_payer.pubkey()),
-        &[&fee_payer],
+        &[&fee_payer, &token_owner],
         disable_blockhash,
     );
 
@@ -632,34 +855,14 @@ async fn main() -> Result<()> {
         .send_and_confirm_transaction(&disable_transaction)
         .await?;
 
-    let transfer_transaction_details = client
-        .get_transaction_with_config(
-            &transaction_signature,
-            RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Json),
-                commitment: Some(CommitmentConfig::confirmed()),
-                max_supported_transaction_version: Some(0),
-            },
-        )
-        .await?;
-
-    if let Some(meta) = transfer_transaction_details.transaction.meta {
-        if let OptionSerializer::Some(log_messages) = meta.log_messages {
-            println!("\nTransaction Logs:");
-            for log in log_messages {
-                println!("  {}", log);
-            }
-        }
-    }
-
     let token_account_data = client.get_account(&token_account.pubkey()).await?;
     let token_account_state = StateWithExtensions::<Account>::unpack(&token_account_data.data)?;
+    let memo_transfer_extension = token_account_state.get_extension::<MemoTransfer>()?;
 
-    let extension_types = token_account_state.get_extension_types()?;
-    println!("\nToken Account Extensions enabled: {:?}", extension_types);
-
-    let memo_transfer = token_account_state.get_extension::<MemoTransfer>()?;
-    println!("\n{:#?}", memo_transfer);
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Token Account: {}", token_account.pubkey());
+    println!("Destination Amount: {}", token_account_state.base.amount);
+    println!("MemoTransfer Extension: {:#?}", memo_transfer_extension);
 
     Ok(())
 }

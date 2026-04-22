@@ -1,8 +1,8 @@
 ---
 title: Immutable Owner
 description:
-  Initialize a Token-2022 token account with immutable ownership so its owner
-  can never be reassigned.
+  Initialize a Token Extension Program token account with immutable ownership so
+  its owner can never be reassigned.
 url: /docs/tokens/extensions/immutable-owner
 type: tutorial
 prerequisites:
@@ -19,9 +19,12 @@ token account's owner permanent.
 
 Once a token account is initialized with _rs`ImmutableOwner`_, later
 _rs`SetAuthority`_ instructions cannot change its _rs`AccountOwner`_ authority.
-Associated token accounts created through the Associated Token Program for the
-Token Extension Program automatically initialize _rs`ImmutableOwner`_ on the
-token account.
+
+<Callout type="info" title="Associated Token Accounts">
+  Associated token accounts created through the Associated Token Program for the
+  Token Extension Program automatically initialize _rs`ImmutableOwner`_ on the
+  token account.
+</Callout>
 
 ## How to Initialize an Immutable Owner Account
 
@@ -351,17 +354,17 @@ const mintRent = await client.rpc
 
 await client.sendTransaction([
   getCreateAccountInstruction({
-    payer: client.payer,
-    newAccount: mint,
-    lamports: mintRent,
-    space: mintSpace,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    payer: client.payer, // Account funding the new mint account.
+    newAccount: mint, // New mint account to create.
+    lamports: mintRent, // Lamports funding the mint account rent.
+    space: mintSpace, // Account size in bytes for the mint.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the mint account.
   }),
   getInitializeMintInstruction({
-    mint: mint.address,
-    decimals: 0,
-    mintAuthority: client.payer.address,
-    freezeAuthority: client.payer.address
+    mint: mint.address, // Mint account to initialize.
+    decimals: 0, // Number of decimals for the token.
+    mintAuthority: client.payer.address, // Authority allowed to mint new tokens.
+    freezeAuthority: client.payer.address // Authority allowed to freeze token accounts.
   })
 ]);
 
@@ -373,20 +376,20 @@ const tokenRent = await client.rpc
 
 await client.sendTransaction([
   getCreateAccountInstruction({
-    payer: client.payer,
-    newAccount: tokenAccount,
-    lamports: tokenRent,
-    space: tokenSpace,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    payer: client.payer, // Account funding the new token account.
+    newAccount: tokenAccount, // New token account to create.
+    lamports: tokenRent, // Lamports funding the token account rent.
+    space: tokenSpace, // Account size in bytes for the token account plus ImmutableOwner.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the token account.
   }),
   // !mark(1:3)
   getInitializeImmutableOwnerInstruction({
     account: tokenAccount.address // Token account that stores the ImmutableOwner extension.
   }),
   getInitializeAccountInstruction({
-    account: tokenAccount.address,
-    mint: mint.address,
-    owner: client.payer.address
+    account: tokenAccount.address, // Token account to initialize.
+    mint: mint.address, // Mint for the token account.
+    owner: client.payer.address // Owner of the token account.
   })
 ]);
 
@@ -409,13 +412,13 @@ if (!failure) {
 }
 
 const token = await fetchToken(client.rpc, tokenAccount.address);
-const immutableOwner = (unwrapOption(token.data.extensions) ?? []).some(
-  (item) => isExtension("ImmutableOwner", item)
-);
+const immutableOwnerExtensionState = (
+  unwrapOption(token.data.extensions) ?? []
+).find((item) => isExtension("ImmutableOwner", item));
 
 console.log("Mint Address:", mint.address);
 console.log("Token Account:", tokenAccount.address);
-console.log("Immutable Owner Enabled:", immutableOwner);
+console.log("ImmutableOwner Extension:", immutableOwnerExtensionState);
 console.log("SetAuthority Failure:", failure);
 ```
 
@@ -432,33 +435,31 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  TransactionInstruction
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
+  AuthorityType,
   createInitializeMintInstruction,
-  ExtensionType,
-  getMintLen,
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  createMintToInstruction,
-  getAccountLen,
   createInitializeAccountInstruction,
-  createInitializeImmutableOwnerInstruction
+  createInitializeImmutableOwnerInstruction,
+  createSetAuthorityInstruction,
+  ExtensionType,
+  getAccount,
+  getAccountLen,
+  getImmutableOwner,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID
 } from "@solana/spl-token";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
 const feePayer = Keypair.generate();
+const newOwner = Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
   5 * LAMPORTS_PER_SOL
 );
+const latestBlockhash = await connection.getLatestBlockhash();
 await connection.confirmTransaction({
   blockhash: latestBlockhash.blockhash,
   lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
@@ -471,64 +472,34 @@ const mintLength = getMintLen([]);
 
 const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
 
-const createMintAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: mintLength,
-  lamports: mintRent,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  9, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-const associatedTokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey, // mint pubkey
-  feePayer.publicKey, // authority
-  false, // allowOwnerOffCurve
-  TOKEN_2022_PROGRAM_ID, // token program
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-const mintAmount = 1000_000_000_000;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey,
-  associatedTokenAccount,
-  feePayer.publicKey,
-  mintAmount,
-  [],
-  TOKEN_2022_PROGRAM_ID
-);
-
-const tokenAccount = new Keypair();
-
 const extensions = [ExtensionType.ImmutableOwner];
-
+const tokenAccount = new Keypair();
 const tokenAccountLen = getAccountLen(extensions);
-
 const tokenAccountRent =
   await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
 
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // Mint account to initialize.
+  0, // Number of decimals for the token.
+  feePayer.publicKey, // Authority allowed to mint new tokens.
+  feePayer.publicKey, // Authority allowed to freeze token accounts.
+  TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+);
+
 const createTokenAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: tokenAccount.publicKey,
-  space: tokenAccountLen,
-  lamports: tokenAccountRent,
-  programId: TOKEN_2022_PROGRAM_ID
+  fromPubkey: feePayer.publicKey, // Account funding the new token account.
+  newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+  space: tokenAccountLen, // Account size in bytes for the token account plus ImmutableOwner.
+  lamports: tokenAccountRent, // Lamports funding the token account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the token account.
 });
 
 // !mark(1:5)
@@ -539,38 +510,67 @@ const initializeImmutableOwnerInstruction =
   );
 
 const initializeTokenAccountInstruction = createInitializeAccountInstruction(
+  tokenAccount.publicKey, // Token account to initialize.
+  mint.publicKey, // Mint for the token account.
+  feePayer.publicKey, // Owner of the token account.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createMintAccountInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createTokenAccountInstruction,
+    initializeImmutableOwnerInstruction,
+    initializeTokenAccountInstruction
+  ),
+  [feePayer, tokenAccount]
+);
+
+let failure: string | undefined;
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      // !mark(1:8)
+      createSetAuthorityInstruction(
+        tokenAccount.publicKey, // Token account whose authority is being updated.
+        feePayer.publicKey, // Current token account owner signing the instruction.
+        AuthorityType.AccountOwner, // Account authority field to change.
+        newOwner.publicKey, // New token account owner to set.
+        [], // Additional multisig signers.
+        TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
+      )
+    ),
+    [feePayer]
+  );
+} catch (error) {
+  failure = String(error);
+}
+if (!failure) {
+  throw new Error("Expected the owner change to fail");
+}
+
+const tokenAccountData = await getAccount(
+  connection,
   tokenAccount.publicKey,
-  mint.publicKey,
-  feePayer.publicKey,
+  "confirmed",
   TOKEN_2022_PROGRAM_ID
 );
-
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createMintAccountInstruction,
-  initializeMintInstruction,
-  createAssociatedTokenAccountIx,
-  mintToInstruction,
-  createTokenAccountInstruction,
-  initializeImmutableOwnerInstruction,
-  initializeTokenAccountInstruction
-);
-
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [feePayer, mint, tokenAccount]
-);
+const immutableOwnerExtension = getImmutableOwner(tokenAccountData);
 
 console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "Token Account (Immutable Owner):",
-  tokenAccount.publicKey.toBase58()
-);
-console.log("Transaction Signature:", transactionSignature);
+console.log("Token Account:", tokenAccount.publicKey.toBase58());
+console.log("ImmutableOwner Extension:", immutableOwnerExtension);
+console.log("SetAuthority Failure:", failure);
 ```
 
 </CodeTabs>
@@ -580,7 +580,7 @@ console.log("Transaction Signature:", transactionSignature);
 <CodeTabs storage="token-rs" flags="r">
 
 ```rust !! title="Rust"
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
@@ -629,19 +629,19 @@ async fn main() -> Result<()> {
         .await?;
 
     let create_mint_account_instruction = create_account(
-        &fee_payer.pubkey(),    // payer
-        &mint.pubkey(),         // new account (mint)
-        mint_rent,              // lamports
-        mint_space as u64,      // space
-        &TOKEN_2022_PROGRAM_ID, // program id
+        &fee_payer.pubkey(),    // Account funding the new mint account.
+        &mint.pubkey(),         // New mint account to create.
+        mint_rent,              // Lamports funding the mint account rent.
+        mint_space as u64,      // Account size in bytes for the mint.
+        &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
     );
 
     let initialize_mint_instruction = initialize_mint(
-        &TOKEN_2022_PROGRAM_ID,    // program id
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        9,                         // decimals
+        &TOKEN_2022_PROGRAM_ID,    // Program that owns the mint account.
+        &mint.pubkey(),            // Mint account to initialize.
+        &fee_payer.pubkey(),       // Authority allowed to mint new tokens.
+        Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
+        0,                         // Number of decimals for the token.
     )?;
 
     let token_account = Keypair::new();
@@ -654,21 +654,21 @@ async fn main() -> Result<()> {
         .await?;
 
     let create_token_account_instruction = create_account(
-        &fee_payer.pubkey(),        // payer
-        &token_account.pubkey(),    // new account (token account)
-        token_account_rent,         // rent
-        token_account_space as u64, // space
-        &TOKEN_2022_PROGRAM_ID,     // program id
+        &fee_payer.pubkey(),        // Account funding the new token account.
+        &token_account.pubkey(),    // New token account to create.
+        token_account_rent,         // Lamports funding the token account rent.
+        token_account_space as u64, // Account size in bytes for the token account plus ImmutableOwner.
+        &TOKEN_2022_PROGRAM_ID,     // Program that owns the token account.
     );
 
     let initialize_token_account = initialize_account(
-        &TOKEN_2022_PROGRAM_ID,  // program_id
-        &token_account.pubkey(), // token account
-        &mint.pubkey(),          //  mint
-        &fee_payer.pubkey(),     // authority
+        &TOKEN_2022_PROGRAM_ID,  // Token program that owns the token account.
+        &token_account.pubkey(), // Token account to initialize.
+        &mint.pubkey(),          // Mint for the token account.
+        &fee_payer.pubkey(),     // Owner of the token account.
     )?;
 
-    // !mark(1:3)
+    // !mark(1:4)
     let init_immutable_owner_instruction =
         initialize_immutable_owner(
             &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
@@ -690,31 +690,18 @@ async fn main() -> Result<()> {
 
     client.send_and_confirm_transaction(&transaction).await?;
 
-    println!("Mint Address: {}", mint.pubkey());
-    println!(
-        "Token account with immutable owner enabled: {}",
-        token_account.pubkey()
-    );
-
     let token_account_data = client.get_account(&token_account.pubkey()).await?;
     let token_account_state = StateWithExtensions::<Account>::unpack(&token_account_data.data)?;
 
-    let extension_types = token_account_state.get_extension_types()?;
-    println!("\nExtensions enabled: {:?}", extension_types);
-
-    let immutable_owner = token_account_state.get_extension::<ImmutableOwner>()?;
-    println!("\n{:#?}", immutable_owner);
-
-    println!("\nAttempting to change owner of token account with immutable owner extension...");
-
     let new_owner = Keypair::new();
+    // !mark(1:8)
     let set_authority_instruction = set_authority(
-        &TOKEN_2022_PROGRAM_ID,
-        &token_account.pubkey(),
-        Some(&new_owner.pubkey()),
-        AuthorityType::AccountOwner,
-        &fee_payer.pubkey(),
-        &[],
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+        &token_account.pubkey(), // Token account whose authority is being updated.
+        Some(&new_owner.pubkey()), // New token account owner to set.
+        AuthorityType::AccountOwner, // Account authority field to change.
+        &fee_payer.pubkey(), // Current token account owner signing the instruction.
+        &[], // Additional multisig signers.
     )?;
 
     let set_authority_transaction = Transaction::new_signed_with_payer(
@@ -724,13 +711,20 @@ async fn main() -> Result<()> {
         client.get_latest_blockhash().await?,
     );
 
-    match client
+    let failure = match client
         .send_and_confirm_transaction(&set_authority_transaction)
         .await
     {
-        Ok(sig) => println!("Set authority succeeded unexpectedly: {}", sig),
-        Err(e) => println!("Set authority failed as expected:\n{:#?}", e),
-    }
+        Ok(sig) => return Err(anyhow!("Expected the owner change to fail: {}", sig)),
+        Err(e) => format!("{:#?}", e),
+    };
+
+    let immutable_owner_extension = token_account_state.get_extension::<ImmutableOwner>()?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Token Account: {}", token_account.pubkey());
+    println!("ImmutableOwner Extension: {:#?}", immutable_owner_extension);
+    println!("SetAuthority Failure: {}", failure);
 
     Ok(())
 }

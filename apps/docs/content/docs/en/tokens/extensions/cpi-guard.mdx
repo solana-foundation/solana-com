@@ -22,17 +22,30 @@ When CPI guard is enabled, the Token Extension Program rejects these
 instructions when another onchain program invokes them through CPI:
 
 - _rs`Transfer`_, _rs`TransferChecked`_, and _rs`TransferCheckedWithFee`_ when
-  the token account owner signs the instruction
-- _rs`Burn`_ and _rs`BurnChecked`_ when the token account owner signs the
-  instruction
+  the token account owner is used as the instruction authority
+- _rs`Burn`_ and _rs`BurnChecked`_ when the token account owner is used as the
+  instruction authority
 - _rs`Approve`_ and _rs`ApproveChecked`_
 - _rs`CloseAccount`_ when lamports would be sent somewhere other than the token
   account owner
 - _rs`SetAuthority`_ when adding or replacing the close authority
 
-Direct token program instructions sent in a transaction by the token account
-owner still work for the allowed cases. Changing the token account owner with
-_rs`SetAuthority`_ stays blocked while CPI guard is enabled.
+When CPI guard is enabled, these cases are still allowed:
+
+- _rs`Transfer`_, _rs`TransferChecked`_, _rs`TransferCheckedWithFee`_,
+  _rs`Burn`_, and _rs`BurnChecked`_ through CPI when a delegate or permanent
+  delegate signs instead of the token account owner
+- _rs`CloseAccount`_ through CPI when lamports are sent to the token account
+  owner
+- _rs`SetAuthority`_ to remove an existing close authority
+- _rs`Revoke`_
+
+When the token account owner is used as the instruction authority, Token
+Extension Program instructions can still be processed if the instruction is
+added directly to the transaction instead of being invoked through CPI. Changing
+the token account owner with _rs`SetAuthority`_ stays blocked while CPI guard is
+enabled, even outside CPI. _rs`EnableCpiGuard`_ and _rs`DisableCpiGuard`_ also
+cannot be invoked through CPI.
 
 ## How to Enable CPI Guard
 
@@ -196,6 +209,7 @@ await client.sendTransaction([
     decimals: 0,
     mintAuthority: client.payer.address,
     freezeAuthority: client.payer.address
+  })
 ]);
 
 const cpiGuardExtension = extension("CpiGuard", {
@@ -365,12 +379,12 @@ await client.sendTransaction([
 
 ### Source Reference
 
-| Item                               | Description                                                                                                  | Source                                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| _rs`CpiGuard`_                     | Account extension that stores whether CPI guard is currently enabled for the token account.                  | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/mod.rs#L20-L25)          |
-| _rs`CpiGuardInstruction::Enable`_  | Instruction that enables CPI guard on a token account.                                                       | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/instruction.rs#L19-L76)  |
-| _rs`CpiGuardInstruction::Disable`_ | Instruction that disables CPI guard on a token account.                                                      | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/instruction.rs#L19-L100) |
-| _rs`process_toggle_cpi_guard`_     | Processor logic that initializes or rewrites the _rs`CpiGuard`_ extension after verifying account ownership. | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/cpi_guard/processor.rs#L21-L54)      |
+| Item                               | Description                                                                                                                                                                                                              | Source                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| _rs`CpiGuard`_                     | Account extension that stores whether CPI guard is currently enabled for the token account.                                                                                                                              | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/mod.rs#L20-L25)         |
+| _rs`CpiGuardInstruction::Enable`_  | Instruction that enables CPI guard on a token account.                                                                                                                                                                   | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/instruction.rs#L20-L38) |
+| _rs`CpiGuardInstruction::Disable`_ | Instruction that disables CPI guard on a token account.                                                                                                                                                                  | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/cpi_guard/instruction.rs#L39-L53) |
+| _rs`process_toggle_cpi_guard`_     | Processor logic used by _rs`Enable`_ and _rs`Disable`_ that validates account ownership, rejects CPI changes to the guard itself, and initializes _rs`CpiGuard`_ if it is not already present before setting `lock_cpi`. | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/cpi_guard/processor.rs#L19-L52)     |
 
 ### Typescript
 
@@ -410,17 +424,17 @@ const mintRent = await client.rpc
 
 await client.sendTransaction([
   getCreateAccountInstruction({
-    payer: client.payer,
-    newAccount: mint,
-    lamports: mintRent,
-    space: mintSpace,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    payer: client.payer, // Account funding account creation.
+    newAccount: mint, // New mint account to create.
+    lamports: mintRent, // Lamports funding the mint account rent.
+    space: mintSpace, // Account size in bytes for the mint account.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the mint account.
   }),
   getInitializeMintInstruction({
-    mint: mint.address,
-    decimals: 0,
-    mintAuthority: client.payer.address,
-    freezeAuthority: client.payer.address
+    mint: mint.address, // Mint account to initialize.
+    decimals: 0, // Number of decimals for the token.
+    mintAuthority: client.payer.address, // Authority allowed to mint new tokens.
+    freezeAuthority: client.payer.address // Authority allowed to freeze token accounts.
   })
 ]);
 
@@ -434,46 +448,49 @@ const tokenRent = await client.rpc
 
 await client.sendTransaction([
   getCreateAccountInstruction({
-    payer: client.payer,
-    newAccount: tokenAccount,
-    lamports: tokenRent,
-    space: tokenSpace,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    payer: client.payer, // Account funding account creation.
+    newAccount: tokenAccount, // New token account to create.
+    lamports: tokenRent, // Lamports funding the token account rent.
+    space: tokenSpace, // Account size in bytes for the token account plus CpiGuard.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the token account.
   }),
   getInitializeAccountInstruction({
-    account: tokenAccount.address,
-    mint: mint.address,
-    owner: client.payer.address
-  }),
+    account: tokenAccount.address, // Token account to initialize.
+    mint: mint.address, // Mint for the token account.
+    owner: client.payer.address // Owner allowed to control the token account.
+  })
+]);
+
+await client.sendTransaction([
   // !mark(1:4)
   getEnableCpiGuardInstruction({
     token: tokenAccount.address, // Token account that stores the CpiGuard extension.
-    owner: client.payer // Token account owner authorized to toggle CPI guard.
+    owner: client.payer // Token account owner authorized to enable CPI guard.
   })
 ]);
 
 const enabledTokenAccount = await fetchToken(client.rpc, tokenAccount.address);
+const enabledCpiGuard = (
+  unwrapOption(enabledTokenAccount.data.extensions) ?? []
+).find((item) => isExtension("CpiGuard", item));
 
 await client.sendTransaction([
   // !mark(1:4)
   getDisableCpiGuardInstruction({
     token: tokenAccount.address, // Token account that stores the CpiGuard extension.
-    owner: client.payer // Token account owner authorized to toggle CPI guard.
+    owner: client.payer // Token account owner authorized to disable CPI guard.
   })
 ]);
 
 const disabledTokenAccount = await fetchToken(client.rpc, tokenAccount.address);
-const enabledExtension = (
-  unwrapOption(enabledTokenAccount.data.extensions) ?? []
-).find((item) => isExtension("CpiGuard", item));
-const disabledExtension = (
+const disabledCpiGuard = (
   unwrapOption(disabledTokenAccount.data.extensions) ?? []
 ).find((item) => isExtension("CpiGuard", item));
 
-console.log("Mint Address:", mint.address);
-console.log("Token Account:", tokenAccount.address);
-console.log("Enabled CPI Guard:", enabledExtension);
-console.log("Disabled CPI Guard:", disabledExtension);
+console.log("\nMint Address:", mint.address);
+console.log("\nToken Account:", tokenAccount.address);
+console.log("\nEnabled CPI Guard:", enabledCpiGuard);
+console.log("\nDisabled CPI Guard:", disabledCpiGuard);
 ```
 
 </CodeTabs>
@@ -486,29 +503,30 @@ console.log("Disabled CPI Guard:", disabledExtension);
 import {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
   SystemProgram,
-  Transaction,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  TransactionInstruction
+  Transaction
 } from "@solana/web3.js";
 import {
+  createDisableCpiGuardInstruction,
+  createEnableCpiGuardInstruction,
+  createInitializeAccountInstruction,
   createInitializeMintInstruction,
   ExtensionType,
-  getMintLen,
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   getAccountLen,
-  createInitializeAccountInstruction,
-  AccountState,
-  createEnableCpiGuardInstruction
+  getAccount,
+  getCpiGuard,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID
 } from "@solana/spl-token";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
 const feePayer = Keypair.generate();
+const mint = Keypair.generate();
+const tokenAccount = Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -520,84 +538,106 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const extensions = [ExtensionType.CpiGuard];
+const mintSpace = getMintLen([]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
 
-const mint = Keypair.generate();
-
-const mintLength = getMintLen([]);
-
-const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
-
-const createMintAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: mintLength,
-  lamports: mintRent,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  9, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-const tokenAccount = new Keypair();
-
-const tokenAccountLen = getAccountLen(extensions);
-
-const tokenAccountRent =
-  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
-
-const createTokenAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: tokenAccount.publicKey,
-  space: tokenAccountLen,
-  lamports: tokenAccountRent,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-// !mark(1:6)
-const enableCpiGuardInstruction = createEnableCpiGuardInstruction(
-  tokenAccount.publicKey, // Token account that stores the CpiGuard extension.
-  feePayer.publicKey, // Token account owner authorized to toggle CPI guard.
-  [], // Additional multisig signers.
-  TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
-);
-
-const initializeTokenAccountInstruction = createInitializeAccountInstruction(
-  tokenAccount.publicKey,
-  mint.publicKey,
-  feePayer.publicKey,
-  TOKEN_2022_PROGRAM_ID
-);
-
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createMintAccountInstruction,
-  initializeMintInstruction,
-  createTokenAccountInstruction,
-  initializeTokenAccountInstruction,
-  enableCpiGuardInstruction
-);
-
-const transactionSignature = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transaction,
-  [feePayer, mint, tokenAccount]
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space: mintSpace, // Account size in bytes for the mint account.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey, // Mint account to initialize.
+      0, // Number of decimals for the token.
+      feePayer.publicKey, // Authority allowed to mint new tokens.
+      feePayer.publicKey, // Authority allowed to freeze token accounts.
+      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    )
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
 );
 
-console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "Token account with CPI guard enabled:",
-  tokenAccount.publicKey.toBase58()
+const tokenAccountSpace = getAccountLen([ExtensionType.CpiGuard]);
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+      space: tokenAccountSpace, // Account size in bytes for the token account plus CpiGuard.
+      lamports: tokenAccountRent, // Lamports funding the token account rent.
+      programId: TOKEN_2022_PROGRAM_ID // Program that owns the token account.
+    }),
+    createInitializeAccountInstruction(
+      tokenAccount.publicKey, // Token account to initialize.
+      mint.publicKey, // Mint for the token account.
+      feePayer.publicKey, // Owner allowed to control the token account.
+      TOKEN_2022_PROGRAM_ID // Program that owns the token account.
+    )
+  ),
+  [feePayer, tokenAccount],
+  { commitment: "confirmed" }
 );
-console.log("Transaction Signature:", transactionSignature);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:6)
+    createEnableCpiGuardInstruction(
+      tokenAccount.publicKey, // Token account that stores the CpiGuard extension.
+      feePayer.publicKey, // Token account owner authorized to enable CPI guard.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
+    )
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const enabledTokenAccount = await getAccount(
+  connection,
+  tokenAccount.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const enabledCpiGuard = getCpiGuard(enabledTokenAccount);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:6)
+    createDisableCpiGuardInstruction(
+      tokenAccount.publicKey, // Token account that stores the CpiGuard extension.
+      feePayer.publicKey, // Token account owner authorized to disable CPI guard.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the token account.
+    )
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const disabledTokenAccount = await getAccount(
+  connection,
+  tokenAccount.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const disabledCpiGuard = getCpiGuard(disabledTokenAccount);
+
+console.log("\nMint Address:", mint.publicKey.toBase58());
+console.log("\nToken Account:", tokenAccount.publicKey.toBase58());
+console.log("\nEnabled CPI Guard:", enabledCpiGuard);
+console.log("\nDisabled CPI Guard:", disabledCpiGuard);
 ```
 
 </CodeTabs>
@@ -618,7 +658,10 @@ use solana_sdk::{
 use solana_system_interface::instruction::create_account;
 use spl_token_2022_interface::{
     extension::{
-        cpi_guard::{instruction::enable_cpi_guard, CpiGuard},
+        cpi_guard::{
+            instruction::{disable_cpi_guard, enable_cpi_guard},
+            CpiGuard,
+        },
         BaseStateWithExtensions, ExtensionType, StateWithExtensions,
     },
     instruction::{initialize_account, initialize_mint},
@@ -646,29 +689,37 @@ async fn main() -> Result<()> {
     }
 
     let mint = Keypair::new();
+    let token_account = Keypair::new();
 
     let mint_space = Mint::LEN;
     let mint_rent = client
         .get_minimum_balance_for_rent_exemption(mint_space)
         .await?;
 
-    let create_mint_account_instruction = create_account(
-        &fee_payer.pubkey(),    // payer
-        &mint.pubkey(),         // new account (mint)
-        mint_rent,              // lamports
-        mint_space as u64,      // space
-        &TOKEN_2022_PROGRAM_ID, // program id
+    let create_mint_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(), // Account funding account creation.
+                &mint.pubkey(), // New mint account to create.
+                mint_rent, // Lamports funding the mint account rent.
+                mint_space as u64, // Account size in bytes for the mint account.
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
+            ),
+            initialize_mint(
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
+                &mint.pubkey(), // Mint account to initialize.
+                &fee_payer.pubkey(), // Authority allowed to mint new tokens.
+                Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
+                0, // Number of decimals for the token.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        client.get_latest_blockhash().await?,
     );
-
-    let initialize_mint_instruction = initialize_mint(
-        &TOKEN_2022_PROGRAM_ID,    // program id
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        9,                         // decimals
-    )?;
-
-    let token_account = Keypair::new();
+    client
+        .send_and_confirm_transaction(&create_mint_transaction)
+        .await?;
 
     let token_account_space =
         ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::CpiGuard])?;
@@ -677,57 +728,80 @@ async fn main() -> Result<()> {
         .get_minimum_balance_for_rent_exemption(token_account_space)
         .await?;
 
-    let create_token_account_instruction = create_account(
-        &fee_payer.pubkey(),        // payer
-        &token_account.pubkey(),    // new account (token account)
-        token_account_rent,         // rent
-        token_account_space as u64, // space
-        &TOKEN_2022_PROGRAM_ID,     // program id
+    let create_token_account_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(), // Account funding account creation.
+                &token_account.pubkey(), // New token account to create.
+                token_account_rent, // Lamports funding the token account rent.
+                token_account_space as u64, // Account size in bytes for the token account plus CpiGuard.
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the token account.
+            ),
+            initialize_account(
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the token account.
+                &token_account.pubkey(), // Token account to initialize.
+                &mint.pubkey(), // Mint for the token account.
+                &fee_payer.pubkey(), // Owner allowed to control the token account.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &token_account],
+        client.get_latest_blockhash().await?,
     );
-
-    let initialize_token_account = initialize_account(
-        &TOKEN_2022_PROGRAM_ID,  // program_id
-        &token_account.pubkey(), // token account
-        &mint.pubkey(),          //  mint
-        &fee_payer.pubkey(),     // authority
-    )?;
+    client
+        .send_and_confirm_transaction(&create_token_account_transaction)
+        .await?;
 
     // !mark(1:6)
     let enable_cpi_guard_instruction = enable_cpi_guard(
         &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
         &token_account.pubkey(), // Token account that stores the CpiGuard extension.
-        &fee_payer.pubkey(), // Token account owner authorized to toggle CPI guard.
-        &[&fee_payer.pubkey()], // Additional multisig signers.
+        &fee_payer.pubkey(), // Token account owner authorized to enable CPI guard.
+        &[], // Additional multisig signers.
     )?;
 
-    let transaction = Transaction::new_signed_with_payer(
-        &[
-            create_mint_account_instruction,
-            initialize_mint_instruction,
-            create_token_account_instruction,
-            initialize_token_account,
-            enable_cpi_guard_instruction,
-        ],
+    let enable_transaction = Transaction::new_signed_with_payer(
+        &[enable_cpi_guard_instruction],
         Some(&fee_payer.pubkey()),
-        &[&fee_payer, &mint, &token_account],
+        &[&fee_payer],
         client.get_latest_blockhash().await?,
     );
+    client
+        .send_and_confirm_transaction(&enable_transaction)
+        .await?;
 
-    client.send_and_confirm_transaction(&transaction).await?;
+    let enabled_token_account_data = client.get_account(&token_account.pubkey()).await?;
+    let enabled_token_account_state =
+        StateWithExtensions::<Account>::unpack(&enabled_token_account_data.data)?;
+    let enabled_cpi_guard = enabled_token_account_state.get_extension::<CpiGuard>()?;
 
-    println!("Token Account Address: {}", token_account.pubkey());
+    // !mark(1:6)
+    let disable_cpi_guard_instruction = disable_cpi_guard(
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+        &token_account.pubkey(), // Token account that stores the CpiGuard extension.
+        &fee_payer.pubkey(), // Token account owner authorized to disable CPI guard.
+        &[], // Additional multisig signers.
+    )?;
 
-    let token_account_data = client.get_account(&token_account.pubkey()).await?;
-    let token_account_state = StateWithExtensions::<Account>::unpack(&token_account_data.data)?;
-
-    let token_extension_types = token_account_state.get_extension_types()?;
-    println!(
-        "\nToken Account extensions enabled: {:?}",
-        token_extension_types
+    let disable_transaction = Transaction::new_signed_with_payer(
+        &[disable_cpi_guard_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
     );
+    client
+        .send_and_confirm_transaction(&disable_transaction)
+        .await?;
 
-    let cpi_guard = token_account_state.get_extension::<CpiGuard>()?;
-    println!("\n{:#?}", cpi_guard);
+    let disabled_token_account_data = client.get_account(&token_account.pubkey()).await?;
+    let disabled_token_account_state =
+        StateWithExtensions::<Account>::unpack(&disabled_token_account_data.data)?;
+    let disabled_cpi_guard = disabled_token_account_state.get_extension::<CpiGuard>()?;
+
+    println!("\nMint Address: {}", mint.pubkey());
+    println!("\nToken Account: {}", token_account.pubkey());
+    println!("\nEnabled CPI Guard: {:#?}", enabled_cpi_guard);
+    println!("\nDisabled CPI Guard: {:#?}", disabled_cpi_guard);
 
     Ok(())
 }
