@@ -198,6 +198,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: INFRASTRUCTURE,
   },
   {
+    slug: "birdeye-skill",
+    title: "Birdeye Skill",
+    description:
+      "AI coding skill for Birdeye API covering real-time token prices, OHLCV charts, market discovery, wallet portfolio and P&L, trader intelligence, and live WebSocket streams.",
+    url: "https://github.com/sendaifun/skills/tree/ff8d226b5a99615d9bed24c549631ba791dec529/skills/birdeye",
+    category: INFRASTRUCTURE,
+  },
+  {
     slug: "debridge-skill",
     title: "deBridge Skill",
     description:
