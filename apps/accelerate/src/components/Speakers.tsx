@@ -60,7 +60,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
             alt={speaker.name}
             width={400}
             height={400}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-top"
           />
         </motion.div>
         {/* Gradient overlay on hover */}
