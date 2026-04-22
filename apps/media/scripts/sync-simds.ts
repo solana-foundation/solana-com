@@ -19,6 +19,7 @@ type GitHubDirectoryEntry = {
 };
 
 type ExistingUpgradeFile = {
+  description?: string;
   editorialNote?: string;
   featured?: boolean;
   heroImage?: string;
@@ -213,6 +214,7 @@ async function main() {
         summary: extractSummary(content),
         relatedSimds: extractRelatedSimds(content, simdNumber),
         sourceSha: entry.sha,
+        description: existing.description || undefined,
         editorialNote: existing.editorialNote || undefined,
         featured: Boolean(existing.featured),
         tags: existing.tags || [],

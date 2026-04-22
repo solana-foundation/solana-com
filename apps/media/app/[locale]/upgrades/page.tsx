@@ -17,5 +17,5 @@ export default async function UpgradesPage({
   await params;
   const features = await fetchFeatureCards();
 
-  return <UpgradesLanding features={features.length ? features : undefined} />;
+  return <UpgradesLanding features={features} />;
 }
