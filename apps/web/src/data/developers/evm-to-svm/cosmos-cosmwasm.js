@@ -132,7 +132,7 @@ export const GUIDE_SECTIONS = [
         <li>Transactions declare all accounts they will read or write. That declaration is what unlocks parallelism.</li>
       </ul>
       <h3>Program Derived Addresses</h3>
-      <p>PDAs are the cornerstone of Solana state management. They are off-curve addresses derived from seeds plus the program ID. They encode the lookup key in the address itself.</p>
+      <p>PDAs are the cornerstone of Solana state management. They are off-curve addresses derived from seeds plus the program ID and a bump seed. They encode the lookup key in the address itself.</p>
       <pre><code class="language-rust">#[derive(Accounts)]
 pub struct Increment&lt;'info&gt; {
     pub user: Signer&lt;'info&gt;,
@@ -161,7 +161,9 @@ let count = USER_COUNTERS.load(deps.storage, &amp;info.sender)?;</code></pre>
 cargo generate --git https://github.com/CosmWasm/cw-template
 cargo build --target wasm32-unknown-unknown --release</code></pre>
       <p>Key crates: <code>cosmwasm-std</code>, <code>cw-storage-plus</code>, <code>cw-multi-test</code>, and <code>thiserror</code>.</p>
-      <h3>Solana / Anchor toolchain</h3>
+      <h3>Solana toolchain options</h3>
+      <p>Most Solana Rust teams choose between <a href="https://github.com/solana-foundation/anchor" target="_blank" rel="noreferrer">Anchor</a> and <a href="https://github.com/anza-xyz/pinocchio" target="_blank" rel="noreferrer">Pinocchio</a>. Both target Solana's runtime, but they optimize for different tradeoffs.</p>
+      <h4>Anchor toolchain</h4>
       <pre><code class="language-bash">sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
 cargo install --git https://github.com/solana-foundation/anchor anchor-cli
 
@@ -169,16 +171,43 @@ anchor init my_program
 cd my_program
 anchor build
 anchor test</code></pre>
+      <p>Anchor is the higher-level framework. It adds account validation macros, IDL generation, client bindings, and a batteries-included test workflow. That makes it the default choice when you want fast iteration, better ergonomics, and a larger ecosystem of examples.</p>
       <p>Key crates: <code>solana-program</code>, <code>anchor-lang</code>, <code>anchor-spl</code>, and SPL program libraries such as <code>spl-token</code>.</p>
+      <h4>Pinocchio toolchain</h4>
+      <pre><code class="language-bash">cargo add pinocchio
+cargo build-sbf</code></pre>
+      <p>Pinocchio is a lower-level framework with a much thinner abstraction layer. It keeps you closer to native Solana program structure, which can be useful when you want tighter control over instruction dispatch, account handling, binary size, or compute behavior.</p>
+      <p>Use Anchor when you want framework support for account constraints, IDLs, and client generation. Use Pinocchio when you want a lighter abstraction and are comfortable owning more of the boilerplate and safety checks yourself.</p>
       <h3>Directory layout comparison</h3>
-      <pre><code class="language-bash"># CosmWasm                          # Anchor
+      <pre><code class="language-bash"># CosmWasm                          # Anchor or Pinocchio
 src/                                programs/my_program/src/
   contract.rs                         lib.rs
-  msg.rs                              state.rs
-  state.rs                            error.rs
-  error.rs                          tests/
-tests/                                integration.ts</code></pre>
-      <p>One important workflow difference: Anchor integration tests are often written in TypeScript using the generated IDL client, even when the on-chain code is Rust.</p>
+  msg.rs                              instructions/
+  state.rs                              initialize.rs
+  error.rs                              update_position.rs
+tests/                                  settle.rs
+                                      state.rs
+                                      error.rs
+                                    tests/
+                                      initialize.rs
+                                      settle.rs</code></pre>
+      <h3>Tests</h3>
+      <h4>LiteSVM</h4>
+      <p>For Rust-first Solana testing, <a href="https://www.litesvm.com/" target="_blank" rel="noreferrer">LiteSVM</a> is a strong default. It runs an in-process SVM inside your test binary, so feedback loops are usually faster and simpler than spinning up an external validator.</p>
+      <pre><code class="language-bash">cargo add --dev litesvm
+cargo add --dev litesvm-utils
+cargo add --dev litesvm-token
+cargo add --dev anchor-litesvm</code></pre>
+      <ul>
+        <li><code>litesvm</code>: the core in-process VM for fast Rust tests.</li>
+        <li><code>litesvm-utils</code>: framework-agnostic helpers for account setup, assertions, and common test ergonomics.</li>
+        <li><code>litesvm-token</code>: SPL token testing helpers for mints, token accounts, and transfers.</li>
+        <li><code>anchor-litesvm</code>: Anchor-specific wrappers and helpers when you want a more ergonomic Anchor testing flow on top of LiteSVM.</li>
+      </ul>
+      <p>Start with <code>litesvm</code>. Add <code>litesvm-utils</code> when you want less boilerplate, <code>litesvm-token</code> when your program touches SPL assets, and <code>anchor-litesvm</code> when you are testing Anchor programs specifically.</p>
+      <h4>Surfpool</h4>
+      <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is a local Solana development environment and drop-in replacement for <code>solana-test-validator</code>. It is useful when you want RPC-compatible local workflows, mainnet account access on demand, or a validator-like environment around your program tests and debugging.</p>
+      <p>For setup and deeper tooling details, see the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>. If you want the lighter in-process testing path, start with <a href="https://www.litesvm.com/" target="_blank" rel="noreferrer">LiteSVM</a> instead.</p>
     `,
   },
   {
@@ -211,18 +240,27 @@ pub fn query(
     env: Env,
     msg: QueryMsg,
 ) -&gt; StdResult&lt;Binary&gt; { ... }</code></pre>
-      <h3>Native Solana dispatcher</h3>
-      <pre><code class="language-rust">pub fn process_instruction(
+      <h3>Pinocchio dispatcher</h3>
+      <pre><code class="language-rust">use pinocchio::{
+    account_info::AccountInfo,
+    program_entrypoint,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    ProgramResult,
+};
+
+program_entrypoint!(process_instruction);
+
+fn process_instruction(
     program_id: &amp;Pubkey,
     accounts: &amp;[AccountInfo],
     instruction_data: &amp;[u8],
 ) -&gt; ProgramResult {
-    let instruction = CounterInstruction::try_from_slice(instruction_data)?;
-
-    match instruction {
-        CounterInstruction::Initialize =&gt; process_initialize(program_id, accounts),
-        CounterInstruction::Increment =&gt; process_increment(program_id, accounts),
-        CounterInstruction::Reset { value } =&gt; process_reset(program_id, accounts, value),
+    match instruction_data.first() {
+        Some(0) =&gt; instructions::initialize::process(program_id, accounts, instruction_data),
+        Some(1) =&gt; instructions::increment::process(program_id, accounts, instruction_data),
+        Some(2) =&gt; instructions::reset::process(program_id, accounts, instruction_data),
+        _ =&gt; Err(ProgramError::InvalidInstructionData),
     }
 }</code></pre>
       <h3>Anchor handler model</h3>
@@ -261,6 +299,7 @@ pub const CONFIG: Item&lt;Config&gt; = Item::new("config");
 pub const BALANCES: Map&lt;&amp;Addr, Uint128&gt; = Map::new("balances");
 pub const ALLOWANCES: Map&lt;(&amp;Addr, &amp;Addr), Uint128&gt; = Map::new("allowances");</code></pre>
       <h3>Solana account model</h3>
+      <h4>Anchor example</h4>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct UserBalance {
@@ -280,6 +319,39 @@ pub struct TransferTokens&lt;'info&gt; {
     )]
     pub sender_balance: Account&lt;'info, UserBalance&gt;,
 }</code></pre>
+      <h4>Pinocchio example</h4>
+      <pre><code class="language-rust">#[repr(C)]
+pub struct UserBalance {
+    pub owner: Pubkey,
+    pub amount: u64,
+    pub bump: u8,
+}
+
+pub fn process_transfer(
+    program_id: &amp;Pubkey,
+    accounts: &amp;[AccountInfo],
+    _instruction_data: &amp;[u8],
+) -&gt; ProgramResult {
+    let [sender, sender_balance, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let (expected_balance, _bump) =
+        Pubkey::find_program_address(&amp;[b"balance", sender.key().as_ref()], program_id);
+
+    if sender_balance.key() != &amp;expected_balance {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let balance_data = sender_balance.try_borrow_data()?;
+    let sender_balance_state = UserBalance::try_from_bytes(&amp;balance_data)?;
+
+    if sender_balance_state.owner != *sender.key() {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    Ok(())
+}</code></pre>
       <h3>Rent and space allocation</h3>
       <p>Solana storage is not abstracted away. Accounts must carry enough lamports to remain rent-exempt, and you must allocate enough space up front for the data layout you intend to store.</p>
       <pre><code class="language-rust">#[account(
@@ -288,7 +360,7 @@ pub struct TransferTokens&lt;'info&gt; {
     space = 8 + UserBalance::INIT_SPACE,
 )]
 pub user_balance: Account&lt;'info, UserBalance&gt;</code></pre>
-      <p>The leading 8 bytes are the Anchor discriminator. Variable-length fields such as strings and vectors require explicit sizing discipline.</p>
+      <p>In Anchor, the leading 8 bytes are the account discriminator. In Pinocchio or other lower-level frameworks, you define and validate the binary layout yourself. Variable-length fields such as strings and vectors require explicit sizing discipline either way.</p>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct Metadata {
@@ -317,7 +389,8 @@ let transfer_msg = Cw20ExecuteMsg::TransferFrom {
     recipient: env.contract.address.to_string(),
     amount,
 };</code></pre>
-      <h3>Solana native lamports and SPL tokens</h3>
+      <h3>Solana lamports and SPL tokens</h3>
+      <h4>Anchor examples</h4>
       <pre><code class="language-rust">system_program::transfer(
     CpiContext::new(
         ctx.accounts.system_program.to_account_info(),
@@ -350,6 +423,59 @@ let transfer_msg = Cw20ExecuteMsg::TransferFrom {
         &amp;[&amp;[b"vault_authority", &amp;[ctx.bumps.vault_authority]]],
     ),
     amount,
+)?;</code></pre>
+      <h4>Pinocchio examples</h4>
+      <pre><code class="language-rust">let transfer_ix = system_instruction::transfer(
+    sender.key(),
+    recipient.key(),
+    lamport_amount,
+);
+
+invoke(
+    &amp;transfer_ix,
+    &amp;[
+        sender.clone(),
+        recipient.clone(),
+        system_program.clone(),
+    ],
+)?;</code></pre>
+      <pre><code class="language-rust">let transfer_ix = spl_token::instruction::transfer(
+    token_program.key(),
+    sender_token_account.key(),
+    recipient_token_account.key(),
+    sender.key(),
+    &amp;[],
+    amount,
+)?;
+
+invoke(
+    &amp;transfer_ix,
+    &amp;[
+        sender_token_account.clone(),
+        recipient_token_account.clone(),
+        sender.clone(),
+        token_program.clone(),
+    ],
+)?;</code></pre>
+      <pre><code class="language-rust">let signer_seeds: [&amp;[u8]; 2] = [b"vault_authority", &amp;[vault_bump]];
+let transfer_ix = spl_token::instruction::transfer(
+    token_program.key(),
+    vault.key(),
+    user_token_account.key(),
+    vault_authority.key(),
+    &amp;[],
+    amount,
+)?;
+
+invoke_signed(
+    &amp;transfer_ix,
+    &amp;[
+        vault.clone(),
+        user_token_account.clone(),
+        vault_authority.clone(),
+        token_program.clone(),
+    ],
+    &amp;[&amp;signer_seeds],
 )?;</code></pre>
       <div class="tw-overflow-x-auto">
         <table>
@@ -495,21 +621,23 @@ require!(
       <pre><code class="language-rust">let mut app = App::default();
 let code = ContractWrapper::new(execute, instantiate, query);
 let code_id = app.store_code(Box::new(code));</code></pre>
-      <h3>Anchor integration tests</h3>
-      <pre><code class="language-typescript">const [counterPda] = anchor.web3.PublicKey.findProgramAddressSync(
-  [Buffer.from("counter"), provider.wallet.publicKey.toBuffer()],
-  program.programId
-);
-
-await program.methods
-  .initialize(new anchor.BN(0))
-  .accounts({ counter: counterPda })
-  .rpc();
-
-const counter = await program.account.counter.fetch(counterPda);</code></pre>
-      <h3>Fast Rust-side execution with LiteSVM</h3>
+      <h3>LiteSVM</h3>
+      <pre><code class="language-bash">cargo add --dev litesvm
+cargo add --dev litesvm-utils
+cargo add --dev litesvm-token
+cargo add --dev anchor-litesvm</code></pre>
       <pre><code class="language-rust">let mut svm = LiteSVM::new();
 svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
+      <p><a href="https://www.litesvm.com/" target="_blank" rel="noreferrer">LiteSVM</a> is a strong default for Rust-first Solana tests. It keeps execution in process, which makes it fast for instruction-level testing, PDA flows, account setup, and failure-path coverage.</p>
+      <ul>
+        <li><code>litesvm</code>: the core in-process VM.</li>
+        <li><code>litesvm-utils</code>: general helpers for setup, assertions, and repetitive test plumbing.</li>
+        <li><code>litesvm-token</code>: helpers for SPL token mint, account, and transfer scenarios.</li>
+        <li><code>anchor-litesvm</code>: Anchor-aware helpers when your program and accounts use Anchor types and patterns.</li>
+      </ul>
+      <h3>Surfpool</h3>
+      <pre><code class="language-bash">surfpool start</code></pre>
+      <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is useful when you want a validator-like local environment with RPC workflows, debugger-style inspection, and on-demand access to cluster state. See also the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>.</p>
       <p>Port your old contract tests conceptually, then add Solana-specific cases for signer spoofing, account substitution, stale reads after CPI, rent-funded account creation, and account closure behavior.</p>
     `,
   },
@@ -524,11 +652,18 @@ svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
 cargo build --target wasm32-unknown-unknown --release
 wasmd tx wasm store counter_opt.wasm --from wallet
 wasmd tx wasm instantiate CODE_ID '{"count":0}' --from wallet</code></pre>
-      <pre><code class="language-bash"># Solana / Anchor
+      <pre><code class="language-bash"># Solana / Anchor programs
 anchor build
 anchor deploy
 
 solana program show PROGRAM_ID
+solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
+      <pre><code class="language-bash"># Solana / Pinocchio programs with the Solana CLI
+cargo build-sbf
+solana program deploy ./target/deploy/my_program.so
+
+solana program show PROGRAM_ID
+solana program deploy --program-id PROGRAM_ID ./target/deploy/my_program.so
 solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
       <div class="tw-overflow-x-auto">
         <table>
@@ -759,13 +894,13 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Official Migration Guide",
+      heading: "Solana Docs",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        label: "Read the guide",
-        url: "https://solana.com/developers/guides/getstarted/cosmwasm-to-solana",
+        label: "Open Solana Docs",
+        url: "https://solana.com/docs",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
