@@ -9,7 +9,7 @@ const CARDS = [
   {
     heading: "Port CosmWasm contracts",
     body: "Translate storage, entrypoints, authorization, queries, and testing into Solana's account-based program model.",
-    cta: "Explore the contract guide",
+    cta: "Explore the smart contract guide",
     url: "/developers/migrate-to-solana/cosmos/cosmwasm",
     tag: "CosmWasm",
   },
