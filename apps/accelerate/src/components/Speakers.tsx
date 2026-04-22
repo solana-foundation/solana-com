@@ -4,13 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import speakersData from "../data/speakers.json";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
 import type { Speaker } from "@/types/speakers";
 
 type SpeakersProps = {
-  speakers?: Speaker[];
+  speakers: Speaker[];
   speakerOrder?: string[] | null;
 };
 
@@ -33,8 +32,19 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
+// Per-speaker crop overrides for the headshot image. Defaults to
+// "object-cover object-top" when a slug isn't listed. Use "object-contain"
+// to disable clipping entirely, or an object-position class (e.g.
+// "object-cover object-[center_20%]") to nudge the crop frame.
+const SPEAKER_IMAGE_CLASS_OVERRIDES: Record<string, string> = {
+  "kim-hochfeld-state-street-investment-management": "object-contain",
+  "jacquelyn-melinek-token-relations": "object-contain",
+};
+
 function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
   const [isHovered, setIsHovered] = useState(false);
+  const imageClass =
+    SPEAKER_IMAGE_CLASS_OVERRIDES[speaker.slug] ?? "object-cover object-top";
 
   return (
     <motion.div
@@ -61,7 +71,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
             alt={speaker.name}
             width={400}
             height={400}
-            className="h-full w-full object-cover"
+            className={`h-full w-full ${imageClass}`}
           />
         </motion.div>
         {/* Gradient overlay on hover */}
@@ -123,7 +133,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
 }
 
 export function Speakers({
-  speakers = speakersData.speakers as Speaker[],
+  speakers,
   speakerOrder = SPEAKER_ORDER,
 }: SpeakersProps) {
   return (
