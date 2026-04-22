@@ -3,7 +3,63 @@
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
-const EVENT_START = new Date("2026-11-15T00:00:00Z").getTime();
+const LONDON_TIME_ZONE = "Europe/London";
+
+type LondonDateTime = {
+  year: number;
+  month: number;
+  day: number;
+  hour?: number;
+  minute?: number;
+  second?: number;
+};
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  }).formatToParts(date);
+
+  const offsetValue = parts.find((part) => part.type === "timeZoneName")?.value;
+
+  if (!offsetValue || offsetValue === "GMT") {
+    return 0;
+  }
+
+  const match = offsetValue.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+
+  if (!match) {
+    throw new Error(`Unsupported timezone offset format: ${offsetValue}`);
+  }
+
+  const [, sign, hours, minutes = "00"] = match;
+  const totalMinutes = Number(hours) * 60 + Number(minutes);
+  const direction = sign === "+" ? 1 : -1;
+
+  return direction * totalMinutes * 60 * 1000;
+}
+
+function getZonedDateTimeMs({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  second = 0,
+}: LondonDateTime): number {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+  const offsetMs = getTimeZoneOffsetMs(new Date(utcGuess), LONDON_TIME_ZONE);
+  return utcGuess - offsetMs;
+}
+
+// Breakpoint starts on November 15 in London. Until a precise venue start time
+// is provided, count down to midnight London time at the start of that day.
+const EVENT_START = getZonedDateTimeMs({
+  year: 2026,
+  month: 11,
+  day: 15,
+});
 
 const SOCIAL_LINKS: { name: string; href: string; icon: string }[] = [
   {
@@ -107,10 +163,10 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
 function CounterCell({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[8px] text-center uppercase text-neutral-900">
-      <p className="w-full font-bp26 text-[28px] font-normal leading-[1.18] tracking-[0.04em] md:text-[64px]">
+      <p className="w-full font-bp26 text-[28px] font-normal leading-[1.1875] tracking-[0.04em] md:text-[64px]">
         {value}
       </p>
-      <p className="w-full font-mono text-[11px] font-bold leading-[0.9] tracking-[0.08em] md:text-[14px]">
+      <p className="w-full font-mono text-[11px] font-bold leading-[9.9px] tracking-[0.08em] md:text-[14px] md:leading-[10px]">
         {label}
       </p>
     </div>
