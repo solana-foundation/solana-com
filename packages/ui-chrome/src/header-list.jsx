@@ -15,7 +15,6 @@ import { isNavSectionActive } from "./nav-active";
 const HeaderList = () => {
   const t = useTranslations();
   const { asPath } = useRouter();
-
   return (
     <NavigationMenu viewport={false} className="flex-1">
       <NavigationMenuList className="flex-wrap gap-2 xl:items-center pl-0">

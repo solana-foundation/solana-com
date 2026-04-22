@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ReportItem } from "@/lib/report-types";
 import { cn } from "@/lib/utils";
 
@@ -14,57 +14,61 @@ export function ReportCard({ report, index = 0 }: ReportCardProps) {
     <Link
       href={report.url}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[rgba(236,228,253,0.12)] bg-[#0D0C11] transition-all duration-300 hover:border-[rgba(236,228,253,0.32)]",
+        "group relative flex h-full flex-col rounded-xl bg-white/10 backdrop-blur-sm p-4 md:p-6 transition-all duration-300 hover:bg-white/15",
       )}
       style={{
         animationDelay: `${index * 0.06}s`,
       }}
     >
       {report.heroImage && (
-        <div className="relative aspect-[16/10] w-full overflow-hidden">
+        <div className="relative mx-auto mb-6 md:mb-8 aspect-[1062/1500] w-full max-w-[200px] overflow-hidden rounded-md transition-transform duration-500 group-hover:-translate-y-1">
           <Image
             src={report.heroImage}
             alt={report.headline || report.title}
             fill
-            sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
-            className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+            sizes="(min-width: 1280px) 200px, (min-width: 768px) 200px, 200px"
+            className="object-cover"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0D0C11] via-transparent to-transparent opacity-60" />
         </div>
       )}
 
-      <div className="flex flex-1 flex-col gap-4 p-5 xl:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {report.published && (
-            <span className="text-[11px] uppercase tracking-[0.2em] text-[#ABABBA]">
-              {report.published}
-            </span>
-          )}
-          {report.categories.map((category) => (
-            <span
-              key={`${report.id}-${category}`}
-              className="rounded-full border border-[rgba(236,228,253,0.12)] px-2.5 py-0.5 text-[11px] capitalize text-[#CA9FF5]"
-            >
-              {category}
-            </span>
-          ))}
-        </div>
+      <div className="flex flex-1 flex-col gap-3">
+        {(report.published || report.categories.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {report.published && (
+              <span className="text-[13px] font-medium tracking-[-0.13px] text-white opacity-[0.64]">
+                {report.published}
+              </span>
+            )}
+            {report.categories.map((category) => (
+              <span
+                key={`${report.id}-${category}`}
+                className="rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] capitalize tracking-[-0.11px] text-white/80"
+              >
+                {category}
+              </span>
+            ))}
+          </div>
+        )}
 
-        <div className="flex flex-1 flex-col gap-3">
-          <h3 className="text-xl font-medium leading-tight tracking-[-0.01em] text-white xl:text-2xl">
-            {report.headline || report.title}
-          </h3>
-          {report.description && (
-            <p className="line-clamp-3 text-sm leading-relaxed text-[#ABABBA]">
-              {report.description}
-            </p>
-          )}
-        </div>
+        <h3 className="m-0 font-medium text-xl md:text-2xl leading-[1.25] tracking-[-0.6px] md:tracking-[-0.72px] text-white">
+          {report.headline || report.title}
+        </h3>
 
-        <span className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-white/80 transition-colors group-hover:text-white">
+        {report.description && (
+          <p className="m-0 line-clamp-3 text-base leading-[1.44] tracking-[-0.16px] text-white opacity-[0.64]">
+            {report.description}
+          </p>
+        )}
+
+        <div className="mt-auto flex items-center gap-1.5 pt-4 text-base font-medium tracking-[-0.16px] text-white transition-opacity duration-300 opacity-70 group-hover:opacity-100">
           View Report
-          <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-        </span>
+          <ChevronRight
+            aria-hidden
+            className="size-4 transition-transform duration-300 group-hover:translate-x-0.5"
+            strokeWidth={2}
+          />
+        </div>
       </div>
     </Link>
   );
