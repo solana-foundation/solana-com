@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import CarouselControls from "@/components/CarouselControls";
+import ImageTreatment from "@/components/ImageTreatment";
 
 const AUTO_ADVANCE_MS = 7000;
 const GLITCH_MS = 600;
@@ -136,13 +137,17 @@ export default function HighlightsSection() {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <img
+          <ImageTreatment
             src="/img/gallery/photo-6.jpg"
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover grayscale"
+            glitchPattern="p1"
+            intensity={20}
+            color="purple"
+            lighting="even"
+            motion
+            className="absolute inset-0 h-full w-full"
           />
-          <div className="absolute inset-0 bg-[#aa67fb] mix-blend-multiply" />
 
           <div className="absolute inset-4 md:inset-[14%_8%_14%_14%]">
             <div
