@@ -110,4 +110,5 @@ export const LATEST_NEWS_QUERY = {
     "/news/solana-network-upgrades",
   ],
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
+  fallbackImageAspectRatio: "1200 / 630",
 };

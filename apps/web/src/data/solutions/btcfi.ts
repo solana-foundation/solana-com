@@ -135,6 +135,7 @@ export const LATEST_NEWS_QUERY: SolutionNewsQuery = {
   includePosts: false,
   includeLinks: true,
   fallbackImage: "/src/img/solutions/btcfi/og-image.webp",
+  fallbackImageAspectRatio: "1200 / 630",
   fallbackImagesByUrl: {
     "https://x.com/wallet/status/1936000835068346392":
       "/src/img/solutions/btcfi/news/news1.webp",
@@ -150,6 +151,15 @@ export const LATEST_NEWS_QUERY: SolutionNewsQuery = {
       "/src/img/solutions/btcfi/news/news6.webp",
     "https://x.com/Lombard_Finance/status/1961067315958788176":
       "/src/img/solutions/btcfi/news/news7.webp",
+  },
+  fallbackImageAspectRatioByUrl: {
+    "https://x.com/wallet/status/1936000835068346392": "1200 / 675",
+    "https://x.com/solana/status/1919416059695603920": "1200 / 628",
+    "https://x.com/solana/status/1854573991442194754": "354 / 201",
+    "https://x.com/KaminoFinance/status/1950939721049272786": "354 / 201",
+    "https://x.com/ZeusNetworkHQ/status/1947315859917255112": "354 / 201",
+    "https://x.com/yalaorg/status/1929192719408071081": "354 / 201",
+    "https://x.com/Lombard_Finance/status/1961067315958788176": "1080 / 1080",
   },
   fallbackImageFitByUrl: {
     "https://x.com/Lombard_Finance/status/1961067315958788176": "contain",

@@ -171,6 +171,7 @@ export const LATEST_NEWS_QUERY = {
   tags: ["depin"],
   limit: 4,
   fallbackImage: "/src/img/solutions/depin/og-image.webp",
+  fallbackImageAspectRatio: "1200 / 630",
   fallbackImagesByUrl: {
     "https://www.coindesk.com/tech/2025/07/08/volkswagen-admt-taps-solana-based-hivemapper-bee-maps-for-driverless-data":
       "/src/img/solutions/depin/news/vw.webp",
@@ -180,5 +181,14 @@ export const LATEST_NEWS_QUERY = {
       "/src/img/solutions/depin/news/helium.webp",
     "https://x.com/geodnet_/status/1913329186317779239":
       "/src/img/solutions/depin/news/mike-horton.webp",
+  },
+  fallbackImageAspectRatioByUrl: {
+    "https://www.coindesk.com/tech/2025/07/08/volkswagen-admt-taps-solana-based-hivemapper-bee-maps-for-driverless-data":
+      "1024 / 576",
+    "https://www.coindesk.com/tech/2025/05/06/solanas-natix-and-grab-team-up-to-expand-depin-mapping-into-us-europe":
+      "1920 / 1080",
+    "https://www.theblock.co/post/351856/att-subscribers-will-now-automatically-connect-to-nearby-helium-hotspots-through-new-commercial-agreement":
+      "1200 / 675",
+    "https://x.com/geodnet_/status/1913329186317779239": "1098 / 602",
   },
 };

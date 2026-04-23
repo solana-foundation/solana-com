@@ -155,4 +155,5 @@ export const LATEST_NEWS_QUERY = {
   limit: 4,
   excludeUrls: ["/news/solana-developer-platform"],
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
+  fallbackImageAspectRatio: "1200 / 630",
 };

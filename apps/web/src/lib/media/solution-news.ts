@@ -12,7 +12,9 @@ export type SolutionNewsQuery = {
   includePosts?: boolean;
   includeLinks?: boolean;
   fallbackImage?: string;
+  fallbackImageAspectRatio?: string;
   fallbackImagesByUrl?: Record<string, string>;
+  fallbackImageAspectRatioByUrl?: Record<string, string>;
   fallbackImageFitByUrl?: Record<string, "cover" | "contain">;
 };
 
@@ -86,8 +88,9 @@ const toLinkNewsItem = (
   link: LinkItem,
   query: SolutionNewsQuery,
 ): NewsItem | null => {
+  const fallbackImageByUrl = query.fallbackImagesByUrl?.[link.url];
   const image =
-    query.fallbackImagesByUrl?.[link.url] ||
+    fallbackImageByUrl ||
     (link.thumbnailImage ? getMediaImageProxyUrl(link.thumbnailImage) : null) ||
     query.fallbackImage;
 
@@ -101,6 +104,11 @@ const toLinkNewsItem = (
     date: link.date || undefined,
     image,
     link: link.url,
+    imageAspectRatio:
+      query.fallbackImageAspectRatioByUrl?.[link.url] ||
+      (fallbackImageByUrl || !link.thumbnailImage
+        ? query.fallbackImageAspectRatio
+        : undefined),
     imageFit: query.fallbackImageFitByUrl?.[link.url],
   };
 };

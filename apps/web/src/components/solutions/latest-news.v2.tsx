@@ -12,6 +12,7 @@ export type NewsItem = {
   link: string;
   large?: boolean;
   imageFit?: "cover" | "contain";
+  imageAspectRatio?: string;
 };
 
 export type LatestNewsProps = {
@@ -46,6 +47,8 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
   }
 
   const isOneItem = items.length === 1;
+  const getImageAspectRatio = (item: NewsItem) =>
+    item.imageAspectRatio ?? "16 / 9";
 
   return (
     <section className="relative bg-black text-white text-left font-brand">
@@ -63,7 +66,10 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
               rel="noopener noreferrer"
               className="block text-inherit group"
             >
-              <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
+              <div
+                className="relative w-full rounded-xl overflow-hidden cursor-pointer group"
+                style={{ aspectRatio: getImageAspectRatio(items[0]) }}
+              >
                 <Image
                   src={items[0].image}
                   alt={items[0].title}
@@ -105,7 +111,10 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                   rel="noopener noreferrer"
                   className="flex gap-4 group text-inherit max-xl:py-4 xl:py-6"
                 >
-                  <div className="w-24 xl:w-44 aspect-video rounded-lg overflow-hidden flex-shrink-0 relative">
+                  <div
+                    className="w-24 xl:w-44 rounded-lg flex-shrink-0 relative overflow-hidden"
+                    style={{ aspectRatio: getImageAspectRatio(item) }}
+                  >
                     <Image
                       src={item.image}
                       alt={item.title}
