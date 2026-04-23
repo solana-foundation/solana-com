@@ -14,32 +14,9 @@ type LondonDateTime = {
   second?: number;
 };
 
-function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-  }).formatToParts(date);
-
-  const offsetValue = parts.find((part) => part.type === "timeZoneName")?.value;
-
-  if (!offsetValue || offsetValue === "GMT") {
-    return 0;
-  }
-
-  const match = offsetValue.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
-
-  if (!match) {
-    throw new Error(`Unsupported timezone offset format: ${offsetValue}`);
-  }
-
-  const [, sign, hours, minutes = "00"] = match;
-  const totalMinutes = Number(hours) * 60 + Number(minutes);
-  const direction = sign === "+" ? 1 : -1;
-
-  return direction * totalMinutes * 60 * 1000;
-}
-
+// Returns the UTC ms for a given wall-clock time in the target zone.
+// Works across DST by measuring how the naive UTC guess is rendered in
+// the target zone, then correcting by the observed delta.
 function getZonedDateTimeMs({
   year,
   month,
@@ -49,18 +26,49 @@ function getZonedDateTimeMs({
   second = 0,
 }: LondonDateTime): number {
   const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
-  const offsetMs = getTimeZoneOffsetMs(new Date(utcGuess), LONDON_TIME_ZONE);
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: LONDON_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(utcGuess));
+
+  const lookup: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") lookup[part.type] = part.value;
+  }
+
+  // `hour` can come back as "24" at midnight in some ICU versions.
+  const zonedHour = Number(lookup.hour) % 24;
+
+  const asIfUtc = Date.UTC(
+    Number(lookup.year),
+    Number(lookup.month) - 1,
+    Number(lookup.day),
+    zonedHour,
+    Number(lookup.minute),
+    Number(lookup.second),
+  );
+
+  const offsetMs = asIfUtc - utcGuess;
   return utcGuess - offsetMs;
 }
 
 // Breakpoint starts on November 15 in London. Until a precise venue start time
 // is provided, count down to midnight London time at the start of that day.
+// Breakpoint doors open at 10:00 London time on November 15, 2026.
 const EVENT_START = getZonedDateTimeMs({
   year: 2026,
   month: 11,
   day: 15,
+  hour: 9,
+  minute: 30,
 });
-
 const SOCIAL_LINKS: { name: string; href: string; icon: string }[] = [
   {
     name: "YouTube",

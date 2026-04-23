@@ -25,16 +25,22 @@ export default function TicketsSection() {
             variant="ticket"
             heading={t("tickets.categories.general.label")}
             price={t("tickets.categories.general.price")}
+            ctaLabel={t("tickets.categories.general.ctaLabel")}
+            href={t("tickets.categories.general.href")}
           />
           <Card
             variant="ticket"
             heading={t("tickets.categories.developers.label")}
             price={t("tickets.categories.developers.price")}
+            ctaLabel={t("tickets.categories.developers.ctaLabel")}
+            href={t("tickets.categories.developers.href")}
           />
           <Card
             variant="ticket"
             heading={t("tickets.categories.students.label")}
             price={t("tickets.categories.students.price")}
+            ctaLabel={t("tickets.categories.students.ctaLabel")}
+            href={t("tickets.categories.students.href")}
           />
         </div>
 
@@ -48,8 +54,17 @@ export default function TicketsSection() {
             </p>
           </div>
           <div className="flex flex-wrap gap-4">
-            <Button label="Become a Sponsor" variant="primary" arrow />
-            <Button label="Apply to Speak" variant="secondary" arrow />
+            <Button
+              label={t("participate.actions.sponsor.label")}
+              variant="primary"
+              arrow
+              href={t("participate.actions.sponsor.href")}
+            />
+            <Button
+              label={t("participate.actions.speaker.label")}
+              variant="secondary"
+              arrow
+            />
           </div>
         </div>
       </div>

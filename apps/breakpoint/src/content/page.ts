@@ -29,6 +29,8 @@ export type BreakpointMessages = {
         label: string;
         description: string;
         price: string;
+        ctaLabel?: string;
+        href?: string;
       }
     >;
     cta: string;
@@ -36,6 +38,13 @@ export type BreakpointMessages = {
   participate: {
     eyebrow: string;
     headline: string;
+    actions: Record<
+      string,
+      {
+        label: string;
+        href?: string;
+      }
+    >;
   };
   gallery: {
     eyebrow: string;
@@ -69,6 +78,7 @@ export type BreakpointMessages = {
       {
         eyebrow: string;
         title: string;
+        href?: string;
       }
     >;
   };
@@ -79,6 +89,7 @@ export type BreakpointMessages = {
       {
         question: string;
         answer: string;
+        answerHref?: string;
       }
     >;
   };

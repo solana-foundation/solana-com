@@ -10,17 +10,28 @@ export default function FAQSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="border-t border-neutral-700 px-5 py-[120px] md:px-8">
-      <div className="grid gap-10 md:grid-cols-[1fr_676px] md:items-start md:justify-between">
-        <h2 className="font-sans text-[2rem] leading-[1.05] tracking-[-0.04em] text-white md:text-[3rem]">
+    <section className="border-t border-neutral-700 px-5 py-3xl md:px-m">
+      <div className="flex flex-col gap-m md:flex-row md:items-start md:gap-s">
+        <h2 className="font-sans text-[32px] leading-[1.15] tracking-[-0.02em] text-white md:flex-1 md:text-[48px]">
           {t("faq.headline")}
         </h2>
 
-        <div className="flex max-w-[676px] flex-col">
+        <div className="flex flex-col gap-s md:flex-1 md:max-w-[676px]">
           {faqKeys.map((key) => (
             <Accordion key={key} question={t(`faq.items.${key}.question`)}>
-              <p className="font-sans text-lg leading-[1.45] text-text-secondary">
-                {t(`faq.items.${key}.answer`)}
+              <p className="font-sans text-lg leading-[1.45] text-white md:pr-2xl">
+                {key === "q3"
+                  ? t.rich(`faq.items.${key}.answer`, {
+                      link: (chunks) => (
+                        <a
+                          href={t(`faq.items.${key}.answerHref`)}
+                          className="underline decoration-white/40 underline-offset-4 transition-opacity hover:opacity-80"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    })
+                  : t(`faq.items.${key}.answer`)}
               </p>
             </Accordion>
           ))}

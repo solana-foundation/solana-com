@@ -22,6 +22,11 @@ export default function AnnouncementsSection() {
             variant="link"
             eyebrow={t(`announcements.items.${key}.eyebrow`)}
             linkLabel={t(`announcements.items.${key}.title`)}
+            href={
+              t.has(`announcements.items.${key}.href`)
+                ? t(`announcements.items.${key}.href`)
+                : undefined
+            }
           />
         ))}
       </div>

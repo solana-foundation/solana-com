@@ -127,7 +127,7 @@ export default function HighlightsSection() {
         </div>
 
         <div
-          className="relative min-h-[350px] w-full overflow-hidden bg-[#1e1e1e] md:h-[600px] md:min-h-0 md:w-[772px] md:[aspect-ratio:772/600] md:flex-shrink-0"
+          className="relative min-h-[370px] w-full overflow-hidden bg-[#1e1e1e] md:h-[600px] md:min-h-0 md:w-[772px] md:[aspect-ratio:772/600] md:flex-shrink-0"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -139,7 +139,7 @@ export default function HighlightsSection() {
           />
           <div className="absolute inset-0 bg-[#aa67fb] mix-blend-multiply" />
 
-          <div className="absolute inset-4 md:inset-[17.67%_12.25%_17.57%_20.6%]">
+          <div className="absolute inset-4 md:inset-[14%_8%_14%_14%]">
             <div
               className={`relative h-full w-full ${isGlitching ? "is-glitching" : ""}`}
             >
@@ -420,7 +420,7 @@ function QuoteCard({
   return (
     <div className="quote-card-base flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8">
       <div className="flex min-h-0 flex-1 items-start">
-        <p className="max-h-full overflow-hidden font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.22]">
+        <p className="max-h-full font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.22]">
           &ldquo;{quote.text}&rdquo;
         </p>
       </div>
