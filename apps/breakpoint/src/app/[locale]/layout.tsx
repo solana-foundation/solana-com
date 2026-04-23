@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { locales } from "@workspace/i18n/config";
 import { getBaseMetadata } from "../metadata";
 import { loadBreakpointMessages } from "@/i18n/request";
+import { FabMenu } from "@/components/FabMenu";
 
 const displayFont = localFont({
   src: "../../../public/fonts/bp26-extended/BP26-Extended.woff2",
@@ -78,6 +79,7 @@ export default async function LocaleLayout({
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
+        <FabMenu />
       </NextIntlClientProvider>
     </div>
   );
