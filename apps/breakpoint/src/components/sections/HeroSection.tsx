@@ -31,8 +31,8 @@ export default function HeroSection() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto h-full w-full max-w-[1440px]">
-        <div className="absolute left-5 top-[64px] right-5 md:left-8 md:right-8 md:top-[240px] md:h-[326px] md:w-[939px]">
+      <div className="container relative z-10 h-full">
+        <div className="absolute inset-x-0 top-16 md:inset-x-auto md:left-0 md:top-60 md:h-[326px] md:w-[939px]">
           <TextScramble
             as="h1"
             text={t("hero.headline")}

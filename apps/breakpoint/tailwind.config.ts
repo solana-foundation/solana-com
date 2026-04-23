@@ -15,6 +15,20 @@ export default {
       "md-lg": "64rem" /* 1024px */,
       lg: "90.063rem" /* 1441px */,
     },
+    container: {
+      /* Page grid per Figma spec (node 154:6228):
+         - content max-width: 1664px (16 cols × 81.5 + 15 × 24 gutters)
+         - inner horizontal padding: 20px mobile, 32px ≥md
+         - container caps at 1728px (1664 + 2×32); centers beyond */
+      center: true,
+      padding: {
+        DEFAULT: "1.25rem" /* 20px */,
+        md: "2rem" /* 32px */,
+      },
+      screens: {
+        sm: "108rem" /* 1728px — single cap, grows freely below */,
+      },
+    },
     extend: {
       colors: {
         purple: "#aa67fb",
@@ -59,9 +73,6 @@ export default {
         "8xl": "4rem" /* 64px */,
         "9xl": "5rem" /* 80px */,
         "10xl": "7.5rem" /* 120px */,
-      },
-      maxWidth: {
-        container: "90rem",
       },
       spacing: {
         "4xs": "0.25rem" /* 4px */,

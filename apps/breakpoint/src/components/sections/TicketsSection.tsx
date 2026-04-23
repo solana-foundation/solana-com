@@ -9,8 +9,8 @@ export default function TicketsSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="bg-black px-5 pt-20 md:px-8 md:pt-[120px]">
-      <div className="mx-auto flex max-w-[1376px] flex-col gap-12">
+    <section className="bg-black pt-20 md:pt-[120px]">
+      <div className="container flex flex-col gap-12">
         <div className="flex flex-col items-center gap-6 text-center">
           <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
             {t("tickets.eyebrow")}

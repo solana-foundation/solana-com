@@ -114,8 +114,8 @@ export default function HighlightsSection() {
   }, []);
 
   return (
-    <section className="pl-5 pt-[80px] md:pl-8 md:pt-[120px]">
-      <div className="flex flex-col items-start justify-between gap-10 pr-5 md:flex-row md:gap-6 md:pr-0">
+    <section className="pt-20 md:pt-[120px]">
+      <div className="container flex flex-col items-start justify-between gap-10 md:flex-row md:gap-6">
         <div className="flex flex-col gap-6 md:h-[227px] md:w-[501px] md:justify-center">
           <p className="font-mono text-base uppercase leading-[1.3] tracking-[1.28px] text-white">
             {t("highlights.eyebrow")}

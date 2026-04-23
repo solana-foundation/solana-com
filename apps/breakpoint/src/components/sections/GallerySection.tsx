@@ -27,8 +27,8 @@ export default function GallerySection() {
   const [recapOpen, setRecapOpen] = useState(false);
 
   return (
-    <section className="bg-black px-5 pt-20 md:px-8 md:pt-[120px]">
-      <div className="mx-auto w-full max-w-[1376px]">
+    <section className="bg-black pt-20 md:pt-[120px]">
+      <div className="container">
         <div className="relative aspect-[2/1] w-full overflow-hidden">
           <img
             src="/img/bp25/recap-hero.webp"

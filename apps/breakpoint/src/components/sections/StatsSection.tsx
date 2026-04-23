@@ -59,23 +59,25 @@ export default function StatsSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="border-t border-neutral-700 px-5 py-[120px] md:px-8">
-      <SectionHeadline headline={t("stats.headline")} alignment="center">
-        <Button label={t("stats.cta")} variant="primary" arrow />
-      </SectionHeadline>
+    <section className="border-t border-neutral-700 py-[120px]">
+      <div className="container">
+        <SectionHeadline headline={t("stats.headline")} alignment="center">
+          <Button label={t("stats.cta")} variant="primary" arrow />
+        </SectionHeadline>
 
-      <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">
-        {statItems.map((item) => (
-          <div key={item.key} className="border-b border-white/20 pb-4">
-            <span className="font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]">
-              {t(item.valueKey)}
-              {t(item.suffixKey)}
-            </span>
-            <p className="mt-3 max-w-[22ch] text-[1rem] leading-[1.3] text-white/72">
-              {t(item.labelKey)}
-            </p>
-          </div>
-        ))}
+        <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">
+          {statItems.map((item) => (
+            <div key={item.key} className="border-b border-white/20 pb-4">
+              <span className="font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]">
+                {t(item.valueKey)}
+                {t(item.suffixKey)}
+              </span>
+              <p className="mt-3 max-w-[22ch] text-[1rem] leading-[1.3] text-white/72">
+                {t(item.labelKey)}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="mt-16 w-full overflow-hidden" aria-hidden="true">

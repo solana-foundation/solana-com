@@ -196,65 +196,71 @@ export default function Footer() {
         />
       </div>
 
-      <div className="flex w-full flex-col items-center justify-between gap-6 bg-purple px-5 py-l md:flex-row md:px-8">
-        <div className="flex items-center gap-s">
-          {SOCIAL_LINKS.map((social) => (
-            <a
-              key={social.name}
-              href={social.href}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={social.name}
-              className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70"
-            >
-              <img
-                src={social.icon}
-                alt=""
-                aria-hidden="true"
-                className="block h-auto max-h-[24px] w-[24px]"
-              />
-            </a>
-          ))}
-        </div>
+      <div className="w-full bg-purple py-l">
+        <div className="container flex flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="flex items-center gap-s">
+            {SOCIAL_LINKS.map((social) => (
+              <a
+                key={social.name}
+                href={social.href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={social.name}
+                className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70"
+              >
+                <img
+                  src={social.icon}
+                  alt=""
+                  aria-hidden="true"
+                  className="block h-auto max-h-[24px] w-[24px]"
+                />
+              </a>
+            ))}
+          </div>
 
-        <p className="whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900">
-          {t("copyright")}
-        </p>
+          <p className="whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900">
+            {t("copyright")}
+          </p>
 
-        <div className="flex items-center gap-l">
-          <SecondaryLink
-            href="mailto:breakpoint@solana.org"
-            label={t("contact")}
-          />
-          <SecondaryLink href="/code-of-conduct" label={t("codeOfConduct")} />
+          <div className="flex items-center gap-l">
+            <SecondaryLink
+              href="mailto:breakpoint@solana.org"
+              label={t("contact")}
+            />
+            <SecondaryLink href="/code-of-conduct" label={t("codeOfConduct")} />
+          </div>
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-between gap-2 bg-purple px-5 py-l md:gap-0 md:px-8">
-        <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
-        <CounterCell value={pad(hours)} label={t("countdown.hours")} />
-        <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
-        <CounterCell value={pad(seconds)} label={t("countdown.seconds")} />
+      <div className="w-full bg-purple py-l">
+        <div className="container flex items-center justify-between gap-2 md:gap-0">
+          <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
+          <CounterCell value={pad(hours)} label={t("countdown.hours")} />
+          <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
+          <CounterCell value={pad(seconds)} label={t("countdown.seconds")} />
+        </div>
       </div>
 
-      <div className="flex w-full items-center justify-center bg-purple px-5 py-l md:px-8">
-        <div className="flex w-full items-center gap-[16px] md:w-auto md:shrink-0 md:gap-[35.974px]">
-          <img
-            src="/assets/bp-logo-mark.svg"
-            alt=""
-            aria-hidden="true"
-            width={114.409}
-            height={98.628}
-            className="block h-[48px] w-[55.67px] shrink-0 md:h-[98.628px] md:w-[114.409px]"
-          />
-          <img
-            src="/assets/breakpoint-wordmark-footer.svg"
-            alt="Breakpoint"
-            width={1226.613}
-            height={100.876}
-            style={{ aspectRatio: "1226.613 / 100.876" }}
-            className="block h-auto w-full min-w-0 flex-1 md:h-[100.876px] md:w-[1226.613px] md:flex-none"
-          />
+      <div className="w-full bg-purple py-l">
+        <div className="container flex items-center justify-center">
+          <div className="flex w-full items-center gap-[16px] md:w-auto md:shrink-0 md:gap-[35.974px]">
+            <img
+              src="/assets/bp-logo-mark.svg"
+              alt=""
+              aria-hidden="true"
+              width={114.409}
+              height={98.628}
+              className="block h-[48px] w-[55.67px] shrink-0 md:h-[98.628px] md:w-[114.409px]"
+            />
+            <img
+              src="/assets/breakpoint-wordmark-footer.svg"
+              alt="Breakpoint"
+              width={1226.613}
+              height={100.876}
+              style={{ aspectRatio: "1226.613 / 100.876" }}
+              className="block h-auto w-full min-w-0 flex-1 md:h-[100.876px] md:w-[1226.613px] md:flex-none"
+            />
+          </div>
         </div>
       </div>
     </footer>
