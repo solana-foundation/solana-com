@@ -100,7 +100,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/migrate-to-solana/ethereum",
+        url: "/developers/migrate-to-solana/complete-guide",
         size: "md",
         hierarchy: "primary",
       },

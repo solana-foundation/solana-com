@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { Container } from "@/component-library/container";
-import { CardDeck } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import { PRIMARY_CARD_DECK } from "@/data/developers/evm-to-svm";
 import Code from "@@/public/src/img/icons/Code.inline.svg";
@@ -22,6 +21,48 @@ const EarthAnimation = dynamic(
     ),
   { ssr: false },
 );
+
+function PathCard({
+  eyebrow,
+  heading,
+  ctaLabel,
+  ctaUrl,
+}: {
+  eyebrow: string;
+  heading: string;
+  ctaLabel: string;
+  ctaUrl: string;
+}) {
+  return (
+    <div
+      className="tw-glass-card flex flex-col gap-4 p-8 rounded-xl"
+      style={{
+        background: "rgba(0,0,0,0.5)",
+        backdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <p className="tw-eyebrow text-sky-400 text-xs font-mono uppercase tracking-widest mb-0">
+        {eyebrow}
+      </p>
+      <h2 className="tw-text-display-xs md:tw-text-display-md font-medium text-white pl-3 border-l-2 border-purple-500 mb-0">
+        {heading}
+      </h2>
+      <div>
+        <a
+          href={ctaUrl}
+          className="inline-flex items-center px-5 py-2.5 rounded-full border text-sm font-semibold text-white no-underline transition-colors"
+          style={{
+            borderColor: "rgba(255,255,255,0.3)",
+            background: "transparent",
+          }}
+        >
+          {ctaLabel}
+        </a>
+      </div>
+    </div>
+  );
+}
 
 function ResourceCard({
   heading,
@@ -96,14 +137,10 @@ export function DevelopersChainMigrationEthereumPage() {
   ];
 
   const primaryCards = PRIMARY_CARD_DECK.cards.map((card, index) => ({
-    ...card,
     eyebrow: t(`primaryCardDeck.cards.${index}.eyebrow`),
     heading: t(`primaryCardDeck.cards.${index}.heading`),
-    body: t(`primaryCardDeck.cards.${index}.body`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`primaryCardDeck.cards.${index}.callToAction.label`),
-    },
+    ctaLabel: t(`primaryCardDeck.cards.${index}.callToAction.label`),
+    ctaUrl: card.callToAction.url,
   }));
 
   return (
@@ -154,15 +191,20 @@ export function DevelopersChainMigrationEthereumPage() {
         </div>
       </section>
 
-      <CardDeck
-        cards={primaryCards as React.ComponentProps<typeof CardDeck>["cards"]}
-        numCols={
-          PRIMARY_CARD_DECK.numCols as React.ComponentProps<
-            typeof CardDeck
-          >["numCols"]
-        }
-        featured={PRIMARY_CARD_DECK.featured}
-      />
+      <div className="max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-24 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="flex items-start p-0 md:p-2 xl:p-4">
+          <h2 className="nd-heading-l text-white mb-0">Choose your guide.</h2>
+        </div>
+        {primaryCards.map((card) => (
+          <PathCard
+            key={card.ctaUrl}
+            eyebrow={card.eyebrow}
+            heading={card.heading}
+            ctaLabel={card.ctaLabel}
+            ctaUrl={card.ctaUrl}
+          />
+        ))}
+      </div>
 
       <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2">
         <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">

@@ -22,7 +22,7 @@ const ROUTES = [
   "/developers/evm-to-svm",
   "/developers/evm-to-svm/accounts",
   "/developers/evm-to-svm/client-differences",
-  "/developers/evm-to-svm/complete-guide",
+  "/developers/migrate-to-solana/complete-guide",
   "/developers/evm-to-svm/consensus",
   "/developers/evm-to-svm/eip2612",
   "/developers/evm-to-svm/erc20",
