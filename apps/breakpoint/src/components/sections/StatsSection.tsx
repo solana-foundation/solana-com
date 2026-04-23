@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import WordReveal from "@/components/WordReveal";
-import { useInView } from "@/hooks/useInView";
 
 interface StatItem {
   key: string;
@@ -59,7 +58,6 @@ const seededRandom = (seed: number) => {
 
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
-  const [stripRef, stripInView] = useInView<HTMLDivElement>(0.1);
 
   return (
     <section className="border-t border-neutral-700 py-[120px]">
@@ -90,12 +88,7 @@ export default function StatsSection() {
         </div>
       </div>
 
-      <div
-        ref={stripRef}
-        className={`mt-16 w-full overflow-hidden ${stripInView ? "bp-block-reveal" : ""}`}
-        style={{ opacity: stripInView ? 1 : 0 }}
-        aria-hidden="true"
-      >
+      <div className="mt-16 w-full overflow-hidden" aria-hidden="true">
         <div className="photo-strip-track flex w-max gap-4 md:gap-0">
           {[...stripImages, ...stripImages].map((src, index) => {
             const position = index % stripImages.length;
