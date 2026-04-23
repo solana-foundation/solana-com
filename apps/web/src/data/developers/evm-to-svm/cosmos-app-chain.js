@@ -76,39 +76,18 @@ export const RUNBOOK_HIGHLIGHTS = {
 export const RUNBOOK_SECTIONS = [
   {
     id: "why-teams-leave",
-    navLabel: "1. Why Teams Leave",
+    navLabel: "1. Learn from other teams",
     tone: "note",
     html: `
-      <h2>1. Why Teams Leave Cosmos: Patterns &amp; Lessons</h2>
-      <p>Understanding why other teams migrated or evaluated migration helps you frame your own decision honestly. Most successful moves start with a clear articulation of why the old chain no longer serves the product.</p>
-      <h3>Common reasons cited</h3>
-      <div class="tw-overflow-x-auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Reason</th>
-              <th>Example</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Weak economic security or small validator set</td><td>Akash framed Cosmos app-chain security as insufficient for its target workloads.</td></tr>
-            <tr><td>Infrastructure maintenance overhead</td><td>Teams conclude that running an independent chain pulls focus away from the product.</td></tr>
-            <tr><td>Liquidity fragmentation</td><td>Standalone chains struggle to sustain deep token liquidity and composability.</td></tr>
-            <tr><td>Developer ecosystem size</td><td>Solana attracts more tooling, client libraries, managed infra, and wallet integrations.</td></tr>
-            <tr><td>User experience</td><td>Wallet onboarding and transaction UX are often easier on Solana for mainstream users.</td></tr>
-            <tr><td>Enterprise or B2B demands</td><td>Some teams need stronger settlement guarantees and deeper infra support.</td></tr>
-            <tr><td>Token liquidity</td><td>Thin order books and fewer venues constrain distribution and treasury strategy.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>What worked in prior migrations</h3>
+      <h2>1. Learn from other teams</h2>
+      <h4>What worked in prior migrations</h4>
       <ul>
         <li>One-way migration windows with a public deadline and exchange coordination created urgency and high completion rates.</li>
         <li>Public request-for-proposal or evaluation processes gave the community a real decision framework instead of a hand-wavy announcement.</li>
         <li>Long notice periods of 60 to 90 days reduced stranded balances and support chaos.</li>
         <li>Archiving chain state preserved auditability and historical support data.</li>
       </ul>
-      <h3>What failed</h3>
+      <h4>What failed</h4>
       <ul>
         <li>Short notice windows stranded meaningful supply.</li>
         <li>Skipping exchange coordination left custodial users behind.</li>
@@ -135,23 +114,14 @@ export const RUNBOOK_SECTIONS = [
           <tbody>
             <tr><td>Security</td><td>How much economic security does the destination chain have, and is it proportionate to your product?</td><td>Strong for teams that want deep shared security instead of their own validator set.</td></tr>
             <tr><td>Liquidity</td><td>Can your token find real liquidity on major venues?</td><td>Strong DEX aggregation and active market structure.</td></tr>
-            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong around Anchor, RPC providers, indexers, wallets, and payment rails.</td></tr>
+            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong developer tooling, program frameworks, testing resources, RPC provioders, indexers, wallets, and payment rails</td></tr>
             <tr><td>User base</td><td>Do your target users already live here?</td><td>Often strong for consumer, trading, payments, and NFT-adjacent products.</td></tr>
             <tr><td>IBC compatibility</td><td>Do you still need native Cosmos interoperability after migration?</td><td>Limited. You need bridge or custom interoperability design.</td></tr>
             <tr><td>Smart contract model</td><td>Can the product survive a rewrite to the account model?</td><td>Good if you can re-architect; poor if you need CosmWasm patterns unchanged.</td></tr>
             <tr><td>Transaction fees</td><td>Can your users afford frequent activity?</td><td>Very low nominal fees.</td></tr>
-            <tr><td>Community fit</td><td>Will your community actually follow you?</td><td>Depends on vertical, wallet habits, and token-holder expectations.</td></tr>
           </tbody>
         </table>
       </div>
-      <h3>When Solana is not the right choice</h3>
-      <ul>
-        <li>Your product depends heavily on native IBC interoperability with multiple Cosmos chains.</li>
-        <li>You need Cosmos governance modules or staking semantics without redesign.</li>
-        <li>Your user base is committed to Cosmos tooling and unlikely to bridge ecosystems.</li>
-        <li>Your team cannot afford the account-model rewrite and client rewrite the move requires.</li>
-      </ul>
-      <p>If your main goal is SVM execution without a full retreat from Cosmos-adjacent ideas, evaluate SVM-based chains or rollups before committing to a full chain shutdown.</p>
     `,
   },
   {
@@ -270,43 +240,64 @@ The chain will halt at block HEIGHT on DATE.
     tone: "phase",
     html: `
       <h2>5. Phase 2: Token Migration Architecture</h2>
-      <p>Choose the migration architecture deliberately. The right answer depends on community size, address mapping strategy, and whether you want a pre-halt migration window.</p>
-      <h3>Architecture A: Snapshot plus airdrop</h3>
-      <p>Take a final snapshot, map Cosmos addresses to Solana addresses, then distribute SPL balances 1:1. This is the simplest operationally, but it requires a clean address-mapping process.</p>
-      <pre><code class="language-bash">spl-token create-token --decimals 6
+      <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of trying to keep a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit the Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
+      <p>This keeps the migration auditable and bounded. Your canonical dataset is the final Cosmos snapshot, your on-chain commitment is the Merkle root, and your claim program only needs to verify proofs, mint or transfer the correct amount, and mark each leaf as claimed. A working reference is available in the <a href="https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
+      <h3>Recommended architecture: Merkle tree claimer</h3>
+      <ul>
+        <li>Take a final Cosmos snapshot and normalize the balance dataset you intend to honor.</li>
+        <li>Convert each claim into a deterministic leaf such as <code>{index, cosmos_address, solana_address, amount}</code> or <code>{index, recipient, amount}</code>.</li>
+        <li>Build the Merkle tree off-chain and publish the root plus the full snapshot artifact for community review.</li>
+        <li>Deploy a Solana claim program that stores the Merkle root, vault authority, mint or token-vault accounts, and the claim window.</li>
+        <li>Require each claimant to submit their amount, leaf index, and Merkle proof, then mark that leaf as claimed on-chain.</li>
+      </ul>
+      <pre><code class="language-text">Cosmos final snapshot
+  -> normalized claims file
+  -> Merkle tree build
+  -> published root + claim JSON
+  -> Solana claimer program initialized with root
+  -> token vault funded
+  -> users submit proof and receive SPL tokens</code></pre>
+      <h3>What the Solana claimer should own</h3>
+      <pre><code class="language-rust">pub struct Distributor {
+    pub merkle_root: [u8; 32],
+    pub mint: Pubkey,
+    pub vault: Pubkey,
+    pub vault_authority_bump: u8,
+    pub claim_window_end_ts: i64,
+}
 
-# Bulk transfer once wallet mapping is complete
-spl-token transfer MINT_ADDRESS AMOUNT RECIPIENT_SOLANA_ADDRESS \
-  --fund-recipient \
-  --allow-unfunded-recipient</code></pre>
-      <h3>Architecture B: One-way bridge</h3>
-      <p>Open a pre-halt migration window where users lock or burn Cosmos tokens and receive equivalent SPL balances on Solana. This is heavier operationally but better for large distributions.</p>
-      <pre><code class="language-rust">ExecuteMsg::MigrateTokens { solana_address } =&gt; {
-    ensure!(env.block.height &lt; MIGRATION_CLOSE_HEIGHT, ContractError::MigrationClosed {});
-
-    let sol_addr_bytes = bs58::decode(&solana_address)
-        .into_vec()
-        .map_err(|_| ContractError::InvalidSolanaAddress {})?;
-    ensure!(sol_addr_bytes.len() == 32, ContractError::InvalidSolanaAddress {});
-
-    let token_amount = info.funds.iter()
-        .find(|c| c.denom == NATIVE_DENOM)
-        .ok_or(ContractError::NoFundsProvided {})?
-        .amount;
-
-    Ok(Response::new()
-        .add_attribute("action", "migrate_tokens")
-        .add_attribute("solana_recipient", solana_address)
-        .add_attribute("amount", token_amount))}</code></pre>
-      <pre><code class="language-typescript">for (const event of events) {
-  const recipientPubkey = new PublicKey(event.solana_recipient);
-  await transferSPLTokens(recipientPubkey, BigInt(event.amount), event.event_id);
-  await cosmosClient.execute(BRIDGE_CONTRACT, {
-    mark_processed: { event_id: event.event_id }
-  }, "auto");
+pub struct ClaimStatus {
+    pub index: u64,
+    pub claimed: bool,
 }</code></pre>
-      <h3>Architecture C: Third-party bridge</h3>
-      <p>Bridge infrastructure such as Wormhole can reduce custom relayer work, but only while the source chain is alive and only if your chain is supported. Treat this as a pre-halt path, not a permanent fallback after shutdown.</p>
+      <p>A simple implementation uses one PDA or bitmap entry per leaf index to prevent double claims. The claim instruction recomputes the leaf hash from the submitted payload, verifies the Merkle proof against the stored root, transfers or mints the exact SPL amount, and then records the claim status before returning.</p>
+      <pre><code class="language-rust">pub fn claim(
+    ctx: Context&lt;Claim&gt;,
+    index: u64,
+    amount: u64,
+    proof: Vec&lt;[u8; 32]&gt;,
+) -&gt; Result&lt;()&gt; {
+    require!(!ctx.accounts.claim_status.claimed, ClaimError::AlreadyClaimed);
+    require!(
+        verify_proof(
+            ctx.accounts.distributor.merkle_root,
+            hash_leaf(index, ctx.accounts.recipient.key(), amount),
+            &amp;proof,
+        ),
+        ClaimError::InvalidProof
+    );
+
+    transfer_from_vault(&amp;ctx, amount)?;
+    ctx.accounts.claim_status.claimed = true;
+    Ok(())
+}</code></pre>
+      <h3>Why this architecture is usually better</h3>
+      <ul>
+        <li>You only need one canonical balance export, not a live cross-chain relay after shutdown.</li>
+        <li>Anyone can audit the published claims file and recompute the Merkle root before launch.</li>
+        <li>The on-chain program stays small: proof verification, token release, and replay protection.</li>
+        <li>Support operations get simpler because each failed claim is tied to a specific leaf, proof, and recipient address.</li>
+      </ul>
       <h3>Unclaimed token policy</h3>
       <div class="tw-overflow-x-auto">
         <table>
@@ -377,7 +368,7 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
     tone: "phase",
     html: `
       <h2>7. Phase 4: Smart Contract / Program Migration</h2>
-      <p>The contract rewrite itself is a separate guide. Operationally, this phase is about deciding which live chain state must survive and how it will be represented on Solana.</p>
+      <p>The contract rewrite itself is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a>. Operationally, this phase is about deciding which live chain state must survive and how it will be represented on Solana.</p>
       <h3>Categorize every contract and module</h3>
       <pre><code class="language-text">Category A - Migrate with state
 Category B - Migrate logic only
@@ -396,7 +387,22 @@ pub struct VestingSchedule {
     pub claimed_amount: u64,
     pub bump: u8,
 }</code></pre>
-      <h3>Governance migration</h3>
+      <h3>NFT migration</h3>
+      <ul>
+        <li>Export token ownership and metadata dependencies.</li>
+        <li>Pick the Solana NFT or digital-asset standard before writing claim logic.</li>
+        <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
+      </ul>
+    `,
+  },
+  {
+    id: "governance-migration",
+    navLabel: "8. Governance",
+    tone: "phase",
+    html: `
+      <h2>8. Phase 5: Governance Migration</h2>
+      <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main on-chain DAO and treasury-management interface for Solana. It sits on top of SPL Governance and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for things like treasury transfers and program upgrades.</p>
+      <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one, because Cosmos governance is chain governance while Realms governs assets, programs, and operational workflows on Solana.</p>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
@@ -413,20 +419,24 @@ pub struct VestingSchedule {
           </tbody>
         </table>
       </div>
-      <h3>NFT migration</h3>
+      <h3>How to migrate governance cleanly</h3>
       <ul>
-        <li>Export token ownership and metadata dependencies.</li>
-        <li>Pick the Solana NFT or digital-asset standard before writing claim logic.</li>
-        <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
+        <li>Create the new DAO in Realms before or alongside token launch so treasury control and program authority do not live on a temporary signer longer than necessary.</li>
+        <li>Decide whether governance power comes from the migrated community token, a council token, or a dual structure where a smaller council handles urgent operations.</li>
+        <li>Move treasury assets, mint authority, freeze authority, and upgrade authority into governed accounts intentionally instead of leaving them on deployer wallets.</li>
+        <li>Rewrite recurring Cosmos proposal types as explicit Solana actions: treasury transfers, parameter updates through admin programs, and program upgrades through governed execution.</li>
       </ul>
+      <h3>Practical mapping</h3>
+      <p>A Cosmos text proposal often becomes an off-chain forum post plus a Realms proposal only when there is an executable action attached. A Cosmos software-upgrade proposal usually becomes a Solana program-upgrade proposal after the upgrade authority is transferred into governance. Treasury and community-pool decisions usually become Realms treasury proposals executed by governed wallets.</p>
+      <p>The main design choice is who can propose and who can veto. Many migrations start with a council-controlled Realm for safety, then expand toward broader token voting once the token, treasury, and program authorities are settled on Solana.</p>
     `,
   },
   {
     id: "user-migration",
-    navLabel: "8. User Migration",
+    navLabel: "9. User Migration",
     tone: "phase",
     html: `
-      <h2>8. Phase 5: User Migration &amp; Communication</h2>
+      <h2>9. Phase 6: User Migration &amp; Communication</h2>
       <h3>Communication plan</h3>
       <div class="tw-overflow-x-auto">
         <table>
@@ -502,10 +512,10 @@ pub mod migration_claim {
   },
   {
     id: "decommissioning",
-    navLabel: "9. Decommissioning",
+    navLabel: "10. Decommissioning",
     tone: "phase",
     html: `
-      <h2>9. Phase 6: Decommissioning Cosmos Infrastructure</h2>
+      <h2>10. Phase 7: Decommissioning Cosmos Infrastructure</h2>
       <h3>Inventory everything first</h3>
       <pre><code class="language-text">Validators:
   - primary validator
@@ -554,27 +564,6 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
     `,
   },
   {
-    id: "case-studies",
-    navLabel: "10. Case Studies",
-    tone: "default",
-    html: `
-      <h2>10. Case Studies</h2>
-      <h3>Nillion</h3>
-      <p>Nillion used a one-way migration window with a public deadline and exchange coordination. The lesson is that hard deadlines can work when the UX is clear and custodial platforms are aligned.</p>
-      <h3>Akash</h3>
-      <p>Akash's public evaluation process made the security and ecosystem tradeoffs visible. The lesson is that chain selection criteria should be explicit, especially if staking and governance models change materially.</p>
-      <h3>Broader 2025 pattern</h3>
-      <p>Multiple smaller app chains discovered that sovereign-chain overhead was too expensive relative to their activity and liquidity. The recurring lesson is that app-chain maintenance is a strategic choice, not a free default.</p>
-      <h3>Operational takeaways</h3>
-      <ul>
-        <li>Large migrations need exchange coordination and a public migration window.</li>
-        <li>Hard deadlines are effective only if the user journey is obvious and well-supported.</li>
-        <li>Security and liquidity arguments resonate best when backed by concrete comparisons.</li>
-        <li>Teams that archive state and publish auditable artifacts preserve trust.</li>
-      </ul>
-    `,
-  },
-  {
     id: "full-migration-checklist",
     navLabel: "11. Checklist",
     tone: "success",
@@ -607,10 +596,15 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
         <li>Define the unclaimed-token policy before launch.</li>
         <li>Deploy and rehearse the claim or bridge programs.</li>
       </ul>
+      <h3>Governance migration</h3>
+      <ul>
+        <li>Create the new Realm, council, and governed treasury accounts before handing over critical authorities.</li>
+        <li>Move mint authority, freeze authority, treasury control, and program upgrade authority into the chosen governance system.</li>
+        <li>Decide which actions require token voting, council approval, or multisig execution during the transition period.</li>
+      </ul>
       <h3>Programs and product migration</h3>
       <ul>
         <li>Recreate stateful obligations such as vesting, escrow, and rewards intentionally.</li>
-        <li>Move governance to Realms, a multisig, or another explicit Solana governance model.</li>
         <li>Rewrite the frontend and support tooling for Solana wallets and transaction semantics.</li>
       </ul>
       <h3>Post-migration operations</h3>
@@ -630,59 +624,14 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Nillion Sunset Coverage",
-      body: "Useful reference for a public shutdown narrative and one-way token migration framing.",
+      heading: "Merkle Tree Token Claimer",
+      body: "Reference implementation for a snapshot-driven token migration using a Merkle root, funded claim vault, and on-chain proof verification.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://thedefiant.io/news/blockchains/nillion-nilchain-leaves-cosmos-for-ethereum",
-        label: "Read article",
-        endIcon: "arrow-right",
-        hierarchy: "outline",
-      },
-    },
-    {
-      type: "image",
-      headingAs: "h3",
-      heading: "Akash Migration Context",
-      body: "Reference point for public chain-selection criteria, security arguments, and migration caution.",
-      backgroundImage: {
-        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
-      },
-      callToAction: {
-        url: "https://www.theblock.co/post/374318/akash-network-to-deprecate-its-cosmos-chain-begin-search-for-new-network",
-        label: "Read article",
-        endIcon: "arrow-right",
-        hierarchy: "outline",
-      },
-    },
-    {
-      type: "image",
-      headingAs: "h3",
-      heading: "Cosmos Halt Configuration",
-      body: "Keep the official halt-height and shutdown configuration docs open while coordinating validators.",
-      backgroundImage: {
-        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
-      },
-      callToAction: {
-        url: "https://docs.cosmos.network/main/learn/advanced/config",
-        label: "Read docs",
-        endIcon: "arrow-right",
-        hierarchy: "outline",
-      },
-    },
-    {
-      type: "image",
-      headingAs: "h3",
-      heading: "Portal Bridge",
-      body: "Review third-party bridge assumptions before choosing it as part of the pre-halt migration path.",
-      backgroundImage: {
-        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
-      },
-      callToAction: {
-        url: "https://portalbridge.com/",
-        label: "Open bridge site",
+        url: "https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer",
+        label: "Open example",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
