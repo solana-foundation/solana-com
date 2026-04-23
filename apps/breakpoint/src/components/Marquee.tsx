@@ -6,13 +6,13 @@ const NOISE_POOL =
   "#∞@±∑!÷?^&∆*≠6≈%{/~|]!^÷∆*?∞±#≈1%}÷!∑∆^*?&±#≈%2|~][/#∞@±∑!÷?^&∆±∑!÷?^&∆*≠6≈%{/~|*≠6≈%{/~|]!^#∞@±∑!÷?^&∆*≠6≈%{/~|]!^";
 const NOISE_LENGTH = 500;
 
-const STATIC_NOISE = (() => {
-  let s = "";
-  for (let i = 0; i < NOISE_LENGTH; i++) {
-    s += NOISE_POOL[(i * 7919 + 13) % NOISE_POOL.length];
-  }
-  return s;
-})();
+const STATIC_NOISE = Array.from(
+  { length: NOISE_LENGTH },
+  (_, i) => NOISE_POOL[(i * 7919 + 13) % NOISE_POOL.length],
+).join("");
+
+const randomGlyph = () =>
+  NOISE_POOL[Math.floor(Math.random() * NOISE_POOL.length)] ?? " ";
 
 const HIGHLIGHTS = ["BP26", "LONDON", "BUILD", "DEPLOY", "SHIP MORE"];
 const GAP_CHARS = 48;
@@ -21,56 +21,48 @@ const CYCLE_LENGTH = HIGHLIGHTS.reduce(
   0,
 );
 
-const SCROLL_CHARS_PER_SEC = 6;
 const GLITCH_RATE = 0.16;
-const TICK_MS = 70;
+const TICK_MS = 250;
+const CHARS_PER_STEP = 2;
 
 type Segment = { text: string; highlight: boolean };
 
-function computeSegments(elapsedSec: number, glitch: boolean): Segment[] {
-  const cells: { char: string; highlight: boolean }[] = new Array(NOISE_LENGTH);
-  for (let i = 0; i < NOISE_LENGTH; i++) {
-    cells[i] = { char: STATIC_NOISE[i] ?? " ", highlight: false };
-  }
+function computeSegments(step: number, glitch: boolean): Segment[] {
+  const cells = Array.from({ length: NOISE_LENGTH }, (_, i) => ({
+    char: STATIC_NOISE[i] ?? " ",
+    highlight: false,
+  }));
 
-  const beltOffset = elapsedSec * SCROLL_CHARS_PER_SEC;
+  const beltOffset = step * CHARS_PER_STEP;
   const normOffset =
     ((beltOffset % CYCLE_LENGTH) + CYCLE_LENGTH) % CYCLE_LENGTH;
 
-  let startPos = normOffset - CYCLE_LENGTH;
-  while (startPos < NOISE_LENGTH) {
+  for (
+    let startPos = normOffset - CYCLE_LENGTH;
+    startPos < NOISE_LENGTH;
+    startPos += CYCLE_LENGTH
+  ) {
     let pos = startPos;
     for (const h of HIGHLIGHTS) {
       for (let i = 0; i < h.length; i++) {
-        const idx = Math.floor(pos + i);
-        if (idx >= 0 && idx < NOISE_LENGTH) {
-          const glitched = glitch && Math.random() < GLITCH_RATE;
-          cells[idx] = {
-            char:
-              (glitched
-                ? NOISE_POOL[Math.floor(Math.random() * NOISE_POOL.length)]
-                : h[i]) ?? " ",
-            highlight: true,
-          };
-        }
+        const idx = pos + i;
+        if (idx < 0 || idx >= NOISE_LENGTH) continue;
+        const glitched = glitch && Math.random() < GLITCH_RATE;
+        cells[idx] = {
+          char: (glitched ? randomGlyph() : h[i]) ?? " ",
+          highlight: true,
+        };
       }
       pos += h.length + GAP_CHARS;
     }
-    startPos += CYCLE_LENGTH;
   }
 
   const segments: Segment[] = [];
-  let buffer = "";
-  let currentHighlight = cells[0]?.highlight ?? false;
   for (const cell of cells) {
-    if (cell.highlight !== currentHighlight) {
-      segments.push({ text: buffer, highlight: currentHighlight });
-      buffer = "";
-      currentHighlight = cell.highlight;
-    }
-    buffer += cell.char;
+    const last = segments[segments.length - 1];
+    if (last && last.highlight === cell.highlight) last.text += cell.char;
+    else segments.push({ text: cell.char, highlight: cell.highlight });
   }
-  if (buffer) segments.push({ text: buffer, highlight: currentHighlight });
   return segments;
 }
 
@@ -82,19 +74,12 @@ export default function Marquee() {
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const start = performance.now();
-    let lastTick = start;
-    let rafId = 0;
-
-    const loop = (now: number) => {
-      if (now - lastTick >= TICK_MS) {
-        lastTick = now;
-        setSegments(computeSegments((now - start) / 1000, true));
-      }
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafId);
+    let step = 0;
+    const id = setInterval(() => {
+      step += 1;
+      setSegments(computeSegments(step, true));
+    }, TICK_MS);
+    return () => clearInterval(id);
   }, []);
 
   return (
