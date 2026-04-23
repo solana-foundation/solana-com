@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
+import WordReveal from "@/components/WordReveal";
 
 export default function NarrativeSection() {
   const t = useTranslations("breakpoint");
@@ -9,18 +10,27 @@ export default function NarrativeSection() {
   const bodyClass =
     "font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]";
 
+  const body1 = t("narrative.body1");
+  const body1WordCount = body1.split(/\s+/).length;
+
   return (
     <section className="bg-black pt-20 md:pt-[120px]">
       <div className="container grid grid-cols-1 gap-x-[24px] gap-y-8 md:grid-cols-[repeat(16,minmax(0,1fr))]">
-        <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white md:col-[1/span_5] md:self-start">
-          {t("narrative.eyebrow")}
-        </p>
+        <WordReveal
+          as="p"
+          text={t("narrative.eyebrow")}
+          stepMs={60}
+          className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white md:col-[1/span_5] md:self-start"
+        />
 
         <div className="md:col-[7/span_10]">
-          <p className={bodyClass}>{t("narrative.body1")}</p>
-          <p
+          <WordReveal as="p" text={body1} stepMs={60} className={bodyClass} />
+          <WordReveal
+            as="p"
+            text={t.raw("narrative.body2")}
+            html
+            startDelayMs={body1WordCount * 60 + 200}
             className={`mt-[1.15em] ${bodyClass}`}
-            dangerouslySetInnerHTML={{ __html: t.raw("narrative.body2") }}
           />
         </div>
       </div>

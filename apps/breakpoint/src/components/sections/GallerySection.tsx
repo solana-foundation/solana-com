@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import YouTubeModal from "@/components/YouTubeModal";
+import WordReveal from "@/components/WordReveal";
+import { useInView } from "@/hooks/useInView";
 
 const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
 
@@ -25,11 +27,16 @@ function PlayIcon() {
 export default function GallerySection() {
   const t = useTranslations("breakpoint");
   const [recapOpen, setRecapOpen] = useState(false);
+  const [mediaRef, mediaInView] = useInView<HTMLDivElement>(0.2);
 
   return (
     <section className="bg-black pt-20 md:pt-[120px]">
       <div className="container">
-        <div className="relative aspect-[2/1] w-full overflow-hidden">
+        <div
+          ref={mediaRef}
+          className={`relative aspect-[2/1] w-full overflow-hidden ${mediaInView ? "bp-block-reveal" : ""}`}
+          style={{ opacity: mediaInView ? 1 : 0 }}
+        >
           <img
             src="/img/bp25/recap-hero.webp"
             alt=""
@@ -37,12 +44,20 @@ export default function GallerySection() {
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-y-0 left-5 z-10 flex w-full max-w-[500px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:-translate-x-1/2 md:transform">
-            <p className="font-mono !text-[16px] !font-normal uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
-              {t("gallery.eyebrow")}
-            </p>
-            <p className="font-sans !text-[32px] !font-normal !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
-              {t("gallery.headline")}
-            </p>
+            <WordReveal
+              as="p"
+              text={t("gallery.eyebrow")}
+              stepMs={55}
+              startDelayMs={400}
+              className="font-mono !text-[16px] !font-normal uppercase !leading-[1.3] !tracking-[0.08em] !text-white"
+            />
+            <WordReveal
+              as="p"
+              text={t("gallery.headline")}
+              stepMs={85}
+              startDelayMs={500}
+              className="font-sans !text-[32px] !font-normal !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]"
+            />
             <div>
               <Button
                 label={t("gallery.cta")}

@@ -1,4 +1,5 @@
 import React from "react";
+import WordReveal from "@/components/WordReveal";
 
 interface SectionHeadlineProps {
   eyebrow?: string;
@@ -23,17 +24,26 @@ export default function SectionHeadline({
   return (
     <div className={`flex flex-col gap-s ${alignmentClasses}`}>
       {eyebrow && (
-        <span className="font-mono text-base uppercase tracking-[1.28px] text-white">
-          {eyebrow}
-        </span>
+        <WordReveal
+          as="span"
+          text={eyebrow}
+          stepMs={60}
+          className="font-mono text-base uppercase tracking-[1.28px] text-white"
+        />
       )}
-      <h2 className="font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]">
-        {headline}
-      </h2>
+      <WordReveal
+        as="h2"
+        text={headline}
+        stepMs={90}
+        className="font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"
+      />
       {subhead && (
-        <p className="font-sans text-[24px] leading-[1.25] tracking-[-1.28px] text-white md:text-[32px]">
-          {subhead}
-        </p>
+        <WordReveal
+          as="p"
+          text={subhead}
+          stepMs={60}
+          className="font-sans text-[24px] leading-[1.25] tracking-[-1.28px] text-white md:text-[32px]"
+        />
       )}
       {children}
     </div>

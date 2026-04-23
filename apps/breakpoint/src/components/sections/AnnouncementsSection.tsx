@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import Card from "@/components/Card";
+import WordReveal from "@/components/WordReveal";
 
 const articleKeys = ["article1", "article2", "article3"] as const;
 
@@ -12,9 +13,12 @@ export default function AnnouncementsSection() {
   return (
     <section className="border-t border-neutral-700 py-3xl">
       <div className="container">
-        <h2 className="mb-xl font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]">
-          {t("announcements.headline")}
-        </h2>
+        <WordReveal
+          as="h2"
+          text={t("announcements.headline")}
+          stepMs={85}
+          className="mb-xl font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"
+        />
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-3">
           {articleKeys.map((key) => (

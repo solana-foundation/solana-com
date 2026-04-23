@@ -1,5 +1,6 @@
 import React from "react";
 import Button from "./Button";
+import WordReveal from "./WordReveal";
 
 interface TicketCardProps {
   variant: "ticket";
@@ -80,16 +81,23 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
     <div className="flex h-[300px] flex-col justify-between overflow-hidden border border-white/15 bg-white/[0.02] p-s">
       <div>
         {eyebrow && (
-          <span className="font-mono text-base uppercase tracking-[1.28px] text-white opacity-80">
-            {eyebrow}
-          </span>
+          <WordReveal
+            as="span"
+            text={eyebrow}
+            stepMs={55}
+            className="font-mono text-base uppercase tracking-[1.28px] text-white opacity-80"
+          />
         )}
       </div>
       <div>
         {linkLabel && (
-          <span className="font-sans text-[32px] tracking-[-1.28px] text-white">
-            {linkLabel}
-          </span>
+          <WordReveal
+            as="span"
+            text={linkLabel}
+            stepMs={70}
+            startDelayMs={120}
+            className="font-sans text-[32px] tracking-[-1.28px] text-white"
+          />
         )}
       </div>
     </div>

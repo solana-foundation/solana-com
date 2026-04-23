@@ -4,6 +4,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
+import WordReveal from "@/components/WordReveal";
+import { useInView } from "@/hooks/useInView";
 
 interface StatItem {
   key: string;
@@ -57,6 +59,7 @@ const seededRandom = (seed: number) => {
 
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
+  const [stripRef, stripInView] = useInView<HTMLDivElement>(0.1);
 
   return (
     <section className="border-t border-neutral-700 py-[120px]">
@@ -66,21 +69,33 @@ export default function StatsSection() {
         </SectionHeadline>
 
         <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">
-          {statItems.map((item) => (
+          {statItems.map((item, idx) => (
             <div key={item.key} className="border-b border-white/20 pb-4">
-              <span className="font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]">
-                {t(item.valueKey)}
-                {t(item.suffixKey)}
-              </span>
-              <p className="mt-3 max-w-[22ch] text-[1rem] leading-[1.3] text-white/72">
-                {t(item.labelKey)}
-              </p>
+              <WordReveal
+                as="span"
+                text={`${t(item.valueKey)}${t(item.suffixKey)}`}
+                stepMs={120}
+                startDelayMs={idx * 140}
+                className="block font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]"
+              />
+              <WordReveal
+                as="p"
+                text={t(item.labelKey)}
+                stepMs={55}
+                startDelayMs={idx * 140 + 180}
+                className="mt-3 max-w-[22ch] text-[1rem] leading-[1.3] text-white/72"
+              />
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-16 w-full overflow-hidden" aria-hidden="true">
+      <div
+        ref={stripRef}
+        className={`mt-16 w-full overflow-hidden ${stripInView ? "bp-block-reveal" : ""}`}
+        style={{ opacity: stripInView ? 1 : 0 }}
+        aria-hidden="true"
+      >
         <div className="photo-strip-track flex w-max gap-4 md:gap-0">
           {[...stripImages, ...stripImages].map((src, index) => {
             const position = index % stripImages.length;

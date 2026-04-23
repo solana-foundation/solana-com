@@ -241,26 +241,24 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full bg-purple py-l">
-        <div className="container flex items-center justify-center">
-          <div className="flex w-full items-center gap-[16px] md:w-auto md:shrink-0 md:gap-[35.974px]">
-            <img
-              src="/assets/bp-logo-mark.svg"
-              alt=""
-              aria-hidden="true"
-              width={114.409}
-              height={98.628}
-              className="block h-[48px] w-[55.67px] shrink-0 md:h-[98.628px] md:w-[114.409px]"
-            />
-            <img
-              src="/assets/breakpoint-wordmark-footer.svg"
-              alt="Breakpoint"
-              width={1226.613}
-              height={100.876}
-              style={{ aspectRatio: "1226.613 / 100.876" }}
-              className="block h-auto w-full min-w-0 flex-1 md:h-[100.876px] md:w-[1226.613px] md:flex-none"
-            />
-          </div>
+      <div className="w-full bg-purple px-s py-l md:px-[32px]">
+        <div className="flex w-full items-center justify-center gap-[16px] md:gap-[35.974px]">
+          <img
+            src="/assets/bp-logo-mark.svg"
+            alt=""
+            aria-hidden="true"
+            width={114.409}
+            height={98.628}
+            className="block h-[48px] w-[55.67px] shrink-0 md:h-[98.628px] md:w-[114.409px]"
+          />
+          <img
+            src="/assets/breakpoint-wordmark-footer.svg"
+            alt="Breakpoint"
+            width={1226.613}
+            height={100.876}
+            className="block h-auto w-full min-w-0 flex-1"
+            style={{ aspectRatio: "1226.613 / 100.876" }}
+          />
         </div>
       </div>
     </footer>

@@ -1,6 +1,48 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useInView } from "@/hooks/useInView";
+
+const GLYPHS =
+  "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+function useScramble(label: string, durationMs: number, runKey: number) {
+  const [out, setOut] = useState(label);
+  useEffect(() => {
+    if (runKey === 0) {
+      setOut(label);
+      return;
+    }
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      setOut(label);
+      return;
+    }
+    let raf = 0;
+    let start: number | null = null;
+    let frame = 0;
+    const loop = (ts: number) => {
+      if (start === null) start = ts;
+      const p = Math.min(1, (ts - start) / durationMs);
+      const settled = Math.floor(p * label.length);
+      let s = "";
+      for (let i = 0; i < label.length; i++) {
+        const ch = label[i]!;
+        s +=
+          ch === " " || i < settled ? ch : GLYPHS[(frame + i) % GLYPHS.length]!;
+      }
+      setOut(s);
+      frame += 1;
+      if (p < 1) raf = requestAnimationFrame(loop);
+      else setOut(label);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [label, durationMs, runKey]);
+  return out;
+}
 
 interface ButtonProps {
   label: string;
@@ -45,35 +87,78 @@ export default function Button({
   onClick,
   className = "",
 }: ButtonProps) {
+  const [ref, inView] = useInView<HTMLElement>(0.35);
+  const [runKey, setRunKey] = useState(0);
+  const primed = useRef(false);
+
+  useEffect(() => {
+    if (!inView || primed.current) return;
+    primed.current = true;
+    setRunKey(1);
+  }, [inView]);
+
+  const scrambleDuration = variant === "primary" ? 1500 : 400;
+  const displayLabel = useScramble(label, scrambleDuration, runKey);
+
+  const handleHover = () => {
+    if (variant === "secondary") setRunKey((k) => k + 1);
+  };
+
   const baseClasses =
-    "inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] !font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200";
+    "relative inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] !font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200 overflow-hidden";
 
   const variantClasses =
     variant === "primary"
       ? "bg-white text-black hover:bg-[#e7d2f9]"
       : "border border-white/18 bg-black/40 text-white hover:border-white/40 hover:bg-white/[0.06]";
 
-  const classes = `${baseClasses} ${variantClasses} ${className}`.trim();
+  const wipeClass = inView && variant === "primary" ? "bp-block-wipe" : "";
+  const blinkClass = inView && variant === "secondary" ? "bp-icon-blink" : "";
+
+  const classes =
+    `${baseClasses} ${variantClasses} ${blinkClass} ${className}`.trim();
   const trailing = iconRight ?? (arrow ? <ArrowUpRight /> : null);
 
   const inner = (
     <>
-      {iconLeft && <span>{iconLeft}</span>}
-      {label}
-      {trailing && <span>{trailing}</span>}
+      {/* Block-wipe background for primary */}
+      {variant === "primary" && (
+        <span
+          aria-hidden="true"
+          className={`absolute inset-0 bg-white ${wipeClass}`}
+        />
+      )}
+      <span className="relative z-10 inline-flex items-center gap-2xs">
+        {iconLeft && <span>{iconLeft}</span>}
+        <span aria-label={label}>{displayLabel}</span>
+        {trailing && (
+          <span
+            className={inView && variant === "primary" ? "bp-icon-blink" : ""}
+          >
+            {trailing}
+          </span>
+        )}
+      </span>
     </>
   );
 
+  const commonProps = {
+    ref: ref as unknown as React.Ref<never>,
+    className: classes,
+    onMouseEnter: handleHover,
+    onFocus: handleHover,
+  };
+
   if (href) {
     return (
-      <a href={href} className={classes}>
+      <a href={href} {...commonProps}>
         {inner}
       </a>
     );
   }
 
   return (
-    <button onClick={onClick} className={classes}>
+    <button onClick={onClick} {...commonProps}>
       {inner}
     </button>
   );

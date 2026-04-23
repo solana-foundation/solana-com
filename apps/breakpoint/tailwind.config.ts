@@ -90,8 +90,8 @@ export default {
       animation: {
         ticker: "ticker 30s linear infinite",
         "ticker-reverse": "ticker 30s linear infinite reverse",
-        "accordion-slide-down": "accordion-slide-down 200ms ease-out",
-        "accordion-slide-up": "accordion-slide-up 200ms ease-out",
+        "accordion-slide-down": "accordion-slide-down 200ms linear",
+        "accordion-slide-up": "accordion-slide-up 200ms linear",
       },
       keyframes: {
         ticker: {
