@@ -38,6 +38,7 @@ import { phantom } from "./records/phantom";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
+import { ramp } from "./records/ramp";
 import { rockawayx } from "./records/rockawayx";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sofi } from "./records/sofi";
@@ -97,6 +98,7 @@ export const companies = [
   pipeNetwork,
   playSolana,
   quicknode,
+  ramp,
   rockawayx,
   safepalWallet,
   sofi,
