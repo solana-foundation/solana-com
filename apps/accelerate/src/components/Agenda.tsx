@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import agendaData from "@/data/agenda.json";
+import defaultAgendaData from "@/data/agenda.json";
 import { fadeInUp } from "@/lib/animations";
 import type { Variants } from "framer-motion";
 
@@ -334,8 +334,21 @@ function FilterBar({
   );
 }
 
-export function Agenda() {
-  const { event, focusTopics, sessions } = agendaData;
+interface AgendaData {
+  event: {
+    name: string;
+    date?: string;
+    venue?: string;
+    hall?: string;
+    mc?: string;
+  };
+  focusTopics: Array<{ title: string; description: string }>;
+  sessions: Session[];
+}
+
+export function Agenda({ data }: { data?: AgendaData } = {}) {
+  const { event, focusTopics, sessions } =
+    data ?? (defaultAgendaData as AgendaData);
   const t = useTranslations("accelerate.agenda");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -411,28 +424,34 @@ export function Agenda() {
           variants={staggerAgenda}
         >
           {/* Focus Topics */}
-          <motion.div variants={fadeInUp} className="mb-10 lg:mb-14">
-            <h2 className="mb-4 font-space-grotesk text-h2 text-white/80">
-              {t("focusTopics")}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {focusTopics.map((topic) => (
-                <motion.div
-                  key={topic.title}
-                  variants={fadeInUp}
-                  className="rounded-lg border border-white/10 bg-white/[0.02] p-4 transition-colors hover:border-white/20"
-                >
-                  <h3 className="gradient-text mb-1 font-space-grotesk text-base font-semibold">
-                    {topic.title}
-                  </h3>
-                  <p className="text-sm text-white/50">{topic.description}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+          {focusTopics.length > 0 && (
+            <>
+              <motion.div variants={fadeInUp} className="mb-10 lg:mb-14">
+                <h2 className="mb-4 font-space-grotesk text-h2 text-white/80">
+                  {t("focusTopics")}
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {focusTopics.map((topic) => (
+                    <motion.div
+                      key={topic.title}
+                      variants={fadeInUp}
+                      className="rounded-lg border border-white/10 bg-white/[0.02] p-4 transition-colors hover:border-white/20"
+                    >
+                      <h3 className="gradient-text mb-1 font-space-grotesk text-base font-semibold">
+                        {topic.title}
+                      </h3>
+                      <p className="text-sm text-white/50">
+                        {topic.description}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
 
-          {/* Divider */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+              {/* Divider */}
+              <div className="mb-8 border-t border-white/10 lg:mb-10" />
+            </>
+          )}
 
           {/* Filter Bar */}
           <FilterBar
@@ -512,15 +531,17 @@ export function Agenda() {
           </div>
 
           {/* MC Note */}
-          <motion.div
-            variants={fadeInUp}
-            className="mt-10 border-t border-white/10 pt-6"
-          >
-            <p className="text-sm text-white/50">
-              <span className="font-medium text-white/70">{t("mc")}</span>{" "}
-              {event.mc}
-            </p>
-          </motion.div>
+          {event.mc && (
+            <motion.div
+              variants={fadeInUp}
+              className="mt-10 border-t border-white/10 pt-6"
+            >
+              <p className="text-sm text-white/50">
+                <span className="font-medium text-white/70">{t("mc")}</span>{" "}
+                {event.mc}
+              </p>
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </section>
