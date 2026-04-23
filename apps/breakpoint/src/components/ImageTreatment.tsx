@@ -40,6 +40,8 @@ export interface ImageTreatmentProps extends Omit<
   color?: TreatmentColor;
   motion?: boolean;
   flicker?: boolean;
+  mouseReactive?: boolean;
+  mouseRadius?: number;
   foregroundSrc?: string;
   overrides?: TreatmentOverrides;
   objectFit?: "cover" | "contain";
@@ -235,6 +237,8 @@ export default function ImageTreatment({
   color = "purple",
   motion = false,
   flicker = false,
+  mouseReactive = false,
+  mouseRadius,
   foregroundSrc,
   overrides,
   objectFit = "cover",
@@ -244,6 +248,11 @@ export default function ImageTreatment({
 }: ImageTreatmentProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseStateRef = useRef<{ x: number; y: number; hovering: boolean }>({
+    x: 0,
+    y: 0,
+    hovering: false,
+  });
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fgImage, setFgImage] = useState<HTMLImageElement | null>(null);
   const [inView, setInView] = useState(false);
@@ -609,6 +618,99 @@ export default function ImageTreatment({
 
     const hasGlitch = glitchPattern !== "none";
 
+    const localizeGlitches = (cx: number, cy: number) => {
+      const radius = mouseRadius ?? Math.min(w, h) * 0.25;
+      for (const g of glitches) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+        const px = cx + Math.cos(angle) * r;
+        const py = cy + Math.sin(angle) * r;
+        if (g.type === "tear") {
+          g.sx = Math.max(0, Math.min(w - g.w, px - g.w / 2));
+          g.sy = Math.max(0, Math.min(h - g.h, py));
+        } else {
+          g.sx = Math.max(0, Math.min(w, px));
+          g.sy = Math.max(0, Math.min(h, py));
+          g.slices = buildSlices(g.w);
+        }
+      }
+    };
+
+    if (mouseReactive && hasGlitch) {
+      const el = wrapperRef.current;
+      const state = mouseStateRef.current;
+      state.hovering = false;
+
+      const updateFromEvent = (e: PointerEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        state.x = ((e.clientX - rect.left) / rect.width) * w;
+        state.y = ((e.clientY - rect.top) / rect.height) * h;
+        state.hovering = true;
+      };
+
+      const onPointerEnter = (e: PointerEvent) => {
+        updateFromEvent(e);
+        localizeGlitches(state.x, state.y);
+        if (!animate) {
+          renderFrame("static");
+          renderHeadshot();
+        }
+      };
+      const onPointerMove = (e: PointerEvent) => {
+        updateFromEvent(e);
+        localizeGlitches(state.x, state.y);
+        if (!animate) {
+          renderFrame("static");
+          renderHeadshot();
+        }
+      };
+      const onPointerLeave = () => {
+        state.hovering = false;
+        if (!animate) drawClean();
+      };
+
+      el?.addEventListener("pointerenter", onPointerEnter);
+      el?.addEventListener("pointermove", onPointerMove);
+      el?.addEventListener("pointerleave", onPointerLeave);
+      el?.addEventListener("pointercancel", onPointerLeave);
+
+      drawClean();
+
+      if (animate) {
+        const loop = () => {
+          if (!state.hovering) {
+            drawClean();
+          } else {
+            if (Math.random() > 0.5 / Math.max(0.1, params.animSpeed)) {
+              const jx = params.xShift + (Math.random() - 0.5) * 80;
+              const jy = params.yShift + (Math.random() - 0.5) * 80;
+              processBase(jx, jy);
+            }
+            renderFrame("chaos");
+            for (const g of glitches) {
+              const dx = state.x - (g.sx + (g.type === "tear" ? g.w / 2 : 0));
+              const dy = state.y - g.sy;
+              const pull = 0.05;
+              g.sx += dx * pull;
+              g.sy += dy * pull;
+            }
+            renderHeadshot();
+          }
+          raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+      }
+
+      return () => {
+        el?.removeEventListener("pointerenter", onPointerEnter);
+        el?.removeEventListener("pointermove", onPointerMove);
+        el?.removeEventListener("pointerleave", onPointerLeave);
+        el?.removeEventListener("pointercancel", onPointerLeave);
+        stopMotion();
+      };
+    }
+
     if (flicker && hasGlitch) {
       let timeoutId: number | null = null;
       let isGlitching = Math.random() < 0.4;
@@ -653,6 +755,8 @@ export default function ImageTreatment({
     color,
     motion,
     flicker,
+    mouseReactive,
+    mouseRadius,
     overridesKey,
   ]);
 

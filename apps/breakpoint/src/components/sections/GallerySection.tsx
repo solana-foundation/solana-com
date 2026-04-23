@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
 import YouTubeModal from "@/components/YouTubeModal";
 import WordReveal from "@/components/WordReveal";
+import ImageTreatment from "@/components/ImageTreatment";
 import { useInView } from "@/hooks/useInView";
 
 const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
@@ -37,11 +38,17 @@ export default function GallerySection() {
           className={`relative aspect-[2/1] w-full overflow-hidden ${mediaInView ? "bp-block-reveal" : ""}`}
           style={{ opacity: mediaInView ? 1 : 0 }}
         >
-          <img
+          <ImageTreatment
             src="/img/bp25/recap-hero.webp"
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
+            glitchPattern="p1"
+            intensity={20}
+            color="purple"
+            lighting="even"
+            motion
+            mouseReactive
+            className="absolute inset-0 h-full w-full"
           />
           <div className="absolute inset-y-0 left-5 z-10 flex w-full max-w-[500px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:-translate-x-1/2">
             <WordReveal
