@@ -35,7 +35,7 @@ export default function GallerySection() {
       <div className="container md:px-8">
         <div
           ref={mediaRef}
-          className={`relative aspect-[2/1] w-full overflow-hidden ${mediaInView ? "bp-block-reveal" : ""}`}
+          className="relative aspect-[2/1] w-full overflow-hidden transition-opacity duration-700 ease-out"
           style={{ opacity: mediaInView ? 1 : 0 }}
         >
           <ImageTreatment
