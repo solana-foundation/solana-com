@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import {
   Hero,
   EventDetails,
+  AgendaBanner,
   Sponsors,
   FAQ,
   GettingThere,
@@ -68,6 +69,10 @@ export default async function MiamiPage({ params }: PageProps) {
         mapTitle="Miami Beach Convention Center - 1901 Convention Center Dr, Miami Beach, FL 33139"
         showFocusTopics={false}
         showTicketsRow={false}
+      />
+      <AgendaBanner
+        translationPrefix="accelerate.miami.agendaBanner"
+        agendaPath="/accelerate/miami/agenda"
       />
       <MiamiSpeakers />
       <EventLineup futureOnly />

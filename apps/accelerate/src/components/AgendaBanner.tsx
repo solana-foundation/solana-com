@@ -7,8 +7,16 @@ import { useTranslations } from "next-intl";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
 
-export function AgendaBanner() {
-  const t = useTranslations("accelerate.agendaBanner");
+interface AgendaBannerProps {
+  translationPrefix?: string;
+  agendaPath?: string;
+}
+
+export function AgendaBanner({
+  translationPrefix = "accelerate.agendaBanner",
+  agendaPath = "/accelerate/hong-kong/agenda",
+}: AgendaBannerProps = {}) {
+  const t = useTranslations(translationPrefix);
 
   const highlights = [
     { count: t("sessionsCount"), label: t("sessionsLabel") },
@@ -103,7 +111,7 @@ export function AgendaBanner() {
           {/* CTA Button */}
           <motion.div variants={fadeInUp}>
             <Link
-              href="/accelerate/hong-kong/agenda"
+              href={agendaPath}
               className="btn-cta h-[56px] px-8 sm:h-[66px]"
             >
               <span className="text-sm uppercase font-semibold sm:text-base sm:tracking-[0.9px]">
