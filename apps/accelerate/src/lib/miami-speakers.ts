@@ -1,5 +1,4 @@
 import { unstable_cache } from "next/cache";
-import fallbackMiamiSpeakersData from "@/data/miami/speakers.json";
 import type { Speaker } from "@/types/speakers";
 
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
@@ -8,7 +7,6 @@ const AIRTABLE_CACHE_SECONDS = 60 * 30;
 const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
 const DEFAULT_TABLE_ID = "tbljHJh3sx1zrwMSD";
 const DEFAULT_VIEW_ID = "viwK6atCbxFZWGyvk";
-const FALLBACK_MIAMI_SPEAKERS = fallbackMiamiSpeakersData.speakers as Speaker[];
 
 type AirtableAttachment = {
   url?: string;
@@ -228,7 +226,7 @@ function normalizeSpeakerRecord(
   };
 }
 
-async function fetchAirtableSpeakers(): Promise<Speaker[]> {
+async function fetchAirtableSpeakers(): Promise<Speaker[] | null> {
   const token = process.env.AIRTABLE_PAT;
   const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS ?? DEFAULT_BASE_ID;
   const tableId = process.env.AIRTABLE_TABLE_ID_SPEAKERS ?? DEFAULT_TABLE_ID;
@@ -236,9 +234,9 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
 
   if (!token) {
     console.warn(
-      "Miami speakers Airtable PAT missing; using fallback snapshot",
+      "Miami speakers Airtable PAT missing; hiding speakers section",
     );
-    return FALLBACK_MIAMI_SPEAKERS;
+    return null;
   }
 
   try {
@@ -295,7 +293,7 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
       .map((entry) => entry.speaker);
   } catch (error) {
     console.error("Failed to load Miami speakers from Airtable", error);
-    return FALLBACK_MIAMI_SPEAKERS;
+    return null;
   }
 }
 
