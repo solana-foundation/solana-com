@@ -3,6 +3,7 @@ import miamiAgendaStatic from "@/data/miami/agenda.json";
 
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60 * 30;
+const EVENT_TIMEZONE = "America/New_York";
 
 type SessionType =
   | "keynote"
@@ -13,15 +14,22 @@ type SessionType =
   | "demo"
   | "closing";
 
-const SESSION_TYPES: SessionType[] = [
-  "keynote",
-  "panel",
-  "fireside",
-  "lightning",
-  "break",
-  "demo",
-  "closing",
-];
+// Exact values from the Miami agenda table's Format single-select.
+const FORMAT_TO_TYPE: Record<string, SessionType> = {
+  "Break (15 min)": "break",
+  "Break (45 min)": "break",
+  "Debate (30 min)": "panel",
+  "Fireside (15 min)": "fireside",
+  "Fireside (20 min)": "fireside",
+  "Keynote (10 min)": "keynote",
+  "Keynote (15 min)": "keynote",
+  "Open/Close (5 min)": "keynote",
+  "Panel (20 min)": "panel",
+  "Panel (25 min)": "panel",
+  "Product Keynote (5 min)": "keynote",
+  "Product Keynote (7 min)": "keynote",
+  "Reacts (30 min)": "lightning",
+};
 
 export interface AgendaSpeaker {
   name?: string;
@@ -69,14 +77,14 @@ function asString(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
-function asStringArray(value: unknown): string[] | undefined {
-  if (Array.isArray(value)) {
-    const items = value
-      .map((item) => (typeof item === "string" ? item.trim() : undefined))
-      .filter((item): item is string => Boolean(item));
-    return items.length ? items : undefined;
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    const single = asString(value);
+    return single ? [single] : [];
   }
-  return undefined;
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -88,125 +96,65 @@ function asNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function asBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "yes", "1"].includes(normalized)) return true;
-    if (["false", "no", "0"].includes(normalized)) return false;
-  }
-  return undefined;
+function toTimeParts(iso: string): { time: string; period: string } | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const formatted = date.toLocaleTimeString("en-US", {
+    timeZone: EVENT_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const match = formatted.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  return { time: match[1]!, period: match[2]!.toUpperCase() };
 }
 
-function getField<T>(
-  fields: Record<string, unknown>,
-  names: string[],
-  parser: (value: unknown) => T | undefined,
-): T | undefined {
-  for (const name of names) {
-    if (!(name in fields)) continue;
-    const parsed = parser(fields[name]);
-    if (parsed !== undefined) return parsed;
+function formatTimeRange(startISO?: string, endISO?: string): string {
+  const start = startISO ? toTimeParts(startISO) : null;
+  const end = endISO ? toTimeParts(endISO) : null;
+  if (!start) return "";
+  if (!end) return `${start.time} ${start.period}`;
+  if (start.period === end.period) {
+    return `${start.time} – ${end.time} ${end.period}`;
   }
-  return undefined;
+  return `${start.time} ${start.period} – ${end.time} ${end.period}`;
 }
 
-function isPublished(fields: Record<string, unknown>) {
-  const explicitHidden = getField(
-    fields,
-    ["Hidden", "hidden", "Hide", "hide"],
-    asBoolean,
-  );
-  if (explicitHidden === true) return false;
+function parseSpeakerString(entry: string): AgendaSpeaker | null {
+  const trimmed = entry.trim();
+  if (!trimmed) return null;
 
-  const publishToWeb = getField(
-    fields,
-    [
-      "Publish To Web",
-      "Publish to Web",
-      "publish to web",
-      "publishToWeb",
-      "publish_to_web",
-    ],
-    asBoolean,
-  );
-  if (publishToWeb === false) return false;
-
-  const explicitPublished = getField(
-    fields,
-    ["Published", "published", "Visible", "visible", "Live", "live"],
-    asBoolean,
-  );
-  if (explicitPublished === false) return false;
-
-  return true;
-}
-
-function normalizeType(value: string | undefined): SessionType {
-  if (!value) return "panel";
-  const normalized = value.trim().toLowerCase();
-  if (SESSION_TYPES.includes(normalized as SessionType)) {
-    return normalized as SessionType;
+  // "Name (Title, Company)" or "Name (Company)"
+  const paren = trimmed.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (paren?.[1] && paren[2]) {
+    const name = paren[1].trim();
+    const inside = paren[2].split(",").map((p) => p.trim());
+    if (inside.length >= 2) {
+      return { name, title: inside[0], company: inside.slice(1).join(", ") };
+    }
+    return { name, company: inside[0] };
   }
-  if (normalized.includes("keynote")) return "keynote";
-  if (normalized.includes("fireside")) return "fireside";
-  if (normalized.includes("lightning")) return "lightning";
-  if (normalized.includes("demo")) return "demo";
-  if (normalized.includes("closing")) return "closing";
-  if (
-    normalized.includes("break") ||
-    normalized.includes("lunch") ||
-    normalized.includes("coffee") ||
-    normalized.includes("doors")
-  ) {
-    return "break";
+
+  // "Name, Company" (comma-separated)
+  const parts = trimmed.split(",").map((p) => p.trim());
+  if (parts.length >= 2) {
+    return { name: parts[0], company: parts.slice(1).join(", ") };
   }
-  if (normalized.includes("panel")) return "panel";
-  return "panel";
+
+  return { name: trimmed };
 }
 
 function parseSpeakers(value: unknown): AgendaSpeaker[] {
-  const raw =
-    asStringArray(value) ?? (asString(value) ? [asString(value)!] : []);
-  return raw
+  return asStringArray(value)
     .flatMap((entry) =>
       entry
         .split(/\s*(?:;|\n|\|)\s*/)
         .map((part) => part.trim())
         .filter(Boolean),
     )
-    .map((entry) => {
-      // Accept "Name (Title, Company)" or "Name - Title, Company" or plain "Name, Company"
-      const parenMatch = entry.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-      if (parenMatch?.[1] && parenMatch[2]) {
-        const name = parenMatch[1].trim();
-        const inside = parenMatch[2].split(",").map((p) => p.trim());
-        const [title, company] =
-          inside.length >= 2
-            ? [inside[0], inside.slice(1).join(", ")]
-            : [undefined, inside[0]];
-        return { name, title, company };
-      }
-      const dashMatch = entry.match(/^(.+?)\s*[-–]\s*(.+)$/);
-      if (dashMatch?.[1] && dashMatch[2]) {
-        const name = dashMatch[1].trim();
-        const rest = dashMatch[2].split(",").map((p) => p.trim());
-        const [title, company] =
-          rest.length >= 2
-            ? [rest[0], rest.slice(1).join(", ")]
-            : [undefined, rest[0]];
-        return { name, title, company };
-      }
-      const commaMatch = entry.split(",").map((p) => p.trim());
-      if (commaMatch.length >= 2) {
-        return {
-          name: commaMatch[0],
-          company: commaMatch.slice(1).join(", "),
-        };
-      }
-      return { name: entry };
-    })
-    .filter((s) => Boolean(s.name));
+    .map(parseSpeakerString)
+    .filter((s): s is AgendaSpeaker => Boolean(s?.name));
 }
 
 function slugify(value: string): string {
@@ -221,81 +169,30 @@ function normalizeSession(
   index: number,
 ): { session: AgendaSession; sortOrder: number } | null {
   const fields = record.fields ?? {};
-  if (!isPublished(fields)) return null;
 
-  const title = getField(
-    fields,
-    ["Title", "title", "Session", "session", "Name", "name"],
-    asString,
-  );
+  // Publish gate: only include rows where the checkbox is explicitly true.
+  if (fields["Publish to web"] !== true) return null;
+
+  const title = asString(fields["⚙️ Session Name"]);
   if (!title) return null;
 
-  const time =
-    getField(
-      fields,
-      ["Time", "time", "Start Time", "startTime", "Time Slot", "timeSlot"],
-      asString,
-    ) ?? "";
+  const startISO = asString(fields["Start Time"]);
+  const endISO = asString(fields["End Time"]);
+  const time = formatTimeRange(startISO, endISO);
 
-  const type = normalizeType(
-    getField(
-      fields,
-      ["Type", "type", "Session Type", "sessionType", "Format", "format"],
-      asString,
-    ),
-  );
+  const formatValue = asString(fields["Format"]);
+  const type: SessionType = formatValue
+    ? (FORMAT_TO_TYPE[formatValue] ?? "panel")
+    : "panel";
 
-  const location =
-    getField(
-      fields,
-      ["Location", "location", "Room", "room", "Stage", "stage"],
-      asString,
-    ) ?? "";
+  const location = asString(fields["Stage"]) ?? "";
+  const subtitle = asString(fields["Description"]);
 
-  const subtitle = getField(
-    fields,
-    [
-      "Subtitle",
-      "subtitle",
-      "Description",
-      "description",
-      "Summary",
-      "summary",
-    ],
-    asString,
-  );
+  const speakers = parseSpeakers(fields["Speaker Name and Company"]);
+  const moderator = parseSpeakers(fields["Moderator Name and Company"])[0];
 
-  const duration = getField(
-    fields,
-    ["Duration", "duration", "Length", "length"],
-    asString,
-  );
-
-  const speakers = parseSpeakers(
-    fields["Speakers"] ??
-      fields["speakers"] ??
-      fields["Panelists"] ??
-      fields["panelists"],
-  );
-
-  const moderatorList = parseSpeakers(
-    fields["Moderator"] ??
-      fields["moderator"] ??
-      fields["Host"] ??
-      fields["host"],
-  );
-  const moderator = moderatorList[0];
-
-  const slug =
-    getField(fields, ["Slug", "slug", "ID", "id"], asString) ??
-    (slugify(`${time}-${title}`) || record.id);
-
-  const sortOrder =
-    getField(
-      fields,
-      ["Sort Order", "sortOrder", "Order", "order", "Priority", "priority"],
-      asNumber,
-    ) ?? index;
+  const sortOrder = asNumber(fields["Sequence Ordinal"]) ?? index;
+  const slug = slugify(`${time}-${title}`) || record.id;
 
   return {
     sortOrder,
@@ -306,7 +203,6 @@ function normalizeSession(
       subtitle,
       type,
       location,
-      duration,
       moderator,
       speakers,
     },
