@@ -1,6 +1,14 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { getCompanyLogoSrc } from "@workspace/ecosystem-data";
 import { Formats, TranslationValues } from "next-intl";
+import {
+  ArrowsIcon,
+  ClockIcon,
+  LedgerIcon,
+  MoneyHandIcon,
+  TokenIcon,
+  UsersIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export const PROJECTS = [
   {
@@ -51,24 +59,30 @@ export const LOGOS = [
 export const PRODUCTS = [
   {
     key: "0",
+    Icon: TokenIcon,
     href: "/solutions/token-extensions",
   },
   {
     key: "1",
+    Icon: UsersIcon,
     href: "/solutions/solana-permissioned-environments",
   },
   {
     key: "2",
+    Icon: MoneyHandIcon,
     href: "/solutions/real-world-assets",
   },
   {
     key: "3",
+    Icon: ArrowsIcon,
   },
   {
     key: "4",
+    Icon: ClockIcon,
   },
   {
     key: "5",
+    Icon: LedgerIcon,
   },
 ];
 

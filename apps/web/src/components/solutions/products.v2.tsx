@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import Image from "next/image";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { cn } from "@/app/components/utils";
@@ -8,6 +8,10 @@ import { cn } from "@/app/components/utils";
 export type Product = {
   key: string;
   href?: string;
+  Icon?: ComponentType<{
+    className?: string;
+    "aria-hidden"?: boolean;
+  }>;
 };
 
 type ProductsProps = {
@@ -92,7 +96,7 @@ export const Products = ({
                 !oneColumn,
             })}
           >
-            {products.map(({ key, href }, index) => {
+            {products.map(({ key, href, Icon }, index) => {
               const hasLink = Boolean(href);
               const productTitle = t(`${translationBase}.${key}.title`);
               const productDescription = t(
@@ -109,15 +113,23 @@ export const Products = ({
                       } as React.CSSProperties
                     }
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                    >
-                      <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
-                    </svg>
+                    {Icon ? (
+                      <Icon
+                        aria-hidden={true}
+                        className="size-4 md:size-6 [&_circle[stroke]]:stroke-current [&_ellipse[stroke]]:stroke-current [&_line[stroke]]:stroke-current [&_path[fill]]:fill-current [&_path[stroke]]:stroke-current [&_polyline[stroke]]:stroke-current"
+                      />
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden={true}
+                      >
+                        <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
+                      </svg>
+                    )}
                   </div>
                   <div className="grow">
                     <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.5] md:leading-[1.33]">

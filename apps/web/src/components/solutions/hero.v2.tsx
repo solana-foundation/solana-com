@@ -31,6 +31,7 @@ export type SolutionHeroProps = {
   stats?: SolutionHeroStat[];
   reportImgSrc?: string;
   bgJsonFilePath?: string;
+  showDownloadCard?: boolean;
 };
 
 /**
@@ -69,7 +70,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   stats,
   reportImgSrc,
   bgJsonFilePath,
+  showDownloadCard = true,
 }) => {
+  const statsCount = stats?.length ?? 0;
+  const hasStats = statsCount > 0;
+  const hasBottomContent =
+    hasStats || (showDownloadCard && emailCta && onEmailClick);
+
   const { ref: statsRef, isIntersecting } =
     useIntersectionObserver<HTMLDivElement>({
       threshold: 0.2,
@@ -111,7 +118,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           onError={(error) => console.error("UnicornScene error:", error)}
         />
       )}
-      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-[1440px] mx-auto flex flex-col justify-between relative">
+      <div
+        className={cn(
+          "max-w-[1440px] mx-auto flex flex-col relative",
+          hasBottomContent &&
+            "min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] justify-between",
+        )}
+      >
         {/* Hero Content */}
         <div className="px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-5xl">
           <h1
@@ -163,83 +176,90 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
         </div>
 
         {/* Bottom Content */}
-        {((stats && stats.length > 0) || (emailCta && onEmailClick)) && (
+        {hasBottomContent && (
           <div
             ref={statsRef}
             className="w-full flex flex-col xl:flex-row xl:pb-10"
           >
             {/* Stats */}
-            <div
-              className={cn(
-                "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
-                {
-                  "xl:w-2/3": Boolean(emailCta),
-                  "xl:grid-cols-2": stats.length === 2,
-                  "xl:grid-cols-3": stats.length === 3,
-                  "xl:grid-cols-4": stats.length > 3,
-                },
-              )}
-            >
-              {stats?.map((stat, index) => (
-                <div
-                  key={stat.label}
-                  className={cn(
-                    "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15",
-                    {
-                      "border-l  ": index % 2,
-                      "xl:border-l ": index,
-                      "animate-fade-in-up": isIntersecting,
-                    },
-                  )}
-                  style={
-                    isIntersecting
-                      ? { animationDelay: `${0.1 + index * 0.1}s` }
-                      : { opacity: 0 }
-                  }
-                >
-                  <div className="max-md:hidden">
-                    {stat.Icon && typeof stat.Icon === "string" ? (
-                      <Image
-                        src={stat.Icon}
-                        alt=""
-                        width={32}
-                        height={32}
-                        className="xl:size-8 md:size-5"
-                      />
-                    ) : stat.Icon ? (
-                      <stat.Icon className="xl:size-8 md:size-5" />
-                    ) : null}
-                  </div>
-                  <div>
-                    <div className="text-[20px] xl:text-[40px] leading-none uppercase font-light">
-                      {stat.value}
+            {hasStats && (
+              <div
+                className={cn(
+                  "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
+                  {
+                    "xl:w-2/3": Boolean(emailCta),
+                    "xl:grid-cols-2": statsCount === 2,
+                    "xl:grid-cols-3": statsCount === 3,
+                    "xl:grid-cols-4": statsCount > 3,
+                  },
+                )}
+              >
+                {stats?.map((stat, index) => (
+                  <div
+                    key={stat.label}
+                    className={cn(
+                      "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15",
+                      {
+                        "border-l  ": index % 2,
+                        "xl:border-l ": index,
+                        "animate-fade-in-up": isIntersecting,
+                      },
+                    )}
+                    style={
+                      isIntersecting
+                        ? { animationDelay: `${0.1 + index * 0.1}s` }
+                        : { opacity: 0 }
+                    }
+                  >
+                    <div className="max-md:hidden">
+                      {stat.Icon && typeof stat.Icon === "string" ? (
+                        <Image
+                          src={stat.Icon}
+                          alt=""
+                          width={32}
+                          height={32}
+                          className="xl:size-8 md:size-5"
+                        />
+                      ) : stat.Icon ? (
+                        <stat.Icon className="xl:size-8 md:size-5" />
+                      ) : null}
                     </div>
-                    <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
-                      {stat.label}
+                    <div>
+                      <div className="text-[20px] xl:text-[40px] leading-none uppercase font-light">
+                        {stat.value}
+                      </div>
+                      <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
+                        {stat.label}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              {stats.length % 2 !== 0 && (
-                <div
-                  className={cn(
-                    "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
-                    {
-                      "animate-fade-in-up": isIntersecting,
-                    },
-                  )}
-                  style={
-                    isIntersecting
-                      ? { animationDelay: `${0.1 + stats.length * 0.1}s` }
-                      : { opacity: 0 }
-                  }
-                />
-              )}
-            </div>
+                ))}
+                {statsCount % 2 !== 0 && (
+                  <div
+                    className={cn(
+                      "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
+                      {
+                        "animate-fade-in-up": isIntersecting,
+                      },
+                    )}
+                    style={
+                      isIntersecting
+                        ? { animationDelay: `${0.1 + statsCount * 0.1}s` }
+                        : { opacity: 0 }
+                    }
+                  />
+                )}
+              </div>
+            )}
 
             {/* Download Section */}
-            {emailCta && onEmailClick && (
-              <div className="overflow-hidden w-full xl:w-1/3 p-[0_12px_12px] md:p-[12px] xl:p-[0_24px_0_0]">
+            {showDownloadCard && emailCta && onEmailClick && (
+              <div
+                className={cn(
+                  "overflow-hidden w-full p-[0_12px_12px] md:p-[12px]",
+                  hasStats ? "xl:w-1/3 xl:p-[0_24px_0_0]" : "xl:p-[0_24px]",
+                )}
+              >
                 <div className="flex flex-row items-stretch p-4 md:p-6 bg-white xl:bg-[url('/src/img/solutions/hero-texture.svg')] bg-cover bg-[position:right_bottom] text-black rounded-xl">
                   {reportImgSrc && (
                     <div className="grow-0 shrink-0 mr-4">
