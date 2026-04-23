@@ -1,7 +1,8 @@
 import classNames from "classnames";
 import { useTranslations } from "next-intl";
-import { memo, useMemo } from "react";
+import { memo, useMemo, type Ref } from "react";
 import * as Yup from "yup";
+import type { AnySchema } from "yup";
 import Button from "../Button";
 import useIterableSignUp, { ActionForm } from "../Iterable/useIterableSignUp";
 
@@ -11,12 +12,18 @@ const Status = {
   Sending: "sending",
   Error: "error",
   Success: "success",
-};
+} as const;
 
-const StatusMessage = memo(function StatusMessage({ status }) {
+type StatusValue = (typeof Status)[keyof typeof Status] | null;
+
+type StatusMessageProps = { status: StatusValue };
+
+const StatusMessage = memo(function StatusMessage({
+  status,
+}: StatusMessageProps) {
   const t = useTranslations();
 
-  if (!Object.values(Status).includes(status)) {
+  if (!status || !Object.values(Status).includes(status)) {
     return null;
   }
 
@@ -42,6 +49,15 @@ const defaultValues = {
   email: "",
 };
 
+type IterableEmailSubscribeFormProps = {
+  inputRef?: Ref<HTMLInputElement>;
+  formId: string;
+  schema?: AnySchema;
+  initialValues?: Record<string, string>;
+  placeholderTextID?: string;
+  ctaTextID?: string;
+};
+
 export default function IterableEmailSubscribeForm({
   inputRef,
   formId,
@@ -49,7 +65,7 @@ export default function IterableEmailSubscribeForm({
   initialValues = defaultValues,
   placeholderTextID,
   ctaTextID,
-}) {
+}: IterableEmailSubscribeFormProps) {
   const t = useTranslations();
 
   const {
@@ -72,7 +88,7 @@ export default function IterableEmailSubscribeForm({
     return isDirty && isSubmitting && !schema.isValidSync(values);
   }, [schema, isDirty, isSubmitting, values]);
 
-  const status = useMemo(() => {
+  const status = useMemo<StatusValue>(() => {
     if (error) {
       return Status.Error;
     }
@@ -124,7 +140,7 @@ export default function IterableEmailSubscribeForm({
               onClick={onSubmit}
             >
               {ctaTextID
-                ? t({ ctaTextID })
+                ? t({ ctaTextID } as never)
                 : t("shared.mail-signup.form.signup")}
             </Button>
           </div>

@@ -4,7 +4,21 @@ import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersChangelog.module.scss";
 
-export default function DevelopersChangelog({ latestVideo }) {
+export type LatestChangelogVideo = {
+  snippet: {
+    description?: string;
+    resourceId: {
+      videoId: string;
+    };
+    playlistId: string;
+  };
+};
+
+export default function DevelopersChangelog({
+  latestVideo,
+}: {
+  latestVideo?: LatestChangelogVideo | null;
+}) {
   const t = useTranslations();
   if (!latestVideo) {
     return null;

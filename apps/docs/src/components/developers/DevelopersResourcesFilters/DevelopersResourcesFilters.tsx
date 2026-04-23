@@ -5,7 +5,26 @@ import { useRouter, useSearchParams } from "next/navigation";
 import classNames from "classnames";
 import styles from "./DevelopersResourcesFilters.module.scss";
 
-function Filters({ filters, onReset, onToggle, activeFilters = new Map() }) {
+export type FilterGroup = {
+  label: string;
+  items: string[];
+};
+
+export type FilterMap = Record<string, FilterGroup>;
+
+type FiltersProps = {
+  filters: FilterMap;
+  onReset: () => void;
+  onToggle: (key: string, filter: string) => void;
+  activeFilters?: Map<string, string[]>;
+};
+
+function Filters({
+  filters,
+  onReset,
+  onToggle,
+  activeFilters = new Map(),
+}: FiltersProps) {
   return (
     <div className={styles["developers-resources-filters"]}>
       <h5 className={styles["developers-resources-filters__title"]}>Filters</h5>
@@ -56,12 +75,12 @@ function Filters({ filters, onReset, onToggle, activeFilters = new Map() }) {
   );
 }
 
-function FilterLogic({ filters }) {
+function FilterLogic({ filters }: { filters: FilterMap }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
 
-  const createQueryString = useCallback((params) => {
+  const createQueryString = useCallback((params: Record<string, string[]>) => {
     const urlSearchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, values]) => {
       if (Array.isArray(values)) {
@@ -78,21 +97,19 @@ function FilterLogic({ filters }) {
   }, [router]);
 
   const toggleFilter = useCallback(
-    (key, filter) => {
+    (key: string, filter: string) => {
       const currentValues = searchParams.getAll(key);
       const newValues = currentValues.includes(filter)
         ? currentValues.filter((v) => v !== filter)
         : [...currentValues, filter];
 
-      const newParams = {};
-      // Preserve other query parameters
-      Array.from(searchParams.entries()).forEach(([key, value]) => {
-        if (!newParams[key]) {
-          newParams[key] = [];
+      const newParams: Record<string, string[]> = {};
+      Array.from(searchParams.entries()).forEach(([paramKey, value]) => {
+        if (!newParams[paramKey]) {
+          newParams[paramKey] = [];
         }
-        newParams[key].push(value);
+        newParams[paramKey].push(value);
       });
-      // Update the specific filter
       newParams[key] = newValues;
 
       startTransition(() => {
@@ -102,12 +119,12 @@ function FilterLogic({ filters }) {
     [router, searchParams, createQueryString],
   );
 
-  const activeFilters = new Map();
+  const activeFilters = new Map<string, string[]>();
   Array.from(searchParams.entries()).forEach(([key, value]) => {
     if (!activeFilters.has(key)) {
       activeFilters.set(key, []);
     }
-    activeFilters.get(key).push(value);
+    activeFilters.get(key)!.push(value);
   });
 
   return (
@@ -120,7 +137,11 @@ function FilterLogic({ filters }) {
   );
 }
 
-export default memo(function DevelopersResourcesFilters({ filters }) {
+export default memo(function DevelopersResourcesFilters({
+  filters,
+}: {
+  filters: FilterMap;
+}) {
   return (
     <Suspense
       fallback={

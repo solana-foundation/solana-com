@@ -1,9 +1,18 @@
-import { useCallback, useState } from "react";
+import {
+  useCallback,
+  useState,
+  type FormHTMLAttributes,
+  type ReactNode,
+} from "react";
+import type { AnySchema } from "yup";
 
 const ITERABLE_BASE_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
 
-async function sendFormRequest(actionUrl, dataObject) {
+async function sendFormRequest(
+  actionUrl: string,
+  dataObject: Record<string, string>,
+): Promise<void> {
   const data = new FormData();
 
   Object.keys(dataObject).map((key) => {
@@ -22,13 +31,18 @@ async function sendFormRequest(actionUrl, dataObject) {
   }
 }
 
+type ActionFormProps = FormHTMLAttributes<HTMLFormElement> & {
+  children: ReactNode;
+  action?: string;
+};
+
 export function ActionForm({
   children,
   action,
   target = "_blank",
   method = "post",
   ...props
-}) {
+}: ActionFormProps) {
   return (
     <form action={action} method={method} target={target} {...props}>
       {children}
@@ -36,33 +50,46 @@ export function ActionForm({
   );
 }
 
-export default function useIterableSignUp({ formId, schema, initialValues }) {
-  const [state, setState] = useState(initialValues);
+type UseIterableSignUpArgs = {
+  formId: string;
+  schema: AnySchema;
+  initialValues: Record<string, string>;
+};
+
+export default function useIterableSignUp({
+  formId,
+  schema,
+  initialValues,
+}: UseIterableSignUpArgs) {
+  const [state, setState] = useState<Record<string, string>>(initialValues);
 
   const [isDirty, setIsDirty] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<unknown>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const actionUrl = `${ITERABLE_BASE_URL}${formId}`;
 
-  const onValueChange = useCallback((event) => {
-    const { name, value } = event.target;
+  const onValueChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = event.target;
 
-    setState((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
+      setState((prevState) => ({
+        ...prevState,
+        [name]: value,
+      }));
 
-    setIsDirty(!!value);
-    setIsSubmitting(false);
-    setError(null);
-    setIsSuccess(false);
-  }, []);
+      setIsDirty(!!value);
+      setIsSubmitting(false);
+      setError(null);
+      setIsSuccess(false);
+    },
+    [],
+  );
 
   const onSubmit = useCallback(
-    async (e) => {
+    async (e: React.FormEvent | React.MouseEvent) => {
       e.preventDefault();
 
       setIsDirty(true);

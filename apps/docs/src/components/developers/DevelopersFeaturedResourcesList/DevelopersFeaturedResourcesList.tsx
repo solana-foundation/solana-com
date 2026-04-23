@@ -1,13 +1,30 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import classNames from "classnames";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersFeaturedResourcesList.module.scss";
 import DevelopersFeaturedResourcesListItem from "./DevelopersFeaturedResourcesListItem/DevelopersFeaturedResourcesListItem";
 
+type FeaturedResourceItem = {
+  title?: ReactNode;
+  description?: ReactNode;
+  href?: string;
+  url?: string;
+  isExternal?: boolean;
+  data?: {
+    title?: string;
+    description?: string;
+  };
+};
+
+type DevelopersFeaturedResourcesListProps = {
+  items: FeaturedResourceItem[];
+  translationTag?: string;
+};
+
 export default memo(function DevelopersFeaturedResourcesList({
   items,
   translationTag = "featured-resources-list",
-}) {
+}: DevelopersFeaturedResourcesListProps) {
   const t = useTranslations();
   return (
     <div

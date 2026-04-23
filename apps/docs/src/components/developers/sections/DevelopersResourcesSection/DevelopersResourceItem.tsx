@@ -5,7 +5,17 @@ import { InlineLink, Link } from "@/utils/Link";
 import { useTranslations } from "next-intl";
 
 import styles from "./DevelopersResourceItem.module.scss";
-import { memo } from "react";
+import { type ReactNode } from "react";
+
+type DevelopersResourceItemProps = {
+  category?: string;
+  children?: ReactNode;
+  title?: string;
+  description?: string;
+  url?: string;
+  isExternal?: boolean;
+  ctaLabel?: string;
+};
 
 export default function DevelopersResourceItem({
   category = "Resource",
@@ -15,19 +25,13 @@ export default function DevelopersResourceItem({
   url,
   isExternal,
   ctaLabel,
-}) {
+}: DevelopersResourceItemProps) {
   const t = useTranslations();
-  // use the correct type of link
-  const ResourceLink = memo(
-    ({ children, ...props }) => {
-      if (isExternal) return <InlineLink {...props}>{children}</InlineLink>;
-      else return <Link {...props}>{children}</Link>;
-    },
-    [isExternal],
-  );
+  const linkTo = url ?? "#";
+  const ResourceLink = isExternal ? InlineLink : Link;
 
   return (
-    <ResourceLink to={url} className={styles["resource-item"]}>
+    <ResourceLink to={linkTo} className={styles["resource-item"]}>
       <div className="flex relative flex-col justify-between">
         <div className={styles["resource-item__container"]}>
           <div className={styles["resource-item__category"]}>{category}</div>
