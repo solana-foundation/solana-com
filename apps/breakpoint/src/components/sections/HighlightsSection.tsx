@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import CarouselControls from "@/components/CarouselControls";
 
 const AUTO_ADVANCE_MS = 7000;
 const GLITCH_MS = 600;
+const MOBILE_QUOTE_MAX = 22;
+const MOBILE_QUOTE_MIN = 16;
+const DESKTOP_QUOTE_MAX = 32;
+const DESKTOP_QUOTE_MIN = 20;
+const QUOTE_STEP = 0.5;
 
 const HIGHLIGHT_QUOTES = [
   {
@@ -417,14 +422,85 @@ function QuoteCard({
   quote: (typeof HIGHLIGHT_QUOTES)[number];
   decorative?: boolean;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const quoteRef = useRef<HTMLParagraphElement>(null);
+  const metaRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    const quoteEl = quoteRef.current;
+    const metaEl = metaRef.current;
+
+    if (!card || !quoteEl || !metaEl) return;
+
+    let frame = 0;
+
+    const applyFontSize = (size: number) => {
+      quoteEl.style.fontSize = `${size}px`;
+      quoteEl.style.lineHeight = size >= 24 ? "1.2" : "1.16";
+    };
+
+    const fits = () => {
+      const quoteRect = quoteEl.getBoundingClientRect();
+      const metaRect = metaEl.getBoundingClientRect();
+
+      return (
+        quoteRect.bottom <= metaRect.top - 8 &&
+        quoteEl.scrollHeight <= quoteEl.clientHeight + 0.5 &&
+        quoteEl.scrollWidth <= quoteEl.clientWidth + 1 &&
+        metaEl.scrollWidth <= metaEl.clientWidth + 1
+      );
+    };
+
+    const fitQuote = () => {
+      const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+      const maxSize = isDesktop ? DESKTOP_QUOTE_MAX : MOBILE_QUOTE_MAX;
+      const minSize = isDesktop ? DESKTOP_QUOTE_MIN : MOBILE_QUOTE_MIN;
+
+      applyFontSize(maxSize);
+
+      let nextSize = maxSize;
+      while (nextSize > minSize && !fits()) {
+        nextSize -= QUOTE_STEP;
+        applyFontSize(nextSize);
+      }
+    };
+
+    const scheduleFit = () => {
+      cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(fitQuote);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleFit);
+    resizeObserver.observe(card);
+    resizeObserver.observe(metaEl);
+
+    void document.fonts.ready.then(scheduleFit);
+    scheduleFit();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+    };
+  }, [quote.author, quote.handle, quote.role, quote.text]);
+
   return (
-    <div className="quote-card-base flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8">
+    <div
+      ref={cardRef}
+      className="quote-card-base flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8"
+    >
       <div className="flex min-h-0 flex-1 items-start">
-        <p className="max-h-full font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.22]">
+        <p
+          ref={quoteRef}
+          className="max-h-full font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.2]"
+        >
           &ldquo;{quote.text}&rdquo;
         </p>
       </div>
-      <div className="flex items-center gap-2.5 pt-4 md:gap-3 md:pt-6">
+      <div
+        ref={metaRef}
+        className="flex items-center gap-2.5 pt-4 md:gap-3 md:pt-6"
+      >
         <svg
           width="24"
           height="24"
