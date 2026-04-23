@@ -3,6 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import Button from "@/components/Button";
+import ImageTreatment, {
+  type TreatmentColor,
+} from "@/components/ImageTreatment";
 import SectionHeadline from "@/components/SectionHeadline";
 import WordReveal from "@/components/WordReveal";
 
@@ -51,6 +54,8 @@ const widths = [
   "md:w-[400px]",
 ];
 
+const stripColors: TreatmentColor[] = ["green", "purple", "blue"];
+
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
 
@@ -87,26 +92,20 @@ export default function StatsSection() {
         <div className="photo-strip-track flex w-max gap-4 md:gap-0">
           {[...stripImages, ...stripImages].map((src, index) => {
             const position = index % stripImages.length;
+            const color = stripColors[position % stripColors.length]!;
             return (
-              <div
+              <ImageTreatment
                 key={index}
+                src={src}
+                alt=""
+                motion={true}
+                flicker={true}
+                glitchPattern="p1"
+                intensity={60}
+                lighting="even"
+                color={color}
                 className={`relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[position]}`}
-              >
-                <img
-                  src={src}
-                  alt=""
-                  className="h-full w-full object-cover grayscale"
-                />
-                <div
-                  className={`absolute inset-0 mix-blend-multiply ${
-                    position % 3 === 0
-                      ? "bg-[#14f195]"
-                      : position % 3 === 1
-                        ? "bg-[#aa67fb]"
-                        : "bg-[#3c91ff]"
-                  }`}
-                />
-              </div>
+              />
             );
           })}
         </div>
