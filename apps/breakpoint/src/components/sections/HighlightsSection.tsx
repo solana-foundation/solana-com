@@ -120,8 +120,8 @@ export default function HighlightsSection() {
 
   return (
     <section className="pt-20 md:pt-[120px]">
-      <div className="container flex flex-col items-start justify-between gap-10 md:flex-row md:gap-6">
-        <div className="flex flex-col gap-6 md:h-[227px] md:w-[501px] md:justify-center">
+      <div className="container flex flex-col items-start justify-between gap-10 lg:flex-row lg:gap-6">
+        <div className="flex flex-col gap-6 lg:h-[227px] lg:w-[501px] lg:justify-center">
           <p className="font-mono text-base uppercase leading-[1.3] tracking-[1.28px] text-white">
             {t("highlights.eyebrow")}
           </p>
@@ -132,7 +132,7 @@ export default function HighlightsSection() {
         </div>
 
         <div
-          className="relative min-h-[370px] w-full overflow-hidden bg-[#1e1e1e] md:h-[600px] md:min-h-0 md:w-[772px] md:[aspect-ratio:772/600] md:flex-shrink-0"
+          className="relative min-h-[370px] w-full overflow-hidden bg-[#1e1e1e] lg:h-[600px] lg:min-h-0 lg:w-[772px] lg:[aspect-ratio:772/600] lg:flex-shrink-0"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >

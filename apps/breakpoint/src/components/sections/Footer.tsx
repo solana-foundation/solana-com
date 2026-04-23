@@ -197,7 +197,7 @@ export default function Footer() {
       </div>
 
       <div className="w-full bg-purple py-l">
-        <div className="container flex flex-col items-center justify-between gap-6 md:flex-row">
+        <div className="container flex flex-col items-center justify-between gap-6 lg:flex-row">
           <div className="flex items-center gap-s">
             {SOCIAL_LINKS.map((social) => (
               <a

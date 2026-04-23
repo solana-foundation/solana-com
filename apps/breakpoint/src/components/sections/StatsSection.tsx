@@ -74,7 +74,7 @@ export default function StatsSection() {
                 text={`${t(item.valueKey)}${t(item.suffixKey)}`}
                 stepMs={120}
                 startDelayMs={idx * 140}
-                className="block font-display text-[3rem] leading-none tracking-[0.04em] text-white md:text-[4.75rem]"
+                className="block font-display text-[3rem] leading-none tracking-[0.04em] text-white lg:text-[4.75rem]"
               />
               <WordReveal
                 as="p"

@@ -13,7 +13,7 @@ export default {
       "nav-sm": "55.5rem" /* 888px */,
       md: "48.063rem" /* 769px */,
       "md-lg": "64rem" /* 1024px */,
-      lg: "90.063rem" /* 1441px */,
+      lg: "90rem" /* 1440px — matches Figma desktop canvas */,
     },
     container: {
       /* Page grid per Figma spec (node 154:6228):
