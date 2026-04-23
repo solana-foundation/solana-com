@@ -433,7 +433,7 @@ export async function fetchEpisodeByIdFromRSS(
   podcastSlug: string,
 ): Promise<PodcastEpisode | null> {
   try {
-    const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
+    const episodes = await fetchEpisodesFromRSSCached(rssFeedUrl, podcastSlug);
     return (
       episodes.find(
         (ep) => ep.id === episodeIdOrSlug || ep.slug === episodeIdOrSlug,
