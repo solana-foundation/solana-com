@@ -1,9 +1,22 @@
 import * as cheerio from "cheerio";
 import cachedFetch from "node-fetch-cache";
 
+export type YTVideoItem = {
+  id?: string;
+  snippet: {
+    thumbnails?: Record<string, { url: string } | undefined>;
+    title: string;
+    description?: string;
+    playlistId?: string;
+    resourceId?: { videoId?: string };
+    publishedAt?: string;
+  };
+  contentDetails: { videoId: string };
+};
+
 const ytBaseURL = "https://www.googleapis.com/youtube/v3/";
 
-const scrapeUrlForTag = async (url, tagName) => {
+const scrapeUrlForTag = async (url: string, tagName: string) => {
   const siteData = await cachedFetch(url)
     .then((res) => res.text())
     .catch((err) => {
@@ -23,8 +36,17 @@ const scrapeMeetupMemberCount = async () => {
     `https://www.meetup.com/topics/solana/`,
     `div.font-medium`,
   );
-  if (meetupMemberCountTag.length) {
-    const meetupCountString = meetupMemberCountTag[0].children[0].data;
+  if (
+    meetupMemberCountTag.length &&
+    meetupMemberCountTag[0] &&
+    typeof meetupMemberCountTag[0] === "object"
+  ) {
+    const meetupCountString =
+      "children" in meetupMemberCountTag[0] &&
+      meetupMemberCountTag[0].children[0] &&
+      "data" in meetupMemberCountTag[0].children[0]
+        ? meetupMemberCountTag[0].children[0].data
+        : "";
     return parseInt(meetupCountString.replace(",", ""), 10);
   }
   return 0;
@@ -62,13 +84,17 @@ const getStableCoins = async () => {
 
   try {
     const jsonData = await cachedFetch(url, options);
-    const stableCoins = await jsonData.json();
-    const chainData = stableCoins.data[0].chains;
+    const stableCoins: {
+      data?: { chains: { chain: string; amount: number }[] }[];
+    } = await jsonData.json();
+    const chainData = stableCoins.data?.[0]?.chains;
     let solAmount = 0;
-    for (let chain of chainData) {
-      if (chain.chain === "SOL") {
-        solAmount = chain.amount;
-        break;
+    if (chainData) {
+      for (const chain of chainData) {
+        if (chain.chain === "SOL") {
+          solAmount = chain.amount;
+          break;
+        }
       }
     }
     return solAmount;
@@ -88,15 +114,15 @@ const getGHStargazers = async () => {
       },
     },
   );
-  const jsonData = await res.json();
+  const jsonData: { stargazers_count?: number } = await res.json();
   return jsonData?.stargazers_count || 0;
 };
 
 const getYTVideos = async (
-  maxVideos = 50,
-  playlistId,
-  channelId = process.env.YOUTUBE_CHANNEL_ID,
-) => {
+  maxVideos: number = 50,
+  playlistId: string,
+  channelId: string = process.env.YOUTUBE_CHANNEL_ID,
+): Promise<YTVideoItem[]> => {
   const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
@@ -119,9 +145,9 @@ const getYTVideos = async (
     ];
   }
 
-  let pageSize = Math.min(50, maxVideos);
-  let videos = [];
-  let videoResp;
+  const pageSize = Math.min(50, maxVideos);
+  const videos = [];
+  let videoResp: Response | undefined;
 
   // Playlist videos
   if (playlistId) {
@@ -155,7 +181,7 @@ const getYTVideos = async (
     // No thumbnails usually means the video has been deleted from a list
     videos.push(
       ...(videosData?.items?.filter(
-        (item) => Object.keys(item.snippet.thumbnails).length,
+        (item: YTVideoItem) => Object.keys(item.snippet.thumbnails).length,
       ) || []),
     );
   } else {

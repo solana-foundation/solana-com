@@ -61,7 +61,7 @@ function getImageProps(slugItems: Array<string>) {
 }
 
 function getTitleFromCollection(
-  collection: any,
+  collection: (typeof collections)[keyof typeof collections],
   slugs: Array<string>,
 ): string | null {
   const page = collection.getPage(slugs);

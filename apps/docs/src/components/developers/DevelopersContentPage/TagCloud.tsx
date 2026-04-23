@@ -2,11 +2,20 @@ import { memo } from "react";
 import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
 
+export type TagCloudRecord = {
+  title: string;
+  href: string;
+  date: string;
+  tags?: string[];
+  difficulty?: string;
+  category?: string;
+};
+
 type TagCloudProps = {
   /** base href to compute the correct tag route */
   baseHref: string;
   /** content record used */
-  record: any;
+  record: TagCloudRecord | null | undefined;
 };
 
 /**

@@ -6,7 +6,7 @@ import {
 import { ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
-import { DocsFooter } from "./docs-footer";
+import { DocsFooter, DocsLink } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
@@ -22,7 +22,7 @@ export function DocsPage(props: {
   full?: boolean;
   title: string;
   description?: string;
-  pageTree?: any;
+  pageTree?: Parameters<typeof findNeighbour>[0];
   href: string;
   markdown: string;
   isRoot?: boolean;
@@ -114,17 +114,23 @@ function getEditUrl(path: string, editPathPrefix = "content/docs") {
   return `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/${editPathPrefix}/${path.startsWith("/") ? path.slice(1) : path}`;
 }
 
-function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
+function Footer({
+  pageUrl,
+  pageTree,
+}: {
+  pageUrl: string;
+  pageTree: Parameters<typeof findNeighbour>[0];
+}) {
   const { next, previous } = findNeighbour(pageTree, pageUrl);
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)
-    let firstPage = pageTree;
+    let firstPage = pageTree as any;
     while (firstPage && firstPage.children) {
       firstPage = firstPage.index || firstPage.children[0];
     }
     if (!firstPage) return null;
-    return <DocsFooter next={firstPage} previous={undefined} />;
+    return <DocsFooter next={firstPage as DocsLink} previous={undefined} />;
   }
   return <DocsFooter previous={previous} next={next} />;
 }

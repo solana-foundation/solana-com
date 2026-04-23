@@ -25,7 +25,7 @@ export function BlogPage(props: {
   tags?: string[];
   date?: string;
   difficulty?: string;
-  pageTree?: any;
+  pageTree?: Parameters<typeof findNeighbour>[0];
 }) {
   const record: ContentRecord = {
     href: props.href,
@@ -71,7 +71,13 @@ export function BlogPage(props: {
   );
 }
 
-function Footer({ pageTree, pageUrl }: { pageTree: any; pageUrl: string }) {
+function Footer({
+  pageTree,
+  pageUrl,
+}: {
+  pageTree: Parameters<typeof findNeighbour>[0];
+  pageUrl: string;
+}) {
   let { next, previous } = findNeighbour(pageTree, pageUrl);
 
   // only if neighbours are in the same folder
