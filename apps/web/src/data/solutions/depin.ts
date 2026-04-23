@@ -169,7 +169,7 @@ export const VIDEOS = (
 export const LATEST_NEWS_QUERY = {
   categories: ["ecosystem"],
   tags: ["depin"],
-  limit: 4,
+  limit: 5,
   fallbackImage: "/src/img/solutions/depin/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
   fallbackImagesByUrl: {

@@ -109,7 +109,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex gap-4 group text-inherit max-xl:py-4 xl:py-6"
+                  className="flex items-start gap-4 group text-inherit max-xl:py-4 xl:py-6"
                 >
                   <div
                     className="w-24 xl:w-44 rounded-lg flex-shrink-0 relative overflow-hidden"

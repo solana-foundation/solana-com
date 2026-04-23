@@ -104,7 +104,7 @@ export const VIDEOS = (
 export const LATEST_NEWS_QUERY = {
   categories: ["finance", "institutions"],
   tags: ["token", "finance", "partner"],
-  limit: 4,
+  limit: 6,
   excludeUrls: [
     "/news/solana-developer-platform",
     "/news/solana-network-upgrades",

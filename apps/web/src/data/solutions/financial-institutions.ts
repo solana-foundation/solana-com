@@ -152,7 +152,7 @@ export const VIDEOS = (
 export const LATEST_NEWS_QUERY = {
   categories: ["institutions", "finance", "payments"],
   tags: ["finance", "partner", "stable-coin"],
-  limit: 4,
+  limit: 6,
   excludeUrls: ["/news/solana-developer-platform"],
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
