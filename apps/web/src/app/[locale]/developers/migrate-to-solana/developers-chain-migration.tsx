@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentProps, ComponentType } from "react";
+import type { ComponentProps } from "react";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Container } from "@/component-library/container";
 import { FeatureHighlight } from "@solana-foundation/solana-lib";
@@ -16,9 +16,7 @@ import FileText from "@@/public/src/img/icons/FileText.inline.svg";
 import Youtube from "@@/public/src/img/icons/youtube.inline.svg";
 import Tools from "@@/public/src/img/icons/Tools.inline.svg";
 
-const FeatureHighlightComponent = FeatureHighlight as unknown as ComponentType<
-  ComponentProps<typeof FeatureHighlight>
->;
+const FeatureHighlightComponent = FeatureHighlight as any;
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -191,7 +189,7 @@ export function DevelopersChainMigrationPage() {
             eyebrow=""
             headline={t("chainSelector.headline")}
             body=""
-            cards={chainSelectorCards}
+            cards={chainSelectorCards as any}
             buttons={[]}
           />
         </div>
