@@ -29,7 +29,7 @@ export default async function CategoryPostsPage({
   try {
     const { category } = await fetchCategoryByPath(categoryParam);
     categoryName = category?.name || null;
-  } catch (error) {
+  } catch {
     return notFound();
   }
 
@@ -39,7 +39,7 @@ export default async function CategoryPostsPage({
 
   try {
     latestPosts = await fetchLatestPosts({ limit: 13, category: categoryName });
-  } catch (error) {
+  } catch {
     return notFound();
   }
 

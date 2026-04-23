@@ -112,9 +112,9 @@ export default function PodcastShowClientPage({
                 <h1 className="text-3xl font-bold mb-3 md:text-4xl text-foreground">
                   {podcast.title}
                 </h1>
-                {podcast.description && (
+                {podcast.description ? (
                   <PodcastDescription description={podcast.description} />
-                )}
+                ) : null}
               </div>
 
               {/* Hosts */}

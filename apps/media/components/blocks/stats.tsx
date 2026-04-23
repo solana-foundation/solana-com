@@ -16,7 +16,7 @@ const getGradientClass = (index: number): string => {
     "bg-gradient-to-r from-[#1fcff1] via-[#234cb6] to-[rgba(35,76,182,0.1)] bg-clip-text text-transparent",
     "bg-gradient-to-r from-[#19fb9b] via-[#199890] to-[#005f59] bg-clip-text text-transparent",
   ];
-  return gradients[index % 3];
+  return gradients[index % 3] ?? gradients[0]!;
 };
 
 export const Stats = ({ data }: { data: StatsBlockData }) => {

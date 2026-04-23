@@ -93,7 +93,7 @@ async function transformPost(
   }
 
   // Serialize description to ensure it's JSON-serializable (removes any functions)
-  let serializedDescription: any = null;
+  let serializedDescription: object | null = null;
 
   try {
     let rawDescription = post.description;
@@ -103,9 +103,9 @@ async function transformPost(
       // Try to call the function to get the actual value
       try {
         rawDescription = rawDescription();
-      } catch (e) {
+      } catch {
         // If calling fails, try to access as a property or set to null
-        rawDescription = (post as any).description?.value || null;
+        rawDescription = post.description?.value || null;
       }
     }
 
@@ -370,7 +370,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
       return b.date.getTime() - a.date.getTime();
     });
 
-    if (featuredCandidates.length > 0) {
+    if (featuredCandidates.length > 0 && featuredCandidates[0]) {
       const newest = featuredCandidates[0];
       const transformed = await transformPost(newest.slug, newest.post);
       return { post: transformed };
