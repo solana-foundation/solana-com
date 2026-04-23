@@ -10,4 +10,3 @@ export { GettingThere } from "./GettingThere";
 export { FooterCTA } from "./FooterCTA";
 export { HashScroll } from "./HashScroll";
 export { Tickets } from "./Tickets";
-export { GetInvolved } from "./GetInvolved";
