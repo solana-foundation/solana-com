@@ -10,7 +10,6 @@ import {
   PRODUCTS,
   PROJECTS,
   VIDEOS,
-  LATEST_NEWS,
 } from "@/data/solutions/financial-institutions";
 import { Products } from "@/components/solutions/products.v2";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
@@ -21,8 +20,15 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
-export function SolutionsFinancialInstitutionsPage() {
+type SolutionsFinancialInstitutionsPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsFinancialInstitutionsPage({
+  news,
+}: SolutionsFinancialInstitutionsPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -75,7 +81,7 @@ export function SolutionsFinancialInstitutionsPage() {
               </span>
             ),
           })}
-          items={LATEST_NEWS(t)}
+          items={news}
         />
 
         <Divider />

@@ -1,3 +1,5 @@
+"use client";
+
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";

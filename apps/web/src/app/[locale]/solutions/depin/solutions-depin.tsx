@@ -1,17 +1,14 @@
 "use client";
 
 import { Products } from "@/components/solutions/products.v2";
-// import { LatestNews } from "@/components/solutions/latest-news.v2";
+import {
+  LatestNews,
+  type NewsItem,
+} from "@/components/solutions/latest-news.v2";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Projects } from "@/components/solutions/projects.v2";
-import {
-  LOGOS,
-  PRODUCTS,
-  PROJECTS,
-  VIDEOS,
-  // LATEST_NEWS,
-} from "@/data/solutions/depin";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { useTranslations } from "next-intl";
@@ -23,7 +20,11 @@ import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 import { CoinsIcon, PulseIcon, UsersIcon } from "@solana-com/ui-chrome/icons";
 
-export function SolutionsDepinPage() {
+type SolutionsDepinPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsDepinPage({ news }: SolutionsDepinPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -118,7 +119,7 @@ export function SolutionsDepinPage() {
         />
 
         {/* Latest News Section */}
-        {/* <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} /> */}
+        <LatestNews title={t("depin.news.title")} items={news} />
 
         <Divider hideOnDesktop />
 

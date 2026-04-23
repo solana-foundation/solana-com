@@ -11,6 +11,7 @@ export type NewsItem = {
   image: string;
   link: string;
   large?: boolean;
+  imageFit?: "cover" | "contain";
 };
 
 export type LatestNewsProps = {
@@ -67,7 +68,12 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                   src={items[0].image}
                   alt={items[0].title}
                   fill
-                  className="object-cover z-0"
+                  className={cn(
+                    "z-0",
+                    items[0].imageFit === "contain"
+                      ? "object-contain bg-black"
+                      : "object-cover",
+                  )}
                   quality={100}
                 />
               </div>
@@ -105,7 +111,11 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                       alt={item.title}
                       fill
                       sizes="177px"
-                      className="object-cover"
+                      className={cn(
+                        item.imageFit === "contain"
+                          ? "object-contain bg-black"
+                          : "object-cover",
+                      )}
                       loading="lazy"
                       quality={100}
                     />

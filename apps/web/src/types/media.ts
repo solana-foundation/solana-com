@@ -1,6 +1,7 @@
 export type PostItem = {
   id: string;
   published: string;
+  publishedAt?: string | null;
   title: string;
   tags: string[];
   categories: string[];
@@ -11,6 +12,19 @@ export type PostItem = {
     name: string;
     avatar: string | null | undefined;
   };
+  cursor?: string;
+};
+
+export type LinkItem = {
+  id: string;
+  title: string;
+  url: string;
+  date: string;
+  source?: string;
+  linkType?: string;
+  categories?: string[];
+  description?: string;
+  thumbnailImage?: string | null;
   cursor?: string;
 };
 

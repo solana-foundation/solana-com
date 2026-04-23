@@ -149,38 +149,10 @@ export const VIDEOS = (
   },
 ];
 
-export const LATEST_NEWS = (
-  t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
-) => [
-  {
-    id: "0",
-    title: t("financial-institutions-solution.news.items.0.title"),
-    image:
-      "/uploads/posts/webinar-recap-corporate-treasury-onchain/heroImage.webp",
-    link: "/news/webinar-recap-corporate-treasury-onchain",
-    date: "2026-03-17",
-  },
-  {
-    id: "1",
-    title: t("financial-institutions-solution.news.items.1.title"),
-    image: "/uploads/posts/wisdomtree-tokenization-solana/wisdom-tree.webp",
-    link: "/news/wisdomtree-tokenization-solana",
-    date: "2026-01-28",
-  },
-  {
-    id: "2",
-    title: t("financial-institutions-solution.news.items.2.title"),
-    image:
-      "/uploads/builder/solana-fireblocks-institutional-treasury-infrastructure/solana-fireblocks.webp",
-    link: "/news/solana-fireblocks-institutional-treasury-infrastructure",
-    date: "2026-01-20",
-  },
-  {
-    id: "3",
-    title: t("financial-institutions-solution.news.items.3.title"),
-    image:
-      "/uploads/posts/blog-internet-capital-markets/8003844394cc4a50831868eb49830ec2.webp",
-    link: "/news/blog-internet-capital-markets",
-    date: "2025-08-21",
-  },
-];
+export const LATEST_NEWS_QUERY = {
+  categories: ["institutions", "finance", "payments"],
+  tags: ["finance", "partner", "stable-coin"],
+  limit: 4,
+  excludeUrls: ["/news/solana-developer-platform"],
+  fallbackImage: "/src/img/solutions/icm/og-image.webp",
+};

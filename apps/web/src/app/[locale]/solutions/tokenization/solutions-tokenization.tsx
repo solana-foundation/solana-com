@@ -26,8 +26,15 @@ import {
   LedgerIcon,
   StepsIcon,
 } from "@solana-com/ui-chrome/icons";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
-export function SolutionsTokenizationPage() {
+type SolutionsTokenizationPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsTokenizationPage({
+  news,
+}: SolutionsTokenizationPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -144,15 +151,7 @@ export function SolutionsTokenizationPage() {
               </span>
             ),
           })}
-          items={[
-            {
-              id: "0",
-              title: t("icm.news.items.0.title"),
-              date: "2025-07-24",
-              image: "/src/img/solutions/icm/icm-anza.webp",
-              link: "https://www.anza.xyz/blog/the-internet-capital-markets-roadmap",
-            },
-          ]}
+          items={news}
         />
 
         <Divider hideOnDesktop />

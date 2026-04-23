@@ -4,20 +4,20 @@ import { useTranslations } from "next-intl";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Projects } from "@/components/solutions/projects.v2";
-import {
-  LOGOS,
-  PROJECTS,
-  PERFORMANCE,
-  LATEST_NEWS,
-} from "@/data/solutions/btcfi";
+import { LOGOS, PROJECTS, PERFORMANCE } from "@/data/solutions/btcfi";
 import { Performance } from "@/components/solutions/performance.v2";
 import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { SingleVideo } from "@/components/solutions/single-video.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 import { CoinsIcon, WalletIcon, StepsIcon } from "@solana-com/ui-chrome/icons";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
-export function SolutionsBtcfiPage() {
+type SolutionsBtcfiPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsBtcfiPage({ news }: SolutionsBtcfiPageProps) {
   const t = useTranslations();
 
   const stats: SolutionHeroStat[] = [
@@ -42,8 +42,6 @@ export function SolutionsBtcfiPage() {
       Icon: StepsIcon,
     },
   ];
-
-  const news = LATEST_NEWS(t);
 
   return (
     <>

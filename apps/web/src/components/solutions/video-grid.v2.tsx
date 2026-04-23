@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import { VideoTrigger } from "@/component-library/video-modal";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
