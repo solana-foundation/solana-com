@@ -31,7 +31,7 @@ export default function GallerySection() {
 
   return (
     <section className="bg-black pt-20 md:pt-[120px]">
-      <div className="container">
+      <div className="container md:px-8">
         <div
           ref={mediaRef}
           className={`relative aspect-[2/1] w-full overflow-hidden ${mediaInView ? "bp-block-reveal" : ""}`}
@@ -43,7 +43,7 @@ export default function GallerySection() {
             aria-hidden="true"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-y-0 left-5 z-10 flex w-full max-w-[500px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:-translate-x-1/2 md:transform">
+          <div className="absolute inset-y-0 left-5 z-10 flex w-full max-w-[500px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:-translate-x-1/2">
             <WordReveal
               as="p"
               text={t("gallery.eyebrow")}
