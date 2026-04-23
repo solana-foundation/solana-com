@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent } from "@@/src/app/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@@/src/app/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 
 type EmailModalProps = {
@@ -20,6 +25,10 @@ export const EmailModal = ({ isOpen, onClose, formUrl }: EmailModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md w-full p-0 overflow-hidden bg-white border-gray-200 rounded-xl">
+        <DialogTitle className="sr-only">Email signup</DialogTitle>
+        <DialogDescription className="sr-only">
+          Complete the embedded email signup form.
+        </DialogDescription>
         <div className="w-full max-h-[80vh] border-0 relative overflow-hidden">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
