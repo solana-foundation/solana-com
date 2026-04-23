@@ -51,11 +51,6 @@ const widths = [
   "md:w-[400px]",
 ];
 
-const seededRandom = (seed: number) => {
-  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
-  return x - Math.floor(x);
-};
-
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
 
@@ -92,16 +87,10 @@ export default function StatsSection() {
         <div className="photo-strip-track flex w-max gap-4 md:gap-0">
           {[...stripImages, ...stripImages].map((src, index) => {
             const position = index % stripImages.length;
-            const delay = seededRandom(index + 1) * 11;
-            const duration = 9 + seededRandom(index + 100) * 6;
             return (
               <div
                 key={index}
-                className={`photo-strip-item relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[position]}`}
-                style={{
-                  animationDelay: `-${delay.toFixed(2)}s`,
-                  animationDuration: `${duration.toFixed(2)}s`,
-                }}
+                className={`relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[position]}`}
               >
                 <img
                   src={src}
