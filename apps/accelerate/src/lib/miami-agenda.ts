@@ -5,6 +5,13 @@ const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60 * 30;
 const EVENT_TIMEZONE = "America/New_York";
 
+// Defaults baked in so we don't need Miami-specific env vars.
+// Override via the matching AIRTABLE_*_MIAMI_AGENDA env var if the schema moves.
+const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
+const DEFAULT_AGENDA_TABLE_ID = "tbl802700wD64jBNI";
+const DEFAULT_AGENDA_VIEW_ID = "viwphM46UvfUrP30z"; // "All Stages"
+const DEFAULT_FORMAT_TABLE_ID = "tbltJYMgzlVFeibNU";
+
 type SessionType =
   | "keynote"
   | "panel"
@@ -14,7 +21,7 @@ type SessionType =
   | "demo"
   | "closing";
 
-// Exact values from the Miami agenda table's Format single-select.
+// Exact values from the Format table's primary "Name" column.
 const FORMAT_TO_TYPE: Record<string, SessionType> = {
   "Break (15 min)": "break",
   "Break (45 min)": "break",
@@ -71,6 +78,52 @@ type AirtableListResponse = {
   offset?: string;
 };
 
+function getAirtableConfig() {
+  const token = process.env.AIRTABLE_PAT;
+  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS ?? DEFAULT_BASE_ID;
+  const tableId =
+    process.env.AIRTABLE_TABLE_ID_MIAMI_AGENDA ?? DEFAULT_AGENDA_TABLE_ID;
+  const viewId =
+    process.env.AIRTABLE_VIEW_ID_MIAMI_AGENDA ?? DEFAULT_AGENDA_VIEW_ID;
+  const formatTableId = DEFAULT_FORMAT_TABLE_ID;
+  return { token, baseId, tableId, viewId, formatTableId };
+}
+
+async function fetchAll(
+  baseId: string,
+  tableId: string,
+  token: string,
+  viewId?: string,
+  tag?: string,
+): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
+  let offset: string | undefined;
+  do {
+    const params = new URLSearchParams({ pageSize: "100" });
+    if (viewId) params.set("view", viewId);
+    if (offset) params.set("offset", offset);
+    const response = await fetch(
+      `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        next: {
+          revalidate: AIRTABLE_CACHE_SECONDS,
+          tags: tag ? [tag] : undefined,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Airtable ${tableId} request failed (${response.status})`,
+      );
+    }
+    const payload = (await response.json()) as AirtableListResponse;
+    for (const record of payload.records ?? []) records.push(record);
+    offset = payload.offset;
+  } while (offset);
+  return records;
+}
+
 function asString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -89,10 +142,6 @@ function asStringArray(value: unknown): string[] {
 
 function asNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value.trim());
-    if (Number.isFinite(parsed)) return parsed;
-  }
   return undefined;
 }
 
@@ -121,8 +170,14 @@ function formatTimeRange(startISO?: string, endISO?: string): string {
   return `${start.time} ${start.period} – ${end.time} ${end.period}`;
 }
 
+// Strip leading non-alphanumeric characters (status emoji like ⏰, ✅, ⚠️)
+// before the first letter or digit.
+function stripLeadingJunk(name: string): string {
+  return name.replace(/^[^A-Za-z0-9]+/u, "").trim();
+}
+
 function parseSpeakerString(entry: string): AgendaSpeaker | null {
-  const trimmed = entry.trim();
+  const trimmed = stripLeadingJunk(entry);
   if (!trimmed) return null;
 
   // "Name (Title, Company)" or "Name (Company)"
@@ -136,7 +191,13 @@ function parseSpeakerString(entry: string): AgendaSpeaker | null {
     return { name, company: inside[0] };
   }
 
-  // "Name, Company" (comma-separated)
+  // "Name - Company" (space-dash/en-dash-space separator)
+  const dash = trimmed.match(/^(.+?)\s+[-–]\s+(.+)$/);
+  if (dash?.[1] && dash[2]) {
+    return { name: dash[1].trim(), company: dash[2].trim() };
+  }
+
+  // "Name, Company"
   const parts = trimmed.split(",").map((p) => p.trim());
   if (parts.length >= 2) {
     return { name: parts[0], company: parts.slice(1).join(", ") };
@@ -164,13 +225,30 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function resolveFormatType(
+  formatField: unknown,
+  formatMap: Map<string, string>,
+): SessionType {
+  const ids = Array.isArray(formatField) ? formatField : [];
+  for (const id of ids) {
+    if (typeof id !== "string") continue;
+    const name = formatMap.get(id);
+    if (name && FORMAT_TO_TYPE[name]) return FORMAT_TO_TYPE[name]!;
+  }
+  // Fallback: if someone enabled a string lookup instead of the linked record
+  const asText = asString(formatField);
+  if (asText && FORMAT_TO_TYPE[asText]) return FORMAT_TO_TYPE[asText]!;
+  return "panel";
+}
+
 function normalizeSession(
   record: AirtableRecord,
   index: number,
+  formatMap: Map<string, string>,
 ): { session: AgendaSession; sortOrder: number } | null {
   const fields = record.fields ?? {};
 
-  // Publish gate: only include rows where the checkbox is explicitly true.
+  // Publish gate: checkbox is only present on records where it's true.
   if (fields["Publish to web"] !== true) return null;
 
   const title = asString(fields["⚙️ Session Name"]);
@@ -180,11 +258,7 @@ function normalizeSession(
   const endISO = asString(fields["End Time"]);
   const time = formatTimeRange(startISO, endISO);
 
-  const formatValue = asString(fields["Format"]);
-  const type: SessionType = formatValue
-    ? (FORMAT_TO_TYPE[formatValue] ?? "panel")
-    : "panel";
-
+  const type = resolveFormatType(fields["Format"], formatMap);
   const location = asString(fields["Stage"]) ?? "";
   const subtitle = asString(fields["Description"]);
 
@@ -209,56 +283,47 @@ function normalizeSession(
   };
 }
 
-async function fetchAirtableSessions(): Promise<AgendaSession[] | null> {
-  const token = process.env.AIRTABLE_PAT;
-  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS;
-  const tableId = process.env.AIRTABLE_TABLE_ID_SPEAKERS;
-  const viewId = process.env.AIRTABLE_VIEW_ID_SPEAKERS;
+async function fetchFormatMap(
+  baseId: string,
+  formatTableId: string,
+  token: string,
+): Promise<Map<string, string>> {
+  const records = await fetchAll(
+    baseId,
+    formatTableId,
+    token,
+    undefined,
+    "miami-agenda-formats",
+  );
+  const map = new Map<string, string>();
+  for (const record of records) {
+    const name =
+      asString(record.fields?.["Format"]) ?? asString(record.fields?.["Name"]);
+    if (name) map.set(record.id, name);
+  }
+  return map;
+}
 
-  if (!token || !baseId || !tableId) {
-    console.warn(
-      "Miami agenda Airtable configuration missing; returning empty sessions",
-    );
+async function fetchAirtableSessions(): Promise<AgendaSession[] | null> {
+  const { token, baseId, tableId, viewId, formatTableId } = getAirtableConfig();
+  if (!token) {
+    console.warn("Miami agenda: AIRTABLE_PAT missing");
     return null;
   }
 
   try {
-    const sessions: Array<{ session: AgendaSession; sortOrder: number }> = [];
-    let offset: string | undefined;
+    const [records, formatMap] = await Promise.all([
+      fetchAll(baseId, tableId, token, viewId, "miami-agenda"),
+      fetchFormatMap(baseId, formatTableId, token),
+    ]);
 
-    do {
-      const params = new URLSearchParams({ pageSize: "100" });
-      if (viewId) params.set("view", viewId);
-      if (offset) params.set("offset", offset);
-
-      const response = await fetch(
-        `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          next: {
-            revalidate: AIRTABLE_CACHE_SECONDS,
-            tags: ["miami-agenda"],
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Airtable request failed (${response.status})`);
-      }
-
-      const payload = (await response.json()) as AirtableListResponse;
-
-      for (const [index, record] of (payload.records ?? []).entries()) {
-        const normalized = normalizeSession(record, sessions.length + index);
-        if (normalized) sessions.push(normalized);
-      }
-
-      offset = payload.offset;
-    } while (offset);
-
-    return sessions
+    const sessions = records
+      .map((record, index) => normalizeSession(record, index, formatMap))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((entry) => entry.session);
+
+    return sessions;
   } catch (error) {
     console.error("Failed to load Miami agenda from Airtable", error);
     return null;
