@@ -129,12 +129,12 @@ export function DevelopersChainMigrationCosmosPage() {
         body={t.raw("hero.body")}
         buttons={[
           {
-            label: "Smart Contract Developers",
+            label: "Smart Contract Migration",
             url: "/developers/migrate-to-solana/cosmos/cosmwasm",
             hierarchy: "primary",
           },
           {
-            label: "App Chain Developers",
+            label: "App Chain Migration",
             url: "/developers/migrate-to-solana/cosmos/app-chain",
             hierarchy: "outline",
           },

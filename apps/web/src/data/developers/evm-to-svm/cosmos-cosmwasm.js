@@ -133,6 +133,7 @@ export const GUIDE_SECTIONS = [
       </ul>
       <h3>Program Derived Addresses</h3>
       <p>PDAs are the cornerstone of Solana state management. They are off-curve addresses derived from seeds plus the program ID and a bump seed. They encode the lookup key in the address itself.</p>
+      <h4>Solana PDA</h4>
       <pre><code class="language-rust">#[derive(Accounts)]
 pub struct Increment&lt;'info&gt; {
     pub user: Signer&lt;'info&gt;,
@@ -144,6 +145,7 @@ pub struct Increment&lt;'info&gt; {
     )]
     pub counter: Account&lt;'info, Counter&gt;,
 }</code></pre>
+      <h4>Cosmos map lookup</h4>
       <pre><code class="language-rust">pub const USER_COUNTERS: Map&lt;&amp;Addr, u64&gt; = Map::new("user_counters");
 let count = USER_COUNTERS.load(deps.storage, &amp;info.sender)?;</code></pre>
       <p>That CosmWasm map lookup becomes PDA derivation plus account deserialization on Solana. The key is the address.</p>
@@ -179,35 +181,23 @@ cargo build-sbf</code></pre>
       <p>Pinocchio is a lower-level framework with a much thinner abstraction layer. It keeps you closer to native Solana program structure, which can be useful when you want tighter control over instruction dispatch, account handling, binary size, or compute behavior.</p>
       <p>Use Anchor when you want framework support for account constraints, IDLs, and client generation. Use Pinocchio when you want a lighter abstraction and are comfortable owning more of the boilerplate and safety checks yourself.</p>
       <h3>Directory layout comparison</h3>
-      <pre><code class="language-bash"># CosmWasm                          # Anchor or Pinocchio
-src/                                programs/my_program/src/
-  contract.rs                         lib.rs
-  msg.rs                              instructions/
-  state.rs                              initialize.rs
-  error.rs                              update_position.rs
-tests/                                  settle.rs
-                                      state.rs
-                                      error.rs
-                                    tests/
-                                      initialize.rs
-                                      settle.rs</code></pre>
-      <h3>Tests</h3>
-      <h4>LiteSVM</h4>
-      <p>For Rust-first Solana testing, <a href="https://www.litesvm.com/" target="_blank" rel="noreferrer">LiteSVM</a> is a strong default. It runs an in-process SVM inside your test binary, so feedback loops are usually faster and simpler than spinning up an external validator.</p>
-      <pre><code class="language-bash">cargo add --dev litesvm
-cargo add --dev litesvm-utils
-cargo add --dev litesvm-token
-cargo add --dev anchor-litesvm</code></pre>
-      <ul>
-        <li><code>litesvm</code>: the core in-process VM for fast Rust tests.</li>
-        <li><code>litesvm-utils</code>: framework-agnostic helpers for account setup, assertions, and common test ergonomics.</li>
-        <li><code>litesvm-token</code>: SPL token testing helpers for mints, token accounts, and transfers.</li>
-        <li><code>anchor-litesvm</code>: Anchor-specific wrappers and helpers when you want a more ergonomic Anchor testing flow on top of LiteSVM.</li>
-      </ul>
-      <p>Start with <code>litesvm</code>. Add <code>litesvm-utils</code> when you want less boilerplate, <code>litesvm-token</code> when your program touches SPL assets, and <code>anchor-litesvm</code> when you are testing Anchor programs specifically.</p>
-      <h4>Surfpool</h4>
-      <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is a local Solana development environment and drop-in replacement for <code>solana-test-validator</code>. It is useful when you want RPC-compatible local workflows, mainnet account access on demand, or a validator-like environment around your program tests and debugging.</p>
-      <p>For setup and deeper tooling details, see the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>. If you want the lighter in-process testing path, start with <a href="https://www.litesvm.com/" target="_blank" rel="noreferrer">LiteSVM</a> instead.</p>
+      <pre><code class="language-bash">src/
+  contract.rs
+  msg.rs
+  state.rs
+  error.rs
+tests/</code></pre>
+      <pre><code class="language-bash">programs/my_program/src/
+  lib.rs
+  instructions/
+    initialize.rs
+    update_position.rs
+    settle.rs
+  state.rs
+  error.rs
+tests/
+  initialize.rs
+  settle.rs</code></pre>
     `,
   },
   {
@@ -217,7 +207,8 @@ cargo add --dev anchor-litesvm</code></pre>
     html: `
       <h2>4. Entry Points: Messages vs Instructions</h2>
       <p>CosmWasm exposes distinct entry points for different classes of work. Native Solana exposes one instruction processor that you dispatch yourself, and Anchor rebuilds a multi-handler abstraction on top.</p>
-      <h3>CosmWasm entry points</h3>
+      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates and seeds state accounts. Queries are off-chain RPC reads, not on-chain handlers.</p>
+      <h4>Compare the entry points:</h4>
       <pre><code class="language-rust">#[entry_point]
 pub fn instantiate(
     deps: DepsMut,
@@ -240,7 +231,6 @@ pub fn query(
     env: Env,
     msg: QueryMsg,
 ) -&gt; StdResult&lt;Binary&gt; { ... }</code></pre>
-      <h3>Pinocchio dispatcher</h3>
       <pre><code class="language-rust">use pinocchio::{
     account_info::AccountInfo,
     program_entrypoint,
@@ -263,7 +253,6 @@ fn process_instruction(
         _ =&gt; Err(ProgramError::InvalidInstructionData),
     }
 }</code></pre>
-      <h3>Anchor handler model</h3>
       <pre><code class="language-rust">#[program]
 pub mod counter {
     use super::*;
@@ -282,7 +271,6 @@ pub mod counter {
         Ok(())
     }
 }</code></pre>
-      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates and seeds state accounts. Queries are off-chain RPC reads, not on-chain handlers.</p>
     `,
   },
   {
@@ -292,14 +280,12 @@ pub mod counter {
     html: `
       <h2>5. State Management: Contract Storage vs PDAs</h2>
       <p>Every <code>Item</code> or <code>Map</code> you used in CosmWasm needs an explicit account model on Solana. In practice, each logical entry often becomes its own program-owned account.</p>
-      <h3>CosmWasm storage</h3>
+      <h4>Compare state management:</h4>
       <pre><code class="language-rust">use cw_storage_plus::{Item, Map};
 
 pub const CONFIG: Item&lt;Config&gt; = Item::new("config");
 pub const BALANCES: Map&lt;&amp;Addr, Uint128&gt; = Map::new("balances");
 pub const ALLOWANCES: Map&lt;(&amp;Addr, &amp;Addr), Uint128&gt; = Map::new("allowances");</code></pre>
-      <h3>Solana account model</h3>
-      <h4>Anchor example</h4>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct UserBalance {
@@ -319,7 +305,6 @@ pub struct TransferTokens&lt;'info&gt; {
     )]
     pub sender_balance: Account&lt;'info, UserBalance&gt;,
 }</code></pre>
-      <h4>Pinocchio example</h4>
       <pre><code class="language-rust">#[repr(C)]
 pub struct UserBalance {
     pub owner: Pubkey,
@@ -379,7 +364,7 @@ pub struct Metadata {
     html: `
       <h2>6. Token Handling: Bank Module / CW20 vs SPL Tokens</h2>
       <p>CosmWasm splits native-denom flows and CW20 flows. Solana standardizes fungible tokens around the SPL Token program, while SOL itself moves through the System Program.</p>
-      <h3>CosmWasm native and CW20 patterns</h3>
+      <h4>Compare token handling:</h4>
       <pre><code class="language-rust">let payment = info.funds.iter()
     .find(|c| c.denom == "uatom")
     .ok_or(ContractError::NoFundsProvided {})?;
@@ -389,8 +374,6 @@ let transfer_msg = Cw20ExecuteMsg::TransferFrom {
     recipient: env.contract.address.to_string(),
     amount,
 };</code></pre>
-      <h3>Solana lamports and SPL tokens</h3>
-      <h4>Anchor examples</h4>
       <pre><code class="language-rust">system_program::transfer(
     CpiContext::new(
         ctx.accounts.system_program.to_account_info(),
@@ -424,7 +407,6 @@ let transfer_msg = Cw20ExecuteMsg::TransferFrom {
     ),
     amount,
 )?;</code></pre>
-      <h4>Pinocchio examples</h4>
       <pre><code class="language-rust">let transfer_ix = system_instruction::transfer(
     sender.key(),
     recipient.key(),
@@ -503,7 +485,7 @@ invoke_signed(
     html: `
       <h2>7. Cross-Contract Communication: Sub-Messages vs CPIs</h2>
       <p>CosmWasm composes contracts through asynchronous messages. Solana composes programs through synchronous cross-program invocations.</p>
-      <h3>CosmWasm sub-message flow</h3>
+      <h4>Compare contract calls:</h4>
       <pre><code class="language-rust">let exec = WasmMsg::Execute {
     contract_addr: pool_contract.to_string(),
     msg: to_json_binary(&amp;PoolExecuteMsg::Swap { amount_in, min_amount_out })?,
@@ -512,7 +494,6 @@ invoke_signed(
 
 let sub_msg = SubMsg::reply_on_success(exec, SWAP_REPLY_ID);
 Ok(Response::new().add_submessage(sub_msg))</code></pre>
-      <h3>Solana CPI flow</h3>
       <pre><code class="language-rust">let cpi_ctx = CpiContext::new(
     ctx.accounts.pool_program.to_account_info(),
     pool_program::cpi::accounts::Swap {
@@ -549,21 +530,22 @@ pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
     navLabel: "8. Serialization",
     tone: "default",
     html: `
-      <h2>8. Serialization: JSON / serde vs Borsh</h2>
+      <h2>8. Serialization: JSON / serde vs wincode</h2>
       <p>CosmWasm messages are JSON-first and CLI-friendly. Solana instructions and account data are binary-first.</p>
+      <p>Anchor prepends an 8-byte discriminator to each instruction and each account type so it can route handlers and validate layouts automatically. One practical upside over JSON is that integers stay integers. You do not need the string-encoded <code>Uint128</code> convention that exists to protect precision in JSON tooling. If you are writing native Solana instruction enums without Anchor's IDL layer, binary codecs such as <code>wincode</code> are a common fit.</p>
+      <p>The tradeoff is debuggability: instruction bytes are not naturally human-readable at the CLI layer, so your client and tests matter more.</p>
+      <h4>Compare serialization:</h4>
       <pre><code class="language-rust">#[cw_serde]
 pub enum ExecuteMsg {
     Transfer { recipient: String, amount: Uint128 },
     Burn { amount: Uint128 },
 }</code></pre>
-      <pre><code class="language-rust">#[derive(BorshSerialize, BorshDeserialize)]
+      <pre><code class="language-rust">#[derive(WincodeEncode, WincodeDecode)]
 pub enum CounterInstruction {
     Initialize { start_value: i64 },
     Increment,
     Reset { value: i64 },
 }</code></pre>
-      <p>Anchor prepends an 8-byte discriminator to each instruction and each account type so it can route handlers and validate layouts automatically. One practical upside over JSON is that integers stay integers. You do not need the string-encoded <code>Uint128</code> convention that exists to protect precision in JSON tooling.</p>
-      <p>The tradeoff is debuggability: instruction bytes are not naturally human-readable at the CLI layer, so your client and tests matter more.</p>
     `,
   },
   {
@@ -573,6 +555,7 @@ pub enum CounterInstruction {
     html: `
       <h2>9. Error Handling</h2>
       <p>Both ecosystems lean on Rust error types, but Solana makes it more important to avoid panics because a panic often collapses into an unhelpful runtime failure.</p>
+      <h4>Compare error handling:</h4>
       <pre><code class="language-rust">#[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("Unauthorized")]
@@ -589,7 +572,6 @@ pub enum CounterError {
     ctx.accounts.counter.authority == ctx.accounts.user.key(),
     CounterError::Unauthorized
 );</code></pre>
-      <p>Use <code>?</code>, <code>require!</code>, <code>require_eq!</code>, and <code>require_keys_eq!</code> to fail predictably. Do not use <code>unwrap()</code> or <code>panic!()</code> in production handlers.</p>
     `,
   },
   {
@@ -617,7 +599,6 @@ require!(
     html: `
       <h2>11. Testing</h2>
       <p>On Solana, transaction assembly is part of the product surface. Good tests exercise accounts, signers, PDA derivation, token accounts, and CPI behavior in addition to pure business logic.</p>
-      <h3>CosmWasm testing</h3>
       <pre><code class="language-rust">let mut app = App::default();
 let code = ContractWrapper::new(execute, instantiate, query);
 let code_id = app.store_code(Box::new(code));</code></pre>
@@ -692,7 +673,6 @@ solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
     html: `
       <h2>13. Full Side-by-Side Example: Counter Contract</h2>
       <p>A counter contract is a useful migration seed because it forces you to model state layout, authority, initialization, and off-chain reads without too much noise.</p>
-      <h3>CosmWasm implementation</h3>
       <pre><code class="language-rust">pub const COUNTS: Map&lt;&amp;Addr, i32&gt; = Map::new("counts");
 
 #[entry_point]
@@ -718,7 +698,6 @@ pub fn execute(
         }
     }
 }</code></pre>
-      <h3>Anchor implementation</h3>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct Counter {
@@ -752,6 +731,44 @@ pub struct ModifyCounter&lt;'info&gt; {
     counter.count = counter.count
         .checked_add(1)
         .ok_or(CounterError::Overflow)?;
+    Ok(())
+}</code></pre>
+      <pre><code class="language-rust">#[repr(C)]
+pub struct Counter {
+    pub count: i64,
+    pub authority: Pubkey,
+    pub bump: u8,
+}
+
+pub fn process_increment(
+    program_id: &amp;Pubkey,
+    accounts: &amp;[AccountInfo],
+    _instruction_data: &amp;[u8],
+) -&gt; ProgramResult {
+    let [user, counter, ..] = accounts else {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    };
+
+    let (expected_counter, bump) =
+        Pubkey::find_program_address(&amp;[b"counter", user.key().as_ref()], program_id);
+
+    if counter.key() != &amp;expected_counter {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let mut counter_data = counter.try_borrow_mut_data()?;
+    let counter_state = Counter::try_from_bytes_mut(&amp;mut counter_data)?;
+
+    if counter_state.authority == Pubkey::default() {
+        counter_state.authority = *user.key();
+        counter_state.bump = bump;
+    }
+
+    counter_state.count = counter_state
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
     Ok(())
 }</code></pre>
       <p>The important translation is not the arithmetic. It is that the per-user map entry in CosmWasm becomes a per-user PDA account on Solana, and reads happen by deriving that PDA off-chain and fetching the account.</p>
@@ -803,13 +820,6 @@ pub struct ModifyCounter&lt;'info&gt; {
         <li>Account size is fixed unless you explicitly reallocate it.</li>
         <li>Use <code>clock.slot</code> for sequencing and <code>clock.unix_timestamp</code> for approximate wall-clock logic.</li>
       </ol>
-      <pre><code class="language-rust">#[account]
-pub struct Pool {
-    pub bump: u8,
-    pub authority: Pubkey,
-}
-
-ctx.accounts.pool.bump = ctx.bumps.pool;</code></pre>
     `,
   },
   {
@@ -956,7 +966,7 @@ export const RESOURCE_CARD_DECK = {
       },
       callToAction: {
         label: "Read the article",
-        url: "https://rustopian.dev/article/dopple-dex-in-cosmwasm-and-solana",
+        url: "https://medium.com/@rustopian/from-cosmwasm-to-solana-59a7dede45de",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -964,13 +974,13 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Counter Reference Repo",
+      heading: "Escrow Referemce Repo",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
         label: "Open GitHub repo",
-        url: "https://github.com/brimigs/cosmwasm-counter",
+        url: "https://github.com/brimigs/cosmos-migration-guide/tree/main/example-escrow-contracts",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
