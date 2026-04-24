@@ -56,7 +56,9 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       footer={{
-        component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
+        component: props.pageTree ? (
+          <Footer pageUrl={props.href} pageTree={props.pageTree} />
+        ) : undefined,
       }}
     >
       {props.hideHeader ? null : props.isRoot ? (

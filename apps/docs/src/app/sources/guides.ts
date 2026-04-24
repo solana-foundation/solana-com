@@ -4,6 +4,17 @@ import { loader } from "fumadocs-core/source";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 import { ReactNode } from "react";
 
+type GuideNode = Omit<(typeof guidesSource.pageTree)[string], "children"> & {
+  url?: string;
+  href?: string;
+  title?: ReactNode;
+  description?: ReactNode;
+  difficulty?: string;
+  tags?: string[];
+  featured?: boolean;
+  children?: GuideNode[];
+};
+
 export const guidesSource = loader({
   i18n: {
     defaultLanguage: defaultLocale,
@@ -14,31 +25,27 @@ export const guidesSource = loader({
   source: createMDXSource(guides, guidesMeta),
   pageTree: {
     attachFile(node, file) {
-      const newNode: typeof node & {
-        slug?: string;
-        featured?: boolean;
-        tags?: string[];
-        href?: string;
-        difficulty?: string;
-      } = node;
-      newNode.description = file.data?.description;
-      newNode.slug = file.slugs?.join("/");
-      newNode.featured =
-        "featured" in file.data ? (file.data?.featured as boolean) : undefined;
-      newNode.tags = file.data?.tags;
-      newNode.href =
-        "href" in file.data ? (file.data?.href as string) : undefined;
-      newNode.difficulty = file.data?.difficulty;
-      return newNode;
+      node.description = file?.data?.description;
+      // @ts-expect-error Adds an unspecified prop
+      node.slug = file?.slugs?.join("/");
+      // @ts-expect-error Adds an unspecified prop
+      node.featured = file?.data?.featured;
+      // @ts-expect-error Adds an unspecified prop
+      node.tags = file?.data?.tags;
+      // @ts-expect-error Adds an unspecified prop
+      node.href = file?.data?.href;
+      // @ts-expect-error Adds an unspecified prop
+      node.difficulty = file?.data?.difficulty;
+      return node;
     },
   },
 });
 
 export function getGuides(locale: string) {
-  return getGuidesFromFolder(guidesSource.pageTree[locale]);
+  return getGuidesFromFolder(guidesSource.pageTree[locale] as GuideNode);
 }
 
-function getGuidesFromFolder(folder: (typeof guidesSource.pageTree)[string]): {
+function getGuidesFromFolder(folder: GuideNode): {
   href?: string;
   title?: ReactNode;
   description?: ReactNode;
@@ -46,24 +53,19 @@ function getGuidesFromFolder(folder: (typeof guidesSource.pageTree)[string]): {
   tags?: string[];
   featured?: boolean;
 }[] {
+  if (!folder.children) return [];
   return folder.children.flatMap((node) => {
-    if ("children" in node) {
+    if (node.children) {
       return getGuidesFromFolder(node);
     } else {
       return [
         {
-          href:
-            "href" in node
-              ? (node.href as string)
-              : "url" in node
-                ? node.url
-                : undefined,
+          href: node.href || node.url,
           title: node.name,
-          description: "description" in node ? node.description : undefined,
-          difficulty:
-            "difficulty" in node ? (node.difficulty as string) : undefined,
-          tags: "tags" in node ? (node.tags as string[]) : undefined,
-          featured: "featured" in node ? (node.featured as boolean) : undefined,
+          description: node.description,
+          difficulty: node.difficulty,
+          tags: node.tags,
+          featured: node.featured,
         },
       ];
     }

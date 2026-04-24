@@ -12,7 +12,7 @@ type StickerStep = {
 
 export function SelectionSticker({ steps }: { steps: StickerStep[] }) {
   const stickerSteps = useMemo(() => {
-    const files = {};
+    const files: Record<string, React.ReactNode> = {};
     return steps.map((step) => {
       Object.entries(step.codeblocks).forEach(([title, code]) => {
         files[title] = code;
@@ -38,7 +38,9 @@ function Sticker(props: {
   const { codeblocks } = step;
   const filetree = useMemo(() => getFileTree(codeblocks), [codeblocks]);
   const defaultSelected = step.selected;
-  const [selected, setSelected] = useState<string | null>(defaultSelected);
+  const [selected, setSelected] = useState<string | null>(
+    defaultSelected ?? null,
+  );
 
   useEffect(() => {
     if (defaultSelected) {
@@ -114,7 +116,7 @@ function FileNodes(props: {
       <File
         key={node.name}
         name={node.name}
-        onClick={() => onSelect(node.title)}
+        onClick={() => node.title && onSelect(node.title)}
         className={cn(
           "transition-colors duration-300",
           selected === node.title

@@ -7,10 +7,10 @@ import styles from "./DevelopersChangelog.module.scss";
 export type LatestChangelogVideo = {
   snippet: {
     description?: string;
-    resourceId: {
-      videoId: string;
+    resourceId?: {
+      videoId?: string;
     };
-    playlistId: string;
+    playlistId?: string;
   };
 };
 
@@ -37,14 +37,17 @@ export default function DevelopersChangelog({
           "...",
         )}
       </p>
-      <Button
-        to={`https://www.youtube.com/watch?v=${latestVideo.snippet.resourceId.videoId}&list=${latestVideo.snippet.playlistId}`}
-        newTab
-        className={styles["changelog__cta"]}
-      >
-        <span>{t("developers.changelog.cta")}</span>
-        <ArrowRightCircle strokeWidth={1} />
-      </Button>
+      {latestVideo.snippet?.resourceId?.videoId &&
+      latestVideo.snippet?.playlistId ? (
+        <Button
+          to={`https://www.youtube.com/watch?v=${latestVideo.snippet?.resourceId?.videoId}&list=${latestVideo.snippet?.playlistId}`}
+          newTab
+          className={styles["changelog__cta"]}
+        >
+          <span>{t("developers.changelog.cta")}</span>
+          <ArrowRightCircle strokeWidth={1} />
+        </Button>
+      ) : null}
     </div>
   );
 }

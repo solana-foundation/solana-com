@@ -15,11 +15,11 @@ export function MentionLink(props: {
   href?: string;
   children?: React.ReactNode;
 }) {
-  const mention = props.href.slice("mention:".length);
+  const mention = props.href?.slice("mention:".length);
   return (
     <Hoverable
       className="underline decoration-dotted underline-offset-4 inline"
-      name={mention}
+      name={mention ?? ""}
     >
       {props.children}
     </Hoverable>

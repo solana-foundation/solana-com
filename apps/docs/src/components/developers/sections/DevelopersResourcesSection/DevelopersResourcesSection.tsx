@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import CarouselCards from "@/components/shared/CarouselCards";
 import DevelopersResourceItem from "./DevelopersResourceItem";
@@ -7,16 +7,16 @@ import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import styles from "./DevelopersResourcesSection.module.scss";
 import Button from "@/components/shared/Button";
 
-type ResourceItem = {
+export type ResourceItem = {
   category?: string;
   difficulty?: string;
-  title?: string;
-  description?: string;
+  title?: ReactNode;
+  description?: ReactNode;
   href?: string;
   isExternal?: boolean;
 };
 
-type DevelopersResourcesSectionProps = {
+export type DevelopersResourcesSectionProps = {
   items: ResourceItem[];
   baseHref?: string;
   translationKey?: string;

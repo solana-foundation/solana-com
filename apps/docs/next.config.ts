@@ -176,7 +176,7 @@ const nextConfig: NextConfig = {
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")

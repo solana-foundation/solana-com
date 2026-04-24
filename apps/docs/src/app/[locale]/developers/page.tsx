@@ -16,8 +16,8 @@ export default async function Page(props: Props) {
     .slice(0, 6);
   return (
     <DevelopersPage
-      latestChangelogVideo={latestChangelogVideo}
-      guides={guides}
+      latestChangelogVideo={latestChangelogVideo ?? undefined}
+      guides={guides ?? undefined}
     />
   );
 }
@@ -28,6 +28,7 @@ async function getLatestChangelogVideo() {
     const videos = await getYTVideos(undefined, YT_PLAYLIST_CHANGELOG);
     if (videos.length) {
       latestChangelogVideo = videos.sort((a, b) => {
+        if (!b.snippet.publishedAt || !a.snippet.publishedAt) return 0;
         return (
           new Date(b.snippet.publishedAt).getTime() -
           new Date(a.snippet.publishedAt).getTime()

@@ -68,7 +68,7 @@ function Link(props: LinkProps) {
   if (props.href?.startsWith("mention:")) {
     return <MentionLink {...props} />;
   } else if (props.href?.startsWith("tooltip")) {
-    return <NoteTooltip name={props.title}>{props.children}</NoteTooltip>;
+    return <NoteTooltip name={props.title ?? ""}>{props.children}</NoteTooltip>;
   }
   return <FumaLink {...props} />;
 }

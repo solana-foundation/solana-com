@@ -3,7 +3,7 @@ import { getMetadataFromSlug, MainDocsPage } from "../docs";
 import { toStaticParams } from "@@/src/app/sources/utils";
 
 type Props = {
-  params: Promise<{ slug?: string[]; locale: string }>;
+  params: Promise<{ slug: string[]; locale: string }>;
 };
 
 export default async function Page(props: Props) {

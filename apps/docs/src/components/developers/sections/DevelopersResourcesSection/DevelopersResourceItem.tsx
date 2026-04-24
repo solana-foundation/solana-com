@@ -10,8 +10,8 @@ import { type ReactNode } from "react";
 type DevelopersResourceItemProps = {
   category?: string;
   children?: ReactNode;
-  title?: string;
-  description?: string;
+  title?: ReactNode;
+  description?: ReactNode;
   url?: string;
   isExternal?: boolean;
   ctaLabel?: string;

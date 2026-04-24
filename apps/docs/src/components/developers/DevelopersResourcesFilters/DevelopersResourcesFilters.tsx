@@ -15,7 +15,7 @@ export type FilterMap = Record<string, FilterGroup>;
 type FiltersProps = {
   filters: FilterMap;
   onReset: () => void;
-  onToggle: (key: string, filter: string) => void;
+  onToggle: (_key: string, _filter: string) => void;
   activeFilters?: Map<string, string[]>;
 };
 
@@ -46,7 +46,7 @@ function Filters({
             </div>
             <div className={styles["developers-resources-filters__filters"]}>
               {filters[key].items.map((filter) =>
-                !!filter ? (
+                filter ? (
                   <div
                     key={filter}
                     className={styles["developers-resources-filters__filter"]}

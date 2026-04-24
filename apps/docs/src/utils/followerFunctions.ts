@@ -73,7 +73,12 @@ const getYoutubeSubscriberCount = async () => {
 
     throw new Error("Channel statistics not found");
   } catch (error) {
-    console.error("Error getting subscriber count:", error.message);
+    console.error(
+      "Error getting subscriber count:",
+      error && typeof error === "object" && "message" in error
+        ? error.message
+        : error,
+    );
     throw error;
   }
 };
@@ -84,9 +89,9 @@ const getStableCoins = async () => {
 
   try {
     const jsonData = await cachedFetch(url, options);
-    const stableCoins: {
+    const stableCoins = (await jsonData.json()) as {
       data?: { chains: { chain: string; amount: number }[] }[];
-    } = await jsonData.json();
+    };
     const chainData = stableCoins.data?.[0]?.chains;
     let solAmount = 0;
     if (chainData) {
@@ -114,14 +119,14 @@ const getGHStargazers = async () => {
       },
     },
   );
-  const jsonData: { stargazers_count?: number } = await res.json();
+  const jsonData = (await res.json()) as { stargazers_count?: number };
   return jsonData?.stargazers_count || 0;
 };
 
 const getYTVideos = async (
   maxVideos: number = 50,
   playlistId: string,
-  channelId: string = process.env.YOUTUBE_CHANNEL_ID,
+  channelId: string | undefined = process.env.YOUTUBE_CHANNEL_ID,
 ): Promise<YTVideoItem[]> => {
   const apiKey = process.env.YOUTUBE_API_KEY;
 
@@ -146,7 +151,7 @@ const getYTVideos = async (
   }
 
   const pageSize = Math.min(50, maxVideos);
-  const videos = [];
+  const videos: YTVideoItem[] = [];
   let videoResp: Response | undefined;
 
   // Playlist videos
@@ -175,13 +180,16 @@ const getYTVideos = async (
     }
   }
 
+  if (!videoResp) return videos;
+
   const videosData = await videoResp.json();
 
   if (!videosData.error) {
     // No thumbnails usually means the video has been deleted from a list
     videos.push(
       ...(videosData?.items?.filter(
-        (item: YTVideoItem) => Object.keys(item.snippet.thumbnails).length,
+        (item: YTVideoItem) =>
+          Object.keys(item.snippet.thumbnails as object).length,
       ) || []),
     );
   } else {

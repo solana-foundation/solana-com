@@ -22,19 +22,19 @@ type ResourceItem = {
 
 const mapItemsIntoFilters =
   (itemFilters: FilterMap) => (item: ResourceItem) => {
-    if (!!item?.category) {
+    if (item?.category) {
       if (!itemFilters.category.items.includes(item.category)) {
         itemFilters.category.items.push(item.category);
       }
     }
 
-    if (!!item?.difficulty) {
+    if (item?.difficulty) {
       if (!itemFilters.difficulty.items.includes(item.difficulty)) {
         itemFilters.difficulty.items.push(item.difficulty);
       }
     }
 
-    if (!!item?.labels) {
+    if (item?.labels) {
       item.labels?.forEach((label) => {
         if (!itemFilters?.labels.items.includes(label)) {
           itemFilters.labels.items.push(label);
@@ -42,7 +42,7 @@ const mapItemsIntoFilters =
       });
     }
 
-    if (!!item?.tags) {
+    if (item?.tags) {
       item.tags.forEach((tag) => {
         if (!itemFilters.tags.items.includes(tag)) {
           itemFilters.tags.items.push(tag);
