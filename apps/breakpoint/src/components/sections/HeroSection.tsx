@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import TextScramble from "@/components/TextScramble";
@@ -103,19 +104,26 @@ export default function HeroSection() {
           <source src="/assets/hero-architecture.mp4" type="video/mp4" />
         </video>
 
-        {interacting && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to bottom, transparent 0%, transparent calc(var(--cy) - 6%), rgba(171,102,253,0.35) calc(var(--cy) - 3%), rgba(255,255,255,0.15) var(--cy), rgba(20,241,149,0.25) calc(var(--cy) + 3%), transparent calc(var(--cy) + 6%), transparent 100%)",
-              mixBlendMode: "screen",
-              filter: "contrast(1.15)",
-              ["--cy" as never]: `${cursorY}%`,
-            }}
-          />
-        )}
+        <AnimatePresence>
+          {interacting && (
+            <motion.div
+              key="cursor-overlay"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{
+                background:
+                  "linear-gradient(to bottom, transparent 0%, transparent calc(var(--cy) - 6%), rgba(171,102,253,0.35) calc(var(--cy) - 3%), rgba(255,255,255,0.15) var(--cy), rgba(20,241,149,0.25) calc(var(--cy) + 3%), transparent calc(var(--cy) + 6%), transparent 100%)",
+                mixBlendMode: "screen",
+                filter: "contrast(1.15)",
+                ["--cy" as never]: `${cursorY}%`,
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         <div
           aria-hidden="true"

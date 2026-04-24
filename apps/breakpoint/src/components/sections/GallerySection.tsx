@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import YouTubeModal from "@/components/YouTubeModal";
 import WordReveal from "@/components/WordReveal";
 import ImageTreatment from "@/components/ImageTreatment";
-import { useInView } from "@/hooks/useInView";
 
 const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
 
@@ -28,15 +28,16 @@ function PlayIcon() {
 export default function GallerySection() {
   const t = useTranslations("breakpoint");
   const [recapOpen, setRecapOpen] = useState(false);
-  const [mediaRef, mediaInView] = useInView<HTMLDivElement>(0.2);
 
   return (
     <section className="bg-black pt-20 md:pt-[120px]">
       <div className="container md:px-8">
-        <div
-          ref={mediaRef}
-          className="relative aspect-[2/1] w-full overflow-hidden transition-opacity duration-700 ease-out"
-          style={{ opacity: mediaInView ? 1 : 0 }}
+        <motion.div
+          className="relative aspect-[2/1] w-full overflow-hidden"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
         >
           <ImageTreatment
             src="/img/bp25/recap-hero.webp"
@@ -74,7 +75,7 @@ export default function GallerySection() {
               />
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <YouTubeModal

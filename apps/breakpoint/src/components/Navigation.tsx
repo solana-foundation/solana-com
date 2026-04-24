@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
@@ -106,12 +107,14 @@ export default function Navigation() {
         </Link>
 
         <div className="flex flex-1 justify-end pr-1 md:pr-[4px]">
-          <div
-            className={`cta-wrap relative inline-flex ${isSticky ? "is-revealed" : ""} ${isGlitching ? "is-glitching" : ""}`}
-            style={{
+          <motion.div
+            className={`cta-wrap relative inline-flex ${isGlitching ? "is-glitching" : ""}`}
+            initial={false}
+            animate={{
               opacity: isSticky ? 1 : 0,
-              transform: isSticky ? "translateX(0)" : "translateX(6px)",
+              x: isSticky ? 0 : 6,
             }}
+            transition={{ duration: 0 }}
           >
             <button
               type="button"
@@ -141,11 +144,21 @@ export default function Navigation() {
                 </span>
                 <span
                   aria-hidden="true"
+                  className="cta-slice cta-slice-3 pointer-events-none absolute inset-0 inline-flex h-8 items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black md:px-3"
+                >
+                  {ctaInner}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="cta-scanlines pointer-events-none absolute inset-0"
+                />
+                <span
+                  aria-hidden="true"
                   className="cta-static pointer-events-none absolute inset-0"
                 />
               </>
             )}
-          </div>
+          </motion.div>
         </div>
       </nav>
 
@@ -156,33 +169,61 @@ export default function Navigation() {
 
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
-        .cta-wrap {
-          transition:
-            opacity 0s,
-            transform 0s;
-        }
         .cta-wrap.is-glitching .cta-button {
           animation: cta-glitch-in ${GLITCH_MS}ms steps(8, end) 1;
         }
 
-        .cta-slice {
-          mix-blend-mode: screen;
+        .cta-slice::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          mix-blend-mode: multiply;
         }
+
         .cta-slice-1 {
-          color: #a665f6;
           animation: cta-slice-a ${GLITCH_MS}ms steps(10, end) 1;
         }
+        .cta-slice-1::after {
+          background: #a665f6;
+        }
+
         .cta-slice-2 {
-          color: #3cffa1;
           animation: cta-slice-b ${GLITCH_MS}ms steps(10, end) 1;
+        }
+        .cta-slice-2::after {
+          background: rgb(105, 52, 171);
+        }
+
+        .cta-slice-3 {
+          animation: cta-slice-c ${GLITCH_MS}ms steps(10, end) 1;
+        }
+        .cta-slice-3::after {
+          background: #c695ff;
+        }
+
+        .cta-scanlines {
+          background-image: repeating-linear-gradient(
+            to bottom,
+            rgba(40, 8, 80, 0) 0px,
+            rgba(40, 8, 80, 0) 1px,
+            rgba(40, 8, 80, 0.45) 1px,
+            rgba(40, 8, 80, 0.45) 2px
+          );
+          mix-blend-mode: multiply;
+          animation: cta-flicker ${GLITCH_MS}ms steps(12, end) 1;
         }
 
         .cta-static {
-          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='2.4' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.667  0 0 0 0 0.404  0 0 0 0 0.984  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-          background-size: 80px 80px;
+          background-image:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.667  0 0 0 0 0.404  0 0 0 0 0.984  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='2.2' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 0.306  0 0 0 0 1  0 0 0 0 0.631  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+          background-size:
+            60px 60px,
+            50px 50px;
           mix-blend-mode: multiply;
           opacity: 0;
-          animation: cta-static-burst ${GLITCH_MS}ms steps(12, end) 1;
+          animation: cta-static-burst ${GLITCH_MS}ms steps(14, end) 1;
         }
 
         @keyframes cta-glitch-in {
@@ -191,32 +232,32 @@ export default function Navigation() {
             transform: translate(6px, 0);
             opacity: 0;
           }
-          12% {
+          10% {
             clip-path: inset(40% 0 38% 0);
-            transform: translate(-3px, 1px);
-            opacity: 1;
-          }
-          25% {
-            clip-path: inset(0 28% 0 0);
-            transform: translate(2px, -1px);
-            opacity: 1;
-          }
-          40% {
-            clip-path: inset(62% 0 12% 0);
             transform: translate(-2px, 1px);
             opacity: 1;
           }
-          55% {
-            clip-path: inset(0 8% 0 0);
-            transform: translate(1px, 0);
+          22% {
+            clip-path: inset(0 28% 0 0);
+            transform: translate(3px, -1px);
             opacity: 1;
           }
-          70% {
-            clip-path: inset(18% 0 68% 0);
-            transform: translate(-1px, 0);
+          35% {
+            clip-path: inset(62% 0 12% 0);
+            transform: translate(-1px, 2px);
             opacity: 1;
           }
-          85% {
+          50% {
+            clip-path: inset(0);
+            transform: translate(2px, -2px);
+            opacity: 1;
+          }
+          65% {
+            clip-path: inset(0);
+            transform: translate(-3px, 1px);
+            opacity: 1;
+          }
+          80% {
             clip-path: inset(0);
             transform: translate(1px, 0);
             opacity: 1;
@@ -233,27 +274,30 @@ export default function Navigation() {
           100% {
             clip-path: inset(0 0 100% 0);
             transform: translateX(0);
-            opacity: 0;
           }
           10% {
-            clip-path: inset(12% 0 72% 0);
-            transform: translateX(-8px);
-            opacity: 0.9;
+            clip-path: inset(8% 0 78% 0);
+            transform: translateX(-14px);
           }
-          30% {
-            clip-path: inset(48% 0 32% 0);
-            transform: translateX(7px);
-            opacity: 0.7;
+          25% {
+            clip-path: inset(32% 0 52% 0);
+            transform: translateX(16px);
+          }
+          40% {
+            clip-path: inset(4% 0 82% 0);
+            transform: translateX(-8px);
           }
           55% {
-            clip-path: inset(22% 0 60% 0);
-            transform: translateX(-5px);
-            opacity: 0.8;
+            clip-path: inset(55% 0 28% 0);
+            transform: translateX(18px);
           }
-          80% {
-            clip-path: inset(68% 0 14% 0);
-            transform: translateX(3px);
-            opacity: 0.4;
+          70% {
+            clip-path: inset(18% 0 65% 0);
+            transform: translateX(-20px);
+          }
+          85% {
+            clip-path: inset(70% 0 12% 0);
+            transform: translateX(6px);
           }
         }
 
@@ -262,27 +306,72 @@ export default function Navigation() {
           100% {
             clip-path: inset(0 0 100% 0);
             transform: translateX(0);
-            opacity: 0;
           }
           15% {
-            clip-path: inset(55% 0 28% 0);
-            transform: translateX(6px);
-            opacity: 0.8;
+            clip-path: inset(45% 0 38% 0);
+            transform: translateX(12px);
           }
-          35% {
-            clip-path: inset(8% 0 76% 0);
-            transform: translateX(-7px);
-            opacity: 0.6;
+          30% {
+            clip-path: inset(12% 0 72% 0);
+            transform: translateX(-16px);
+          }
+          50% {
+            clip-path: inset(62% 0 22% 0);
+            transform: translateX(24px);
+          }
+          65% {
+            clip-path: inset(28% 0 58% 0);
+            transform: translateX(-12px);
+          }
+          80% {
+            clip-path: inset(8% 0 80% 0);
+            transform: translateX(4px);
+          }
+        }
+
+        @keyframes cta-slice-c {
+          0%,
+          100% {
+            clip-path: inset(0 0 100% 0);
+            transform: translateX(0);
+          }
+          20% {
+            clip-path: inset(78% 0 8% 0);
+            transform: translateX(-6px);
+          }
+          40% {
+            clip-path: inset(40% 0 44% 0);
+            transform: translateX(20px);
           }
           60% {
-            clip-path: inset(36% 0 48% 0);
-            transform: translateX(5px);
+            clip-path: inset(14% 0 72% 0);
+            transform: translateX(-24px);
+          }
+          80% {
+            clip-path: inset(58% 0 28% 0);
+            transform: translateX(10px);
+          }
+        }
+
+        @keyframes cta-flicker {
+          0%,
+          100% {
+            opacity: 0;
+          }
+          10% {
             opacity: 0.7;
           }
-          82% {
-            clip-path: inset(20% 0 62% 0);
-            transform: translateX(-2px);
-            opacity: 0.3;
+          30% {
+            opacity: 0.15;
+          }
+          50% {
+            opacity: 0.85;
+          }
+          70% {
+            opacity: 0.25;
+          }
+          90% {
+            opacity: 0.6;
           }
         }
 
@@ -290,33 +379,39 @@ export default function Navigation() {
           0%,
           100% {
             opacity: 0;
+            transform: translate(0, 0);
           }
           15% {
-            opacity: 0.45;
-          }
-          35% {
-            opacity: 0.15;
-          }
-          55% {
             opacity: 0.55;
+            transform: translate(0, 0);
           }
-          80% {
+          30% {
             opacity: 0.2;
+            transform: translate(-10px, 4px);
+          }
+          50% {
+            opacity: 0.7;
+            transform: translate(8px, -3px);
+          }
+          75% {
+            opacity: 0.3;
+            transform: translate(-6px, 5px);
+          }
+          90% {
+            opacity: 0.45;
+            transform: translate(4px, -2px);
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .cta-wrap {
-            transition:
-              opacity 300ms ease-out,
-              transform 300ms ease-out;
-          }
           .cta-wrap.is-glitching .cta-button,
           .cta-slice,
+          .cta-scanlines,
           .cta-static {
             animation: none !important;
           }
           .cta-slice,
+          .cta-scanlines,
           .cta-static {
             display: none !important;
           }

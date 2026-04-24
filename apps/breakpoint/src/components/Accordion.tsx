@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useId, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 interface AccordionProps {
   question: string;
@@ -9,16 +10,8 @@ interface AccordionProps {
 
 export default function Accordion({ question, children }: AccordionProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [contentHeight, setContentHeight] = useState(0);
   const triggerId = useId();
   const panelId = useId();
-
-  useEffect(() => {
-    if (contentRef.current) {
-      setContentHeight(contentRef.current.scrollHeight);
-    }
-  }, [children, isOpen]);
 
   return (
     <div className="border-b border-neutral-700 pb-s">
@@ -66,34 +59,22 @@ export default function Accordion({ question, children }: AccordionProps) {
         </button>
       </h3>
 
-      <div
-        className="overflow-hidden"
-        style={
-          {
-            "--accordion-height": `${contentHeight}px`,
-          } as React.CSSProperties
-        }
-      >
-        <div
-          id={panelId}
-          ref={contentRef}
-          aria-hidden={!isOpen}
-          aria-labelledby={triggerId}
-          inert={!isOpen}
-          className={
-            isOpen
-              ? "animate-accordion-slide-down"
-              : "animate-accordion-slide-up"
-          }
-          role="region"
-          style={{
-            height: isOpen ? `${contentHeight}px` : "0px",
-            opacity: isOpen ? 1 : 0,
-          }}
-        >
-          <div className="pt-s">{children}</div>
-        </div>
-      </div>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            id={panelId}
+            aria-labelledby={triggerId}
+            role="region"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="pt-s">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

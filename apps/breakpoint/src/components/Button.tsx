@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useInView } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
-import { useInView } from "@/hooks/useInView";
 import { isRelativeHref } from "@/lib/links";
 
 const GLYPHS =
@@ -89,7 +89,8 @@ export default function Button({
   onClick,
   className = "",
 }: ButtonProps) {
-  const [ref, inView] = useInView<HTMLElement>(0.35);
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { amount: 0.35, once: true });
   const [runKey, setRunKey] = useState(0);
   const primed = useRef(false);
 

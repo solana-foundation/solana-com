@@ -90,21 +90,11 @@ export default {
       animation: {
         ticker: "ticker 30s linear infinite",
         "ticker-reverse": "ticker 30s linear infinite reverse",
-        "accordion-slide-down": "accordion-slide-down 200ms linear",
-        "accordion-slide-up": "accordion-slide-up 200ms linear",
       },
       keyframes: {
         ticker: {
           "0%": { transform: "translateX(0%)" },
           "100%": { transform: "translateX(-50%)" },
-        },
-        "accordion-slide-down": {
-          "0%": { height: "0", opacity: "0" },
-          "100%": { height: "var(--accordion-height)", opacity: "1" },
-        },
-        "accordion-slide-up": {
-          "0%": { height: "var(--accordion-height)", opacity: "1" },
-          "100%": { height: "0", opacity: "0" },
         },
       },
     },
