@@ -25,17 +25,26 @@ export default function WordReveal({
   const [ref, inView] = useInView<HTMLElement>(0.15);
 
   if (html) {
-    // For HTML content we can't split into word spans without parsing;
-    // fall back to a single step-curve fade.
+    let wordIndex = 0;
+    const wrapped = text
+      .split(/(<[^>]+>)/g)
+      .map((part) => {
+        if (!part) return "";
+        if (part.startsWith("<")) return part;
+        return part.replace(/\S+/g, (word) => {
+          const delay = startDelayMs + wordIndex * stepMs;
+          wordIndex += 1;
+          return `<span data-word aria-hidden="true" style="transition-delay: ${delay}ms">${word}</span>`;
+        });
+      })
+      .join("");
+
     return (
       <Tag
         ref={ref as unknown as React.Ref<never>}
-        className={className}
-        style={{
-          opacity: inView ? 1 : 0,
-          transition: `opacity 0ms ${startDelayMs}ms`,
-        }}
-        dangerouslySetInnerHTML={{ __html: text }}
+        className={`bp-word-reveal ${inView ? "is-revealed" : ""} ${className ?? ""}`}
+        aria-label={text.replace(/<[^>]+>/g, "")}
+        dangerouslySetInnerHTML={{ __html: wrapped }}
       />
     );
   }

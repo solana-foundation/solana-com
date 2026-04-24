@@ -108,6 +108,10 @@ export default function Navigation() {
         <div className="flex flex-1 justify-end pr-1 md:pr-[4px]">
           <div
             className={`cta-wrap relative inline-flex ${isSticky ? "is-revealed" : ""} ${isGlitching ? "is-glitching" : ""}`}
+            style={{
+              opacity: isSticky ? 1 : 0,
+              transform: isSticky ? "translateX(0)" : "translateX(6px)",
+            }}
           >
             <button
               type="button"
@@ -153,15 +157,9 @@ export default function Navigation() {
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
         .cta-wrap {
-          opacity: 0;
-          transform: translateX(6px);
           transition:
             opacity 0s,
             transform 0s;
-        }
-        .cta-wrap.is-revealed {
-          opacity: 1;
-          transform: translateX(0);
         }
         .cta-wrap.is-glitching .cta-button {
           animation: cta-glitch-in ${GLITCH_MS}ms steps(8, end) 1;
