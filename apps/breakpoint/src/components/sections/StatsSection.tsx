@@ -60,7 +60,7 @@ export default function StatsSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="border-t border-neutral-700 py-[120px]">
+    <section className="py-[120px]">
       <div className="container">
         <SectionHeadline headline={t("stats.headline")} alignment="center">
           <Button label={t("stats.cta")} variant="primary" arrow />

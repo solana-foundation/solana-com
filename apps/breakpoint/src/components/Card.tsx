@@ -44,12 +44,12 @@ function TicketCard({
   href,
 }: TicketCardProps) {
   return (
-    <div className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-[#353535] p-8">
+    <article className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-[#353535] p-8">
       <div className="flex flex-col gap-1">
         {heading && (
-          <p className="font-sans !text-[24px] !font-bold !leading-[1.18] !tracking-[-0.01em] !text-white">
+          <h3 className="font-sans !text-[24px] !font-bold !leading-[1.18] !tracking-[-0.01em] !text-white">
             {heading}
-          </p>
+          </h3>
         )}
         {subhead && (
           <p className="!text-[18px] !leading-[1.45] !text-text-secondary opacity-80">
@@ -74,7 +74,7 @@ function TicketCard({
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }
 

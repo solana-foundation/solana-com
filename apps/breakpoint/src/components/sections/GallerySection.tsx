@@ -59,7 +59,7 @@ export default function GallerySection() {
               className="font-mono !text-[16px] !font-normal uppercase !leading-[1.3] !tracking-[0.08em] !text-white"
             />
             <WordReveal
-              as="p"
+              as="h2"
               text={t("gallery.headline")}
               stepMs={85}
               startDelayMs={500}

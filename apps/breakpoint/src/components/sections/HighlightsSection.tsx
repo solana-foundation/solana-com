@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import CarouselControls from "@/components/CarouselControls";
 import ImageTreatment from "@/components/ImageTreatment";
@@ -65,6 +71,7 @@ export default function HighlightsSection() {
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const timeoutsRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const headingId = useId();
 
   const activeQuote = HIGHLIGHT_QUOTES[index]!;
 
@@ -121,21 +128,43 @@ export default function HighlightsSection() {
 
   return (
     <section className="pt-20 md:pt-[120px]">
-      <div className="container flex flex-col items-start justify-between gap-10 lg:flex-row lg:gap-6">
+      <div
+        aria-labelledby={headingId}
+        aria-roledescription="carousel"
+        className="container flex flex-col items-start justify-between gap-10 lg:flex-row lg:gap-6"
+        role="region"
+      >
         <div className="flex flex-col gap-6 lg:h-[227px] lg:w-[501px] lg:justify-center">
           <p className="font-mono text-base uppercase leading-[1.3] tracking-[1.28px] text-white">
             {t("highlights.eyebrow")}
           </p>
-          <h2 className="font-sans text-[32px] font-normal leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]">
+          <h2
+            id={headingId}
+            className="font-sans text-[32px] font-normal leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"
+          >
             {t("highlights.headline")}
           </h2>
-          <CarouselControls onPrev={handlePrev} onNext={handleNext} />
+          <CarouselControls
+            labelPrefix={t("highlights.headline")}
+            onPrev={handlePrev}
+            onNext={handleNext}
+          />
         </div>
 
         <div
+          aria-live="off"
           className="relative min-h-[370px] w-full overflow-hidden bg-[#1e1e1e] lg:h-[600px] lg:min-h-0 lg:w-[772px] lg:[aspect-ratio:772/600] lg:flex-shrink-0"
+          onBlur={(event) => {
+            if (
+              !event.currentTarget.contains(event.relatedTarget as Node | null)
+            ) {
+              setIsPaused(false);
+            }
+          }}
+          onFocus={() => setIsPaused(true)}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
         >
           <ImageTreatment
             src="/img/gallery/photo-6.jpg"
@@ -190,6 +219,7 @@ export default function HighlightsSection() {
         </div>
       </div>
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
         .is-glitching :global(.quote-card-base) {
           animation: glitch-jitter ${GLITCH_MS}ms steps(8, end) 1;
@@ -428,7 +458,7 @@ function QuoteCard({
   decorative?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const quoteRef = useRef<HTMLParagraphElement>(null);
+  const quoteRef = useRef<HTMLQuoteElement>(null);
   const metaRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -490,19 +520,19 @@ function QuoteCard({
   }, [quote.author, quote.handle, quote.role, quote.text]);
 
   return (
-    <div
+    <figure
       ref={cardRef}
       className="quote-card-base flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8"
     >
       <div className="flex min-h-0 flex-1 items-start">
-        <p
+        <blockquote
           ref={quoteRef}
           className="max-h-full font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.2]"
         >
           &ldquo;{quote.text}&rdquo;
-        </p>
+        </blockquote>
       </div>
-      <div
+      <figcaption
         ref={metaRef}
         className="flex items-center gap-2.5 pt-4 md:gap-3 md:pt-6"
       >
@@ -526,9 +556,10 @@ function QuoteCard({
             rel="noreferrer"
             tabIndex={decorative ? -1 : 0}
             aria-hidden={decorative || undefined}
-            className="font-sans text-[16px] font-bold leading-[1.18] tracking-[-0.01em] text-black underline decoration-solid underline-offset-[3px] md:text-[24px]"
+            className="font-sans text-[16px] font-bold leading-[1.18] tracking-[-0.01em] text-black underline decoration-solid underline-offset-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black md:text-[24px]"
           >
             {quote.handle}
+            <span className="sr-only"> (opens in a new tab)</span>
           </a>
           <p className="font-sans text-[12px] leading-[1.3] text-black/70 md:text-base">
             {quote.author}
@@ -536,7 +567,7 @@ function QuoteCard({
             {quote.role}
           </p>
         </div>
-      </div>
-    </div>
+      </figcaption>
+    </figure>
   );
 }

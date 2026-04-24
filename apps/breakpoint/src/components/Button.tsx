@@ -101,13 +101,14 @@ export default function Button({
 
   const scrambleDuration = variant === "primary" ? 1500 : 400;
   const displayLabel = useScramble(label, scrambleDuration, runKey);
+  const isDisabled = !href && !onClick;
 
   const handleHover = () => {
     if (variant === "secondary") setRunKey((k) => k + 1);
   };
 
   const baseClasses =
-    "relative inline-flex h-[40px] items-center justify-center gap-2xs px-5 font-mono !text-[14px] !font-bold uppercase !tracking-[0.08em] !leading-[0.9] transition-colors duration-200 overflow-hidden";
+    "relative inline-flex h-[40px] items-center justify-center gap-2xs overflow-hidden px-5 font-mono !text-[14px] !font-bold uppercase !leading-[0.9] !tracking-[0.08em] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
   const variantClasses =
     variant === "primary"
@@ -131,10 +132,11 @@ export default function Button({
         />
       )}
       <span className="relative z-10 inline-flex items-center gap-2xs">
-        {iconLeft && <span>{iconLeft}</span>}
-        <span aria-label={label}>{displayLabel}</span>
+        {iconLeft && <span aria-hidden="true">{iconLeft}</span>}
+        <span aria-hidden="true">{displayLabel}</span>
         {trailing && (
           <span
+            aria-hidden="true"
             className={inView && variant === "primary" ? "bp-icon-blink" : ""}
           >
             {trailing}
@@ -146,9 +148,12 @@ export default function Button({
 
   const commonProps = {
     ref: ref as unknown as React.Ref<never>,
-    className: classes,
+    "aria-disabled": isDisabled || undefined,
+    "aria-label": label,
+    className: `${classes} ${isDisabled ? "pointer-events-none" : ""}`.trim(),
     onMouseEnter: handleHover,
     onFocus: handleHover,
+    tabIndex: isDisabled ? -1 : undefined,
   };
 
   if (href) {
@@ -168,7 +173,7 @@ export default function Button({
   }
 
   return (
-    <button onClick={onClick} {...commonProps}>
+    <button type="button" onClick={onClick} {...commonProps}>
       {inner}
     </button>
   );

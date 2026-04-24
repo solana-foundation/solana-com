@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -11,15 +11,52 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     if (!open) return;
+    const previousActiveElement = document.activeElement;
+    const dialog = dialogRef.current;
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
     inputRef.current?.focus();
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+
+      if (e.key !== "Tab" || !dialog) return;
+
+      const focusableElements = Array.from(
+        dialog.querySelectorAll<HTMLElement>(focusableSelector),
+      );
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0]!;
+      const lastElement = focusableElements[focusableElements.length - 1]!;
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
     };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      if (previousActiveElement instanceof HTMLElement) {
+        previousActiveElement.focus();
+      }
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -35,17 +72,19 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="subscribe-title"
+      aria-describedby={descriptionId}
+      aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-5 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         className="w-full max-w-[440px] border border-white/15 bg-[#0b0811] p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <h2
-            id="subscribe-title"
+            id={titleId}
             className="font-sans text-[1.75rem] leading-[1] tracking-[-0.035em] text-white"
           >
             Follow BP26
@@ -54,7 +93,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-white/60 hover:text-white"
+            className="text-white/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
             <svg
               width="16"
@@ -71,12 +110,19 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             </svg>
           </button>
         </div>
-        <p className="mt-3 text-[0.9375rem] leading-[1.4] text-white/72">
+        <p
+          id={descriptionId}
+          className="mt-3 text-[0.9375rem] leading-[1.4] text-white/72"
+        >
           Get news, event updates, and reveal drops for Breakpoint 2026.
         </p>
 
         {status === "done" ? (
-          <p className="mt-6 font-mono text-[0.8125rem] uppercase tracking-[0.08em] text-[#c9ff7c]">
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-6 font-mono text-[0.8125rem] uppercase tracking-[0.08em] text-[#c9ff7c]"
+          >
             You&rsquo;re subscribed.
           </p>
         ) : (
@@ -87,6 +133,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             <input
               id="bp-email"
               ref={inputRef}
+              autoComplete="email"
               type="email"
               value={email}
               required
@@ -97,7 +144,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             <button
               type="submit"
               disabled={status === "sending"}
-              className="inline-flex h-[40px] items-center justify-center bg-white px-5 font-mono text-[14px] font-bold uppercase tracking-[0.08em] leading-[0.9] text-black transition-colors duration-200 hover:bg-[#e7d2f9] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-[40px] items-center justify-center bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors duration-200 hover:bg-[#e7d2f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {status === "sending" ? "Subscribing…" : "Subscribe"}
             </button>

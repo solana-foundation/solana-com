@@ -158,7 +158,7 @@ function pad(value: number, width = 2): string {
 
 function SecondaryLink({ href, label }: { href: string; label: string }) {
   const classes =
-    "inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70";
+    "inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black";
 
   const content = (
     <>
@@ -208,6 +208,8 @@ export default function Footer() {
           src="/assets/pixel-edge-footer.svg"
           alt=""
           aria-hidden="true"
+          width={1440}
+          height={200}
           className="block h-[200px] w-full"
         />
       </div>
@@ -221,8 +223,8 @@ export default function Footer() {
                 href={social.href}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={social.name}
-                className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70"
+                aria-label={`${social.name} (opens in a new tab)`}
+                className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
               >
                 <img
                   src={social.icon}

@@ -5,14 +5,32 @@ import React, { useEffect, useState } from "react";
 const NOISE_POOL =
   "#∞@±∑!÷?^&∆*≠6≈%{/~|]!^÷∆*?∞±#≈1%}÷!∑∆^*?&±#≈%2|~][/#∞@±∑!÷?^&∆±∑!÷?^&∆*≠6≈%{/~|*≠6≈%{/~|]!^#∞@±∑!÷?^&∆*≠6≈%{/~|]!^";
 const NOISE_LENGTH = 500;
-
-const STATIC_NOISE = Array.from(
-  { length: NOISE_LENGTH },
-  (_, i) => NOISE_POOL[(i * 7919 + 13) % NOISE_POOL.length],
-).join("");
+const NOISE_REARRANGE_MS = 7_000;
 
 const randomGlyph = () =>
   NOISE_POOL[Math.floor(Math.random() * NOISE_POOL.length)] ?? " ";
+
+const hash = (value: number) => {
+  let x = value | 0;
+  x = Math.imul(x ^ 0x9e3779b9, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  return (x ^ (x >>> 16)) >>> 0;
+};
+
+function buildStaticNoise(glitchCycle: number) {
+  const chars = Array.from(NOISE_POOL);
+
+  for (let i = chars.length - 1; i > 0; i--) {
+    const swapIndex = hash(glitchCycle * 4099 + i) % (i + 1);
+    [chars[i], chars[swapIndex]] = [chars[swapIndex] ?? " ", chars[i] ?? " "];
+  }
+
+  return Array.from(
+    { length: NOISE_LENGTH },
+    (_, i) => chars[hash(glitchCycle * 7919 + i * 131 + 13) % chars.length],
+  ).join("");
+}
 
 const HIGHLIGHTS = ["BP26", "LONDON", "BUILD", "DEPLOY", "SHIP MORE"];
 const GAP_CHARS = 48;
@@ -27,9 +45,14 @@ const CHARS_PER_STEP = 2;
 
 type Segment = { text: string; highlight: boolean };
 
-function computeSegments(step: number, glitch: boolean): Segment[] {
+function computeSegments(
+  step: number,
+  glitch: boolean,
+  glitchCycle: number,
+): Segment[] {
+  const staticNoise = buildStaticNoise(glitchCycle);
   const cells = Array.from({ length: NOISE_LENGTH }, (_, i) => ({
-    char: STATIC_NOISE[i] ?? " ",
+    char: staticNoise[i] ?? " ",
     highlight: false,
   }));
 
@@ -68,16 +91,25 @@ function computeSegments(step: number, glitch: boolean): Segment[] {
 
 export default function Marquee() {
   const [segments, setSegments] = useState<Segment[]>(() =>
-    computeSegments(0, false),
+    computeSegments(0, false, 0),
   );
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let step = 0;
+    let glitchCycle = 0;
+    let nextNoiseAt = Date.now() + NOISE_REARRANGE_MS;
     const id = setInterval(() => {
       step += 1;
-      setSegments(computeSegments(step, true));
+
+      const now = Date.now();
+      if (now >= nextNoiseAt) {
+        glitchCycle += 1;
+        nextNoiseAt += NOISE_REARRANGE_MS;
+      }
+
+      setSegments(computeSegments(step, true, glitchCycle));
     }, TICK_MS);
     return () => clearInterval(id);
   }, []);

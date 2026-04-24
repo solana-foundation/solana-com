@@ -85,30 +85,32 @@ export default function TextScramble({
 
   const Tag = as;
   return (
-    <Tag className={className} aria-label={text}>
-      {cells.map((c, i) => {
-        if (c.kind === "break") return <br key={i} />;
-        if (c.kind === "block")
+    <Tag className={className}>
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true">
+        {cells.map((c, i) => {
+          if (c.kind === "break") return <br key={i} />;
+          if (c.kind === "block")
+            return (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  width: c.width,
+                  height: "0.72em",
+                  background: "#ffffff",
+                  verticalAlign: "middle",
+                  margin: "0 0.08em",
+                }}
+              />
+            );
           return (
-            <span
-              key={i}
-              aria-hidden="true"
-              style={{
-                display: "inline-block",
-                width: c.width,
-                height: "0.72em",
-                background: "#ffffff",
-                verticalAlign: "middle",
-                margin: "0 0.08em",
-              }}
-            />
+            <span key={i} style={c.color ? { color: c.color } : undefined}>
+              {c.char}
+            </span>
           );
-        return (
-          <span key={i} style={c.color ? { color: c.color } : undefined}>
-            {c.char}
-          </span>
-        );
-      })}
+        })}
+      </span>
     </Tag>
   );
 }

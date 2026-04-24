@@ -17,7 +17,7 @@ export default function NarrativeSection() {
     <section className="bg-black pt-20 md:pt-[120px]">
       <div className="container grid grid-cols-1 gap-x-[24px] gap-y-8 md:grid-cols-[repeat(16,minmax(0,1fr))]">
         <WordReveal
-          as="p"
+          as="h2"
           text={t("narrative.eyebrow")}
           stepMs={60}
           className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white md:col-[1/span_5] md:self-start"

@@ -91,11 +91,16 @@ export default function Navigation() {
             src="/assets/nav-solana.svg"
             alt=""
             aria-hidden="true"
+            width={23}
+            height={20}
             className="block h-[15.64px] w-[18.15px] md:h-[19.55px] md:w-[22.68px]"
           />
           <img
             src="/assets/nav-bp26.svg"
-            alt="BP26"
+            alt=""
+            aria-hidden="true"
+            width={104}
+            height={20}
             className="block h-4 w-[83.56px] md:h-5 md:w-[104.45px]"
           />
         </Link>
@@ -111,7 +116,7 @@ export default function Navigation() {
               tabIndex={isSticky ? 0 : -1}
               className={`cta-button relative inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black hover:bg-[#e7d2f9] md:px-3 ${
                 isSticky ? "pointer-events-auto" : "pointer-events-none"
-              }`}
+              } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
             >
               {ctaInner}
             </button>
@@ -145,6 +150,7 @@ export default function Navigation() {
         onClose={() => setSubscribeOpen(false)}
       />
 
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
         .cta-wrap {
           opacity: 0;

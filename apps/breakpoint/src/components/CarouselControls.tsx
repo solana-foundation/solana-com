@@ -6,22 +6,30 @@ interface CarouselControlsProps {
   onPrev: () => void;
   onNext: () => void;
   className?: string;
+  labelPrefix?: string;
 }
 
 export default function CarouselControls({
   onPrev,
   onNext,
   className = "",
+  labelPrefix,
 }: CarouselControlsProps) {
+  const previousLabel = labelPrefix
+    ? `Previous ${labelPrefix}`
+    : "Previous item";
+  const nextLabel = labelPrefix ? `Next ${labelPrefix}` : "Next item";
+
   return (
     <div className={`flex gap-2xs ${className}`.trim()}>
       <button
         type="button"
         onClick={onPrev}
-        aria-label="Previous"
-        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80"
+        aria-label={previousLabel}
+        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         <svg
+          aria-hidden="true"
           width="20"
           height="16"
           viewBox="0 0 20 16"
@@ -40,10 +48,11 @@ export default function CarouselControls({
       <button
         type="button"
         onClick={onNext}
-        aria-label="Next"
-        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80"
+        aria-label={nextLabel}
+        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         <svg
+          aria-hidden="true"
           width="20"
           height="16"
           viewBox="0 0 20 16"

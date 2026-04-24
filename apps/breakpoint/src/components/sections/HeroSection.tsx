@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import TextScramble from "@/components/TextScramble";
@@ -12,9 +12,66 @@ export default function HeroSection() {
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [interacting, setInteracting] = useState(false);
   const [cursorY, setCursorY] = useState(50);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+      if (event.matches) {
+        setInteracting(false);
+        setCursorY(50);
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (prefersReducedMotion) {
+      video.pause();
+      return;
+    }
+
+    const start = () => {
+      if (video.preload !== "auto") video.preload = "auto";
+      video.load();
+    };
+
+    const idle = (
+      window as Window & {
+        requestIdleCallback?: (
+          _cb: () => void,
+          _opts?: { timeout: number },
+        ) => number;
+      }
+    ).requestIdleCallback;
+
+    if (document.readyState === "complete") {
+      if (idle) idle(start, { timeout: 1500 });
+      else window.setTimeout(start, 200);
+      return;
+    }
+
+    const onLoad = () => {
+      if (idle) idle(start, { timeout: 1500 });
+      else window.setTimeout(start, 200);
+    };
+    window.addEventListener("load", onLoad, { once: true });
+    return () => window.removeEventListener("load", onLoad);
+  }, [prefersReducedMotion]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (prefersReducedMotion) return;
+
     const el = mediaRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -33,11 +90,12 @@ export default function HeroSection() {
         onMouseLeave={() => setInteracting(false)}
       >
         <video
-          autoPlay
+          ref={videoRef}
+          autoPlay={!prefersReducedMotion}
           muted
-          loop
+          loop={!prefersReducedMotion}
           playsInline
-          preload="metadata"
+          preload="none"
           poster="/assets/hero-architecture-poster.webp"
           className={`absolute inset-0 h-full w-full object-cover ${interacting ? "" : "bp-video-idle-glitch"}`}
         >
@@ -109,6 +167,8 @@ export default function HeroSection() {
         src="/assets/pixel-edge.svg"
         alt=""
         aria-hidden="true"
+        width={1440}
+        height={146}
         className="pointer-events-none absolute bottom-0 left-0 z-0 h-[146px] w-full object-cover"
       />
 

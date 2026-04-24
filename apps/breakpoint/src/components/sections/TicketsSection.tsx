@@ -15,9 +15,9 @@ export default function TicketsSection() {
           <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
             {t("tickets.eyebrow")}
           </p>
-          <p className="font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
+          <h2 className="font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
             {t("tickets.headline")}
-          </p>
+          </h2>
         </div>
 
         <div className="flex flex-col gap-6 md:grid md:grid-cols-3">
@@ -49,9 +49,9 @@ export default function TicketsSection() {
             <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
               {t("participate.eyebrow")}
             </p>
-            <p className="font-sans !text-[28px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[40px]">
+            <h3 className="font-sans !text-[28px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[40px]">
               {t("participate.headline")}
-            </p>
+            </h3>
           </div>
           <div className="flex flex-wrap gap-4">
             <Button
