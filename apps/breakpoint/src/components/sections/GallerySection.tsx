@@ -30,10 +30,10 @@ export default function GallerySection() {
   const [recapOpen, setRecapOpen] = useState(false);
 
   return (
-    <section className="bg-black pt-20 md:pt-[120px]">
-      <div className="container md:px-8">
+    <section className="bg-black md:pt-[120px]">
+      <div className="w-full md:container md:px-8">
         <motion.div
-          className="relative aspect-[2/1] w-full overflow-hidden"
+          className="relative aspect-[375/667] w-full overflow-hidden md:aspect-[2/1]"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, amount: 0.2 }}
@@ -51,7 +51,7 @@ export default function GallerySection() {
             mouseReactive
             className="absolute inset-0 h-full w-full"
           />
-          <div className="absolute inset-y-0 left-5 z-10 flex w-full max-w-[500px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:-translate-x-1/2">
+          <div className="absolute inset-y-0 left-4 z-10 flex w-[343px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:w-full md:max-w-[500px] md:-translate-x-1/2">
             <WordReveal
               as="p"
               text={t("gallery.eyebrow")}
@@ -64,7 +64,7 @@ export default function GallerySection() {
               text={t("gallery.headline")}
               stepMs={85}
               startDelayMs={500}
-              className="font-sans !text-[32px] !font-normal !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]"
+              className="font-sans !text-[32px] !font-normal !leading-[1.2] !tracking-[-0.02em] !text-white md:!text-[48px] md:!leading-[1.15]"
             />
             <div>
               <Button

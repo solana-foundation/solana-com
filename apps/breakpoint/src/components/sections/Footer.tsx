@@ -186,11 +186,11 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
 
 function CounterCell({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[8px] text-center uppercase text-neutral-900">
-      <p className="w-full font-bp26 text-[28px] font-normal leading-[1.1875] tracking-[0.04em] md:text-[64px]">
+    <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-[8px] text-left uppercase text-neutral-900 md:items-center md:text-center">
+      <p className="w-full font-bp26 text-[48px] font-normal leading-[1.18] tracking-[0.04em] md:text-[64px]">
         {value}
       </p>
-      <p className="w-full font-mono text-[11px] font-bold leading-[9.9px] tracking-[0.08em] md:text-[14px] md:leading-[10px]">
+      <p className="w-full font-mono text-[14px] font-bold leading-[0.9] tracking-[0.08em] md:leading-[10px]">
         {label}
       </p>
     </div>
@@ -202,7 +202,7 @@ export default function Footer() {
   const { days, hours, minutes, seconds } = useCountdown(EVENT_START);
 
   return (
-    <footer className="flex w-full flex-col items-stretch pt-[120px]">
+    <footer className="flex w-full flex-col items-stretch pt-20 md:pt-[120px]">
       <div className="h-[50px] w-full overflow-hidden">
         <img
           src="/assets/pixel-edge-footer.svg"
@@ -210,7 +210,7 @@ export default function Footer() {
           aria-hidden="true"
           width={1440}
           height={200}
-          className="block h-[200px] w-full"
+          className="block h-[200px] w-full min-w-[840px]"
         />
       </div>
 
@@ -250,8 +250,8 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full bg-purple py-l">
-        <div className="flex items-center justify-between gap-2 px-[20px] md:px-[32px] md:gap-0">
+      <div className="w-full bg-purple px-[16px] pt-l md:px-[32px] md:py-l">
+        <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
           <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
           <CounterCell value={pad(hours)} label={t("countdown.hours")} />
           <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
@@ -259,22 +259,37 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full bg-purple px-s py-l md:px-[32px]">
-        <div className="flex w-full items-center justify-center gap-[16px] md:gap-[35.974px]">
+      <div className="w-full bg-purple px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l">
+        <div className="flex w-full items-center gap-[16px] justify-center md:gap-[35.974px]">
+          <img
+            src="/assets/bp26-logo-mark-mobile.svg"
+            alt=""
+            aria-hidden="true"
+            width={56.7055}
+            height={48.884}
+            className="block h-[43.867px] w-[50.885px] shrink-0 md:hidden"
+          />
           <img
             src="/assets/bp-logo-mark.svg"
             alt=""
             aria-hidden="true"
             width={114.409}
             height={98.628}
-            className="block h-[48px] w-[55.67px] shrink-0 md:h-[98.628px] md:w-[114.409px]"
+            className="hidden h-[98.628px] w-[114.409px] shrink-0 md:block"
+          />
+          <img
+            src="/assets/bp26-wordmark-mobile.svg"
+            alt="BP26"
+            width={261.136}
+            height={50.0022}
+            className="block h-[44.87px] w-[234.333px] shrink-0 md:hidden"
           />
           <img
             src="/assets/breakpoint-wordmark-footer.svg"
             alt="Breakpoint"
             width={1226.613}
             height={100.876}
-            className="block h-auto w-full min-w-0 flex-1"
+            className="hidden h-auto w-full min-w-0 flex-1 md:block"
             style={{ aspectRatio: "1226.613 / 100.876" }}
           />
         </div>

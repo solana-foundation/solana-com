@@ -10,7 +10,7 @@ export default function TicketsSection() {
 
   return (
     <section className="bg-black pt-20 md:pt-[120px]">
-      <div className="container flex flex-col gap-12">
+      <div className="md:container flex flex-col gap-12">
         <div className="flex flex-col items-center gap-6 text-center">
           <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
             {t("tickets.eyebrow")}
@@ -20,7 +20,7 @@ export default function TicketsSection() {
           </h2>
         </div>
 
-        <div className="flex flex-col gap-6 md:grid md:grid-cols-3">
+        <div className="container flex flex-col gap-6 md:!max-w-none md:px-0 md:grid md:grid-cols-3">
           <Card
             variant="ticket"
             heading={t("tickets.categories.general.label")}
@@ -44,7 +44,7 @@ export default function TicketsSection() {
           />
         </div>
 
-        <div className="flex flex-col gap-8 bg-[#1e1e1e] p-8 md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
+        <div className="flex flex-col gap-8 bg-[#1e1e1e] px-m py-2xl md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
           <div className="flex flex-col gap-4">
             <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
               {t("participate.eyebrow")}

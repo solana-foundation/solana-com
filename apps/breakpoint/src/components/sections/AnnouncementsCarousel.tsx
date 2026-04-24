@@ -39,7 +39,7 @@ export default function AnnouncementsCarousel({
       className="flex flex-col gap-6 md:gap-12"
       role="region"
     >
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
         <h2
           id={headingId}
           className="font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"

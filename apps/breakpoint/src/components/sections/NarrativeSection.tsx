@@ -14,7 +14,7 @@ export default function NarrativeSection() {
   const body1WordCount = body1.split(/\s+/).length;
 
   return (
-    <section className="bg-black pt-20 md:pt-[120px]">
+    <section className="bg-black md:pt-[120px]">
       <div className="container grid grid-cols-1 gap-x-[24px] gap-y-8 md:grid-cols-[repeat(16,minmax(0,1fr))]">
         <WordReveal
           as="h2"
