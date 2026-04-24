@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
-import { NextIntlClientProvider } from "next-intl";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "@workspace/i18n/client";
 import { locales } from "@workspace/i18n/config";
 import { getBaseMetadata } from "../metadata";
 import { loadBreakpointMessages } from "@/i18n/request";
@@ -57,7 +57,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getBaseMetadata(locale);
+  return await getBaseMetadata(locale);
 }
 
 export default async function LocaleLayout({

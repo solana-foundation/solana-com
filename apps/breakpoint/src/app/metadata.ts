@@ -1,39 +1,65 @@
 import type { Metadata } from "next";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+import { locales, defaultLocale } from "@workspace/i18n/config";
+import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
 
-export function getBaseMetadata(locale = "en"): Metadata {
-  const { siteMetadata, siteUrl, social } = config;
+const localePath = (locale: string) =>
+  locale === defaultLocale ? "" : `/${locale}`;
+
+export async function getBaseMetadata(
+  locale: string = defaultLocale,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
+  const { siteUrl, siteMetadata, social } = config;
+
+  const title = t("title");
+  const titleTemplate = t("titleTemplate");
+  const siteName = t("siteName");
+  const description = t("description");
+  const ogTitle = t("ogTitle");
+  const ogDescription = t("ogDescription");
+  const keywords = t("keywords")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  const canonical = `${siteUrl}${localePath(locale)}`;
+  const languages: Record<string, string> = Object.fromEntries(
+    locales.map((l) => [l, `${siteUrl}${localePath(l)}`]),
+  );
+  languages["x-default"] = siteUrl;
 
   return {
     metadataBase: new URL(siteUrl),
-    title: {
-      default: siteMetadata.title,
-      template: `%s | ${siteMetadata.title}`,
-    },
-    description: siteMetadata.description,
-    keywords: siteMetadata.keywords,
+    alternates: { canonical, languages },
+    title: { default: title, template: titleTemplate },
+    description,
+    keywords,
     authors: [{ name: siteMetadata.author }],
+    robots: "index, follow",
     openGraph: {
       type: "website",
       locale,
-      url: siteUrl,
-      siteName: siteMetadata.title,
-      title: siteMetadata.title,
-      description: siteMetadata.description,
+      url: canonical,
+      siteName,
+      title: ogTitle,
+      description: ogDescription,
       images: [{ url: siteMetadata.socialShare, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
-      title: siteMetadata.title,
-      description: siteMetadata.description,
+      title: ogTitle,
+      description: ogDescription,
       images: [siteMetadata.socialShare],
     },
-    icons: {
-      icon: [{ url: faviconSvg, type: "image/svg+xml" }],
-      apple: appleTouchIcon.src,
-    },
+    icons: [
+      { url: faviconPng.src, rel: "icon", type: "image/png" },
+      { url: faviconSvg, rel: "icon", type: "image/svg+xml" },
+      { url: appleTouchIcon.src, rel: "apple-touch-icon", sizes: "180x180" },
+    ],
   };
 }

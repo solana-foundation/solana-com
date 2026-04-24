@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import YouTubeModal from "@/components/YouTubeModal";
 import WordReveal from "@/components/WordReveal";

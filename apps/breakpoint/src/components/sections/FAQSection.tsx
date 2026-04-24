@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
 
 const faqKeys = ["q1", "q2", "q3", "q4"] as const;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import SectionHeadline from "@/components/SectionHeadline";
 import CarouselControls from "@/components/CarouselControls";
 

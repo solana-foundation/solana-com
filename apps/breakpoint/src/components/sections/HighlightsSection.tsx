@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import CarouselControls from "@/components/CarouselControls";
 import ImageTreatment from "@/components/ImageTreatment";
 

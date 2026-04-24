@@ -1,6 +1,6 @@
-import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { createNextIntlPlugin } from "@workspace/i18n/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const assetPrefix = "/breakpoint-assets";

@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
+import { Link } from "@workspace/i18n/routing";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 
 const STICKY_OFFSET_PX = 12;

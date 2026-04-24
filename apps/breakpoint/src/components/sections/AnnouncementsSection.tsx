@@ -1,5 +1,5 @@
 import React from "react";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@workspace/i18n/server";
 import AnnouncementsCarousel from "@/components/sections/AnnouncementsCarousel";
 import { fetchBreakpointAnnouncementLinks } from "@/lib/media-links";
 

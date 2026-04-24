@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
+import { Link } from "@workspace/i18n/routing";
+import { isRelativeHref } from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
 
@@ -155,15 +157,29 @@ function pad(value: number, width = 2): string {
 }
 
 function SecondaryLink({ href, label }: { href: string; label: string }) {
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70"
-    >
+  const classes =
+    "inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70";
+
+  const content = (
+    <>
       {label}
       <span className="relative inline-flex size-[12px] items-center justify-center">
         <ArrowUpRight />
       </span>
+    </>
+  );
+
+  if (isRelativeHref(href)) {
+    return (
+      <Link href={href} className={classes}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={href} className={classes}>
+      {content}
     </a>
   );
 }
@@ -197,7 +213,7 @@ export default function Footer() {
       </div>
 
       <div className="w-full bg-purple py-l">
-        <div className="container flex flex-col items-center justify-between gap-6 lg:flex-row">
+        <div className="flex flex-col items-center justify-between gap-6 px-[20px] md:px-[32px] lg:flex-row">
           <div className="flex items-center gap-s">
             {SOCIAL_LINKS.map((social) => (
               <a
@@ -233,7 +249,7 @@ export default function Footer() {
       </div>
 
       <div className="w-full bg-purple py-l">
-        <div className="container flex items-center justify-between gap-2 md:gap-0">
+        <div className="flex items-center justify-between gap-2 px-[20px] md:px-[32px] md:gap-0">
           <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
           <CounterCell value={pad(hours)} label={t("countdown.hours")} />
           <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />

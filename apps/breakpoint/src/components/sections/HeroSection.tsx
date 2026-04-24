@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
@@ -66,12 +66,12 @@ export default function HeroSection() {
       </div>
 
       <div className="container relative z-10 h-full">
-        <div className="absolute inset-x-0 top-16 md:inset-x-auto md:left-0 md:top-60 md:h-[326px] md:w-[939px]">
+        <div className="absolute left-5 right-5 top-16 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] min-[108rem]:w-[926px]">
           <TextScramble
             as="h1"
             text={t("hero.headline")}
             durationMs={1000}
-            className="whitespace-pre-line font-sans text-[3.25rem] font-normal leading-[0.98] tracking-[-0.06em] text-white md:absolute md:left-0 md:top-0 md:w-[763px] md:text-[5rem]"
+            className="whitespace-pre-line font-sans text-[3.25rem] font-normal leading-[0.98] tracking-[-0.06em] text-white md:absolute md:left-0 md:top-0 md:w-[763px] md:text-[5rem] min-[108rem]:w-[926px]"
           />
           <div className="mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0">
             <Button
@@ -81,7 +81,7 @@ export default function HeroSection() {
               onClick={() => setSubscribeOpen(true)}
             />
           </div>
-          <div className="mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 font-mono text-[0.875rem] uppercase tracking-[0.08em] text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:text-[1rem]">
+          <div className="mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 font-mono text-[0.875rem] uppercase tracking-[0.08em] text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:text-[1rem] min-[108rem]:w-[609px] min-[108rem]:grid-cols-[293px_minmax(0,292px)]">
             <WordReveal
               text={t("hero.date")}
               stepMs={70}

@@ -1,7 +1,12 @@
 export type BreakpointMessages = {
   metadata: {
     title: string;
+    titleTemplate: string;
+    siteName: string;
     description: string;
+    ogTitle: string;
+    ogDescription: string;
+    keywords: string;
   };
   hero: {
     headline: string;

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "@workspace/i18n/routing";
 import { useInView } from "@/hooks/useInView";
+import { isRelativeHref } from "@/lib/links";
 
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -150,6 +152,14 @@ export default function Button({
   };
 
   if (href) {
+    if (isRelativeHref(href)) {
+      return (
+        <Link href={href} {...commonProps}>
+          {inner}
+        </Link>
+      );
+    }
+
     return (
       <a href={href} {...commonProps}>
         {inner}

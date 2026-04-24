@@ -1,6 +1,6 @@
 import localFont from "next/font/local";
-import { NextIntlClientProvider } from "next-intl";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "@workspace/i18n/client";
 import HomePage from "./[locale]/page";
 import { getBaseMetadata } from "./metadata";
 import { loadBreakpointMessages } from "@/i18n/request";
@@ -45,7 +45,9 @@ const monoFont = localFont({
   display: "swap",
 });
 
-export const metadata: Metadata = getBaseMetadata("en");
+export async function generateMetadata(): Promise<Metadata> {
+  return await getBaseMetadata("en");
+}
 
 export default async function RootPage() {
   const { messages } = await loadBreakpointMessages("en");
@@ -57,7 +59,7 @@ export default async function RootPage() {
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <NextIntlClientProvider locale="en" messages={messages}>
-        <HomePage />
+        <HomePage params={Promise.resolve({ locale: "en" })} />
       </NextIntlClientProvider>
     </div>
   );
