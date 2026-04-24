@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import galaxyBreakpoint2026White from "../../../assets/companies/galaxy/breakpoint-2026-white.png";
 import galaxyLogo from "../../../assets/companies/galaxy/logo.svg";
 import galaxyLogoLight from "../../../assets/companies/galaxy/logo-light.svg";
 import galaxyLogoDark from "../../../assets/companies/galaxy/logo-dark.svg";
@@ -28,6 +29,14 @@ export const galaxy = {
   },
   defaultLogoId: "logo-light",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: galaxyBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

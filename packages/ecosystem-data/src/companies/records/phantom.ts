@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import phantomBreakpoint2026White from "../../../assets/companies/phantom/breakpoint-2026-white.svg";
 import phantomLogoDark from "../../../assets/companies/phantom/logo-dark.svg";
 import phantomLogoLight from "../../../assets/companies/phantom/logo-light.svg";
 import phantomLogoPurple from "../../../assets/companies/phantom/logo-purple.svg";
@@ -30,6 +31,14 @@ export const phantom = {
   },
   defaultLogoId: "logo-purple",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: phantomBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo-purple",
       fileName: "logo-purple.svg",
