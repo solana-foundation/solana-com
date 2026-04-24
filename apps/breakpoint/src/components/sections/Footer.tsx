@@ -240,7 +240,7 @@ export default function Footer() {
             {t("copyright")}
           </p>
 
-          <div className="flex items-center gap-l">
+          <div className="flex items-center gap-m md:gap-l">
             <SecondaryLink
               href="mailto:breakpoint@solana.org"
               label={t("contact")}

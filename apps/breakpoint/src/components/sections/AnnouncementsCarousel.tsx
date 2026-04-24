@@ -70,7 +70,7 @@ export default function AnnouncementsCarousel({
               target="_blank"
               rel="noreferrer"
               href={item.url}
-              className="flex h-full w-full flex-col justify-between border border-neutral-700 p-s transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className="relative flex h-full w-full flex-col justify-between border border-neutral-700 p-s transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
               <span className="font-mono text-base uppercase leading-[1.3] tracking-[0.08em] text-white opacity-80">
                 {item.tags?.[0] ?? "Article"}
