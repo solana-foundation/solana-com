@@ -63,7 +63,7 @@ export default function StatsSection() {
     <section className="py-[120px]">
       <div className="container">
         <SectionHeadline headline={t("stats.headline")} alignment="center">
-          <Button label={t("stats.cta")} variant="primary" arrow />
+          {/* <Button label={t("stats.cta")} variant="primary" arrow /> */}
         </SectionHeadline>
 
         <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">

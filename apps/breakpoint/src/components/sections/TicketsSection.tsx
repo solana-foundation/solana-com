@@ -60,11 +60,11 @@ export default function TicketsSection() {
               arrow
               href={t("participate.actions.sponsor.href")}
             />
-            <Button
+            {/* <Button
               label={t("participate.actions.speaker.label")}
               variant="secondary"
               arrow
-            />
+            /> */}
           </div>
         </div>
       </div>

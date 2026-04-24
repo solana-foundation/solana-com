@@ -34,7 +34,7 @@ export default function WordReveal({
         return part.replace(/\S+/g, (word) => {
           const delay = startDelayMs + wordIndex * stepMs;
           wordIndex += 1;
-          return `<span data-word aria-hidden="true" style="transition-delay: ${delay}ms">${word}</span>`;
+          return `<span data-word aria-hidden="true" style="animation-delay: ${delay}ms">${word}</span>`;
         });
       })
       .join("");
@@ -67,7 +67,7 @@ export default function WordReveal({
             key={i}
             data-word
             aria-hidden="true"
-            style={{ transitionDelay: `${delay}ms` }}
+            style={{ animationDelay: `${delay}ms` }}
           >
             {tok}
           </span>
