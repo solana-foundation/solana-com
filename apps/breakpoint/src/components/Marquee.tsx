@@ -42,17 +42,29 @@ const CYCLE_LENGTH = HIGHLIGHTS.reduce(
 const GLITCH_RATE = 0.16;
 const TICK_MS = 250;
 const CHARS_PER_STEP = 2;
+const SHUFFLE_FRAME_MS = 25;
+const SHUFFLE_MIN_MS = 200;
+const SHUFFLE_MAX_MS = 900;
+const SHUFFLE_START_JITTER_MS = 250;
+const FLIP_INTERVAL_MIN_MS = 30;
+const FLIP_INTERVAL_MAX_MS = 150;
 
 type Segment = { text: string; highlight: boolean };
+
+type Flip = {
+  startPool: number;
+  startAt: number;
+  endAt: number;
+  flipIntervalMs: number;
+};
 
 function computeSegments(
   step: number,
   glitch: boolean,
-  glitchCycle: number,
+  noiseChars: string,
 ): Segment[] {
-  const staticNoise = buildStaticNoise(glitchCycle);
   const cells = Array.from({ length: NOISE_LENGTH }, (_, i) => ({
-    char: staticNoise[i] ?? " ",
+    char: noiseChars[i] ?? " ",
     highlight: false,
   }));
 
@@ -91,7 +103,7 @@ function computeSegments(
 
 export default function Marquee() {
   const [segments, setSegments] = useState<Segment[]>(() =>
-    computeSegments(0, false, 0),
+    computeSegments(0, false, buildStaticNoise(0)),
   );
 
   useEffect(() => {
@@ -100,6 +112,64 @@ export default function Marquee() {
     let step = 0;
     let glitchCycle = 0;
     let nextNoiseAt = Date.now() + NOISE_REARRANGE_MS;
+    let currentNoise = buildStaticNoise(0);
+    let targetNoise = currentNoise;
+    let flips: Flip[] | null = null;
+    let flipStartedAt = 0;
+    let shuffleFrameId: ReturnType<typeof setInterval> | null = null;
+
+    const stopShuffle = () => {
+      if (shuffleFrameId) {
+        clearInterval(shuffleFrameId);
+        shuffleFrameId = null;
+      }
+      flips = null;
+    };
+
+    const renderShuffleFrame = () => {
+      if (!flips) return;
+      const now = Date.now();
+      const chars = new Array<string>(NOISE_LENGTH);
+      let stillFlipping = false;
+      for (let i = 0; i < NOISE_LENGTH; i++) {
+        const flip = flips[i];
+        if (!flip || now >= flip.endAt) {
+          chars[i] = targetNoise[i] ?? " ";
+        } else if (now < flip.startAt) {
+          stillFlipping = true;
+          chars[i] = currentNoise[i] ?? " ";
+        } else {
+          stillFlipping = true;
+          const flaps = Math.floor((now - flip.startAt) / flip.flipIntervalMs);
+          chars[i] =
+            NOISE_POOL[(flip.startPool + flaps) % NOISE_POOL.length] ?? " ";
+        }
+      }
+      currentNoise = chars.join("");
+      setSegments(computeSegments(step, true, currentNoise));
+      if (!stillFlipping) stopShuffle();
+    };
+
+    const startShuffle = () => {
+      stopShuffle();
+      const now = Date.now();
+      flipStartedAt = now;
+      flips = Array.from({ length: NOISE_LENGTH }, () => {
+        const startAt = now + Math.random() * SHUFFLE_START_JITTER_MS;
+        const duration =
+          SHUFFLE_MIN_MS + Math.random() * (SHUFFLE_MAX_MS - SHUFFLE_MIN_MS);
+        return {
+          startPool: Math.floor(Math.random() * NOISE_POOL.length),
+          startAt,
+          endAt: startAt + duration,
+          flipIntervalMs:
+            FLIP_INTERVAL_MIN_MS +
+            Math.random() * (FLIP_INTERVAL_MAX_MS - FLIP_INTERVAL_MIN_MS),
+        };
+      });
+      shuffleFrameId = setInterval(renderShuffleFrame, SHUFFLE_FRAME_MS);
+    };
+
     const id = setInterval(() => {
       step += 1;
 
@@ -107,11 +177,17 @@ export default function Marquee() {
       if (now >= nextNoiseAt) {
         glitchCycle += 1;
         nextNoiseAt += NOISE_REARRANGE_MS;
+        targetNoise = buildStaticNoise(glitchCycle);
+        startShuffle();
       }
 
-      setSegments(computeSegments(step, true, glitchCycle));
+      setSegments(computeSegments(step, true, currentNoise));
     }, TICK_MS);
-    return () => clearInterval(id);
+
+    return () => {
+      clearInterval(id);
+      stopShuffle();
+    };
   }, []);
 
   return (

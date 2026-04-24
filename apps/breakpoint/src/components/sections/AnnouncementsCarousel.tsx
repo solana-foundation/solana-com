@@ -46,14 +46,12 @@ export default function AnnouncementsCarousel({
         >
           {headline}
         </h2>
-        <div className="hidden md:block">
-          <CarouselControls
-            className="shrink-0"
-            labelPrefix={headline}
-            onPrev={() => scrollBy(-1)}
-            onNext={() => scrollBy(1)}
-          />
-        </div>
+        <CarouselControls
+          className="shrink-0"
+          labelPrefix={headline}
+          onPrev={() => scrollBy(-1)}
+          onNext={() => scrollBy(1)}
+        />
       </div>
 
       <ul
