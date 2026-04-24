@@ -51,9 +51,10 @@ export default function AnnouncementsCarousel({
         {items.map((item) => (
           <a
             key={item.id}
+            target="_blank"
             data-announcement-card
             href={item.url}
-            className="flex h-[332px] min-w-[280px] shrink-0 snap-start flex-col justify-between border border-[#353535] p-s transition-opacity hover:opacity-80 md:min-w-[calc((100%-48px)/3)]"
+            className="flex h-[332px] w-[300px] shrink-0 snap-start flex-col justify-between border border-[#353535] p-s transition-opacity hover:opacity-80 md:w-[calc((100%-48px)/3)] md:min-w-[300px]"
           >
             <span className="font-mono text-[16px] uppercase leading-[1.3] tracking-[1.28px] text-white opacity-80">
               {item.tags?.[0] ?? "Article"}
