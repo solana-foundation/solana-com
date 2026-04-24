@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import CarouselControls from "@/components/CarouselControls";
+import GlitchOverlay from "@/components/GlitchOverlay";
 import ImageTreatment from "@/components/ImageTreatment";
 
 const AUTO_ADVANCE_MS = 7000;
@@ -179,273 +180,22 @@ export default function HighlightsSection() {
           />
 
           <div className="absolute inset-4 md:inset-[14%_8%_14%_14%]">
-            <div
-              className={`relative h-full w-full ${isGlitching ? "is-glitching" : ""}`}
-            >
-              <QuoteCard quote={activeQuote} />
+            <div className="relative h-full w-full">
+              <QuoteCard
+                quote={activeQuote}
+                jittering={isGlitching && !prefersReducedMotion}
+              />
 
-              {isGlitching && !prefersReducedMotion && (
-                <>
-                  <div
-                    aria-hidden="true"
-                    className="glitch-slice glitch-slice-1 pointer-events-none absolute inset-0"
-                  >
-                    <QuoteCard quote={activeQuote} decorative />
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="glitch-slice glitch-slice-2 pointer-events-none absolute inset-0"
-                  >
-                    <QuoteCard quote={activeQuote} decorative />
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="glitch-slice glitch-slice-3 pointer-events-none absolute inset-0"
-                  >
-                    <QuoteCard quote={activeQuote} decorative />
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="glitch-scanlines pointer-events-none absolute inset-0"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="glitch-static pointer-events-none absolute inset-0"
-                  />
-                </>
-              )}
+              <GlitchOverlay
+                active={isGlitching && !prefersReducedMotion}
+                size="lg"
+              >
+                <QuoteCard quote={activeQuote} decorative jittering />
+              </GlitchOverlay>
             </div>
           </div>
         </div>
       </div>
-
-      {/* eslint-disable-next-line react/no-unknown-property */}
-      <style jsx>{`
-        .is-glitching :global(.quote-card-base) {
-          animation: glitch-jitter ${GLITCH_MS}ms steps(8, end) 1;
-        }
-
-        .glitch-slice::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          mix-blend-mode: multiply;
-        }
-
-        .glitch-slice-1 {
-          animation: glitch-slice-a ${GLITCH_MS}ms steps(10, end) 1;
-        }
-        .glitch-slice-1::after {
-          background: #a665f6;
-        }
-
-        .glitch-slice-2 {
-          animation: glitch-slice-b ${GLITCH_MS}ms steps(10, end) 1;
-        }
-        .glitch-slice-2::after {
-          background: rgb(105, 52, 171);
-        }
-
-        .glitch-slice-3 {
-          animation: glitch-slice-c ${GLITCH_MS}ms steps(10, end) 1;
-        }
-        .glitch-slice-3::after {
-          background: #c695ff;
-        }
-
-        .glitch-scanlines {
-          background-image: repeating-linear-gradient(
-            to bottom,
-            rgba(40, 8, 80, 0) 0px,
-            rgba(40, 8, 80, 0) 2px,
-            rgba(40, 8, 80, 0.45) 2px,
-            rgba(40, 8, 80, 0.45) 3px
-          );
-          mix-blend-mode: multiply;
-          animation: glitch-flicker ${GLITCH_MS}ms steps(12, end) 1;
-        }
-
-        .glitch-static {
-          background-image:
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.667  0 0 0 0 0.404  0 0 0 0 0.984  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='2.2' numOctaves='2' stitchTiles='stitch' seed='3'/><feColorMatrix values='0 0 0 0 0.306  0 0 0 0 1  0 0 0 0 0.631  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
-          background-size:
-            160px 160px,
-            140px 140px;
-          mix-blend-mode: multiply;
-          opacity: 0;
-          animation: glitch-static-burst ${GLITCH_MS}ms steps(14, end) 1;
-        }
-
-        @keyframes glitch-jitter {
-          0%,
-          100% {
-            transform: translate(0, 0);
-          }
-          10% {
-            transform: translate(-2px, 1px);
-          }
-          25% {
-            transform: translate(3px, -1px);
-          }
-          40% {
-            transform: translate(-1px, 2px);
-          }
-          55% {
-            transform: translate(2px, -2px);
-          }
-          70% {
-            transform: translate(-3px, 1px);
-          }
-          85% {
-            transform: translate(1px, 0);
-          }
-        }
-
-        @keyframes glitch-slice-a {
-          0%,
-          100% {
-            clip-path: inset(0 0 100% 0);
-            transform: translateX(0);
-          }
-          10% {
-            clip-path: inset(8% 0 78% 0);
-            transform: translateX(-14px);
-          }
-          25% {
-            clip-path: inset(32% 0 52% 0);
-            transform: translateX(16px);
-          }
-          40% {
-            clip-path: inset(4% 0 82% 0);
-            transform: translateX(-8px);
-          }
-          55% {
-            clip-path: inset(55% 0 28% 0);
-            transform: translateX(18px);
-          }
-          70% {
-            clip-path: inset(18% 0 65% 0);
-            transform: translateX(-20px);
-          }
-          85% {
-            clip-path: inset(70% 0 12% 0);
-            transform: translateX(6px);
-          }
-        }
-
-        @keyframes glitch-slice-b {
-          0%,
-          100% {
-            clip-path: inset(0 0 100% 0);
-            transform: translateX(0);
-          }
-          15% {
-            clip-path: inset(45% 0 38% 0);
-            transform: translateX(12px);
-          }
-          30% {
-            clip-path: inset(12% 0 72% 0);
-            transform: translateX(-16px);
-          }
-          50% {
-            clip-path: inset(62% 0 22% 0);
-            transform: translateX(24px);
-          }
-          65% {
-            clip-path: inset(28% 0 58% 0);
-            transform: translateX(-12px);
-          }
-          80% {
-            clip-path: inset(8% 0 80% 0);
-            transform: translateX(4px);
-          }
-        }
-
-        @keyframes glitch-slice-c {
-          0%,
-          100% {
-            clip-path: inset(0 0 100% 0);
-            transform: translateX(0);
-          }
-          20% {
-            clip-path: inset(78% 0 8% 0);
-            transform: translateX(-6px);
-          }
-          40% {
-            clip-path: inset(40% 0 44% 0);
-            transform: translateX(20px);
-          }
-          60% {
-            clip-path: inset(14% 0 72% 0);
-            transform: translateX(-24px);
-          }
-          80% {
-            clip-path: inset(58% 0 28% 0);
-            transform: translateX(10px);
-          }
-        }
-
-        @keyframes glitch-flicker {
-          0%,
-          100% {
-            opacity: 0;
-          }
-          10% {
-            opacity: 0.7;
-          }
-          30% {
-            opacity: 0.15;
-          }
-          50% {
-            opacity: 0.85;
-          }
-          70% {
-            opacity: 0.25;
-          }
-          90% {
-            opacity: 0.6;
-          }
-        }
-
-        @keyframes glitch-static-burst {
-          0%,
-          100% {
-            opacity: 0;
-            transform: translate(0, 0);
-          }
-          15% {
-            opacity: 0.55;
-            transform: translate(0, 0);
-          }
-          30% {
-            opacity: 0.2;
-            transform: translate(-14px, 8px);
-          }
-          50% {
-            opacity: 0.7;
-            transform: translate(10px, -6px);
-          }
-          75% {
-            opacity: 0.3;
-            transform: translate(-8px, 10px);
-          }
-          90% {
-            opacity: 0.45;
-            transform: translate(6px, -4px);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .glitch-slice,
-          .glitch-scanlines,
-          .glitch-static,
-          .is-glitching :global(.quote-card-base) {
-            animation: none !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }
@@ -453,9 +203,11 @@ export default function HighlightsSection() {
 function QuoteCard({
   quote,
   decorative = false,
+  jittering = false,
 }: {
   quote: (typeof HIGHLIGHT_QUOTES)[number];
   decorative?: boolean;
+  jittering?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const quoteRef = useRef<HTMLQuoteElement>(null);
@@ -522,7 +274,7 @@ function QuoteCard({
   return (
     <figure
       ref={cardRef}
-      className="quote-card-base flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8"
+      className={`flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8 ${jittering ? "bp-glitch-jitter" : ""}`}
     >
       <div className="flex min-h-0 flex-1 items-start">
         <blockquote
