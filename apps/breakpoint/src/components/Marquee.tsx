@@ -115,7 +115,6 @@ export default function Marquee() {
     let currentNoise = buildStaticNoise(0);
     let targetNoise = currentNoise;
     let flips: Flip[] | null = null;
-    let flipStartedAt = 0;
     let shuffleFrameId: ReturnType<typeof setInterval> | null = null;
 
     const stopShuffle = () => {
@@ -153,7 +152,6 @@ export default function Marquee() {
     const startShuffle = () => {
       stopShuffle();
       const now = Date.now();
-      flipStartedAt = now;
       flips = Array.from({ length: NOISE_LENGTH }, () => {
         const startAt = now + Math.random() * SHUFFLE_START_JITTER_MS;
         const duration =
@@ -179,8 +177,10 @@ export default function Marquee() {
         nextNoiseAt += NOISE_REARRANGE_MS;
         targetNoise = buildStaticNoise(glitchCycle);
         startShuffle();
+        return;
       }
 
+      if (flips) return;
       setSegments(computeSegments(step, true, currentNoise));
     }, TICK_MS);
 
