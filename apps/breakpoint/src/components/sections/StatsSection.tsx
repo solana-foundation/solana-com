@@ -60,35 +60,38 @@ export default function StatsSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="pt-20 md:py-[120px]">
+    <section className="pt-20 md:pt-[120px]">
       <div className="container">
         <SectionHeadline headline={t("stats.headline")} alignment="center">
           {/* <Button label={t("stats.cta")} variant="primary" arrow /> */}
         </SectionHeadline>
 
-        <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6">
+        <div className="mt-xl flex flex-col gap-s md:mt-16 md:grid md:grid-cols-3 md:gap-6">
           {statItems.map((item, idx) => (
-            <div key={item.key} className="border-b border-white/20 pb-4">
+            <div
+              key={item.key}
+              className="flex flex-col items-center gap-xs text-center md:gap-3 md:pb-4"
+            >
               <WordReveal
                 as="span"
                 text={`${t(item.valueKey)}${t(item.suffixKey)}`}
                 stepMs={120}
                 startDelayMs={idx * 140}
-                className="block font-display text-[3rem] leading-none tracking-[0.04em] text-white lg:text-[4.75rem]"
+                className="block font-display text-[3rem] uppercase leading-[1.15] tracking-[0.04em] text-white md:leading-none lg:text-[4.75rem]"
               />
               <WordReveal
                 as="p"
                 text={t(item.labelKey)}
                 stepMs={55}
                 startDelayMs={idx * 140 + 180}
-                className="mt-3 max-w-[22ch] text-[1rem] leading-[1.3] text-white/72"
+                className="font-mono text-base uppercase leading-[1.3] tracking-[0.08em] text-white md:max-w-[22ch] md:font-sans md:normal-case md:tracking-normal md:text-white/72"
               />
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-16 w-full overflow-hidden" aria-hidden="true">
+      <div className="mt-xl w-full overflow-hidden md:mt-16" aria-hidden="true">
         <div className="photo-strip-track flex w-max gap-4 md:gap-0">
           {[...stripImages, ...stripImages].map((src, index) => {
             const position = index % stripImages.length;
@@ -104,7 +107,7 @@ export default function StatsSection() {
                 intensity={60}
                 lighting="even"
                 color={color}
-                className={`relative h-[320px] w-[280px] shrink-0 overflow-hidden bg-[#1e1e1e] ${widths[position]}`}
+                className={`relative h-[240px] w-[200px] shrink-0 overflow-hidden bg-[#1e1e1e] md:h-[320px] md:w-[280px] ${widths[position]}`}
               />
             );
           })}
