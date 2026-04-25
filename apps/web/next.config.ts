@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
     //   });
     // }
 
+    // Temporary design lab — rewrite /design-lab to /en/design-lab
+    // so the [locale]/design-lab page is served without a locale prefix
+    baseRewrites.beforeFiles.unshift({
+      source: "/design-lab",
+      destination: "/en/design-lab",
+      locale: false,
+    });
+
     return baseRewrites;
   },
 

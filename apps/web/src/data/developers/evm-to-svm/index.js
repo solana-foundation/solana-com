@@ -8,15 +8,85 @@ export const HERO_BUTTONS = [
     hierarchy: "primary",
     size: "md",
     iconSize: "md",
-    url: "/developers/evm-to-svm/complete-guide",
+    url: "#evm-guides",
   },
   {
     hierarchy: "outline",
     size: "md",
     iconSize: "md",
-    url: "https://www.rareskills.io/solana-tutorial",
+    url: "#cosmos-guide",
   },
 ];
+
+export const CHAIN_SELECTOR = {
+  headingAs: "h2",
+  color: "purple",
+};
+
+export const CHAIN_SELECTOR_CARDS = [
+  {
+    variant: "none",
+    color: "purple",
+    stat: {
+      value: {
+        statType: "none",
+      },
+      description: "",
+    },
+    button: {
+      hierarchy: "outline",
+      size: "md",
+      url: "/developers/migrate-to-solana/ethereum",
+    },
+  },
+  {
+    variant: "none",
+    color: "aqua",
+    stat: {
+      value: {
+        statType: "none",
+      },
+      description: "",
+    },
+    button: {
+      hierarchy: "outline",
+      size: "md",
+      url: "/developers/migrate-to-solana/cosmos",
+    },
+  },
+];
+
+export const EVM_GUIDES_HEADING = {
+  variant: "floatingButton",
+};
+
+export const COSMOS_GUIDES_HEADING = {
+  variant: "floatingButton",
+};
+
+export const COSMOS_CARD_DECK = {
+  numCols: 2,
+  featured: true,
+  cards: [
+    {
+      type: "image",
+      headingAs: "h2",
+      backgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff1d4c0384bf94fd4bd51807305310e9e.png",
+      },
+      backgroundGradient: "aqua",
+      callToAction: {
+        url: "/developers/migrate-to-solana/cosmos",
+        size: "md",
+        hierarchy: "primary",
+      },
+      mobileBackgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+      },
+      isFeatured: true,
+    },
+  ],
+};
 
 export const PRIMARY_CARD_DECK = {
   numCols: 2,
@@ -30,7 +100,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/complete-guide",
+        url: "/developers/migrate-to-solana/complete-guide",
         size: "md",
         hierarchy: "primary",
       },
@@ -47,7 +117,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/erc20",
+        url: "/developers/migrate-to-solana/erc20",
         size: "md",
         hierarchy: "primary",
       },
@@ -60,7 +130,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/721",
+        url: "/developers/migrate-to-solana/erc721",
         size: "md",
         hierarchy: "primary",
       },
@@ -73,7 +143,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC4337",
+        url: "/developers/migrate-to-solana/erc4337",
         size: "md",
         hierarchy: "primary",
       },
@@ -86,7 +156,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC3643",
+        url: "/developers/migrate-to-solana/erc3643",
         size: "md",
         hierarchy: "primary",
       },
@@ -99,7 +169,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC4626",
+        url: "/developers/migrate-to-solana/erc4626",
         size: "md",
         hierarchy: "primary",
       },
@@ -112,7 +182,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/eip2612",
+        url: "/developers/migrate-to-solana/eip2612",
         size: "md",
         hierarchy: "primary",
       },
@@ -125,7 +195,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/consensus",
+        url: "/developers/migrate-to-solana/consensus",
         size: "md",
         hierarchy: "primary",
       },
@@ -138,7 +208,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/accounts",
+        url: "/developers/migrate-to-solana/accounts",
         size: "md",
         hierarchy: "primary",
       },
@@ -151,7 +221,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/smart-contracts",
+        url: "/developers/migrate-to-solana/smart-contracts",
         size: "md",
         hierarchy: "primary",
       },
@@ -164,13 +234,15 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/client-differences",
+        url: "/developers/migrate-to-solana/client-differences",
         size: "md",
         hierarchy: "primary",
       },
     },
   ],
 };
+
+export const FAQ_COUNT = 4;
 
 export const SECONDARY_CARD_DECK = {
   numCols: 3,
@@ -183,7 +255,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers/guides/getstarted/hello-world-in-your-browser",
+        url: "https://solana.com/docs",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -195,7 +267,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://solana.com/docs/core",
+        url: "https://solana.com/skills",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -207,7 +279,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://www.youtube.com/watch?v=amAq-WHAFs8&list=PLilwLeBwGuK7HN8ZnXpGAD9q6i4syhnVc",
+        url: "https://solana.com/developers/bootcamp",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -219,7 +291,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers",
+        url: "https://solana.com/developers/templates",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },

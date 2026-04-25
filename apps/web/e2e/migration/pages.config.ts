@@ -116,7 +116,7 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
     category: "developers",
   },
   {
-    route: "/developers/evm-to-svm/complete-guide",
+    route: "/developers/migrate-to-solana/complete-guide",
     name: "EVM to SVM - Complete Guide",
     category: "developers",
   },
