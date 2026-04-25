@@ -6,7 +6,12 @@ import { usePathname } from "@workspace/i18n/routing";
 export function FabMenu() {
   const pathname = usePathname();
 
-  if (pathname === "/registration" || pathname.startsWith("/registration/")) {
+  if (
+    pathname === "/agenda" ||
+    pathname.startsWith("/agenda/") ||
+    pathname === "/registration" ||
+    pathname.startsWith("/registration/")
+  ) {
     return null;
   }
 

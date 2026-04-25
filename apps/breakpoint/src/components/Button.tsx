@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useInView } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
+import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { isRelativeHref } from "@/lib/links";
 
 const GLYPHS =
@@ -57,28 +58,6 @@ interface ButtonProps {
   className?: string;
 }
 
-function ArrowUpRight() {
-  return (
-    <span className="inline-flex size-[12px] items-center justify-center">
-      <svg
-        aria-hidden="true"
-        width="8"
-        height="8"
-        viewBox="0 0 8 8"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M1.6 6.4L6.4 1.6M6.4 1.6H2.56M6.4 1.6V5.44"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          strokeLinecap="square"
-        />
-      </svg>
-    </span>
-  );
-}
-
 export default function Button({
   label,
   variant = "primary",
@@ -121,7 +100,13 @@ export default function Button({
 
   const classes =
     `${baseClasses} ${variantClasses} ${blinkClass} ${className}`.trim();
-  const trailing = iconRight ?? (arrow ? <ArrowUpRight /> : null);
+  const trailing =
+    iconRight ??
+    (arrow ? (
+      <span className="inline-flex size-[12px] items-center justify-center">
+        <ArrowUpRightIcon variant="stroke" />
+      </span>
+    ) : null);
 
   const inner = (
     <>

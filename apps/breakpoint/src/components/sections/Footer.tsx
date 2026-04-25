@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
+import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { isRelativeHref } from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
@@ -100,25 +101,6 @@ const SOCIAL_LINKS: { name: string; href: string; icon: string }[] = [
   },
 ];
 
-function ArrowUpRight() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="8.02"
-      height="8"
-      viewBox="0 0 8.01975 8"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="block"
-    >
-      <path
-        d="M1.24444 8L0 6.7358L4.95803 1.79753H1.12593V0H8.01975V6.85432H6.20247V3.06173L1.24444 8Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 type CountdownParts = {
   days: number;
   hours: number;
@@ -164,7 +146,7 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
     <>
       {label}
       <span className="relative inline-flex size-[12px] items-center justify-center">
-        <ArrowUpRight />
+        <ArrowUpRightIcon />
       </span>
     </>
   );

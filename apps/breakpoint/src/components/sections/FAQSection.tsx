@@ -10,7 +10,7 @@ export default function FAQSection() {
   const t = useTranslations("breakpoint");
 
   return (
-    <section className="pt-xl md:pt-3xl">
+    <section id="faq" className="pt-xl md:pt-3xl">
       <div className="container flex flex-col gap-m md:flex-row md:items-start md:gap-s">
         <h2 className="font-sans text-[32px] leading-[1.15] tracking-[-0.02em] text-white md:flex-1 md:text-[48px]">
           {t("faq.headline")}
