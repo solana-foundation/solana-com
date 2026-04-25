@@ -10,6 +10,7 @@ import {
 } from "@workspace/ecosystem-data";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/sections/Footer";
+import SponsorsHeroBackground from "./SponsorsHeroBackground";
 
 export const metadata: Metadata = {
   title: "Sponsors | Breakpoint 2026",
@@ -373,14 +374,8 @@ function SponsorTierSection({
 function SponsorsHero() {
   return (
     <section className="relative h-[395px] overflow-hidden bg-black">
-      <div className="absolute left-0 top-0 h-[300px] w-full overflow-hidden">
-        <img
-          src="/assets/glitch-texture.svg"
-          alt=""
-          aria-hidden="true"
-          className="absolute left-1/2 top-[-68px] h-[360px] w-[1500px] max-w-none -translate-x-1/2 object-cover opacity-80"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.98)_0%,rgba(0,0,0,0.9)_18%,rgba(0,0,0,0.2)_52%,rgba(0,0,0,0)_100%)]" />
+      <div className="absolute inset-0 overflow-hidden">
+        <SponsorsHeroBackground />
       </div>
 
       <img
@@ -389,7 +384,7 @@ function SponsorsHero() {
         aria-hidden="true"
         width={1440}
         height={146}
-        className="absolute left-0 top-[160px] h-[200px] w-full min-w-[840px] object-cover"
+        className="absolute left-0 top-[160px] h-[200px] w-full min-w-[840px] object-cover opacity-[0.85]"
       />
 
       <div className="absolute bottom-[31px] left-xs right-xs md:left-m md:right-auto md:w-[1026px]">

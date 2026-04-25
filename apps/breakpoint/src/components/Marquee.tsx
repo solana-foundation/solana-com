@@ -32,12 +32,8 @@ function buildStaticNoise(glitchCycle: number) {
   ).join("");
 }
 
-const HIGHLIGHTS = ["BP26", "LONDON", "BUILD", "DEPLOY", "SHIP MORE"];
+const DEFAULT_HIGHLIGHTS = ["BP26", "LONDON", "BUILD", "DEPLOY", "SHIP MORE"];
 const GAP_CHARS = 48;
-const CYCLE_LENGTH = HIGHLIGHTS.reduce(
-  (sum, h) => sum + h.length + GAP_CHARS,
-  0,
-);
 
 const GLITCH_RATE = 0.16;
 const TICK_MS = 250;
@@ -62,23 +58,27 @@ function computeSegments(
   step: number,
   glitch: boolean,
   noiseChars: string,
+  highlights: string[],
 ): Segment[] {
   const cells = Array.from({ length: NOISE_LENGTH }, (_, i) => ({
     char: noiseChars[i] ?? " ",
     highlight: false,
   }));
 
+  const cycleLength = highlights.reduce(
+    (sum, h) => sum + h.length + GAP_CHARS,
+    0,
+  );
   const beltOffset = step * CHARS_PER_STEP;
-  const normOffset =
-    ((beltOffset % CYCLE_LENGTH) + CYCLE_LENGTH) % CYCLE_LENGTH;
+  const normOffset = ((beltOffset % cycleLength) + cycleLength) % cycleLength;
 
   for (
-    let startPos = normOffset - CYCLE_LENGTH;
+    let startPos = normOffset - cycleLength;
     startPos < NOISE_LENGTH;
-    startPos += CYCLE_LENGTH
+    startPos += cycleLength
   ) {
     let pos = startPos;
-    for (const h of HIGHLIGHTS) {
+    for (const h of highlights) {
       for (let i = 0; i < h.length; i++) {
         const idx = pos + i;
         if (idx < 0 || idx >= NOISE_LENGTH) continue;
@@ -101,10 +101,19 @@ function computeSegments(
   return segments;
 }
 
-export default function Marquee() {
+type MarqueeProps = {
+  highlightClassName?: string;
+  highlights?: string[];
+};
+
+export default function Marquee({
+  highlightClassName = "text-purple",
+  highlights = DEFAULT_HIGHLIGHTS,
+}: MarqueeProps = {}) {
   const [segments, setSegments] = useState<Segment[]>(() =>
-    computeSegments(0, false, buildStaticNoise(0)),
+    computeSegments(0, false, buildStaticNoise(0), highlights),
   );
+  const highlightsKey = highlights.join("\u0000");
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -145,7 +154,7 @@ export default function Marquee() {
         }
       }
       currentNoise = chars.join("");
-      setSegments(computeSegments(step, true, currentNoise));
+      setSegments(computeSegments(step, true, currentNoise, highlights));
       if (!stillFlipping) stopShuffle();
     };
 
@@ -181,18 +190,18 @@ export default function Marquee() {
       }
 
       if (flips) return;
-      setSegments(computeSegments(step, true, currentNoise));
+      setSegments(computeSegments(step, true, currentNoise, highlights));
     }, TICK_MS);
 
     return () => {
       clearInterval(id);
       stopShuffle();
     };
-  }, []);
+  }, [highlights, highlightsKey]);
 
   return (
     <div className="w-full overflow-hidden bg-black pt-[64px]">
-      <span className="sr-only">{HIGHLIGHTS.join(" · ")}</span>
+      <span className="sr-only">{highlights.join(" · ")}</span>
       <div
         aria-hidden="true"
         className="whitespace-nowrap font-mono text-[14px] uppercase leading-[1.3] tracking-[0.08em]"
@@ -200,7 +209,9 @@ export default function Marquee() {
         {segments.map((segment, i) => (
           <span
             key={i}
-            className={segment.highlight ? "text-purple" : "text-neutral-600"}
+            className={
+              segment.highlight ? highlightClassName : "text-neutral-600"
+            }
           >
             {segment.text}
           </span>

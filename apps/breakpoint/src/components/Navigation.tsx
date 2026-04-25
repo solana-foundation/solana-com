@@ -6,13 +6,35 @@ import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import GlitchOverlay from "@/components/GlitchOverlay";
+import { isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
 // Must stay in sync with --bp-glitch-duration for .bp-glitch-sm in globals.css.
 
-export default function Navigation() {
+type NavigationProps = {
+  ctaAlwaysVisible?: boolean;
+  ctaHref?: string;
+  ctaLabel?: string;
+  showMenuButton?: boolean;
+};
+
+function MenuGlyph() {
+  return (
+    <span aria-hidden="true" className="relative block size-3">
+      <span className="absolute left-0 top-[2px] h-[2px] w-3 bg-white" />
+      <span className="absolute left-0 top-[8px] h-[2px] w-3 bg-white" />
+    </span>
+  );
+}
+
+export default function Navigation({
+  ctaAlwaysVisible = false,
+  ctaHref,
+  ctaLabel,
+  showMenuButton = false,
+}: NavigationProps = {}) {
   const t = useTranslations("breakpoint");
   const [isSticky, setIsSticky] = useState(false);
   const [isGlitching, setIsGlitching] = useState(false);
@@ -50,11 +72,12 @@ export default function Navigation() {
     return () => window.clearTimeout(id);
   }, [isSticky]);
 
-  const ctaLabel = t("hero.cta");
+  const resolvedCtaLabel = ctaLabel ?? t("hero.cta");
+  const showCta = ctaAlwaysVisible || isSticky;
 
   const ctaInner = (
     <>
-      <span className="whitespace-nowrap">{ctaLabel}</span>
+      <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
       <span aria-hidden="true" className="inline-flex size-3 items-center">
         <svg
           width="8"
@@ -74,6 +97,36 @@ export default function Navigation() {
     </>
   );
 
+  const ctaClasses = `relative inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black hover:bg-[#e7d2f9] md:px-3 ${
+    showCta ? "pointer-events-auto" : "pointer-events-none"
+  } ${isGlitching ? "bp-glitch-jitter" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
+
+  const ctaAriaProps = {
+    "aria-hidden": !showCta,
+    tabIndex: showCta ? 0 : -1,
+  };
+
+  const ctaElement = ctaHref ? (
+    isRelativeHref(ctaHref) ? (
+      <Link href={ctaHref} className={ctaClasses} {...ctaAriaProps}>
+        {ctaInner}
+      </Link>
+    ) : (
+      <a href={ctaHref} className={ctaClasses} {...ctaAriaProps}>
+        {ctaInner}
+      </a>
+    )
+  ) : (
+    <button
+      type="button"
+      onClick={() => setSubscribeOpen(true)}
+      className={ctaClasses}
+      {...ctaAriaProps}
+    >
+      {ctaInner}
+    </button>
+  );
+
   return (
     <>
       <nav
@@ -81,7 +134,9 @@ export default function Navigation() {
         className={`left-1/2 z-30 flex h-12 -translate-x-1/2 items-center overflow-hidden bg-black pl-3 pr-2 py-2 transition-[width,transform,background-color,opacity] duration-300 ease-out ${
           isSticky
             ? "fixed w-[calc(100vw-32px)] max-w-[343px] md:w-[426px] md:max-w-none"
-            : "absolute w-auto"
+            : ctaAlwaysVisible
+              ? "absolute w-[calc(100vw-32px)] max-w-[343px] md:w-[426px] md:max-w-none"
+              : "absolute w-auto"
         }`}
         style={{ top: `${STICKY_OFFSET_PX}px` }}
       >
@@ -108,27 +163,17 @@ export default function Navigation() {
           />
         </Link>
 
-        <div className="flex flex-1 justify-end pr-1 md:pr-[4px]">
+        <div className="flex flex-1 items-center justify-end gap-2 pr-1 md:pr-[4px]">
           <motion.div
             className="relative inline-flex"
             initial={false}
             animate={{
-              opacity: isSticky ? 1 : 0,
-              x: isSticky ? 0 : 6,
+              opacity: showCta ? 1 : 0,
+              x: showCta ? 0 : 6,
             }}
             transition={{ duration: 0 }}
           >
-            <button
-              type="button"
-              onClick={() => setSubscribeOpen(true)}
-              aria-hidden={!isSticky}
-              tabIndex={isSticky ? 0 : -1}
-              className={`relative inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black hover:bg-[#e7d2f9] md:px-3 ${
-                isSticky ? "pointer-events-auto" : "pointer-events-none"
-              } ${isGlitching ? "bp-glitch-jitter" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
-            >
-              {ctaInner}
-            </button>
+            {ctaElement}
 
             <GlitchOverlay active={isGlitching} size="sm">
               <span className="inline-flex h-8 w-full items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black md:px-3">
@@ -136,6 +181,12 @@ export default function Navigation() {
               </span>
             </GlitchOverlay>
           </motion.div>
+
+          {showMenuButton && (
+            <span className="flex size-8 shrink-0 items-center justify-center bg-neutral-800">
+              <MenuGlyph />
+            </span>
+          )}
         </div>
       </nav>
 
