@@ -1,4 +1,4 @@
-import type { BreakpointSpeaker } from "./types";
+import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 export const fallbackSpeakers = [
   {

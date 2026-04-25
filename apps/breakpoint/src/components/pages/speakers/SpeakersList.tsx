@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import type { BreakpointSpeaker } from "./types";
+import DisclosureIcon from "@/components/DisclosureIcon";
+import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 const FILTER_OPTIONS = [
   "All Events",
@@ -28,17 +29,6 @@ function ArrowDownIcon() {
     >
       <path d="M0 0L4 4L8 0H0Z" fill="currentColor" />
     </svg>
-  );
-}
-
-function AccordionIcon({ open }: { open: boolean }) {
-  return (
-    <span aria-hidden="true" className="relative block size-3 text-white">
-      <span className="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 bg-current" />
-      {!open && (
-        <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-current" />
-      )}
-    </span>
   );
 }
 
@@ -282,7 +272,7 @@ function SpeakerRow({
           open ? "bg-neutral-700" : "border border-neutral-700"
         } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
       >
-        <AccordionIcon open={open} />
+        <DisclosureIcon open={open} />
       </button>
     </article>
   );

@@ -1,5 +1,8 @@
 import { unstable_cache } from "next/cache";
-import type { BreakpointSpeaker, SpeakerSession } from "./types";
+import type {
+  BreakpointSpeaker,
+  SpeakerSession,
+} from "@/content/speakers/types";
 
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60 * 30;

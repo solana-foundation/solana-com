@@ -2,7 +2,12 @@
 
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useMemo, useState } from "react";
-import { AGENDA_DAY_TABS, type AgendaItem, type AgendaSpeaker } from "./types";
+import DisclosureIcon from "@/components/DisclosureIcon";
+import {
+  AGENDA_DAY_TABS,
+  type AgendaItem,
+  type AgendaSpeaker,
+} from "@/content/agenda/types";
 
 const DEFAULT_DAY = "Day 1";
 
@@ -25,17 +30,6 @@ function daySortValue(day: string) {
   if (normalized.includes("day2")) return 2;
   if (normalized.includes("day3")) return 3;
   return 99;
-}
-
-function AgendaAccordionIcon({ open }: { open: boolean }) {
-  return (
-    <span aria-hidden="true" className="relative block size-3 text-white">
-      <span className="absolute left-0 top-1/2 h-px w-3 -translate-y-1/2 bg-current" />
-      {!open && (
-        <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-current" />
-      )}
-    </span>
-  );
 }
 
 function SessionMeta({ item }: { item: AgendaItem }) {
@@ -150,7 +144,7 @@ function SessionRow({
           open ? "bg-neutral-700" : "border border-neutral-700"
         }`}
       >
-        <AgendaAccordionIcon open={open} />
+        <DisclosureIcon open={open} />
       </span>
     </article>
   );

@@ -1,5 +1,5 @@
 import FAQAccordionList from "@/components/FAQAccordionList";
-import Navigation from "@/components/Navigation";
+import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import { faqPageSections } from "@/content/faq-page";
 
@@ -41,27 +41,19 @@ function FAQSubnav() {
 
 export default function FAQPage() {
   return (
-    <main className="relative min-h-screen bg-black text-white">
-      <a
-        href="#faq-content"
-        className="sr-only absolute left-5 top-5 z-50 focus:not-sr-only focus:bg-white focus:px-4 focus:py-2 focus:font-mono focus:text-[14px] focus:font-bold focus:uppercase focus:tracking-[0.08em] focus:text-black"
-      >
-        Skip to content
-      </a>
-
-      <Navigation
-        ctaAlwaysVisible
-        ctaHref="/registration"
-        ctaLabel="Register"
-        showMenuButton
-      />
-
-      <div id="faq-content">
-        <FAQHero />
-        <FAQSubnav />
-        <FAQAccordionList sections={faqPageSections} />
-        <Footer accentClassName="bg-green" accentTextClassName="text-green" />
-      </div>
-    </main>
+    <PageShell
+      contentId="faq-content"
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: "/registration",
+        ctaLabel: "Register",
+        showMenuButton: true,
+      }}
+    >
+      <FAQHero />
+      <FAQSubnav />
+      <FAQAccordionList sections={faqPageSections} />
+      <Footer accentClassName="bg-green" accentTextClassName="text-green" />
+    </PageShell>
   );
 }

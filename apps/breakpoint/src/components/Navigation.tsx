@@ -6,6 +6,7 @@ import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import GlitchOverlay from "@/components/GlitchOverlay";
+import MenuOverlay from "@/components/MenuOverlay";
 import { isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
@@ -33,12 +34,13 @@ export default function Navigation({
   ctaAlwaysVisible = false,
   ctaHref,
   ctaLabel,
-  showMenuButton = false,
+  showMenuButton = true,
 }: NavigationProps = {}) {
   const t = useTranslations("breakpoint");
   const [isSticky, setIsSticky] = useState(false);
   const [isGlitching, setIsGlitching] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let ticking = false;
@@ -183,9 +185,16 @@ export default function Navigation({
           </motion.div>
 
           {showMenuButton && (
-            <span className="flex size-8 shrink-0 items-center justify-center bg-neutral-800">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+              className="flex size-8 shrink-0 items-center justify-center bg-neutral-800 text-white transition-colors hover:bg-purple hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
               <MenuGlyph />
-            </span>
+            </button>
           )}
         </div>
       </nav>
@@ -194,6 +203,8 @@ export default function Navigation({
         open={subscribeOpen}
         onClose={() => setSubscribeOpen(false)}
       />
+
+      <MenuOverlay open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }

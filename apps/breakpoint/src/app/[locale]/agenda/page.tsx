@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Navigation from "@/components/Navigation";
+import PageShell from "@/components/PageShell";
+import SubpageHero from "@/components/SubpageHero";
+import AgendaList from "@/components/pages/agenda/AgendaList";
 import Footer from "@/components/sections/Footer";
-import AgendaHero from "./AgendaHero";
-import AgendaList from "./AgendaList";
-import { getAirtableAgenda } from "./airtable";
-import { fallbackAgenda } from "./fallback-agenda";
+import { getAirtableAgenda } from "@/content/agenda/airtable";
+import { fallbackAgenda } from "@/content/agenda/fallback-agenda";
 
 export const dynamic = "force-dynamic";
 
@@ -14,30 +14,32 @@ export const metadata: Metadata = {
     "Explore the Breakpoint 2026 schedule across keynotes, firesides, debates, breaks, and community events.",
 };
 
+const COMMUNITY_EVENTS_HREF = "https://luma.com/bp26";
+
 export default async function AgendaPage() {
   const agenda = (await getAirtableAgenda()) ?? fallbackAgenda;
 
   return (
-    <main className="relative min-h-screen bg-black text-white">
-      <a
-        href="#breakpoint-agenda-content"
-        className="sr-only absolute left-5 top-5 z-50 focus:not-sr-only focus:bg-white focus:px-4 focus:py-2 focus:font-mono focus:text-[14px] focus:font-bold focus:uppercase focus:tracking-[0.08em] focus:text-black"
-      >
-        Skip to content
-      </a>
-
-      <Navigation
-        ctaAlwaysVisible
-        ctaHref="/registration"
-        ctaLabel="Register"
-        showMenuButton
+    <PageShell
+      contentId="breakpoint-agenda-content"
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: "/registration",
+        ctaLabel: "Register",
+        showMenuButton: true,
+      }}
+    >
+      <SubpageHero
+        title="Schedule"
+        tintClassName="bg-purple"
+        cta={{
+          href: COMMUNITY_EVENTS_HREF,
+          label: "Explore community events",
+          variant: "secondary",
+        }}
       />
-
-      <div id="breakpoint-agenda-content">
-        <AgendaHero />
-        <AgendaList items={agenda} />
-        <Footer />
-      </div>
-    </main>
+      <AgendaList items={agenda} />
+      <Footer />
+    </PageShell>
   );
 }

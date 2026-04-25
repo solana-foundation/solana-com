@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@workspace/i18n/routing";
+import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { isRelativeHref } from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
@@ -128,25 +129,6 @@ function pad(value: number, width = 2): string {
   return value.toString().padStart(width, "0");
 }
 
-function ArrowUpRight() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="8.02"
-      height="8"
-      viewBox="0 0 8.01975 8"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="block"
-    >
-      <path
-        d="M1.24444 8L0 6.7358L4.95803 1.79753H1.12593V0H8.01975V6.85432H6.20247V3.06173L1.24444 8Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 function SecondaryLink({ href, label }: { href: string; label: string }) {
   const classes =
     "inline-flex items-center justify-center gap-3 whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black";
@@ -154,7 +136,7 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
     <>
       {label}
       <span className="inline-flex size-3 items-center justify-center">
-        <ArrowUpRight />
+        <ArrowUpRightIcon />
       </span>
     </>
   );

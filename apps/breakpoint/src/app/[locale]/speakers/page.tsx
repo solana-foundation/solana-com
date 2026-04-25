@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Navigation from "@/components/Navigation";
-import { getAirtableSpeakers } from "./airtable";
-import { fallbackSpeakers } from "./fallback-speakers";
-import SpeakersFooter from "./SpeakersFooter";
-import SpeakersHero from "./SpeakersHero";
-import SpeakersList from "./SpeakersList";
+import PageShell from "@/components/PageShell";
+import SpeakersFooter from "@/components/pages/speakers/SpeakersFooter";
+import SpeakersList from "@/components/pages/speakers/SpeakersList";
+import SubpageHero from "@/components/SubpageHero";
+import { getAirtableSpeakers } from "@/content/speakers/airtable";
+import { fallbackSpeakers } from "@/content/speakers/fallback-speakers";
 
 export const dynamic = "force-dynamic";
 
@@ -14,30 +14,29 @@ export const metadata: Metadata = {
     "Meet the speakers joining Breakpoint 2026 in London for keynotes, firesides, debates, and product demos.",
 };
 
+const APPLY_TO_SPEAK_HREF =
+  "mailto:breakpoint@solana.org?subject=Breakpoint%202026%20speaker%20application";
+
 export default async function SpeakersPage() {
   const speakers = (await getAirtableSpeakers()) ?? fallbackSpeakers;
 
   return (
-    <main className="relative min-h-screen bg-black text-white">
-      <a
-        href="#breakpoint-speakers-content"
-        className="sr-only absolute left-5 top-5 z-50 focus:not-sr-only focus:bg-white focus:px-4 focus:py-2 focus:font-mono focus:text-[14px] focus:font-bold focus:uppercase focus:tracking-[0.08em] focus:text-black"
-      >
-        Skip to content
-      </a>
-
-      <Navigation
-        ctaAlwaysVisible
-        ctaHref="/registration"
-        ctaLabel="Register"
-        showMenuButton
+    <PageShell
+      contentId="breakpoint-speakers-content"
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: "/registration",
+        ctaLabel: "Register",
+        showMenuButton: true,
+      }}
+    >
+      <SubpageHero
+        title="Speakers"
+        tintClassName="bg-green"
+        cta={{ href: APPLY_TO_SPEAK_HREF, label: "Apply to speak" }}
       />
-
-      <div id="breakpoint-speakers-content">
-        <SpeakersHero />
-        <SpeakersList speakers={speakers} />
-        <SpeakersFooter />
-      </div>
-    </main>
+      <SpeakersList speakers={speakers} />
+      <SpeakersFooter />
+    </PageShell>
   );
 }

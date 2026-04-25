@@ -1,4 +1,4 @@
-import type { AgendaItem } from "./types";
+import type { AgendaItem } from "@/content/agenda/types";
 
 export const fallbackAgenda = [
   {
