@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
-import { isRelativeHref } from "@/lib/links";
 
 type HeroCta = {
   href: string;
@@ -34,14 +32,6 @@ function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
       </span>
     </>
   );
-
-  if (isRelativeHref(href)) {
-    return (
-      <Link href={href} className={className}>
-        {content}
-      </Link>
-    );
-  }
 
   return (
     <a href={href} className={className}>

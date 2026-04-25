@@ -6,20 +6,41 @@ import { AnimatePresence, motion } from "motion/react";
 interface AccordionProps {
   question: string;
   children: React.ReactNode;
+  className?: string;
+  defaultOpen?: boolean;
+  onOpenChange?: (_open: boolean) => void;
+  open?: boolean;
 }
 
-export default function Accordion({ question, children }: AccordionProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function Accordion({
+  children,
+  className = "border-b border-neutral-700 pb-s",
+  defaultOpen = false,
+  onOpenChange,
+  open,
+  question,
+}: AccordionProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const triggerId = useId();
   const panelId = useId();
+  const isControlled = open !== undefined;
+  const isOpen = open ?? uncontrolledOpen;
+
+  function handleOpenChange() {
+    const nextOpen = !isOpen;
+    if (!isControlled) {
+      setUncontrolledOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  }
 
   return (
-    <div className="border-b border-neutral-700 pb-s">
+    <div className={className}>
       <h3>
         <button
           id={triggerId}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleOpenChange}
           className="flex w-full items-center gap-l text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           aria-controls={panelId}
           aria-expanded={isOpen}

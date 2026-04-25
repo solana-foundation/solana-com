@@ -184,9 +184,14 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     });
   }, [items]);
 
-  const [activeDay, setActiveDay] = useState(
-    allDays.includes(DEFAULT_DAY) ? DEFAULT_DAY : (allDays[0] ?? DEFAULT_DAY),
-  );
+  const [activeDay, setActiveDay] = useState(() => {
+    if (items.some((item) => item.day === DEFAULT_DAY)) return DEFAULT_DAY;
+
+    return (
+      allDays.find((day) => items.some((item) => item.day === day)) ??
+      DEFAULT_DAY
+    );
+  });
   const [openItemId, setOpenItemId] = useState<string | null>(null);
 
   const visibleItems = useMemo(

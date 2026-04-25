@@ -37,6 +37,23 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+function isLinkedRecordId(value: string) {
+  return /^rec[a-z0-9]{14,}$/i.test(value);
+}
+
+function asDisplayString(value: unknown): string | undefined {
+  const text = asString(value);
+  if (!text) return undefined;
+
+  const parts = text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !isLinkedRecordId(part));
+
+  return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
 function asNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -132,13 +149,6 @@ function isPublished(fields: Record<string, unknown>) {
   if (published === false) return false;
 
   return true;
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 function formatDateTime(value: string): string | undefined {
@@ -259,22 +269,48 @@ function fieldList(
   );
 }
 
-function isLinkedRecordId(value: string) {
-  return /^rec[a-z0-9]{14,}$/i.test(value);
+function parseSpeakerText(
+  value: string,
+): Pick<AgendaSpeaker, "company" | "name"> {
+  const cleanValue = value.replace(/^[^A-Za-z0-9]+/, "").trim();
+  const parenMatch = cleanValue.match(/^(.+?)\s*\((.+)\)$/);
+  if (parenMatch?.[1] && parenMatch[2]) {
+    return {
+      company: parenMatch[2].trim(),
+      name: parenMatch[1].trim(),
+    };
+  }
+
+  const dashParts = cleanValue.split(/\s+-\s+/);
+  if (dashParts.length >= 2) {
+    return {
+      company: dashParts.slice(1).join(" - ").trim(),
+      name: dashParts[0]?.trim() ?? cleanValue,
+    };
+  }
+
+  return { name: cleanValue };
 }
 
 function buildSpeakers(fields: Record<string, unknown>): AgendaSpeaker[] {
   const names = fieldList(
     fields,
     [
+      "Confirmed Speakers Full Name",
+      "Confirmed Speakers Full Name (Formatted)",
+      "Confirmed Speakers Full Name (Luma)",
+      "Confirmed Speakers, Concise (Luma)",
+      "Speakers and Moderators, Concise (Luma)",
+      "Speakers and Moderators (Luma)",
+      "Speaker Name and Company",
       "Speaker Names",
       "Speaker Name",
-      "Speakers",
-      "Speaker",
       "Presenters",
       "Presenter",
       "Panelists",
       "Panelist",
+      "Speakers",
+      "Speaker",
     ],
     true,
   ).filter((name) => !isLinkedRecordId(name));
@@ -296,15 +332,23 @@ function buildSpeakers(fields: Record<string, unknown>): AgendaSpeaker[] {
     "Speaker Role",
     "Speaker Job Titles",
     "Speaker Job Title",
+    "Role or Title (from Onboarded Speakers)",
+    "Speaker Role Lookup",
     "Roles",
   ]);
 
-  const speakers = names.map((name, index) => ({
-    company:
-      companies[index] ?? (names.length === 1 ? companies[0] : undefined),
-    name,
-    title: titles[index],
-  }));
+  const speakers = names.map((name, index) => {
+    const parsed = parseSpeakerText(name);
+
+    return {
+      company:
+        parsed.company ??
+        companies[index] ??
+        (names.length === 1 ? companies[0] : undefined),
+      name: parsed.name,
+      title: titles[index],
+    };
+  });
 
   const moderatorNames = fieldList(
     fields,
@@ -325,15 +369,22 @@ function buildSpeakers(fields: Record<string, unknown>): AgendaSpeaker[] {
   ]);
 
   for (const [index, name] of moderatorNames.entries()) {
-    if (speakers.some((speaker) => speaker.name === name)) continue;
+    const parsed = parseSpeakerText(name);
+    if (speakers.some((speaker) => speaker.name === parsed.name)) continue;
     speakers.unshift({
-      company: moderatorCompanies[index],
-      name,
+      company: parsed.company ?? moderatorCompanies[index],
+      name: parsed.name,
       title: moderatorTitles[index] ?? "Moderator",
     });
   }
 
-  return speakers;
+  const deduped = new Map<string, AgendaSpeaker>();
+  for (const speaker of speakers) {
+    const key = `${speaker.name}-${speaker.company ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, speaker);
+  }
+
+  return [...deduped.values()];
 }
 
 function normalizeVariant(
@@ -344,7 +395,7 @@ function normalizeVariant(
   const value = getField(
     fields,
     ["Variant", "Display Type", "Display", "Kind", "Type Override"],
-    asString,
+    asDisplayString,
   );
   const normalized = `${value ?? ""} ${tag ?? ""} ${title}`.toLowerCase();
 
@@ -374,19 +425,31 @@ function normalizeAgendaRecord(
       "Event Title",
       "Name",
       "Session",
+      "⚙️ Session Name",
       "Session Name",
       "Event",
       "Event Name",
       "Agenda Item",
     ],
-    asString,
+    asDisplayString,
   );
   if (!title) return null;
 
   const day =
     getField(
       fields,
-      ["Day", "Agenda Day", "Event Day", "Schedule Day", "Tab", "Date"],
+      [
+        "Day - Format",
+        "Day",
+        "Agenda Day",
+        "Event Day",
+        "Schedule Day",
+        "Tab",
+        "Date",
+        "Start Day (Friendly Format)_New",
+        "Start Day (Friendly Format)",
+        "⚙️ Start Day",
+      ],
       normalizeDayValue,
     ) ?? "Day 1";
 
@@ -410,6 +473,8 @@ function normalizeAgendaRecord(
     fields,
     [
       "Tag",
+      "Format_Cleaned",
+      "Format Cleaned",
       "Format",
       "Session Format",
       "Session Type",
@@ -417,7 +482,7 @@ function normalizeAgendaRecord(
       "Type",
       "Category",
     ],
-    asString,
+    asDisplayString,
   );
   const sortOrder =
     getField(
@@ -433,14 +498,14 @@ function normalizeAgendaRecord(
     description: getField(
       fields,
       ["Description", "Session Description", "Abstract", "Details", "Overview"],
-      asString,
+      asDisplayString,
     ),
     duration,
     id: record.id,
     location: getField(
       fields,
       ["Location", "Room", "Stage", "Venue", "Track"],
-      asString,
+      asDisplayString,
     ),
     sortOrder,
     speakers: buildSpeakers(fields),
@@ -509,15 +574,7 @@ async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {
       offset = payload.offset;
     } while (offset);
 
-    const deduped = new Map<string, AgendaItem>();
-    for (const item of agenda) {
-      const key = `${slugify(item.day)}-${slugify(item.time)}-${slugify(
-        item.title,
-      )}`;
-      if (!deduped.has(key)) deduped.set(key, item);
-    }
-
-    return [...deduped.values()].sort((a, b) => {
+    return agenda.sort((a, b) => {
       const byDay = daySortValue(a.day) - daySortValue(b.day);
       if (byDay !== 0) return byDay;
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;

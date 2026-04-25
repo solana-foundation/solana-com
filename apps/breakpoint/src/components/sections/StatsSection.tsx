@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
 import ImageTreatment, {
   type TreatmentColor,
 } from "@/components/ImageTreatment";

@@ -108,6 +108,11 @@ type CountdownParts = {
   seconds: number;
 };
 
+type FooterProps = {
+  accentClassName?: string;
+  accentTextClassName?: string;
+};
+
 function diffParts(target: number, now: number): CountdownParts {
   const delta = Math.max(0, target - now);
   const totalSeconds = Math.floor(delta / 1000);
@@ -179,24 +184,38 @@ function CounterCell({ value, label }: { value: string; label: string }) {
   );
 }
 
-export default function Footer() {
+function FooterPixelEdge({ className }: { className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 1440 200"
+      preserveAspectRatio="none"
+      className={`block h-[200px] w-full min-w-[840px] ${className}`}
+    >
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M1440 23.1202V200H0V14.114H91.5512V1.12952H351.685V14.114H524.223V21.1111H704.724V13.1145H818.864V0.629734L992.729 0.309869L1166.59 0V14.124H1222.34V23.1202H1440Z"
+      />
+    </svg>
+  );
+}
+
+export default function Footer({
+  accentClassName = "bg-purple",
+  accentTextClassName = "text-purple",
+}: FooterProps = {}) {
   const t = useTranslations("breakpoint.footer");
   const { days, hours, minutes, seconds } = useCountdown(EVENT_START);
 
   return (
     <footer className="flex w-full flex-col items-stretch pt-20 md:pt-[120px]">
       <div className="h-[50px] w-full overflow-hidden">
-        <img
-          src="/assets/pixel-edge-footer.svg"
-          alt=""
-          aria-hidden="true"
-          width={1440}
-          height={200}
-          className="block h-[200px] w-full min-w-[840px]"
-        />
+        <FooterPixelEdge className={accentTextClassName} />
       </div>
 
-      <div className="w-full bg-purple py-l">
+      <div className={`w-full py-l ${accentClassName}`}>
         <div className="flex flex-col items-center justify-between gap-6 px-[20px] md:px-[32px] lg:flex-row">
           <div className="flex items-center gap-s">
             {SOCIAL_LINKS.map((social) => (
@@ -232,7 +251,9 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full bg-purple px-[16px] pt-l md:px-[32px] md:py-l">
+      <div
+        className={`w-full px-[16px] pt-l md:px-[32px] md:py-l ${accentClassName}`}
+      >
         <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
           <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
           <CounterCell value={pad(hours)} label={t("countdown.hours")} />
@@ -241,7 +262,9 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="w-full bg-purple px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l">
+      <div
+        className={`w-full px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l ${accentClassName}`}
+      >
         <div className="flex w-full items-center gap-[16px] justify-center md:gap-[35.974px]">
           <img
             src="/assets/bp26-logo-mark-mobile.svg"
