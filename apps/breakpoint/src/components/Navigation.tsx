@@ -14,7 +14,7 @@ const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
 // Must stay in sync with --bp-glitch-duration for .bp-glitch-sm in globals.css.
 const CTA_SIZE_CLASSES =
-  "gap-1 px-1.5 !text-[12px] !font-bold !leading-[0.9] !tracking-normal min-[360px]:gap-2 min-[360px]:px-2 min-[360px]:!text-[14px] min-[360px]:!tracking-[0.08em] md:px-3";
+  "gap-1 px-1.5 !text-[12px] !font-bold !leading-[0.9] !tracking-normal min-[360px]:gap-2 min-[360px]:px-3 min-[360px]:!text-[14px] min-[360px]:!tracking-[0.08em] md:px-3";
 
 type NavigationProps = {
   ctaAlwaysVisible?: boolean;

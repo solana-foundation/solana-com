@@ -10,7 +10,9 @@ export function FabMenu() {
     pathname === "/agenda" ||
     pathname.startsWith("/agenda/") ||
     pathname === "/registration" ||
-    pathname.startsWith("/registration/")
+    pathname.startsWith("/registration/") ||
+    pathname === "/sponsors" ||
+    pathname.startsWith("/sponsors/")
   ) {
     return null;
   }

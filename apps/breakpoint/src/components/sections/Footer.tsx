@@ -215,8 +215,8 @@ export default function Footer({
         <FooterPixelEdge className={accentTextClassName} />
       </div>
 
-      <div className={`w-full py-l ${accentClassName}`}>
-        <div className="flex flex-col items-center justify-between gap-6 px-[20px] md:px-[32px] lg:flex-row">
+      <div className={`w-full ${accentClassName}`}>
+        <div className="flex flex-col items-start justify-between gap-xl px-[16px] pt-l md:flex-row md:items-center md:gap-6 md:px-[32px] md:py-l">
           <div className="flex items-center gap-s">
             {SOCIAL_LINKS.map((social) => (
               <a
@@ -241,7 +241,7 @@ export default function Footer({
             {t("copyright")}
           </p>
 
-          <div className="flex items-center gap-m md:gap-l">
+          <div className="flex flex-col items-start gap-l md:flex-row md:items-center md:gap-l">
             <SecondaryLink
               href="mailto:breakpoint@solana.org"
               label={t("contact")}
@@ -265,14 +265,14 @@ export default function Footer({
       <div
         className={`w-full px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l ${accentClassName}`}
       >
-        <div className="flex w-full items-center gap-[16px] justify-center md:gap-[35.974px]">
+        <div className="flex w-full items-center justify-start gap-[17.83px] md:justify-center md:gap-[35.974px]">
           <img
             src="/assets/bp26-logo-mark-mobile.svg"
             alt=""
             aria-hidden="true"
             width={56.7055}
             height={48.884}
-            className="block h-[43.867px] w-[50.885px] shrink-0 md:hidden"
+            className="block h-[48.884px] w-[56.705px] shrink-0 md:hidden"
           />
           <img
             src="/assets/bp-logo-mark.svg"
@@ -287,7 +287,7 @@ export default function Footer({
             alt="BP26"
             width={261.136}
             height={50.0022}
-            className="block h-[44.87px] w-[234.333px] shrink-0 md:hidden"
+            className="block h-[50.002px] w-[261.136px] shrink-0 md:hidden"
           />
           <img
             src="/assets/breakpoint-wordmark-footer.svg"

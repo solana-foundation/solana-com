@@ -23,6 +23,7 @@ type SponsorLogo = {
 
 type SponsorTier = {
   title: string;
+  mobileColumns: string;
   columns: string;
   cellAspect: string;
   sponsors: SponsorLogo[];
@@ -221,6 +222,7 @@ const goldSponsors = [
 const sponsorTiers = [
   {
     title: "Platinum",
+    mobileColumns: "grid-cols-1",
     columns: "md:grid-cols-3",
     cellAspect: "aspect-[442/221]",
     sponsors: platinumSponsors,
@@ -228,6 +230,7 @@ const sponsorTiers = [
   },
   {
     title: "Diamond",
+    mobileColumns: "grid-cols-2",
     columns: "md:grid-cols-4",
     cellAspect: "aspect-[326/163]",
     sponsors: diamondSponsors,
@@ -235,6 +238,7 @@ const sponsorTiers = [
   },
   {
     title: "Gold",
+    mobileColumns: "grid-cols-2",
     columns: "md:grid-cols-5",
     cellAspect: "aspect-[256/128]",
     sponsors: goldSponsors,
@@ -274,6 +278,7 @@ function SponsorCard({
   const logo = getLogo(sponsor);
   const logoStyle = {
     "--logo-width": `${sponsor.width}px`,
+    "--logo-width-mobile": `${sponsor.width * 0.6}px`,
     "--logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
 
@@ -286,7 +291,7 @@ function SponsorCard({
       className={`group flex ${cellAspect} min-w-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[10px] transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
     >
       <span
-        className="block w-[min(var(--logo-width),78%)] max-w-[78%] transition-transform duration-200 group-hover:scale-[1.025]"
+        className="block w-[min(var(--logo-width-mobile),78%)] max-w-[78%] transition-transform duration-200 group-hover:scale-[1.025] md:w-[min(var(--logo-width),78%)]"
         style={{
           ...logoStyle,
           aspectRatio: "var(--logo-ratio)",
@@ -313,18 +318,18 @@ function SponsorTierSection({
   return (
     <section
       aria-labelledby={`${tier.title.toLowerCase()}-sponsors`}
-      className={`px-xs md:px-m ${first ? "pt-2xl" : "pt-3xl"}`}
+      className={`px-xs md:px-m ${first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}`}
     >
       <div className="mx-auto max-w-[1376px]">
         <h2
           id={`${tier.title.toLowerCase()}-sponsors`}
-          className="font-sans text-[32px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-[48px]"
+          className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px]"
         >
           {tier.title}
         </h2>
 
         <div
-          className={`mt-m grid grid-cols-1 gap-[8px] sm:grid-cols-2 ${tier.columns}`}
+          className={`mt-s grid ${tier.mobileColumns} gap-[8px] ${tier.columns}`}
         >
           {tier.sponsors.map((sponsor) => (
             <SponsorCard
@@ -348,7 +353,7 @@ function SponsorTierSection({
 
 function SponsorsHero() {
   return (
-    <section className="relative h-[395px] overflow-hidden bg-black">
+    <section className="relative h-[363px] overflow-hidden bg-black md:h-[395px]">
       <div className="absolute inset-0 overflow-hidden">
         <SponsorsHeroBackground />
       </div>
@@ -359,14 +364,14 @@ function SponsorsHero() {
         aria-hidden="true"
         width={1440}
         height={146}
-        className="absolute left-0 top-[160px] h-[200px] w-full min-w-[840px] object-cover opacity-[0.85]"
+        className="absolute left-1/2 top-[160px] h-[200px] w-[1078px] max-w-none -translate-x-1/2 object-fill opacity-[0.85] md:left-0 md:w-full md:min-w-[840px] md:translate-x-0 md:object-cover"
       />
 
-      <div className="absolute bottom-[31px] left-xs right-xs md:left-m md:right-auto md:w-[1026px]">
-        <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+      <div className="absolute left-xs right-xs top-[252px] flex flex-col items-start gap-xs pb-3 md:bottom-[31px] md:left-m md:right-auto md:top-auto md:block md:w-[1026px]">
+        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
           Breakpoint 2026
         </p>
-        <h1 className="mt-m font-sans text-[56px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:text-[80px]">
+        <h1 className="font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:mt-m md:text-[80px]">
           Sponsors
         </h1>
       </div>
@@ -376,14 +381,14 @@ function SponsorsHero() {
 
 function SponsorsIntro() {
   return (
-    <section className="bg-black px-xs pt-xl md:px-m">
+    <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
       <div className="mx-auto flex max-w-[1376px] flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
           WHY SPONSOR BP&apos;26
         </p>
 
         <div className="w-full max-w-[851px]">
-          <p className="font-sans text-[28px] font-normal leading-[1.25] tracking-[-0.04em] text-white md:text-[32px]">
+          <p className="font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white md:text-[32px] md:tracking-[-0.04em]">
             <span className="text-purple">7,000+</span> high-intent{" "}
             <span className="text-purple">builders</span>,{" "}
             <span className="text-green">investors</span>, and{" "}
@@ -409,7 +414,14 @@ function SponsorsIntro() {
 
 export default function SponsorsPage() {
   return (
-    <PageShell contentId="breakpoint-sponsors-content">
+    <PageShell
+      contentId="breakpoint-sponsors-content"
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: "/registration",
+        ctaLabel: "REGISTER",
+      }}
+    >
       <SponsorsHero />
       <SponsorsIntro />
       {sponsorTiers.map((tier, index) => (

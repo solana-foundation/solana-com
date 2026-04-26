@@ -166,7 +166,7 @@ function SpeakerImage({ speaker }: { speaker: BreakpointSpeaker }) {
         src={speaker.image}
         alt=""
         loading="lazy"
-        className="h-full w-full object-cover grayscale"
+        className="h-full w-full object-cover object-top grayscale"
       />
     </div>
   );
