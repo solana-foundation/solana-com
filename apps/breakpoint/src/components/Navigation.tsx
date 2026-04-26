@@ -13,6 +13,8 @@ const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
 // Must stay in sync with --bp-glitch-duration for .bp-glitch-sm in globals.css.
+const CTA_SIZE_CLASSES =
+  "gap-1 px-1.5 !text-[12px] !font-bold !leading-[0.9] !tracking-normal min-[360px]:gap-2 min-[360px]:px-2 min-[360px]:!text-[14px] min-[360px]:!tracking-[0.08em] md:px-3";
 
 type NavigationProps = {
   ctaAlwaysVisible?: boolean;
@@ -99,7 +101,7 @@ export default function Navigation({
     </>
   );
 
-  const ctaClasses = `relative inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black hover:bg-[#e7d2f9] md:px-3 ${
+  const ctaClasses = `relative inline-flex h-8 shrink-0 items-center justify-center border border-white/40 bg-white font-mono font-bold uppercase leading-[0.9] text-black hover:bg-[#e7d2f9] ${CTA_SIZE_CLASSES} ${
     showCta ? "pointer-events-auto" : "pointer-events-none"
   } ${isGlitching ? "bp-glitch-jitter" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
 
@@ -165,9 +167,13 @@ export default function Navigation({
           />
         </Link>
 
-        <div className="flex flex-1 items-center justify-end gap-2 pr-1 md:pr-[4px]">
+        <div
+          className={`flex flex-1 items-center justify-end gap-2 pr-1 md:pr-[4px] ${
+            showCta ? "" : "ml-2"
+          }`}
+        >
           <motion.div
-            className="relative inline-flex"
+            className={`relative ${showCta ? "inline-flex" : "hidden"}`}
             initial={false}
             animate={{
               opacity: showCta ? 1 : 0,
@@ -178,7 +184,9 @@ export default function Navigation({
             {ctaElement}
 
             <GlitchOverlay active={isGlitching} size="sm">
-              <span className="inline-flex h-8 w-full items-center justify-center gap-2 border border-white/40 bg-white px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black md:px-3">
+              <span
+                className={`inline-flex h-8 w-full items-center justify-center border border-white/40 bg-white font-mono font-bold uppercase leading-[0.9] text-black ${CTA_SIZE_CLASSES}`}
+              >
                 {ctaInner}
               </span>
             </GlitchOverlay>

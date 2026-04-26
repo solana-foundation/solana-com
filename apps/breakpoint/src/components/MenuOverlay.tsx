@@ -55,6 +55,9 @@ const SOCIAL_LINKS: SocialLink[] = [
   },
 ];
 
+const MENU_LABEL_CLASSES =
+  "font-bp26 text-[30px] font-normal uppercase leading-[0.95] tracking-normal min-[360px]:text-[34px] min-[430px]:text-[40px] min-[560px]:text-[56px] min-[560px]:tracking-[0.02em] md:text-[72px] md-lg:text-[88px] lg:text-[104px]";
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -78,27 +81,25 @@ function MenuItemRow({
     <>
       <span
         aria-hidden="true"
-        className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 transition-colors group-hover:text-purple md:text-[16px]"
+        className="font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 transition-colors group-hover:text-purple min-[430px]:text-[14px] md:text-[16px]"
       >
         [{number}]
       </span>
       <span className="relative inline-flex items-baseline">
         <span
-          className={`font-bp26 text-[44px] font-normal uppercase leading-[0.95] tracking-[0.02em] transition-colors duration-150 sm:text-[56px] md:text-[88px] lg:text-[104px] ${
+          className={`${MENU_LABEL_CLASSES} transition-colors duration-150 ${
             isCurrent ? "text-purple" : "text-white"
           } group-hover:text-[#e7d2f9] ${hover ? "bp-glitch-jitter" : ""}`}
         >
           {item.label}
         </span>
         <GlitchOverlay active={hover} size="lg">
-          <span className="font-bp26 text-[44px] font-normal uppercase leading-[0.95] tracking-[0.02em] sm:text-[56px] md:text-[88px] lg:text-[104px]">
-            {item.label}
-          </span>
+          <span className={MENU_LABEL_CLASSES}>{item.label}</span>
         </GlitchOverlay>
       </span>
       <span
         aria-hidden="true"
-        className={`ml-auto inline-flex size-3 shrink-0 items-center justify-center transition-opacity ${
+        className={`ml-auto hidden size-3 shrink-0 items-center justify-center transition-opacity min-[560px]:inline-flex ${
           hover || isCurrent ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -121,7 +122,7 @@ function MenuItemRow({
   );
 
   const className =
-    "group relative flex w-full items-center gap-4 border-b border-white/10 py-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:gap-6 md:py-5";
+    "group relative flex w-full items-center gap-2 border-b border-white/10 py-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white min-[430px]:gap-4 md:gap-6 md:py-5";
 
   const handlers = {
     onMouseEnter: () => setHover(true),
@@ -155,14 +156,9 @@ export default function MenuOverlay({ open, onClose }: Props) {
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!open) {
-      setMounted(false);
-      return;
-    }
-    setMounted(true);
+    if (!open) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -227,9 +223,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
       {/* Header — mirrors Navigation chrome so logo stays in place */}
       <div
-        className={`relative z-10 flex h-12 items-center justify-between pl-3 pr-2 py-2 ${
-          mounted ? "bp-block-reveal" : ""
-        }`}
+        className="relative z-10 flex h-12 items-center justify-between pl-3 pr-2 py-2"
         style={{ marginTop: 12 }}
       >
         <Link
@@ -284,11 +278,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
       </div>
 
       {/* Eyebrow / event meta */}
-      <div
-        className={`relative z-10 flex items-center justify-between gap-4 px-4 pb-3 pt-6 md:px-8 md:pt-10 ${
-          mounted ? "bp-icon-blink" : ""
-        }`}
-      >
+      <div className="relative z-10 flex items-center justify-between gap-4 px-4 pb-3 pt-6 md:px-8 md:pt-10">
         <p className="font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 md:text-[14px]">
           Menu
         </p>
@@ -298,12 +288,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
       </div>
 
       {/* Menu items */}
-      <nav
-        aria-label="Site"
-        className={`relative z-10 flex-1 px-4 md:px-8 ${
-          mounted ? "bp-block-reveal" : ""
-        }`}
-      >
+      <nav aria-label="Site" className="relative z-10 flex-1 px-4 md:px-8">
         <ul className="unstyled-list border-t border-white/10">
           {MENU_ITEMS.map((item, idx) => {
             const isCurrent =
@@ -323,11 +308,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
       </nav>
 
       {/* Footer — socials + secondary links */}
-      <div
-        className={`relative z-10 mt-8 flex flex-col gap-6 border-t border-white/10 px-4 py-6 md:flex-row md:items-center md:justify-between md:gap-4 md:px-8 md:py-8 ${
-          mounted ? "bp-icon-blink" : ""
-        }`}
-      >
+      <div className="relative z-10 mt-8 flex flex-col gap-6 border-t border-white/10 px-4 py-6 md:flex-row md:items-center md:justify-between md:gap-4 md:px-8 md:py-8">
         <div className="flex items-center gap-4">
           {SOCIAL_LINKS.map((social) => (
             <a
