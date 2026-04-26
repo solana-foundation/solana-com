@@ -67,6 +67,7 @@ vi.mock("@/lib/post-data", () => ({
 }));
 
 vi.mock("@/lib/content-renderer", () => ({
+  contentDocumentToPlainText: extractPlainTextMock,
   extractPlainText: extractPlainTextMock,
 }));
 
@@ -502,7 +503,7 @@ describe("latest content filters", () => {
 
       expect(unstableCacheMock).toHaveBeenCalledWith(
         expect.any(Function),
-        ["links-5-cursor-1-defi-nft"],
+        ["links-5-cursor-1-defi-nft-0"],
         expect.objectContaining({
           tags: ["links"],
         }),

@@ -23,6 +23,8 @@ const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
   templates: /^\/developers\/templates(?:\/|$)/,
   // accelerate app handles: /accelerate/*
   accelerate: /^\/accelerate(?:\/|$)/,
+  // breakpoint app handles: /breakpoint/*
+  breakpoint: /^\/breakpoint(?:\/|$)/,
 };
 
 const INTERNAL_PATTERN = APP_NAME ? APP_INTERNAL_ROUTES[APP_NAME] : null;

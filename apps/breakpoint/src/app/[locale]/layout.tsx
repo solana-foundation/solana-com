@@ -1,61 +1,63 @@
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
-import { staticLocales } from "@workspace/i18n/config";
-import { getLangDir } from "rtl-detect";
-import {
-  CookieConsentBanner,
-  PersistentPodcastPlayer,
-} from "@solana-com/ui-chrome";
-import { getBaseMetadata } from "@/app/metadata";
+import type { Metadata } from "next";
+import { NextIntlClientProvider } from "@workspace/i18n/client";
+import { locales } from "@workspace/i18n/config";
+import { getBaseMetadata } from "../metadata";
+import { loadBreakpointMessages } from "@/i18n/request";
 import { FabMenu } from "@/components/FabMenu";
 
 const displayFont = localFont({
-  src: "../../../public/fonts/fh-lecturis/FHLecturis-Regular.woff2",
-  variable: "--font-fh-lecturis",
+  src: "../../../public/fonts/bp26-extended/BP26-Extended.woff2",
+  variable: "--font-bp26",
   display: "swap",
 });
 
 const bodyFont = localFont({
   src: [
     {
-      path: "../../../public/fonts/abc-diatype/ABCDiatype-Regular.woff2",
+      path: "../../../public/fonts/abc-favorit/ABCFavorit-Regular.woff2",
       weight: "400",
       style: "normal",
     },
     {
-      path: "../../../public/fonts/abc-diatype/ABCDiatype-Medium.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../../../public/fonts/abc-diatype/ABCDiatype-Bold.woff2",
+      path: "../../../public/fonts/abc-favorit/ABCFavorit-Bold.woff2",
       weight: "700",
       style: "normal",
     },
   ],
-  variable: "--font-abc-diatype",
+  variable: "--font-abc-favorit",
   display: "swap",
 });
 
 const monoFont = localFont({
-  src: "../../../public/fonts/macan-mono/Macan-Mono-Medium.woff2",
-  variable: "--font-macan-mono",
+  src: [
+    {
+      path: "../../../public/fonts/abc-favorit-mono/ABCFavoritMono-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../../public/fonts/abc-favorit-mono/ABCFavoritMono-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-abc-favorit-mono",
   display: "swap",
 });
 
-export function generateStaticParams() {
-  return staticLocales.map((locale) => ({ locale }));
+export async function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>;
-}) {
+}): Promise<Metadata> {
   const { locale } = await params;
-  return getBaseMetadata(locale);
+  return await getBaseMetadata(locale);
 }
 
 export default async function LocaleLayout({
@@ -66,19 +68,18 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const messages = await getMessages();
+  const { messages } = await loadBreakpointMessages(locale);
+  const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
     <div
-      dir={getLangDir(locale)}
+      dir={dir}
       data-locale={locale}
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
         <FabMenu />
-        <CookieConsentBanner />
-        <PersistentPodcastPlayer />
       </NextIntlClientProvider>
     </div>
   );
