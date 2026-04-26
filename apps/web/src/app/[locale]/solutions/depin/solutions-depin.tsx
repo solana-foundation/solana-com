@@ -1,17 +1,14 @@
 "use client";
 
 import { Products } from "@/components/solutions/products.v2";
-// import { LatestNews } from "@/components/solutions/latest-news.v2";
+import {
+  LatestNews,
+  type NewsItem,
+} from "@/components/solutions/latest-news.v2";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Projects } from "@/components/solutions/projects.v2";
-import {
-  LOGOS,
-  PRODUCTS,
-  PROJECTS,
-  VIDEOS,
-  // LATEST_NEWS,
-} from "@/data/solutions/depin";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { useTranslations } from "next-intl";
@@ -21,8 +18,13 @@ import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import { CoinsIcon, PulseIcon, UsersIcon } from "@solana-com/ui-chrome/icons";
 
-export function SolutionsDepinPage() {
+type SolutionsDepinPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsDepinPage({ news }: SolutionsDepinPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -30,17 +32,17 @@ export function SolutionsDepinPage() {
     {
       value: t("depin.hero.stats.0.value"),
       label: t("depin.hero.stats.0.label"),
-      Icon: "/src/img/solutions/depin/icon-1.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("depin.hero.stats.1.value"),
       label: t("depin.hero.stats.1.label"),
-      Icon: "/src/img/solutions/depin/icon-2.svg",
+      Icon: PulseIcon,
     },
     {
       value: t("depin.hero.stats.2.value"),
       label: t("depin.hero.stats.2.label"),
-      Icon: "/src/img/solutions/depin/icon-3.svg",
+      Icon: UsersIcon,
     },
   ];
 
@@ -99,7 +101,7 @@ export function SolutionsDepinPage() {
 
         {/* Products Section */}
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("depin.products.title")}
           description={t("depin.products.description")}
           products={PRODUCTS}
@@ -117,7 +119,7 @@ export function SolutionsDepinPage() {
         />
 
         {/* Latest News Section */}
-        {/* <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} /> */}
+        <LatestNews title={t("depin.news.title")} items={news} />
 
         <Divider hideOnDesktop />
 

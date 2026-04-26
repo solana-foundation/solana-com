@@ -8,6 +8,7 @@ const {
   nextJsonMock,
   fetchLatestLinksMock,
   extractPlainTextMock,
+  contentDocumentToPlainTextMock,
 } = vi.hoisted(() => ({
   readerMock: {
     collections: {
@@ -41,6 +42,9 @@ const {
   })),
   fetchLatestLinksMock: vi.fn(),
   extractPlainTextMock: vi.fn((value: string) => `plain:${value}`),
+  contentDocumentToPlainTextMock: vi.fn((value: unknown) =>
+    String(value ?? ""),
+  ),
 }));
 
 vi.mock("@/lib/reader", () => ({
@@ -68,6 +72,7 @@ vi.mock("@/lib/post-data", () => ({
 
 vi.mock("@/lib/content-renderer", () => ({
   extractPlainText: extractPlainTextMock,
+  contentDocumentToPlainText: contentDocumentToPlainTextMock,
 }));
 
 import { fetchLatestLinks } from "@/lib/keystatic/link-data";
@@ -231,6 +236,43 @@ describe("latest content filters", () => {
   });
 
   describe("fetchLatestPosts", () => {
+    it("sorts posts by full publishedAt datetime descending", async () => {
+      const posts = {
+        "later-post": {
+          status: "published",
+          title: "Later Post",
+          description: "later post",
+          publishedAt: "2026-03-11T18:30:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+        "earlier-post": {
+          status: "published",
+          title: "Earlier Post",
+          description: "earlier post",
+          publishedAt: "2026-03-11T07:15:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
+      );
+
+      const result = await fetchLatestPosts({});
+
+      expect(result.posts.map((item) => item.id)).toEqual([
+        "later-post",
+        "earlier-post",
+      ]);
+      expect(result.posts[0]?.publishedAt).toBe("2026-03-11T18:30:00.000Z");
+      expect(result.posts[1]?.publishedAt).toBe("2026-03-11T07:15:00.000Z");
+    });
+
     it("filters by tag name alone", async () => {
       const posts = {
         "matching-post": {
@@ -502,7 +544,7 @@ describe("latest content filters", () => {
 
       expect(unstableCacheMock).toHaveBeenCalledWith(
         expect.any(Function),
-        ["links-5-cursor-1-defi-nft"],
+        ["links-5-cursor-1-defi-nft-0"],
         expect.objectContaining({
           tags: ["links"],
         }),

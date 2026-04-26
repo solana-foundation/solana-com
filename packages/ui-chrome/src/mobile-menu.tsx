@@ -11,8 +11,8 @@ import {
   SheetTitle,
   VisuallyHidden,
 } from "./sheet";
-import AngleDown from "./assets/angle-down.inline.svg";
-import ArrowLeft from "./assets/arrow-left.inline.svg";
+import AngleDown from "./assets/icons/angle-down.inline.svg";
+import ArrowLeft from "./assets/icons/arrow-left.inline.svg";
 import SolanaMono from "./assets/solana-mono.inline.svg";
 import NavSwipe from "./assets/nav/nav-swipe.inline.svg";
 import { HEADER_SECTIONS } from "./header-sections";
