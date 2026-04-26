@@ -5,6 +5,7 @@ import bitGetIcon from "../../../assets/wallets/icons/bitget.png";
 import braveIcon from "../../../assets/wallets/icons/brave.png";
 import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
 import cdpIcon from "../../../assets/wallets/icons/cdp.png";
+import cinderIcon from "../../../assets/wallets/icons/cinder.png";
 import circleIcon from "../../../assets/wallets/icons/circle.png";
 import coinbaseIcon from "../../../assets/wallets/icons/coinbase.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
@@ -1386,6 +1387,36 @@ export const walletData = [
     spending_limits: false,
     open_source: true,
     hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Cinder",
+    category: "consumer",
+    platforms: ["desktop"],
+    target_audience: ["end_user", "developer"],
+    multi_chain: false,
+    solana_native: true,
+    last_verified: "2026-04-23",
+    body: "Open-source desktop Solana wallet with hardware wallet support, a built-in terminal, and an MCP server for AI agents",
+    website: "https://cinderwallet.io/",
+    additionalInfo:
+      "Non-Custodial - Token Extensions - Staking - Open Source - Hardware",
+    icon: cinderIcon,
+    custodial: false,
+    non_custodial: true,
+    te: true,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: true,
+    hardware: true,
     private_key_infrastructure: false,
   },
 ];
