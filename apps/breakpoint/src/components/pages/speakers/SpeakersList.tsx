@@ -106,7 +106,10 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <label htmlFor={id} className="flex min-w-0 flex-col justify-center gap-4">
+    <label
+      htmlFor={id}
+      className="flex w-full min-w-0 flex-col justify-center gap-[13px] sm:w-auto"
+    >
       <span className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-text-secondary">
         {label}
       </span>
@@ -173,10 +176,12 @@ function SpeakerImage({ speaker }: { speaker: BreakpointSpeaker }) {
 }
 
 function SpeakerRow({
+  designPreview = false,
   open,
   speaker,
   onToggle,
 }: {
+  designPreview?: boolean;
   onToggle: () => void;
   open: boolean;
   speaker: BreakpointSpeaker;
@@ -184,10 +189,25 @@ function SpeakerRow({
   const session = speaker.session;
   const hasSessionDetails = Boolean(session?.day || session?.format);
   const hasOpenContent = Boolean(session?.title || hasSessionDetails);
+  const hasSocialLinks = Boolean(
+    speaker.socials.website || speaker.socials.x || speaker.socials.linkedin,
+  );
+  const hasCompany = Boolean(speaker.company);
+  const hasDetails = Boolean(speaker.company || speaker.title);
+  const designPreviewHeightClass =
+    designPreview && open && hasOpenContent
+      ? "h-[475px] md:h-auto"
+      : designPreview && hasSocialLinks && hasCompany
+        ? "h-[324px] md:h-auto"
+        : designPreview && hasSocialLinks
+          ? "h-[299px] md:h-auto"
+          : designPreview && hasDetails
+            ? "h-[284px] md:h-auto"
+            : "";
 
   return (
     <article
-      className={`flex w-full items-center justify-between gap-4 overflow-hidden border border-neutral-700 px-4 py-4 md:gap-0 md:py-6 md:pl-6 md:pr-12 ${
+      className={`relative flex w-full flex-col items-start overflow-hidden border border-neutral-700 p-4 md:flex-row md:items-center md:justify-between md:gap-0 md:py-6 md:pl-6 md:pr-12 ${designPreviewHeightClass} ${
         open ? "bg-neutral-800" : "bg-black"
       }`}
     >
@@ -199,9 +219,9 @@ function SpeakerRow({
             open && hasOpenContent ? "gap-8" : ""
           }`}
         >
-          <div className="flex w-full min-w-0 flex-col gap-5 md:flex-row md:items-center md:gap-[120px]">
+          <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
-              <h2 className="w-full font-sans text-[28px] font-normal leading-[1.25] tracking-[-0.04em] text-white md:text-[32px]">
+              <h2 className="w-full font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white md:text-[32px] md:tracking-[-0.04em]">
                 {speaker.name}
               </h2>
               <div className="flex items-center gap-6">
@@ -223,14 +243,14 @@ function SpeakerRow({
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] md:text-[16px]">
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em]">
               {speaker.company && (
-                <p className="w-full font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+                <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
                   {speaker.company}
                 </p>
               )}
               {speaker.title && (
-                <p className="w-full font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-text-secondary md:text-[16px]">
+                <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-text-secondary">
                   {speaker.title}
                 </p>
               )}
@@ -268,7 +288,7 @@ function SpeakerRow({
         aria-expanded={open}
         aria-label={`${open ? "Collapse" : "Expand"} ${speaker.name}`}
         onClick={onToggle}
-        className={`flex size-8 shrink-0 items-center justify-center self-start md:self-center ${
+        className={`absolute right-4 top-4 flex size-8 shrink-0 items-center justify-center md:static md:self-center ${
           open ? "bg-neutral-700" : "border border-neutral-700"
         } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
       >
@@ -279,33 +299,45 @@ function SpeakerRow({
 }
 
 export default function SpeakersList({
+  designPreview = false,
+  initialOpenSlug,
+  preserveOrder = false,
   speakers,
 }: {
+  designPreview?: boolean;
+  initialOpenSlug?: string;
+  preserveOrder?: boolean;
   speakers: BreakpointSpeaker[];
 }) {
   const [sort, setSort] = useState<SortOption>("az");
   const [filter, setFilter] = useState<FilterOption>("All Events");
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [openSlug, setOpenSlug] = useState<string | null>(
+    initialOpenSlug ?? null,
+  );
 
   const visibleSpeakers = useMemo(() => {
     const selectedFormat = normalizeForCompare(filter);
 
-    return [...speakers]
-      .filter((speaker) => {
-        if (filter === "All Events") return true;
-        return normalizeForCompare(speaker.session?.format) === selectedFormat;
-      })
-      .sort((a, b) => {
-        const byName = a.name.localeCompare(b.name);
-        return sort === "az" ? byName : -byName;
-      });
-  }, [filter, sort, speakers]);
+    const filtered = [...speakers].filter((speaker) => {
+      if (filter === "All Events") return true;
+      return normalizeForCompare(speaker.session?.format) === selectedFormat;
+    });
+
+    if (preserveOrder) {
+      return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+
+    return filtered.sort((a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      return sort === "az" ? byName : -byName;
+    });
+  }, [filter, preserveOrder, sort, speakers]);
 
   return (
     <>
       <section
         aria-label="Speaker controls"
-        className="flex w-full flex-col gap-6 border-b border-neutral-700 px-5 pb-6 pt-12 sm:flex-row sm:items-center sm:gap-8 md:px-8"
+        className="flex w-full flex-col gap-m border-b border-neutral-700 pb-s pl-xs pr-m pt-m sm:flex-row sm:items-center sm:gap-8 md:px-8 md:pt-12"
       >
         <SelectControl
           id="speaker-sort"
@@ -333,13 +365,14 @@ export default function SpeakersList({
 
       <section
         aria-label="Speakers"
-        className="flex w-full flex-col items-start gap-3 px-5 pt-12 md:px-8"
+        className="flex w-full flex-col items-start gap-3 px-xs pt-m md:px-8 md:pt-12"
       >
         {visibleSpeakers.length > 0 ? (
           visibleSpeakers.map((speaker) => (
             <SpeakerRow
               key={speaker.slug}
               speaker={speaker}
+              designPreview={designPreview}
               open={openSlug === speaker.slug}
               onToggle={() =>
                 setOpenSlug((current) =>

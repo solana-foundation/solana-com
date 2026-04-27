@@ -11,6 +11,8 @@ export function FabMenu() {
     pathname.startsWith("/agenda/") ||
     pathname === "/registration" ||
     pathname.startsWith("/registration/") ||
+    pathname === "/speakers" ||
+    pathname.startsWith("/speakers/") ||
     pathname === "/sponsors" ||
     pathname.startsWith("/sponsors/")
   ) {

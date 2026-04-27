@@ -198,8 +198,8 @@ export default function SpeakersFooter() {
         <FooterPixelEdge />
       </div>
 
-      <div className="w-full bg-green px-5 py-12 md:px-8">
-        <div className="flex flex-col items-center justify-between gap-6 lg:flex-row">
+      <div className="w-full bg-green">
+        <div className="flex flex-col items-start justify-between gap-xl px-4 pt-12 md:flex-row md:items-center md:gap-6 md:px-8 md:py-12">
           <div className="flex items-center gap-6">
             {SOCIAL_LINKS.map((social) => (
               <a
@@ -224,7 +224,7 @@ export default function SpeakersFooter() {
             © Solana Foundation | 2026
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
+          <div className="flex flex-col items-start gap-12 md:flex-row md:items-center">
             <SecondaryLink
               href="mailto:breakpoint@solana.org"
               label="Contact Us"
@@ -243,15 +243,15 @@ export default function SpeakersFooter() {
         </div>
       </div>
 
-      <div className="w-full bg-green px-4 pb-8 pt-12 md:px-8 md:py-12">
-        <div className="flex w-full items-center justify-center gap-4 md:gap-[35.974px]">
+      <div className="w-full bg-green px-4 pb-6 pt-12 md:px-8 md:py-12">
+        <div className="flex w-full items-center justify-start gap-[17.83px] md:justify-center md:gap-[35.974px]">
           <img
             src="/assets/bp26-logo-mark-mobile.svg"
             alt=""
             aria-hidden="true"
             width={56.7055}
             height={48.884}
-            className="block h-[43.867px] w-[50.885px] shrink-0 md:hidden"
+            className="block h-[48.884px] w-[56.705px] shrink-0 md:hidden"
           />
           <img
             src="/assets/bp-logo-mark.svg"
@@ -266,7 +266,7 @@ export default function SpeakersFooter() {
             alt="BP26"
             width={261.136}
             height={50.0022}
-            className="block h-[44.87px] w-[234.333px] shrink-0 md:hidden"
+            className="block h-[50.002px] w-[261.136px] shrink-0 md:hidden"
           />
           <img
             src="/assets/breakpoint-wordmark-footer.svg"

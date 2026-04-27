@@ -16,7 +16,7 @@ const AIRPORTS = [
     code: "LCY",
     name: "London City Airport",
     href: "https://www.londoncityairport.com/",
-    meta: "Approx. 45 min to Olympia",
+    meta: "11km east of central London",
     detail:
       "Compact east London airport with DLR and Elizabeth line transfers.",
   },
@@ -24,45 +24,45 @@ const AIRPORTS = [
     code: "LHR",
     name: "Heathrow Airport",
     href: "https://www.heathrow.com/",
-    meta: "Approx. 35-45 min to Olympia",
+    meta: "24km west of central London",
     detail: "London's primary long-haul hub with rail and Tube connections.",
   },
   {
     code: "LGW",
     name: "London Gatwick Airport",
     href: "https://www.gatwickairport.com/",
-    meta: "Approx. 60 min to Olympia",
+    meta: "48km south of central London",
     detail: "South London airport connected by rail into central London.",
   },
 ] satisfies AirportInfo[];
 
 const AIRLINES = [
   {
-    name: "Virgin Atlantic",
+    name: "Virgin Airlines",
     href: "https://www.virginatlantic.com/en-US/",
     logo: "/img/travel/airline-virgin-atlantic.svg",
-    logoClassName: "w-[238px] max-w-[72%]",
+    logoClassName: "w-[208.8px] max-w-[74%] md:w-[238px]",
     description: "Transatlantic routes into Heathrow with partner connections.",
   },
   {
-    name: "Delta Air Lines",
+    name: "Delta Airlines",
     href: "https://www.delta.com/us/en/home",
     logo: "/img/travel/airline-delta.svg",
-    logoClassName: "w-[222px] max-w-[68%]",
-    description: "US routes into London through Delta and partner services.",
+    logoClassName: "w-[170px] max-w-[60%] md:w-[222px]",
+    description: "Volutpat amet id ut risus et.",
   },
   {
     name: "British Airways",
     href: "https://www.britishairways.com/",
     logo: "/img/travel/airline-british-airways.svg",
-    logoClassName: "w-[239px] max-w-[72%]",
+    logoClassName: "w-[214.9px] max-w-[76%] md:w-[239px]",
     description: "Global connections into Heathrow, Gatwick, and London City.",
   },
   {
     name: "Lufthansa",
     href: "https://www.lufthansa.com/",
     logo: "/img/travel/airline-lufthansa.svg",
-    logoClassName: "w-[222px] max-w-[68%]",
+    logoClassName: "w-[177.6px] max-w-[63%] md:w-[222px]",
     description: "European connections into London via Frankfurt and Munich.",
   },
 ] satisfies AirlineInfo[];
@@ -72,7 +72,7 @@ const HOTELS = [
     name: "The Ned London",
     href: "https://www.thened.com/london/",
     description:
-      "City of London hotel in a landmark 1930s bank building, with strong rail links across town.",
+      "Stunning City of London hotel in a landmark 1930s bank building.",
     distance: "40 minutes from Olympia Convention Centre",
   },
   {
@@ -206,13 +206,13 @@ function SectionHeading({
   title: string;
 }) {
   return (
-    <div className="mx-auto flex max-w-[920px] flex-col items-center gap-4 text-center">
+    <div className="mx-auto flex max-w-[920px] flex-col items-center gap-6 text-center">
       {eyebrow && (
-        <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
           {eyebrow}
         </p>
       )}
-      <h2 className="font-sans text-[40px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-[48px]">
+      <h2 className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px] md:leading-[1.15]">
         {title}
       </h2>
     </div>
@@ -226,28 +226,26 @@ function AirportList() {
         <a
           key={airport.code}
           href={airport.href}
-          className="group border-t border-stroke-card py-6 transition-colors last:border-b hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="group flex h-[140px] flex-col items-start justify-center gap-4 border-b border-neutral-700 py-6 transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
-          <div className="flex items-start gap-5">
-            <p className="w-12 shrink-0 font-mono text-[16px] font-bold uppercase leading-[1.3] tracking-[0.08em] text-white">
-              {airport.code}
-            </p>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-4">
-                <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-white md:text-[24px]">
-                  {airport.name}
-                </h3>
-                <span className="mt-1 inline-flex size-3 shrink-0 items-center justify-center text-white transition-colors group-hover:text-blue">
-                  <ArrowUpRightIcon />
-                </span>
-              </div>
-              <p className="mt-2 font-mono text-[13px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue md:text-[14px]">
-                {airport.meta}
-              </p>
-              <p className="mt-3 max-w-[360px] font-sans text-[16px] font-normal leading-[1.45] tracking-normal text-text-secondary md:text-[18px]">
-                {airport.detail}
-              </p>
+          <p className="w-[123px] font-bp26 text-[24px] font-normal uppercase leading-[1.18] tracking-[0.04em] text-white">
+            {airport.code}
+          </p>
+          <div className="flex flex-col items-start gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white">
+                {airport.name}
+              </h3>
+              <span className="inline-flex size-3 shrink-0 items-center justify-center text-white transition-colors group-hover:text-blue">
+                <ArrowUpRightIcon />
+              </span>
             </div>
+            <p className="whitespace-nowrap font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
+              {airport.meta}
+            </p>
+            <p className="hidden max-w-[360px] font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-text-secondary md:block">
+              {airport.detail}
+            </p>
           </div>
         </a>
       ))}
@@ -257,11 +255,11 @@ function AirportList() {
 
 function AirlineCard({ airline }: { airline: AirlineInfo }) {
   return (
-    <article className="flex min-w-0 flex-col items-start">
+    <article className="flex w-[283.56px] shrink-0 flex-col items-start md:min-w-0 md:w-auto">
       <a
         href={airline.href}
         aria-label={`${airline.name} travel information`}
-        className="flex h-[180px] w-full items-center justify-center border border-neutral-700 bg-white/[0.05] transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:h-[246px]"
+        className="flex aspect-[369.5/246] w-full items-center justify-center border border-neutral-700 bg-white/[0.05] transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         <img
           src={airline.logo}
@@ -272,10 +270,10 @@ function AirlineCard({ airline }: { airline: AirlineInfo }) {
       </a>
       <div className="flex w-full flex-col items-start gap-4 py-6">
         <div className="flex flex-col gap-2">
-          <h3 className="font-sans text-[18px] font-bold leading-[1.45] tracking-normal text-white">
+          <h3 className="font-sans text-[16px] font-bold leading-[1.36] tracking-normal text-white">
             {airline.name}
           </h3>
-          <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-text-secondary">
+          <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-text-secondary">
             {airline.description}
           </p>
         </div>
@@ -287,16 +285,16 @@ function AirlineCard({ airline }: { airline: AirlineInfo }) {
 
 function FlightsSection() {
   return (
-    <section id="flights" className="bg-black pt-[120px]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-5 md:px-8">
+    <section id="flights" className="bg-black pt-[80px] md:pt-[120px]">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:gap-12 md:px-8">
         <SectionHeading
           eyebrow="Airports / Flight deals"
           title="Getting to London"
         />
 
-        <div className="grid gap-10 md:grid-cols-[minmax(250px,0.7fr)_minmax(0,1.55fr)] md:gap-[64px] lg:gap-[110px]">
+        <div className="flex flex-col gap-8 md:grid md:grid-cols-[minmax(250px,0.7fr)_minmax(0,1.55fr)] md:gap-[64px] lg:gap-[110px]">
           <AirportList />
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 scrollbar-hidden md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 md:grid-cols-2">
             {AIRLINES.map((airline) => (
               <AirlineCard key={airline.name} airline={airline} />
             ))}
@@ -309,12 +307,22 @@ function FlightsSection() {
 
 function HotelsSection() {
   return (
-    <section id="hotels" className="bg-black pt-[120px]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-5 md:px-8">
+    <section id="hotels" className="bg-black pt-[80px] md:pt-[120px]">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:gap-12 md:px-8">
         <SectionHeading title="Hotels" />
 
-        <div className="grid items-start gap-10 md:grid-cols-[minmax(320px,589px)_minmax(0,676px)] md:justify-center md:gap-[80px] lg:gap-[111px]">
-          <div className="relative aspect-square w-full overflow-hidden bg-neutral-800">
+        <div className="grid items-start gap-12 md:grid-cols-[minmax(320px,589px)_minmax(0,676px)] md:justify-center md:gap-[80px] lg:gap-[111px]">
+          <div
+            className="relative aspect-square w-full overflow-hidden bg-neutral-800 md:aspect-auto md:h-auto"
+            style={{
+              WebkitMaskImage: "url('/img/travel/hotel-mask.svg')",
+              WebkitMaskRepeat: "no-repeat",
+              WebkitMaskSize: "100% 100%",
+              maskImage: "url('/img/travel/hotel-mask.svg')",
+              maskRepeat: "no-repeat",
+              maskSize: "100% 100%",
+            }}
+          >
             <img
               src="/img/travel/hotel-london.webp"
               alt=""
@@ -332,17 +340,16 @@ function HotelsSection() {
                 open={index === 0}
                 className="group border-t border-neutral-700 pb-3 pt-6 open:border-white"
               >
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
-                  <h3 className="font-sans text-[22px] font-bold leading-[1.18] tracking-[-0.01em] text-text-secondary transition-colors group-open:text-white md:text-[24px]">
+                <summary className="flex cursor-pointer list-none items-start [&::-webkit-details-marker]:hidden">
+                  <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-text-secondary opacity-60 transition-colors group-open:text-white group-open:opacity-100 md:text-[24px]">
                     {hotel.name}
                   </h3>
-                  <span className="mt-1 h-[14px] w-[14px] shrink-0 border border-white/40 transition-colors group-open:bg-blue group-open:border-blue" />
                 </summary>
                 <div className="mt-4 flex flex-col items-start gap-4">
-                  <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white">
+                  <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white">
                     {hotel.description}
                   </p>
-                  <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue md:text-[16px]">
+                  <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
                     {hotel.distance}
                   </p>
                   <InlineCta href={hotel.href} />
@@ -358,15 +365,15 @@ function HotelsSection() {
 
 function VisaSection() {
   return (
-    <section id="visas" className="bg-black pt-[120px]">
-      <div className="mx-auto w-full max-w-[1440px] px-5 md:px-8">
-        <div className="grid gap-10 border-t border-neutral-700 pt-12 md:grid-cols-[minmax(260px,501px)_minmax(0,676px)] md:justify-between">
+    <section id="visas" className="bg-black pt-[80px] md:pt-[120px]">
+      <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
+        <div className="grid gap-16 border-t border-neutral-700 pt-8 md:grid-cols-[minmax(260px,501px)_minmax(0,676px)] md:justify-between md:pt-12">
           <div className="flex flex-col items-start gap-8">
             <div className="flex flex-col gap-4">
-              <h2 className="font-sans text-[40px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-[48px]">
+              <h2 className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px] md:leading-[1.15]">
                 Visas for London
               </h2>
-              <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white">
+              <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
                 Attendees are responsible for reviewing entry requirements and
                 arranging their own visas.
               </p>
@@ -384,10 +391,10 @@ function VisaSection() {
 
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4">
-              <h3 className="font-sans text-[24px] font-normal leading-[1.18] tracking-[-0.04em] text-white">
+              <h3 className="font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
                 First, check if you need a visa
               </h3>
-              <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white">
+              <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
                 <a
                   href={VISA_CHECK_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
@@ -399,10 +406,10 @@ function VisaSection() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <h3 className="font-sans text-[24px] font-normal leading-[1.18] tracking-[-0.04em] text-white">
+              <h3 className="font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
                 Then, if you need support with a visa
               </h3>
-              <div className="flex flex-col gap-3 font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white">
+              <div className="flex flex-col gap-4 font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
                 <p>
                   Solana Foundation has engaged Immigration Advice Service (IAS)
                   to assist you in this process. If you are ready to apply,
@@ -431,21 +438,21 @@ function VisaSection() {
 
 function LondonPickCard({ pick }: { pick: LondonPick }) {
   return (
-    <article className="flex min-w-0 flex-col items-start">
-      <div className="aspect-[400/300] w-full border border-neutral-700 bg-neutral-800" />
-      <div className="flex w-full flex-col items-start gap-4 py-6 md:pr-10">
+    <article className="flex w-[283.56px] shrink-0 flex-col items-start md:min-w-0 md:w-auto">
+      <div className="h-[212.67px] w-full border border-neutral-700 bg-neutral-800 md:h-auto md:aspect-[400/300]" />
+      <div className="flex w-full flex-col items-start gap-4 py-5 pr-8 md:py-6 md:pr-10">
         <div className="flex flex-col gap-3">
-          <h3 className="font-sans text-[24px] font-bold leading-[1.18] tracking-[-0.01em] text-white">
+          <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-white md:text-[24px]">
             {pick.title}
           </h3>
-          <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue md:text-[16px]">
+          <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
             {pick.location}
           </p>
         </div>
-        <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white">
+        <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
           {pick.description}
         </p>
-        <InlineCta href={pick.href} />
+        <InlineCta href={pick.href} label="Lorem Ipsum" />
       </div>
     </article>
   );
@@ -454,17 +461,17 @@ function LondonPickCard({ pick }: { pick: LondonPick }) {
 function LondonPicksSection() {
   return (
     <section id="london" className="bg-black pt-[120px]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 md:px-8">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:px-8">
         <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
           <div className="flex max-w-[676px] flex-col gap-6">
-            <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+            <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
               More BP26 events
             </p>
-            <h2 className="font-sans text-[40px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-[48px]">
+            <h2 className="max-w-[260px] font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:max-w-none md:text-[48px] md:leading-[1.15]">
               More to see while in London
             </h2>
           </div>
-          <div aria-hidden="true" className="hidden items-center gap-4 md:flex">
+          <div aria-hidden="true" className="flex items-center gap-4">
             <span className="flex size-12 items-center justify-center border border-white/30 text-white">
               ←
             </span>
@@ -474,7 +481,7 @@ function LondonPicksSection() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="-mx-4 flex gap-6 overflow-x-auto px-4 scrollbar-hidden md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">
           {LONDON_PICKS.map((pick) => (
             <LondonPickCard key={pick.title} pick={pick} />
           ))}
@@ -486,10 +493,10 @@ function LondonPicksSection() {
 
 function FaqBanner() {
   return (
-    <section className="bg-black pt-[120px]">
-      <div className="mx-auto w-full max-w-[1440px] px-5 md:px-8">
-        <div className="flex min-h-[220px] flex-col items-center justify-end gap-10 bg-neutral-800 px-5 py-12 text-center md:min-h-[286px] md:p-[80px]">
-          <h2 className="font-sans text-[32px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-[40px]">
+    <section className="bg-black pt-[80px] md:pt-[120px]">
+      <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
+        <div className="flex h-[308px] flex-col items-center justify-end gap-10 bg-neutral-800 px-8 py-20 text-center md:h-auto md:min-h-[286px] md:p-[80px]">
+          <h2 className="font-sans text-[28px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[40px] md:leading-[1.15]">
             Frequently asked questions
           </h2>
           <Link
@@ -517,7 +524,7 @@ function TravelHero() {
       <div className="-mt-8 flex flex-wrap items-center gap-1 md:-mt-5 md:gap-2">
         <QuickLink href="#flights" label="Flights" />
         <QuickLink href="#hotels" label="Travel" />
-        <QuickLink href="#visas" label="Visas" />
+        <QuickLink href="#visas" label="Visa" />
         <QuickLink href="#london" label="What to do" />
       </div>
     </SubpageHero>

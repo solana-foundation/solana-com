@@ -20,8 +20,8 @@ export const fallbackSpeakers = [
   {
     company: "Me3",
     id: "fallback-alexander-meissner",
-    name: "Alexander Meissner",
-    slug: "alexander-meissner",
+    name: "Alexander Meijner",
+    slug: "alexander-meijner",
     socials: {
       website: "https://solana.com",
       x: "https://x.com/solana",
@@ -43,8 +43,8 @@ export const fallbackSpeakers = [
   {
     company: "Bybit",
     id: "fallback-bin-chen",
-    name: "Bin Chen",
-    slug: "bin-chen",
+    name: "Bina Choi",
+    slug: "bina-choi",
     socials: {
       linkedin: "https://linkedin.com",
       x: "https://x.com/solana",
@@ -66,8 +66,8 @@ export const fallbackSpeakers = [
   {
     company: "21.co",
     id: "fallback-harry-rashwan",
-    name: "Harry Rashwan",
-    slug: "harry-rashwan",
+    name: "Hany Rashwan",
+    slug: "hany-rashwan",
     socials: {
       x: "https://x.com/solana",
     },

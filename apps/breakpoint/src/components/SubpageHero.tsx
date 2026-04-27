@@ -23,7 +23,7 @@ function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
       ? "bg-white text-black hover:bg-[#e7d2f9]"
       : "border border-white text-white hover:bg-white hover:text-black";
 
-  const className = `inline-flex h-10 items-center justify-center gap-3 px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${variantClasses}`;
+  const className = `inline-flex h-10 w-full items-center justify-center gap-3 px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:w-auto ${variantClasses}`;
   const content = (
     <>
       {label}
@@ -50,7 +50,7 @@ export default function SubpageHero({
   title,
 }: SubpageHeroProps) {
   return (
-    <section className="relative h-[430px] overflow-hidden bg-black md:h-[467px]">
+    <section className="relative h-[424px] overflow-hidden bg-black md:h-[467px]">
       <div
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-[360px] overflow-hidden"
@@ -77,11 +77,11 @@ export default function SubpageHero({
         className="pointer-events-none absolute left-0 top-[160px] h-[200px] w-full min-w-[840px] object-cover"
       />
 
-      <div className="absolute left-5 right-5 top-[236px] flex flex-col items-start gap-8 pb-3 text-white md:left-8 md:right-auto md:top-[252px] md:w-[1026px]">
-        <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
+      <div className="absolute left-4 right-4 top-[252px] flex flex-col items-start gap-5 pb-3 text-white md:left-8 md:right-auto md:top-[252px] md:w-[1026px] md:gap-8">
+        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
           {eyebrow}
         </p>
-        <h1 className="font-sans text-[56px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:text-[80px]">
+        <h1 className="font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:text-[80px]">
           {title}
         </h1>
         {children}
