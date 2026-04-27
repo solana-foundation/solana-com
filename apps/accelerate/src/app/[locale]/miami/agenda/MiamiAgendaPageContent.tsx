@@ -280,7 +280,7 @@ export function MiamiAgendaPageContent({ data }: { data: AgendaData }) {
       </section>
 
       {data.sessions.length > 0 ? (
-        <Agenda data={data} />
+        <Agenda data={data} filterMode="format" />
       ) : (
         <section className="bg-black py-12 lg:py-16">
           <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
