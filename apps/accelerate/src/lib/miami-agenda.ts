@@ -57,6 +57,7 @@ export interface AgendaSession {
   title: string;
   subtitle?: string;
   type: SessionType;
+  format?: string;
   location: string;
   duration?: string;
   moderator?: AgendaSpeaker;
@@ -235,20 +236,27 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function resolveFormatType(
+function resolveFormat(
   formatField: unknown,
   formatMap: Map<string, string>,
-): SessionType {
+): { name?: string; type: SessionType } {
   const ids = Array.isArray(formatField) ? formatField : [];
+  const names: string[] = [];
   for (const id of ids) {
     if (typeof id !== "string") continue;
     const name = formatMap.get(id);
-    if (name && FORMAT_TO_TYPE[name]) return FORMAT_TO_TYPE[name]!;
+    if (name) names.push(name);
   }
+
   // Fallback: if someone enabled a string lookup instead of the linked record
   const asText = asString(formatField);
-  if (asText && FORMAT_TO_TYPE[asText]) return FORMAT_TO_TYPE[asText]!;
-  return "panel";
+  if (asText) names.push(asText);
+
+  for (const name of names) {
+    if (FORMAT_TO_TYPE[name]) return { name, type: FORMAT_TO_TYPE[name]! };
+  }
+
+  return { name: names[0], type: "panel" };
 }
 
 function resolvePublishingStatuses(
@@ -286,7 +294,7 @@ function normalizeSession(
     ? formatTimeRange(startISO, endISO)
     : "";
 
-  const type = resolveFormatType(fields["Format"], formatMap);
+  const { name: format, type } = resolveFormat(fields["Format"], formatMap);
   const location = asString(fields["Stage"]) ?? "";
   const subtitle = publishingStatuses.has("Description")
     ? asString(fields["Description"])
@@ -310,6 +318,7 @@ function normalizeSession(
       title,
       subtitle,
       type,
+      format,
       location,
       moderator,
       speakers,
