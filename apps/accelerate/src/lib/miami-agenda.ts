@@ -1,9 +1,14 @@
 import { unstable_cache } from "next/cache";
 import miamiAgendaStatic from "@/data/miami/agenda.json";
+import {
+  AIRTABLE_API_BASE,
+  fetchAirtableJson,
+  type AirtableFetchOptions,
+} from "./airtable";
 
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60;
 const EVENT_TIMEZONE = "America/New_York";
+const AIRTABLE_NO_STORE_OPTIONS: AirtableFetchOptions = { cache: "no-store" };
 
 // Defaults baked in so we don't need Miami-specific env vars.
 // Override via the matching AIRTABLE_*_MIAMI_AGENDA env var if the schema moves.
@@ -117,19 +122,12 @@ async function fetchAll(
     const params = new URLSearchParams({ pageSize: "100" });
     if (viewId) params.set("view", viewId);
     if (offset) params.set("offset", offset);
-    const response = await fetch(
+    const payload = await fetchAirtableJson<AirtableListResponse>(
       `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      },
+      token,
+      AIRTABLE_NO_STORE_OPTIONS,
+      `Airtable ${tableId} request`,
     );
-    if (!response.ok) {
-      throw new Error(
-        `Airtable ${tableId} request failed (${response.status})`,
-      );
-    }
-    const payload = (await response.json()) as AirtableListResponse;
     for (const record of payload.records ?? []) records.push(record);
     offset = payload.offset;
   } while (offset);
