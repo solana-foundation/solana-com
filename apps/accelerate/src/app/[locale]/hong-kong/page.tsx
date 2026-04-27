@@ -3,7 +3,6 @@ import {
   Hero,
   EventDetails,
   AgendaBanner,
-  HongKongSpeakers,
   Sponsors,
   FAQ,
   GettingThere,
@@ -53,10 +52,9 @@ export default function HongKongPage() {
         data={buildEventStructuredData(config.events.hongKong, "/hong-kong")}
       />
       <HashScroll />
-      <Hero />
+      <Hero showSpeakersNav={false} />
       <EventDetails />
-      <AgendaBanner />
-      <HongKongSpeakers />
+      <AgendaBanner showSpeakersCount={false} />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ />
       <GettingThere />

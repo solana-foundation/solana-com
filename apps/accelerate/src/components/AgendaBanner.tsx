@@ -12,6 +12,7 @@ interface AgendaBannerProps {
   agendaPath?: string;
   sessionsCount?: string;
   speakersCount?: string;
+  showSpeakersCount?: boolean;
   fullDayCount?: string;
 }
 
@@ -20,6 +21,7 @@ export function AgendaBanner({
   agendaPath = "/accelerate/hong-kong/agenda",
   sessionsCount,
   speakersCount,
+  showSpeakersCount = true,
   fullDayCount,
 }: AgendaBannerProps = {}) {
   const t = useTranslations(translationPrefix);
@@ -29,10 +31,14 @@ export function AgendaBanner({
       count: sessionsCount ?? t("sessionsCount"),
       label: t("sessionsLabel"),
     },
-    {
-      count: speakersCount ?? t("speakersCount"),
-      label: t("speakersLabel"),
-    },
+    ...(showSpeakersCount
+      ? [
+          {
+            count: speakersCount ?? t("speakersCount"),
+            label: t("speakersLabel"),
+          },
+        ]
+      : []),
     {
       count: fullDayCount ?? t("fullDayCount"),
       label: t("fullDayLabel"),
