@@ -71,20 +71,13 @@ export default function Button({
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.35, once: true });
   const [runKey, setRunKey] = useState(0);
-  const primed = useRef(false);
 
-  useEffect(() => {
-    if (!inView || primed.current) return;
-    primed.current = true;
-    setRunKey(1);
-  }, [inView]);
-
-  const scrambleDuration = variant === "primary" ? 1500 : 400;
+  const scrambleDuration = 400;
   const displayLabel = useScramble(label, scrambleDuration, runKey);
   const isDisabled = !href && !onClick;
 
   const handleHover = () => {
-    if (variant === "secondary") setRunKey((k) => k + 1);
+    setRunKey((k) => k + 1);
   };
 
   const baseClasses =

@@ -11,6 +11,7 @@ export default function NarrativeSection() {
     "font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]";
 
   const body1 = t("narrative.body1");
+  const body2 = t.raw("narrative.body2") as string;
   const body1WordCount = body1.split(/\s+/).length;
 
   return (
@@ -25,13 +26,15 @@ export default function NarrativeSection() {
 
         <div className="md:col-[7/span_10]">
           <WordReveal as="p" text={body1} stepMs={60} className={bodyClass} />
-          <WordReveal
-            as="p"
-            text={t.raw("narrative.body2")}
-            html
-            startDelayMs={body1WordCount * 60 + 200}
-            className={`mt-[1.15em] ${bodyClass}`}
-          />
+          {body2 && (
+            <WordReveal
+              as="p"
+              text={body2}
+              html
+              startDelayMs={body1WordCount * 60 + 200}
+              className={`mt-[1.15em] ${bodyClass}`}
+            />
+          )}
         </div>
       </div>
     </section>

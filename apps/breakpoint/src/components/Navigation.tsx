@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
@@ -43,6 +43,26 @@ export default function Navigation({
   const [isGlitching, setIsGlitching] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const glitchTimeoutRef = useRef<number | null>(null);
+
+  const triggerCtaGlitch = () => {
+    setIsGlitching(true);
+    if (glitchTimeoutRef.current != null) {
+      window.clearTimeout(glitchTimeoutRef.current);
+    }
+    glitchTimeoutRef.current = window.setTimeout(() => {
+      setIsGlitching(false);
+      glitchTimeoutRef.current = null;
+    }, GLITCH_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (glitchTimeoutRef.current != null) {
+        window.clearTimeout(glitchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let ticking = false;
@@ -67,13 +87,27 @@ export default function Navigation({
   }, []);
 
   useEffect(() => {
+    if (glitchTimeoutRef.current != null) {
+      window.clearTimeout(glitchTimeoutRef.current);
+      glitchTimeoutRef.current = null;
+    }
+
     if (!isSticky) {
       setIsGlitching(false);
       return;
     }
     setIsGlitching(true);
-    const id = window.setTimeout(() => setIsGlitching(false), GLITCH_MS);
-    return () => window.clearTimeout(id);
+    glitchTimeoutRef.current = window.setTimeout(() => {
+      setIsGlitching(false);
+      glitchTimeoutRef.current = null;
+    }, GLITCH_MS);
+
+    return () => {
+      if (glitchTimeoutRef.current != null) {
+        window.clearTimeout(glitchTimeoutRef.current);
+        glitchTimeoutRef.current = null;
+      }
+    };
   }, [isSticky]);
 
   const resolvedCtaLabel = ctaLabel ?? t("hero.cta");
@@ -112,11 +146,23 @@ export default function Navigation({
 
   const ctaElement = ctaHref ? (
     isRelativeHref(ctaHref) ? (
-      <Link href={ctaHref} className={ctaClasses} {...ctaAriaProps}>
+      <Link
+        href={ctaHref}
+        className={ctaClasses}
+        onMouseEnter={triggerCtaGlitch}
+        onFocus={triggerCtaGlitch}
+        {...ctaAriaProps}
+      >
         {ctaInner}
       </Link>
     ) : (
-      <a href={ctaHref} className={ctaClasses} {...ctaAriaProps}>
+      <a
+        href={ctaHref}
+        className={ctaClasses}
+        onMouseEnter={triggerCtaGlitch}
+        onFocus={triggerCtaGlitch}
+        {...ctaAriaProps}
+      >
         {ctaInner}
       </a>
     )
@@ -124,6 +170,8 @@ export default function Navigation({
     <button
       type="button"
       onClick={() => setSubscribeOpen(true)}
+      onMouseEnter={triggerCtaGlitch}
+      onFocus={triggerCtaGlitch}
       className={ctaClasses}
       {...ctaAriaProps}
     >

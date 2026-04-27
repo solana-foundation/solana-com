@@ -44,11 +44,17 @@ export default function GallerySection() {
             alt=""
             aria-hidden="true"
             glitchPattern="p1"
-            intensity={20}
+            intensity={10}
             color="purple"
             lighting="even"
-            motion
             mouseReactive
+            mouseRadius={72}
+            overrides={{
+              iframes: 5,
+              pframes: 1,
+              shift: 4,
+              block: 18,
+            }}
             className="absolute inset-0 h-full w-full"
           />
           <div className="absolute inset-y-0 left-4 z-10 flex w-[343px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:w-full md:max-w-[500px] md:-translate-x-1/2">

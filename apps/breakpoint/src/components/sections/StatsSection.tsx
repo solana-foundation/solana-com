@@ -91,25 +91,31 @@ export default function StatsSection() {
       </div>
 
       <div className="mt-xl w-full overflow-hidden md:mt-16" aria-hidden="true">
-        <div className="photo-strip-track flex w-max gap-4 md:gap-0">
-          {[...stripImages, ...stripImages].map((src, index) => {
-            const position = index % stripImages.length;
-            const color = stripColors[position % stripColors.length]!;
-            return (
-              <ImageTreatment
-                key={index}
-                src={src}
-                alt=""
-                motion={true}
-                flicker={true}
-                glitchPattern="p1"
-                intensity={60}
-                lighting="even"
-                color={color}
-                className={`relative h-[240px] w-[200px] shrink-0 overflow-hidden bg-[#1e1e1e] md:h-[320px] md:w-[280px] ${widths[position]}`}
-              />
-            );
-          })}
+        <div className="photo-strip-track flex w-max">
+          {[0, 1].map((loopIndex) => (
+            <div
+              key={loopIndex}
+              className="flex shrink-0 gap-4 pr-4 md:gap-6 md:pr-6"
+            >
+              {stripImages.map((src, index) => {
+                const color = stripColors[index % stripColors.length]!;
+                return (
+                  <ImageTreatment
+                    key={`${loopIndex}-${src}`}
+                    src={src}
+                    alt=""
+                    motion={true}
+                    flicker={true}
+                    glitchPattern="p1"
+                    intensity={60}
+                    lighting="even"
+                    color={color}
+                    className={`relative h-[240px] w-[200px] shrink-0 overflow-hidden bg-[#1e1e1e] md:h-[320px] md:w-[280px] ${widths[index]}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </section>
