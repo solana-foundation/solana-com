@@ -4,7 +4,7 @@ import {
   TEMPLATES_APP_URL,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
-} from "./apps-urls";
+} from "./apps-urls.mjs";
 import { locales } from "@workspace/i18n/config";
 
 const LOCALE_REGEX = locales.join("|");
@@ -331,6 +331,11 @@ export default {
       {
         source: "/developers/data/:path*",
         destination: `${DOCS_APP_URL}/developers/data/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/databricks/:path*",
+        destination: `${DOCS_APP_URL}/api/databricks/:path*`,
         locale: false,
       },
       // Docs app with locale
