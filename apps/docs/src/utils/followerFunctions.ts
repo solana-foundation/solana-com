@@ -36,17 +36,9 @@ const scrapeMeetupMemberCount = async () => {
     `https://www.meetup.com/topics/solana/`,
     `div.font-medium`,
   );
-  if (
-    meetupMemberCountTag.length &&
-    meetupMemberCountTag[0] &&
-    typeof meetupMemberCountTag[0] === "object"
-  ) {
-    const meetupCountString =
-      "children" in meetupMemberCountTag[0] &&
-      meetupMemberCountTag[0].children[0] &&
-      "data" in meetupMemberCountTag[0].children[0]
-        ? meetupMemberCountTag[0].children[0].data
-        : "";
+  if (meetupMemberCountTag.length) {
+    // @ts-expect-error The `children` prop is present in `meetupMemberCountTag[0]`
+    const meetupCountString = meetupMemberCountTag[0]?.children?.[0]?.data;
     return parseInt(meetupCountString.replace(",", ""), 10);
   }
   return 0;

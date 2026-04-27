@@ -302,7 +302,6 @@ function ObjectParam({ block }: { block: ParamBlock }) {
 }
 
 function ValuesTable({ block }: { block: ParamBlock }) {
-  if (!block.values) return null;
   return (
     <table className="w-full not-prose bg-fd-card">
       <thead>
@@ -315,7 +314,7 @@ function ValuesTable({ block }: { block: ParamBlock }) {
         <tr>
           <td className="px-2 pb-3">
             <span className="flex flex-wrap gap-1">
-              {block.values.map((value) => (
+              {block.values?.map((value) => (
                 <Pill key={value} value={value} color="var(--ch-2)" />
               ))}
             </span>

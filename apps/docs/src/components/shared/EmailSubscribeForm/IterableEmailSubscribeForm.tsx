@@ -140,7 +140,7 @@ export default function IterableEmailSubscribeForm({
               onClick={onSubmit}
             >
               {ctaTextID
-                ? t({ ctaTextID } as never)
+                ? t({ ctaTextID })
                 : t("shared.mail-signup.form.signup")}
             </Button>
           </div>
