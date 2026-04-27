@@ -1,264 +1,574 @@
 ---
-title: Tokeny nieprzenoszalne
-description: Dowiedz się, jak włączyć InitializeNonTransferableMint.
+title: Tokeny nieprzekazywalne
+description:
+  Utwórz mint, którego tokeny mogą być mintowane, spalane i zamykane, ale nie
+  mogą być przekazywane między kontami tokenów.
+url: /docs/tokens/extensions/non-transferrable-tokens
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics/create-mint
+  - /docs/tokens/basics/create-token-account
+  - /docs/tokens/basics/mint-tokens
+related:
+  - /docs/tokens/extensions/immutable-owner
+  - /docs/tokens/basics/burn-tokens
+  - /docs/tokens/basics/close-account
+  - /docs/tokens/extensions
 ---
 
-## Jak włączyć rozszerzenie InitializeNonTransferableMint
+## Czym są tokeny nieprzekazywalne?
 
-[`InitializeNonTransferableMint`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L647)
-zapobiega transferowi tokenów między token account po ich wybiciu. Po wybiciu
-tokeny pozostają na stałe na token account. Jednak właściciel token account
-nadal może spalić tokeny i zamknąć token account, gdy saldo osiągnie zero.
+Rozszerzenie _rs`NonTransferable`_ mint Token Extensions Program sprawia, że
+każde konto tokenów dla tego mint staje się nieprzekazywalne. Po zmintowaniu
+tokenów posiadacze tokenów nie mogą przenieść ich na inne konto tokenów za
+pomocą _rs`Transfer`_ lub _rs`TransferChecked`_.
+
+Ten wzorzec jest przydatny w przypadku aktywów, które powinny pozostać powiązane
+z jednym portfelem.
+
+Tokeny nieprzekazywalne nadal mogą być:
+
+- Mintowane przez uprawnienie mint
+- Spalane przez właściciela konta tokenów lub upoważnionego delegata
+- Konta tokenów mogą być zamykane po osiągnięciu salda zero
+
+<Callout type="info" title="Rozszerzenia konta tokenów">
+  Gdy konto tokenów jest inicjalizowane dla mint z _rs`NonTransferable`_, konto
+  tokenów jest inicjalizowane z _rs`NonTransferableAccount`_ i
+  _rs`ImmutableOwner`_. Gdy konto tokenów jest tworzone przez [Associated Token
+  Program](/docs/tokens/basics/create-token-account#how-to-create-an-associated-token-account),
+  obliczany jest wymagany rozmiar konta, a konto tokenów jest tworzone z
+  wymaganym rozmiarem i lamport zwolnionymi z rent.
+</Callout>
+
+## Jak utworzyć mint nieprzekazywalne
+
+Aby utworzyć mint nieprzekazywalne:
+
+1. Oblicz rozmiar mint account i rent potrzebne dla mint oraz rozszerzenia
+   _rs`NonTransferable`_.
+2. Utwórz mint account za pomocą _rs`CreateAccount`_, zainicjalizuj
+   _rs`NonTransferable`_ i zainicjalizuj mint za pomocą _rs`InitializeMint`_.
+3. Utwórz konta tokenów dla mint. _rs`NonTransferableAccount`_ i
+   _rs`ImmutableOwner`_ są automatycznie włączone dla kont tokenów.
+4. _rs`Transfer`_ i _rs`TransferChecked`_ kończą się niepowodzeniem z
+   _rs`TokenError::NonTransferable`_.
+
+<ScrollyCoding>
+
+## !!steps Oblicz rozmiar konta
+
+Oblicz rozmiar mint account dla podstawowego mint plus rozszerzenie
+_rs`NonTransferable`_. To jest rozmiar używany w _rs`CreateAccount`_.
+
+<CodePlaceholder title="Przykład" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// !focus(1:1)
+const nonTransferableExtension = extension("NonTransferable", {});
+
+// !focus(1:1)
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+```
+
+## !!steps Oblicz czynsz
+
+Oblicz czynsz używając rozmiaru potrzebnego dla mint oraz rozszerzenia
+_rs`NonTransferable`_.
+
+<CodePlaceholder title="Przykład" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const nonTransferableExtension = extension("NonTransferable", {});
+
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+
+// !focus(1:3)
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+```
+
+## !!steps Utwórz mint account
+
+Utwórz mint account z obliczoną przestrzenią i lamportami.
+
+<CodePlaceholder title="Przykład" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const nonTransferableExtension = extension("NonTransferable", {});
+
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+// !focus(1:9)
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  })
+]);
+```
+
+## !!steps Zainicjalizuj NonTransferable
+
+Zainicjalizuj rozszerzenie _rs`NonTransferable`_ na mint.
+
+<CodePlaceholder title="Przykład" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const nonTransferableExtension = extension("NonTransferable", {});
+
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  // !focus(1:3)
+  getInitializeNonTransferableMintInstruction({
+    mint: mint.address
+  })
+]);
+```
+
+## !!steps Zainicjalizuj mint
+
+Zainicjalizuj mint za pomocą _rs`InitializeMint`_ w tej samej transakcji.
+
+<CodePlaceholder title="Przykład" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const nonTransferableExtension = extension("NonTransferable", {});
+
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeNonTransferableMintInstruction({
+    mint: mint.address
+  }),
+  // !focus(1:6)
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+```
+
+</ScrollyCoding>
+
+<Callout type="info" title="Kolejność Instrukcji">
+  _rs`InitializeNonTransferableMint`_ musi być przed _rs`InitializeMint`_.
+  _rs`CreateAccount`_, _rs`InitializeNonTransferableMint`_ oraz
+  _rs`InitializeMint`_ muszą być zawarte w tej samej transakcji.
+</Callout>
+
+### Źródło
+
+| Element                                        | Opis                                                                                                                                                                                                                                      | Źródło                                                                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| _rs`NonTransferable`_                          | Rozszerzenie mint, które oznacza tokeny z mint jako nieprzekazywalne.                                                                                                                                                                     | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/non_transferable.rs#L8-L13)  |
+| _rs`NonTransferableAccount`_                   | Rozszerzenie token account dodane do token accounts dla nieprzekazywalnych mint.                                                                                                                                                          | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/non_transferable.rs#L15-L21) |
+| _rs`ImmutableOwner`_                           | Rozszerzenie token account, które zapobiega zmianom własności i jest wymagane dla nieprzekazywalnych token accounts.                                                                                                                      | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/immutable_owner.rs#L8-L16)   |
+| _rs`InitializeNonTransferableMint`_            | Instrukcja inicjalizująca rozszerzenie nieprzekazywalności na poziomie mint przed _rs`InitializeMint`_.                                                                                                                                   | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/instruction.rs#L642-L653)              |
+| _rs`process_initialize_non_transferable_mint`_ | Logika procesora inicjalizująca rozszerzenie mint _rs`NonTransferable`_ na niezainicjalizowanym mint.                                                                                                                                     | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L1646-L1655)                |
+| _rs`get_required_init_account_extensions`_     | Służy do automatycznego dodawania rozszerzeń token account podczas inicjalizacji token accounts na podstawie rozszerzeń włączonych na mint. Dla mint _rs`NonTransferable`_ dodaje _rs`NonTransferableAccount`_ oraz _rs`ImmutableOwner`_. | [Źródło](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/mod.rs#L1304-L1307)          |
 
 ### Typescript
 
-<CodeTabs storage="token-ts" flags="r">
+Poniższy przykład `Kit` używa bezpośrednio wygenerowanych instrukcji. Starsze
+przykłady używające `@solana/web3.js` są dołączone jako odniesienie.
 
-```ts !! title="Kit"
+#### Zestaw
+
+<CodeTabs storage="token-ts-kit" flags="r">
+
+```ts !! title="Instructions"
+import { lamports, createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   extension,
+  fetchMint,
+  fetchToken,
   findAssociatedTokenPda,
   getCreateAssociatedTokenInstructionAsync,
   getInitializeMintInstruction,
   getInitializeNonTransferableMintInstruction,
   getMintSize,
-  getTokenSize,
+  getMintToCheckedInstruction,
+  getTransferCheckedInstruction,
   TOKEN_2022_PROGRAM_ADDRESS
 } from "@solana-program/token-2022";
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-// Generate the authority for the mint (also acts as fee payer)
-const authority = await generateKeyPairSigner();
-
-// Fund authority/fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: authority.address,
-  lamports: lamports(5_000_000_000n), // 5 SOL
-  commitment: "confirmed"
-});
-
-// Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
 
-// Define the non-transferrable extension
 const nonTransferableExtension = extension("NonTransferable", {});
+const mintSpace = BigInt(getMintSize([nonTransferableExtension]));
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
 
-// Get mint account size with non-transferrable extension
-const space = BigInt(getMintSize([nonTransferableExtension]));
-
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createMintAccountInstruction = getCreateAccountInstruction({
-  payer: authority,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_2022_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize non-transferrable extension
-const initializeNonTransferableInstruction =
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  // !mark(1:3)
   getInitializeNonTransferableMintInstruction({
-    mint: mint.address
-  });
+    mint: mint.address // Mint account that stores the NonTransferable extension.
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
 
-// Instruction to initialize mint account data
-// Invokes the token22 program
-const initializeMintInstruction = getInitializeMintInstruction({
+const [sourceToken] = await findAssociatedTokenPda({
   mint: mint.address,
-  decimals: 0, // Often 0 for non-transferrable tokens like certificates/badges
-  mintAuthority: authority.address,
-  freezeAuthority: authority.address
-});
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: authority.address,
+  owner: client.payer.address,
   tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-// instruction to create the associated token account for the authority
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: authority,
+const [destinationToken] = await findAssociatedTokenPda({
   mint: mint.address,
-  owner: authority.address
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-const instructions = [
-  createMintAccountInstruction,
-  initializeNonTransferableInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-];
+await client.sendTransaction([
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  }),
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: recipient.address
+  }),
+  getMintToCheckedInstruction({
+    mint: mint.address,
+    token: sourceToken,
+    mintAuthority: client.payer,
+    amount: 1n,
+    decimals: 0
+  })
+]);
 
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
+try {
+  await client.sendTransaction([
+    // !mark(1:8)
+    getTransferCheckedInstruction({
+      source: sourceToken, // Token account sending the transfer.
+      mint: mint.address, // Mint with the non-transferable configuration.
+      destination: destinationToken, // Token account receiving the transfer.
+      authority: client.payer, // Signer approving the transfer.
+      amount: 1n, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ]);
+} catch (error) {
+  console.error("Transfer failed as expected:", error);
+}
 
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
+const mintAccount = await fetchMint(client.rpc, mint.address);
+const sourceTokenAccount = await fetchToken(client.rpc, sourceToken);
 
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed", skipPreflight: true }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("Mint Address with Non-Transferrable Extension:", mint.address);
-console.log("ATA Address:", associatedTokenAddress);
-console.log(
-  "Note: Tokens minted from this mint cannot be transferred between accounts"
-);
-console.log("Mint Authority:", authority.address);
-console.log("Transaction Signature:", transactionSignature);
+console.log("Mint Address:", mint.address);
+console.log("Mint Extensions:", mintAccount.data.extensions);
+console.log("\nSource ATA:", sourceToken);
+console.log("Source Token Extensions:", sourceTokenAccount.data.extensions);
+console.log("Destination ATA:", destinationToken);
 ```
 
-```ts !! title="Legacy"
+</CodeTabs>
+
+#### Web3.js
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
-  SystemProgram,
-  Transaction,
+  LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
+  SystemProgram,
+  Transaction
 } from "@solana/web3.js";
 import {
-  ExtensionType,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
   createInitializeMintInstruction,
   createInitializeNonTransferableMintInstruction,
+  createMintToCheckedInstruction,
+  createTransferCheckedInstruction,
+  ExtensionType,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMint,
   getMintLen,
-  TOKEN_2022_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddressSync
+  getNonTransferable,
+  TOKEN_2022_PROGRAM_ID
 } from "@solana/spl-token";
 
-// Create connection to local validator
 const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
 
-// Generate keypair for mint authority (also acts as fee payer)
-const authority = Keypair.generate();
+const feePayer = Keypair.generate();
+const recipient = Keypair.generate();
 
-// Fund the authority account
 const airdropSignature = await connection.requestAirdrop(
-  authority.publicKey,
-  5 * LAMPORTS_PER_SOL
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
 );
-await connection.confirmTransaction(airdropSignature, "confirmed");
-
-// Generate keypair for the mint account
-const mint = Keypair.generate();
-
-// Define the extensions for the mint
-const extensions = [ExtensionType.NonTransferable];
-
-// Calculate space required for mint account with extensions
-const mintSpace = getMintLen(extensions);
-
-// Get minimum balance for rent exemption
-const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
-
-// Create instruction to create new account for mint
-const createMintAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: authority.publicKey,
-  newAccountPubkey: mint.publicKey,
-  lamports: mintRent,
-  space: mintSpace,
-  programId: TOKEN_2022_PROGRAM_ID
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
 });
 
-// Create instruction to initialize non-transferrable extension
-const initializeNonTransferableInstruction =
-  createInitializeNonTransferableMintInstruction(
-    mint.publicKey,
-    TOKEN_2022_PROGRAM_ID
-  );
+const mint = Keypair.generate();
+const mintSpace = getMintLen([ExtensionType.NonTransferable]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
 
-// Create instruction to initialize mint
-const initializeMintInstruction = createInitializeMintInstruction(
+const sourceToken = getAssociatedTokenAddressSync(
   mint.publicKey,
-  0, // decimals - often 0 for non-transferrable tokens like certificates/badges
-  authority.publicKey, // mint authority
-  authority.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-// Get associated token account address
-const associatedTokenAddress = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  authority.publicKey,
+  feePayer.publicKey,
   false,
-  TOKEN_2022_PROGRAM_ID
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
 );
 
-// Create instruction to create associated token account
-const createAtaInstruction = createAssociatedTokenAccountInstruction(
-  authority.publicKey, // payer
-  associatedTokenAddress, // associated token account
-  authority.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_2022_PROGRAM_ID
+const destinationToken = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
 );
 
-// Create transaction with all instructions
-const transaction = new Transaction().add(
-  createMintAccountInstruction,
-  initializeNonTransferableInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-);
-
-// Send and confirm transaction
-const transactionSignature = await sendAndConfirmTransaction(
+await sendAndConfirmTransaction(
   connection,
-  transaction,
-  [authority, mint], // signers
-  { commitment: "confirmed", skipPreflight: true }
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      lamports: mintRent,
+      space: mintSpace,
+      programId: TOKEN_2022_PROGRAM_ID
+    }),
+    // !mark(1:4)
+    createInitializeNonTransferableMintInstruction(
+      mint.publicKey, // Mint account that stores the NonTransferable extension.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    ),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      0,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    )
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
 );
 
-console.log(
-  "Mint Address with Non-Transferrable Extension:",
-  mint.publicKey.toBase58()
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey,
+      sourceToken,
+      feePayer.publicKey,
+      mint.publicKey,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    ),
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey,
+      destinationToken,
+      recipient.publicKey,
+      mint.publicKey,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    ),
+    createMintToCheckedInstruction(
+      mint.publicKey,
+      sourceToken,
+      feePayer.publicKey,
+      1,
+      0,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    )
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
 );
-console.log("ATA Address:", associatedTokenAddress.toBase58());
-console.log(
-  "Note: Tokens minted from this mint cannot be transferred between accounts"
+
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      // !mark(1:10)
+      createTransferCheckedInstruction(
+        sourceToken, // Token account sending the transfer.
+        mint.publicKey, // Mint with the non-transferable configuration.
+        destinationToken, // Token account receiving the transfer.
+        feePayer.publicKey, // Signer approving the transfer.
+        1, // Token amount in base units.
+        0, // Decimals defined on the mint.
+        [], // Additional multisig signers.
+        TOKEN_2022_PROGRAM_ID // Token program that processes the transfer.
+      )
+    ),
+    [feePayer],
+    { commitment: "confirmed" }
+  );
+} catch (error) {
+  console.error("Transfer failed as expected:", error);
+}
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
 );
-console.log("Mint Authority:", authority.publicKey.toBase58());
-console.log("Transaction Signature:", transactionSignature);
+const sourceTokenAccount = await getAccount(
+  connection,
+  sourceToken,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Has NonTransferable:", getNonTransferable(mintAccount) !== null);
+console.log("\nSource ATA:", sourceToken.toBase58());
+console.log("Source Token Account:", sourceTokenAccount);
+console.log("Destination ATA:", destinationToken.toBase58());
 ```
 
 </CodeTabs>
@@ -282,32 +592,29 @@ use spl_associated_token_account_interface::{
 };
 use spl_token_2022_interface::{
     extension::{
-        non_transferable::NonTransferable, BaseStateWithExtensions, ExtensionType,
-        StateWithExtensions,
+        non_transferable::{NonTransferable, NonTransferableAccount},
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
     },
-    instruction::{initialize_mint, initialize_non_transferable_mint, mint_to, transfer_checked},
-    state::Mint,
+    instruction::{
+        initialize_mint, initialize_non_transferable_mint, mint_to_checked, transfer_checked,
+    },
+    state::{Account, Mint},
     ID as TOKEN_2022_PROGRAM_ID,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to local validator
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let latest_blockhash = client.get_latest_blockhash().await?;
-
-    // Generate a new keypair for the fee payer
+    let recipient = Keypair::new();
     let fee_payer = Keypair::new();
+    let decimals = 0;
 
-    // Airdrop 5 SOL to fee payer
     let airdrop_signature = client
-        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
         .await?;
-
-    // Ensure the airdrop is confirmed
     loop {
         let confirmed = client.confirm_transaction(&airdrop_signature).await?;
         if confirmed {
@@ -315,131 +622,128 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Generate keypair to use as address of mint
     let mint = Keypair::new();
-
-    // Calculate mint account size with non-transferrable extension
     let mint_space =
         ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::NonTransferable])?;
-
     let mint_rent = client
         .get_minimum_balance_for_rent_exemption(mint_space)
         .await?;
 
-    // Instruction to create new account for mint (token22)
-    let create_mint_account_instruction = create_account(
-        &fee_payer.pubkey(),    // payer
-        &mint.pubkey(),         // new account (mint)
-        mint_rent,              // lamports
-        mint_space as u64,      // space
-        &TOKEN_2022_PROGRAM_ID, // program id
-    );
-
-    let initialize_non_transferable_instruction =
-        initialize_non_transferable_mint(&TOKEN_2022_PROGRAM_ID, &mint.pubkey())?;
-
-    // Instruction to initialize mint account data
-    let initialize_mint_instruction = initialize_mint(
-        &TOKEN_2022_PROGRAM_ID,    // program id
-        &mint.pubkey(),            // mint
-        &fee_payer.pubkey(),       // mint authority
-        Some(&fee_payer.pubkey()), // freeze authority
-        0, // decimals - often 0 for non-transferrable tokens like certificates/badges
-    )?;
-
-    // Instruction to create associated token account
-    let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(),    // payer
-        &fee_payer.pubkey(),    // owner
-        &mint.pubkey(),         // mint
-        &TOKEN_2022_PROGRAM_ID, // token program
-    );
-
-    // Construct transaction with non-transferrable mint extension
-    let transaction = Transaction::new_signed_with_payer(
+    let mint_blockhash = client.get_latest_blockhash().await?;
+    let mint_transaction = Transaction::new_signed_with_payer(
         &[
-            create_mint_account_instruction,
-            initialize_non_transferable_instruction,
-            initialize_mint_instruction,
-            create_ata_instruction,
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                mint_space as u64,
+                &TOKEN_2022_PROGRAM_ID,
+            ),
+            initialize_non_transferable_mint(&TOKEN_2022_PROGRAM_ID, &mint.pubkey())?,
+            initialize_mint(
+                &TOKEN_2022_PROGRAM_ID,
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                decimals,
+            )?,
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer, &mint],
-        latest_blockhash,
+        mint_blockhash,
+    );
+    client.send_and_confirm_transaction(&mint_transaction).await?;
+
+    let source_token_address = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+    let destination_token_address = get_associated_token_address_with_program_id(
+        &recipient.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
     );
 
-    client.send_and_confirm_transaction(&transaction).await?;
+    let setup_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_associated_token_account(
+                &fee_payer.pubkey(),
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                &TOKEN_2022_PROGRAM_ID,
+            ),
+            create_associated_token_account(
+                &fee_payer.pubkey(),
+                &recipient.pubkey(),
+                &mint.pubkey(),
+                &TOKEN_2022_PROGRAM_ID,
+            ),
+            mint_to_checked(
+                &TOKEN_2022_PROGRAM_ID,
+                &mint.pubkey(),
+                &source_token_address,
+                &fee_payer.pubkey(),
+                &[],
+                1,
+                decimals,
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        setup_blockhash,
+    );
+    client.send_and_confirm_transaction(&setup_transaction).await?;
+
+    let transfer_blockhash = client.get_latest_blockhash().await?;
+    let transfer_transaction = Transaction::new_signed_with_payer(
+        &[
+            // !mark(1:10)
+            transfer_checked(
+                &TOKEN_2022_PROGRAM_ID, // Token program to invoke.
+                &source_token_address, // Token account sending the tokens.
+                &mint.pubkey(), // Mint for the token being transferred.
+                &destination_token_address, // Token account receiving the tokens.
+                &fee_payer.pubkey(), // Owner or delegate approving the transfer.
+                &[], // Additional multisig signers.
+                1, // Token amount in base units.
+                decimals, // Decimals defined on the mint account.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        transfer_blockhash,
+    );
+
+    match client.send_and_confirm_transaction(&transfer_transaction).await {
+        Ok(signature) => println!("Transfer unexpectedly succeeded: {}", signature),
+        Err(error) => println!("Transfer failed as expected: {error:#?}"),
+    }
+
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
+    let source_token_account = client.get_account(&source_token_address).await?;
+    let source_token_state = StateWithExtensions::<Account>::unpack(&source_token_account.data)?;
 
     println!("Mint Address: {}", mint.pubkey());
-
-    // Fetch mint account
-    let mint_account = client.get_account(&mint.pubkey()).await?;
-    // Deserialize the mint account with extensions
-    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
-
-    // Get all extension types enabled on this mint
-    let extension_types = mint_state.get_extension_types()?;
-    println!("\nExtensions enabled: {:?}", extension_types);
-
-    // Deserialize the NonTransferable extension data
-    let non_transferable = mint_state.get_extension::<NonTransferable>()?;
-    println!("\n{:#?}", non_transferable);
-
-    // Get associated token account address
-    let associated_token_address = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(),    // owner
-        &mint.pubkey(),         // minti
-        &TOKEN_2022_PROGRAM_ID, // token program
+    println!("Mint Extensions: {:?}", mint_state.get_extension_types()?);
+    println!(
+        "Has NonTransferable: {}",
+        mint_state.get_extension::<NonTransferable>().is_ok()
     );
-
-    // Mint 1 token to the associated token account
-    let mint_to_instruction = mint_to(
-        &TOKEN_2022_PROGRAM_ID,
-        &mint.pubkey(),
-        &associated_token_address,
-        &fee_payer.pubkey(),
-        &[],
-        1,
-    )?;
-
-    let mint_transaction = Transaction::new_signed_with_payer(
-        &[mint_to_instruction],
-        Some(&fee_payer.pubkey()),
-        &[&fee_payer],
-        latest_blockhash,
+    println!("\nSource ATA: {}", source_token_address);
+    println!(
+        "Source Token Extensions: {:?}",
+        source_token_state.get_extension_types()?
     );
-
-    client
-        .send_and_confirm_transaction(&mint_transaction)
-        .await?;
-
-    // Attempt to transfer token (should fail with non-transferable error)
-    println!("\nAttempting to transfer non-transferable token");
-    let transfer_instruction = transfer_checked(
-        &TOKEN_2022_PROGRAM_ID,
-        &associated_token_address, // source
-        &mint.pubkey(),            // mint
-        &associated_token_address, // destination (same as source)
-        &fee_payer.pubkey(),       // owner
-        &[],                       // signers
-        1,                         // amount
-        0,                         // decimals
-    )?;
-
-    let transfer_transaction = Transaction::new_signed_with_payer(
-        &[transfer_instruction],
-        Some(&fee_payer.pubkey()),
-        &[&fee_payer],
-        latest_blockhash,
+    println!(
+        "Has NonTransferableAccount: {}",
+        source_token_state
+            .get_extension::<NonTransferableAccount>()
+            .is_ok()
     );
-
-    match client
-        .send_and_confirm_transaction(&transfer_transaction)
-        .await
-    {
-        Ok(sig) => println!("Transfer succeeded unexpectedly: {}", sig),
-        Err(e) => println!("Transfer failed as expected:\n{:#?}", e),
-    }
+    println!("Destination ATA: {}", destination_token_address);
 
     Ok(())
 }
