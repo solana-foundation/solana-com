@@ -4,32 +4,11 @@ import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
 import FormattedDate from "../shared/FormattedDate";
 import defaultImg from "../../../assets/events/solana-community-event.jpg";
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
-type EventData = {
-  platform?: string;
-  key?: string;
-  rsvp?: string;
-  lumaUrl?: string;
-  img?: { primary?: { alt?: string } | string };
-  title?: string;
-  schedule?: {
-    from?: string | Date;
-    to?: string | Date;
-    timezone?: string;
-  };
-  type?: string;
-  venue?: {
-    address?: string;
-    city_state?: string;
-    [key: string]: string | undefined;
-  };
-};
-
-const EventsSingleRow = ({ event }: { event?: EventData }) => {
+const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
   const eventUrl =
-    event?.platform === "external"
-      ? event.key!
-      : event?.rsvp || event?.lumaUrl!;
+    event?.platform === "external" ? event.key! : event?.rsvp || event?.lumaUrl;
 
   return event ? (
     <Link
@@ -58,7 +37,8 @@ const EventsSingleRow = ({ event }: { event?: EventData }) => {
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from!).getDay() !==
+            event?.schedule?.from &&
+            new Date(event?.schedule?.from).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>

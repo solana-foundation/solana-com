@@ -40,7 +40,9 @@ export function MarkdownPre({
   children,
   ...props
 }: React.ComponentProps<"pre"> & CustomPreMetadataProps) {
-  const language = props["data-language"];
+  const language = (
+    props as React.ComponentProps<"pre"> & { "data-language"?: string }
+  )["data-language"];
   const Icon = getIconForLanguage(language);
 
   return (

@@ -1,6 +1,6 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
-import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
+import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
@@ -82,10 +82,12 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map((redirect) => ({
-        ...redirect,
-        permanent: redirect.permanent ?? true,
-      })),
+      ...rewritesAndRedirectsJson.redirects.map(
+        (redirect): Redirect => ({
+          ...redirect,
+          permanent: redirect.permanent ?? true,
+        }),
+      ),
     ];
 
     return existingRedirects;
@@ -218,7 +220,7 @@ const nextConfig: NextConfig = {
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")

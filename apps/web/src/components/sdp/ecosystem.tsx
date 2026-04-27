@@ -127,15 +127,12 @@ export const Ecosystem = ({
                         autoAnimation
                         fadeColor="transparent"
                         speed={50}
-                        renderImage={(
-                          logo: LogoType & { href: string },
-                          logoImage,
-                        ) => (
+                        renderImage={(logo, logoImage) => (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <a
                                 className="block h-full text-inherit"
-                                href={logo.href}
+                                href={logo.href as string}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
@@ -146,7 +143,10 @@ export const Ecosystem = ({
                               <TooltipContent className="!border-none mb-2 !rounded-[47px] !bg-[#1D1D20] !text-white !py-1 !pl-2 !pr-3 flex items-center gap-1.5">
                                 <CursorBox className="size-4" />
                                 <span className="nd-body-xs">
-                                  {logo.href?.replace("https://", "")}
+                                  {((logo.href as string) || "")?.replace(
+                                    "https://",
+                                    "",
+                                  )}
                                 </span>
                               </TooltipContent>
                             </TooltipPortal>
@@ -192,13 +192,10 @@ export const Ecosystem = ({
                         logos={cat.logos}
                         animation={false}
                         fadeColor="transparent"
-                        renderImage={(
-                          logo: LogoType & { href: string },
-                          logoImage,
-                        ) => (
+                        renderImage={(logo, logoImage) => (
                           <a
                             className="block h-full text-inherit"
-                            href={logo.href}
+                            href={logo.href as string}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

@@ -47,11 +47,13 @@ export function DevelopersPaymentsPage() {
       label: cardDeckText[index]?.ctaLabel ?? "",
     },
   }));
-  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map((card, index) => ({
-    ...card,
-    feature: t(`featureHighlight.cards.${index}.feature`),
-    body: t(`featureHighlight.cards.${index}.body`),
-  }));
+  const featureHighlightCards = FEATURE_HIGHLIGHT_CARDS.map(
+    ({ ...card }, index) => ({
+      ...card,
+      feature: t(`featureHighlight.cards.${index}.feature`),
+      body: t(`featureHighlight.cards.${index}.body`),
+    }),
+  );
   const switchbackButtons = SWITCHBACK_BUTTONS.map((button, index) => ({
     ...button,
     label: t(`switchback.buttons.${index}`),
@@ -106,9 +108,10 @@ export function DevelopersPaymentsPage() {
           body={t("featureHighlight.body")}
           headingAs={"h2"}
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-          cards={featureHighlightCards as any}
+          cards={featureHighlightCards}
           buttons={[]}
-          valueOf={null}
+          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+          valueOf={() => false}
         />
       </ResponsiveBox>
       <ResponsiveBox responsiveStyles={blockSpacing}>

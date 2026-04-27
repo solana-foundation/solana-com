@@ -44,6 +44,7 @@ export type CalendarEvent = {
   description: string;
   platform?: string;
   rsvp: string;
+  lumaUrl?: string;
   /** When true, this event is shown as the featured event on the events page */
   featured?: boolean;
   schedule: {
@@ -62,6 +63,7 @@ export type CalendarEvent = {
     country: string | null;
     address: string | null;
   };
+  type?: string;
 };
 
 const dummyEvent = [
@@ -101,7 +103,7 @@ const signupFormEvents: CalendarEvent[] = [];
  */
 export async function fetchCalendarEvents(
   calendarId: string,
-  options: Record<string, any>,
+  options: Record<string, string | number>,
 ): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
@@ -136,12 +138,13 @@ export async function fetchCalendarEvents(
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("LUMA API request timed out. Returning empty array.");
     } else {
-      console.warn("LUMA API request failed:", error.message || error);
+      console.warn("LUMA API request failed:", err.message || error);
     }
     return [];
   }
@@ -249,7 +252,9 @@ export async function fetchCalendarEvents(
  * @param {object} options Options for the query.
  * @returns {Promise<Array>} An array of events.
  */
-export async function fetchCalendarRiverEvents(options: Record<string, any>) {
+export async function fetchCalendarRiverEvents(
+  options: Record<string, string | number>,
+) {
   if (!process.env.RIVER_KEY) {
     console.warn("RIVER_KEY is not set. Returning dummy data.");
     return dummyEvent;
@@ -261,7 +266,9 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     "https://app.getriver.io/api/v1alpha1/community/solana/list-events",
   );
 
-  getCalendarEventsUrl.search = new URLSearchParams(options).toString();
+  getCalendarEventsUrl.search = new URLSearchParams(
+    options as Record<string, string>,
+  ).toString();
 
   let res: Response;
   try {
@@ -279,12 +286,13 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("River API request timed out. Returning empty array.");
     } else {
-      console.warn("River API request failed:", error.message || error);
+      console.warn("River API request failed:", err.message || error);
     }
     return [];
   }

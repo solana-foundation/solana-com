@@ -43,7 +43,7 @@ const TypeformModal = ({
     (data: { responseId?: string }) => {
       if (data.responseId) {
         setShowTypeformModal(false);
-        redirectTo && router.push(redirectTo);
+        if (redirectTo) router.push(redirectTo);
       }
     },
     [setShowTypeformModal, router, redirectTo],

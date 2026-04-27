@@ -5,26 +5,12 @@ import FormattedDate from "../shared/FormattedDate";
 import { useTranslations } from "next-intl";
 import defaultImg from "../../../public/social/solana.jpg";
 import { Link } from "@/utils/Link";
-
-type EventData = {
-  platform?: string;
-  key?: string;
-  rsvp?: string;
-  lumaUrl?: string;
-  img?: { primary?: { alt?: string } | string };
-  title?: string;
-  description?: string;
-  schedule?: {
-    from?: string;
-    to?: string;
-    timezone?: string;
-  };
-};
+import { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 const EventsDetailSection = ({
   event = null,
 }: {
-  event?: EventData | null;
+  event?: CalendarEvent | null;
 }) => {
   const t = useTranslations();
   if (!event) return null;
@@ -57,7 +43,8 @@ const EventsDetailSection = ({
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from!).getDay() !==
+            event?.schedule?.from &&
+            new Date(event?.schedule?.from).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>

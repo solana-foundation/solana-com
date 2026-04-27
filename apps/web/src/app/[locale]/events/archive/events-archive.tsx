@@ -4,9 +4,10 @@ import { StrictMode, useState } from "react";
 import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsList from "@/components/events/EventsList";
 import EventsArchivePagination from "@/components/events/archive/EventsArchivePagination";
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 interface EventsArchivePageProps {
-  events: any[];
+  events: CalendarEvent[];
 }
 
 export function EventsArchivePage({ events }: EventsArchivePageProps) {

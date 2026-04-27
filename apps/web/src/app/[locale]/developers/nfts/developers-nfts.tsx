@@ -157,9 +157,10 @@ export function DevelopersNftsPage() {
         headline={t("featureHighlight.headline")}
         body={t("featureHighlight.body")}
         desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
-        cards={featureHighlightCards as any}
-        buttons={featureHighlightButtons as any}
-        valueOf={null}
+        cards={featureHighlightCards}
+        buttons={featureHighlightButtons}
+        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+        valueOf={() => false}
       />
       <Heading
         eyebrow={t("headings.earlyMovers.eyebrow")}
