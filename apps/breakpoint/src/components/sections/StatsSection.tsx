@@ -5,6 +5,7 @@ import { useTranslations } from "@workspace/i18n/client";
 import ImageTreatment, {
   type TreatmentColor,
 } from "@/components/ImageTreatment";
+import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import WordReveal from "@/components/WordReveal";
 
@@ -54,6 +55,8 @@ const widths = [
 ];
 
 const stripColors: TreatmentColor[] = ["green", "purple", "blue"];
+const BREAKPOINT_2025_ARCHIVES_URL =
+  "https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z";
 
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
@@ -61,9 +64,18 @@ export default function StatsSection() {
   return (
     <section className="pt-20 md:pt-[120px]">
       <div className="container">
-        <SectionHeadline headline={t("stats.headline")} alignment="center">
-          {/* <Button label={t("stats.cta")} variant="primary" arrow /> */}
-        </SectionHeadline>
+        <div className="mx-auto max-w-[560px]">
+          <SectionHeadline headline={t("stats.headline")} alignment="center">
+            <Button
+              arrow
+              href={BREAKPOINT_2025_ARCHIVES_URL}
+              label={t("stats.cta")}
+              rel="noreferrer"
+              target="_blank"
+              variant="primary"
+            />
+          </SectionHeadline>
+        </div>
 
         <div className="mt-xl flex flex-col gap-s md:mt-16 md:grid md:grid-cols-3 md:gap-6">
           {statItems.map((item, idx) => (
@@ -83,7 +95,7 @@ export default function StatsSection() {
                 text={t(item.labelKey)}
                 stepMs={55}
                 startDelayMs={idx * 140 + 180}
-                className="type-eyebrow text-white md:max-w-[22ch]"
+                className="type-eyebrow text-white md:max-w-[40ch]"
               />
             </div>
           ))}

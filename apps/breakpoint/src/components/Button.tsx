@@ -58,6 +58,8 @@ interface ButtonProps {
   className?: string;
   disabled?: boolean;
   type?: "button" | "submit";
+  target?: React.HTMLAttributeAnchorTarget;
+  rel?: string;
 }
 
 export default function Button({
@@ -71,6 +73,8 @@ export default function Button({
   className = "",
   disabled = false,
   type = "button",
+  target,
+  rel,
 }: ButtonProps) {
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.35, once: true });
@@ -157,7 +161,12 @@ export default function Button({
     }
 
     return (
-      <a href={href} {...commonProps}>
+      <a
+        href={href}
+        target={target}
+        rel={target === "_blank" ? (rel ?? "noreferrer") : rel}
+        {...commonProps}
+      >
         {inner}
       </a>
     );
