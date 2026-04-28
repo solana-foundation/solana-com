@@ -10,6 +10,7 @@ import {
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
+import SubpageHero from "@/components/SubpageHero";
 import SponsorsHeroBackground from "./SponsorsHeroBackground";
 
 const SPONSOR_LOGO_ID = "breakpoint-2026-white";
@@ -351,34 +352,6 @@ function SponsorTierSection({
   );
 }
 
-function SponsorsHero() {
-  return (
-    <section className="relative h-[363px] overflow-hidden bg-black md:h-[395px]">
-      <div className="absolute inset-0 overflow-hidden">
-        <SponsorsHeroBackground />
-      </div>
-
-      <img
-        src="/assets/pixel-edge.svg"
-        alt=""
-        aria-hidden="true"
-        width={1440}
-        height={146}
-        className="absolute left-1/2 top-[160px] h-[200px] w-[1078px] max-w-none -translate-x-1/2 object-fill opacity-[0.85] md:left-0 md:w-full md:min-w-[840px] md:translate-x-0 md:object-cover"
-      />
-
-      <div className="absolute left-xs right-xs top-[252px] flex flex-col items-start gap-xs pb-3 md:bottom-[31px] md:left-m md:right-auto md:top-auto md:block md:w-[1026px]">
-        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-          Breakpoint 2026
-        </p>
-        <h1 className="font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:mt-m md:text-[80px]">
-          Sponsors
-        </h1>
-      </div>
-    </section>
-  );
-}
-
 function SponsorsIntro() {
   return (
     <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
@@ -422,7 +395,7 @@ export default function SponsorsPage() {
         ctaLabel: "REGISTER",
       }}
     >
-      <SponsorsHero />
+      <SubpageHero title="Sponsors" background={<SponsorsHeroBackground />} />
       <SponsorsIntro />
       {sponsorTiers.map((tier, index) => (
         <SponsorTierSection key={tier.title} tier={tier} first={index === 0} />

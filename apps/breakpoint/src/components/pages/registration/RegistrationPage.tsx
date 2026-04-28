@@ -2,6 +2,7 @@ import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import Footer from "@/components/sections/Footer";
 import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
+import SubpageHero from "@/components/SubpageHero";
 
 const GENERAL_ADMISSION_HREF = "https://luma.com/breakpoint2026";
 const DEVELOPER_APPLICATION_HREF =
@@ -185,44 +186,6 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
   );
 }
 
-function RegistrationHero() {
-  return (
-    <section className="relative h-[482px] w-full overflow-hidden bg-black md:h-[395px]">
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[360px] overflow-hidden"
-      >
-        <img
-          src="/img/registration-hero-glitch.png"
-          alt=""
-          width={1200}
-          height={800}
-          className="absolute left-1/2 top-[-300px] h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover"
-        />
-        <div className="absolute inset-0 bg-green mix-blend-multiply" />
-      </div>
-
-      <img
-        src="/assets/pixel-edge.svg"
-        alt=""
-        aria-hidden="true"
-        width={1440}
-        height={146}
-        className="pointer-events-none absolute left-1/2 top-[160px] h-[200px] w-[1078px] max-w-none -translate-x-1/2 md:left-0 md:w-full md:min-w-[840px] md:translate-x-0"
-      />
-
-      <div className="absolute left-xs right-xs top-[252px] flex flex-col gap-[20px] pb-3 text-white md:left-8 md:right-auto md:w-[1026px] md:gap-8">
-        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em]">
-          Breakpoint 2026
-        </p>
-        <h1 className="max-w-[1026px] font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] md:text-[80px]">
-          Snag Breakpoint 2026 tickets
-        </h1>
-      </div>
-    </section>
-  );
-}
-
 function TicketsGrid() {
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
@@ -291,7 +254,11 @@ export default function RegistrationPage() {
         showMenuButton: true,
       }}
     >
-      <RegistrationHero />
+      <SubpageHero
+        title="Snag Breakpoint 2026 tickets"
+        tintClassName="bg-green"
+        imageTopClassName="top-[-300px] md:top-[-300px]"
+      />
       <Marquee
         highlightClassName="text-green"
         highlights={REGISTRATION_MARQUEE_HIGHLIGHTS}

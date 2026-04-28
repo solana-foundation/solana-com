@@ -1,22 +1,8 @@
 import FAQAccordionList from "@/components/FAQAccordionList";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
+import SubpageHero from "@/components/SubpageHero";
 import { faqPageSections } from "@/content/faq-page";
-
-function FAQHero() {
-  return (
-    <section className="bg-black px-5 md:px-8">
-      <div className="flex w-full flex-col items-center justify-center gap-m pb-3 pt-[148px] text-center text-white md:pt-[180px]">
-        <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] md:text-[16px]">
-          Breakpoint 2026
-        </p>
-        <h1 className="font-sans text-[56px] font-normal leading-[0.98] tracking-[-0.06em] md:text-[80px]">
-          FAQs
-        </h1>
-      </div>
-    </section>
-  );
-}
 
 function FAQSubnav() {
   return (
@@ -50,7 +36,7 @@ export default function FAQPage() {
         showMenuButton: true,
       }}
     >
-      <FAQHero />
+      <SubpageHero image={false} title="FAQs" />
       <FAQSubnav />
       <FAQAccordionList sections={faqPageSections} />
       <Footer accentClassName="bg-green" accentTextClassName="text-green" />
