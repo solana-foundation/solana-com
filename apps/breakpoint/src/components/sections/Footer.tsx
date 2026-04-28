@@ -281,7 +281,7 @@ export default function Footer({
             alt="BP26"
             width={343}
             height={50.0022}
-            className="block h-auto w-full max-w-[343px] md:hidden"
+            className="block h-auto w-full md:hidden"
           />
           <img
             src="/assets/breakpoint-footer-logo-desktop.svg"
