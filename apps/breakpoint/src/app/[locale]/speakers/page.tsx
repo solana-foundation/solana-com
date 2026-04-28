@@ -22,7 +22,7 @@ function SpeakersHeroBackground() {
     <div className="absolute left-1/2 top-[-340px] flex h-[810px] w-[1440px] -translate-x-1/2 items-center justify-center">
       <div className="flex-none -rotate-90">
         <img
-          src="/img/speakers-hero.png"
+          src="/img/subpage-heroes/speakers.png"
           alt=""
           aria-hidden="true"
           width={675}

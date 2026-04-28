@@ -394,7 +394,7 @@ export default function SponsorsPage() {
       <SubpageHero
         title="Sponsors"
         imageHeightClassName="h-[363px] md:h-[395px]"
-        imageSrc="/img/sponsors/sponsors-header-bg.webp"
+        imageSrc="/img/subpage-heroes/sponsors.png"
         imageTreatment={{
           className:
             "absolute left-[-134px] top-[-78px] h-[677.347px] w-[451px] -rotate-90 md:inset-0 md:h-full md:w-full md:rotate-0",

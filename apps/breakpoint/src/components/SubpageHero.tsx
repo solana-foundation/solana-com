@@ -11,6 +11,11 @@ type HeroCta = {
   variant?: "primary" | "secondary";
 };
 
+type HeroVideoSource = {
+  src: string;
+  type: string;
+};
+
 type SubpageHeroProps = {
   background?: ReactNode;
   backgroundOverlay?: ReactNode;
@@ -25,6 +30,8 @@ type SubpageHeroProps = {
   pixelEdgeSrc?: string;
   tintClassName?: string;
   title: string;
+  videoPosterSrc?: string;
+  videoSources?: HeroVideoSource[];
 };
 
 type SubpageHeroImageTreatmentConfig = Partial<
@@ -46,14 +53,45 @@ function DefaultHeroBackground({
   imageSrc,
   imageTopClassName,
   tintClassName,
+  videoPosterSrc,
+  videoSources,
 }: {
   imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
   imageSrc: string;
   imageTopClassName: string;
   tintClassName: string;
+  videoPosterSrc?: string;
+  videoSources?: HeroVideoSource[];
 }) {
-  const imageClassName = `absolute left-1/2 h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
+  const mediaClassName = `absolute left-1/2 h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
   const imageTreatmentConfig = getImageTreatmentConfig(imageTreatment);
+
+  if (videoSources?.length) {
+    return (
+      <>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster={videoPosterSrc}
+          aria-hidden="true"
+          className={mediaClassName}
+        >
+          {videoSources.map((source) => (
+            <source key={source.src} src={source.src} type={source.type} />
+          ))}
+        </video>
+        {tintClassName && (
+          <div
+            className={`absolute inset-0 ${tintClassName} mix-blend-multiply`}
+          />
+        )}
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
+      </>
+    );
+  }
 
   if (imageTreatmentConfig) {
     const {
@@ -73,7 +111,7 @@ function DefaultHeroBackground({
           intensity={60}
           lighting="even"
           color={getTreatmentColor(tintClassName)}
-          className={className ?? imageClassName}
+          className={className ?? mediaClassName}
           {...imageTreatmentProps}
         />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
@@ -88,9 +126,13 @@ function DefaultHeroBackground({
         alt=""
         width={1200}
         height={800}
-        className={imageClassName}
+        className={mediaClassName}
       />
-      <div className={`absolute inset-0 ${tintClassName} mix-blend-multiply`} />
+      {tintClassName && (
+        <div
+          className={`absolute inset-0 ${tintClassName} mix-blend-multiply`}
+        />
+      )}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
     </>
   );
@@ -149,6 +191,8 @@ export default function SubpageHero({
   pixelEdgeSrc = "/assets/pixel-edge.svg",
   tintClassName = "bg-purple",
   title,
+  videoPosterSrc,
+  videoSources,
 }: SubpageHeroProps) {
   if (!image) {
     return (
@@ -173,6 +217,8 @@ export default function SubpageHero({
       imageSrc={imageSrc}
       imageTopClassName={imageTopClassName}
       tintClassName={tintClassName}
+      videoPosterSrc={videoPosterSrc}
+      videoSources={videoSources}
     />
   );
 

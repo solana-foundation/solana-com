@@ -393,11 +393,21 @@ function TravelHero() {
   return (
     <SubpageHero
       title="Welcome to London"
-      tintClassName="bg-blue"
+      tintClassName=""
       imageTopClassName="top-[-300px] md:top-[-330px]"
       pixelEdgeSrc="/assets/pixel-edge-travel.svg"
+      videoSources={[
+        {
+          src: "/assets/subpage-heroes/travel.webm",
+          type: "video/webm",
+        },
+        {
+          src: "/assets/subpage-heroes/travel.mp4",
+          type: "video/mp4",
+        },
+      ]}
     >
-      <div className="-mt-8 flex flex-wrap items-center gap-1 md:-mt-5 md:gap-2">
+      <div className="-mt-1 flex flex-wrap items-center gap-1 md:-mt-5 md:gap-2">
         <QuickLink href="#flights" label="Flights" />
         <QuickLink href="#hotels" label="Travel" />
         <QuickLink href="#visas" label="Visa" />

@@ -246,6 +246,7 @@ export default function RegistrationPage() {
     >
       <SubpageHero
         imageHeightClassName="h-[482px] md:h-[395px]"
+        imageSrc="/img/subpage-heroes/registration.png"
         title="Snag Breakpoint 2026 tickets"
         tintClassName="bg-green"
         imageTopClassName="top-[-300px] md:top-[-300px]"
