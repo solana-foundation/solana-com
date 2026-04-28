@@ -44,9 +44,153 @@ type SubpageHeroImageTreatmentConfig = Partial<
 
 const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
 
+const backgroundGradientClassName =
+  "absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]";
+
 const eyebrowClassName = "type-eyebrow text-white";
 
 const titleClassName = "type-h1 w-full text-white";
+
+const mediaBaseClassName =
+  "absolute left-1/2 h-[960px] w-full min-w-[1440px] max-w-none -translate-x-1/2 object-cover";
+
+function cn(...classNames: Array<string | false | null | undefined>) {
+  return classNames.filter(Boolean).join(" ");
+}
+
+function getImageTreatmentConfig(
+  imageTreatment: SubpageHeroProps["imageTreatment"],
+) {
+  if (!imageTreatment) return null;
+  return imageTreatment === true ? {} : imageTreatment;
+}
+
+function getTreatmentColor(tintClassName: string): TreatmentColor {
+  if (tintClassName.includes("bg-green")) return "green";
+  if (tintClassName.includes("bg-blue")) return "blue";
+  if (tintClassName.includes("bg-white")) return "white";
+  if (tintClassName.includes("bg-purple")) return "purple";
+  return "purple";
+}
+
+function HeroGradientOverlay() {
+  return <div className={backgroundGradientClassName} />;
+}
+
+function HeroTintOverlay({ tintClassName }: { tintClassName: string }) {
+  if (!tintClassName) return null;
+
+  return (
+    <div className={`absolute inset-0 ${tintClassName} mix-blend-multiply`} />
+  );
+}
+
+function HeroVideo({
+  className,
+  posterSrc,
+  sources,
+}: {
+  className: string;
+  posterSrc?: string;
+  sources: HeroVideoSource[];
+}) {
+  return (
+    <video
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      poster={posterSrc}
+      aria-hidden="true"
+      className={className}
+    >
+      {sources.map((source) => (
+        <source key={source.src} src={source.src} type={source.type} />
+      ))}
+    </video>
+  );
+}
+
+function HeroImage({ className, src }: { className: string; src: string }) {
+  return (
+    <img src={src} alt="" width={1200} height={800} className={className} />
+  );
+}
+
+function HeroImageTreatment({
+  className,
+  config,
+  imageSrc,
+  tintClassName,
+}: {
+  className: string;
+  config: SubpageHeroImageTreatmentConfig;
+  imageSrc: string;
+  tintClassName: string;
+}) {
+  const {
+    alt = "",
+    className: treatmentClassName,
+    src,
+    ...imageTreatmentProps
+  } = config;
+
+  return (
+    <ImageTreatment
+      src={src ?? imageSrc}
+      alt={alt}
+      aria-hidden={alt ? undefined : true}
+      glitchPattern="p1"
+      intensity={60}
+      lighting="even"
+      color={getTreatmentColor(tintClassName)}
+      className={treatmentClassName ?? className}
+      {...imageTreatmentProps}
+    />
+  );
+}
+
+function HeroMedia({
+  imageSrc,
+  imageTopClassName,
+  imageTreatmentConfig,
+  tintClassName,
+  videoPosterSrc,
+  videoSources,
+}: {
+  imageSrc: string;
+  imageTopClassName: string;
+  imageTreatmentConfig: SubpageHeroImageTreatmentConfig | null;
+  tintClassName: string;
+  videoPosterSrc?: string;
+  videoSources?: HeroVideoSource[];
+}) {
+  const className = cn(mediaBaseClassName, imageTopClassName);
+
+  if (imageTreatmentConfig) {
+    return (
+      <HeroImageTreatment
+        className={className}
+        config={imageTreatmentConfig}
+        imageSrc={imageSrc}
+        tintClassName={tintClassName}
+      />
+    );
+  }
+
+  if (videoSources?.length) {
+    return (
+      <HeroVideo
+        className={className}
+        posterSrc={videoPosterSrc}
+        sources={videoSources}
+      />
+    );
+  }
+
+  return <HeroImage className={className} src={imageSrc} />;
+}
 
 function DefaultHeroBackground({
   imageTreatment,
@@ -63,94 +207,24 @@ function DefaultHeroBackground({
   videoPosterSrc?: string;
   videoSources?: HeroVideoSource[];
 }) {
-  const mediaClassName = `absolute left-1/2 h-[960px] w-full min-w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
   const imageTreatmentConfig = getImageTreatmentConfig(imageTreatment);
-
-  if (videoSources?.length) {
-    return (
-      <>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          poster={videoPosterSrc}
-          aria-hidden="true"
-          className={mediaClassName}
-        >
-          {videoSources.map((source) => (
-            <source key={source.src} src={source.src} type={source.type} />
-          ))}
-        </video>
-        {tintClassName && (
-          <div
-            className={`absolute inset-0 ${tintClassName} mix-blend-multiply`}
-          />
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
-      </>
-    );
-  }
-
-  if (imageTreatmentConfig) {
-    const {
-      alt = "",
-      className,
-      src,
-      ...imageTreatmentProps
-    } = imageTreatmentConfig;
-
-    return (
-      <>
-        <ImageTreatment
-          src={src ?? imageSrc}
-          alt={alt}
-          aria-hidden={alt ? undefined : true}
-          glitchPattern="p1"
-          intensity={60}
-          lighting="even"
-          color={getTreatmentColor(tintClassName)}
-          className={className ?? mediaClassName}
-          {...imageTreatmentProps}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
-      </>
-    );
-  }
 
   return (
     <>
-      <img
-        src={imageSrc}
-        alt=""
-        width={1200}
-        height={800}
-        className={mediaClassName}
+      <HeroMedia
+        imageSrc={imageSrc}
+        imageTopClassName={imageTopClassName}
+        imageTreatmentConfig={imageTreatmentConfig}
+        tintClassName={tintClassName}
+        videoPosterSrc={videoPosterSrc}
+        videoSources={videoSources}
       />
-      {tintClassName && (
-        <div
-          className={`absolute inset-0 ${tintClassName} mix-blend-multiply`}
-        />
+      {!imageTreatmentConfig && (
+        <HeroTintOverlay tintClassName={tintClassName} />
       )}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
+      <HeroGradientOverlay />
     </>
   );
-}
-
-function getImageTreatmentConfig(
-  imageTreatment: SubpageHeroProps["imageTreatment"],
-) {
-  if (!imageTreatment) return null;
-  return imageTreatment === true ? {} : imageTreatment;
-}
-
-function getTreatmentColor(tintClassName: string): TreatmentColor {
-  if (tintClassName.includes("bg-green")) return "green";
-  if (tintClassName.includes("bg-blue")) return "blue";
-  if (tintClassName.includes("bg-white")) return "white";
-  if (tintClassName.includes("bg-purple")) return "purple";
-  return "purple";
 }
 
 function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
@@ -177,6 +251,33 @@ function HeroCtas({ cta }: { cta: HeroCta | HeroCta[] }) {
   );
 }
 
+function HeroContent({
+  children,
+  className,
+  cta,
+  eyebrow,
+  title,
+}: {
+  children?: ReactNode;
+  className: string;
+  cta?: HeroCta | HeroCta[];
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className={className}>
+      <p className={eyebrowClassName} data-bp-hero-eyebrow>
+        {eyebrow}
+      </p>
+      <h1 className={titleClassName} data-bp-hero-title>
+        {title}
+      </h1>
+      {children}
+      {cta && <HeroCtas cta={cta} />}
+    </div>
+  );
+}
+
 export default function SubpageHero({
   background,
   backgroundOverlay,
@@ -197,16 +298,14 @@ export default function SubpageHero({
   if (!image) {
     return (
       <section className="bg-black px-4 md:px-8" data-bp-subpage-hero="plain">
-        <div className="flex w-full flex-col items-start gap-6 pb-3 pt-[180px] text-white md:items-center md:justify-center md:gap-8 md:text-center">
-          <p className={eyebrowClassName} data-bp-hero-eyebrow>
-            {eyebrow}
-          </p>
-          <h1 className={titleClassName} data-bp-hero-title>
-            {title}
-          </h1>
+        <HeroContent
+          className="flex w-full flex-col items-start gap-6 pb-3 pt-[180px] text-white md:items-center md:justify-center md:gap-8 md:text-center"
+          cta={cta}
+          eyebrow={eyebrow}
+          title={title}
+        >
           {children}
-          {cta && <HeroCtas cta={cta} />}
-        </div>
+        </HeroContent>
       </section>
     );
   }
@@ -245,16 +344,14 @@ export default function SubpageHero({
         data-bp-hero-pixel-edge
       />
 
-      <div className="absolute left-4 right-4 top-[252px] flex flex-col items-start gap-5 pb-3 text-white md:left-8 md:right-auto md:top-[252px] md:w-[1026px] md:gap-8">
-        <p className={eyebrowClassName} data-bp-hero-eyebrow>
-          {eyebrow}
-        </p>
-        <h1 className={titleClassName} data-bp-hero-title>
-          {title}
-        </h1>
+      <HeroContent
+        className="absolute left-4 right-4 top-[252px] flex flex-col items-start gap-5 pb-3 text-white md:left-8 md:right-auto md:top-[252px] md:w-[1026px] md:gap-8"
+        cta={cta}
+        eyebrow={eyebrow}
+        title={title}
+      >
         {children}
-        {cta && <HeroCtas cta={cta} />}
-      </div>
+      </HeroContent>
     </section>
   );
 }
