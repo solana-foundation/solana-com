@@ -84,14 +84,14 @@ function TicketButton({
   tone: "dark" | "light" | "muted";
 }) {
   const toneClasses = {
-    dark: "border-black text-black hover:bg-black hover:text-white focus-visible:outline-black",
+    dark: "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-black",
     light:
-      "border-white text-white hover:bg-white hover:text-black focus-visible:outline-white",
+      "border-stroke-tertiary text-white hover:bg-neutral-700 focus-visible:outline-white",
     muted:
       "border-neutral-300 bg-neutral-600 text-neutral-200 focus-visible:outline-neutral-200",
   }[tone];
 
-  const className = `inline-flex h-10 w-full items-center justify-center gap-3 overflow-hidden border px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors ${toneClasses}`;
+  const className = `inline-flex h-10 w-full items-center justify-center gap-3 overflow-hidden border px-5 font-mono text-button uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 ${toneClasses}`;
 
   const content = (
     <>

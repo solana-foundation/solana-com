@@ -25,6 +25,19 @@ export default function AnnouncementsCarousel({
     const scrollAmount = firstCard
       ? firstCard.offsetWidth + 12
       : Math.min(scrollRef.current.clientWidth, 420);
+    const maxScroll =
+      scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
+    const nextScroll = scrollRef.current.scrollLeft + direction * scrollAmount;
+
+    if (nextScroll < 0) {
+      scrollRef.current.scrollTo({ left: maxScroll, behavior: "smooth" });
+      return;
+    }
+
+    if (nextScroll > maxScroll) {
+      scrollRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
 
     scrollRef.current.scrollBy({
       left: direction * scrollAmount,

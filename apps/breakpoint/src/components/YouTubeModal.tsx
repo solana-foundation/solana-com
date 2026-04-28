@@ -85,7 +85,7 @@ export default function YouTubeModal({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute -top-12 right-0 inline-flex size-8 items-center justify-center text-white/80 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          className="absolute -top-12 right-0 inline-flex size-8 items-center justify-center text-white/80 transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
           <svg
             width="20"

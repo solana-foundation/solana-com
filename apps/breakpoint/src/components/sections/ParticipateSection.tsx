@@ -10,9 +10,28 @@ export default function ParticipateSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollBy = useCallback((direction: number) => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({
-      left: direction * 400,
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    const firstCard = scroller.querySelector<HTMLElement>(
+      "[data-participate-card]",
+    );
+    const scrollAmount = firstCard ? firstCard.offsetWidth + 16 : 400;
+    const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+    const nextScroll = scroller.scrollLeft + direction * scrollAmount;
+
+    if (nextScroll < 0) {
+      scroller.scrollTo({ left: maxScroll, behavior: "smooth" });
+      return;
+    }
+
+    if (nextScroll > maxScroll) {
+      scroller.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
+
+    scroller.scrollBy({
+      left: direction * scrollAmount,
       behavior: "smooth",
     });
   }, []);
@@ -40,6 +59,7 @@ export default function ParticipateSection() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
+            data-participate-card
             className="h-[400px] min-w-[400px] shrink-0 snap-start border border-stroke-card bg-neutral-800 md:min-w-[600px]"
           />
         ))}

@@ -122,7 +122,7 @@ function MenuItemRow({
   );
 
   const className =
-    "group relative flex w-full items-center gap-2 border-b border-white/10 py-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white min-[430px]:gap-4 md:gap-6 md:py-5";
+    "group relative flex w-full items-center gap-2 border-b border-white/10 py-4 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white min-[430px]:gap-4 md:gap-6 md:py-5";
 
   const handlers = {
     onMouseEnter: () => setHover(true),
@@ -255,7 +255,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
           type="button"
           onClick={onClose}
           aria-label="Close menu"
-          className="group inline-flex h-8 shrink-0 items-center gap-2 bg-neutral-800 px-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white hover:bg-purple hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-3"
+          className="group inline-flex h-8 shrink-0 items-center gap-2 bg-neutral-800 px-3 font-mono text-button uppercase text-white transition-colors hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
           <span aria-hidden="true">Close</span>
           <span aria-hidden="true" className="relative block size-3">

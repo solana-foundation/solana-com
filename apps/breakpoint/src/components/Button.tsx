@@ -49,13 +49,15 @@ function useScramble(label: string, durationMs: number, runKey: number) {
 
 interface ButtonProps {
   label: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "inline";
   href?: string;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
   arrow?: boolean;
   onClick?: () => void;
   className?: string;
+  disabled?: boolean;
+  type?: "button" | "submit";
 }
 
 export default function Button({
@@ -67,6 +69,8 @@ export default function Button({
   arrow,
   onClick,
   className = "",
+  disabled = false,
+  type = "button",
 }: ButtonProps) {
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.35, once: true });
@@ -74,40 +78,48 @@ export default function Button({
 
   const scrambleDuration = 400;
   const displayLabel = useScramble(label, scrambleDuration, runKey);
-  const isDisabled = !href && !onClick;
+  const isDisabled = disabled || (!href && !onClick && type !== "submit");
 
   const handleHover = () => {
     setRunKey((k) => k + 1);
   };
 
   const baseClasses =
-    "relative inline-flex h-[40px] items-center justify-center gap-2xs overflow-hidden px-5 font-mono !text-[14px] !font-bold uppercase !leading-[0.9] !tracking-[0.08em] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+    "bp26-button group/button relative inline-flex items-center justify-center font-mono text-button uppercase transition-colors duration-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4";
+  const sizeClasses = variant === "inline" ? "gap-3" : "h-10 gap-3 px-5";
 
-  const variantClasses =
-    variant === "primary"
-      ? "bg-white text-black hover:bg-purple"
-      : "border border-white/18 bg-black/40 text-white hover:border-white/40 hover:bg-white/[0.06]";
+  const variantClasses = {
+    primary: isDisabled
+      ? "bg-neutral-600 text-neutral-100"
+      : "bg-neutral-50 text-neutral-900 hover:bg-neutral-200",
+    secondary: isDisabled
+      ? "border border-neutral-300 bg-neutral-600 text-neutral-200"
+      : "border border-stroke-tertiary bg-transparent text-white hover:bg-neutral-700",
+    inline: isDisabled
+      ? "text-neutral-300"
+      : "text-white hover:text-neutral-200",
+  }[variant];
 
-  const wipeClass = inView && variant === "primary" ? "bp-block-wipe" : "";
+  const wipeClass =
+    inView && variant === "primary" && !isDisabled ? "bp-block-wipe" : "";
   const blinkClass = inView && variant === "secondary" ? "bp-icon-blink" : "";
 
   const classes =
-    `${baseClasses} ${variantClasses} ${blinkClass} ${className}`.trim();
+    `${baseClasses} ${sizeClasses} ${variantClasses} ${blinkClass} ${className}`.trim();
   const trailing =
     iconRight ??
     (arrow ? (
       <span className="inline-flex size-[12px] items-center justify-center">
-        <ArrowUpRightIcon variant="stroke" />
+        <ArrowUpRightIcon />
       </span>
     ) : null);
 
   const inner = (
     <>
-      {/* Block-wipe background for primary */}
-      {variant === "primary" && (
+      {variant === "primary" && !isDisabled && (
         <span
           aria-hidden="true"
-          className={`absolute inset-0 bg-white ${wipeClass}`}
+          className={`absolute inset-0 bg-neutral-50 transition-colors group-hover/button:bg-neutral-200 ${wipeClass}`}
         />
       )}
       <span className="relative z-10 inline-flex items-center gap-2xs">
@@ -152,7 +164,12 @@ export default function Button({
   }
 
   return (
-    <button type="button" onClick={onClick} {...commonProps}>
+    <button
+      type={type}
+      disabled={isDisabled}
+      onClick={onClick}
+      {...commonProps}
+    >
       {inner}
     </button>
   );

@@ -2,7 +2,7 @@
 
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useMemo, useState } from "react";
-import DisclosureIcon from "@/components/DisclosureIcon";
+import AccordionButton from "@/components/AccordionButton";
 import {
   AGENDA_DAY_TABS,
   type AgendaItem,
@@ -104,7 +104,7 @@ function SessionRow({
       aria-label={`${open ? "Collapse" : "Expand"} ${item.title}`}
       onClick={onToggle}
       onKeyDown={handleKeyDown}
-      className={`relative flex w-full cursor-pointer items-start overflow-hidden border border-neutral-700 p-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:justify-between md:gap-4 md:pl-6 md:pr-12 ${
+      className={`group/accordion-control relative flex w-full cursor-pointer items-start overflow-hidden border border-neutral-700 p-4 text-left focus-visible:outline-none md:justify-between md:gap-4 md:pl-6 md:pr-12 ${
         open ? "bg-neutral-800 md:py-6 md:pb-12" : "bg-black md:py-6"
       }`}
     >
@@ -150,13 +150,11 @@ function SessionRow({
         </div>
       </div>
 
-      <span
-        className={`absolute right-4 top-4 flex size-8 shrink-0 items-center justify-center md:right-6 md:top-6 ${
-          open ? "bg-neutral-700" : "border border-neutral-700"
-        }`}
-      >
-        <DisclosureIcon open={open} />
-      </span>
+      <AccordionButton
+        className="absolute right-4 top-4 md:right-6 md:top-6"
+        interaction="group"
+        open={open}
+      />
     </article>
   );
 }

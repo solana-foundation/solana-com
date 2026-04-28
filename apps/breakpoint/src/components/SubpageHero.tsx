@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
-import { Link } from "@workspace/i18n/routing";
-import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import Button from "@/components/Button";
 import ImageTreatment, {
   type ImageTreatmentProps,
   type TreatmentColor,
 } from "@/components/ImageTreatment";
-import { isRelativeHref } from "@/lib/links";
 
 type HeroCta = {
   href: string;
@@ -114,33 +112,14 @@ function getTreatmentColor(tintClassName: string): TreatmentColor {
 }
 
 function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
-  const variantClasses =
-    variant === "primary"
-      ? "bg-white text-black hover:bg-purple"
-      : "border border-white bg-transparent text-white hover:bg-white hover:text-black";
-
-  const className = `inline-flex h-10 w-full items-center justify-center gap-3 px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:w-auto ${variantClasses}`;
-  const content = (
-    <>
-      {label}
-      <span className="inline-flex size-3 items-center justify-center">
-        <ArrowUpRightIcon />
-      </span>
-    </>
-  );
-
-  if (isRelativeHref(href)) {
-    return (
-      <Link href={href} className={className} data-bp-hero-cta>
-        {content}
-      </Link>
-    );
-  }
-
   return (
-    <a href={href} className={className} data-bp-hero-cta>
-      {content}
-    </a>
+    <Button
+      arrow
+      className="w-full md:w-auto"
+      href={href}
+      label={label}
+      variant={variant}
+    />
   );
 }
 

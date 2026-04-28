@@ -57,7 +57,7 @@ export default function GallerySection() {
             }}
             className="absolute inset-0 h-full w-full"
           />
-          <div className="absolute inset-y-0 left-4 z-10 flex w-[343px] flex-col justify-center gap-6 md:left-[calc(50%-350px)] md:w-full md:max-w-[500px] md:-translate-x-1/2">
+          <div className="absolute inset-y-0 left-4 z-10 flex w-[343px] flex-col justify-center gap-6 md:w-full md:left-[320px] md:max-w-[500px] md:-translate-x-1/2">
             <WordReveal
               as="p"
               text={t("gallery.eyebrow")}

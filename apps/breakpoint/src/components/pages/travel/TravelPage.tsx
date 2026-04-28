@@ -1,9 +1,10 @@
-import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import Button from "@/components/Button";
 import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
 import SubpageHero from "@/components/SubpageHero";
 import Footer from "@/components/sections/Footer";
+import LondonPicksSection from "./TravelLondonPicksSection";
 
 const CONTACT_HREF =
   "mailto:breakpoint@solana.org?subject=Breakpoint%202026%20travel%20question";
@@ -105,30 +106,6 @@ const HOTELS = [
   },
 ] satisfies HotelInfo[];
 
-const LONDON_PICKS = [
-  {
-    title: "Science Museum",
-    location: "South Kensington",
-    href: "https://www.sciencemuseum.org.uk/home",
-    description:
-      "Exhibitions, engineering history, and space artifacts a short trip from the venue.",
-  },
-  {
-    title: "Design Museum",
-    location: "Kensington",
-    href: "https://designmuseum.org/",
-    description:
-      "Contemporary design, product, graphics, and architecture near Holland Park.",
-  },
-  {
-    title: "Tate Modern",
-    location: "Bankside",
-    href: "https://www.tate.org.uk/visit/tate-modern",
-    description:
-      "Modern and contemporary art in a landmark power station on the Thames.",
-  },
-] satisfies LondonPick[];
-
 const TRAVEL_MARQUEE_HIGHLIGHTS = [
   "BP26",
   "LDN",
@@ -160,13 +137,6 @@ type HotelInfo = {
   name: string;
 };
 
-type LondonPick = {
-  description: string;
-  href: string;
-  location: string;
-  title: string;
-};
-
 function InlineCta({
   href,
   label = "Learn more",
@@ -174,24 +144,14 @@ function InlineCta({
   href: string;
   label?: string;
 }) {
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center justify-center gap-3 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-    >
-      {label}
-      <span className="inline-flex size-3 items-center justify-center">
-        <ArrowUpRightIcon />
-      </span>
-    </a>
-  );
+  return <Button arrow href={href} label={label} variant="inline" />;
 }
 
 function QuickLink({ href, label }: { href: string; label: string }) {
   return (
     <a
       href={href}
-      className="inline-flex h-7 items-center justify-center border border-white/20 px-3 font-mono text-[11px] font-bold uppercase leading-none tracking-[0.08em] text-white transition-colors hover:border-blue hover:text-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:h-8 md:text-[12px]"
+      className="inline-flex h-8 items-center justify-center border border-stroke-secondary px-3 font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-colors hover:border-stroke-tertiary hover:bg-neutral-700 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
     >
       {label}
     </a>
@@ -226,7 +186,7 @@ function AirportList() {
         <a
           key={airport.code}
           href={airport.href}
-          className="group flex h-[140px] flex-col items-start justify-center gap-4 border-b border-neutral-700 py-6 transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="group flex min-h-[140px] flex-col items-start justify-center gap-4 border-b border-neutral-700 py-6 transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <p className="w-[123px] font-bp26 text-[24px] font-normal uppercase leading-[1.18] tracking-[0.04em] text-white">
             {airport.code}
@@ -378,15 +338,12 @@ function VisaSection() {
                 arranging their own visas.
               </p>
             </div>
-            <a
+            <Button
+              arrow
               href={CONTACT_HREF}
-              className="inline-flex h-10 items-center justify-center gap-3 border border-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-colors hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Learn more
-              <span className="inline-flex size-3 items-center justify-center">
-                <ArrowUpRightIcon />
-              </span>
-            </a>
+              label="Learn more"
+              variant="secondary"
+            />
           </div>
 
           <div className="flex flex-col gap-8">
@@ -436,61 +393,6 @@ function VisaSection() {
   );
 }
 
-function LondonPickCard({ pick }: { pick: LondonPick }) {
-  return (
-    <article className="flex w-[283.56px] shrink-0 flex-col items-start md:min-w-0 md:w-auto">
-      <div className="h-[212.67px] w-full border border-neutral-700 bg-neutral-800 md:h-auto md:aspect-[400/300]" />
-      <div className="flex w-full flex-col items-start gap-4 py-5 pr-8 md:py-6 md:pr-10">
-        <div className="flex flex-col gap-3">
-          <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-white md:text-[24px]">
-            {pick.title}
-          </h3>
-          <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
-            {pick.location}
-          </p>
-        </div>
-        <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
-          {pick.description}
-        </p>
-        <InlineCta href={pick.href} label="Lorem Ipsum" />
-      </div>
-    </article>
-  );
-}
-
-function LondonPicksSection() {
-  return (
-    <section id="london" className="bg-black pt-[120px]">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:px-8">
-        <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="flex max-w-[676px] flex-col gap-6">
-            <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-              More BP26 events
-            </p>
-            <h2 className="max-w-[260px] font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:max-w-none md:text-[48px] md:leading-[1.15]">
-              More to see while in London
-            </h2>
-          </div>
-          <div aria-hidden="true" className="flex items-center gap-4">
-            <span className="flex size-12 items-center justify-center border border-white/30 text-white">
-              ←
-            </span>
-            <span className="flex size-12 items-center justify-center border border-white/30 text-white">
-              →
-            </span>
-          </div>
-        </div>
-
-        <div className="-mx-4 flex gap-6 overflow-x-auto px-4 scrollbar-hidden md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">
-          {LONDON_PICKS.map((pick) => (
-            <LondonPickCard key={pick.title} pick={pick} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function FaqBanner() {
   return (
     <section className="bg-black pt-[80px] md:pt-[120px]">
@@ -499,15 +401,7 @@ function FaqBanner() {
           <h2 className="font-sans text-[28px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[40px] md:leading-[1.15]">
             Frequently asked questions
           </h2>
-          <Link
-            href="/faq"
-            className="inline-flex h-10 items-center justify-center gap-3 bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            See all
-            <span className="inline-flex size-3 items-center justify-center">
-              <ArrowUpRightIcon />
-            </span>
-          </Link>
+          <Button arrow href="/faq" label="See all" variant="primary" />
         </div>
       </div>
     </section>

@@ -19,14 +19,16 @@ export default function CarouselControls({
     ? `Previous ${labelPrefix}`
     : "Previous item";
   const nextLabel = labelPrefix ? `Next ${labelPrefix}` : "Next item";
+  const buttonClassName =
+    "flex size-12 items-center justify-center border border-stroke-secondary text-white transition-colors hover:border-neutral-500 hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white disabled:border-stroke-primary disabled:text-neutral-700 disabled:hover:bg-transparent";
 
   return (
-    <div className={`flex gap-2xs ${className}`.trim()}>
+    <div className={`flex gap-xs ${className}`.trim()}>
       <button
         type="button"
         onClick={onPrev}
         aria-label={previousLabel}
-        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className={buttonClassName}
       >
         <svg
           aria-hidden="true"
@@ -38,7 +40,7 @@ export default function CarouselControls({
         >
           <path
             d="M8 1L1 8M1 8L8 15M1 8H19"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -49,7 +51,7 @@ export default function CarouselControls({
         type="button"
         onClick={onNext}
         aria-label={nextLabel}
-        className="flex size-[48px] items-center justify-center border border-neutral-700 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className={buttonClassName}
       >
         <svg
           aria-hidden="true"
@@ -61,7 +63,7 @@ export default function CarouselControls({
         >
           <path
             d="M12 1L19 8M19 8L12 15M19 8H1"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"

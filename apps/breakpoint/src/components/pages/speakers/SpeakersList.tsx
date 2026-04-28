@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { accordionButtonClassName } from "@/components/AccordionButton";
 import DisclosureIcon from "@/components/DisclosureIcon";
 import type { BreakpointSpeaker } from "@/content/speakers/types";
 
@@ -288,9 +289,7 @@ function SpeakerRow({
         aria-expanded={open}
         aria-label={`${open ? "Collapse" : "Expand"} ${speaker.name}`}
         onClick={onToggle}
-        className={`absolute right-4 top-4 flex size-8 shrink-0 items-center justify-center md:static md:self-center ${
-          open ? "bg-neutral-700" : "border border-neutral-700"
-        } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
+        className={`${accordionButtonClassName(open)} absolute right-4 top-4 md:static md:self-center`}
       >
         <DisclosureIcon open={open} />
       </button>

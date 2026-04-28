@@ -11,8 +11,7 @@ import { isRelativeHref } from "@/lib/links";
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
-const CTA_SIZE_CLASSES =
-  "gap-2 px-3 font-mono !text-[14px] !font-bold uppercase !leading-[0.9] !tracking-[0.08em]";
+const CTA_SIZE_CLASSES = "gap-2 px-3 font-mono text-button uppercase";
 
 const NAV_ITEMS = [
   { label: "Travel", href: "/travel" },
@@ -234,7 +233,7 @@ export default function Navigation({
     </>
   );
 
-  const ctaClasses = `inline-flex h-8 shrink-0 items-center justify-center overflow-hidden bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${CTA_SIZE_CLASSES} ${
+  const ctaClasses = `bp26-button relative inline-flex h-8 shrink-0 items-center justify-center overflow-hidden bg-neutral-50 text-neutral-900 transition-colors hover:bg-neutral-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 ${CTA_SIZE_CLASSES} ${
     showCta ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
   } ${isGlitching ? "bp-glitch-jitter" : ""}`;
 
@@ -345,7 +344,7 @@ export default function Navigation({
 
                 <GlitchOverlay active={showCta && isGlitching} size="sm">
                   <span
-                    className={`inline-flex h-8 w-full items-center justify-center overflow-hidden bg-white text-black ${CTA_SIZE_CLASSES}`}
+                    className={`inline-flex h-8 w-full items-center justify-center overflow-hidden bg-neutral-50 text-neutral-900 ${CTA_SIZE_CLASSES}`}
                   >
                     {ctaInner}
                   </span>
@@ -361,7 +360,7 @@ export default function Navigation({
                   aria-expanded={menuOpen}
                   className={`relative flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-visible text-white transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
                     menuOpen
-                      ? "bg-purple text-black hover:bg-purple"
+                      ? "bg-neutral-700 hover:bg-neutral-600"
                       : "bg-neutral-800 hover:bg-neutral-600"
                   }`}
                   style={{ cursor: "pointer" }}

@@ -15,7 +15,7 @@ function FAQSubnav() {
           <a
             key={section.id}
             href={`#${section.id}`}
-            className="inline-flex shrink-0 items-center justify-center border border-neutral-700 px-3 py-3 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-colors hover:border-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="inline-flex h-10 shrink-0 items-center justify-center border border-stroke-secondary px-5 font-mono text-button uppercase text-white transition-colors hover:border-stroke-tertiary hover:bg-neutral-700 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
             {section.title}
           </a>

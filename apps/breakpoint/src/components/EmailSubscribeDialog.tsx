@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useRef, useState } from "react";
+import Button from "@/components/Button";
 
 interface Props {
   open: boolean;
@@ -93,7 +94,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-white/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            className="text-white/60 transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
             <svg
               width="16"
@@ -141,13 +142,12 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
               placeholder="you@domain.com"
               className="h-[40px] border border-white/15 bg-transparent px-3 font-mono text-[0.875rem] text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
             />
-            <button
-              type="submit"
+            <Button
               disabled={status === "sending"}
-              className="inline-flex h-[40px] items-center justify-center bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors duration-200 hover:bg-purple focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {status === "sending" ? "Subscribing…" : "Subscribe"}
-            </button>
+              label={status === "sending" ? "Subscribing…" : "Subscribe"}
+              type="submit"
+              variant="primary"
+            />
           </form>
         )}
       </div>
