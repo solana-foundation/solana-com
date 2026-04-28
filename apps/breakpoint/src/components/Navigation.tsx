@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
-import { Link } from "@workspace/i18n/routing";
+import { Link, usePathname } from "@workspace/i18n/routing";
+import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import GlitchOverlay from "@/components/GlitchOverlay";
-import MenuOverlay from "@/components/MenuOverlay";
 import { isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
-// Must stay in sync with --bp-glitch-duration for .bp-glitch-sm in globals.css.
 const CTA_SIZE_CLASSES =
-  "gap-1 px-1.5 !text-[12px] !font-bold !leading-[0.9] !tracking-normal min-[360px]:gap-2 min-[360px]:px-3 min-[360px]:!text-[14px] min-[360px]:!tracking-[0.08em] md:px-3";
+  "gap-2 px-3 font-mono !text-[14px] !font-bold uppercase !leading-[0.9] !tracking-[0.08em]";
+
+const NAV_ITEMS = [
+  { label: "Travel", href: "/travel" },
+  { label: "Sponsors", href: "/sponsors" },
+  { label: "Speakers", href: "/speakers" },
+  { label: "Schedule", href: "/agenda" },
+  { label: "FAQ", href: "/faq" },
+] as const;
 
 type NavigationProps = {
   ctaAlwaysVisible?: boolean;
@@ -32,6 +38,76 @@ function MenuGlyph() {
   );
 }
 
+function CloseGlyph() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex size-3 items-center justify-center"
+    >
+      <svg
+        width="8"
+        height="8"
+        viewBox="0 0 8 8"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        focusable="false"
+      >
+        <path
+          d="M1 1L7 7M7 1L1 7"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="square"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function NavigationLink({
+  href,
+  isCurrent,
+  label,
+  onNavigate,
+}: {
+  href: string;
+  isCurrent: boolean;
+  label: string;
+  onNavigate: () => void;
+}) {
+  const className =
+    "group/link inline-flex h-[26px] w-full items-center gap-3 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-[color,gap] hover:gap-4 hover:text-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white";
+  const inner = (
+    <>
+      <span>{label}</span>
+      <span aria-hidden="true">{"\u2192"}</span>
+    </>
+  );
+
+  if (isRelativeHref(href)) {
+    return (
+      <Link
+        href={href}
+        aria-current={isCurrent ? "page" : undefined}
+        className={className}
+        onClick={onNavigate}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      aria-current={isCurrent ? "page" : undefined}
+      className={className}
+      onClick={onNavigate}
+    >
+      {inner}
+    </a>
+  );
+}
+
 export default function Navigation({
   ctaAlwaysVisible = false,
   ctaHref,
@@ -39,30 +115,36 @@ export default function Navigation({
   showMenuButton = true,
 }: NavigationProps = {}) {
   const t = useTranslations("breakpoint");
+  const pathname = usePathname();
+  const navRef = useRef<HTMLElement>(null);
+  const previousPathnameRef = useRef(pathname);
+  const glitchTimeoutRef = useRef<number | null>(null);
   const [isSticky, setIsSticky] = useState(false);
   const [isGlitching, setIsGlitching] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const glitchTimeoutRef = useRef<number | null>(null);
 
-  const triggerCtaGlitch = () => {
-    setIsGlitching(true);
+  const clearGlitchTimeout = useCallback(() => {
     if (glitchTimeoutRef.current != null) {
       window.clearTimeout(glitchTimeoutRef.current);
+      glitchTimeoutRef.current = null;
     }
+  }, []);
+
+  const triggerCtaGlitch = useCallback(() => {
+    setIsGlitching(true);
+    clearGlitchTimeout();
     glitchTimeoutRef.current = window.setTimeout(() => {
       setIsGlitching(false);
       glitchTimeoutRef.current = null;
     }, GLITCH_MS);
-  };
+  }, [clearGlitchTimeout]);
 
   useEffect(() => {
     return () => {
-      if (glitchTimeoutRef.current != null) {
-        window.clearTimeout(glitchTimeoutRef.current);
-      }
+      clearGlitchTimeout();
     };
-  }, []);
+  }, [clearGlitchTimeout]);
 
   useEffect(() => {
     let ticking = false;
@@ -87,57 +169,74 @@ export default function Navigation({
   }, []);
 
   useEffect(() => {
-    if (glitchTimeoutRef.current != null) {
-      window.clearTimeout(glitchTimeoutRef.current);
-      glitchTimeoutRef.current = null;
-    }
-
     if (!isSticky) {
+      clearGlitchTimeout();
       setIsGlitching(false);
       return;
     }
-    setIsGlitching(true);
-    glitchTimeoutRef.current = window.setTimeout(() => {
-      setIsGlitching(false);
-      glitchTimeoutRef.current = null;
-    }, GLITCH_MS);
 
-    return () => {
-      if (glitchTimeoutRef.current != null) {
-        window.clearTimeout(glitchTimeoutRef.current);
-        glitchTimeoutRef.current = null;
+    triggerCtaGlitch();
+  }, [clearGlitchTimeout, isSticky, triggerCtaGlitch]);
+
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      setMenuOpen(false);
+      previousPathnameRef.current = pathname;
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
       }
     };
-  }, [isSticky]);
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        navRef.current &&
+        event.target instanceof Node &&
+        !navRef.current.contains(event.target)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [menuOpen]);
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
 
   const resolvedCtaLabel = ctaLabel ?? t("hero.cta");
-  const showCta = ctaAlwaysVisible || isSticky;
+  const showCta = ctaAlwaysVisible || isSticky || menuOpen;
+  const hasMenu = showMenuButton;
 
   const ctaInner = (
     <>
       <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
-      <span aria-hidden="true" className="inline-flex size-3 items-center">
-        <svg
-          width="8"
-          height="8"
-          viewBox="0 0 8 8"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M1.6 6.4L6.4 1.6M6.4 1.6H2.56M6.4 1.6V5.44"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="square"
-          />
-        </svg>
+      <span
+        aria-hidden="true"
+        className="inline-flex size-3 items-center justify-center"
+      >
+        <ArrowUpRightIcon variant="filled" />
       </span>
     </>
   );
 
-  const ctaClasses = `relative inline-flex h-8 shrink-0 items-center justify-center border border-white/40 bg-white font-mono font-bold uppercase leading-[0.9] text-black hover:bg-[#e7d2f9] ${CTA_SIZE_CLASSES} ${
-    showCta ? "pointer-events-auto" : "pointer-events-none"
-  } ${isGlitching ? "bp-glitch-jitter" : ""} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`;
+  const ctaClasses = `inline-flex h-8 shrink-0 items-center justify-center overflow-hidden bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${CTA_SIZE_CLASSES} ${
+    showCta ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
+  } ${isGlitching ? "bp-glitch-jitter" : ""}`;
 
   const ctaAriaProps = {
     "aria-hidden": !showCta,
@@ -149,8 +248,9 @@ export default function Navigation({
       <Link
         href={ctaHref}
         className={ctaClasses}
-        onMouseEnter={triggerCtaGlitch}
         onFocus={triggerCtaGlitch}
+        onMouseEnter={triggerCtaGlitch}
+        style={{ cursor: showCta ? "pointer" : undefined }}
         {...ctaAriaProps}
       >
         {ctaInner}
@@ -159,8 +259,9 @@ export default function Navigation({
       <a
         href={ctaHref}
         className={ctaClasses}
-        onMouseEnter={triggerCtaGlitch}
         onFocus={triggerCtaGlitch}
+        onMouseEnter={triggerCtaGlitch}
+        style={{ cursor: showCta ? "pointer" : undefined }}
         {...ctaAriaProps}
       >
         {ctaInner}
@@ -170,97 +271,137 @@ export default function Navigation({
     <button
       type="button"
       onClick={() => setSubscribeOpen(true)}
-      onMouseEnter={triggerCtaGlitch}
       onFocus={triggerCtaGlitch}
+      onMouseEnter={triggerCtaGlitch}
       className={ctaClasses}
+      style={{ cursor: showCta ? "pointer" : undefined }}
       {...ctaAriaProps}
     >
       {ctaInner}
     </button>
   );
 
+  const closedWidthClass = hasMenu
+    ? showCta
+      ? "w-[calc(100vw-32px)] max-w-[343px] md:w-[466px] md:max-w-none"
+      : "w-[calc(100vw-32px)] max-w-[343px] md:w-[310px] md:max-w-none"
+    : showCta
+      ? "w-[calc(100vw-32px)] max-w-[343px] md:w-[426px] md:max-w-none"
+      : "w-auto";
+  const navWidthClass = menuOpen
+    ? "w-[calc(100vw-32px)] max-w-[343px] md:w-[466px] md:max-w-none"
+    : closedWidthClass;
+  const navPositionClass =
+    isSticky || ctaAlwaysVisible || menuOpen ? "fixed" : "absolute";
+  const headerLayoutClass = hasMenu
+    ? "justify-between pl-3 pr-2 md:pl-4"
+    : showCta
+      ? "justify-between px-3 md:gap-[120px] md:justify-start md:px-4"
+      : "px-3 md:px-4";
+  const logoSizeClasses = "h-4 gap-[5.705px] md:h-5 md:gap-[7.132px]";
+  const solanaLogoClasses =
+    "h-[15.64px] w-[18.15px] md:h-[19.55px] md:w-[22.68px]";
+  const bpLogoClasses = "h-4 w-[83.56px] md:h-5 md:w-[104.45px]";
+
   return (
     <>
       <nav
+        ref={navRef}
         aria-label="Primary"
-        className={`left-1/2 z-30 flex h-12 -translate-x-1/2 items-center overflow-hidden bg-black pl-3 pr-2 py-2 transition-[width,transform,background-color,opacity] duration-300 ease-out ${
-          isSticky
-            ? "fixed w-[calc(100vw-32px)] max-w-[343px] md:w-[426px] md:max-w-none"
-            : ctaAlwaysVisible
-              ? "absolute w-[calc(100vw-32px)] max-w-[343px] md:w-[426px] md:max-w-none"
-              : "absolute w-auto"
-        }`}
+        className={`left-1/2 z-40 flex -translate-x-1/2 flex-col items-start overflow-visible transition-[width,transform,opacity] duration-300 ease-out ${navPositionClass} ${navWidthClass}`}
         style={{ top: `${STICKY_OFFSET_PX}px` }}
       >
-        <Link
-          href="/"
-          className="flex h-4 shrink-0 items-center gap-[5.705px] md:h-5 md:gap-[7px]"
-          aria-label="Breakpoint 2026"
-        >
-          <img
-            src="/assets/nav-solana.svg"
-            alt=""
-            aria-hidden="true"
-            width={23}
-            height={20}
-            className="block h-[15.64px] w-[18.15px] md:h-[19.55px] md:w-[22.68px]"
-          />
-          <img
-            src="/assets/nav-bp26.svg"
-            alt=""
-            aria-hidden="true"
-            width={104}
-            height={20}
-            className="block h-4 w-[83.56px] md:h-5 md:w-[104.45px]"
-          />
-        </Link>
-
         <div
-          className={`flex flex-1 items-center justify-end gap-2 pr-1 md:pr-[4px] ${
-            showCta ? "" : "ml-2"
-          }`}
+          className={`flex h-12 w-full items-center bg-black py-2 ${headerLayoutClass}`}
         >
-          <motion.div
-            className={`relative ${showCta ? "inline-flex" : "hidden"}`}
-            initial={false}
-            animate={{
-              opacity: showCta ? 1 : 0,
-              x: showCta ? 0 : 6,
-            }}
-            transition={{ duration: 0 }}
+          <Link
+            href="/"
+            className={`flex shrink-0 items-center ${logoSizeClasses}`}
+            aria-label="Breakpoint 2026"
+            onClick={closeMenu}
           >
-            {ctaElement}
+            <img
+              src="/assets/nav-solana.svg"
+              alt=""
+              aria-hidden="true"
+              width={23}
+              height={20}
+              className={`block ${solanaLogoClasses}`}
+            />
+            <img
+              src="/assets/nav-bp26.svg"
+              alt=""
+              aria-hidden="true"
+              width={104}
+              height={20}
+              className={`block ${bpLogoClasses}`}
+            />
+          </Link>
 
-            <GlitchOverlay active={isGlitching} size="sm">
-              <span
-                className={`inline-flex h-8 w-full items-center justify-center border border-white/40 bg-white font-mono font-bold uppercase leading-[0.9] text-black ${CTA_SIZE_CLASSES}`}
-              >
-                {ctaInner}
-              </span>
-            </GlitchOverlay>
-          </motion.div>
+          {(showCta || hasMenu) && (
+            <div className="flex shrink-0 items-center gap-2">
+              <div className={showCta ? "relative inline-flex" : "hidden"}>
+                {ctaElement}
 
-          {showMenuButton && (
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              className="flex size-8 shrink-0 items-center justify-center bg-neutral-800 text-white transition-colors hover:bg-purple hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              <MenuGlyph />
-            </button>
+                <GlitchOverlay active={showCta && isGlitching} size="sm">
+                  <span
+                    className={`inline-flex h-8 w-full items-center justify-center overflow-hidden bg-white text-black ${CTA_SIZE_CLASSES}`}
+                  >
+                    {ctaInner}
+                  </span>
+                </GlitchOverlay>
+              </div>
+
+              {hasMenu && (
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-label={menuOpen ? "Close menu" : "Open menu"}
+                  aria-controls="breakpoint-navigation-menu"
+                  aria-expanded={menuOpen}
+                  className={`relative flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-visible text-white transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
+                    menuOpen
+                      ? "bg-purple text-black hover:bg-[#c390fc]"
+                      : "bg-neutral-800 hover:bg-neutral-600"
+                  }`}
+                  style={{ cursor: "pointer" }}
+                >
+                  {menuOpen ? <CloseGlyph /> : <MenuGlyph />}
+                </button>
+              )}
+            </div>
           )}
         </div>
+
+        {hasMenu && menuOpen && (
+          <div
+            id="breakpoint-navigation-menu"
+            className="flex w-full flex-col items-start gap-4 bg-black p-4 shadow-[inset_0_1px_0_0_#353535] md:px-6 md:py-5"
+          >
+            {NAV_ITEMS.map((item, index) => {
+              const isCurrent = pathname === item.href;
+              return (
+                <div key={item.href} className="contents">
+                  <NavigationLink
+                    href={item.href}
+                    isCurrent={isCurrent}
+                    label={item.label}
+                    onNavigate={closeMenu}
+                  />
+                  {index < NAV_ITEMS.length - 1 && (
+                    <div className="relative h-0 w-full before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-neutral-700" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <EmailSubscribeDialog
         open={subscribeOpen}
         onClose={() => setSubscribeOpen(false)}
       />
-
-      <MenuOverlay open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 }
