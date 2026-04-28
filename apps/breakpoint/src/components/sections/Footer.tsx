@@ -108,9 +108,22 @@ type CountdownParts = {
   seconds: number;
 };
 
+type FooterBackgroundColor = "purple" | "green" | "blue" | "yellow" | "pink";
+
 type FooterProps = {
-  accentClassName?: string;
-  accentTextClassName?: string;
+  backgroundColor?: FooterBackgroundColor;
+};
+
+const FOOTER_BACKGROUND_COLORS: Record<FooterBackgroundColor, string> = {
+  blue: "var(--color-core-blue)",
+  green: "var(--color-core-green)",
+  pink: "var(--color-core-pink)",
+  purple: "var(--color-core-purple)",
+  yellow: "var(--color-core-yellow)",
+};
+
+type FooterStyle = React.CSSProperties & {
+  "--footer-background-color": string;
 };
 
 function diffParts(target: number, now: number): CountdownParts {
@@ -180,13 +193,13 @@ function CounterCell({ value, label }: { value: string; label: string }) {
   );
 }
 
-function FooterPixelEdge({ className }: { className: string }) {
+function FooterPixelEdge() {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 1440 200"
       preserveAspectRatio="none"
-      className={`block h-[200px] w-full min-w-[840px] ${className}`}
+      className="block h-[200px] w-full min-w-[840px] text-[var(--footer-background-color)]"
     >
       <path
         fill="currentColor"
@@ -199,19 +212,24 @@ function FooterPixelEdge({ className }: { className: string }) {
 }
 
 export default function Footer({
-  accentClassName = "bg-purple",
-  accentTextClassName = "text-purple",
+  backgroundColor = "purple",
 }: FooterProps = {}) {
   const t = useTranslations("breakpoint.footer");
   const { days, hours, minutes, seconds } = useCountdown(EVENT_START);
+  const footerStyle: FooterStyle = {
+    "--footer-background-color": FOOTER_BACKGROUND_COLORS[backgroundColor],
+  };
 
   return (
-    <footer className="flex w-full flex-col items-stretch pt-20 md:pt-[120px]">
+    <footer
+      className="flex w-full flex-col items-stretch pt-20 md:pt-[120px]"
+      style={footerStyle}
+    >
       <div className="h-[50px] w-full overflow-hidden">
-        <FooterPixelEdge className={accentTextClassName} />
+        <FooterPixelEdge />
       </div>
 
-      <div className={`w-full ${accentClassName}`}>
+      <div className="w-full bg-[var(--footer-background-color)]">
         <div className="flex flex-col items-start justify-between gap-xl px-[16px] pt-l md:flex-row md:items-center md:gap-6 md:px-[32px] md:py-l">
           <div className="flex items-center gap-s">
             {SOCIAL_LINKS.map((social) => (
@@ -247,9 +265,7 @@ export default function Footer({
         </div>
       </div>
 
-      <div
-        className={`w-full px-[16px] pt-l md:px-[32px] md:py-l ${accentClassName}`}
-      >
+      <div className="w-full bg-[var(--footer-background-color)] px-[16px] pt-l md:px-[32px] md:py-l">
         <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
           <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
           <CounterCell value={pad(hours)} label={t("countdown.hours")} />
@@ -258,40 +274,21 @@ export default function Footer({
         </div>
       </div>
 
-      <div
-        className={`w-full px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l ${accentClassName}`}
-      >
-        <div className="flex w-full items-center justify-start gap-[17.83px] md:justify-center md:gap-[35.974px]">
+      <div className="w-full bg-[var(--footer-background-color)] px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l">
+        <div className="flex w-full items-center justify-center">
           <img
-            src="/assets/bp26-logo-mark-mobile.svg"
-            alt=""
-            aria-hidden="true"
-            width={56.7055}
-            height={48.884}
-            className="block h-[48.884px] w-[56.705px] shrink-0 md:hidden"
-          />
-          <img
-            src="/assets/bp-logo-mark.svg"
-            alt=""
-            aria-hidden="true"
-            width={114.409}
-            height={98.628}
-            className="hidden h-[98.628px] w-[114.409px] shrink-0 md:block"
-          />
-          <img
-            src="/assets/bp26-wordmark-mobile.svg"
+            src="/assets/bp26-footer-logo-mobile.svg"
             alt="BP26"
-            width={261.136}
+            width={343}
             height={50.0022}
-            className="block h-[50.002px] w-[261.136px] shrink-0 md:hidden"
+            className="block h-auto w-full max-w-[343px] md:hidden"
           />
           <img
-            src="/assets/breakpoint-wordmark-footer.svg"
+            src="/assets/breakpoint-footer-logo-desktop.svg"
             alt="Breakpoint"
-            width={1226.613}
+            width={1376.996}
             height={100.876}
-            className="hidden h-auto w-full min-w-0 flex-1 md:block"
-            style={{ aspectRatio: "1226.613 / 100.876" }}
+            className="hidden h-auto w-full md:block"
           />
         </div>
       </div>

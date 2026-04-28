@@ -39,7 +39,7 @@ export default function FAQPage() {
       <SubpageHero image={false} title="FAQs" />
       <FAQSubnav />
       <FAQAccordionList sections={faqPageSections} />
-      <Footer accentClassName="bg-green" accentTextClassName="text-green" />
+      <Footer backgroundColor="green" />
     </PageShell>
   );
 }

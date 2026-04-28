@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import PageShell from "@/components/PageShell";
-import SpeakersFooter from "@/components/pages/speakers/SpeakersFooter";
 import SpeakersList from "@/components/pages/speakers/SpeakersList";
 import SubpageHero from "@/components/SubpageHero";
 import { getAirtableSpeakers } from "@/content/speakers/airtable";
 import { fallbackSpeakers } from "@/content/speakers/fallback-speakers";
+import Footer from "@/components/sections/Footer";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,7 @@ export default async function SpeakersPage() {
         initialOpenSlug={isDesignPreview ? speakers[0]?.slug : undefined}
         preserveOrder={isDesignPreview}
       />
-      <SpeakersFooter />
+      <Footer backgroundColor="green" />
     </PageShell>
   );
 }
