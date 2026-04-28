@@ -395,7 +395,20 @@ export default function SponsorsPage() {
         ctaLabel: "REGISTER",
       }}
     >
-      <SubpageHero title="Sponsors" background={<SponsorsHeroBackground />} />
+      <SubpageHero
+        title="Sponsors"
+        imageSrc="/img/sponsors/sponsors-header-bg.webp"
+        imageTreatment={{
+          className:
+            "absolute left-[-134px] top-[-78px] h-[677.347px] w-[451px] -rotate-90 md:inset-0 md:h-full md:w-full md:rotate-0",
+          color: "purple",
+          flicker: true,
+          intensity: 40,
+          lighting: "contrast",
+          motion: true,
+        }}
+        backgroundOverlay={<SponsorsHeroBackground />}
+      />
       <SponsorsIntro />
       {sponsorTiers.map((tier, index) => (
         <SponsorTierSection key={tier.title} tier={tier} first={index === 0} />

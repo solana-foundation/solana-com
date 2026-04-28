@@ -36,6 +36,12 @@ export default async function SpeakersPage() {
       <SubpageHero
         title="Speakers"
         tintClassName="bg-green"
+        imageTreatment={{
+          flicker: true,
+          intensity: 40,
+          lighting: "contrast",
+          motion: true,
+        }}
         cta={{
           href: APPLY_TO_SPEAK_HREF,
           label: "Apply to speak",

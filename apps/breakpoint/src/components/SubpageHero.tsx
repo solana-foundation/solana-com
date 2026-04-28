@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import ImageTreatment, {
+  type ImageTreatmentProps,
+  type TreatmentColor,
+} from "@/components/ImageTreatment";
 import { isRelativeHref } from "@/lib/links";
 
 type HeroCta = {
@@ -11,14 +15,24 @@ type HeroCta = {
 
 type SubpageHeroProps = {
   background?: ReactNode;
+  backgroundOverlay?: ReactNode;
   children?: ReactNode;
   cta?: HeroCta | HeroCta[];
   eyebrow?: string;
   image?: boolean;
   imageSrc?: string;
+  imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
   imageTopClassName?: string;
   tintClassName?: string;
   title: string;
+};
+
+type SubpageHeroImageTreatmentConfig = Partial<
+  Omit<ImageTreatmentProps, "alt" | "className" | "src">
+> & {
+  alt?: string;
+  className?: string;
+  src?: string;
 };
 
 const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
@@ -28,6 +42,76 @@ const eyebrowClassName =
 
 const titleClassName =
   "w-full font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:text-[80px]";
+
+function DefaultHeroBackground({
+  imageTreatment,
+  imageSrc,
+  imageTopClassName,
+  tintClassName,
+}: {
+  imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
+  imageSrc: string;
+  imageTopClassName: string;
+  tintClassName: string;
+}) {
+  const imageClassName = `absolute left-1/2 h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
+  const imageTreatmentConfig = getImageTreatmentConfig(imageTreatment);
+
+  if (imageTreatmentConfig) {
+    const {
+      alt = "",
+      className,
+      src,
+      ...imageTreatmentProps
+    } = imageTreatmentConfig;
+
+    return (
+      <>
+        <ImageTreatment
+          src={src ?? imageSrc}
+          alt={alt}
+          aria-hidden={alt ? undefined : true}
+          glitchPattern="p1"
+          intensity={60}
+          lighting="even"
+          color={getTreatmentColor(tintClassName)}
+          className={className ?? imageClassName}
+          {...imageTreatmentProps}
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <img
+        src={imageSrc}
+        alt=""
+        width={1200}
+        height={800}
+        className={imageClassName}
+      />
+      <div className={`absolute inset-0 ${tintClassName} mix-blend-multiply`} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
+    </>
+  );
+}
+
+function getImageTreatmentConfig(
+  imageTreatment: SubpageHeroProps["imageTreatment"],
+) {
+  if (!imageTreatment) return null;
+  return imageTreatment === true ? {} : imageTreatment;
+}
+
+function getTreatmentColor(tintClassName: string): TreatmentColor {
+  if (tintClassName.includes("bg-green")) return "green";
+  if (tintClassName.includes("bg-blue")) return "blue";
+  if (tintClassName.includes("bg-white")) return "white";
+  if (tintClassName.includes("bg-purple")) return "purple";
+  return "purple";
+}
 
 function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
   const variantClasses =
@@ -74,11 +158,13 @@ function HeroCtas({ cta }: { cta: HeroCta | HeroCta[] }) {
 
 export default function SubpageHero({
   background,
+  backgroundOverlay,
   children,
   cta,
   eyebrow = "Breakpoint 2026",
   image = true,
   imageSrc = DEFAULT_IMAGE_SRC,
+  imageTreatment = false,
   imageTopClassName = "top-[-320px] md:top-[-340px]",
   tintClassName = "bg-purple",
   title,
@@ -100,6 +186,15 @@ export default function SubpageHero({
     );
   }
 
+  const backgroundContent = background ?? (
+    <DefaultHeroBackground
+      imageTreatment={imageTreatment}
+      imageSrc={imageSrc}
+      imageTopClassName={imageTopClassName}
+      tintClassName={tintClassName}
+    />
+  );
+
   return (
     <section
       className="relative h-[480px] overflow-hidden bg-black md:h-[467px]"
@@ -109,21 +204,8 @@ export default function SubpageHero({
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-[360px] overflow-hidden"
       >
-        {background ?? (
-          <>
-            <img
-              src={imageSrc}
-              alt=""
-              width={1200}
-              height={800}
-              className={`absolute left-1/2 h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`}
-            />
-            <div
-              className={`absolute inset-0 ${tintClassName} mix-blend-multiply`}
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]" />
-          </>
-        )}
+        {backgroundContent}
+        {backgroundOverlay}
       </div>
 
       <img
