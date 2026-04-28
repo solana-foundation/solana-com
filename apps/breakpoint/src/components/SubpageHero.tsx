@@ -18,9 +18,11 @@ type SubpageHeroProps = {
   cta?: HeroCta | HeroCta[];
   eyebrow?: string;
   image?: boolean;
+  imageHeightClassName?: string;
   imageSrc?: string;
   imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
   imageTopClassName?: string;
+  pixelEdgeSrc?: string;
   tintClassName?: string;
   title: string;
 };
@@ -140,9 +142,11 @@ export default function SubpageHero({
   cta,
   eyebrow = "Breakpoint 2026",
   image = true,
+  imageHeightClassName = "h-[480px] md:h-[467px]",
   imageSrc = DEFAULT_IMAGE_SRC,
   imageTreatment = false,
   imageTopClassName = "top-[-320px] md:top-[-340px]",
+  pixelEdgeSrc = "/assets/pixel-edge.svg",
   tintClassName = "bg-purple",
   title,
 }: SubpageHeroProps) {
@@ -174,7 +178,7 @@ export default function SubpageHero({
 
   return (
     <section
-      className="relative h-[480px] overflow-hidden bg-black md:h-[467px]"
+      className={`relative overflow-hidden bg-black ${imageHeightClassName}`}
       data-bp-subpage-hero="image"
     >
       <div
@@ -186,7 +190,7 @@ export default function SubpageHero({
       </div>
 
       <img
-        src="/assets/pixel-edge.svg"
+        src={pixelEdgeSrc}
         alt=""
         aria-hidden="true"
         width={1440}

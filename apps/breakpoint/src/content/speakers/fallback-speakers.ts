@@ -18,16 +18,16 @@ export const fallbackSpeakers = [
     title: "Associate Director, Business Development, Onchain Solutions",
   },
   {
-    company: "Me3",
+    company: "Anza",
     id: "fallback-alexander-meissner",
-    name: "Alexander Meijner",
-    slug: "alexander-meijner",
+    name: "Alexander Meißner",
+    slug: "alexander-meissner",
     socials: {
       website: "https://solana.com",
       x: "https://x.com/solana",
     },
     sortOrder: 1,
-    title: "Extra fun labs",
+    title: "SVM Team Lead",
   },
   {
     company: "Abra",
@@ -41,16 +41,16 @@ export const fallbackSpeakers = [
     title: "CEO",
   },
   {
-    company: "Bybit",
+    company: "Drift",
     id: "fallback-bin-chen",
-    name: "Bina Choi",
-    slug: "bina-choi",
+    name: "Bin Chen",
+    slug: "bin-chen",
     socials: {
       linkedin: "https://linkedin.com",
       x: "https://x.com/solana",
     },
     sortOrder: 3,
-    title: "Co-Founder",
+    title: "CO-Founder",
   },
   {
     company: "Electric Capital",
@@ -64,7 +64,7 @@ export const fallbackSpeakers = [
     title: "General Counsel",
   },
   {
-    company: "21.co",
+    company: "21.c0",
     id: "fallback-harry-rashwan",
     name: "Hany Rashwan",
     slug: "hany-rashwan",

@@ -206,7 +206,7 @@ function SpeakerRow({
 
   return (
     <article
-      className={`relative flex w-full flex-col items-start overflow-hidden border border-neutral-700 p-4 md:flex-row md:items-center md:justify-between md:gap-0 md:py-6 md:pl-6 md:pr-12 ${designPreviewHeightClass} ${
+      className={`relative flex w-full flex-col items-start overflow-hidden p-4 outline outline-1 -outline-offset-1 outline-neutral-700 md:flex-row md:items-center md:justify-between md:gap-0 md:py-6 md:pl-6 md:pr-12 ${designPreviewHeightClass} ${
         open ? "bg-neutral-800" : "bg-black"
       }`}
     >

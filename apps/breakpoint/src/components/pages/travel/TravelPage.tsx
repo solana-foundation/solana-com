@@ -193,9 +193,6 @@ function AirportList() {
             <p className="type-eyebrow whitespace-nowrap text-blue">
               {airport.meta}
             </p>
-            <p className="type-paragraph hidden max-w-[360px] text-text-secondary md:block">
-              {airport.detail}
-            </p>
           </div>
         </a>
       ))}
@@ -218,10 +215,10 @@ function AirlineCard({ airline }: { airline: AirlineInfo }) {
           className={`block h-auto ${airline.logoClassName}`}
         />
       </a>
-      <div className="flex w-full flex-col items-start gap-4 py-6">
-        <div className="flex flex-col gap-2">
+      <div className="flex w-full min-w-0 flex-col items-start gap-4 py-6">
+        <div className="flex w-full min-w-0 flex-col gap-2">
           <h3 className="type-paragraph-bold text-white">{airline.name}</h3>
-          <p className="type-paragraph text-text-secondary">
+          <p className="type-paragraph max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-text-secondary">
             {airline.description}
           </p>
         </div>
@@ -240,9 +237,11 @@ function FlightsSection() {
           title="Getting to London"
         />
 
-        <div className="flex flex-col gap-8 md:grid md:grid-cols-[minmax(250px,0.7fr)_minmax(0,1.55fr)] md:gap-[64px] lg:gap-[110px]">
-          <AirportList />
-          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 scrollbar-hidden md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 md:grid-cols-2">
+        <div className="flex flex-col gap-8 md:grid md:grid-cols-bp-desktop md:gap-x-s">
+          <div className="md:col-span-6">
+            <AirportList />
+          </div>
+          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 scrollbar-hidden md:col-span-9 md:col-start-8 md:mx-0 md:grid md:grid-cols-2 md:gap-6 md:overflow-visible md:px-0">
             {AIRLINES.map((airline) => (
               <AirlineCard key={airline.name} airline={airline} />
             ))}
@@ -259,9 +258,9 @@ function HotelsSection() {
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:gap-12 md:px-8">
         <SectionHeading title="Hotels" />
 
-        <div className="grid items-start gap-12 md:grid-cols-[minmax(320px,589px)_minmax(0,676px)] md:justify-center md:gap-[80px] lg:gap-[111px]">
+        <div className="grid items-start gap-12 md:grid-cols-bp-desktop md:gap-x-s">
           <div
-            className="relative aspect-square w-full overflow-hidden bg-neutral-800 md:aspect-auto md:h-auto"
+            className="relative aspect-square w-full overflow-hidden bg-neutral-800 md:col-span-7"
             style={{
               WebkitMaskImage: "url('/img/travel/hotel-mask.svg')",
               WebkitMaskRepeat: "no-repeat",
@@ -281,7 +280,7 @@ function HotelsSection() {
             />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-5">
+          <div className="flex min-w-0 flex-col gap-5 md:col-span-8 md:col-start-9">
             {HOTELS.map((hotel, index) => (
               <details
                 key={hotel.name}
@@ -313,8 +312,8 @@ function VisaSection() {
   return (
     <section id="visas" className="bg-black pt-[80px] md:pt-[120px]">
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
-        <div className="grid gap-16 border-t border-neutral-700 pt-8 md:grid-cols-[minmax(260px,501px)_minmax(0,676px)] md:justify-between md:pt-12">
-          <div className="flex flex-col items-start gap-8">
+        <div className="grid gap-16 border-t border-neutral-700 pt-8 md:grid-cols-bp-desktop md:gap-x-s md:pt-12">
+          <div className="flex flex-col items-start gap-8 md:col-span-6">
             <div className="flex flex-col gap-4">
               <h2 className="type-h3 text-white">Visas for London</h2>
               <p className="type-paragraph text-white">
@@ -330,7 +329,7 @@ function VisaSection() {
             />
           </div>
 
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8 md:col-span-8 md:col-start-9">
             <div className="flex flex-col gap-4">
               <h3 className="type-p-large text-white">
                 First, check if you need a visa
@@ -396,6 +395,7 @@ function TravelHero() {
       title="Welcome to London"
       tintClassName="bg-blue"
       imageTopClassName="top-[-300px] md:top-[-330px]"
+      pixelEdgeSrc="/assets/pixel-edge-travel.svg"
     >
       <div className="-mt-8 flex flex-wrap items-center gap-1 md:-mt-5 md:gap-2">
         <QuickLink href="#flights" label="Flights" />

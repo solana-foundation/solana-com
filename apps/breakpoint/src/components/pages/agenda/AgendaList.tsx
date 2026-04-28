@@ -36,7 +36,7 @@ function SessionMeta({ item }: { item: AgendaItem }) {
   const textClasses = "type-eyebrow";
 
   return (
-    <div className="type-eyebrow flex w-auto shrink-0 flex-col items-start justify-center gap-2 md:w-[132px]">
+    <div className="type-eyebrow flex w-auto shrink-0 flex-col items-start justify-center gap-3xs md:w-[108px]">
       <p
         className={`h-[17px] w-full ${textClasses}`}
         style={{ color: "var(--agenda-accent)" }}
@@ -61,7 +61,7 @@ function SessionMeta({ item }: { item: AgendaItem }) {
 
 function SpeakerBlock({ speaker }: { speaker: AgendaSpeaker }) {
   return (
-    <div className="flex min-w-[150px] flex-col items-start justify-center gap-2">
+    <div className="flex min-w-[150px] flex-col items-start justify-center gap-3xs">
       <p className="type-paragraph-bold w-full text-white">{speaker.name}</p>
       {speaker.company && (
         <p className="type-eyebrow w-full text-white">{speaker.company}</p>
@@ -100,23 +100,23 @@ function SessionRow({
       aria-label={`${open ? "Collapse" : "Expand"} ${item.title}`}
       onClick={onToggle}
       onKeyDown={handleKeyDown}
-      className={`group/accordion-control relative flex w-full cursor-pointer items-start overflow-hidden border border-neutral-700 p-4 text-left focus-visible:outline-none md:justify-between md:gap-4 md:pl-6 md:pr-12 ${
-        open ? "bg-neutral-800 md:py-6 md:pb-12" : "bg-black md:py-6"
+      className={`group/accordion-control relative flex w-full cursor-pointer items-start overflow-hidden border border-neutral-700 p-xs text-left focus-visible:outline-none md:justify-between md:gap-xs md:pl-s md:pr-l ${
+        open ? "bg-neutral-800 md:py-s md:pb-l" : "bg-black md:py-s"
       }`}
     >
       <div
-        className={`flex min-w-0 flex-1 flex-col gap-8 md:flex-row md:justify-center md:gap-24 md:pr-16 ${
+        className={`flex min-w-0 flex-1 flex-col gap-m md:flex-row md:justify-center md:gap-3xl md:pr-xl ${
           open ? "md:items-start" : "md:items-center"
         }`}
       >
         <SessionMeta item={item} />
 
         <div
-          className={`flex min-w-0 flex-1 flex-col items-start md:pr-20 ${
-            open && hasDetails ? "gap-8" : "gap-0"
+          className={`flex min-w-0 flex-1 flex-col items-start md:pr-2xl ${
+            open && hasDetails ? "gap-m" : "gap-0"
           }`}
         >
-          <div className="flex w-full flex-col items-start gap-2">
+          <div className="flex w-full flex-col items-start gap-3xs md:gap-2xs">
             <h2 className="type-h5 w-full text-white">{item.title}</h2>
             {item.tag && (
               <p className="type-eyebrow w-full text-white">{item.tag}</p>
@@ -130,7 +130,7 @@ function SessionRow({
           )}
 
           {open && item.speakers.length > 0 && (
-            <div className="flex w-full flex-wrap items-start gap-x-12 gap-y-8">
+            <div className="flex w-full flex-wrap items-start gap-x-l gap-y-s md:gap-y-m">
               {item.speakers.map((speaker) => (
                 <SpeakerBlock
                   key={`${item.id}-${speaker.name}-${speaker.company ?? ""}`}
@@ -143,7 +143,7 @@ function SessionRow({
       </div>
 
       <AccordionButton
-        className="absolute right-4 top-4 md:right-6 md:top-6"
+        className="absolute right-xs top-xs md:right-l md:top-s"
         interaction="group"
         open={open}
       />
@@ -155,9 +155,9 @@ function StaticRow({ item }: { item: AgendaItem }) {
   const textClasses = "type-eyebrow";
 
   return (
-    <article className="flex w-full overflow-hidden bg-[var(--agenda-accent)] p-4 text-black md:items-center md:justify-between md:px-6 md:py-16">
-      <div className="flex min-w-0 flex-1 flex-col gap-8 uppercase md:flex-row md:items-center md:gap-24">
-        <div className="type-eyebrow flex w-[108px] shrink-0 flex-col items-start justify-center gap-2 md:w-[132px]">
+    <article className="flex w-full overflow-hidden bg-[var(--agenda-accent)] p-xs text-black md:items-center md:justify-between md:px-s md:py-xl">
+      <div className="flex min-w-0 flex-1 flex-col gap-m uppercase md:flex-row md:items-center md:gap-3xl">
+        <div className="type-eyebrow flex w-[108px] shrink-0 flex-col items-start justify-center gap-3xs">
           <p className={`h-[17px] w-full ${textClasses}`}>{item.time}</p>
           {item.duration && (
             <p className={`h-[17px] w-full ${textClasses}`}>{item.duration}</p>
@@ -212,8 +212,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
       className="bg-black"
       style={accentStyle}
     >
-      <div className="flex w-full items-end justify-start overflow-x-auto pt-8 md:justify-center">
-        <div className="h-px w-4 shrink-0 bg-neutral-700" />
+      <div className="flex w-full items-end justify-start overflow-x-auto pt-m md:justify-center">
+        <div className="h-px w-xs shrink-0 bg-neutral-700 md:hidden" />
         <div className="flex min-w-max items-end">
           {allDays.map((day) => {
             const active = day === activeDay;
@@ -225,7 +225,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   setActiveDay(day);
                   setOpenItemId(null);
                 }}
-                className={`type-h5 border-b px-4 pb-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-8 ${
+                className={`type-h5 border-b px-xs pb-2xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-m ${
                   active
                     ? "border-white text-white"
                     : "border-neutral-700 text-text-secondary hover:text-white"
@@ -239,7 +239,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
         <div className="hidden h-px min-w-0 flex-1 bg-white/15 md:block" />
       </div>
 
-      <div className="flex w-full flex-col items-start gap-4 px-4 pt-8 md:px-8 md:pt-12">
+      <div className="flex w-full flex-col items-start gap-xs px-xs pt-m md:px-m md:pt-l">
         {visibleItems.length > 0 ? (
           visibleItems.map((item) =>
             item.variant === "static" ? (
@@ -258,7 +258,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
             ),
           )
         ) : (
-          <div className="w-full border border-neutral-700 px-6 py-12 text-center">
+          <div className="w-full border border-neutral-700 px-s py-l text-center">
             <p className="type-button-relaxed text-text-secondary">
               Agenda details for this day are coming soon.
             </p>

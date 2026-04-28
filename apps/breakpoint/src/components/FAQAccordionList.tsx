@@ -18,14 +18,14 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
         <section
           key={section.id}
           id={section.id}
-          className="scroll-mt-24 px-5 pt-2xl md:px-8"
+          className="scroll-mt-24 px-xs pt-xl md:px-m md:pt-2xl"
         >
-          <div className="mx-auto flex w-full max-w-[676px] flex-col items-stretch gap-l">
+          <div className="mx-auto flex w-full max-w-[676px] flex-col items-stretch gap-m md:gap-l">
             <h2 className="type-h3 text-white md:text-center">
               {section.title}
             </h2>
 
-            <div className="flex flex-col gap-s">
+            <div className="flex flex-col gap-s md:gap-m">
               {section.items.map((item, index) => (
                 <Accordion
                   key={item.id}
@@ -36,9 +36,10 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
                   }
                   className={
                     index === section.items.length - 1
-                      ? "pb-s"
-                      : "border-b border-neutral-700 pb-s"
+                      ? "pb-xs md:pb-s"
+                      : "border-b border-neutral-700 pb-xs md:pb-s"
                   }
+                  panelClassName="pt-xs md:pt-s"
                 >
                   <p className="type-paragraph text-white md:pr-2xl">
                     {item.answer}

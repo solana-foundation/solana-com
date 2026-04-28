@@ -3,19 +3,25 @@
 import { SolanaFabMenu } from "@solana-foundation/fab-menu";
 import { usePathname } from "@workspace/i18n/routing";
 
+const HIDDEN_ROUTES = [
+  "/agenda",
+  "/faq",
+  "/registration",
+  "/speakers",
+  "/sponsors",
+] as const;
+
+function matchesRoute(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export function FabMenu() {
   const pathname = usePathname();
+  const breakpointPathname = pathname.startsWith("/breakpoint/")
+    ? pathname.replace("/breakpoint", "")
+    : pathname;
 
-  if (
-    pathname === "/agenda" ||
-    pathname.startsWith("/agenda/") ||
-    pathname === "/registration" ||
-    pathname.startsWith("/registration/") ||
-    pathname === "/speakers" ||
-    pathname.startsWith("/speakers/") ||
-    pathname === "/sponsors" ||
-    pathname.startsWith("/sponsors/")
-  ) {
+  if (HIDDEN_ROUTES.some((route) => matchesRoute(breakpointPathname, route))) {
     return null;
   }
 

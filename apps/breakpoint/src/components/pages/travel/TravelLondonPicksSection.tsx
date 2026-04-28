@@ -89,7 +89,7 @@ export default function LondonPicksSection() {
       id="london"
       aria-label="More to see while in London"
       aria-roledescription="carousel"
-      className="bg-black pt-[120px]"
+      className="bg-black pt-2xl md:pt-[120px]"
       role="region"
     >
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:px-8">
@@ -109,7 +109,7 @@ export default function LondonPicksSection() {
 
         <div
           ref={scrollRef}
-          className="-mx-4 flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 scrollbar-hidden md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0"
+          className="flex snap-x snap-mandatory gap-6 overflow-x-auto scrollbar-hidden md:grid md:grid-cols-3 md:overflow-visible"
         >
           {LONDON_PICKS.map((pick) => (
             <LondonPickCard key={pick.title} pick={pick} />

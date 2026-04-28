@@ -11,6 +11,7 @@ interface AccordionProps {
   defaultOpen?: boolean;
   onOpenChange?: (_open: boolean) => void;
   open?: boolean;
+  panelClassName?: string;
 }
 
 export default function Accordion({
@@ -19,6 +20,7 @@ export default function Accordion({
   defaultOpen = false,
   onOpenChange,
   open,
+  panelClassName = "pt-s",
   question,
 }: AccordionProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -65,7 +67,7 @@ export default function Accordion({
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={{ overflow: "hidden" }}
           >
-            <div className="pt-s">{children}</div>
+            <div className={panelClassName}>{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
