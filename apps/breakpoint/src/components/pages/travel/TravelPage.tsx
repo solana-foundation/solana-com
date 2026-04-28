@@ -151,7 +151,7 @@ function QuickLink({ href, label }: { href: string; label: string }) {
   return (
     <a
       href={href}
-      className="inline-flex h-8 items-center justify-center border border-stroke-secondary px-3 font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-colors hover:border-stroke-tertiary hover:bg-neutral-700 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
+      className="type-button-small inline-flex h-8 items-center justify-center border border-stroke-secondary px-3 text-white transition-colors hover:border-stroke-tertiary hover:bg-neutral-700 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
     >
       {label}
     </a>
@@ -167,14 +167,8 @@ function SectionHeading({
 }) {
   return (
     <div className="mx-auto flex max-w-[920px] flex-col items-center gap-6 text-center">
-      {eyebrow && (
-        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-          {eyebrow}
-        </p>
-      )}
-      <h2 className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px] md:leading-[1.15]">
-        {title}
-      </h2>
+      {eyebrow && <p className="type-eyebrow text-white">{eyebrow}</p>}
+      <h2 className="type-h3 text-white">{title}</h2>
     </div>
   );
 }
@@ -188,22 +182,18 @@ function AirportList() {
           href={airport.href}
           className="group flex min-h-[140px] flex-col items-start justify-center gap-4 border-b border-neutral-700 py-6 transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
-          <p className="w-[123px] font-bp26 text-[24px] font-normal uppercase leading-[1.18] tracking-[0.04em] text-white">
-            {airport.code}
-          </p>
+          <p className="type-h6 w-[123px] text-white">{airport.code}</p>
           <div className="flex flex-col items-start gap-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white">
-                {airport.name}
-              </h3>
+              <h3 className="type-h5-fixed text-white">{airport.name}</h3>
               <span className="inline-flex size-3 shrink-0 items-center justify-center text-white transition-colors group-hover:text-blue">
                 <ArrowUpRightIcon />
               </span>
             </div>
-            <p className="whitespace-nowrap font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
+            <p className="type-eyebrow whitespace-nowrap text-blue">
               {airport.meta}
             </p>
-            <p className="hidden max-w-[360px] font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-text-secondary md:block">
+            <p className="type-paragraph hidden max-w-[360px] text-text-secondary md:block">
               {airport.detail}
             </p>
           </div>
@@ -230,10 +220,8 @@ function AirlineCard({ airline }: { airline: AirlineInfo }) {
       </a>
       <div className="flex w-full flex-col items-start gap-4 py-6">
         <div className="flex flex-col gap-2">
-          <h3 className="font-sans text-[16px] font-bold leading-[1.36] tracking-normal text-white">
-            {airline.name}
-          </h3>
-          <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-text-secondary">
+          <h3 className="type-paragraph-bold text-white">{airline.name}</h3>
+          <p className="type-paragraph text-text-secondary">
             {airline.description}
           </p>
         </div>
@@ -301,17 +289,15 @@ function HotelsSection() {
                 className="group border-t border-neutral-700 pb-3 pt-6 open:border-white"
               >
                 <summary className="flex cursor-pointer list-none items-start [&::-webkit-details-marker]:hidden">
-                  <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-text-secondary opacity-60 transition-colors group-open:text-white group-open:opacity-100 md:text-[24px]">
+                  <h3 className="type-p-large-bold text-text-secondary opacity-60 transition-colors group-open:text-white group-open:opacity-100">
                     {hotel.name}
                   </h3>
                 </summary>
                 <div className="mt-4 flex flex-col items-start gap-4">
-                  <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white">
+                  <p className="type-paragraph text-white">
                     {hotel.description}
                   </p>
-                  <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
-                    {hotel.distance}
-                  </p>
+                  <p className="type-eyebrow text-blue">{hotel.distance}</p>
                   <InlineCta href={hotel.href} />
                 </div>
               </details>
@@ -330,10 +316,8 @@ function VisaSection() {
         <div className="grid gap-16 border-t border-neutral-700 pt-8 md:grid-cols-[minmax(260px,501px)_minmax(0,676px)] md:justify-between md:pt-12">
           <div className="flex flex-col items-start gap-8">
             <div className="flex flex-col gap-4">
-              <h2 className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px] md:leading-[1.15]">
-                Visas for London
-              </h2>
-              <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
+              <h2 className="type-h3 text-white">Visas for London</h2>
+              <p className="type-paragraph text-white">
                 Attendees are responsible for reviewing entry requirements and
                 arranging their own visas.
               </p>
@@ -348,10 +332,10 @@ function VisaSection() {
 
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4">
-              <h3 className="font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
+              <h3 className="type-p-large text-white">
                 First, check if you need a visa
               </h3>
-              <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
+              <p className="type-paragraph text-white">
                 <a
                   href={VISA_CHECK_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
@@ -363,10 +347,10 @@ function VisaSection() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <h3 className="font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
+              <h3 className="type-p-large text-white">
                 Then, if you need support with a visa
               </h3>
-              <div className="flex flex-col gap-4 font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
+              <div className="type-paragraph flex flex-col gap-4 text-white">
                 <p>
                   Solana Foundation has engaged Immigration Advice Service (IAS)
                   to assist you in this process. If you are ready to apply,
@@ -398,9 +382,7 @@ function FaqBanner() {
     <section className="bg-black pt-[80px] md:pt-[120px]">
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <div className="flex h-[308px] flex-col items-center justify-end gap-10 bg-neutral-800 px-8 py-20 text-center md:h-auto md:min-h-[286px] md:p-[80px]">
-          <h2 className="font-sans text-[28px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[40px] md:leading-[1.15]">
-            Frequently asked questions
-          </h2>
+          <h2 className="type-h4 text-white">Frequently asked questions</h2>
           <Button arrow href="/faq" label="See all" variant="primary" />
         </div>
       </div>

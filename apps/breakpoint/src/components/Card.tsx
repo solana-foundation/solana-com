@@ -46,23 +46,15 @@ function TicketCard({
   return (
     <article className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-neutral-700 p-8">
       <div className="flex flex-col gap-1">
-        {heading && (
-          <h3 className="font-sans !text-[24px] !font-bold !leading-[1.18] !tracking-[-0.01em] !text-white">
-            {heading}
-          </h3>
-        )}
+        {heading && <h3 className="type-p-large-bold text-white">{heading}</h3>}
         {subhead && (
-          <p className="!text-[18px] !leading-[1.45] !text-text-secondary opacity-80">
+          <p className="type-paragraph text-text-secondary opacity-80">
             {subhead}
           </p>
         )}
       </div>
       <div>
-        {price && (
-          <p className="font-display !text-[64px] uppercase !leading-[1.18] !tracking-[0.04em] !text-white">
-            {price}
-          </p>
-        )}
+        {price && <p className="type-h2 text-white">{price}</p>}
         {ctaLabel && (
           <div className="mt-6 w-full">
             <Button
@@ -87,7 +79,7 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
             as="span"
             text={eyebrow}
             stepMs={55}
-            className="font-mono text-base uppercase tracking-[1.28px] text-white opacity-80"
+            className="type-eyebrow text-white opacity-80"
           />
         )}
       </div>
@@ -98,7 +90,7 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
             text={linkLabel}
             stepMs={70}
             startDelayMs={120}
-            className="font-sans text-[32px] tracking-[-1.28px] text-white"
+            className="type-h5 text-white"
           />
         )}
       </div>

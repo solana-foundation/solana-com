@@ -46,7 +46,7 @@ export default function Accordion({
           aria-controls={panelId}
           aria-expanded={isOpen}
         >
-          <span className="flex-1 font-sans text-[20px] font-normal normal-case leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
+          <span className="type-p-large flex-1 normal-case text-white">
             {question}
           </span>
           <AccordionButton interaction="group" open={isOpen} />

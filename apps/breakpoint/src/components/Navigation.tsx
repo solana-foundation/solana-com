@@ -11,7 +11,7 @@ import { isRelativeHref } from "@/lib/links";
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
-const CTA_SIZE_CLASSES = "gap-2 px-3 font-mono text-button uppercase";
+const CTA_SIZE_CLASSES = "type-button gap-2 px-3";
 
 const NAV_ITEMS = [
   { label: "Travel", href: "/travel" },
@@ -74,7 +74,7 @@ function NavigationLink({
   onNavigate: () => void;
 }) {
   const className =
-    "group/link inline-flex h-[26px] w-full items-center gap-3 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-[color,gap] hover:gap-4 hover:text-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white";
+    "type-button group/link inline-flex h-[26px] w-full items-center gap-3 text-white transition-[color,gap] hover:gap-4 hover:text-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white";
   const inner = (
     <>
       <span>{label}</span>

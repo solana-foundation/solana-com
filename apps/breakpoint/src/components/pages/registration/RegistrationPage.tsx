@@ -122,9 +122,7 @@ function TicketButton({
 function PriceCut({ value }: { value: string }) {
   return (
     <span className="relative inline-flex self-start">
-      <span className="font-display text-[32px] font-normal uppercase leading-[1.18] tracking-[0.04em] text-black/40 md:text-[48px]">
-        {value}
-      </span>
+      <span className="type-price-cut text-black/40">{value}</span>
       <span
         aria-hidden="true"
         className="absolute left-0 top-1/2 h-[3px] w-full -translate-y-1/2 -skew-y-6 bg-black/45"
@@ -151,14 +149,14 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
     >
       <div className="flex flex-col gap-1">
         <h2
-          className={`font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] md:text-[24px] ${
+          className={`type-p-large-bold ${
             isFeatured ? "text-black" : "text-white"
           }`}
         >
           {ticket.title}
         </h2>
         <p
-          className={`text-[16px] font-normal leading-[1.36] tracking-normal opacity-80 md:text-[18px] md:leading-[1.45] ${
+          className={`type-paragraph opacity-80 ${
             isFeatured ? "text-black" : "text-text-secondary"
           }`}
         >
@@ -168,11 +166,7 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
 
       <div className="flex flex-col gap-2 md:gap-3">
         {ticket.originalPrice && <PriceCut value={ticket.originalPrice} />}
-        <p
-          className={`font-display text-[48px] font-normal uppercase leading-[1.15] tracking-[0.04em] md:text-[64px] md:leading-[1.18] ${
-            isFeatured ? "text-black" : "text-white"
-          }`}
-        >
+        <p className={`type-h2 ${isFeatured ? "text-black" : "text-white"}`}>
           {ticket.price}
         </p>
         <TicketButton
@@ -212,16 +206,12 @@ function ExpectationsSection() {
     <section className="bg-black pt-2xl md:pt-[120px]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-xs md:flex-row md:items-center md:justify-center md:gap-[116px] md:px-8">
         <div className="flex w-full flex-col gap-m md:w-[582px]">
-          <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-            What to expect:
-          </p>
+          <p className="type-eyebrow text-white">What to expect:</p>
           <ul className="unstyled-list flex flex-col gap-[20px]">
             {expectations.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <CheckMark />
-                <span className="font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
-                  {item}
-                </span>
+                <span className="type-p-large text-white">{item}</span>
               </li>
             ))}
           </ul>

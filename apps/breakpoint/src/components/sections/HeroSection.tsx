@@ -137,7 +137,7 @@ export default function HeroSection() {
             as="h1"
             text={t("hero.headline")}
             durationMs={1000}
-            className="whitespace-pre-line font-sans text-[3.25rem] font-normal leading-[0.98] tracking-[-0.06em] text-white md:absolute md:left-0 md:top-0 md:w-[763px] md:text-[5rem] min-[108rem]:w-[926px]"
+            className="type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] min-[108rem]:w-[926px]"
           />
           <div className="mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0">
             <Button
@@ -147,14 +147,9 @@ export default function HeroSection() {
               onClick={() => setSubscribeOpen(true)}
             />
           </div>
-          <div className="mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 font-mono text-[0.875rem] uppercase tracking-[0.08em] text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:text-[1rem] min-[108rem]:w-[609px] min-[108rem]:grid-cols-[293px_minmax(0,292px)]">
-            <WordReveal
-              text={t("hero.date")}
-              stepMs={70}
-              startDelayMs={1100}
-              className="leading-[1.3]"
-            />
-            <span className="leading-[1.3]">
+          <div className="type-eyebrow mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] min-[108rem]:w-[609px] min-[108rem]:grid-cols-[293px_minmax(0,292px)]">
+            <WordReveal text={t("hero.date")} stepMs={70} startDelayMs={1100} />
+            <span>
               <WordReveal
                 text={t("hero.venue")}
                 stepMs={70}

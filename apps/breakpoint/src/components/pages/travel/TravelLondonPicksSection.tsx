@@ -44,16 +44,10 @@ function LondonPickCard({ pick }: { pick: LondonPick }) {
       <div className="h-[212.67px] w-full border border-neutral-700 bg-neutral-800 md:h-auto md:aspect-[400/300]" />
       <div className="flex w-full flex-col items-start gap-4 py-5 pr-8 md:py-6 md:pr-10">
         <div className="flex flex-col gap-3">
-          <h3 className="font-sans text-[20px] font-bold leading-[1.18] tracking-[-0.01em] text-white md:text-[24px]">
-            {pick.title}
-          </h3>
-          <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue">
-            {pick.location}
-          </p>
+          <h3 className="type-p-large-bold text-white">{pick.title}</h3>
+          <p className="type-eyebrow text-blue">{pick.location}</p>
         </div>
-        <p className="font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
-          {pick.description}
-        </p>
+        <p className="type-paragraph text-white">{pick.description}</p>
         <Button arrow href={pick.href} label="Lorem Ipsum" variant="inline" />
       </div>
     </article>
@@ -101,10 +95,8 @@ export default function LondonPicksSection() {
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:px-8">
         <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
           <div className="flex max-w-[676px] flex-col gap-6">
-            <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-              More BP26 events
-            </p>
-            <h2 className="max-w-[260px] font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:max-w-none md:text-[48px] md:leading-[1.15]">
+            <p className="type-eyebrow text-white">More BP26 events</p>
+            <h2 className="type-h3 max-w-[260px] text-white md:max-w-none">
               More to see while in London
             </h2>
           </div>

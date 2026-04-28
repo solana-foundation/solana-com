@@ -35,11 +35,9 @@ type SubpageHeroImageTreatmentConfig = Partial<
 
 const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
 
-const eyebrowClassName =
-  "font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white";
+const eyebrowClassName = "type-eyebrow text-white";
 
-const titleClassName =
-  "w-full font-sans text-[60px] font-normal leading-[0.98] tracking-[-0.06em] text-white md:text-[80px]";
+const titleClassName = "type-h1 w-full text-white";
 
 function DefaultHeroBackground({
   imageTreatment,

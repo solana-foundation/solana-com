@@ -111,15 +111,13 @@ function SelectControl({
       htmlFor={id}
       className="flex w-full min-w-0 flex-col justify-center gap-[13px] sm:w-auto"
     >
-      <span className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-text-secondary">
-        {label}
-      </span>
+      <span className="type-button text-text-secondary">{label}</span>
       <span className="relative block w-full sm:w-[240px]">
         <select
           id={id}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-10 w-full appearance-none overflow-hidden border border-neutral-700 bg-black pb-2 pl-4 pr-10 pt-2 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white outline-none focus:border-white"
+          className="type-button h-10 w-full appearance-none overflow-hidden border border-neutral-700 bg-black pb-2 pl-4 pr-10 pt-2 text-white outline-none focus:border-white"
         >
           {children}
         </select>
@@ -222,9 +220,7 @@ function SpeakerRow({
         >
           <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
-              <h2 className="w-full font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white md:text-[32px] md:tracking-[-0.04em]">
-                {speaker.name}
-              </h2>
+              <h2 className="type-h5 w-full text-white">{speaker.name}</h2>
               <div className="flex items-center gap-6">
                 <SocialLink
                   href={speaker.socials.website}
@@ -244,16 +240,12 @@ function SpeakerRow({
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em]">
+            <div className="type-eyebrow flex min-w-0 flex-1 flex-col justify-center gap-1">
               {speaker.company && (
-                <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-                  {speaker.company}
-                </p>
+                <p className="w-full text-white">{speaker.company}</p>
               )}
               {speaker.title && (
-                <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-text-secondary">
-                  {speaker.title}
-                </p>
+                <p className="w-full text-text-secondary">{speaker.title}</p>
               )}
             </div>
           </div>
@@ -261,21 +253,15 @@ function SpeakerRow({
           {open && hasOpenContent && (
             <div className="flex w-full max-w-[912px] flex-col items-start gap-2">
               {hasSessionDetails && (
-                <div className="flex flex-wrap items-center gap-4 font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] md:text-[16px]">
-                  {session?.day && (
-                    <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-blue md:text-[16px]">
-                      {session.day}
-                    </p>
-                  )}
+                <div className="type-meta-responsive flex flex-wrap items-center gap-4">
+                  {session?.day && <p className="text-blue">{session.day}</p>}
                   {session?.format && (
-                    <p className="font-mono text-[14px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white md:text-[16px]">
-                      {session.format}
-                    </p>
+                    <p className="text-white">{session.format}</p>
                   )}
                 </div>
               )}
               {session?.title && (
-                <p className="w-full font-sans text-[20px] font-normal leading-[1.18] tracking-[-0.04em] text-white md:text-[24px]">
+                <p className="type-p-large w-full text-white">
                   {session.title}
                 </p>
               )}
@@ -382,7 +368,7 @@ export default function SpeakersList({
           ))
         ) : (
           <div className="w-full border border-neutral-700 px-6 py-12 text-center">
-            <p className="font-mono text-[14px] font-bold uppercase leading-[1.3] tracking-[0.08em] text-text-secondary">
+            <p className="type-button-relaxed text-text-secondary">
               No speakers match this filter.
             </p>
           </div>

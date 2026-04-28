@@ -12,14 +12,12 @@ export default function FAQSection() {
   return (
     <section id="faq" className="pt-xl md:pt-3xl">
       <div className="container flex flex-col gap-m md:flex-row md:items-start md:gap-s">
-        <h2 className="font-sans text-[32px] leading-[1.15] tracking-[-0.02em] text-white md:flex-1 md:text-[48px]">
-          {t("faq.headline")}
-        </h2>
+        <h2 className="type-h3 text-white md:flex-1">{t("faq.headline")}</h2>
 
         <div className="flex flex-col gap-s md:flex-1">
           {faqKeys.map((key) => (
             <Accordion key={key} question={t(`faq.items.${key}.question`)}>
-              <p className="font-sans text-lg leading-[1.45] text-white md:pr-2xl">
+              <p className="type-paragraph text-white md:pr-2xl">
                 {key === "q3"
                   ? t.rich(`faq.items.${key}.answer`, {
                       link: (chunks) => (

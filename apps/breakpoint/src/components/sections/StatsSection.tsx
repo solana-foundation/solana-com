@@ -76,14 +76,14 @@ export default function StatsSection() {
                 text={`${t(item.valueKey)}${t(item.suffixKey)}`}
                 stepMs={120}
                 startDelayMs={idx * 140}
-                className="block font-display text-[3rem] uppercase leading-[1.15] tracking-[0.04em] text-white md:leading-none lg:text-[4.75rem]"
+                className="type-h2 block text-white"
               />
               <WordReveal
                 as="p"
                 text={t(item.labelKey)}
                 stepMs={55}
                 startDelayMs={idx * 140 + 180}
-                className="font-mono text-base uppercase leading-[1.3] tracking-[0.08em] text-white md:max-w-[22ch] md:font-sans md:normal-case md:tracking-normal md:text-white/72"
+                className="type-eyebrow text-white md:max-w-[22ch]"
               />
             </div>
           ))}

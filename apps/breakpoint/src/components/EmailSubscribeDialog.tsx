@@ -84,10 +84,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
-          <h2
-            id={titleId}
-            className="font-sans text-[1.75rem] leading-[1] tracking-[-0.035em] text-white"
-          >
+          <h2 id={titleId} className="type-h4 text-white">
             Follow BP26
           </h2>
           <button
@@ -111,10 +108,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             </svg>
           </button>
         </div>
-        <p
-          id={descriptionId}
-          className="mt-3 text-[0.9375rem] leading-[1.4] text-white/72"
-        >
+        <p id={descriptionId} className="type-paragraph mt-3 text-white/72">
           Get news, event updates, and reveal drops for Breakpoint 2026.
         </p>
 
@@ -122,7 +116,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
           <p
             role="status"
             aria-live="polite"
-            className="mt-6 font-mono text-[0.8125rem] uppercase tracking-[0.08em] text-green"
+            className="type-caption mt-6 text-green"
           >
             You&rsquo;re subscribed.
           </p>
@@ -140,7 +134,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
               required
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@domain.com"
-              className="h-[40px] border border-white/15 bg-transparent px-3 font-mono text-[0.875rem] text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+              className="type-field h-[40px] border border-white/15 bg-transparent px-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
             />
             <Button
               disabled={status === "sending"}

@@ -324,7 +324,7 @@ function SponsorTierSection({
       <div className="mx-auto max-w-[1376px]">
         <h2
           id={`${tier.title.toLowerCase()}-sponsors`}
-          className="font-sans text-[32px] font-normal leading-[1.2] tracking-[-0.02em] text-white md:text-[48px]"
+          className="type-h3 text-white"
         >
           {tier.title}
         </h2>
@@ -356,12 +356,10 @@ function SponsorsIntro() {
   return (
     <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
       <div className="mx-auto flex max-w-[1376px] flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <p className="font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-          WHY SPONSOR BP&apos;26
-        </p>
+        <p className="type-eyebrow text-white">WHY SPONSOR BP&apos;26</p>
 
         <div className="w-full max-w-[851px]">
-          <p className="font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white md:text-[32px] md:tracking-[-0.04em]">
+          <p className="type-h5 text-white">
             <span className="text-purple">7,000+</span> high-intent{" "}
             <span className="text-purple">builders</span>,{" "}
             <span className="text-green">investors</span>, and{" "}

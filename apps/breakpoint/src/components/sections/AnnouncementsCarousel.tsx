@@ -53,10 +53,7 @@ export default function AnnouncementsCarousel({
       role="region"
     >
       <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
-        <h2
-          id={headingId}
-          className="font-sans text-[32px] leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"
-        >
+        <h2 id={headingId} className="type-h3 text-white">
           {headline}
         </h2>
         <CarouselControls
@@ -85,12 +82,10 @@ export default function AnnouncementsCarousel({
               href={item.url}
               className="relative flex h-full w-full flex-col justify-between border border-neutral-700 p-s transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             >
-              <span className="font-mono text-base uppercase leading-[1.3] tracking-[0.08em] text-white opacity-80">
+              <span className="type-eyebrow text-white opacity-80">
                 {item.tags?.[0] ?? "Article"}
               </span>
-              <span className="font-sans text-[32px] leading-[1.25] tracking-[-0.04em] text-white">
-                {item.title}
-              </span>
+              <span className="type-h5 text-white">{item.title}</span>
               <span className="sr-only">(opens in a new tab)</span>
             </a>
           </li>

@@ -55,8 +55,7 @@ const SOCIAL_LINKS: SocialLink[] = [
   },
 ];
 
-const MENU_LABEL_CLASSES =
-  "font-bp26 text-[30px] font-normal uppercase leading-[0.95] tracking-normal min-[360px]:text-[34px] min-[430px]:text-[40px] min-[560px]:text-[56px] min-[560px]:tracking-[0.02em] md:text-[72px] md-lg:text-[88px] lg:text-[104px]";
+const MENU_LABEL_CLASSES = "type-menu-title";
 
 type Props = {
   open: boolean;
@@ -81,7 +80,7 @@ function MenuItemRow({
     <>
       <span
         aria-hidden="true"
-        className="font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 transition-colors group-hover:text-purple min-[430px]:text-[14px] md:text-[16px]"
+        className="type-menu-index text-white/50 transition-colors group-hover:text-purple"
       >
         [{number}]
       </span>
@@ -279,10 +278,8 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
       {/* Eyebrow / event meta */}
       <div className="relative z-10 flex items-center justify-between gap-4 px-4 pb-3 pt-6 md:px-8 md:pt-10">
-        <p className="font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 md:text-[14px]">
-          Menu
-        </p>
-        <p className="font-mono text-[12px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50 md:text-[14px]">
+        <p className="type-button-small text-white/50">Menu</p>
+        <p className="type-button-small text-white/50">
           Olympia London · Nov 15–17, 2026
         </p>
       </div>
@@ -332,20 +329,18 @@ export default function MenuOverlay({ open, onClose }: Props) {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <a
             href="mailto:breakpoint@solana.org"
-            className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="type-button text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             Contact Us
           </a>
           <Link
             href="/code-of-conduct"
             onClick={onClose}
-            className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="type-button text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             Code of Conduct
           </Link>
-          <p className="font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-white/50">
-            © Solana Foundation 2026
-          </p>
+          <p className="type-button text-white/50">© Solana Foundation 2026</p>
         </div>
       </div>
     </div>

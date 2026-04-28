@@ -33,13 +33,13 @@ function daySortValue(day: string) {
 }
 
 function SessionMeta({ item }: { item: AgendaItem }) {
-  const textClasses =
-    "font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[1.28px]";
+  const textClasses = "type-eyebrow";
 
   return (
-    <div className="flex w-auto shrink-0 flex-col items-start justify-center gap-2 font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] md:w-[132px]">
+    <div className="type-eyebrow flex w-auto shrink-0 flex-col items-start justify-center gap-2 md:w-[132px]">
       <p
-        className={`h-[17px] w-full text-[var(--agenda-accent)] ${textClasses}`}
+        className={`h-[17px] w-full ${textClasses}`}
+        style={{ color: "var(--agenda-accent)" }}
       >
         {item.time}
       </p>
@@ -62,16 +62,12 @@ function SessionMeta({ item }: { item: AgendaItem }) {
 function SpeakerBlock({ speaker }: { speaker: AgendaSpeaker }) {
   return (
     <div className="flex min-w-[150px] flex-col items-start justify-center gap-2">
-      <p className="w-full font-sans text-[16px] font-bold leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
-        {speaker.name}
-      </p>
+      <p className="type-paragraph-bold w-full text-white">{speaker.name}</p>
       {speaker.company && (
-        <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-          {speaker.company}
-        </p>
+        <p className="type-eyebrow w-full text-white">{speaker.company}</p>
       )}
       {speaker.title && (
-        <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-text-secondary">
+        <p className="type-eyebrow w-full text-text-secondary">
           {speaker.title}
         </p>
       )}
@@ -121,18 +117,14 @@ function SessionRow({
           }`}
         >
           <div className="flex w-full flex-col items-start gap-2">
-            <h2 className="w-full font-sans text-[24px] font-normal leading-[1.25] tracking-[-0.01em] text-white md:text-[32px] md:tracking-[-0.04em]">
-              {item.title}
-            </h2>
+            <h2 className="type-h5 w-full text-white">{item.title}</h2>
             {item.tag && (
-              <p className="w-full font-mono text-[16px] font-normal uppercase leading-[1.3] tracking-[0.08em] text-white">
-                {item.tag}
-              </p>
+              <p className="type-eyebrow w-full text-white">{item.tag}</p>
             )}
           </div>
 
           {open && item.description && (
-            <p className="w-full max-w-[880px] font-sans text-[16px] font-normal leading-[1.36] tracking-normal text-white md:text-[18px] md:leading-[1.45]">
+            <p className="type-paragraph w-full max-w-[880px] text-white">
               {item.description}
             </p>
           )}
@@ -160,21 +152,18 @@ function SessionRow({
 }
 
 function StaticRow({ item }: { item: AgendaItem }) {
-  const textClasses =
-    "font-mono text-[16px] font-normal leading-[1.3] tracking-[1.28px]";
+  const textClasses = "type-eyebrow";
 
   return (
     <article className="flex w-full overflow-hidden bg-[var(--agenda-accent)] p-4 text-black md:items-center md:justify-between md:px-6 md:py-16">
       <div className="flex min-w-0 flex-1 flex-col gap-8 uppercase md:flex-row md:items-center md:gap-24">
-        <div className="flex w-[108px] shrink-0 flex-col items-start justify-center gap-2 font-mono text-[16px] font-normal leading-[1.3] tracking-[0.08em] md:w-[132px]">
+        <div className="type-eyebrow flex w-[108px] shrink-0 flex-col items-start justify-center gap-2 md:w-[132px]">
           <p className={`h-[17px] w-full ${textClasses}`}>{item.time}</p>
           {item.duration && (
             <p className={`h-[17px] w-full ${textClasses}`}>{item.duration}</p>
           )}
         </div>
-        <h2 className="min-w-0 flex-1 font-display text-[48px] font-normal leading-[1.15] tracking-[0.04em] md:text-[64px] md:leading-[1.18]">
-          {item.title}
-        </h2>
+        <h2 className="type-h2 min-w-0 flex-1">{item.title}</h2>
       </div>
     </article>
   );
@@ -236,7 +225,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   setActiveDay(day);
                   setOpenItemId(null);
                 }}
-                className={`border-b px-4 pb-3 !font-sans !text-[24px] !font-normal !leading-[1.25] !tracking-[-0.01em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-8 md:!text-[32px] md:!tracking-[-0.04em] ${
+                className={`type-h5 border-b px-4 pb-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-8 ${
                   active
                     ? "border-white text-white"
                     : "border-neutral-700 text-text-secondary hover:text-white"
@@ -270,7 +259,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           )
         ) : (
           <div className="w-full border border-neutral-700 px-6 py-12 text-center">
-            <p className="font-mono text-[14px] font-bold uppercase leading-[1.3] tracking-[0.08em] text-text-secondary">
+            <p className="type-button-relaxed text-text-secondary">
               Agenda details for this day are coming soon.
             </p>
           </div>

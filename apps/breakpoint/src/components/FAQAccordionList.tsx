@@ -21,7 +21,7 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
           className="scroll-mt-24 px-5 pt-2xl md:px-8"
         >
           <div className="mx-auto flex w-full max-w-[676px] flex-col items-stretch gap-l">
-            <h2 className="font-sans text-[40px] font-normal leading-[1.15] tracking-[-0.02em] text-white md:text-center md:text-[48px]">
+            <h2 className="type-h3 text-white md:text-center">
               {section.title}
             </h2>
 
@@ -40,7 +40,7 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
                       : "border-b border-neutral-700 pb-s"
                   }
                 >
-                  <p className="font-sans text-[18px] font-normal leading-[1.45] tracking-normal text-white md:pr-2xl">
+                  <p className="type-paragraph text-white md:pr-2xl">
                     {item.answer}
                   </p>
                 </Accordion>

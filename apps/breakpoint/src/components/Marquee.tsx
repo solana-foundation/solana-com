@@ -202,10 +202,7 @@ export default function Marquee({
   return (
     <div className="w-full overflow-hidden bg-black pt-[64px]">
       <span className="sr-only">{highlights.join(" · ")}</span>
-      <div
-        aria-hidden="true"
-        className="whitespace-nowrap font-mono text-[14px] uppercase leading-[1.3] tracking-[0.08em]"
-      >
+      <div aria-hidden="true" className="type-marquee whitespace-nowrap">
         {segments.map((segment, i) => (
           <span
             key={i}

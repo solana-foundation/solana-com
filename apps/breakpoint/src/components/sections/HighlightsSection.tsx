@@ -14,11 +14,6 @@ import ImageTreatment from "@/components/ImageTreatment";
 
 const AUTO_ADVANCE_MS = 7000;
 const GLITCH_MS = 600;
-const MOBILE_QUOTE_MAX = 22;
-const MOBILE_QUOTE_MIN = 16;
-const DESKTOP_QUOTE_MAX = 32;
-const DESKTOP_QUOTE_MIN = 20;
-const QUOTE_STEP = 0.5;
 
 const HIGHLIGHT_QUOTES = [
   {
@@ -136,13 +131,8 @@ export default function HighlightsSection() {
         role="region"
       >
         <div className="flex flex-col gap-6 lg:h-[227px] lg:w-[501px] lg:justify-center">
-          <p className="font-mono text-base uppercase leading-[1.3] tracking-[1.28px] text-white">
-            {t("highlights.eyebrow")}
-          </p>
-          <h2
-            id={headingId}
-            className="font-sans text-[32px] font-normal leading-[1.15] tracking-[-0.96px] text-white md:text-[48px]"
-          >
+          <p className="type-eyebrow text-white">{t("highlights.eyebrow")}</p>
+          <h2 id={headingId} className="type-h3 text-white">
             {t("highlights.headline")}
           </h2>
           <CarouselControls
@@ -222,9 +212,20 @@ function QuoteCard({
 
     let frame = 0;
 
+    const parseCssLength = (value: string) => {
+      const trimmed = value.trim();
+      if (trimmed.endsWith("rem")) {
+        return (
+          Number.parseFloat(trimmed) *
+          Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+        );
+      }
+
+      return Number.parseFloat(trimmed);
+    };
+
     const applyFontSize = (size: number) => {
       quoteEl.style.fontSize = `${size}px`;
-      quoteEl.style.lineHeight = size >= 24 ? "1.2" : "1.16";
     };
 
     const fits = () => {
@@ -240,15 +241,22 @@ function QuoteCard({
     };
 
     const fitQuote = () => {
-      const isDesktop = window.matchMedia("(min-width: 768px)").matches;
-      const maxSize = isDesktop ? DESKTOP_QUOTE_MAX : MOBILE_QUOTE_MAX;
-      const minSize = isDesktop ? DESKTOP_QUOTE_MIN : MOBILE_QUOTE_MIN;
+      const quoteStyle = getComputedStyle(quoteEl);
+      const maxSize = parseCssLength(
+        quoteStyle.getPropertyValue("--bp-quote-fit-max"),
+      );
+      const minSize = parseCssLength(
+        quoteStyle.getPropertyValue("--bp-quote-fit-min"),
+      );
+      const step = parseCssLength(
+        quoteStyle.getPropertyValue("--bp-quote-fit-step"),
+      );
 
       applyFontSize(maxSize);
 
       let nextSize = maxSize;
       while (nextSize > minSize && !fits()) {
-        nextSize -= QUOTE_STEP;
+        nextSize -= step;
         applyFontSize(nextSize);
       }
     };
@@ -277,10 +285,7 @@ function QuoteCard({
       className={`flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8 ${jittering ? "bp-glitch-jitter" : ""}`}
     >
       <div className="flex min-h-0 flex-1 items-start">
-        <blockquote
-          ref={quoteRef}
-          className="max-h-full font-sans text-[clamp(1rem,4.8vw,1.375rem)] font-normal leading-[1.16] tracking-[-0.04em] text-black [text-indent:-0.45em] md:text-[clamp(1.5rem,2vw,2rem)] md:leading-[1.2]"
-        >
+        <blockquote ref={quoteRef} className="type-quote max-h-full text-black">
           &ldquo;{quote.text}&rdquo;
         </blockquote>
       </div>
@@ -308,12 +313,12 @@ function QuoteCard({
             rel="noreferrer"
             tabIndex={decorative ? -1 : 0}
             aria-hidden={decorative || undefined}
-            className="font-sans text-[16px] font-bold leading-[1.18] tracking-[-0.01em] text-black underline decoration-solid underline-offset-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black md:text-[24px]"
+            className="type-p-large-bold text-black underline decoration-solid underline-offset-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
           >
             {quote.handle}
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
-          <p className="font-sans text-[12px] leading-[1.3] text-black/70 md:text-base">
+          <p className="type-caption text-black/70">
             {quote.author}
             {" · "}
             {quote.role}

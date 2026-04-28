@@ -63,14 +63,14 @@ export default function GallerySection() {
               text={t("gallery.eyebrow")}
               stepMs={55}
               startDelayMs={400}
-              className="font-mono !text-[16px] !font-normal uppercase !leading-[1.3] !tracking-[0.08em] !text-white"
+              className="type-eyebrow text-white"
             />
             <WordReveal
               as="h2"
               text={t("gallery.headline")}
               stepMs={85}
               startDelayMs={500}
-              className="font-sans !text-[32px] !font-normal !leading-[1.2] !tracking-[-0.02em] !text-white md:!text-[48px] md:!leading-[1.15]"
+              className="type-h3 text-white"
             />
             <div>
               <Button

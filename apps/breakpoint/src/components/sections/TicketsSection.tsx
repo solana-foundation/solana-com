@@ -12,12 +12,8 @@ export default function TicketsSection() {
     <section className="bg-black pt-20 md:pt-[120px]">
       <div className="md:container flex flex-col gap-12">
         <div className="flex flex-col items-center gap-6 text-center">
-          <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
-            {t("tickets.eyebrow")}
-          </p>
-          <h2 className="font-sans !text-[32px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[48px]">
-            {t("tickets.headline")}
-          </h2>
+          <p className="type-eyebrow text-white">{t("tickets.eyebrow")}</p>
+          <h2 className="type-h3 text-white">{t("tickets.headline")}</h2>
         </div>
 
         <div className="container flex flex-col gap-6 md:!max-w-none md:px-0 md:grid md:grid-cols-3">
@@ -46,12 +42,10 @@ export default function TicketsSection() {
 
         <div className="flex flex-col gap-8 bg-neutral-800 px-m py-2xl md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
           <div className="flex flex-col gap-4">
-            <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
+            <p className="type-eyebrow text-white">
               {t("participate.eyebrow")}
             </p>
-            <h3 className="font-sans !text-[28px] !leading-[1.15] !tracking-[-0.02em] !text-white md:!text-[40px]">
-              {t("participate.headline")}
-            </h3>
+            <h3 className="type-h4 text-white">{t("participate.headline")}</h3>
           </div>
           <div className="flex flex-wrap gap-4">
             <Button

@@ -145,7 +145,7 @@ function pad(value: number, width = 2): string {
 
 function SecondaryLink({ href, label }: { href: string; label: string }) {
   const classes =
-    "inline-flex items-center justify-center gap-[12px] whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900 transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black";
+    "type-button inline-flex items-center justify-center gap-[12px] whitespace-nowrap text-neutral-900 transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black";
 
   const content = (
     <>
@@ -174,12 +174,8 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
 function CounterCell({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-[8px] text-left uppercase text-neutral-900 md:items-center md:text-center">
-      <p className="w-full font-bp26 text-[48px] font-normal leading-[1.18] tracking-[0.04em] md:text-[64px]">
-        {value}
-      </p>
-      <p className="w-full font-mono text-[14px] font-bold leading-[0.9] tracking-[0.08em] md:leading-[10px]">
-        {label}
-      </p>
+      <p className="type-h2 w-full">{value}</p>
+      <p className="type-button w-full">{label}</p>
     </div>
   );
 }
@@ -237,7 +233,7 @@ export default function Footer({
             ))}
           </div>
 
-          <p className="whitespace-nowrap font-mono text-[14px] font-bold uppercase leading-[10px] tracking-[0.08em] text-neutral-900">
+          <p className="type-button whitespace-nowrap text-neutral-900">
             {t("copyright")}
           </p>
 
