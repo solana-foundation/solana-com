@@ -5,6 +5,10 @@ Breakpoint is a Solana event microsite with its own visual system, route prefix,
 asset prefix, local fonts, and app shell. Treat those as product structure, not
 as incidental implementation details.
 
+The Breakpoint theme is the source of truth for the design system. All visual
+updates must honor `tailwind.config.ts` and `src/app/globals.css` before Figma
+output, one-off CSS, copied values, or new component styling.
+
 ## Read First
 
 - `package.json`
@@ -22,7 +26,8 @@ as incidental implementation details.
 
 When using Figma MCP output, treat generated code as design reference only.
 Adapt spacing, layout, and visual intent into the existing Breakpoint app
-structure instead of replacing core files with generated custom scaffolding.
+structure and theme instead of replacing core files with generated custom
+scaffolding.
 
 - Reuse existing components before creating new primitives.
 - Prefer editing section/page components under `src/components/sections` and
@@ -32,6 +37,9 @@ structure instead of replacing core files with generated custom scaffolding.
 - Do not replace `PageShell`, `Navigation`, `MenuOverlay`, `Footer`,
   `DefaultLocaleShell`, app layouts, middleware, or config unless the user
   explicitly asks for structural changes.
+- Translate Figma color, type, spacing, breakpoint, and grid values through the
+  Breakpoint theme. If Figma output conflicts with the theme, the theme wins
+  unless the task is explicitly to change the design system.
 - Do not paste large generated CSS blocks when existing Tailwind tokens, CSS
   variables, or component classes can express the design.
 - If a Figma design introduces a variant of an existing pattern, extend the
@@ -53,54 +61,51 @@ structure instead of replacing core files with generated custom scaffolding.
 - Do not change shared package contracts in `packages/*` for a Breakpoint-only
   design edit unless the user explicitly asks for a shared-system change.
 
-## Design System
+## Theme And Design System
 
-Use the Breakpoint Tailwind theme and CSS variables before inventing new design
-tokens.
+Use the Breakpoint Tailwind theme and CSS variables as the design-system
+authority for every visual update.
 
-- Colors are defined in `tailwind.config.ts` and mirrored as CSS variables in
-  `src/app/globals.css`.
+- `tailwind.config.ts` defines the public Tailwind API: screens, container
+  sizing, colors, font families, typography, spacing, grids, and animation
+  tokens.
+- `src/app/globals.css` defines the matching CSS custom properties, base
+  typography, semantic aliases, and app-level utilities.
+- Keep `tailwind.config.ts` and `src/app/globals.css` aligned when changing or
+  adding reusable tokens. Do not add a token in only one place when both
+  Tailwind utilities and CSS variables need to express it.
 - Prefer semantic tokens like `background-primary`, `background-secondary`,
   `text-primary`, `text-secondary`, `stroke-primary`, `stroke-card`, and
   `button-fill`.
 - Brand colors include `core-purple`, `core-green`, `core-blue`, `core-yellow`,
-  and `core-pink`.
+  and `core-pink`. Use them as intentional brand accents, not replacements for
+  semantic surface, text, stroke, or button tokens.
 - Preserve the dark event-site visual language unless the task is explicitly a
   redesign.
-- Use the configured screens, container sizing, spacing scale, and typography
-  scale from `tailwind.config.ts`.
+- Use the configured screens, container sizing, spacing scale, grid templates,
+  and typography scale. Do not introduce parallel breakpoint values, spacing
+  ramps, type ramps, or grid systems in components.
+- Avoid direct hex, RGB, HSL, or named CSS color values in components when a
+  token exists. Add or adjust theme tokens only when the change is genuinely
+  reusable and part of the Breakpoint design system.
 - Avoid one-off arbitrary values when an existing token or local pattern fits.
-  Arbitrary values are acceptable for tight Figma matching inside a specific
-  section, but should not become a new parallel system.
-
-## Fonts
-
-Use local Breakpoint fonts from `public/fonts`. Do not add external font
-providers or new font stacks.
-
-Available font assets:
-
-- `public/fonts/bp26-extended/BP26-Extended.woff2`
-- `public/fonts/abc-favorit/ABCFavorit-Regular.woff2`
-- `public/fonts/abc-favorit/ABCFavorit-Bold.woff2`
-- `public/fonts/abc-favorit-mono/ABCFavoritMono-Regular.woff2`
-- `public/fonts/abc-favorit-mono/ABCFavoritMono-Bold.woff2`
-
-These are loaded through `next/font/local` and exposed as CSS variables:
-
-- `--font-bp26`
-- `--font-abc-favorit`
-- `--font-abc-favorit-mono`
-
-Use the Tailwind font utilities already wired in `tailwind.config.ts`:
-
-- `font-bp26` or `font-display` for BP26 display type
-- `font-sans` or `font-abc-favorit` for body copy and most headings
-- `font-mono` or `font-abc-favorit-mono` for eyebrow text, metadata, buttons,
-  and navigation-style text
-
-Preserve the font loading setup in the app shells and layouts. Do not remove the
-font variables from rendered page roots.
+  Arbitrary values are acceptable only for isolated Figma matching inside a
+  specific section; repeated arbitrary values should be promoted into the theme.
+- Use local Breakpoint fonts from `public/fonts` through the configured
+  `next/font/local` setup. Do not add external font providers or new font
+  stacks.
+- The approved font assets are `public/fonts/bp26-extended/BP26-Extended.woff2`,
+  `public/fonts/abc-favorit/ABCFavorit-Regular.woff2`,
+  `public/fonts/abc-favorit/ABCFavorit-Bold.woff2`,
+  `public/fonts/abc-favorit-mono/ABCFavoritMono-Regular.woff2`, and
+  `public/fonts/abc-favorit-mono/ABCFavoritMono-Bold.woff2`.
+- These fonts are exposed as `--font-bp26`, `--font-abc-favorit`, and
+  `--font-abc-favorit-mono`. Use `font-bp26` or `font-display` for BP26 display
+  type, `font-sans` or `font-abc-favorit` for body copy and most headings, and
+  `font-mono` or `font-abc-favorit-mono` for eyebrow text, metadata, buttons,
+  and navigation-style text.
+- Preserve the font loading setup in the app shells and layouts. Do not remove
+  the font variables from rendered page roots.
 
 ## Component Patterns
 
