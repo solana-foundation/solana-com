@@ -63,7 +63,7 @@ function DefaultHeroBackground({
   videoPosterSrc?: string;
   videoSources?: HeroVideoSource[];
 }) {
-  const mediaClassName = `absolute left-1/2 h-[960px] w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
+  const mediaClassName = `absolute left-1/2 h-[960px] w-full min-w-[1440px] max-w-none -translate-x-1/2 object-cover ${imageTopClassName}`;
   const imageTreatmentConfig = getImageTreatmentConfig(imageTreatment);
 
   if (videoSources?.length) {
