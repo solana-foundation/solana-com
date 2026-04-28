@@ -9,11 +9,15 @@ import React, {
 } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import CarouselControls from "@/components/CarouselControls";
-import GlitchOverlay from "@/components/GlitchOverlay";
+import GlitchOverlay, {
+  getGlitchIntensityStyle,
+  type GlitchCssProperties,
+} from "@/components/GlitchOverlay";
 import ImageTreatment from "@/components/ImageTreatment";
 
 const AUTO_ADVANCE_MS = 7000;
-const GLITCH_MS = 600;
+const TWEET_GLITCH_MS = 500;
+const TWEET_GLITCH_INTENSITY = 0.68;
 
 const HIGHLIGHT_QUOTES = [
   {
@@ -93,8 +97,8 @@ export default function HighlightsSection() {
     }
     setIsGlitching(true);
     timeoutsRef.current.push(
-      setTimeout(() => setIndex(next), GLITCH_MS / 2),
-      setTimeout(() => setIsGlitching(false), GLITCH_MS),
+      setTimeout(() => setIndex(next), TWEET_GLITCH_MS / 2),
+      setTimeout(() => setIsGlitching(false), TWEET_GLITCH_MS),
     );
   };
 
@@ -174,11 +178,15 @@ export default function HighlightsSection() {
               <QuoteCard
                 quote={activeQuote}
                 jittering={isGlitching && !prefersReducedMotion}
+                glitchDurationMs={TWEET_GLITCH_MS}
+                glitchIntensity={TWEET_GLITCH_INTENSITY}
               />
 
               <GlitchOverlay
                 active={isGlitching && !prefersReducedMotion}
                 size="lg"
+                durationMs={TWEET_GLITCH_MS}
+                intensity={TWEET_GLITCH_INTENSITY}
               >
                 <QuoteCard quote={activeQuote} decorative jittering />
               </GlitchOverlay>
@@ -194,10 +202,14 @@ function QuoteCard({
   quote,
   decorative = false,
   jittering = false,
+  glitchDurationMs,
+  glitchIntensity = 1,
 }: {
   quote: (typeof HIGHLIGHT_QUOTES)[number];
   decorative?: boolean;
   jittering?: boolean;
+  glitchDurationMs?: number;
+  glitchIntensity?: number;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const quoteRef = useRef<HTMLQuoteElement>(null);
@@ -279,10 +291,20 @@ function QuoteCard({
     };
   }, [quote.author, quote.handle, quote.role, quote.text]);
 
+  const glitchStyle: GlitchCssProperties | undefined = jittering
+    ? {
+        ...(glitchDurationMs != null
+          ? { "--bp-glitch-duration": `${glitchDurationMs}ms` }
+          : {}),
+        ...getGlitchIntensityStyle(glitchIntensity),
+      }
+    : undefined;
+
   return (
     <figure
       ref={cardRef}
       className={`flex h-full w-full flex-col overflow-hidden bg-white p-5 md:p-8 ${jittering ? "bp-glitch-jitter" : ""}`}
+      style={glitchStyle}
     >
       <div className="flex min-h-0 flex-1 items-start">
         <blockquote ref={quoteRef} className="type-quote max-h-full text-black">
