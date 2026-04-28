@@ -207,7 +207,7 @@ function ExpectationsSection() {
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-xs md:flex-row md:items-center md:justify-center md:gap-[116px] md:px-8">
         <div className="flex w-full flex-col gap-m md:w-[582px]">
           <p className="type-eyebrow text-white">What to expect:</p>
-          <ul className="unstyled-list flex flex-col gap-[20px]">
+          <ul className="unstyled-list flex flex-col gap-[20px] md:gap-2xs">
             {expectations.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <CheckMark />
@@ -245,6 +245,7 @@ export default function RegistrationPage() {
       }}
     >
       <SubpageHero
+        imageHeightClassName="h-[482px] md:h-[395px]"
         title="Snag Breakpoint 2026 tickets"
         tintClassName="bg-green"
         imageTopClassName="top-[-300px] md:top-[-300px]"

@@ -2,8 +2,6 @@ import type { CSSProperties } from "react";
 import {
   getCompany,
   getCompanyLogo,
-  getCompanyLogos,
-  getCompanyLogoSrc,
   resolveImportedAssetSrc,
   type CompanyId,
 } from "@workspace/ecosystem-data";
@@ -25,6 +23,7 @@ type SponsorLogo = {
 type SponsorTier = {
   title: string;
   mobileColumns: string;
+  mobileLogoScale: number;
   columns: string;
   cellAspect: string;
   sponsors: SponsorLogo[];
@@ -224,6 +223,7 @@ const sponsorTiers = [
   {
     title: "Platinum",
     mobileColumns: "grid-cols-1",
+    mobileLogoScale: 0.6,
     columns: "md:grid-cols-3",
     cellAspect: "aspect-[442/221]",
     sponsors: platinumSponsors,
@@ -232,6 +232,7 @@ const sponsorTiers = [
   {
     title: "Diamond",
     mobileColumns: "grid-cols-2",
+    mobileLogoScale: 0.512,
     columns: "md:grid-cols-4",
     cellAspect: "aspect-[326/163]",
     sponsors: diamondSponsors,
@@ -240,6 +241,7 @@ const sponsorTiers = [
   {
     title: "Gold",
     mobileColumns: "grid-cols-2",
+    mobileLogoScale: 0.64,
     columns: "md:grid-cols-5",
     cellAspect: "aspect-[256/128]",
     sponsors: goldSponsors,
@@ -249,15 +251,10 @@ const sponsorTiers = [
 
 function getLogo(sponsor: SponsorLogo) {
   const company = getCompany(sponsor.companyId);
-  const canonicalMonotone = getCompanyLogos(sponsor.companyId).find(
-    (logo) => logo.treatment === "monotone" && logo.id !== SPONSOR_LOGO_ID,
-  );
-  const monotone =
-    canonicalMonotone ??
+  const logo =
+    getCompanyLogo(sponsor.companyId, { id: SPONSOR_LOGO_ID }) ??
     getCompanyLogo(sponsor.companyId, { treatment: "monotone" });
-  const src = monotone
-    ? resolveImportedAssetSrc(monotone.source)
-    : getCompanyLogoSrc(sponsor.companyId, { id: SPONSOR_LOGO_ID });
+  const src = logo ? resolveImportedAssetSrc(logo.source) : undefined;
 
   if (!company || !src) {
     throw new Error(`Missing Breakpoint sponsor logo: ${sponsor.companyId}`);
@@ -272,14 +269,16 @@ function getLogo(sponsor: SponsorLogo) {
 function SponsorCard({
   sponsor,
   cellAspect,
+  mobileLogoScale,
 }: {
   sponsor: SponsorLogo;
   cellAspect: string;
+  mobileLogoScale: number;
 }) {
   const logo = getLogo(sponsor);
   const logoStyle = {
     "--logo-width": `${sponsor.width}px`,
-    "--logo-width-mobile": `${sponsor.width * 0.6}px`,
+    "--logo-width-mobile": `${sponsor.width * mobileLogoScale}px`,
     "--logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
 
@@ -330,13 +329,14 @@ function SponsorTierSection({
         </h2>
 
         <div
-          className={`mt-s grid ${tier.mobileColumns} gap-[8px] ${tier.columns}`}
+          className={`mt-s grid ${tier.mobileColumns} gap-[8px] md:mt-m ${tier.columns}`}
         >
           {tier.sponsors.map((sponsor) => (
             <SponsorCard
               key={sponsor.companyId}
               sponsor={sponsor}
               cellAspect={tier.cellAspect}
+              mobileLogoScale={tier.mobileLogoScale}
             />
           ))}
           {Array.from({ length: tier.emptyCells ?? 0 }).map((_, index) => (
@@ -393,6 +393,7 @@ export default function SponsorsPage() {
     >
       <SubpageHero
         title="Sponsors"
+        imageHeightClassName="h-[363px] md:h-[395px]"
         imageSrc="/img/sponsors/sponsors-header-bg.webp"
         imageTreatment={{
           className:

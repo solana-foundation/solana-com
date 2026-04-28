@@ -143,7 +143,9 @@ function SessionRow({
       </div>
 
       <AccordionButton
-        className="absolute right-xs top-xs md:right-l md:top-s"
+        className={`absolute right-xs top-xs md:right-l ${
+          open ? "md:top-s" : "md:top-1/2 md:-translate-y-1/2"
+        }`}
         interaction="group"
         open={open}
       />
