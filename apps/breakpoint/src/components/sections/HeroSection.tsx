@@ -132,12 +132,12 @@ export default function HeroSection() {
       </div>
 
       <div className="container relative z-10 h-full">
-        <div className="absolute left-5 right-5 top-16 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] min-[108rem]:w-[926px]">
+        <div className="absolute left-5 right-5 top-16 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px]">
           <TextScramble
             as="h1"
             text={t("hero.headline")}
             durationMs={1000}
-            className="type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] min-[108rem]:w-[926px]"
+            className="type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] xl:w-[926px]"
           />
           <div className="mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0">
             <Button
@@ -147,7 +147,7 @@ export default function HeroSection() {
               onClick={() => setSubscribeOpen(true)}
             />
           </div>
-          <div className="type-eyebrow mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] min-[108rem]:w-[609px] min-[108rem]:grid-cols-[293px_minmax(0,292px)]">
+          <div className="type-eyebrow mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] xl:w-[609px] xl:grid-cols-[293px_minmax(0,292px)]">
             <WordReveal text={t("hero.date")} stepMs={70} startDelayMs={1100} />
             <span>
               <WordReveal

@@ -109,10 +109,10 @@ function SelectControl({
   return (
     <label
       htmlFor={id}
-      className="flex w-full min-w-0 flex-col justify-center gap-[13px] sm:w-auto"
+      className="flex w-full min-w-0 flex-col justify-center gap-[13px] min-[376px]:w-auto"
     >
       <span className="type-button text-text-secondary">{label}</span>
-      <span className="relative block w-full sm:w-[240px]">
+      <span className="relative block w-full min-[376px]:w-[240px]">
         <select
           id={id}
           value={value}
@@ -322,7 +322,7 @@ export default function SpeakersList({
     <>
       <section
         aria-label="Speaker controls"
-        className="flex w-full flex-col gap-m border-b border-neutral-700 pb-s pl-xs pr-m pt-m sm:flex-row sm:items-center sm:gap-8 md:px-8 md:pt-12"
+        className="flex w-full flex-col gap-m border-b border-neutral-700 pb-s pl-xs pr-m pt-m min-[376px]:flex-row min-[376px]:items-center min-[376px]:gap-8 md:px-8 md:pt-12"
       >
         <SelectControl
           id="speaker-sort"

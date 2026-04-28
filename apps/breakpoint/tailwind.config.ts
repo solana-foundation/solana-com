@@ -8,25 +8,20 @@ export default {
   ],
   theme: {
     screens: {
-      sm: "23.5rem" /* 376px */,
-      "card-sm": "37.5rem" /* 600px */,
-      "nav-sm": "55.5rem" /* 888px */,
-      md: "48.063rem" /* 769px */,
-      "md-lg": "64rem" /* 1024px */,
-      lg: "90rem" /* 1440px — matches Figma desktop canvas */,
+      md: "64.0625rem" /* 1025px — Figma desktop */,
+      lg: "90.0625rem" /* 1441px — Figma large desktop */,
+      xl: "108.0625rem" /* 1729px — Figma oversized */,
     },
     container: {
-      /* Page grid per Figma spec (node 154:6228):
+      /* Page grid per Figma spec (node 2:38):
          - content max-width: 1664px (16 cols × 81.5 + 15 × 24 gutters)
-         - inner horizontal padding: 20px mobile, 32px ≥md
-         - container caps at 1728px (1664 + 2×32); centers beyond */
+         - mobile: 6 cols, 16px margin/gutter for 320px–1024px
+         - desktop: 16 cols, 32px margin, 24px gutter for ≥1025px
+         - container caps at 1728px (1664 + 2×32); centers beyond
+         Container padding is applied in globals.css to match the same grid. */
       center: true,
-      padding: {
-        DEFAULT: "1.25rem" /* 20px */,
-        md: "2rem" /* 32px */,
-      },
       screens: {
-        sm: "108rem" /* 1728px — single cap, grows freely below */,
+        xl: "108rem" /* 1728px — single cap, grows freely below */,
       },
     },
     extend: {
@@ -97,6 +92,10 @@ export default {
         "abc-favorit": ["var(--font-abc-favorit)", "Arial", "sans-serif"],
         "abc-favorit-mono": ["var(--font-abc-favorit-mono)", "monospace"],
         bp26: ["var(--font-bp26)", "Arial", "sans-serif"],
+      },
+      gridTemplateColumns: {
+        "bp-mobile": "repeat(6, minmax(0, 1fr))",
+        "bp-desktop": "repeat(16, minmax(0, 1fr))",
       },
       fontSize: {
         "3xs": "0.6875rem" /* 11px */,
