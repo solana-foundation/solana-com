@@ -79,7 +79,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-[440px] border border-white/15 bg-[#0b0811] p-8"
+        className="w-full max-w-[440px] border border-neutral-700 bg-neutral-800 p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -121,7 +121,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
           <p
             role="status"
             aria-live="polite"
-            className="mt-6 font-mono text-[0.8125rem] uppercase tracking-[0.08em] text-[#c9ff7c]"
+            className="mt-6 font-mono text-[0.8125rem] uppercase tracking-[0.08em] text-green"
           >
             You&rsquo;re subscribed.
           </p>
@@ -144,7 +144,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             <button
               type="submit"
               disabled={status === "sending"}
-              className="inline-flex h-[40px] items-center justify-center bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors duration-200 hover:bg-[#e7d2f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-[40px] items-center justify-center bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors duration-200 hover:bg-purple focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {status === "sending" ? "Subscribing…" : "Subscribe"}
             </button>

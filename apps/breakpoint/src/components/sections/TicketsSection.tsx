@@ -44,7 +44,7 @@ export default function TicketsSection() {
           />
         </div>
 
-        <div className="flex flex-col gap-8 bg-[#1e1e1e] px-m py-2xl md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
+        <div className="flex flex-col gap-8 bg-neutral-800 px-m py-2xl md:flex-row md:items-end md:justify-between md:gap-10 md:p-20">
           <div className="flex flex-col gap-4">
             <p className="font-mono !text-[16px] uppercase !leading-[1.3] !tracking-[0.08em] !text-white">
               {t("participate.eyebrow")}

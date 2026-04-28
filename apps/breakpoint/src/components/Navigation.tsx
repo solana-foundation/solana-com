@@ -361,7 +361,7 @@ export default function Navigation({
                   aria-expanded={menuOpen}
                   className={`relative flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-visible text-white transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
                     menuOpen
-                      ? "bg-purple text-black hover:bg-[#c390fc]"
+                      ? "bg-purple text-black hover:bg-purple"
                       : "bg-neutral-800 hover:bg-neutral-600"
                   }`}
                   style={{ cursor: "pointer" }}
@@ -376,7 +376,7 @@ export default function Navigation({
         {hasMenu && menuOpen && (
           <div
             id="breakpoint-navigation-menu"
-            className="flex w-full flex-col items-start gap-4 bg-black p-4 shadow-[inset_0_1px_0_0_#353535] md:px-6 md:py-5"
+            className="flex w-full flex-col items-start gap-4 bg-black p-4 shadow-[inset_0_1px_0_0_var(--color-stroke-primary)] md:px-6 md:py-5"
           >
             {NAV_ITEMS.map((item, index) => {
               const isCurrent = pathname === item.href;

@@ -44,7 +44,7 @@ function TicketCard({
   href,
 }: TicketCardProps) {
   return (
-    <article className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-[#353535] p-8">
+    <article className="flex aspect-[4/3] flex-col justify-between overflow-hidden border border-neutral-700 p-8">
       <div className="flex flex-col gap-1">
         {heading && (
           <h3 className="font-sans !text-[24px] !font-bold !leading-[1.18] !tracking-[-0.01em] !text-white">

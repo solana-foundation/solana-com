@@ -116,7 +116,7 @@ function getTreatmentColor(tintClassName: string): TreatmentColor {
 function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
   const variantClasses =
     variant === "primary"
-      ? "bg-white text-black hover:bg-[#e7d2f9]"
+      ? "bg-white text-black hover:bg-purple"
       : "border border-white bg-transparent text-white hover:bg-white hover:text-black";
 
   const className = `inline-flex h-10 w-full items-center justify-center gap-3 px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:w-auto ${variantClasses}`;

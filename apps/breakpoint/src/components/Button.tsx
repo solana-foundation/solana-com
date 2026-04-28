@@ -85,7 +85,7 @@ export default function Button({
 
   const variantClasses =
     variant === "primary"
-      ? "bg-white text-black hover:bg-[#e7d2f9]"
+      ? "bg-white text-black hover:bg-purple"
       : "border border-white/18 bg-black/40 text-white hover:border-white/40 hover:bg-white/[0.06]";
 
   const wipeClass = inView && variant === "primary" ? "bp-block-wipe" : "";

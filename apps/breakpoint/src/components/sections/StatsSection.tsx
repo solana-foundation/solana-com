@@ -110,7 +110,7 @@ export default function StatsSection() {
                     intensity={60}
                     lighting="even"
                     color={color}
-                    className={`relative h-[240px] w-[200px] shrink-0 overflow-hidden bg-[#1e1e1e] md:h-[320px] md:w-[280px] ${widths[index]}`}
+                    className={`relative h-[240px] w-[200px] shrink-0 overflow-hidden bg-neutral-800 md:h-[320px] md:w-[280px] ${widths[index]}`}
                   />
                 );
               })}

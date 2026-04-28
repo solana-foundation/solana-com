@@ -154,7 +154,7 @@ export default function HighlightsSection() {
 
         <div
           aria-live="off"
-          className="relative min-h-[370px] w-full overflow-hidden bg-[#1e1e1e] lg:h-[600px] lg:min-h-0 lg:w-[772px] lg:[aspect-ratio:772/600] lg:flex-shrink-0"
+          className="relative min-h-[370px] w-full overflow-hidden bg-neutral-800 lg:h-[600px] lg:min-h-0 lg:w-[772px] lg:[aspect-ratio:772/600] lg:flex-shrink-0"
           onBlur={(event) => {
             if (
               !event.currentTarget.contains(event.relatedTarget as Node | null)

@@ -501,7 +501,7 @@ function FaqBanner() {
           </h2>
           <Link
             href="/faq"
-            className="inline-flex h-10 items-center justify-center gap-3 bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors hover:bg-[#e7d2f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="inline-flex h-10 items-center justify-center gap-3 bg-white px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             See all
             <span className="inline-flex size-3 items-center justify-center">

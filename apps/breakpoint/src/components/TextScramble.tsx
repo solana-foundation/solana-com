@@ -4,7 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const COLORS = ["#ffffff", "#ab66fd", "#e7d2f9"];
+const COLORS = [
+  "var(--color-text-primary)",
+  "var(--color-core-purple)",
+  "var(--color-core-green)",
+];
 const BLOCK_WIDTHS = ["0.4em", "0.7em", "1em"];
 
 type Cell =
@@ -98,7 +102,7 @@ export default function TextScramble({
                   display: "inline-block",
                   width: c.width,
                   height: "0.72em",
-                  background: "#ffffff",
+                  background: "var(--color-text-primary)",
                   verticalAlign: "middle",
                   margin: "0 0.08em",
                 }}

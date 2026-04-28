@@ -116,7 +116,7 @@ export default function HeroSection() {
               transition={{ duration: 0.15, ease: "easeOut" }}
               style={{
                 background:
-                  "linear-gradient(to bottom, transparent 0%, transparent calc(var(--cy) - 6%), rgba(171,102,253,0.35) calc(var(--cy) - 3%), rgba(255,255,255,0.15) var(--cy), rgba(20,241,149,0.25) calc(var(--cy) + 3%), transparent calc(var(--cy) + 6%), transparent 100%)",
+                  "linear-gradient(to bottom, transparent 0%, transparent calc(var(--cy) - 6%), color-mix(in srgb, var(--color-core-purple) 35%, transparent) calc(var(--cy) - 3%), color-mix(in srgb, var(--color-core-white) 15%, transparent) var(--cy), color-mix(in srgb, var(--color-core-green) 25%, transparent) calc(var(--cy) + 3%), transparent calc(var(--cy) + 6%), transparent 100%)",
                 mixBlendMode: "screen",
                 filter: "contrast(1.15)",
                 ["--cy" as never]: `${cursorY}%`,

@@ -372,7 +372,7 @@ function SponsorsIntro() {
 
           <a
             href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20sponsorship"
-            className="mt-s inline-flex h-[40px] items-center justify-center gap-[12px] bg-white px-xs font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors hover:bg-[#e7d2f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="mt-s inline-flex h-[40px] items-center justify-center gap-[12px] bg-white px-xs font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             Contact Us
             <span className="inline-flex size-[12px] items-center justify-center">

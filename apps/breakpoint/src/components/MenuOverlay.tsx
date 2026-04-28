@@ -89,7 +89,7 @@ function MenuItemRow({
         <span
           className={`${MENU_LABEL_CLASSES} transition-colors duration-150 ${
             isCurrent ? "text-purple" : "text-white"
-          } group-hover:text-[#e7d2f9] ${hover ? "bp-glitch-jitter" : ""}`}
+          } group-hover:text-purple ${hover ? "bp-glitch-jitter" : ""}`}
         >
           {item.label}
         </span>

@@ -88,7 +88,7 @@ function TicketButton({
     light:
       "border-white text-white hover:bg-white hover:text-black focus-visible:outline-white",
     muted:
-      "border-[#a2a2a2] bg-neutral-600 text-[#c0c0c0] focus-visible:outline-[#c0c0c0]",
+      "border-neutral-300 bg-neutral-600 text-neutral-200 focus-visible:outline-neutral-200",
   }[tone];
 
   const className = `inline-flex h-10 w-full items-center justify-center gap-3 overflow-hidden border px-5 font-mono text-[14px] font-bold uppercase leading-[0.9] tracking-[0.08em] transition-colors ${toneClasses}`;
