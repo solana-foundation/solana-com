@@ -9,7 +9,7 @@ import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
-import SponsorsHeroBackground from "./SponsorsHeroBackground";
+import WordReveal from "@/components/WordReveal";
 
 const SPONSOR_LOGO_ID = "breakpoint-2026-white";
 
@@ -158,12 +158,6 @@ const goldSponsors = [
     height: 27,
   },
   {
-    companyId: "term",
-    href: "https://term.finance/",
-    width: 135,
-    height: 36,
-  },
-  {
     companyId: "listing-help",
     href: "https://listing.help/",
     width: 148.718,
@@ -213,7 +207,7 @@ const goldSponsors = [
   },
   {
     companyId: "xbit",
-    href: "https://xbit.gg/",
+    href: "https://xbit.com/",
     width: 104.157,
     height: 30,
   },
@@ -353,20 +347,27 @@ function SponsorTierSection({
 }
 
 function SponsorsIntro() {
+  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
+
   return (
     <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
       <div className="mx-auto flex max-w-[1376px] flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <p className="type-eyebrow text-white">WHY SPONSOR BP&apos;26</p>
+        <WordReveal
+          as="p"
+          className="type-eyebrow text-white"
+          stepMs={60}
+          text="WHY SPONSOR BP'26"
+        />
 
         <div className="w-full max-w-[851px]">
-          <p className="type-h5 text-white">
-            <span className="text-purple">7,000+</span> high-intent{" "}
-            <span className="text-purple">builders</span>,{" "}
-            <span className="text-green">investors</span>, and{" "}
-            <span className="text-blue">institutions</span> in one room. Direct
-            access to Solana&apos;s decision-makers in London&apos;s financial
-            hub. Your brand, their attention. ROI starts day one.
-          </p>
+          <WordReveal
+            as="p"
+            className="type-h5 text-white"
+            html
+            stepMs={60}
+            startDelayMs={250}
+            text={introText}
+          />
 
           <Button
             arrow
@@ -393,18 +394,7 @@ export default function SponsorsPage() {
     >
       <SubpageHero
         title="Sponsors"
-        imageHeightClassName="h-[363px] md:h-[395px]"
         imageSrc="/img/subpage-heroes/sponsors.png"
-        imageTreatment={{
-          className:
-            "absolute left-[-134px] top-[-78px] h-[677.347px] w-[451px] -rotate-90 md:inset-0 md:h-full md:w-full md:rotate-0",
-          color: "purple",
-          flicker: true,
-          intensity: 40,
-          lighting: "contrast",
-          motion: true,
-        }}
-        backgroundOverlay={<SponsorsHeroBackground />}
       />
       <SponsorsIntro />
       {sponsorTiers.map((tier, index) => (

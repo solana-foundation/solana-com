@@ -63,7 +63,6 @@ import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
 import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
-import { term } from "./records/term";
 import { theGraph } from "./records/the-graph";
 import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
@@ -141,7 +140,6 @@ export const companies = [
   switchboard,
   syndica,
   tala,
-  term,
   theGraph,
   trojan,
   triton,

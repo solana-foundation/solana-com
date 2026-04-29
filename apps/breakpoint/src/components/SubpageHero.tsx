@@ -44,9 +44,6 @@ type SubpageHeroImageTreatmentConfig = Partial<
 
 const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
 
-const backgroundGradientClassName =
-  "absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.18)_54%,rgba(0,0,0,0.72)_100%)]";
-
 const eyebrowClassName = "type-eyebrow text-white";
 
 const titleClassName = "type-h1 w-full text-white";
@@ -71,10 +68,6 @@ function getTreatmentColor(tintClassName: string): TreatmentColor {
   if (tintClassName.includes("bg-white")) return "white";
   if (tintClassName.includes("bg-purple")) return "purple";
   return "purple";
-}
-
-function HeroGradientOverlay() {
-  return <div className={backgroundGradientClassName} />;
 }
 
 function HeroTintOverlay({ tintClassName }: { tintClassName: string }) {
@@ -222,7 +215,6 @@ function DefaultHeroBackground({
       {!imageTreatmentConfig && (
         <HeroTintOverlay tintClassName={tintClassName} />
       )}
-      <HeroGradientOverlay />
     </>
   );
 }
