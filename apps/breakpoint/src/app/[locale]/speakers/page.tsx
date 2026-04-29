@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ImageTreatment from "@/components/ImageTreatment";
 import PageShell from "@/components/PageShell";
 import SpeakersList from "@/components/pages/speakers/SpeakersList";
 import SubpageHero from "@/components/SubpageHero";
@@ -19,15 +20,21 @@ const APPLY_TO_SPEAK_HREF =
 
 function SpeakersHeroBackground() {
   return (
-    <div className="absolute left-1/2 top-[-340px] flex h-[810px] w-[1440px] -translate-x-1/2 items-center justify-center">
+    <div className="absolute left-1/2 top-[-340px] flex h-[max(810px,56.25vw)] w-screen min-w-[1440px] -translate-x-1/2 items-center justify-center">
       <div className="flex-none -rotate-90">
-        <img
+        <ImageTreatment
           src="/img/subpage-heroes/speakers.png"
           alt=""
           aria-hidden="true"
-          width={675}
-          height={1200}
-          className="block h-[1440px] w-[810px] max-w-none object-cover"
+          glitchPattern="p1"
+          intensity={60}
+          lighting="even"
+          color="green"
+          motion
+          flicker
+          mouseReactive
+          mouseRadius={180}
+          className="h-[max(1440px,100vw)] w-[max(810px,56.25vw)]"
         />
       </div>
     </div>
@@ -52,6 +59,7 @@ export default async function SpeakersPage() {
     >
       <SubpageHero
         background={<SpeakersHeroBackground />}
+        imageHeightClassName="h-[432px] md:h-[467px]"
         title="Speakers"
         tintClassName="bg-green"
         cta={{

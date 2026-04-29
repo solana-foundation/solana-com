@@ -9,7 +9,7 @@ import { isRelativeHref } from "@/lib/links";
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-function useScramble(label: string, durationMs: number, runKey: number) {
+export function useScramble(label: string, durationMs: number, runKey: number) {
   const [out, setOut] = useState(label);
   useEffect(() => {
     if (runKey === 0) {

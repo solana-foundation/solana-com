@@ -46,7 +46,7 @@ const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
 
 const eyebrowClassName = "type-eyebrow text-white";
 
-const titleClassName = "type-h1 w-full text-white";
+const titleClassName = "type-h1 w-full max-w-[1026px] text-white";
 
 const mediaBaseClassName =
   "absolute left-1/2 h-[960px] w-full min-w-[1440px] max-w-none -translate-x-1/2 object-cover";
@@ -337,7 +337,7 @@ export default function SubpageHero({
       />
 
       <HeroContent
-        className="absolute left-4 right-4 top-[252px] flex flex-col items-start gap-5 pb-3 text-white md:left-8 md:right-auto md:top-[252px] md:w-[1026px] md:gap-8"
+        className="container absolute left-1/2 top-[252px] flex w-full -translate-x-1/2 flex-col items-start gap-5 pb-3 text-white md:top-[252px] md:gap-8"
         cta={cta}
         eyebrow={eyebrow}
         title={title}

@@ -1,7 +1,8 @@
-import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import ImageTreatment from "@/components/ImageTreatment";
 import Footer from "@/components/sections/Footer";
 import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
+import RegistrationTicketButton from "@/components/pages/registration/RegistrationTicketButton";
 import SubpageHero from "@/components/SubpageHero";
 
 const GENERAL_ADMISSION_HREF = "https://luma.com/breakpoint2026";
@@ -72,53 +73,6 @@ type RegistrationTicket = {
   tone: "disabled" | "featured" | "standard";
 };
 
-function TicketButton({
-  disabled = false,
-  href,
-  label,
-  tone,
-}: {
-  disabled?: boolean;
-  href?: string;
-  label: string;
-  tone: "dark" | "light" | "muted";
-}) {
-  const toneClasses = {
-    dark: "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-black",
-    light:
-      "border-stroke-tertiary text-white hover:bg-neutral-700 focus-visible:outline-white",
-    muted:
-      "border-neutral-300 bg-neutral-600 text-neutral-200 focus-visible:outline-neutral-200",
-  }[tone];
-
-  const className = `inline-flex h-10 w-full items-center justify-center gap-3 overflow-hidden border px-5 font-mono text-button uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 ${toneClasses}`;
-
-  const content = (
-    <>
-      <span>{label}</span>
-      {!disabled && (
-        <span className="inline-flex size-3 items-center justify-center">
-          <ArrowUpRightIcon />
-        </span>
-      )}
-    </>
-  );
-
-  if (!href || disabled) {
-    return (
-      <span aria-disabled="true" className={`${className} pointer-events-none`}>
-        {content}
-      </span>
-    );
-  }
-
-  return (
-    <a href={href} className={className}>
-      {content}
-    </a>
-  );
-}
-
 function PriceCut({ value }: { value: string }) {
   return (
     <span className="relative inline-flex self-start">
@@ -139,7 +93,7 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
     ? "bg-purple text-black"
     : isDisabled
       ? "border border-neutral-700 bg-black text-white"
-      : "bg-neutral-700 text-white";
+      : "bg-background-secondary text-white";
 
   const buttonTone = isFeatured ? "dark" : isDisabled ? "muted" : "light";
 
@@ -169,7 +123,7 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
         <p className={`type-h2 ${isFeatured ? "text-black" : "text-white"}`}>
           {ticket.price}
         </p>
-        <TicketButton
+        <RegistrationTicketButton
           disabled={isDisabled}
           href={ticket.href}
           label={ticket.ctaLabel}
@@ -196,7 +150,7 @@ function CheckMark() {
   return (
     <span
       aria-hidden="true"
-      className="mt-[5px] h-[13px] w-[12px] shrink-0 border border-green"
+      className="mt-[11px] size-[6px] shrink-0 bg-green"
     />
   );
 }
@@ -217,16 +171,18 @@ function ExpectationsSection() {
           </ul>
         </div>
 
-        <div className="relative aspect-[676/507] w-full overflow-hidden bg-neutral-700 md:w-[676px]">
-          <img
+        <div className="relative aspect-[676/507] w-full overflow-hidden bg-neutral-800 md:w-[676px]">
+          <ImageTreatment
             src="/img/gallery/photo-7.jpg"
             alt="Breakpoint attendees arriving at general admission"
-            width={3648}
-            height={2432}
-            className="h-full w-full object-cover object-center grayscale"
+            glitchPattern="p1"
+            intensity={40}
+            lighting="even"
+            color="purple"
+            motion
+            flicker
+            className="absolute inset-0 h-full w-full"
           />
-          <div className="absolute inset-0 bg-purple mix-blend-multiply" />
-          <div className="absolute inset-0 bg-black/10" />
         </div>
       </div>
     </section>
@@ -250,6 +206,12 @@ export default function RegistrationPage() {
         title="Snag Breakpoint 2026 tickets"
         tintClassName="bg-green"
         imageTopClassName="top-[-300px] md:top-[-300px]"
+        imageTreatment={{
+          flicker: true,
+          motion: true,
+          mouseReactive: true,
+          mouseRadius: 160,
+        }}
       />
       <Marquee
         highlightClassName="text-green"

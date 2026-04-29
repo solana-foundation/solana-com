@@ -13,6 +13,7 @@ const FILTER_OPTIONS = [
   "Debate",
   "Product Demo",
 ] as const;
+const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
 
 type SortOption = "az" | "za";
 type FilterOption = (typeof FILTER_OPTIONS)[number];
@@ -66,9 +67,7 @@ function LinkedInIcon() {
       xmlns="http://www.w3.org/2000/svg"
       className="block"
     >
-      <path d="M6.94 8.98H3.72V20H6.94V8.98Z" />
-      <path d="M5.33 4C4.29 4 3.45 4.78 3.45 5.77C3.45 6.76 4.29 7.55 5.33 7.55C6.37 7.55 7.21 6.76 7.21 5.77C7.21 4.78 6.37 4 5.33 4Z" />
-      <path d="M20.55 13.95C20.55 10.67 18.8 8.72 15.98 8.72C14.68 8.72 13.75 9.43 13.37 10.11H13.33V8.98H10.24V20H13.46V14.55C13.46 13.11 13.73 11.72 15.51 11.72C17.26 11.72 17.29 13.36 17.29 14.64V20H20.55V13.95Z" />
+      <path d="M22.2 0H1.8C1.32261 0 0.864773 0.189642 0.527208 0.527208C0.189642 0.864773 0 1.32261 0 1.8V22.2C0 22.6774 0.189642 23.1352 0.527208 23.4728C0.864773 23.8104 1.32261 24 1.8 24H22.2C22.6774 24 23.1352 23.8104 23.4728 23.4728C23.8104 23.1352 24 22.6774 24 22.2V1.8C24 1.32261 23.8104 0.864773 23.4728 0.527208C23.1352 0.189642 22.6774 0 22.2 0ZM7.2 20.4H3.6V9.6H7.2V20.4ZM5.4 7.5C4.98742 7.48821 4.58746 7.35509 4.2501 7.11729C3.91274 6.87949 3.65294 6.54754 3.50315 6.16293C3.35337 5.77832 3.32025 5.35809 3.40793 4.95476C3.49561 4.55144 3.7002 4.18289 3.99614 3.89517C4.29207 3.60745 4.66624 3.41332 5.07188 3.33704C5.47752 3.26075 5.89664 3.30569 6.27688 3.46625C6.65712 3.62681 6.98162 3.89586 7.20983 4.23978C7.43804 4.5837 7.55983 4.98725 7.56 5.4C7.55052 5.96442 7.318 6.50214 6.91326 6.89564C6.50852 7.28914 5.96446 7.50642 5.4 7.5ZM20.4 20.4H16.8V14.712C16.8 13.008 16.08 12.396 15.144 12.396C14.8696 12.4143 14.6015 12.4866 14.3551 12.6088C14.1087 12.731 13.8888 12.9006 13.7082 13.108C13.5275 13.3154 13.3897 13.5565 13.3025 13.8173C13.2152 14.0782 13.1804 14.3537 13.2 14.628C13.194 14.6838 13.194 14.7402 13.2 14.796V20.4H9.6V9.6H13.08V11.16C13.431 10.626 13.9133 10.1911 14.4806 9.89692C15.0479 9.60276 15.6813 9.4592 16.32 9.48C18.18 9.48 20.352 10.512 20.352 13.872L20.4 20.4Z" />
     </svg>
   );
 }
@@ -109,10 +108,10 @@ function SelectControl({
   return (
     <label
       htmlFor={id}
-      className="flex w-full min-w-0 flex-col justify-center gap-[13px] min-[376px]:w-auto"
+      className="flex w-full min-w-0 flex-col justify-center gap-[13px] min-[560px]:w-auto"
     >
       <span className="type-button text-text-secondary">{label}</span>
-      <span className="relative block w-full min-[376px]:w-[240px]">
+      <span className="relative block w-full min-[560px]:w-[240px]">
         <select
           id={id}
           value={value}
@@ -240,12 +239,18 @@ function SpeakerRow({
               </div>
             </div>
 
-            <div className="type-eyebrow flex min-w-0 flex-1 flex-col justify-center gap-1">
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
               {speaker.company && (
-                <p className="w-full text-white">{speaker.company}</p>
+                <p className={`${EYEBROW_TEXT_CLASS} w-full text-white`}>
+                  {speaker.company}
+                </p>
               )}
               {speaker.title && (
-                <p className="w-full text-text-secondary">{speaker.title}</p>
+                <p
+                  className={`${EYEBROW_TEXT_CLASS} w-full text-text-secondary`}
+                >
+                  {speaker.title}
+                </p>
               )}
             </div>
           </div>
@@ -253,10 +258,16 @@ function SpeakerRow({
           {open && hasOpenContent && (
             <div className="flex w-full max-w-[912px] flex-col items-start gap-2">
               {hasSessionDetails && (
-                <div className="type-meta-responsive flex flex-wrap items-center gap-4">
-                  {session?.day && <p className="text-blue">{session.day}</p>}
+                <div className="flex flex-wrap items-center gap-4">
+                  {session?.day && (
+                    <p className={`${EYEBROW_TEXT_CLASS} text-blue`}>
+                      {session.day}
+                    </p>
+                  )}
                   {session?.format && (
-                    <p className="text-white">{session.format}</p>
+                    <p className={`${EYEBROW_TEXT_CLASS} text-white`}>
+                      {session.format}
+                    </p>
                   )}
                 </div>
               )}
@@ -322,7 +333,7 @@ export default function SpeakersList({
     <>
       <section
         aria-label="Speaker controls"
-        className="flex w-full flex-col gap-m border-b border-neutral-700 pb-s pl-xs pr-m pt-m min-[376px]:flex-row min-[376px]:items-center min-[376px]:gap-8 md:px-8 md:pt-12"
+        className="container mx-auto flex w-full flex-col gap-m border-b border-neutral-700 pb-s pt-10 min-[560px]:flex-row min-[560px]:items-center min-[560px]:gap-8 md:pt-12"
       >
         <SelectControl
           id="speaker-sort"
@@ -350,7 +361,7 @@ export default function SpeakersList({
 
       <section
         aria-label="Speakers"
-        className="flex w-full flex-col items-start gap-3 px-xs pt-m md:px-8 md:pt-12"
+        className="container mx-auto flex w-full flex-col items-start gap-3 pt-m md:pt-12"
       >
         {visibleSpeakers.length > 0 ? (
           visibleSpeakers.map((speaker) => (
