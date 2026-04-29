@@ -18,7 +18,7 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
         <section
           key={section.id}
           id={section.id}
-          className="scroll-mt-24 px-xs pt-xl md:px-m md:pt-2xl"
+          className="scroll-mt-[112px] px-xs pt-xl md:scroll-mt-[120px] md:px-m md:pt-2xl"
         >
           <div className="mx-auto flex w-full max-w-[676px] flex-col items-stretch gap-m md:gap-l">
             <h2 className="type-h3 text-white md:text-center">

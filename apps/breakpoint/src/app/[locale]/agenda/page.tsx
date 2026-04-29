@@ -36,7 +36,14 @@ export default async function AgendaPage() {
         cta={{
           href: COMMUNITY_EVENTS_HREF,
           label: "Explore community events",
+          target: "_blank",
           variant: "secondary",
+        }}
+        imageTreatment={{
+          flicker: true,
+          motion: true,
+          mouseReactive: true,
+          mouseRadius: 180,
         }}
       />
       <AgendaList items={agenda} />

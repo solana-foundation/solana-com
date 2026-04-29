@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
+import { getAnchorLinkProps } from "@/lib/links";
 
 const faqKeys = ["q1", "q2", "q3", "q4"] as const;
 
@@ -24,6 +25,9 @@ export default function FAQSection() {
                         <a
                           href={t(`faq.items.${key}.answerHref`)}
                           className="underline decoration-white/40 underline-offset-4 transition-opacity hover:opacity-80"
+                          {...getAnchorLinkProps({
+                            href: t(`faq.items.${key}.answerHref`),
+                          })}
                         >
                           {chunks}
                         </a>

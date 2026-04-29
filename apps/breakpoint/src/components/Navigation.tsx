@@ -6,7 +6,7 @@ import { Link, usePathname } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import GlitchOverlay from "@/components/GlitchOverlay";
-import { isRelativeHref } from "@/lib/links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
@@ -101,6 +101,7 @@ function NavigationLink({
       aria-current={isCurrent ? "page" : undefined}
       className={className}
       onClick={onNavigate}
+      {...getAnchorLinkProps({ href })}
     >
       {inner}
     </a>
@@ -261,6 +262,7 @@ export default function Navigation({
         onFocus={triggerCtaGlitch}
         onMouseEnter={triggerCtaGlitch}
         style={{ cursor: showCta ? "pointer" : undefined }}
+        {...getAnchorLinkProps({ href: ctaHref })}
         {...ctaAriaProps}
       >
         {ctaInner}

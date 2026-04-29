@@ -38,13 +38,13 @@ export default function Accordion({
   }
 
   return (
-    <div className={className}>
+    <div className={`accordion-type ${className}`.trim()}>
       <h3>
         <button
           id={triggerId}
           type="button"
           onClick={handleOpenChange}
-          className="group/accordion-control flex w-full items-center gap-l text-left focus-visible:outline-none"
+          className="accordion-control group/accordion-control flex w-full items-center gap-l text-left focus-visible:outline-none"
           aria-controls={panelId}
           aria-expanded={isOpen}
         >

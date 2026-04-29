@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useInView } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
-import { isRelativeHref } from "@/lib/links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -163,8 +163,7 @@ export default function Button({
     return (
       <a
         href={href}
-        target={target}
-        rel={target === "_blank" ? (rel ?? "noreferrer") : rel}
+        {...getAnchorLinkProps({ href, rel, target })}
         {...commonProps}
       >
         {inner}

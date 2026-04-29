@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { useScramble } from "@/components/Button";
+import { getAnchorLinkProps } from "@/lib/links";
 
 type TicketButtonTone = "dark" | "light" | "muted";
 
@@ -56,13 +57,16 @@ export default function RegistrationTicketButton({
     );
   }
 
+  const activeHref = href ?? "";
+
   return (
     <a
-      href={href}
+      href={activeHref}
       aria-label={label}
       className={className}
       onFocus={() => setRunKey((key) => key + 1)}
       onMouseEnter={() => setRunKey((key) => key + 1)}
+      {...getAnchorLinkProps({ href: activeHref })}
     >
       {content}
     </a>

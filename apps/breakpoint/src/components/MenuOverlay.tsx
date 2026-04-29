@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@workspace/i18n/routing";
-import { isRelativeHref } from "@/lib/links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 import GlitchOverlay from "@/components/GlitchOverlay";
 
 type MenuItem = {
@@ -145,7 +145,12 @@ function MenuItemRow({
   }
 
   return (
-    <a href={item.href} className={className} {...handlers}>
+    <a
+      href={item.href}
+      className={className}
+      {...getAnchorLinkProps({ href: item.href })}
+      {...handlers}
+    >
       {inner}
     </a>
   );

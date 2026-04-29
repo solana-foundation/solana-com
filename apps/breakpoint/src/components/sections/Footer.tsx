@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
-import { isRelativeHref } from "@/lib/links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
 
@@ -178,7 +178,7 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
   }
 
   return (
-    <a href={href} className={classes}>
+    <a href={href} className={classes} {...getAnchorLinkProps({ href })}>
       {content}
     </a>
   );

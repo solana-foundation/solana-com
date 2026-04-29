@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "@workspace/i18n/routing";
 import Button from "./Button";
 import WordReveal from "./WordReveal";
-import { isRelativeHref } from "@/lib/links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 interface TicketCardProps {
   variant: "ticket";
@@ -107,7 +107,11 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
     }
 
     return (
-      <a href={href} className="block transition-opacity hover:opacity-80">
+      <a
+        href={href}
+        className="block transition-opacity hover:opacity-80"
+        {...getAnchorLinkProps({ href })}
+      >
         {content}
       </a>
     );

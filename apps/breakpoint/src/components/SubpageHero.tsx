@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributeAnchorTarget, ReactNode } from "react";
 import Button from "@/components/Button";
 import ImageTreatment, {
   type ImageTreatmentProps,
@@ -8,6 +8,8 @@ import ImageTreatment, {
 type HeroCta = {
   href: string;
   label: string;
+  rel?: string;
+  target?: HTMLAttributeAnchorTarget;
   variant?: "primary" | "secondary";
 };
 
@@ -20,6 +22,7 @@ type SubpageHeroProps = {
   background?: ReactNode;
   backgroundOverlay?: ReactNode;
   children?: ReactNode;
+  contentClassName?: string;
   cta?: HeroCta | HeroCta[];
   eyebrow?: string;
   image?: boolean;
@@ -219,13 +222,21 @@ function DefaultHeroBackground({
   );
 }
 
-function HeroCtaLink({ href, label, variant = "primary" }: HeroCta) {
+function HeroCtaLink({
+  href,
+  label,
+  rel,
+  target,
+  variant = "primary",
+}: HeroCta) {
   return (
     <Button
       arrow
       className="w-full md:w-auto"
       href={href}
       label={label}
+      rel={rel}
+      target={target}
       variant={variant}
     />
   );
@@ -274,6 +285,7 @@ export default function SubpageHero({
   background,
   backgroundOverlay,
   children,
+  contentClassName,
   cta,
   eyebrow = "Breakpoint 2026",
   image = true,
@@ -337,7 +349,10 @@ export default function SubpageHero({
       />
 
       <HeroContent
-        className="container absolute left-1/2 top-[252px] flex w-full -translate-x-1/2 flex-col items-start gap-5 pb-3 text-white md:top-[252px] md:gap-8"
+        className={cn(
+          "container absolute left-1/2 top-[252px] flex w-full -translate-x-1/2 flex-col items-start gap-5 pb-3 text-white md:top-[252px] md:gap-8",
+          contentClassName,
+        )}
         cta={cta}
         eyebrow={eyebrow}
         title={title}

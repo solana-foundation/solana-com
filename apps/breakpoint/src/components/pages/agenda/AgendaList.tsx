@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, KeyboardEvent } from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AccordionButton from "@/components/AccordionButton";
 import {
   AGENDA_DAY_TABS,
@@ -130,7 +130,7 @@ function SessionRow({
           )}
 
           {open && item.speakers.length > 0 && (
-            <div className="flex w-full flex-wrap items-start gap-x-l gap-y-s md:gap-y-m">
+            <div className="flex w-full flex-col items-start gap-s md:flex-row md:flex-wrap md:gap-x-l md:gap-y-m">
               {item.speakers.map((speaker) => (
                 <SpeakerBlock
                   key={`${item.id}-${speaker.name}-${speaker.company ?? ""}`}
@@ -172,6 +172,10 @@ function StaticRow({ item }: { item: AgendaItem }) {
 }
 
 export default function AgendaList({ items }: { items: AgendaItem[] }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const pendingDayScrollRef = useRef(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
+
   const allDays = useMemo(() => {
     const days = new Set<string>(AGENDA_DAY_TABS);
     for (const item of items) days.add(item.day);
@@ -192,6 +196,38 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     );
   });
   const [openItemId, setOpenItemId] = useState<string | null>(null);
+
+  const scrollToScheduleTop = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list) return;
+
+      const tabHeight = tabsRef.current?.getBoundingClientRect().height ?? 0;
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+
+      window.scrollTo({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        top: list.getBoundingClientRect().top + window.scrollY - tabHeight,
+      });
+    });
+  }, []);
+
+  const selectDay = (day: string) => {
+    if (day !== activeDay) pendingDayScrollRef.current = true;
+    setActiveDay(day);
+    setOpenItemId(null);
+
+    if (day === activeDay) scrollToScheduleTop();
+  };
+
+  useEffect(() => {
+    if (!pendingDayScrollRef.current) return;
+
+    pendingDayScrollRef.current = false;
+    scrollToScheduleTop();
+  }, [activeDay, scrollToScheduleTop]);
 
   const visibleItems = useMemo(
     () =>
@@ -214,7 +250,10 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
       className="bg-black"
       style={accentStyle}
     >
-      <div className="flex w-full items-end justify-start overflow-x-auto pt-m md:justify-center">
+      <div
+        ref={tabsRef}
+        className="sticky top-0 z-40 flex w-full items-end justify-start overflow-x-auto bg-black pt-m md:justify-center"
+      >
         <div className="h-px w-xs shrink-0 bg-neutral-700 md:hidden" />
         <div className="flex min-w-max items-end">
           {allDays.map((day) => {
@@ -223,11 +262,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
               <button
                 key={day}
                 type="button"
-                onClick={() => {
-                  setActiveDay(day);
-                  setOpenItemId(null);
-                }}
-                className={`type-h5 border-b px-xs pb-2xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-m ${
+                onClick={() => selectDay(day)}
+                className={`type-h5 border-b px-xs pb-2xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:px-m ${
                   active
                     ? "border-white text-white"
                     : "border-neutral-700 text-text-secondary hover:text-white"
@@ -241,7 +277,10 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
         <div className="hidden h-px min-w-0 flex-1 bg-white/15 md:block" />
       </div>
 
-      <div className="flex w-full flex-col items-start gap-xs px-xs pt-m md:px-m md:pt-l">
+      <div
+        ref={listRef}
+        className="flex w-full flex-col items-start gap-xs px-xs pt-m md:px-m md:pt-l"
+      >
         {visibleItems.length > 0 ? (
           visibleItems.map((item) =>
             item.variant === "static" ? (
