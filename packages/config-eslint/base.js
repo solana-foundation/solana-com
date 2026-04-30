@@ -26,6 +26,12 @@ export const baseConfig = [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.{test,spec}.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  {
     plugins: {
       turbo: turboPlugin,
     },

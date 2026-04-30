@@ -1,4 +1,3 @@
-// import { memo } from "react";
 import { useTranslations } from "next-intl";
 
 import CarouselCards from "@/components/shared/CarouselCards";
@@ -6,7 +5,6 @@ import DevelopersCourseItem from "./DevelopersCourseItem";
 import DevelopersCourseFeaturedItem from "./DevelopersCourseFeaturedItem";
 import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import styles from "./DevelopersCoursesSection.module.scss";
-// import Button from "@/components/shared/Button";
 
 import solanaDevCourseImg from "../../../../../assets/developers/courses/solana-dev-course.png";
 import solanaDevCourseSmallImg from "../../../../../assets/developers/courses/solana-dev-course-small.png";
@@ -16,7 +14,7 @@ import shapeImg3 from "../../../../../assets/developers/courses/shape-3.png";
 import shapeImg5 from "../../../../../assets/developers/courses/shape-5.png";
 import shapeImg6 from "../../../../../assets/developers/courses/shape-6.png";
 
-export default function DevelopersCoursesSection(/* { courses } */) {
+export default function DevelopersCoursesSection() {
   const t = useTranslations();
 
   const courses = (
@@ -68,9 +66,6 @@ export default function DevelopersCoursesSection(/* { courses } */) {
             <DevelopersSectionTitle titleId="developers.courses.title" />
             <p className="subdued">{t("developers.courses.description")}</p>
           </div>
-          {/* <Button className="text-nowrap md:ml-4" to="/developers/courses">
-            {t("developers.documents.view-all")}
-          </Button> */}
         </div>
         <div className={styles["courses-section__carousel-container"]}>
           <CarouselCards>
@@ -81,7 +76,6 @@ export default function DevelopersCoursesSection(/* { courses } */) {
               image={solanaDevCourseSmallImg}
             />
             {courses}
-            {/* <CourseCards courses={courses} /> */}
           </CarouselCards>
         </div>
         <div className={styles["courses-section__grid-container"]}>
@@ -94,29 +88,8 @@ export default function DevelopersCoursesSection(/* { courses } */) {
             className={styles["feature-card"]}
           />
           {courses}
-          {/* <CourseCards courses={courses} /> */}
         </div>
       </div>
     </section>
   );
 }
-
-// const CourseCards = memo(function CourseCards({ courses }) {
-//   // const t = useTranslations();
-
-//   return (
-//     <>
-//       {courses.map((item, id) => (
-//         <DevelopersCourseItem
-//           key={id}
-//           title={item.title}
-//           description={item.description}
-//           url={
-//             item?.isExternal ? item.href : `/developers/courses/${item.slug}`
-//           }
-//           image={solanaDevCourseImg}
-//         />
-//       ))}
-//     </>
-//   );
-// });

@@ -4,13 +4,21 @@ import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersDocumentItem.module.scss";
 
+type DevelopersDocumentItemProps = {
+  title: string;
+  description: string;
+  url: string;
+  newTab?: boolean;
+  ctaLabel?: string;
+};
+
 export default function DevelopersDocumentItem({
   title,
   description,
   url,
   newTab = true,
   ctaLabel,
-}) {
+}: DevelopersDocumentItemProps) {
   const t = useTranslations();
 
   return (
