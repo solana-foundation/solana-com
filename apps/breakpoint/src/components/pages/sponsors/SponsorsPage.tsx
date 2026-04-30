@@ -387,11 +387,11 @@ export default function SponsorsPage() {
   return (
     <PageShell
       contentId="breakpoint-sponsors-content"
-      navigation={{
-        ctaAlwaysVisible: true,
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
-      }}
+      // navigation={{
+      //   ctaAlwaysVisible: true,
+      //   ctaHref: GENERAL_ADMISSION_HREF,
+      //   ctaLabel: "Get tickets",
+      // }}
     >
       <SubpageHero
         title="Sponsors"

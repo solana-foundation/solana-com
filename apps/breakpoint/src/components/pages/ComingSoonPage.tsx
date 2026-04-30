@@ -31,12 +31,12 @@ export default function ComingSoonPage({
   return (
     <PageShell
       contentId={`breakpoint-${title.toLowerCase()}-coming-soon-content`}
-      navigation={{
-        ctaAlwaysVisible: true,
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
-        showMenuButton: true,
-      }}
+      // navigation={{
+      //   ctaAlwaysVisible: true,
+      //   ctaHref: GENERAL_ADMISSION_HREF,
+      //   ctaLabel: "Get tickets",
+      //   showMenuButton: true,
+      // }}
     >
       <SubpageHero
         image={false}

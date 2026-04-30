@@ -161,12 +161,12 @@ export default function TravelPage() {
   return (
     <PageShell
       contentId="travel-content"
-      navigation={{
-        ctaAlwaysVisible: true,
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
-        showMenuButton: true,
-      }}
+      // navigation={{
+      //   ctaAlwaysVisible: true,
+      //   ctaHref: GENERAL_ADMISSION_HREF,
+      //   ctaLabel: "Get tickets",
+      //   showMenuButton: true,
+      // }}
     >
       <TravelHero />
       <TravelSubnav />

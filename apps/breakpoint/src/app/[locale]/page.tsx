@@ -24,10 +24,10 @@ export default async function HomePage({
   return (
     <PageShell
       contentId="breakpoint-content"
-      navigation={{
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
-      }}
+      // navigation={{
+      //   ctaHref: GENERAL_ADMISSION_HREF,
+      //   ctaLabel: "Get tickets",
+      // }}
       beforeNavigation={
         <script
           type="application/ld+json"

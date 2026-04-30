@@ -189,12 +189,12 @@ export default function RegistrationPage() {
   return (
     <PageShell
       contentId="registration-content"
-      navigation={{
-        ctaAlwaysVisible: true,
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
-        showMenuButton: true,
-      }}
+      // navigation={{
+      //   ctaAlwaysVisible: true,
+      //   ctaHref: GENERAL_ADMISSION_HREF,
+      //   ctaLabel: "Get tickets",
+      //   showMenuButton: true,
+      // }}
     >
       <SubpageHero
         imageHeightClassName="h-[482px] md:h-[395px]"
