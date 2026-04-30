@@ -572,8 +572,8 @@ function SponsorModal({
   const logo = getLogo(sponsor);
   const company = logo.company;
   const description =
-    company.profile?.description ??
     company.profile?.summary ??
+    company.profile?.description ??
     company.profile?.tagline;
   const socialLinks = getSponsorSocialLinks(company);
   const tags = getSponsorTags(company);
@@ -594,7 +594,7 @@ function SponsorModal({
     >
       <div
         ref={dialogRef}
-        className="relative max-h-[calc(100dvh-48px)] w-full max-w-[328px] overflow-y-auto border border-stroke-primary bg-black md:min-h-[536px] md:max-w-[1014px] md:overflow-visible"
+        className="relative flex h-[calc(100dvh-48px)] max-h-[635px] w-full max-w-[328px] flex-col overflow-hidden border border-stroke-primary bg-black md:h-[536px] md:max-h-[calc(100dvh-48px)] md:max-w-[1014px]"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -607,8 +607,8 @@ function SponsorModal({
           <CloseIcon />
         </button>
 
-        <div className="md:flex md:items-start md:gap-l md:p-l">
-          <div className="flex h-[246px] w-full items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:shrink-0 md:p-[10px]">
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-start md:gap-l md:p-l">
+          <div className="flex h-[246px] w-full shrink-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:p-[10px]">
             <span
               className="block w-[min(var(--modal-logo-width-mobile),62%)] max-w-[72%] md:w-[min(var(--modal-logo-width),68%)]"
               style={{
@@ -625,7 +625,7 @@ function SponsorModal({
             </span>
           </div>
 
-          <div className="px-xs pb-xs pt-s md:mt-[42px] md:w-[430px] md:px-0 md:pb-0 md:pt-0">
+          <div className="flex min-h-0 flex-1 flex-col px-xs pb-xs pt-s md:mt-[42px] md:h-[356px] md:w-[430px] md:flex-none md:px-0 md:pb-0 md:pt-0">
             <div className="flex flex-col items-start gap-2xs">
               <h2 id={titleId} className="type-h5 text-white">
                 {company.name}
@@ -652,7 +652,7 @@ function SponsorModal({
             {description && (
               <p
                 id={descriptionId}
-                className="type-paragraph mt-s text-white md:mt-m"
+                className="type-paragraph mt-s min-h-0 flex-1 overflow-y-auto text-white md:mt-m md:h-[182px] md:flex-none"
               >
                 {description}
               </p>
