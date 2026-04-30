@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { locales } from "@workspace/i18n/config";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const assetPrefix = "/breakpoint-assets";
+const localeRoutePattern = `:locale(${locales.join("|")})`;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -21,6 +23,30 @@ const nextConfig: NextConfig = {
     });
 
     return config;
+  },
+  async redirects() {
+    return [
+      {
+        source: "/agenda",
+        destination: "/schedule",
+        permanent: true,
+      },
+      {
+        source: `/${localeRoutePattern}/agenda`,
+        destination: "/:locale/schedule",
+        permanent: true,
+      },
+      {
+        source: "/breakpoint/agenda",
+        destination: "/breakpoint/schedule",
+        permanent: true,
+      },
+      {
+        source: `/${localeRoutePattern}/breakpoint/agenda`,
+        destination: "/:locale/breakpoint/schedule",
+        permanent: true,
+      },
+    ];
   },
   async rewrites() {
     return {

@@ -4,12 +4,11 @@ import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
 import RegistrationTicketButton from "@/components/pages/registration/RegistrationTicketButton";
 import SubpageHero from "@/components/SubpageHero";
-
-const GENERAL_ADMISSION_HREF = "https://luma.com/breakpoint2026";
-const DEVELOPER_APPLICATION_HREF =
-  "https://solanafoundation.typeform.com/bp26-devapp";
-const STUDENT_APPLICATION_HREF =
-  "https://solanafoundation.typeform.com/bp26-studentapp";
+import {
+  DEVELOPER_APPLICATION_HREF,
+  GENERAL_ADMISSION_HREF,
+  STUDENT_APPLICATION_HREF,
+} from "@/content/links";
 const REGISTRATION_MARQUEE_HIGHLIGHTS = [
   "BP26",
   "LDN",
@@ -21,35 +20,32 @@ const REGISTRATION_MARQUEE_HIGHLIGHTS = [
 const tickets = [
   {
     title: "General Admission",
-    description: "Flash Sale : Ends on June 1st",
-    originalPrice: "$500",
+    description: "Price available until May 31, 2026",
     price: "$350",
-    ctaLabel: "Reserve Now",
+    ctaLabel: "Get tickets",
     href: GENERAL_ADMISSION_HREF,
     tone: "featured",
   },
   {
-    title: "Late Bird GA",
-    description: "General admission rate starting September 1st",
+    title: "Late Bird",
+    description: "General admission pricing after May 31, 2026",
     price: "$800",
-    ctaLabel: "Coming soon | Don't Wait",
+    ctaLabel: "Coming soon",
     tone: "disabled",
   },
   {
     title: "Developers",
-    description:
-      "Special discount for builders actively working in the Solana Ecosystem",
-    price: "$800",
-    ctaLabel: "Apply now",
+    description: "Discounted access for builders actively working on Solana.",
+    price: "$250",
+    ctaLabel: "Apply",
     href: DEVELOPER_APPLICATION_HREF,
     tone: "standard",
   },
   {
     title: "Students",
-    description:
-      "Discounted rate for any active higher education students globally",
-    price: "$800",
-    ctaLabel: "Apply now",
+    description: "Discounted access for active higher education students.",
+    price: "$100",
+    ctaLabel: "Apply",
     href: STUDENT_APPLICATION_HREF,
     tone: "standard",
   },
@@ -196,7 +192,7 @@ export default function RegistrationPage() {
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Register",
+        ctaLabel: "Get tickets",
         showMenuButton: true,
       }}
     >

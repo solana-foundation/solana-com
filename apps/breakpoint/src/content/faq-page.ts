@@ -1,7 +1,11 @@
+import { TICKET_TRANSFER_HREF } from "@/content/links";
+
 export type FAQPageItem = {
   id: string;
   question: string;
   answer: string;
+  answerHref?: string;
+  answerLinkLabel?: string;
 };
 
 export type FAQPageSection = {
@@ -61,7 +65,9 @@ export const faqPageSections = [
         id: "tickets-refundable",
         question: "Are tickets refundable?",
         answer:
-          "Tickets are non-refundable but are transferable through Lu.ma if you can no longer attend.",
+          "Tickets are non-refundable but are transferable. If you've purchased a ticket, you can transfer it",
+        answerHref: TICKET_TRANSFER_HREF,
+        answerLinkLabel: "here",
       },
       {
         id: "tickets-developer-student",
@@ -80,6 +86,8 @@ export const faqPageSections = [
         question: "Can I transfer my ticket?",
         answer:
           "Yes. If you purchased through Lu.ma, use the transfer tools in your ticket confirmation to assign the ticket to another attendee.",
+        answerHref: TICKET_TRANSFER_HREF,
+        answerLinkLabel: "assign the ticket to another attendee",
       },
       {
         id: "tickets-side-events",

@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useId, useRef } from "react";
+import { Link } from "@workspace/i18n/routing";
 import CarouselControls from "@/components/CarouselControls";
 import type { BreakpointAnnouncementLink } from "@/lib/media-links";
+import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 interface AnnouncementsCarouselProps {
   headline: string;
@@ -70,26 +72,43 @@ export default function AnnouncementsCarousel({
         className="unstyled-list scrollbar-hidden -mr-[20px] flex touch-pan-x snap-x snap-mandatory gap-s overflow-x-auto overscroll-x-contain p-0 pr-[20px] [-webkit-overflow-scrolling:touch] md:mr-0 md:pr-0"
         role="list"
       >
-        {items.map((item) => (
-          <li
-            key={item.id}
-            data-announcement-card
-            className="block h-[332px] w-[300px] shrink-0 snap-start md:w-[calc((100%-48px)/3)] md:min-w-[300px]"
-          >
-            <a
-              target="_blank"
-              rel="noreferrer"
-              href={item.url}
-              className="relative flex h-full w-full flex-col justify-between border border-neutral-700 p-s transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-            >
+        {items.map((item) => {
+          const content = (
+            <>
               <span className="type-eyebrow text-white opacity-80">
                 {item.tags?.[0] ?? "Article"}
               </span>
               <span className="type-h5 text-white">{item.title}</span>
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          </li>
-        ))}
+              {!isRelativeHref(item.url) && (
+                <span className="sr-only">(opens in a new tab)</span>
+              )}
+            </>
+          );
+          const className =
+            "relative flex h-full w-full flex-col justify-between border border-neutral-700 p-s transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
+
+          return (
+            <li
+              key={item.id}
+              data-announcement-card
+              className="block h-[332px] w-[300px] shrink-0 snap-start md:w-[calc((100%-48px)/3)] md:min-w-[300px]"
+            >
+              {isRelativeHref(item.url) ? (
+                <Link href={item.url} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <a
+                  href={item.url}
+                  className={className}
+                  {...getAnchorLinkProps({ href: item.url })}
+                >
+                  {content}
+                </a>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 const TRAVEL_LINKS = [
   { href: "#flights", label: "Flights" },
-  { href: "#hotels", label: "Travel" },
-  { href: "#visas", label: "Visa" },
-  { href: "#london", label: "What to do" },
+  { href: "#hotels", label: "Hotels" },
+  { href: "#visas", label: "Visas" },
 ] as const;
 
 function QuickLink({ href, label }: { href: string; label: string }) {

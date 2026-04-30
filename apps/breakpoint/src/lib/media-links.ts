@@ -1,4 +1,5 @@
 import { withRelatedProject } from "@vercel/related-projects";
+import { SIDE_EVENTS_HREF, SPONSOR_FORM_HREF } from "@/content/links";
 
 const VERCEL_MEDIA_APP_URL = withRelatedProject({
   projectName: "solana-com-media",
@@ -24,9 +25,15 @@ export interface BreakpointAnnouncementLink {
 
 const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
   {
-    id: "breakpoint-2026-host-a-side-event",
-    title: "Host a side event in London \u2197",
-    url: "https://luma.com/BP-SideEvents",
+    id: "breakpoint-2026-plan-your-trip",
+    title: "Plan your trip to London",
+    url: "/travel",
+    tags: ["Travel"],
+  },
+  {
+    id: "breakpoint-2026-community-events",
+    title: "Explore community side events \u2197",
+    url: SIDE_EVENTS_HREF,
     tags: ["Events"],
   },
   {
@@ -38,7 +45,7 @@ const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
   {
     id: "breakpoint-2026-become-a-sponsor",
     title: "Become a sponsor \u2197",
-    url: "https://solanafoundation.typeform.com/bp26sponsorform",
+    url: SPONSOR_FORM_HREF,
     tags: ["Sponsor"],
   },
 ];

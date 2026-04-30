@@ -5,9 +5,9 @@ import { locales } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
 
 const HIDDEN_ROUTES = [
-  "/agenda",
   "/faq",
   "/registration",
+  "/schedule",
   "/speakers",
   "/sponsors",
 ] as const;

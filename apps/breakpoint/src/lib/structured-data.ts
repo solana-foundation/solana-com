@@ -1,5 +1,6 @@
 import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
 const FAQ_KEYS = ["q1", "q2", "q3", "q4"] as const;
 
@@ -18,8 +19,8 @@ function asPlainTextMessage(value: unknown) {
 const TICKET_OFFERS: OfferSeed[] = [
   {
     name: "General Admission",
-    price: 500,
-    url: "https://luma.com/breakpoint2026",
+    price: 350,
+    url: GENERAL_ADMISSION_HREF,
   },
 ];
 

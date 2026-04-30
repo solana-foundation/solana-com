@@ -8,6 +8,7 @@ import ImageTreatment, {
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import WordReveal from "@/components/WordReveal";
+import { BREAKPOINT_2025_ARCHIVES_URL } from "@/content/links";
 
 interface StatItem {
   key: string;
@@ -55,9 +56,6 @@ const widths = [
 ];
 
 const stripColors: TreatmentColor[] = ["green", "purple", "blue"];
-const BREAKPOINT_2025_ARCHIVES_URL =
-  "https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z";
-
 export default function StatsSection() {
   const t = useTranslations("breakpoint");
 

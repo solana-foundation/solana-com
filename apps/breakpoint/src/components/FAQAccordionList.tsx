@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Accordion from "@/components/Accordion";
 import type { FAQPageSection } from "@/content/faq-page";
+import { getAnchorLinkProps } from "@/lib/links";
 
 type FAQAccordionListProps = {
   sections: FAQPageSection[];
@@ -43,6 +44,19 @@ export default function FAQAccordionList({ sections }: FAQAccordionListProps) {
                 >
                   <p className="type-paragraph text-white md:pr-2xl">
                     {item.answer}
+                    {item.answerHref && (
+                      <>
+                        {" "}
+                        <a
+                          href={item.answerHref}
+                          className="underline decoration-white/40 underline-offset-4 transition-opacity hover:opacity-80"
+                          {...getAnchorLinkProps({ href: item.answerHref })}
+                        >
+                          {item.answerLinkLabel ?? item.answerHref}
+                        </a>
+                        .
+                      </>
+                    )}
                   </p>
                 </Accordion>
               ))}

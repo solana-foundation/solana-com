@@ -7,8 +7,7 @@ import Button from "@/components/Button";
 import YouTubeModal from "@/components/YouTubeModal";
 import WordReveal from "@/components/WordReveal";
 import ImageTreatment from "@/components/ImageTreatment";
-
-const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
+import { BP25_RECAP_YOUTUBE_ID } from "@/content/links";
 
 function PlayIcon() {
   return (

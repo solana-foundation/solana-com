@@ -10,6 +10,7 @@ import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
+import { GENERAL_ADMISSION_HREF, SPONSOR_FORM_HREF } from "@/content/links";
 
 const SPONSOR_LOGO_ID = "breakpoint-2026-white";
 
@@ -347,7 +348,7 @@ function SponsorTierSection({
 }
 
 function SponsorsIntro() {
-  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
+  const introText = `<span class="text-purple">6,000+</span> high-signal <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to the teams shaping Solana's next chapter in London's financial hub. Your brand, their attention.`;
 
   return (
     <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
@@ -372,8 +373,8 @@ function SponsorsIntro() {
           <Button
             arrow
             className="mt-s"
-            href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20sponsorship"
-            label="Contact Us"
+            href={SPONSOR_FORM_HREF}
+            label="Reach out"
             variant="primary"
           />
         </div>
@@ -388,8 +389,8 @@ export default function SponsorsPage() {
       contentId="breakpoint-sponsors-content"
       navigation={{
         ctaAlwaysVisible: true,
-        ctaHref: "/registration",
-        ctaLabel: "REGISTER",
+        ctaHref: GENERAL_ADMISSION_HREF,
+        ctaLabel: "Get tickets",
       }}
     >
       <SubpageHero

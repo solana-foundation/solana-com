@@ -4,6 +4,7 @@ import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import FAQSubnav from "@/components/pages/FAQSubnav";
 import { faqPageSections } from "@/content/faq-page";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
 export default function FAQPage() {
   return (
@@ -11,12 +12,12 @@ export default function FAQPage() {
       contentId="faq-content"
       navigation={{
         ctaAlwaysVisible: true,
-        ctaHref: "/registration",
-        ctaLabel: "Register",
+        ctaHref: GENERAL_ADMISSION_HREF,
+        ctaLabel: "Get tickets",
         showMenuButton: true,
       }}
     >
-      <SubpageHero image={false} title="FAQs" />
+      <SubpageHero image={false} title="FAQ" />
       <FAQSubnav sections={faqPageSections} />
       <FAQAccordionList sections={faqPageSections} />
       <Footer backgroundColor="green" />
