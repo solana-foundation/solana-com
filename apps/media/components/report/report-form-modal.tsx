@@ -29,7 +29,7 @@ declare global {
   interface Window {
     hbspt?: {
       forms: {
-        create: (config: Record<string, unknown>) => void;
+        create: (_config: Record<string, unknown>) => void;
       };
     };
   }

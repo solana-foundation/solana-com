@@ -46,10 +46,10 @@ function parseDuration(duration?: string): number {
 
     if (parts.length === 3) {
       // HH:MM:SS
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
     } else if (parts.length === 2) {
       // MM:SS
-      return parts[0] * 60 + parts[1];
+      return parts[0]! * 60 + parts[1]!;
     }
 
     return 0;
@@ -63,7 +63,11 @@ function parseDuration(duration?: string): number {
  * Generate a stable ID from episode data
  * Uses GUID if available, otherwise generates from URL
  */
-function generateEpisodeId(item: any): string {
+function generateEpisodeId(item: {
+  guid?: string;
+  enclosure?: { url?: string };
+  title?: string;
+}): string {
   try {
     // Prefer GUID
     if (item.guid) {
@@ -75,7 +79,7 @@ function generateEpisodeId(item: any): string {
       // Extract a stable ID from the URL
       const url = new URL(item.enclosure.url);
       const pathParts = url.pathname.split("/");
-      return pathParts[pathParts.length - 1].replace(/\.[^/.]+$/, "");
+      return (pathParts[pathParts.length - 1] || "").replace(/\.[^/.]+$/, "");
     }
 
     // Last resort: hash the title
@@ -144,7 +148,13 @@ function ensureUniqueEpisodeSlugs(
   });
 }
 
-function extractEpisodeThumbnail(item: any): string | undefined {
+function extractEpisodeThumbnail(item: {
+  itunesImage?: { href?: string; $?: { href?: string } };
+  itunes?: { image?: string };
+  image?: { url?: string; href?: string };
+  mediaThumbnail?: { url?: string; $?: { url?: string } };
+  mediaContent?: { url?: string; $?: { url?: string } };
+}): string | undefined {
   const candidates = [
     item.itunesImage?.href,
     item.itunesImage?.$?.href,
@@ -195,7 +205,12 @@ function resolveAudioUrl(enclosureUrl?: string): string {
   return enclosureUrl;
 }
 
-function extractEpisodeDescriptionHtml(item: any): string | undefined {
+function extractEpisodeDescriptionHtml(item: {
+  content?: string;
+  "content:encoded"?: string;
+  contentEncoded?: string;
+  description?: string;
+}): string | undefined {
   const candidates = [
     item.content,
     item["content:encoded"],
@@ -263,7 +278,7 @@ function stripHtml(value: string): string {
 
 function parseBuzzsproutCount(html: string): number | null {
   const match = html.match(/>(\d+)\s+episodes<\/h2>/i);
-  return match ? Number.parseInt(match[1], 10) : null;
+  return match && match[1] ? Number.parseInt(match[1], 10) : null;
 }
 
 function parseBuzzsproutEpisodesPage(
@@ -277,8 +292,8 @@ function parseBuzzsproutEpisodesPage(
   const episodes: PodcastEpisode[] = [];
 
   for (const match of episodeBlocks) {
-    const episodeId = match[1];
-    const block = match[0];
+    const episodeId = match[1] ?? "";
+    const block = match[0] ?? "";
 
     const hrefMatch = block.match(
       /<a class="w-full" href="(\/\d+\/episodes\/[^"]+)"/,
@@ -297,7 +312,7 @@ function parseBuzzsproutEpisodesPage(
       continue;
     }
 
-    const episodePath = hrefMatch[1];
+    const episodePath = hrefMatch[1] ?? "";
     const publishedDate = dateMatch?.[1]
       ? new Date(dateMatch[1]).toISOString()
       : new Date().toISOString();
@@ -309,9 +324,9 @@ function parseBuzzsproutEpisodesPage(
         buildEpisodeSlug(titleMatch[1], episodeId, publishedDate),
       recordingId: episodeId,
       podcastSlug,
-      title: stripHtml(titleMatch[1]),
+      title: stripHtml(titleMatch[1] ?? ""),
       description: descriptionMatch
-        ? stripHtml(descriptionMatch[1])
+        ? stripHtml(descriptionMatch[1] ?? "")
         : undefined,
       publishedDate,
       duration: parseDuration(durationMatch?.[1]),
@@ -382,33 +397,40 @@ export async function fetchEpisodesFromRSS(
     const feedXml = await fetchText(rssFeedUrl);
     const feed = await parser.parseString(feedXml);
 
-    const episodes: PodcastEpisode[] = (feed.items || []).map((item: any) => {
-      const duration = parseDuration(
-        item.itunesDuration || item.itunes?.duration,
-      );
-      const id = generateEpisodeId(item);
-      const publishedDate =
-        item.pubDate || item.isoDate || new Date().toISOString();
-      const linkSlug =
-        typeof item.link === "string"
-          ? extractSlugFromEpisodePath(item.link)
-          : null;
+    const episodes: PodcastEpisode[] = (feed.items || []).map(
+      (
+        item: (typeof feed.items)[number] & {
+          itunes?: { duration?: unknown; image?: string };
+          description?: string;
+        },
+      ) => {
+        const duration = parseDuration(
+          item.itunesDuration || item.itunes?.duration,
+        );
+        const id = generateEpisodeId(item);
+        const publishedDate =
+          item.pubDate || item.isoDate || new Date().toISOString();
+        const linkSlug =
+          typeof item.link === "string"
+            ? extractSlugFromEpisodePath(item.link)
+            : null;
 
-      return {
-        id,
-        slug: linkSlug || buildEpisodeSlug(item.title, id, publishedDate),
-        recordingId: id,
-        podcastSlug,
-        title: item.title || "Untitled Episode",
-        description: item.contentSnippet || item.content || item.description,
-        descriptionHtml: extractEpisodeDescriptionHtml(item),
-        publishedDate,
-        duration,
-        audioUrl: resolveAudioUrl(item.enclosure?.url),
-        thumbnailUrl: extractEpisodeThumbnail(item),
-        status: "ready" as const,
-      };
-    });
+        return {
+          id,
+          slug: linkSlug || buildEpisodeSlug(item.title, id, publishedDate),
+          recordingId: id,
+          podcastSlug,
+          title: item.title || "Untitled Episode",
+          description: item.contentSnippet || item.content || item.description,
+          descriptionHtml: extractEpisodeDescriptionHtml(item),
+          publishedDate,
+          duration,
+          audioUrl: resolveAudioUrl(item.enclosure?.url),
+          thumbnailUrl: extractEpisodeThumbnail(item),
+          status: "ready" as const,
+        };
+      },
+    );
 
     // Sort by published date (newest first)
     episodes.sort(

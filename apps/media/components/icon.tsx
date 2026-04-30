@@ -1,5 +1,4 @@
 "use client";
-//TODO: Fix Types in this file
 
 import * as BoxIcons from "react-icons/bi";
 import {
@@ -10,11 +9,11 @@ import {
   FaYoutube,
 } from "react-icons/fa6";
 import { AiFillInstagram } from "react-icons/ai";
-import React from "react";
+import React, { SVGProps } from "react";
 import { useLayout } from "./layout/layout-context";
 
 export const IconOptions = {
-  Tina: (props: any) => (
+  Tina: (props: SVGProps<SVGSVGElement>) => (
     <svg
       {...props}
       viewBox="0 0 66 80"
@@ -103,7 +102,6 @@ interface IconProps {
   tinaField?: string;
 }
 
-//@ts-ignore
 export const Icon = ({
   data,
   parentColor = "",
@@ -112,17 +110,14 @@ export const Icon = ({
 }: IconProps) => {
   const { theme } = useLayout();
 
-  //@ts-ignore
   if (IconOptions[data.name] === null || IconOptions[data.name] === undefined) {
     return null;
   }
 
   const { name, color, size = "medium", style = "regular" } = data;
 
-  //@ts-ignore
   const IconSVG = IconOptions[name];
 
-  //@ts-ignore
   const iconSizeClasses =
     typeof size === "string"
       ? iconSizeClass[size as keyof typeof iconSizeClass]
@@ -138,7 +133,7 @@ export const Icon = ({
     return (
       <div
         {...(tinaField ? { "data-tina-field": tinaField } : {})} // only render data-tina-field if it exists
-        className={`relative z-10 inline-flex items-center justify-center shrink-0 ${iconSizeClasses} rounded-full ${iconColorClass[iconColor].circle} ${className}`}
+        className={`relative z-10 inline-flex items-center justify-center shrink-0 ${iconSizeClasses} rounded-full ${iconColorClass[iconColor]?.circle} ${className}`}
       >
         <IconSVG className="w-2/3 h-2/3" />
       </div>
@@ -150,7 +145,7 @@ export const Icon = ({
         (iconColor === theme!.color || iconColor === "primary")
           ? "white"
           : iconColor!
-      ].regular;
+      ]?.regular;
     return (
       <IconSVG
         {...(tinaField ? { "data-tina-field": tinaField } : {})} // only render data-tina-field if it exists

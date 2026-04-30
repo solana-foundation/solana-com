@@ -81,7 +81,7 @@ export const PodcastCard = ({
             </div>
             <span className="text-xs text-muted-foreground">
               {podcast.hosts.length === 1
-                ? podcast.hosts[0].name
+                ? podcast.hosts[0]?.name
                 : podcast.hosts.map((h) => h.name).join(", ")}
             </span>
           </div>

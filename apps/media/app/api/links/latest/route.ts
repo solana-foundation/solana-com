@@ -68,7 +68,7 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     ),
     description: contentDocumentToPlainText(link.description),
     tags: link.tags,
-    thumbnailImage: link.thumbnailImage,
+    thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
 

@@ -2,7 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { PostItem } from "@/lib/post-types";
-import { DocumentRenderer } from "@keystatic/core/renderer";
+import {
+  DocumentRenderer,
+  DocumentRendererProps,
+} from "@keystatic/core/renderer";
 import { components } from "@/components/mdx-components";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,8 +20,14 @@ function getUniqueValues(values: string[] | undefined): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+interface DescriptionContentProps {
+  description?:
+    | DocumentRendererProps["document"]
+    | { node: { children: DocumentRendererProps["document"] } };
+}
+
 // Helper: render description as plain text or DocumentRenderer document
-function DescriptionContent({ description }: { description: any }) {
+function DescriptionContent({ description }: DescriptionContentProps) {
   if (!description) return null;
 
   // Plain string from fields.text()
@@ -33,7 +42,8 @@ function DescriptionContent({ description }: { description: any }) {
 
   // Object with node.children
   if (typeof description === "object" && "node" in description) {
-    const children = description.node?.children;
+    const children =
+      "children" in description.node ? description.node?.children : null;
     if (Array.isArray(children)) {
       return <DocumentRenderer document={children} renderers={components} />;
     }
@@ -79,7 +89,11 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           )}
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
-              <DescriptionContent description={post.description} />
+              <DescriptionContent
+                description={
+                  post.description as DescriptionContentProps["description"]
+                }
+              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -128,7 +142,11 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <DescriptionContent description={post.description} />
+        <DescriptionContent
+          description={
+            post.description as DescriptionContentProps["description"]
+          }
+        />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article
