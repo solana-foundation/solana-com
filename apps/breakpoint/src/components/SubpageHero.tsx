@@ -13,212 +13,110 @@ type HeroCta = {
   variant?: "primary" | "secondary";
 };
 
-type HeroVideoSource = {
-  src: string;
-  type: string;
-};
-
 type SubpageHeroProps = {
-  background?: ReactNode;
-  backgroundOverlay?: ReactNode;
   children?: ReactNode;
   contentClassName?: string;
   cta?: HeroCta | HeroCta[];
   eyebrow?: string;
-  image?: boolean;
-  imageHeightClassName?: string;
-  imageSrc?: string;
-  imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
-  imageTopClassName?: string;
-  pixelEdgeSrc?: string;
-  tintClassName?: string;
+  glitch?: boolean | SubpageHeroGlitchConfig;
+  heroImage?: SubpageHeroImageKey | false;
   title: string;
-  videoPosterSrc?: string;
-  videoSources?: HeroVideoSource[];
 };
 
-type SubpageHeroImageTreatmentConfig = Partial<
-  Omit<ImageTreatmentProps, "alt" | "className" | "src">
-> & {
-  alt?: string;
-  className?: string;
-  src?: string;
+type SubpageHeroGlitchConfig = Partial<
+  Omit<
+    ImageTreatmentProps,
+    "alt" | "aria-hidden" | "className" | "foregroundSrc" | "src"
+  >
+>;
+
+type SubpageHeroImageConfig = {
+  color: TreatmentColor;
+  heightClassName: string;
+  pixelEdgeSrc?: string;
+  src: string;
 };
 
-const DEFAULT_IMAGE_SRC = "/img/registration-hero-glitch.png";
+export type SubpageHeroImageKey =
+  | "schedule"
+  | "speakers"
+  | "travel"
+  | "registration"
+  | "sponsors";
+
+const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
+  {
+    schedule: {
+      color: "purple",
+      heightClassName: "h-[480px] md:h-[467px]",
+      src: "/img/subpage-heroes/schedule-hero.webp",
+    },
+    speakers: {
+      color: "green",
+      heightClassName: "h-[480px] md:h-[467px]",
+      src: "/img/subpage-heroes/speakers-hero.webp",
+    },
+    travel: {
+      color: "blue",
+      heightClassName: "h-[480px] md:h-[467px]",
+      pixelEdgeSrc: "/assets/pixel-edge-travel.svg",
+      src: "/img/subpage-heroes/travel-hero.webp",
+    },
+    registration: {
+      color: "purple",
+      heightClassName: "h-[482px] md:h-[395px]",
+      src: "/img/subpage-heroes/registration-hero.webp",
+    },
+    sponsors: {
+      color: "purple",
+      heightClassName: "h-[480px] md:h-[467px]",
+      src: "/img/subpage-heroes/sponsors-hero.webp",
+    },
+  };
+
+const DEFAULT_HERO_IMAGE: SubpageHeroImageKey = "schedule";
 
 const eyebrowClassName = "type-eyebrow text-white";
 
 const titleClassName = "type-h1 w-full max-w-[1026px] text-white";
 
-const mediaBaseClassName =
-  "absolute left-1/2 h-[960px] w-full min-w-[1440px] max-w-none -translate-x-1/2 object-cover";
+const mediaBaseClassName = "absolute inset-0 h-full w-full";
 
 function cn(...classNames: Array<string | false | null | undefined>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getImageTreatmentConfig(
-  imageTreatment: SubpageHeroProps["imageTreatment"],
-) {
-  if (!imageTreatment) return null;
-  return imageTreatment === true ? {} : imageTreatment;
+function getGlitchConfig(glitch: SubpageHeroProps["glitch"]) {
+  if (glitch === false) return { glitchPattern: "none" } as const;
+  return glitch === true || glitch === undefined ? {} : glitch;
 }
 
-function getTreatmentColor(tintClassName: string): TreatmentColor {
-  if (tintClassName.includes("bg-green")) return "green";
-  if (tintClassName.includes("bg-blue")) return "blue";
-  if (tintClassName.includes("bg-white")) return "white";
-  if (tintClassName.includes("bg-purple")) return "purple";
-  return "purple";
-}
-
-function HeroTintOverlay({ tintClassName }: { tintClassName: string }) {
-  if (!tintClassName) return null;
-
-  return (
-    <div className={`absolute inset-0 ${tintClassName} mix-blend-multiply`} />
-  );
-}
-
-function HeroVideo({
-  className,
-  posterSrc,
-  sources,
+function HeroBackground({
+  glitch,
+  image,
 }: {
-  className: string;
-  posterSrc?: string;
-  sources: HeroVideoSource[];
+  glitch: SubpageHeroProps["glitch"];
+  image: SubpageHeroImageConfig;
 }) {
-  return (
-    <video
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      poster={posterSrc}
-      aria-hidden="true"
-      className={className}
-    >
-      {sources.map((source) => (
-        <source key={source.src} src={source.src} type={source.type} />
-      ))}
-    </video>
-  );
-}
-
-function HeroImage({ className, src }: { className: string; src: string }) {
-  return (
-    <img src={src} alt="" width={1200} height={800} className={className} />
-  );
-}
-
-function HeroImageTreatment({
-  className,
-  config,
-  imageSrc,
-  tintClassName,
-}: {
-  className: string;
-  config: SubpageHeroImageTreatmentConfig;
-  imageSrc: string;
-  tintClassName: string;
-}) {
-  const {
-    alt = "",
-    className: treatmentClassName,
-    src,
-    ...imageTreatmentProps
-  } = config;
+  const { src, color } = image;
 
   return (
     <ImageTreatment
-      src={src ?? imageSrc}
-      alt={alt}
-      aria-hidden={alt ? undefined : true}
+      src={src}
+      alt=""
+      aria-hidden="true"
       glitchPattern="p1"
       intensity={60}
       lighting="even"
-      color={getTreatmentColor(tintClassName)}
-      className={treatmentClassName ?? className}
-      {...imageTreatmentProps}
+      color={color}
+      motion
+      flicker
+      mouseReactive
+      mouseRadius={180}
+      objectFit="cover"
+      className={mediaBaseClassName}
+      {...getGlitchConfig(glitch)}
     />
-  );
-}
-
-function HeroMedia({
-  imageSrc,
-  imageTopClassName,
-  imageTreatmentConfig,
-  tintClassName,
-  videoPosterSrc,
-  videoSources,
-}: {
-  imageSrc: string;
-  imageTopClassName: string;
-  imageTreatmentConfig: SubpageHeroImageTreatmentConfig | null;
-  tintClassName: string;
-  videoPosterSrc?: string;
-  videoSources?: HeroVideoSource[];
-}) {
-  const className = cn(mediaBaseClassName, imageTopClassName);
-
-  if (imageTreatmentConfig) {
-    return (
-      <HeroImageTreatment
-        className={className}
-        config={imageTreatmentConfig}
-        imageSrc={imageSrc}
-        tintClassName={tintClassName}
-      />
-    );
-  }
-
-  if (videoSources?.length) {
-    return (
-      <HeroVideo
-        className={className}
-        posterSrc={videoPosterSrc}
-        sources={videoSources}
-      />
-    );
-  }
-
-  return <HeroImage className={className} src={imageSrc} />;
-}
-
-function DefaultHeroBackground({
-  imageTreatment,
-  imageSrc,
-  imageTopClassName,
-  tintClassName,
-  videoPosterSrc,
-  videoSources,
-}: {
-  imageTreatment?: boolean | SubpageHeroImageTreatmentConfig;
-  imageSrc: string;
-  imageTopClassName: string;
-  tintClassName: string;
-  videoPosterSrc?: string;
-  videoSources?: HeroVideoSource[];
-}) {
-  const imageTreatmentConfig = getImageTreatmentConfig(imageTreatment);
-
-  return (
-    <>
-      <HeroMedia
-        imageSrc={imageSrc}
-        imageTopClassName={imageTopClassName}
-        imageTreatmentConfig={imageTreatmentConfig}
-        tintClassName={tintClassName}
-        videoPosterSrc={videoPosterSrc}
-        videoSources={videoSources}
-      />
-      {!imageTreatmentConfig && (
-        <HeroTintOverlay tintClassName={tintClassName} />
-      )}
-    </>
   );
 }
 
@@ -282,24 +180,15 @@ function HeroContent({
 }
 
 export default function SubpageHero({
-  background,
-  backgroundOverlay,
   children,
   contentClassName,
   cta,
   eyebrow = "Breakpoint 2026",
-  image = true,
-  imageHeightClassName = "h-[480px] md:h-[467px]",
-  imageSrc = DEFAULT_IMAGE_SRC,
-  imageTreatment = false,
-  imageTopClassName = "top-[-320px] md:top-[-340px]",
-  pixelEdgeSrc = "/assets/pixel-edge.svg",
-  tintClassName = "bg-purple",
+  glitch,
+  heroImage = DEFAULT_HERO_IMAGE,
   title,
-  videoPosterSrc,
-  videoSources,
 }: SubpageHeroProps) {
-  if (!image) {
+  if (!heroImage) {
     return (
       <section className="bg-black px-4 md:px-8" data-bp-subpage-hero="plain">
         <HeroContent
@@ -314,28 +203,20 @@ export default function SubpageHero({
     );
   }
 
-  const backgroundContent = background ?? (
-    <DefaultHeroBackground
-      imageTreatment={imageTreatment}
-      imageSrc={imageSrc}
-      imageTopClassName={imageTopClassName}
-      tintClassName={tintClassName}
-      videoPosterSrc={videoPosterSrc}
-      videoSources={videoSources}
-    />
-  );
+  const image = SUBPAGE_HERO_IMAGES[heroImage];
+  const pixelEdgeSrc = image.pixelEdgeSrc ?? "/assets/pixel-edge.svg";
 
   return (
     <section
-      className={`relative overflow-hidden bg-black ${imageHeightClassName}`}
+      className={`relative overflow-hidden bg-black ${image.heightClassName}`}
       data-bp-subpage-hero="image"
+      data-bp-subpage-hero-image={heroImage}
     >
       <div
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-[360px] overflow-hidden"
       >
-        {backgroundContent}
-        {backgroundOverlay}
+        <HeroBackground glitch={glitch} image={image} />
       </div>
 
       <img

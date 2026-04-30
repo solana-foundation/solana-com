@@ -718,10 +718,7 @@ export default function SponsorsPage() {
 
   return (
     <PageShell contentId="breakpoint-sponsors-content">
-      <SubpageHero
-        title="Sponsors"
-        imageSrc="/img/subpage-heroes/sponsors.png"
-      />
+      <SubpageHero title="Sponsors" heroImage="sponsors" />
       <SponsorsIntro />
       {sponsorTiers.map((tier, index) => (
         <SponsorTierSection

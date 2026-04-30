@@ -4,7 +4,6 @@ import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import FAQSubnav from "@/components/pages/FAQSubnav";
 import { faqPageSections } from "@/content/faq-page";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
 export default function FAQPage() {
   return (
@@ -17,7 +16,7 @@ export default function FAQPage() {
       //   showMenuButton: true,
       // }}
     >
-      <SubpageHero image={false} title="FAQ" />
+      <SubpageHero heroImage={false} title="FAQ" />
       <FAQSubnav sections={faqPageSections} />
       <FAQAccordionList sections={faqPageSections} />
       <Footer backgroundColor="green" />

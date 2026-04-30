@@ -4,11 +4,7 @@ import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
 import SubpageHero from "@/components/SubpageHero";
 import Footer from "@/components/sections/Footer";
-import {
-  GENERAL_ADMISSION_HREF,
-  IAS_HREF,
-  VISA_CHECK_HREF,
-} from "@/content/links";
+import { IAS_HREF, VISA_CHECK_HREF } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
 import TravelSubnav from "./TravelSubnav";
 
@@ -140,19 +136,7 @@ function TravelHero() {
     <SubpageHero
       title="Travel"
       contentClassName="max-w-[1440px]"
-      tintClassName=""
-      imageTopClassName="top-[-300px] md:top-[-330px]"
-      pixelEdgeSrc="/assets/pixel-edge-travel.svg"
-      videoSources={[
-        {
-          src: "/assets/subpage-heroes/travel.webm",
-          type: "video/webm",
-        },
-        {
-          src: "/assets/subpage-heroes/travel.mp4",
-          type: "video/mp4",
-        },
-      ]}
+      heroImage="travel"
     />
   );
 }

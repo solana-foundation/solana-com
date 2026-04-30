@@ -122,6 +122,11 @@ const FG_OVERLAY: Partial<Record<TreatmentColor, [number, number, number]>> = {
 
 const MAX_DIMENSION = 800;
 
+type CanvasSize = {
+  width: number;
+  height: number;
+};
+
 type Tear = {
   type: "tear";
   sx: number;
@@ -228,6 +233,46 @@ function loadImage(src: string, signal: AbortSignal) {
   });
 }
 
+function getRenderSize(
+  image: HTMLImageElement,
+  containerSize: CanvasSize | null,
+) {
+  let w = containerSize?.width ?? image.naturalWidth;
+  let h = containerSize?.height ?? image.naturalHeight;
+
+  if (w <= 0 || h <= 0) {
+    w = image.naturalWidth;
+    h = image.naturalHeight;
+  }
+
+  if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
+    const r = MAX_DIMENSION / Math.max(w, h);
+    w = Math.max(1, Math.floor(w * r));
+    h = Math.max(1, Math.floor(h * r));
+  }
+
+  return { w: Math.max(1, Math.floor(w)), h: Math.max(1, Math.floor(h)) };
+}
+
+function drawFittedImage(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  w: number,
+  h: number,
+  objectFit: ImageTreatmentProps["objectFit"],
+) {
+  const scale =
+    objectFit === "contain"
+      ? Math.min(w / image.naturalWidth, h / image.naturalHeight)
+      : Math.max(w / image.naturalWidth, h / image.naturalHeight);
+  const dw = image.naturalWidth * scale;
+  const dh = image.naturalHeight * scale;
+  const dx = (w - dw) / 2;
+  const dy = (h - dh) / 2;
+
+  ctx.drawImage(image, dx, dy, dw, dh);
+}
+
 export default function ImageTreatment({
   src,
   alt = "",
@@ -256,6 +301,7 @@ export default function ImageTreatment({
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [fgImage, setFgImage] = useState<HTMLImageElement | null>(null);
   const [inView, setInView] = useState(false);
+  const [containerSize, setContainerSize] = useState<CanvasSize | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -292,6 +338,35 @@ export default function ImageTreatment({
     return () => io.disconnect();
   }, []);
 
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      const next = {
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+      setContainerSize((prev) =>
+        prev?.width === next.width && prev?.height === next.height
+          ? prev
+          : next,
+      );
+    };
+
+    updateSize();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateSize);
+      return () => window.removeEventListener("resize", updateSize);
+    }
+
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const overridesKey = JSON.stringify(overrides ?? null);
 
   useEffect(() => {
@@ -305,13 +380,7 @@ export default function ImageTreatment({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const animate = motion && !prefersReducedMotion;
 
-    let w = image.naturalWidth;
-    let h = image.naturalHeight;
-    if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
-      const r = MAX_DIMENSION / Math.max(w, h);
-      w = Math.max(1, Math.floor(w * r));
-      h = Math.max(1, Math.floor(h * r));
-    }
+    const { w, h } = getRenderSize(image, containerSize);
     canvas.width = w;
     canvas.height = h;
 
@@ -380,10 +449,10 @@ export default function ImageTreatment({
       const fillB = colorRgb ? colorRgb[2] : 251;
 
       bCtx.clearRect(0, 0, w, h);
-      bCtx.drawImage(image, 0, 0, w, h);
+      drawFittedImage(bCtx, image, w, h, objectFit);
 
       tCtx.clearRect(0, 0, w, h);
-      tCtx.drawImage(image, 0, 0, w, h);
+      drawFittedImage(tCtx, image, w, h, objectFit);
 
       const imgData = tCtx.getImageData(0, 0, w, h);
       const d = imgData.data;
@@ -757,6 +826,9 @@ export default function ImageTreatment({
     flicker,
     mouseReactive,
     mouseRadius,
+    objectFit,
+    containerSize?.width,
+    containerSize?.height,
     overridesKey,
   ]);
 

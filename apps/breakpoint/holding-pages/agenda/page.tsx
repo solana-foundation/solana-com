@@ -31,19 +31,11 @@ export default async function AgendaPage() {
     >
       <SubpageHero
         title="Schedule"
-        imageHeightClassName="h-[calc(360px+var(--spacing-xl))] md:h-[467px]"
-        tintClassName="bg-purple"
         cta={{
           href: COMMUNITY_EVENTS_HREF,
           label: "Explore community events",
           target: "_blank",
           variant: "secondary",
-        }}
-        imageTreatment={{
-          flicker: true,
-          motion: true,
-          mouseReactive: true,
-          mouseRadius: 180,
         }}
       />
       <AgendaList items={agenda} />

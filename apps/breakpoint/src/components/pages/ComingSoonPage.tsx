@@ -39,7 +39,7 @@ export default function ComingSoonPage({
       // }}
     >
       <SubpageHero
-        image={false}
+        heroImage={false}
         eyebrow="Coming soon"
         title={title}
         cta={{
