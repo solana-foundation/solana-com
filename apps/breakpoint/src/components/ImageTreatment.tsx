@@ -709,6 +709,21 @@ export default function ImageTreatment({
       const el = wrapperRef.current;
       const state = mouseStateRef.current;
       state.hovering = false;
+      let autoGlitching = !flicker && animate;
+      let timeoutId: number | null = null;
+
+      const resetGlitches = () => {
+        const fresh = buildGlitches(
+          w,
+          h,
+          params.iframes,
+          params.pframes,
+          params.shift,
+          params.block,
+        );
+        glitches.length = 0;
+        for (const g of fresh) glitches.push(g);
+      };
 
       const updateFromEvent = (e: PointerEvent) => {
         const rect = canvas.getBoundingClientRect();
@@ -720,6 +735,7 @@ export default function ImageTreatment({
 
       const onPointerEnter = (e: PointerEvent) => {
         updateFromEvent(e);
+        resetGlitches();
         localizeGlitches(state.x, state.y);
         if (!animate) {
           renderFrame("static");
@@ -736,7 +752,12 @@ export default function ImageTreatment({
       };
       const onPointerLeave = () => {
         state.hovering = false;
-        if (!animate) drawClean();
+        if (!animate) {
+          if (autoGlitching) {
+            renderFrame("static");
+            renderHeadshot();
+          } else drawClean();
+        }
       };
 
       el?.addEventListener("pointerenter", onPointerEnter);
@@ -744,11 +765,48 @@ export default function ImageTreatment({
       el?.addEventListener("pointerleave", onPointerLeave);
       el?.addEventListener("pointercancel", onPointerLeave);
 
-      drawClean();
+      const startAutoGlitch = () => {
+        autoGlitching = true;
+        resetGlitches();
+        if (!animate && !state.hovering) {
+          renderFrame("static");
+          renderHeadshot();
+        }
+      };
+
+      const stopAutoGlitch = () => {
+        autoGlitching = false;
+        if (!state.hovering) drawClean();
+      };
+
+      const scheduleFlicker = () => {
+        const dur = autoGlitching
+          ? 140 + Math.random() * 360
+          : 2500 + Math.random() * 5000;
+        timeoutId = window.setTimeout(() => {
+          if (autoGlitching) stopAutoGlitch();
+          else startAutoGlitch();
+          scheduleFlicker();
+        }, dur);
+      };
+
+      if (flicker) {
+        autoGlitching = Math.random() < 0.4;
+        if (autoGlitching) resetGlitches();
+      } else if (autoGlitching) resetGlitches();
+
+      if (!animate) {
+        if (autoGlitching) {
+          renderFrame("static");
+          renderHeadshot();
+        } else drawClean();
+      } else drawClean();
+
+      if (flicker) scheduleFlicker();
 
       if (animate) {
         const loop = () => {
-          if (!state.hovering) {
+          if (!state.hovering && !autoGlitching) {
             drawClean();
           } else {
             if (Math.random() > 0.5 / Math.max(0.1, params.animSpeed)) {
@@ -757,12 +815,14 @@ export default function ImageTreatment({
               processBase(jx, jy);
             }
             renderFrame("chaos");
-            for (const g of glitches) {
-              const dx = state.x - (g.sx + (g.type === "tear" ? g.w / 2 : 0));
-              const dy = state.y - g.sy;
-              const pull = 0.05;
-              g.sx += dx * pull;
-              g.sy += dy * pull;
+            if (state.hovering) {
+              for (const g of glitches) {
+                const dx = state.x - (g.sx + (g.type === "tear" ? g.w / 2 : 0));
+                const dy = state.y - g.sy;
+                const pull = 0.05;
+                g.sx += dx * pull;
+                g.sy += dy * pull;
+              }
             }
             renderHeadshot();
           }
@@ -776,6 +836,7 @@ export default function ImageTreatment({
         el?.removeEventListener("pointermove", onPointerMove);
         el?.removeEventListener("pointerleave", onPointerLeave);
         el?.removeEventListener("pointercancel", onPointerLeave);
+        if (timeoutId != null) clearTimeout(timeoutId);
         stopMotion();
       };
     }

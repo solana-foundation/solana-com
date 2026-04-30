@@ -106,7 +106,7 @@ function HeroBackground({
       alt=""
       aria-hidden="true"
       glitchPattern="p1"
-      intensity={60}
+      intensity={50}
       lighting="even"
       color={color}
       motion
