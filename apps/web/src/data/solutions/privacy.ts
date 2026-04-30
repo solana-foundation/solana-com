@@ -4,6 +4,10 @@ export const ECOSYSTEM_PROJECTS = [
     href: "https://arcium.com",
   },
   {
+    key: "confidentialTransfer",
+    href: "/developers/guides/token-extensions/confidential-transfer",
+  },
+  {
     key: "contra",
     href: "https://launch.solana.com",
   },
@@ -38,24 +42,5 @@ export const ECOSYSTEM_PROJECTS = [
   {
     key: "zama",
     href: "https://zama.ai",
-  },
-];
-
-export const TOOLS = [
-  {
-    key: "0",
-    href: "https://solana.com/developers",
-  },
-  {
-    key: "1",
-    href: "https://solana.com/developers/guides/token-extensions/confidential-transfer",
-  },
-  {
-    key: "2",
-    href: "https://spl.solana.com/confidential-token",
-  },
-  {
-    key: "3",
-    href: "https://solana.com/developers/guides",
   },
 ];

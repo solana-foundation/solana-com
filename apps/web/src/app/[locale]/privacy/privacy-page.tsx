@@ -1,49 +1,10 @@
 "use client";
 
-import { Divider } from "@/components/solutions/divider.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 import { ECOSYSTEM_PROJECTS } from "@/data/solutions/privacy";
-import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useTranslations } from "next-intl";
-import { cn } from "@/app/components/utils";
-import { Eye, EyeOff, Lock, UserX, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/app/components/ui/button";
-import { CipherGrid, PrivacyDecor } from "./privacy-animations";
-
-const PRIVACY_TYPE_COLORS: Record<string, string> = {
-  pseudonymous: "bg-[#ABABBA]/20 text-[#ABABBA]",
-  confidential: "bg-[#14F195]/15 text-[#14F195]",
-  anonymous: "bg-[#9945FF]/20 text-[#9945FF]",
-  fullyPrivate: "bg-[#F037A5]/15 text-[#F037A5]",
-};
-
-const PRIVACY_TYPE_LABELS: Record<string, string> = {
-  pseudonymous: "Pseudonymous",
-  confidential: "Confidential",
-  anonymous: "Anonymous",
-  fullyPrivate: "Fully Private",
-};
-
-const PRIVACY_TYPE_DOT_COLORS: Record<string, string> = {
-  pseudonymous: "#ABABBA",
-  confidential: "#14F195",
-  anonymous: "#9945FF",
-  fullyPrivate: "#F037A5",
-};
-
-const PROJECT_PRIVACY_TYPES: Record<string, string> = {
-  contra: "fullyPrivate",
-  encrypt: "fullyPrivate",
-  privacyCash: "anonymous",
-  silentSwap: "anonymous",
-  encifher: "confidential",
-  magicBlock: "fullyPrivate",
-  lightProtocol: "anonymous",
-  arcium: "fullyPrivate",
-  inco: "fullyPrivate",
-  zama: "fullyPrivate",
-};
+import { DotField, LiveFeed } from "./privacy-animations";
 
 interface UseCaseItem {
   title: string;
@@ -86,60 +47,363 @@ interface PrivacyPageProps {
   };
 }
 
-function PrivacyBadge({ type }: { type: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-block px-3 py-1 rounded-full text-xs font-medium tracking-wide",
-        PRIVACY_TYPE_COLORS[type],
-      )}
-    >
-      {PRIVACY_TYPE_LABELS[type]}
-    </span>
-  );
+const PROJECT_PRIVACY_TYPES: Record<string, string> = {
+  contra: "fullyPrivate",
+  encrypt: "fullyPrivate",
+  privacyCash: "anonymous",
+  silentSwap: "anonymous",
+  encifher: "confidential",
+  magicBlock: "fullyPrivate",
+  lightProtocol: "anonymous",
+  arcium: "fullyPrivate",
+  inco: "fullyPrivate",
+  zama: "fullyPrivate",
+  confidentialTransfer: "confidential",
+};
+
+const BADGE_FOR_TYPE: Record<string, { className: string; label: string }> = {
+  fullyPrivate: { className: "pp-badge pp-fully", label: "Fully Private" },
+  anonymous: { className: "pp-badge pp-anon", label: "Anonymous" },
+  confidential: { className: "pp-badge pp-conf", label: "Confidential" },
+  pseudonymous: { className: "pp-badge pp-anon", label: "Pseudonymous" },
+};
+
+const PROJECT_META_TAGS: Record<string, string> = {
+  arcium: "MPC",
+  contra: "E2E",
+  encifher: "DEFI",
+  encrypt: "INFRA",
+  inco: "FHE",
+  lightProtocol: "ZK",
+  magicBlock: "GAME",
+  privacyCash: "TX",
+  silentSwap: "SWAP",
+  zama: "FHE",
+  confidentialTransfer: "CT-EXT",
+};
+
+function splitTitle(raw: string, italicWordCount = 1) {
+  const stripped = raw.replace(/[.!?]+$/, "").trim();
+  const words = stripped.split(/\s+/);
+  if (words.length <= italicWordCount) {
+    return { head: "", tail: stripped + "." };
+  }
+  const head = words.slice(0, words.length - italicWordCount).join(" ");
+  const tail = words.slice(-italicWordCount).join(" ") + ".";
+  return { head, tail };
 }
 
+const ARROW_ICON = (
+  <svg
+    className="pp-arrow"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    aria-hidden="true"
+  >
+    <path d="M5 12h14m-6-6 6 6-6 6" />
+  </svg>
+);
+
+const QUADRANT_ICONS = {
+  pseudonymity: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  ),
+  anonymity: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6z" />
+    </svg>
+  ),
+  confidentiality: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  ),
+  fullyPrivate: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+    </svg>
+  ),
+};
+
 /* ──────────────────────────────────────────────────────────
-   Hero — full-screen with cipher animation, no stats
+   Section pieces
    ────────────────────────────────────────────────────────── */
 
-function PrivacyHero({
+function Hero({
   translations,
 }: {
   translations: PrivacyPageProps["translations"];
 }) {
+  const heroTitle = translations.heroTitle;
+  const splitIndex = heroTitle.indexOf(" ");
+  const row1Text = splitIndex >= 0 ? heroTitle.slice(0, splitIndex) : heroTitle;
+  const row2Text =
+    splitIndex >= 0
+      ? heroTitle.slice(splitIndex + 1).replace(/[.!?]+$/, "")
+      : "";
   return (
-    <section
-      id="hero"
-      className="relative overflow-hidden bg-black text-white text-left"
-    >
-      {/* Animated cipher background */}
-      <div className="absolute inset-0 z-0">
-        <CipherGrid />
-        {/* Gradient orbs */}
-        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full bg-[#9945FF]/20 blur-[120px] animate-[drift_20s_ease-in-out_infinite]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full bg-[#14F195]/15 blur-[100px] animate-[drift_25s_ease-in-out_infinite_reverse]" />
-        <div className="absolute top-1/2 right-1/3 w-[400px] h-[400px] rounded-full bg-[#F037A5]/12 blur-[80px] animate-[drift_18s_ease-in-out_infinite_2s]" />
-        {/* Top/bottom fade */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
-      </div>
+    <section className="pp-hero">
+      <div className="pp-hero-bg" aria-hidden="true" />
+      <div className="pp-hero-grid" aria-hidden="true" />
+      <DotField />
 
-      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-[1440px] mx-auto flex flex-col justify-center relative z-1">
-        <div className="px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-5xl">
-          <h1 className="m-0 font-brand font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
-            {translations.heroTitle}
+      <div className="pp-hero-frame">
+        <div className="pp-rail" aria-hidden="true">
+          <div className="pp-crosshair" />
+          <div className="pp-vtext">SOL · PRIVACY · DOC // 04 · 2026</div>
+          <div className="pp-crosshair" />
+        </div>
+
+        <div className="pp-hero-main">
+          <div className="pp-hero-meta">
+            <span className="pp-pill">
+              <span className="pp-dot" /> SIGNAL · LIVE
+            </span>
+            <span>FILE&nbsp;//&nbsp;PRIVACY.SOL</span>
+            <span style={{ marginLeft: "auto", color: "var(--pp-ink-faint)" }}>
+              PG&nbsp;01&nbsp;/&nbsp;06
+            </span>
+          </div>
+
+          <h1 className="pp-hero-title">
+            <span className="pp-row1">{row1Text}</span>
+            {row2Text && (
+              <span className="pp-row2">
+                <span className="pp-name">{row2Text}</span>
+                <span className="pp-period">.</span>
+              </span>
+            )}
           </h1>
-          <p className="text-[#ABABBA] text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
-            {translations.heroSubtitle}
-          </p>
-          <div className="mt-[32px] xl:mt-[64px]">
-            <Button
-              className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-              size="lg"
-              asChild
+
+          <p className="pp-hero-sub">{translations.heroSubtitle}</p>
+
+          <div className="pp-hero-cta-row">
+            <a className="pp-btn pp-btn-primary" href="#spectrum">
+              {translations.heroSupportingText}
+              {ARROW_ICON}
+            </a>
+            <span
+              className="pp-mono"
+              style={{
+                marginLeft: "auto",
+                color: "var(--pp-ink-faint)",
+                fontSize: 11,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+              }}
             >
-              <a href="#spectrum">{translations.heroSupportingText}</a>
-            </Button>
+              v.2026.04 · MAINNET
+            </span>
+          </div>
+        </div>
+
+        <aside className="pp-hero-side">
+          <div className="pp-panel-h">
+            <span>Privacy Levels</span>
+            <span>04</span>
+          </div>
+          <div>
+            <div className="pp-lvl-row">
+              <span className="pp-num">01</span>
+              <span className="pp-lvl-name">
+                {translations.pseudonymity.title}
+              </span>
+              <span className="pp-tag">DEFAULT</span>
+            </div>
+            <div className="pp-lvl-row">
+              <span className="pp-num">02</span>
+              <span className="pp-lvl-name">
+                {translations.anonymity.title}
+              </span>
+              <span className="pp-tag">ZK</span>
+            </div>
+            <div className="pp-lvl-row">
+              <span className="pp-num">03</span>
+              <span className="pp-lvl-name">
+                {translations.confidentiality.title}
+              </span>
+              <span className="pp-tag">CT-EXT</span>
+            </div>
+            <div className="pp-lvl-row">
+              <span className="pp-num">04</span>
+              <span className="pp-lvl-name">
+                {translations.fullyPrivate.title}
+              </span>
+              <span className="pp-tag">MPC · FHE</span>
+            </div>
+          </div>
+
+          <div className="pp-panel-h" style={{ marginTop: 8 }}>
+            <span>Network · Live</span>
+            <span style={{ color: "var(--pp-green)" }}>●</span>
+          </div>
+          <LiveFeed />
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function Spectrum({
+  translations,
+}: {
+  translations: PrivacyPageProps["translations"];
+}) {
+  const q1 = translations.pseudonymity;
+  const q2 = translations.anonymity;
+  const q3 = translations.confidentiality;
+  const q4 = translations.fullyPrivate;
+
+  const renderItems = (items?: string[]) =>
+    items && items.length > 0 ? (
+      <ul>
+        {items.map((it, i) => (
+          <li key={i}>
+            <span className="pp-arr">→</span>
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
+  return (
+    <section id="spectrum" className="pp-section-pad">
+      <div className="pp-container">
+        <div className="pp-section-head">
+          <div className="pp-section-num pp-mono">
+            <strong>§ 02</strong>
+            <br />
+            —— 06
+          </div>
+          <div>
+            <div className="pp-section-tag pp-mono">privacy_spectrum</div>
+            {(() => {
+              const { head, tail } = splitTitle(translations.spectrumTitle);
+              return (
+                <h2 className="pp-section-title">
+                  {head} <em>{tail}</em>
+                </h2>
+              );
+            })()}
+            <p className="pp-section-lead">
+              {translations.spectrumDescription}
+            </p>
+          </div>
+        </div>
+
+        <div className="pp-spectrum-wrap">
+          <span className="pp-corner-tl" />
+          <span className="pp-corner-tr" />
+          <span className="pp-corner-bl" />
+          <span className="pp-corner-br" />
+
+          <div className="pp-axes-header">
+            <div className="pp-col">AXES</div>
+            <div className="pp-col">
+              <span className="pp-arrow-l" /> IDENTITY VISIBLE
+            </div>
+            <div className="pp-col">
+              <span className="pp-arrow-l" /> IDENTITY HIDDEN
+            </div>
+          </div>
+
+          <div className="pp-quad-grid">
+            <div className="pp-row-label">DATA · VISIBLE</div>
+
+            <div className="pp-quad" data-c="q1">
+              <span className="pp-accent" />
+              <div className="pp-head">
+                <div className="pp-q-name">
+                  <span className="pp-ico">{QUADRANT_ICONS.pseudonymity}</span>
+                  {q1.title}
+                </div>
+                <span className="pp-lvl">LV. 01</span>
+              </div>
+              <p className="pp-body">{q1.description}</p>
+              {renderItems(q1.items)}
+            </div>
+
+            <div className="pp-quad" data-c="q2">
+              <span className="pp-accent" />
+              <div className="pp-head">
+                <div className="pp-q-name">
+                  <span className="pp-ico">{QUADRANT_ICONS.anonymity}</span>
+                  {q2.title}
+                </div>
+                <span className="pp-lvl">LV. 02</span>
+              </div>
+              <p className="pp-body">{q2.description}</p>
+              {renderItems(q2.items)}
+            </div>
+
+            <div className="pp-row-label">DATA · HIDDEN</div>
+
+            <div className="pp-quad" data-c="q3">
+              <span className="pp-accent" />
+              <div className="pp-head">
+                <div className="pp-q-name">
+                  <span className="pp-ico">
+                    {QUADRANT_ICONS.confidentiality}
+                  </span>
+                  {q3.title}
+                </div>
+                <span className="pp-lvl">LV. 03</span>
+              </div>
+              <p className="pp-body">{q3.description}</p>
+              {renderItems(q3.items)}
+            </div>
+
+            <div className="pp-quad" data-c="q4">
+              <span className="pp-accent" />
+              <div className="pp-head">
+                <div className="pp-q-name">
+                  <span className="pp-ico">{QUADRANT_ICONS.fullyPrivate}</span>
+                  {q4.title}
+                </div>
+                <span className="pp-lvl">LV. 04</span>
+              </div>
+              <p className="pp-body">{q4.description}</p>
+              {renderItems(q4.items)}
+            </div>
           </div>
         </div>
       </div>
@@ -147,267 +411,162 @@ function PrivacyHero({
   );
 }
 
-/* ──────────────────────────────────────────────────────────
-   Privacy Matrix — enriched 2x2 grid
-   ────────────────────────────────────────────────────────── */
-
-function MatrixCell({
-  quadrant,
-  color,
-  Icon,
-  isIntersecting,
-  delay,
-  mobile,
-}: {
-  quadrant: QuadrantData;
-  color: string;
-  Icon: typeof Eye;
-  isIntersecting: boolean;
-  delay: number;
-  mobile?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl hover:border-white/20 transition-colors",
-        mobile
-          ? "p-5 border border-white/10"
-          : "p-6 xl:p-8 border border-white/10",
-        { "animate-fade-in-up": isIntersecting },
-      )}
-      style={isIntersecting ? { animationDelay: `${delay}s` } : { opacity: 0 }}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <Icon size={mobile ? 18 : 20} style={{ color }} />
-        <h4
-          className={cn(
-            "font-medium m-0",
-            mobile ? "text-base" : "text-lg xl:text-xl",
-          )}
-          style={{ color }}
-        >
-          {quadrant.title}
-        </h4>
-      </div>
-      <p
-        className={cn(
-          "text-[#ABABBA] leading-relaxed m-0",
-          mobile ? "text-sm" : "text-sm xl:text-base",
-        )}
-      >
-        {quadrant.description}
-      </p>
-      {quadrant.items && quadrant.items.length > 0 && (
-        <ul className="mt-3 space-y-1.5 list-none p-0 m-0">
-          {quadrant.items.map((item, i) => (
-            <li
-              key={i}
-              className="flex items-start text-[#ABABBA] text-xs xl:text-sm"
-            >
-              <span style={{ color }} className="mr-2 shrink-0">
-                &rarr;
-              </span>
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function PrivacyMatrix({
+function Principles({
   translations,
 }: {
   translations: PrivacyPageProps["translations"];
 }) {
-  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
-    threshold: 0.1,
-    triggerOnce: true,
-  });
-
-  const quadrants = [
-    { data: translations.pseudonymity, color: "#ABABBA", Icon: Eye },
-    { data: translations.anonymity, color: "#9945FF", Icon: UserX },
-    { data: translations.confidentiality, color: "#14F195", Icon: EyeOff },
-    { data: translations.fullyPrivate, color: "#F037A5", Icon: Lock },
-  ];
-
-  return (
-    <div ref={ref} className="mt-[48px] xl:mt-[72px]">
-      {/* Desktop matrix */}
-      <div className="hidden md:grid grid-cols-[140px_1fr_1fr] gap-4 mb-4">
-        <div />
-        <div className="text-center text-sm font-medium text-[#ABABBA] uppercase tracking-widest">
-          Identity Visible
-        </div>
-        <div className="text-center text-sm font-medium text-[#ABABBA] uppercase tracking-widest">
-          Identity Hidden
-        </div>
-      </div>
-
-      <div className="hidden md:grid grid-cols-[140px_1fr_1fr] gap-4 mb-4">
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-[#ABABBA] uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
-            Data Visible
-          </span>
-        </div>
-        {quadrants.slice(0, 2).map((q, index) => (
-          <MatrixCell
-            key={q.data.title}
-            quadrant={q.data}
-            color={q.color}
-            Icon={q.Icon}
-            isIntersecting={isIntersecting}
-            delay={0.1 + index * 0.1}
-          />
-        ))}
-      </div>
-
-      <div className="hidden md:grid grid-cols-[140px_1fr_1fr] gap-4">
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-[#ABABBA] uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
-            Data Hidden
-          </span>
-        </div>
-        {quadrants.slice(2, 4).map((q, index) => (
-          <MatrixCell
-            key={q.data.title}
-            quadrant={q.data}
-            color={q.color}
-            Icon={q.Icon}
-            isIntersecting={isIntersecting}
-            delay={0.3 + index * 0.1}
-          />
-        ))}
-      </div>
-
-      {/* Mobile */}
-      <div className="md:hidden grid grid-cols-1 gap-4">
-        {quadrants.map((q, index) => (
-          <MatrixCell
-            key={q.data.title}
-            quadrant={q.data}
-            color={q.color}
-            Icon={q.Icon}
-            isIntersecting={isIntersecting}
-            delay={0.1 + index * 0.1}
-            mobile
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────
-   Design Principles — large numbered vertical layout
-   ────────────────────────────────────────────────────────── */
-
-function DesignPrinciples({
-  translations,
-}: {
-  translations: PrivacyPageProps["translations"];
-}) {
-  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
-    threshold: 0.1,
-    triggerOnce: true,
-  });
-
-  const principles = [
+  const rows = [
     {
       title: translations.principle1Title,
       description: translations.principle1Description,
+      aside: [
+        ["composable", "true"],
+        ["scope", "per-app"],
+        ["opt-in", "default"],
+      ],
     },
     {
       title: translations.principle2Title,
       description: translations.principle2Description,
+      aside: [
+        ["zk-proof", "native"],
+        ["audit", "selective"],
+        ["disclosure", "opt-in"],
+      ],
     },
     {
       title: translations.principle3Title,
       description: translations.principle3Description,
+      aside: [
+        ["slot", "400ms"],
+        ["tps", "high"],
+        ["fees", "low"],
+      ],
     },
   ];
 
   return (
-    <section className="relative text-white text-left overflow-hidden">
-      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
-        <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-[48px] xl:mb-[80px] tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
-          {translations.principlesTitle}
-        </h2>
-
-        <div ref={ref} className="relative">
-          {/* Vertical connecting line — desktop only */}
-          <div className="hidden xl:block absolute left-[60px] top-0 bottom-0 w-px bg-gradient-to-b from-[#9945FF]/40 via-[#14F195]/40 to-[#F037A5]/40" />
-
-          <div className="space-y-12 xl:space-y-20">
-            {principles.map((p, index) => (
-              <div
-                key={p.title}
-                className={cn(
-                  "relative flex flex-col xl:flex-row xl:items-start gap-6 xl:gap-16",
-                  { "animate-fade-in-up": isIntersecting },
-                )}
-                style={
-                  isIntersecting
-                    ? { animationDelay: `${0.15 + index * 0.2}s` }
-                    : { opacity: 0 }
-                }
-              >
-                {/* Large number */}
-                <div className="shrink-0 relative">
-                  <span className="font-brand text-[80px] xl:text-[120px] font-medium leading-none text-white/[0.04] select-none">
-                    0{index + 1}
-                  </span>
-                  {/* Dot on the timeline */}
-                  <div className="hidden xl:block absolute top-[50px] left-[56px] w-[9px] h-[9px] rounded-full bg-white ring-4 ring-black z-10" />
-                </div>
-
-                {/* Content */}
-                <div className="xl:pt-6 max-w-2xl">
-                  <h3 className="text-2xl md:text-3xl xl:text-4xl font-medium mb-4 m-0 tracking-[-0.48px] md:tracking-[-0.6px]">
-                    {p.title}
-                  </h3>
-                  <p className="text-[#ABABBA] text-base md:text-lg xl:text-xl leading-relaxed m-0">
-                    {p.description}
-                  </p>
-                </div>
-              </div>
-            ))}
+    <section className="pp-principles">
+      <div
+        className="pp-container"
+        style={{ paddingTop: 96, paddingBottom: 96 }}
+      >
+        <div className="pp-section-head">
+          <div className="pp-section-num pp-mono">
+            <strong>§ 03</strong>
+            <br />
+            —— 06
           </div>
+          <div>
+            <div className="pp-section-tag pp-mono">design_principles</div>
+            {(() => {
+              const { head, tail } = splitTitle(translations.principlesTitle);
+              return (
+                <h2 className="pp-section-title">
+                  {head} <em>{tail}</em>
+                </h2>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 48 }}>
+          {rows.map((row, i) => (
+            <div className="pp-principle-row" key={i}>
+              <div className="pp-principle-num">
+                {String(i + 1).padStart(2, "0")}
+                <span className="pp-slash">/</span>
+              </div>
+              <div>
+                <h3 className="pp-principle-title">{row.title}</h3>
+                <p className="pp-principle-body">{row.description}</p>
+              </div>
+              <div className="pp-principle-aside">
+                <div>
+                  <span className="pp-swatch" />
+                  <span className="pp-k">principle </span>
+                  <span className="pp-v">
+                    {`// ${String(i + 1).padStart(2, "0")}`}
+                  </span>
+                </div>
+                <hr className="pp-hr-dashed" />
+                {row.aside.map(([k, v]) => (
+                  <div key={k}>
+                    <span className="pp-k">{k}</span>{" "}
+                    <span className="pp-v">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ──────────────────────────────────────────────────────────
-   Ecosystem Grid
-   ────────────────────────────────────────────────────────── */
-
-function EcosystemGrid({ title }: { title: string }) {
-  const t = useTranslations();
-  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
-    threshold: 0.1,
-    triggerOnce: true,
-  });
+function Ticker() {
+  const items = (
+    <span className="pp-ticker-item">
+      Confidential&nbsp;Tokens<span className="pp-star">✦</span>
+      <em>Light&nbsp;Protocol</em>
+      <span className="pp-star">✦</span>
+      Arcium&nbsp;MPC<span className="pp-star">✦</span>
+      <em>Encrypted&nbsp;Identity</em>
+      <span className="pp-star">✦</span>
+      Private&nbsp;DAO<span className="pp-star">✦</span>
+      <em>Zama&nbsp;FHE</em>
+      <span className="pp-star">✦</span>
+      SilentSwap<span className="pp-star">✦</span>
+    </span>
+  );
 
   return (
-    <section className="relative text-white text-left">
-      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
-        <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-[32px] xl:mb-[48px] tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
-          {title}
-        </h2>
-        <div
-          ref={ref}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-        >
+    <div className="pp-ticker" aria-hidden="true">
+      <div className="pp-ticker-track">
+        {items}
+        {items}
+      </div>
+    </div>
+  );
+}
+
+function Ecosystem({ title }: { title: string }) {
+  const t = useTranslations();
+  return (
+    <section className="pp-section-pad" style={{ paddingTop: 96 }}>
+      <div className="pp-container">
+        <div className="pp-section-head">
+          <div className="pp-section-num pp-mono">
+            <strong>§ 04</strong>
+            <br />
+            —— 06
+          </div>
+          <div>
+            <div className="pp-section-tag pp-mono">ecosystem</div>
+            {(() => {
+              const { head, tail } = splitTitle(title, 2);
+              return (
+                <h2 className="pp-section-title">
+                  {head} <em>{tail}</em>
+                </h2>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div className="pp-eco-grid">
           {ECOSYSTEM_PROJECTS.map(({ key, href }, index) => {
-            const privacyType = PROJECT_PRIVACY_TYPES[key];
             const projectTitle = t(`privacy.ecosystem.${key}.title`);
             const projectDescription = t(
               `privacy.ecosystem.${key}.description`,
             );
+            const privacyType = PROJECT_PRIVACY_TYPES[key] ?? "anonymous";
+            const badge =
+              BADGE_FOR_TYPE[privacyType] ?? BADGE_FOR_TYPE.anonymous;
+            const mark = projectTitle.charAt(0).toUpperCase();
+            const meta = PROJECT_META_TAGS[key] ?? "";
 
             return (
               <a
@@ -415,25 +574,20 @@ function EcosystemGrid({ title }: { title: string }) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={cn(
-                  "group border border-white/10 rounded-xl p-5 hover:border-white/25 transition-colors text-inherit block",
-                  { "animate-fade-in-up": isIntersecting },
-                )}
-                style={
-                  isIntersecting
-                    ? { animationDelay: `${0.05 + index * 0.05}s` }
-                    : { opacity: 0 }
-                }
+                className="pp-eco-card"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base md:text-lg font-medium m-0 group-hover:text-[#9945FF] transition-colors">
+                <div className="pp-top">
+                  <div className="pp-eco-name">
+                    <span className="pp-eco-mark">{mark}</span>
                     {projectTitle}
-                  </h3>
-                  <PrivacyBadge type={privacyType} />
+                  </div>
+                  <span className={badge.className}>{badge.label}</span>
                 </div>
-                <p className="text-[#ABABBA] text-sm leading-relaxed m-0">
-                  {projectDescription}
-                </p>
+                <p>{projectDescription}</p>
+                <div className="pp-meta">
+                  <span>{`// ${String(index + 1).padStart(2, "0")}`}</span>
+                  {meta && <span>{meta}</span>}
+                </div>
               </a>
             );
           })}
@@ -443,223 +597,343 @@ function EcosystemGrid({ title }: { title: string }) {
   );
 }
 
-/* ──────────────────────────────────────────────────────────
-   Use Cases — with privacy type dots
-   ────────────────────────────────────────────────────────── */
+const BENTO_SLOTS: Array<{
+  cls: string;
+  c: "q2" | "q4";
+  label: string;
+  titleSize?: number;
+}> = [
+  { cls: "pp-priv-pay", c: "q2", label: "CONFIDENTIAL · 01", titleSize: 34 },
+  { cls: "pp-priv-trade", c: "q2", label: "CONFIDENTIAL · 02" },
+  { cls: "pp-payroll", c: "q2", label: "CONF · 03", titleSize: 22 },
+  { cls: "pp-dao", c: "q4", label: "ANONYMOUS · 04" },
+  { cls: "pp-identity", c: "q4", label: "ANONYMOUS · 05" },
+  { cls: "pp-ai", c: "q4", label: "FULLY PRIVATE · 06" },
+];
 
-function UseCaseCards({
-  title,
-  description,
-  items,
-}: {
-  title: string;
-  description: string;
-  items: UseCaseItem[];
-}) {
-  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
-    threshold: 0.15,
-    triggerOnce: true,
-  });
-
-  return (
-    <section className="relative text-white text-left">
-      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
-        <div className="xl:w-2/5 mb-[32px] xl:mb-[48px]">
-          <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
-            {title}
-          </h2>
-          <p className="text-[#ABABBA] text-lg md:text-2xl mt-4 xl:mt-5 mb-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
-            {description}
-          </p>
+function BentoFigure({ index }: { index: number }) {
+  switch (index) {
+    case 0:
+      return (
+        <div className="pp-figs">
+          <div
+            className="pp-mono"
+            style={{
+              color: "var(--pp-ink-faint)",
+              fontSize: 11,
+              lineHeight: 1.7,
+            }}
+          >
+            <div>tx&nbsp;&nbsp;&nbsp; ▸ 0x••••3f</div>
+            <div>
+              from ▸{" "}
+              <span style={{ color: "var(--pp-ink-dim)" }}>aL71…ke9</span>
+            </div>
+            <div>
+              to&nbsp;&nbsp;&nbsp; ▸{" "}
+              <span style={{ color: "var(--pp-ink-dim)" }}>m3Vp…q8x</span>
+            </div>
+            <div>
+              amt&nbsp; ▸{" "}
+              <span className="pp-redact-line" style={{ width: 60 }} />{" "}
+              <span style={{ color: "var(--pp-q2)" }}>USDC</span>
+            </div>
+          </div>
+          <svg
+            width="120"
+            height="64"
+            viewBox="0 0 120 64"
+            fill="none"
+            style={{ marginLeft: "auto" }}
+            aria-hidden="true"
+          >
+            <path
+              d="M5 50 L25 30 L45 38 L65 18 L85 28 L115 12"
+              stroke="var(--pp-green)"
+              strokeWidth="1.5"
+              fill="none"
+            />
+            <path
+              d="M5 50 L25 30 L45 38 L65 18 L85 28 L115 12"
+              stroke="var(--pp-green)"
+              strokeWidth="6"
+              fill="none"
+              opacity=".15"
+            />
+          </svg>
         </div>
+      );
+    case 1:
+      return (
         <div
-          ref={ref}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+          className="pp-mono"
+          style={{
+            color: "var(--pp-ink-faint)",
+            fontSize: 11,
+            lineHeight: 1.7,
+          }}
         >
-          {items.map((item, index) => {
-            const dotColor =
-              PRIVACY_TYPE_DOT_COLORS[item.privacyType] || "#ABABBA";
-            const label =
-              PRIVACY_TYPE_LABELS[item.privacyType] || "Pseudonymous";
-
-            return (
-              <div
-                key={index}
-                className={cn(
-                  "border border-white/10 rounded-xl p-6 hover:border-white/20 transition-colors",
-                  { "animate-fade-in-up": isIntersecting },
-                )}
-                style={
-                  isIntersecting
-                    ? { animationDelay: `${0.1 + index * 0.08}s` }
-                    : { opacity: 0 }
-                }
-              >
-                {/* Privacy type indicator */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: dotColor }}
-                  />
-                  <span
-                    className="text-xs font-medium uppercase tracking-wider"
-                    style={{ color: dotColor }}
-                  >
-                    {label}
-                  </span>
-                </div>
-                <h3 className="text-white text-base md:text-lg font-medium m-0 mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-[#ABABBA] text-sm leading-relaxed m-0">
-                  {item.description}
-                </p>
-              </div>
-            );
-          })}
+          order ▸ #0xab&nbsp;&nbsp; side ▸{" "}
+          <span className="pp-redact-line" style={{ width: 30 }} />
+          <br />
+          size&nbsp; ▸ <span className="pp-redact-line" style={{ width: 50 }} />
+          &nbsp;&nbsp; fill ▸{" "}
+          <span className="pp-redact-line" style={{ width: 30 }} />
         </div>
-      </div>
-    </section>
-  );
+      );
+    case 3:
+      return (
+        <>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              marginTop: 14,
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="pp-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--pp-ink-faint)",
+                minWidth: 24,
+              }}
+            >
+              FOR
+            </div>
+            <div
+              style={{
+                flex: 1,
+                height: 6,
+                background: "rgba(255,255,255,.06)",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "62%",
+                  background: "var(--pp-purple)",
+                  boxShadow: "0 0 12px var(--pp-purple)",
+                }}
+              />
+            </div>
+            <div
+              className="pp-mono"
+              style={{ fontSize: 10, color: "var(--pp-ink-dim)" }}
+            >
+              ▒▒%
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              marginTop: 6,
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="pp-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--pp-ink-faint)",
+                minWidth: 24,
+              }}
+            >
+              AGN
+            </div>
+            <div
+              style={{
+                flex: 1,
+                height: 6,
+                background: "rgba(255,255,255,.06)",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "30%",
+                  background: "#a1a1aa",
+                }}
+              />
+            </div>
+            <div
+              className="pp-mono"
+              style={{ fontSize: 10, color: "var(--pp-ink-dim)" }}
+            >
+              ▒▒%
+            </div>
+          </div>
+        </>
+      );
+    case 4:
+      return (
+        <div
+          className="pp-mono"
+          style={{
+            fontSize: 11,
+            marginTop: 14,
+            color: "var(--pp-ink-faint)",
+            lineHeight: 1.7,
+          }}
+        >
+          claim ▸ age &gt;= 21
+          <br />
+          proof ▸ <span style={{ color: "var(--pp-purple)" }}>π</span>·0x9f…b3
+          <br />
+          state ▸ <span style={{ color: "var(--pp-q2)" }}>VERIFIED ✓</span>
+        </div>
+      );
+    case 5:
+      return (
+        <div
+          className="pp-mono"
+          style={{
+            fontSize: 11,
+            marginTop: 14,
+            color: "var(--pp-ink-faint)",
+            lineHeight: 1.7,
+          }}
+        >
+          agent.run( <span className="pp-redact-line" style={{ width: 54 }} /> )
+          <br />→ returns{" "}
+          <span className="pp-redact-line" style={{ width: 74 }} />
+        </div>
+      );
+    default:
+      return null;
+  }
 }
 
-/* ──────────────────────────────────────────────────────────
-   CTA — privacy-specific with animated border
-   ────────────────────────────────────────────────────────── */
-
-function CtaSection({
+function Unlocks({
   translations,
 }: {
   translations: PrivacyPageProps["translations"];
 }) {
   return (
-    <section className="relative text-white text-left">
-      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
-        <div className="relative rounded-2xl overflow-hidden">
-          {/* Animated gradient border */}
-          <div
-            className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#F037A5] p-px animate-[gradient-shift_6s_ease_infinite]"
-            style={{ backgroundSize: "200% 200%" }}
-          >
-            <div className="w-full h-full rounded-2xl bg-black" />
+    <section className="pp-section-pad" style={{ paddingTop: 0 }}>
+      <div className="pp-container">
+        <div className="pp-section-head">
+          <div className="pp-section-num pp-mono">
+            <strong>§ 05</strong>
+            <br />
+            —— 06
           </div>
-
-          <div className="relative p-8 md:p-12 xl:p-16">
-            {/* Subtle background glow */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#9945FF]/5 via-transparent to-[#14F195]/5 rounded-2xl" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-6">
-                <Lock size={20} className="text-[#14F195]" />
-                <span className="text-[#14F195] text-sm font-medium uppercase tracking-widest">
-                  Live on Mainnet
-                </span>
-              </div>
-              <h2 className="font-brand font-medium text-[32px] md:text-[40px] xl:text-[56px] leading-[1.1] mb-4 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.24px]">
-                {translations.ctaTitle}
-              </h2>
-              <p className="text-[#ABABBA] text-lg md:text-xl max-w-2xl mb-8">
-                {translations.ctaDescription}
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link
-                  href={
-                    translations.ctaButtonHref ||
-                    "/developers/guides/token-extensions/confidential-transfer"
-                  }
-                >
-                  <Button
-                    className="rounded-full text-base md:text-lg px-6 bg-[#14F195] text-black hover:!bg-[#14F195]/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-                    size="lg"
-                  >
-                    {translations.ctaButton}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link href="/developers">
-                  <Button
-                    className="rounded-full text-base md:text-lg px-6 bg-transparent text-white border border-white/20 hover:!bg-white/5 tracking-[-0.16px] md:tracking-[-0.18px]"
-                    size="lg"
-                  >
-                    Explore All Docs
-                  </Button>
-                </Link>
-              </div>
-            </div>
+          <div>
+            <div className="pp-section-tag pp-mono">unlocks</div>
+            {(() => {
+              const { head, tail } = splitTitle(translations.useCasesTitle);
+              return (
+                <h2 className="pp-section-title">
+                  {head} <em>{tail}</em>
+                </h2>
+              );
+            })()}
+            <p className="pp-section-lead">
+              {translations.useCasesDescription}
+            </p>
           </div>
         </div>
+
+        <div className="pp-bento">
+          {translations.useCasesList.slice(0, 6).map((item, i) => {
+            const slot = BENTO_SLOTS[i];
+            return (
+              <div key={i} className={`pp-b ${slot.cls}`} data-c={slot.c}>
+                <div>
+                  <span className="pp-label">
+                    <span className="pp-ldot" /> {slot.label}
+                  </span>
+                  <h3
+                    style={{
+                      marginTop: 14,
+                      ...(slot.titleSize ? { fontSize: slot.titleSize } : {}),
+                    }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p style={i === 2 ? { fontSize: 13 } : undefined}>
+                    {item.description}
+                  </p>
+                </div>
+                <BentoFigure index={i} />
+              </div>
+            );
+          })}
+        </div>
+
+        <BuildCta translations={translations} />
       </div>
     </section>
   );
 }
 
+function BuildCta({
+  translations,
+}: {
+  translations: PrivacyPageProps["translations"];
+}) {
+  const ctaHref =
+    translations.ctaButtonHref ||
+    "/developers/guides/token-extensions/confidential-transfer";
+  return (
+    <div className="pp-cta-card">
+      <div className="pp-stripe" />
+      <span className="pp-cta-corner pp-tl" />
+      <span className="pp-cta-corner pp-tr" />
+      <span className="pp-cta-corner pp-bl" />
+      <span className="pp-cta-corner pp-br" />
+      <div className="pp-ascii" aria-hidden="true">
+        <span className="pp-ascii-key">{"// confidential-tokens"}</span>
+        <br />
+        program: TokenzQdBNb…
+        <br />
+        encrypt(amount, pk) → cipher
+        <br />
+        prove(cipher, range) → π
+        <br />
+        verify(π, root) → <span className="pp-ascii-key">ok</span>
+      </div>
+      <span className="pp-cta-eyebrow">
+        <span className="pp-pulse" /> LIVE ON MAINNET
+      </span>
+      <h3 className="pp-cta-title">{translations.ctaTitle}</h3>
+      <p className="pp-cta-body">{translations.ctaDescription}</p>
+      <div className="pp-cta-row">
+        <Link className="pp-btn pp-btn-green" href={ctaHref}>
+          {translations.ctaButton}
+          {ARROW_ICON}
+        </Link>
+        <Link className="pp-btn pp-btn-ghost" href="/developers">
+          Explore All Docs
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────
-   Main Page
+   Page
    ────────────────────────────────────────────────────────── */
 
 export function PrivacyPage({ translations }: PrivacyPageProps) {
   return (
     <>
       <SelectionColor selectionColor="#9945FF" selectionTextColor="#FFFFFF" />
-
-      <div className="overflow-hidden bg-black">
-        {/* 1. Hero with cipher animation */}
-        <PrivacyHero translations={translations} />
-
-        <Divider />
-
-        {/* 2. Privacy Spectrum */}
-        <div
-          id="spectrum"
-          className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]"
-        >
-          <section className="relative text-white text-left">
-            <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
-              <div className="xl:w-3/5">
-                <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
-                  {translations.spectrumTitle}
-                </h2>
-                <p className="text-[#ABABBA] text-lg md:text-2xl mt-4 xl:mt-5 mb-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
-                  {translations.spectrumDescription}
-                </p>
-              </div>
-              <PrivacyMatrix translations={translations} />
-            </div>
-          </section>
-        </div>
-
-        <Divider />
-
-        {/* 3. Design Principles — vertical timeline */}
-        <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
-          <DesignPrinciples translations={translations} />
-        </div>
-
-        <Divider />
-
-        {/* 4. Ecosystem */}
-        <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
-          <EcosystemGrid title={translations.ecosystemTitle} />
-        </div>
-
-        {/* Privacy-themed decorative divider */}
-        <PrivacyDecor />
-
-        {/* 5. What Privacy Unlocks */}
-        <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
-          <UseCaseCards
-            title={translations.useCasesTitle}
-            description={translations.useCasesDescription}
-            items={translations.useCasesList}
-          />
-        </div>
-
-        <Divider />
-
-        {/* 6. CTA */}
-        <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
-          <CtaSection translations={translations} />
-        </div>
+      <div className="privacy-page-design">
+        <Hero translations={translations} />
+        <Spectrum translations={translations} />
+        <Principles translations={translations} />
+        <Ticker />
+        <Ecosystem title={translations.ecosystemTitle} />
+        <Unlocks translations={translations} />
       </div>
     </>
   );

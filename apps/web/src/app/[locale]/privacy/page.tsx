@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export default async function Page(_props: Props) {
+export default async function Page() {
   const t = await getTranslations();
 
   const translations = {
