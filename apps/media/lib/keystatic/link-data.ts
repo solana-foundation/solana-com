@@ -1,16 +1,13 @@
 import { reader } from "../reader";
 import { LinkItem } from "../link-types";
-import { format } from "date-fns";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-
-dayjs.extend(utc);
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
 
 export interface LatestLinksParams {
   limit?: number;
   cursor?: string;
   category?: string;
   tag?: string;
+  linkType?: string;
 }
 
 export interface LatestLinksResponse {
@@ -32,9 +29,9 @@ async function transformLink(
 ): Promise<LinkItem | null> {
   if (!link) return null;
 
-  const date = link.publishedAt ? new Date(link.publishedAt) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAtRaw =
+    typeof link.publishedAt === "string" ? link.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAtRaw);
 
   // Resolve category names
   const categoryNames: string[] = [];
@@ -69,10 +66,11 @@ async function transformLink(
     title: String(link.title),
     url: link.url,
     linkType: link.linkType as LinkItem["linkType"],
-    description: link.description as any, // Content document type
+    description: link.description, // Content document type
     thumbnailImage: link.thumbnailImage || null,
     source: link.source || null,
     publishedAt: formattedDate,
+    publishedAtRaw,
     categories: categoryNames,
     tags: tagNames,
     featured: link.featured || false,
@@ -103,7 +101,7 @@ export const fetchLatestLinks = async (
         if (link) {
           linksWithDates.push({
             slug,
-            date: link.publishedAt ? new Date(link.publishedAt) : null,
+            date: parsePublishedAt(link.publishedAt),
             link,
           });
         }
@@ -120,15 +118,16 @@ export const fetchLatestLinks = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     const normalizedCategory = params.category?.trim().toLowerCase();
     const normalizedTag = params.tag?.trim().toLowerCase();
+    const normalizedLinkType = params.linkType?.trim().toLowerCase();
 
-    // Filter by category and/or tag if specified
+    // Filter by category, tag, and/or linkType if specified
     let filteredLinks = linksWithDates;
-    if (normalizedCategory || normalizedTag) {
+    if (normalizedCategory || normalizedTag || normalizedLinkType) {
       filteredLinks = [];
 
       for (const item of linksWithDates) {
@@ -185,7 +184,11 @@ export const fetchLatestLinks = async (
           }
         }
 
-        if (matchesCategory && matchesTag) {
+        const matchesLinkType =
+          !normalizedLinkType ||
+          item.link?.linkType?.toLowerCase() === normalizedLinkType;
+
+        if (matchesCategory && matchesTag && matchesLinkType) {
           filteredLinks.push(item);
         }
       }
@@ -232,14 +235,21 @@ export interface FeaturedLinksResponse {
   links: LinkItem[];
 }
 
+export interface FeaturedLinksParams {
+  limit?: number;
+  category?: string;
+}
+
 /**
  * Fetch featured links from Keystatic
  */
 export const fetchFeaturedLinks = async (
-  limit: number = 5,
+  params: FeaturedLinksParams = {},
 ): Promise<FeaturedLinksResponse> => {
   try {
     const allSlugs = await reader.collections.links.list();
+    const limit = params.limit ?? 5;
+    const normalizedCategory = params.category?.trim().toLowerCase();
 
     // Fetch featured links
     const featuredLinks: Array<{
@@ -250,10 +260,39 @@ export const fetchFeaturedLinks = async (
 
     for (const slug of allSlugs) {
       const link = await reader.collections.links.read(slug);
-      if (link?.featured) {
+      if (!link?.featured) continue;
+
+      let matchesCategory = !normalizedCategory;
+      if (normalizedCategory && link.categories) {
+        for (const catRef of link.categories) {
+          let categorySlug: string | null = null;
+
+          if (typeof catRef === "string") {
+            categorySlug = catRef;
+          } else if (catRef?.category) {
+            categorySlug = String(catRef.category);
+          }
+
+          if (categorySlug) {
+            const catData =
+              await reader.collections.categories.read(categorySlug);
+            const categoryName = String(catData?.name || "").toLowerCase();
+
+            if (
+              categoryName === normalizedCategory ||
+              categorySlug.toLowerCase() === normalizedCategory
+            ) {
+              matchesCategory = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchesCategory) {
         featuredLinks.push({
           slug,
-          date: link.publishedAt ? new Date(link.publishedAt) : null,
+          date: parsePublishedAt(link.publishedAt),
           link,
         });
       }
@@ -264,7 +303,7 @@ export const fetchFeaturedLinks = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     // Transform links
@@ -309,7 +348,7 @@ export const fetchLinksByTag = async (
             if (String(tagData?.name) === tagName) {
               matchingLinks.push({
                 slug,
-                date: link.publishedAt ? new Date(link.publishedAt) : null,
+                date: parsePublishedAt(link.publishedAt),
                 link,
               });
               break;
@@ -324,7 +363,7 @@ export const fetchLinksByTag = async (
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return dayjs.utc(b.date).valueOf() - dayjs.utc(a.date).valueOf();
+      return b.date.getTime() - a.date.getTime();
     });
 
     // Transform links

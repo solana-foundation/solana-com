@@ -17,6 +17,15 @@ const events = [
     active: true,
   },
   {
+    image: getImagePath("/images/homepage/ai-miami-card-photo.png"),
+    city: "AI Miami",
+    subtitle: "Solana Accelerate AI",
+    dateLocation: "May 6 / Miami",
+    href: "https://luma.com/acc-ai-mia",
+    external: true,
+    active: true,
+  },
+  {
     image: getImagePath("/images/homepage/hk-card-photo.jpg"),
     city: "Hong Kong",
     subtitle: "Solana Accelerate APAC",
@@ -27,7 +36,12 @@ const events = [
   },
 ];
 
-export function EventLineup() {
+interface EventLineupProps {
+  futureOnly?: boolean;
+}
+
+export function EventLineup({ futureOnly = false }: EventLineupProps) {
+  const displayEvents = futureOnly ? events.filter((e) => e.active) : events;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -122,9 +136,9 @@ export function EventLineup() {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 lg:justify-center"
+            className="scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4"
           >
-            {events.map((event) => (
+            {displayEvents.map((event) => (
               <motion.div
                 key={event.city}
                 initial={{ opacity: 0, y: 30 }}

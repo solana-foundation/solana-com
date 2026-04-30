@@ -23,6 +23,7 @@ export async function Code(props: {
   flags?: string;
   storage?: string;
   className?: string;
+  handlers?: AnnotationHandler[];
 }) {
   const group = await toCodeGroup(props);
   return group.tabs.length === 1 ? (

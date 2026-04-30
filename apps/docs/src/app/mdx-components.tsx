@@ -20,6 +20,7 @@ import { Download, Rocket, Coins } from "lucide-react";
 import { ScrollyCoding } from "./components/code/scrollycoding";
 import { CodePlaceholder } from "./components/code/scrollycoding.client";
 import { SideBySide } from "./components/side-by-side";
+import { CodeReference } from "./components/code-reference";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -42,6 +43,7 @@ export const mdxComponents = {
   ScrollyCoding,
   CodePlaceholder,
   SideBySide,
+  CodeReference,
   // Icons
   Download,
   Rocket,

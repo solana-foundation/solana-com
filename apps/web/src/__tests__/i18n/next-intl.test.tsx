@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { useParams, usePathname } from "next/navigation";
@@ -45,7 +46,7 @@ vi.mock("@solana-com/ui-chrome", () => ({
 }));
 
 vi.mock("@@/src/app/[locale]/not-found", () => ({
-  default: () => {
+  default: function NotFound() {
     const t = useTranslations();
 
     return (
@@ -69,11 +70,22 @@ const TestComponent = () => {
   return <span>{t("commands.close")}</span>;
 };
 
-function getNestedValue(obj: any, path: string): string | undefined {
-  return path.split(".").reduce((acc, part) => acc && acc[part], obj);
+function getNestedValue(
+  obj: Record<string, unknown>,
+  path: string,
+): string | undefined {
+  return path
+    .split(".")
+    .reduce<unknown>(
+      (acc, part) =>
+        acc && typeof acc === "object"
+          ? (acc as Record<string, unknown>)[part]
+          : undefined,
+      obj,
+    ) as string | undefined;
 }
 
-const getCopyrightText = (messages: any) => {
+const getCopyrightText = (messages: Record<string, unknown>) => {
   const template =
     getNestedValue(messages, "footer.copyright") ||
     "© {currentYear} Solana Foundation";
@@ -145,7 +157,7 @@ describe.skip("Translations", () => {
   const enTranslations = loadMessages("en");
 
   readdirSync(localesDir).forEach((locale) => {
-    if (locale !== "en" && locale !== "hi") {
+    if (locale !== "en") {
       it(`has no missing keys for ${locale}`, () => {
         const translations = JSON.parse(
           readFileSync(`${localesDir}/${locale}/common.json`, "utf8"),
@@ -160,12 +172,6 @@ describe.skip("Translations", () => {
 
 describe("Smoke Tests for UI Elements Across Locales", () => {
   SUPPORTED_LOCALES.forEach((locale) => {
-    const isIncompleteLocale = locale === "hi";
-    if (isIncompleteLocale) {
-      describe.skip(`Locale: ${locale} (skipped due to incomplete translations)`, () => {});
-      return;
-    }
-
     describe(`Locale: ${locale}`, () => {
       let messages: Awaited<ReturnType<typeof loadMessages>>;
 

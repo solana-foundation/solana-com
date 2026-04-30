@@ -27,7 +27,7 @@ export const HeaderListCommunity = () => {
           title={communityEvent?.title}
           description={communityEvent?.description}
           cta={communityEvent?.cta}
-          ctaHref="https://luma.com/accelerate-miami"
+          ctaHref="/accelerate/miami"
           location={communityEvent?.location}
           date={communityEvent?.date}
         />

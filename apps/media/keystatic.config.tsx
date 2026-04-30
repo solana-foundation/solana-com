@@ -231,6 +231,10 @@ export default config({
           label: "Spotify URL",
           description: "Link to this podcast on Spotify",
         }),
+        youtubeUrl: fields.text({
+          label: "YouTube URL",
+          description: "Link to this podcast on YouTube",
+        }),
         rssFeedUrl: fields.text({
           label: "RSS Feed URL",
           description: "RSS feed URL for this podcast",
@@ -260,6 +264,10 @@ export default config({
           label: "Avatar",
           directory: "public/uploads/authors",
           publicPath: "/uploads/authors",
+        }),
+        twitterUrl: fields.text({
+          label: "Twitter / X URL",
+          description: "Public profile URL for this author on X",
         }),
         bio: fields.mdx({
           label: "Bio",

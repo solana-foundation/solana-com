@@ -1,3 +1,4 @@
+/* eslint-disable turbo/no-undeclared-env-vars */
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
@@ -35,6 +36,10 @@ function resolveInputPath(inputPath) {
 for (const inputPath of args) {
   const absolutePath = resolveInputPath(inputPath);
   const extension = path.extname(absolutePath).toLowerCase();
+
+  if (!fsSync.existsSync(absolutePath)) {
+    continue;
+  }
 
   if (!IMAGE_EXTENSIONS.has(extension)) {
     continue;

@@ -112,39 +112,33 @@ export default function ReportsClientPage({
 
   return (
     <ErrorBoundary>
-      <section className="relative min-h-screen bg-background">
+      <section className="relative min-h-screen bg-black text-white text-left">
         {/* Hero */}
-        <div className="relative overflow-hidden border-b border-[rgba(236,228,253,0.12)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_0%_0%,rgba(153,69,255,0.14),transparent_60%),radial-gradient(ellipse_60%_50%_at_100%_0%,rgba(20,241,149,0.08),transparent_50%)]" />
-          <div className="relative mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10">
-            <div className="flex flex-col gap-5 pb-10 pt-12 md:pb-14 md:pt-16 xl:pb-16 xl:pt-[120px]">
-              <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#CA9FF5]">
-                Solana Reports
-              </span>
-              <h1 className="max-w-4xl text-[clamp(2rem,5vw,3.5rem)] font-medium leading-[1.05] tracking-[-0.02em] text-white">
-                Research and reports from across the ecosystem.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-[#ABABBA] md:text-lg">
-                Long-form analysis, market context, and ecosystem research
-                published through the Solana media stack.
-              </p>
-            </div>
+        <div className="relative mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
+          <div className="flex flex-col max-w-5xl py-[64px] md:py-[112px] xl:py-[160px]">
+            <h1 className="m-0 font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
+              Research and reports from across the ecosystem.
+            </h1>
+            <p className="text-[#ABABBA] text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
+              Long-form analysis, market context, and ecosystem research
+              published through the Solana media stack.
+            </p>
           </div>
         </div>
 
         {/* Content */}
-        <div className="mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10">
+        <div className="mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px] pb-[64px] md:pb-[112px] xl:pb-[160px]">
           {/* Category filters */}
           {allCategories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 border-b border-[rgba(236,228,253,0.12)] py-6">
+            <div className="flex flex-wrap items-center gap-2 border-t border-white/10 py-8 md:py-10">
               <button
                 type="button"
                 onClick={() => setSelectedCategory(null)}
                 className={cn(
-                  "rounded-full border px-4 py-1.5 text-sm transition-colors",
+                  "rounded-full px-4 py-1.5 text-sm tracking-[-0.14px] transition-colors",
                   selectedCategory === null
-                    ? "border-white bg-white text-black"
-                    : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white",
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white/80 hover:bg-white/15 hover:text-white",
                 )}
               >
                 All
@@ -155,10 +149,10 @@ export default function ReportsClientPage({
                   key={category}
                   onClick={() => setSelectedCategory(category)}
                   className={cn(
-                    "rounded-full border px-4 py-1.5 text-sm capitalize transition-colors",
+                    "rounded-full px-4 py-1.5 text-sm capitalize tracking-[-0.14px] transition-colors",
                     selectedCategory === category
-                      ? "border-white bg-white text-black"
-                      : "border-[rgba(236,228,253,0.12)] text-[#ABABBA] hover:border-[rgba(236,228,253,0.32)] hover:text-white",
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/80 hover:bg-white/15 hover:text-white",
                   )}
                 >
                   {category}
@@ -168,15 +162,15 @@ export default function ReportsClientPage({
           )}
 
           {/* Reports grid */}
-          <div className="py-10">
+          <div className={cn(allCategories.length > 0 ? "pt-2" : "pt-0")}>
             {filteredReports.length > 0 ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {filteredReports.map((report, index) => (
                   <ReportCard key={report.id} report={report} index={index} />
                 ))}
               </div>
             ) : (
-              <div className="py-20 text-center text-[#ABABBA]">
+              <div className="py-20 text-center text-white opacity-[0.64] tracking-[-0.18px] text-lg">
                 No reports found
                 {selectedCategory ? ` for "${selectedCategory}"` : ""}.
               </div>
@@ -184,13 +178,15 @@ export default function ReportsClientPage({
           </div>
 
           {!selectedCategory && reports.length > 0 && (
-            <LoadMoreStatus
-              isLoading={isLoadingMore}
-              hasMore={pageInfo.hasNextPage}
-              onLoadMore={handleLoadMore}
-              loadingText="Loading more reports..."
-              noMoreText="No more reports to load"
-            />
+            <div className="pt-10">
+              <LoadMoreStatus
+                isLoading={isLoadingMore}
+                hasMore={pageInfo.hasNextPage}
+                onLoadMore={handleLoadMore}
+                loadingText="Loading more reports..."
+                noMoreText="No more reports to load"
+              />
+            </div>
           )}
         </div>
       </section>

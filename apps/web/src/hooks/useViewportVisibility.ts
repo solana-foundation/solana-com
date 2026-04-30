@@ -8,7 +8,7 @@ export interface UseViewportVisibilityOptions {
 export const useViewportVisibility = <T extends HTMLElement>(
   handler?: (_node: T | null) => void | ((_node: T | null) => void),
   options: UseViewportVisibilityOptions = {},
-): { ref: React.RefObject<T> } => {
+): { ref: React.RefObject<T | null> } => {
   const { topOffset = 0, bottomOffset = 0 } = options;
   const targetRef = useRef<T | null>(null);
   const isVisibleRef = useRef(false);

@@ -99,7 +99,6 @@ const localeDirs = [
   "es",
   "fi",
   "fr",
-  "hi",
   "id",
   "it",
   "ja",

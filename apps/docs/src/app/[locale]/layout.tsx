@@ -13,6 +13,7 @@ import { getLangDir } from "rtl-detect";
 import {
   Header,
   Footer,
+  PersistentPodcastPlayer,
   ThemeProvider,
   SitewideTopAlert,
 } from "@solana-com/ui-chrome";
@@ -50,6 +51,7 @@ export default async function RootLayout({ children, params }: Props) {
               <Header />
               {children}
               <Footer />
+              <PersistentPodcastPlayer />
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>

@@ -1,7 +1,11 @@
 import type { Config } from "tailwindcss";
 
 export default {
-  content: ["./src/**/*.{ts,tsx}"],
+  content: [
+    "./src/**/*.{ts,tsx}",
+    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
+    "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     screens: {
       sm: "23.5rem" /* 376px */,

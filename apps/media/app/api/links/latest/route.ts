@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { fetchLatestLinks } from "@/lib/link-data";
+import { contentDocumentToPlainText } from "@/lib/content-renderer";
+import { fetchFeaturedLinks, fetchLatestLinks } from "@/lib/link-data";
 import { LinkItem } from "@/lib/link-types";
 
 const CACHE_TAG = "links";
@@ -19,6 +20,9 @@ interface TerminalItem {
   source?: string;
   linkType?: string;
   categories?: string[];
+  description?: string;
+  tags?: string[];
+  thumbnailImage?: string;
 }
 
 // Map category names to category IDs
@@ -37,6 +41,8 @@ interface LinkConnectionParams {
   cursor?: string;
   category?: string;
   tag?: string;
+  featuredCount?: number;
+  linkType?: string;
 }
 
 /**
@@ -53,13 +59,16 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     index: index + 1,
     title: link.title,
     categoryId,
-    date: link.publishedAt,
+    date: link.publishedAtRaw || link.publishedAt,
     url: link.url,
     source: link.source,
     linkType: link.linkType,
     categories: link.categories.map(
       (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase(),
     ),
+    description: contentDocumentToPlainText(link.description),
+    tags: link.tags,
+    thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
 
@@ -75,14 +84,42 @@ async function fetchLinks(params: LinkConnectionParams) {
         )?.[0] || params.category
       : undefined;
 
-    const { links } = await fetchLatestLinks({
-      limit: params.limit ?? DEFAULT_LIMIT,
-      cursor: params.cursor,
-      category: categoryName,
-      tag: params.tag,
-    });
+    let links: LinkItem[] = [];
+    const totalLimit = params.limit ?? DEFAULT_LIMIT;
 
-    // Transform links to terminal format
+    if (params.featuredCount && params.featuredCount > 0) {
+      const featuredLimit = Math.min(params.featuredCount, totalLimit);
+      const { links: featuredLinks } = await fetchFeaturedLinks({
+        limit: featuredLimit,
+        category: categoryName,
+      });
+
+      if (featuredLimit >= totalLimit) {
+        links = featuredLinks.slice(0, totalLimit);
+      } else {
+        const { links: latestLinks } = await fetchLatestLinks({
+          limit: MAX_LIMIT,
+          cursor: params.cursor,
+          category: categoryName,
+          tag: params.tag,
+          linkType: params.linkType,
+        });
+
+        const seen = new Set(featuredLinks.map((link) => link.id));
+        const remaining = latestLinks.filter((link) => !seen.has(link.id));
+        links = [...featuredLinks, ...remaining].slice(0, totalLimit);
+      }
+    } else {
+      const response = await fetchLatestLinks({
+        limit: totalLimit,
+        cursor: params.cursor,
+        category: categoryName,
+        tag: params.tag,
+        linkType: params.linkType,
+      });
+      links = response.links;
+    }
+
     const terminalItems: TerminalItem[] = links.map((link, index) =>
       transformToTerminalItem(link, index),
     );
@@ -123,6 +160,23 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     params.tag = tagParam;
   }
 
+  const featuredCountParam = searchParams.get("featuredCount");
+  if (featuredCountParam) {
+    const featuredCount = parseInt(featuredCountParam, 10);
+    if (
+      !Number.isNaN(featuredCount) &&
+      featuredCount > 0 &&
+      featuredCount <= MAX_LIMIT
+    ) {
+      params.featuredCount = featuredCount;
+    }
+  }
+
+  const linkTypeParam = searchParams.get("linkType");
+  if (linkTypeParam && linkTypeParam !== "all") {
+    params.linkType = linkTypeParam;
+  }
+
   return params;
 }
 
@@ -132,7 +186,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}-${params.featuredCount ?? 0}-${params.linkType ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

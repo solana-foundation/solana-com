@@ -133,6 +133,7 @@ const MOCK_PODCAST = {
 
 const MOCK_EPISODE = {
   id: "ep-123",
+  slug: "the-future-of-defi-2026-02-15",
   title: "The Future of DeFi",
   description: "Exploring DeFi innovations on Solana.",
   thumbnailUrl: "/uploads/ep-123-thumb.jpg",
@@ -270,9 +271,11 @@ describe("newsPostMetadata", () => {
   });
 
   it("returns noindex fallback when post publish date is in the future", async () => {
+    const futurePublishDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     mockReader.collections.posts.read.mockResolvedValue({
       ...MOCK_POST,
-      publishedAt: "2026-03-25T12:00:00.000Z",
+      publishedAt: futurePublishDate.toISOString(),
     });
     const meta = await newsPostMetadata(slug);
 
@@ -446,9 +449,12 @@ describe("podcastEpisodeMetadata", () => {
     expectTwitterFields(meta.twitter as any);
   });
 
-  it("sets canonical to /podcasts/{slug}/episodes/{id}", async () => {
+  it("sets canonical to /podcasts/{slug}/episodes/{episode-slug}", async () => {
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
-    expectCanonical(meta.alternates, "/podcasts/validated/episodes/ep-123");
+    expectCanonical(
+      meta.alternates,
+      "/podcasts/validated/episodes/the-future-of-defi-2026-02-15",
+    );
   });
 
   it("uses only public URLs", async () => {

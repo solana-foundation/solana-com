@@ -11,11 +11,9 @@ import { CardGrid } from "@/components/sdp/card-grid";
 import { Infrastructure } from "@/components/sdp/infrastructure";
 import { Ecosystem } from "@/components/sdp/ecosystem";
 import { Tutorials } from "@/components/sdp/tutorials";
-// import { News } from "@/components/sdp/news";
+import { News } from "@/components/sdp/news";
 import { Podcasts } from "@/components/sdp/podcasts";
 import Join from "@/components/sdp/join";
-import Header from "@/components/sdp/header";
-import { Footer } from "@/components/sdp/footer";
 import Bank from "@@/public/src/img/icons/Bank.inline.svg";
 import Nodes from "@@/public/src/img/icons/Nodes.inline.svg";
 import Law from "@@/public/src/img/icons/Law.inline.svg";
@@ -27,7 +25,7 @@ import {
   COMPLIANCE_LOGOS,
   INST_LOGOS,
   LOGOS,
-  // NEWS,
+  NEWS,
   NODES_LOGOS,
   PODCASTS,
   RAMP_LOGOS,
@@ -39,17 +37,6 @@ export function SdpPage() {
 
   return (
     <div className="bg-[#0C0C0E]">
-      <Header
-        navLinks={[
-          { label: t("header.nav.platform"), href: "#platform" },
-          { label: t("header.nav.useCases"), href: "#use-cases" },
-          { label: t("header.nav.partners"), href: "#partners" },
-          { label: t("header.nav.sandbox"), href: "#sandbox" },
-          // { label: t("header.nav.media"), href: "#media" },
-        ]}
-        ctaLabel={t("header.cta")}
-        ctaHref="https://platform.solana.com"
-      />
       <Hero
         title={t("hero.title")}
         description={t("hero.description")}
@@ -225,10 +212,10 @@ export function SdpPage() {
         <Tutorials title={t("tutorials.title")} items={TUTORIALS} />
       </section>
       <DecorGrid />
-      {/* <section id="media" className="scroll-mt-[72px]">
+      <section id="media" className="scroll-mt-[72px]">
         <News title={t("news.title")} items={NEWS} />
       </section>
-      <DecorGrid /> */}
+      <DecorGrid />
       <Podcasts title={t("podcasts.title")} items={PODCASTS} />
       <DecorGrid />
       <Join
@@ -237,46 +224,6 @@ export function SdpPage() {
         ctaHref="https://platform.solana.com"
       />
       <DecorGrid />
-      <Footer
-        navColumns={[
-          {
-            title: t("footer.product.title"),
-            links: [
-              { label: t("footer.product.apiDocs"), href: "/docs/rpc" },
-              {
-                label: t("footer.product.postman"),
-                href: "https://platform.solana.com/docs/reference/postman-collection",
-              },
-              {
-                label: t("footer.product.aiSkills"),
-                href: "https://platform.solana.com/docs/reference/ai-consumption",
-              },
-            ],
-          },
-          {
-            title: t("footer.getConnected.title"),
-            links: [
-              { label: t("footer.getConnected.blog"), href: "/news" },
-              { label: t("footer.getConnected.podcasts"), href: "/podcasts" },
-              {
-                label: t("footer.getConnected.newsletter"),
-                href: "/newsletter",
-              },
-            ],
-          },
-          {
-            title: t("footer.legal.title"),
-            links: [
-              { label: t("footer.legal.disclaimer"), href: "/tos" },
-              {
-                label: t("footer.legal.privacyPolicy"),
-                href: "/privacy-policy",
-              },
-            ],
-          },
-        ]}
-      />
-
       <VideoPlayerModal />
     </div>
   );

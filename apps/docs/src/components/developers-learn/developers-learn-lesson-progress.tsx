@@ -1,0 +1,118 @@
+"use client";
+
+import Link from "next/link";
+import { useDevelopersLearnProgress } from "@/hooks/useDevelopersLearnProgress";
+import {
+  getDevelopersLearnCourseBySlug,
+  getDevelopersLearnCourseProgress,
+  getDevelopersLearnLessonKey,
+  getDevelopersLearnNextCourse,
+  getDevelopersLearnNextLesson,
+  isDevelopersLearnCourseUnlocked,
+  isDevelopersLearnLessonUnlocked,
+} from "@/utils/developers-learn-curriculum";
+
+export default function DevelopersLearnLessonProgress({
+  courseSlug,
+  lessonSlug,
+}: {
+  courseSlug: string;
+  lessonSlug: string;
+}) {
+  const {
+    completedLessonsSet,
+    isLessonCompleted,
+    markLessonComplete,
+    markLessonIncomplete,
+  } = useDevelopersLearnProgress();
+
+  const course = getDevelopersLearnCourseBySlug(courseSlug);
+  if (!course) {
+    return null;
+  }
+
+  const courseUnlocked = isDevelopersLearnCourseUnlocked(
+    courseSlug,
+    completedLessonsSet,
+  );
+  const lessonUnlocked = isDevelopersLearnLessonUnlocked(
+    courseSlug,
+    lessonSlug,
+    completedLessonsSet,
+  );
+  const lessonKey = getDevelopersLearnLessonKey(courseSlug, lessonSlug);
+  const completed = isLessonCompleted(lessonKey);
+  const courseProgress = getDevelopersLearnCourseProgress(
+    course,
+    completedLessonsSet,
+  );
+  const nextLesson = getDevelopersLearnNextLesson(courseSlug, lessonSlug);
+  const nextCourse = getDevelopersLearnNextCourse(courseSlug);
+  const nextCourseUnlocked = nextCourse
+    ? isDevelopersLearnCourseUnlocked(nextCourse.slug, completedLessonsSet)
+    : false;
+
+  if (!courseUnlocked || !lessonUnlocked) {
+    return null;
+  }
+
+  return (
+    <div className="mb-8 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80 md:p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() =>
+            completed
+              ? markLessonIncomplete(lessonKey)
+              : markLessonComplete(lessonKey)
+          }
+          className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
+        >
+          {completed ? "Mark episode incomplete" : "Mark episode complete"}
+        </button>
+
+        {completed && nextLesson ? (
+          <Link
+            href={`/developers/bootcamp/${courseSlug}/${nextLesson.slug}`}
+            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-200"
+          >
+            Next episode
+          </Link>
+        ) : null}
+
+        {completed && !nextLesson ? (
+          <Link
+            href={`/developers/bootcamp/${courseSlug}`}
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
+          >
+            Back to track
+          </Link>
+        ) : null}
+
+        {completed && !nextLesson && nextCourse ? (
+          <Link
+            href={`/developers/bootcamp/${nextCourse.slug}`}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              nextCourseUnlocked
+                ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-200"
+                : "border border-zinc-300 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400"
+            }`}
+          >
+            Open next track
+          </Link>
+        ) : null}
+      </div>
+
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        Track progress: {courseProgress.completedCount}/
+        {courseProgress.totalCount}
+        {" · "}
+        {courseProgress.percent}%
+      </p>
+      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        Progress is stored locally in this browser while the experience remains
+        video-first and unsigned.
+      </p>
+    </div>
+  );
+}

@@ -46,13 +46,10 @@ export function formatPublishedAt(
 
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: UTC_TIME_ZONE,
-    day: "2-digit",
+    day: "numeric",
     month: format === "short" ? "short" : "long",
     year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
   });
 
-  return `${formatter.format(publishedAt)} UTC`;
+  return formatter.format(publishedAt);
 }

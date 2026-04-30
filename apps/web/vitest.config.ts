@@ -1,10 +1,43 @@
 import path from "path";
 import { defineConfig } from "vitest/config";
 
+const INLINE_SVG_MOCK_ID = "\0inline-svg-mock";
+const SVG_MOCK_ID = "\0svg-mock";
+
 export default defineConfig({
   esbuild: {
     jsx: "automatic",
   },
+  plugins: [
+    {
+      name: "mock-svg-imports",
+      enforce: "pre",
+      resolveId(source) {
+        if (source.endsWith(".inline.svg")) {
+          return INLINE_SVG_MOCK_ID;
+        }
+
+        if (source.endsWith(".svg")) {
+          return SVG_MOCK_ID;
+        }
+      },
+      load(id) {
+        if (id === INLINE_SVG_MOCK_ID) {
+          return `
+            import * as React from "react";
+
+            export default function SvgMock(props) {
+              return React.createElement("svg", props);
+            }
+          `;
+        }
+
+        if (id === SVG_MOCK_ID) {
+          return 'export default "svg";';
+        }
+      },
+    },
+  ],
   resolve: {
     alias: [
       {
@@ -14,10 +47,6 @@ export default defineConfig({
       {
         find: "@@",
         replacement: path.resolve(__dirname, "./"),
-      },
-      {
-        find: /\.svg$/,
-        replacement: path.resolve(__dirname, "./src/test/mocks/svgMock.tsx"),
       },
     ],
   },

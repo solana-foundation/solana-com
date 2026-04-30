@@ -4,7 +4,12 @@ import { VideoDialogProvider } from "@/components/ui/VideoDialogContext";
 import VideoDialog from "@/components/ui/VideoDialog";
 import { NextIntlClientProvider } from "next-intl";
 import { getLangDir } from "rtl-detect";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import {
+  Header,
+  Footer,
+  PersistentPodcastPlayer,
+  ThemeProvider,
+} from "@solana-com/ui-chrome";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import { reader } from "@/lib/reader";
@@ -118,11 +123,15 @@ export default async function LocaleLayout({ children, params }: Props) {
         <ThemeProvider>
           <GTMTrackingSnippet />
           <CookieConsent />
-          <LayoutProvider globalSettings={globalData.global} pageData={null}>
+          <LayoutProvider
+            globalSettings={globalData.global ?? undefined}
+            pageData={undefined}
+          >
             <VideoDialogProvider>
               <Header />
               <main>{children}</main>
               <Footer />
+              <PersistentPodcastPlayer />
               <VideoDialog />
             </VideoDialogProvider>
           </LayoutProvider>

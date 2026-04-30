@@ -10,7 +10,7 @@ export const libeara = {
     tagline:
       "Investing is more accessible and equitable with tokenised assets.",
     summary:
-      "SC Ventures incubated tokenisation platform helping organizations create, issue, and manage real-world assets on-chain.",
+      "SC Ventures incubated tokenisation platform helping organizations create, issue, and manage real-world assets onchain.",
     description:
       "Libeara is a road-tested asset tokenisation platform focused on making markets more accessible, transparent, and secure, with solutions for regulated funds, tokenised government bonds, and other real-world assets.",
     sector: "Tokenization",

@@ -25,7 +25,9 @@ const NewsCard = ({ title, img, href }: NewsItem) => {
   return (
     <a
       href={href}
-      className="flex flex-row xl:flex-col items-center xl:items-start gap-4 xl:gap-0 px-5 py-4 xl:p-0 border-t border-white/[0.08] hover:!bg-[#161618] xl:border-t-0 xl:border-r last:border-r-0"
+      className="flex flex-1 flex-row xl:flex-col items-center xl:items-start gap-4 xl:gap-0 px-5 py-4 xl:p-0 border-t border-white/[0.08] hover:!bg-[#161618] xl:border-t-0 xl:border-r last:border-r-0"
+      target="_blank"
+      rel="noopener noreferrer"
     >
       <div className="w-[71px] h-[40px] shrink-0 xl:w-full xl:h-auto xl:aspect-video overflow-hidden">
         <img src={img} alt="" className="w-full h-full object-cover" />

@@ -4,6 +4,7 @@ import galaxyLogoLight from "../../../assets/companies/galaxy/logo-light.svg";
 import galaxyLogoDark from "../../../assets/companies/galaxy/logo-dark.svg";
 import galaxyMarkLight from "../../../assets/companies/galaxy/mark-light.svg";
 import galaxyMarkDark from "../../../assets/companies/galaxy/mark-dark.svg";
+import galaxyLogoGalaxyOne from "../../../assets/companies/galaxy/logo-galaxy-one.svg";
 
 export const galaxy = {
   id: "galaxy",
@@ -63,6 +64,12 @@ export const galaxy = {
       source: galaxyMarkDark,
       theme: "dark",
       kind: "mark",
+    },
+    {
+      id: "logo-galaxy-one",
+      fileName: "logo-galaxy-one.svg",
+      format: "svg",
+      source: galaxyLogoGalaxyOne,
     },
   ],
 } satisfies CompanyRecord;

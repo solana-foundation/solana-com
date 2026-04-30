@@ -4,7 +4,12 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
+import {
+  CookieConsentBanner,
+  PersistentPodcastPlayer,
+} from "@solana-com/ui-chrome";
 import { getBaseMetadata } from "@/app/metadata";
+import { FabMenu } from "@/components/FabMenu";
 
 const displayFont = localFont({
   src: "../../../public/fonts/fh-lecturis/FHLecturis-Regular.woff2",
@@ -71,6 +76,9 @@ export default async function LocaleLayout({
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
+        <FabMenu />
+        <CookieConsentBanner />
+        <PersistentPodcastPlayer />
       </NextIntlClientProvider>
     </div>
   );

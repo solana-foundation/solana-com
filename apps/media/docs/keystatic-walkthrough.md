@@ -76,7 +76,7 @@ Important rules:
 The dashboard shows all collections and singletons you can manage, plus the
 current branch and the **Create pull request** action.
 
-![Dashboard](screenshots/01-dashboard.png)
+![Dashboard](screenshots/01-dashboard.webp)
 
 On the dashboard:
 
@@ -104,13 +104,13 @@ made on staging, not directly on `main`.
 
 Click **Posts** in the sidebar to view the existing posts.
 
-![Posts List](screenshots/02-posts-list.png)
+![Posts List](screenshots/02-posts-list.webp)
 
 ### Step 3: Start a New Post
 
 Click **Add** to open the new post form.
 
-![Post Create Form](screenshots/03-post-create-form.png)
+![Post Create Form](screenshots/03-post-create-form.webp)
 
 The form includes:
 
@@ -192,11 +192,11 @@ Publishing happens after the content is already saved on `staging`.
 Links are curated external items shown on the site. Open **Links** in the
 sidebar to browse existing entries.
 
-![Links List](screenshots/05-links-list.png)
+![Links List](screenshots/05-links-list.webp)
 
 Click **Add** to create a new link.
 
-![New Link Form](screenshots/06-link-create-form.png)
+![New Link Form](screenshots/06-link-create-form.webp)
 
 | Field           | Description                                             |
 | --------------- | ------------------------------------------------------- |
@@ -220,11 +220,11 @@ flow described above.
 
 CTAs are reusable call-to-action blocks that can be attached to posts.
 
-![CTAs List](screenshots/07-ctas-list.png)
+![CTAs List](screenshots/07-ctas-list.webp)
 
 Click **Add** to create a CTA.
 
-![New CTA Form](screenshots/08-cta-create-form.png)
+![New CTA Form](screenshots/08-cta-create-form.webp)
 
 | Field           | Description                    |
 | --------------- | ------------------------------ |
@@ -241,11 +241,11 @@ Click **Add** to create a CTA.
 
 Switchbacks are reusable image-and-text sections.
 
-![Switchbacks List](screenshots/09-switchbacks-list.png)
+![Switchbacks List](screenshots/09-switchbacks-list.webp)
 
 Click **Add** to create a switchback.
 
-![New Switchback Form](screenshots/10-switchback-create-form.png)
+![New Switchback Form](screenshots/10-switchback-create-form.webp)
 
 | Field        | Description               |
 | ------------ | ------------------------- |
@@ -284,11 +284,11 @@ To schedule a report:
 
 Categories are broad topic groupings for posts and links.
 
-![Categories List](screenshots/11-categories-list.png)
+![Categories List](screenshots/11-categories-list.webp)
 
 Click **Add** to create a category.
 
-![New Category Form](screenshots/12-category-create-form.png)
+![New Category Form](screenshots/12-category-create-form.webp)
 
 | Field           | Description               |
 | --------------- | ------------------------- |
@@ -301,11 +301,11 @@ Click **Add** to create a category.
 
 Tags provide more specific labels for posts and links.
 
-![Tags List](screenshots/13-tags-list.png)
+![Tags List](screenshots/13-tags-list.webp)
 
 Click **Add** to create a tag.
 
-![New Tag Form](screenshots/14-tag-create-form.png)
+![New Tag Form](screenshots/14-tag-create-form.webp)
 
 | Field           | Description          |
 | --------------- | -------------------- |
@@ -318,7 +318,7 @@ Click **Add** to create a tag.
 
 Global Settings controls site-wide theme options.
 
-![Global Settings](screenshots/15-global-settings.png)
+![Global Settings](screenshots/15-global-settings.webp)
 
 | Field             | Description          |
 | ----------------- | -------------------- |

@@ -12,6 +12,8 @@ export type SkillItem = {
   title: string;
   description: string;
   githubUrl: string;
+  sourceType?: "official" | "community";
+  pinnedRef?: string;
 };
 
 type SkillCardProps = {
@@ -30,28 +32,41 @@ export function SkillCard({
   const category =
     categoryOverride ?? CATEGORY_MAP[skill.slug] ?? DEFAULT_CATEGORY;
   const label = categories[category.labelKey] ?? category.labelKey;
+  const isCommunity = skill.sourceType === "community";
 
   return (
     <Link
       href={skill.githubUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex flex-col gap-3 group cursor-pointer border-l-2 ${category.accent} bg-white/5 hover:bg-white/[0.08] backdrop-blur-sm transition-all duration-200 p-[20px] md:p-[24px] h-full`}
+      className={`flex flex-col group cursor-pointer border-l-2 ${category.accent} hover:bg-white/5 transition-colors duration-200 p-[20px] md:p-[24px] h-full`}
     >
-      <span
-        className={`self-start text-[11px] font-medium uppercase tracking-[0.05em] px-2 py-0.5 rounded-full ${category.badge}`}
-      >
-        {label}
-      </span>
-      <h3 className="font-medium text-base md:text-lg leading-snug tracking-[-0.18px] text-white">
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className={`text-[11px] font-medium uppercase tracking-[0.05em] ${category.badge} px-2 py-0.5 rounded-full`}
+        >
+          {label}
+        </span>
+        {isCommunity && (
+          <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-amber-200/70">
+            Third-party
+          </span>
+        )}
+        {skill.pinnedRef && (
+          <span className="text-[10px] font-mono tracking-tight text-white/35">
+            {skill.pinnedRef}
+          </span>
+        )}
+      </div>
+      <h3 className="font-medium text-base md:text-lg leading-snug tracking-[-0.18px] text-white mb-1.5">
         {skill.title}
       </h3>
       {skill.description && (
-        <p className="text-[#ABABBA] text-sm grow leading-relaxed">
+        <p className="text-[#ABABBA] text-sm leading-relaxed grow mb-0">
           {skill.description}
         </p>
       )}
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-[#ABABBA] group-hover:text-white transition-colors w-fit mt-auto pt-1">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-[#ABABBA] group-hover:text-white transition-colors w-fit mt-4">
         {linkLabel}
         <ChevronRight size={14} aria-hidden={true} />
       </span>
