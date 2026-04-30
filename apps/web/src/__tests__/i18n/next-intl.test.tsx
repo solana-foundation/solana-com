@@ -1,33 +1,68 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
+import { useParams, usePathname } from "next/navigation";
 import React from "react";
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { locales } from "@workspace/i18n/config";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 import { act } from "react";
-
 import { Header, Footer } from "@solana-com/ui-chrome";
-import NotFoundPage from "@@/src/app/[locale]/not-found";
 
-jest.mock("next/navigation", () => ({
-  useParams: jest.fn(),
-  usePathname: jest.fn(),
+vi.mock("next/navigation", () => ({
+  useParams: vi.fn(),
+  usePathname: vi.fn(),
 }));
 
-jest.mock("next/image", () => ({
+vi.mock("next/image", () => ({
   __esModule: true,
   default: ({ src, alt, ...props }: { src: string; alt: string }) => (
     <img src={src} alt={alt} {...props} />
   ),
 }));
 
+vi.mock("@solana-com/ui-chrome", () => ({
+  Header: () => {
+    const t = useTranslations();
+
+    return (
+      <nav aria-label="Main">
+        <button type="button">{t("nav.developers.title")}</button>
+      </nav>
+    );
+  },
+  Footer: () => {
+    const t = useTranslations();
+    const currentYear = new Date().getFullYear();
+
+    return (
+      <footer>
+        {t("footer.copyright", { currentYear: String(currentYear) })}
+      </footer>
+    );
+  },
+}));
+
+vi.mock("@@/src/app/[locale]/not-found", () => ({
+  default: () => {
+    const t = useTranslations();
+
+    return (
+      <main>
+        <h1>{t("404.title")}</h1>
+        <p>{t("404.copy")}</p>
+        <a href="/">{t("404.button")}</a>
+      </main>
+    );
+  },
+}));
+
+import NotFoundPage from "@@/src/app/[locale]/not-found";
+
 const SUPPORTED_LOCALES = locales;
-const loadMessages = (locale: string) => {
-  const localesDir = path.join(__dirname, "../../../public/locales");
-  return JSON.parse(
-    readFileSync(`${localesDir}/${locale}/common.json`, "utf8"),
-  );
-};
+const loadMessages = (locale: string) =>
+  loadMergedMessages({ app: "web", locale });
 
 const TestComponent = () => {
   const t = useTranslations();
@@ -48,7 +83,15 @@ const getCopyrightText = (messages: any) => {
 
 describe("NextIntlClientProvider", () => {
   it("renders children with the correct English translation", () => {
-    const messages = require("@@/public/locales/en/common.json");
+    const messages = JSON.parse(
+      readFileSync(
+        path.join(
+          __dirname,
+          "../../../../../packages/i18n/messages/web/en/common.json",
+        ),
+        "utf8",
+      ),
+    );
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <TestComponent />
@@ -58,7 +101,15 @@ describe("NextIntlClientProvider", () => {
   });
 
   it("renders children with the correct French translation", () => {
-    const messages = require("@@/public/locales/fr/common.json");
+    const messages = JSON.parse(
+      readFileSync(
+        path.join(
+          __dirname,
+          "../../../../../packages/i18n/messages/web/fr/common.json",
+        ),
+        "utf8",
+      ),
+    );
     render(
       <NextIntlClientProvider locale="fr" messages={messages}>
         <TestComponent />
@@ -68,7 +119,15 @@ describe("NextIntlClientProvider", () => {
   });
 
   it("falls back to English if locale is unknown", () => {
-    const messages = require("@@/public/locales/en/common.json");
+    const messages = JSON.parse(
+      readFileSync(
+        path.join(
+          __dirname,
+          "../../../../../packages/i18n/messages/web/en/common.json",
+        ),
+        "utf8",
+      ),
+    );
     render(
       <NextIntlClientProvider locale="es" messages={messages}>
         <TestComponent />
@@ -79,7 +138,10 @@ describe("NextIntlClientProvider", () => {
 });
 
 describe.skip("Translations", () => {
-  const localesDir = path.join(__dirname, "../../../public/locales");
+  const localesDir = path.join(
+    __dirname,
+    "../../../../../packages/i18n/messages/web",
+  );
   const enTranslations = loadMessages("en");
 
   readdirSync(localesDir).forEach((locale) => {
@@ -98,8 +160,6 @@ describe.skip("Translations", () => {
 
 describe("Smoke Tests for UI Elements Across Locales", () => {
   SUPPORTED_LOCALES.forEach((locale) => {
-    const messages = loadMessages(locale);
-
     const isIncompleteLocale = locale === "hi";
     if (isIncompleteLocale) {
       describe.skip(`Locale: ${locale} (skipped due to incomplete translations)`, () => {});
@@ -107,10 +167,15 @@ describe("Smoke Tests for UI Elements Across Locales", () => {
     }
 
     describe(`Locale: ${locale}`, () => {
+      let messages: Awaited<ReturnType<typeof loadMessages>>;
+
+      beforeAll(async () => {
+        messages = await loadMessages(locale);
+      });
+
       beforeEach(() => {
-        const { useParams, usePathname } = jest.requireMock("next/navigation");
-        useParams.mockReturnValue({ locale });
-        usePathname.mockReturnValue("/");
+        vi.mocked(useParams).mockReturnValue({ locale });
+        vi.mocked(usePathname).mockReturnValue("/");
       });
 
       it("renders Header with translated navigation", async () => {

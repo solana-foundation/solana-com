@@ -52,7 +52,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border",
       )}
     >
       {link.thumbnailImage && (
@@ -109,7 +109,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
               <Badge key={`${link.id}-${tag}`} variant="outline">
                 {tag}
               </Badge>
-            )
+            ),
         )}
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">

@@ -1,6 +1,8 @@
 # Solana Media
 
-Solana Media is a Next.js application for publishing news articles and podcasts about Solana. It uses Keystatic for content management and is part of the Solana.com monorepo.
+Solana Media is a Next.js application for publishing news articles and podcasts
+about Solana. It uses Keystatic for content management and is part of the
+Solana.com monorepo.
 
 ## Features
 
@@ -19,11 +21,12 @@ Solana Media is a Next.js application for publishing news articles and podcasts 
 
 ### Environment Variables
 
-Create a `.env` file in the root of the media app (see `.env.example` for reference):
+Create a `.env` file in the root of the media app (see `.env.example` for
+reference):
 
 ```bash
 # Keystatic local mode (uses filesystem storage, no GitHub auth needed)
-KEYSTATIC_LOCAL=true
+NEXT_PUBLIC_KEYSTATIC_LOCAL=true
 
 # Or use GitHub mode (production)
 KEYSTATIC_GITHUB_CLIENT_ID=your_client_id
@@ -52,7 +55,7 @@ pnpm dev
 The app will be available at:
 
 - Frontend: http://localhost:3002
-- Keystatic Admin: http://localhost:3002/keystatic
+- Keystatic Admin: http://127.0.0.1:3002/keystatic
 
 ### Building
 

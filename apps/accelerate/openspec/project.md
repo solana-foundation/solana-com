@@ -150,8 +150,8 @@ To add a new event location:
 
 - **Speakers**: JPG or PNG, 400x400px minimum, located in
   `public/images/speakers/`
-- **Sponsors**: SVG preferred, optimized for 120px width, located in
-  `public/images/sponsors/`
+- **Sponsors**: SVG preferred, optimized for 120px width, sourced from
+  `packages/ecosystem-data/assets/companies/`
 
 ## Important Constraints
 

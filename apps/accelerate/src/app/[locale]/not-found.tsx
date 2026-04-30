@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
 
 export default function NotFound() {
@@ -11,8 +11,8 @@ export default function NotFound() {
       <h1 className="text-6xl font-bold mb-4">{t("title")}</h1>
       <p className="text-xl text-white/70 mb-8">{t("description")}</p>
       <Link
-        href="/"
-        className="rounded-full bg-[#14F195] px-6 py-3 text-black font-medium hover:opacity-90 transition-opacity"
+        href="/accelerate"
+        className="rounded-full bg-accelerate-green px-6 py-3 text-black font-medium hover:opacity-90 transition-opacity"
       >
         {t("backToHome")}
       </Link>

@@ -1,0 +1,361 @@
+---
+title: Metadatos de Metaplex
+description:
+  Aprende a agregar metadatos a Tokens SPL usando el Programa de Metadatos de
+  Token de Metaplex.
+---
+
+Los Tokens SPL estándar no incluyen metadatos como nombre, símbolo o imagen. El
+[Programa de Metadatos de Token de Metaplex](https://developers.metaplex.com/token-metadata)
+resuelve esto creando una cuenta de metadatos vinculada a cada mint de token.
+
+<Callout type="info">
+  Esta guía cubre el Programa de Metadatos de Token de Metaplex que puede usarse
+  para Tokens SPL estándar y Token-2022. Para usar la Extensión de Metadatos de
+  Token-2022, consulta la [guía de Extensión de
+  Metadatos](/docs/tokens/extensions/metadata) que almacena metadatos
+  directamente en la cuenta de mint.
+</Callout>
+
+## Cómo Funcionan los Metadatos de Token
+
+El Programa de Metadatos de Token crea un Program Derived Address (PDA) para
+cada mint de token. Esta cuenta de metadatos almacena información en cadena como
+el nombre y símbolo del token, además de un URI que apunta a metadatos JSON
+fuera de cadena (imágenes, descripciones, etc.).
+
+```text
+┌─────────────────┐       ┌─────────────────────┐
+│   Mint Account  │       │  Metadata Account   │
+│                 │       │  (PDA)              │
+│  - Supply       │◄──────│  - Name             │
+│  - Decimals     │       │  - Symbol           │
+│  - Authority    │       │  - URI              │
+└─────────────────┘       │  - Seller Fee       │
+                          │  - Creators         │
+                          └─────────────────────┘
+```
+
+El PDA de metadatos se deriva de las semillas:
+`["metadata", program_id, mint_address]`
+
+## Crear Token con Metadatos
+
+La instrucción `createV1` crea tanto la cuenta de mint como sus metadatos en una
+sola transacción.
+
+### Typescript
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getCreateV1InstructionAsync,
+  TokenStandard
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Create fungible token with metadata
+const createInstruction = await getCreateV1InstructionAsync({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0,
+  tokenStandard: TokenStandard.Fungible
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+```ts !! title="Kit Helper"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { createFungible } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Use the createFungible helper for simpler API
+const createInstruction = await createFungible({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+</CodeTabs>
+
+## Obtener Metadatos de Token
+
+Para aprender cómo obtener metadatos de tokens existentes, consulta la receta
+del cookbook
+[Obtener Metadatos de Token](/developers/cookbook/tokens/fetch-token-metadata).
+
+## Actualizar Metadatos de Token
+
+La autoridad de actualización puede modificar los metadatos si la cuenta es
+mutable.
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getUpdateV1InstructionAsync,
+  findMetadataPda,
+  fetchMetadata
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// authority must be a KeyPairSigner with update authority
+const mintAddress = "YOUR_MINT_ADDRESS";
+
+// Fetch current metadata to preserve existing values
+const [metadataAddress] = await findMetadataPda({ mint: mintAddress });
+const currentMetadata = await fetchMetadata(rpc, metadataAddress);
+
+// Update metadata (must provide all data fields)
+const updateInstruction = await getUpdateV1InstructionAsync({
+  mint: mintAddress,
+  authority, // Update authority signer
+  payer: authority,
+  data: {
+    name: "Updated Token Name",
+    symbol: "UPD",
+    uri: "https://example.com/updated-token.json",
+    sellerFeeBasisPoints: 100, // 1%
+    creators:
+      currentMetadata.data.creators.__option === "Some"
+        ? currentMetadata.data.creators.value
+        : null
+  }
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([updateInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Metadata updated successfully");
+```
+
+</CodeTabs>
+
+## Estándares de Token
+
+El Programa de Metadatos de Token admite diferentes estándares de token:
+
+| Estándar                         | Descripción                                   | Caso de Uso          |
+| -------------------------------- | --------------------------------------------- | -------------------- |
+| `Fungible`                       | Token fungible estándar con metadatos         | Monedas, puntos      |
+| `FungibleAsset`                  | Token fungible que representa un activo único | Ítems semi-fungibles |
+| `NonFungible`                    | NFT con Edición Maestra                       | Obra de arte 1/1     |
+| `ProgrammableNonFungible`        | NFT con regalías obligatorias                 | Regalías de creador  |
+| `NonFungibleEdition`             | Copia impresa de un NFT                       | Ediciones limitadas  |
+| `ProgrammableNonFungibleEdition` | Copia impresa con regalías obligatorias       | Ediciones limitadas  |
+
+```ts
+import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// For fungible tokens
+tokenStandard: TokenStandard.Fungible;
+
+// For NFTs
+tokenStandard: TokenStandard.NonFungible;
+
+// For programmable NFTs (enforced royalties)
+tokenStandard: TokenStandard.ProgrammableNonFungible;
+```
+
+## Formato de metadatos fuera de la cadena
+
+El campo `uri` apunta a un archivo JSON que contiene metadatos extendidos. El
+formato estándar sigue el
+[Estándar de metadatos de tokens de Metaplex](https://developers.metaplex.com/token-metadata/token-standard):
+
+```json title="token-metadata.json"
+{
+  "name": "My Token",
+  "symbol": "MTK",
+  "description": "A description of the token",
+  "image": "https://example.com/token-image.png",
+  "external_url": "https://example.com",
+  "attributes": [
+    {
+      "trait_type": "Category",
+      "value": "Utility"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://example.com/token-image.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
+```
+
+<Callout type="caution">
+  Almacena tu JSON de metadatos en una solución de almacenamiento confiable y
+  permanente como Arweave, IPFS o una CDN dedicada. Si la URI deja de ser
+  accesible, las billeteras y los exploradores no podrán mostrar los metadatos
+  de tu token.
+</Callout>
+
+## Estructura de la cuenta de metadatos
+
+La cuenta de metadatos en cadena contiene:
+
+```rust
+pub struct Metadata {
+    pub key: Key,                              // Account type identifier
+    pub update_authority: Pubkey,              // Can update metadata
+    pub mint: Pubkey,                          // Associated mint
+    pub name: String,                          // Token name (max 32 chars)
+    pub symbol: String,                        // Token symbol (max 10 chars)
+    pub uri: String,                           // URI to off-chain JSON (max 200 chars)
+    pub seller_fee_basis_points: u16,          // Royalty % (100 = 1%)
+    pub creators: Option<Vec<Creator>>,        // Creator list with shares
+    pub primary_sale_happened: bool,           // Primary sale flag
+    pub is_mutable: bool,                      // Can metadata be updated
+    pub edition_nonce: Option<u8>,             // Edition nonce
+    pub token_standard: Option<TokenStandard>, // Token type
+    pub collection: Option<Collection>,        // Collection info
+    pub uses: Option<Uses>,                    // Use tracking
+}
+```
+
+## Mejores prácticas
+
+1. **Establece la mutabilidad apropiada**: Usa `isMutable: false` para tokens
+   que nunca deberían cambiar
+2. **Utiliza alojamiento de URI confiable**: Los metadatos fuera de la cadena
+   deben estar en almacenamiento permanente
+3. **Verifica a los creadores**: Las direcciones de los creadores deben
+   verificarse para confirmar autenticidad
+4. **Considera las regalías**: Establece `sellerFeeBasisPoints` para regalías de
+   ventas secundarias (los mercados pueden o no aplicar estas regalías)

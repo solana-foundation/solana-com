@@ -21,6 +21,7 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
     (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
+    pathname.startsWith("/reports") ||
     pathname.startsWith("/podcasts") ||
     pathname.startsWith("/media-assets") ||
     pathname.startsWith("/opengraph")
@@ -37,7 +38,10 @@ export default async function middleware(req: NextRequest) {
       );
     }
 
-    return NextResponse.next();
+    // Rewrite /SKILL.md to the skills.md route handler
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = "/skill.md";
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   if (pathname !== pathname.toLowerCase()) {
@@ -79,10 +83,6 @@ export default async function middleware(req: NextRequest) {
 
   const response = await handleI18nRouting(req);
 
-  if (pathname.includes("/playgg")) {
-    response.headers.set("x-custom-layout", "true");
-  }
-
   return response;
 }
 
@@ -92,7 +92,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

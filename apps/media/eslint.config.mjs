@@ -1,18 +1,15 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { withPrettier } from "@workspace/config-eslint/base";
+import { createNextJsConfig } from "@workspace/config-eslint/next-js";
 import * as mdx from "eslint-plugin-mdx";
-import prettierPlugin from "eslint-plugin-prettier";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const config = [
-  ...compat.extends("next/core-web-vitals", "prettier"),
+const config = withPrettier([
+  ...createNextJsConfig({
+    ignores: ["out/**", "tina/__generated__/**", "**/*.md"],
+    rules: {
+      "react/jsx-no-undef": "off",
+      "react/no-unescaped-entities": "off",
+    },
+  }),
   {
     ...mdx.flat,
     processor: mdx.createRemarkProcessor({
@@ -28,20 +25,9 @@ const config = [
     },
   },
   {
-    files: ["**/*.{js,jsx,ts,tsx,mdx}"],
-    plugins: {
-      prettier: prettierPlugin,
-    },
-    rules: {
-      "prettier/prettier": "error",
-      "react/no-unescaped-entities": "off",
-      "react/jsx-no-undef": "off",
-    },
-  },
-  {
     files: ["content/**/*.mdx"],
     rules: {
-      "prettier/prettier": "error",
+      "no-irregular-whitespace": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-no-undef": "off",
       "no-unused-expressions": "off",
@@ -53,18 +39,6 @@ const config = [
       "@next/next/no-img-element": "off",
     },
   },
-  {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-      "tina/__generated__/**",
-      "public/**",
-      "**/*.md",
-    ],
-  },
-];
+]);
 
 export default config;

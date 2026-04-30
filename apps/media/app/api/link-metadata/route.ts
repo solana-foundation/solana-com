@@ -76,7 +76,7 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
             .replace(/&#39;/g, "'");
         }
         const descMatch = html.match(
-          /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
+          /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i,
         );
         if (descMatch) {
           metadata.description = descMatch[1]
@@ -124,14 +124,14 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
   // Helper to extract meta content (handles both property/content orders)
   const extractMeta = (
     property: string,
-    attrName: string = "property"
+    attrName: string = "property",
   ): string | null => {
     // Try property="..." content="..."
     let match = html.match(
       new RegExp(
         `<meta[^>]*${attrName}=["']${property}["'][^>]*content=["']([^"']+)["']`,
-        "i"
-      )
+        "i",
+      ),
     );
     if (match) return match[1];
 
@@ -139,8 +139,8 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
     match = html.match(
       new RegExp(
         `<meta[^>]*content=["']([^"']+)["'][^>]*${attrName}=["']${property}["']`,
-        "i"
-      )
+        "i",
+      ),
     );
     return match ? match[1] : null;
   };
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid URL parameter" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     console.error("Failed to fetch link metadata:", error);
     return NextResponse.json(
       { error: "Failed to fetch metadata" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

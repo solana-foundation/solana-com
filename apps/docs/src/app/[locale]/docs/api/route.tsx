@@ -15,28 +15,122 @@ interface CodeRunResult {
 const { CODE_RUN_SERVER_URL, TXTX_SURFNET_URL } = process.env;
 
 const isEnvConfigured = !!CODE_RUN_SERVER_URL && !!TXTX_SURFNET_URL;
-
 const TXTX_RPC_URL = isEnvConfigured ? `https://${TXTX_SURFNET_URL}:8899` : "";
 const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
+const LOCALHOST_RPC_URL = "http://localhost:8899";
+const LOCALHOST_WS_URL = "ws://localhost:8900";
+const CREATE_LOCAL_CLIENT_SETUP_REGEX =
+  /const\s+client\s*=\s*await\s+createLocalClient\(\)([\s\S]*?)\s*;/;
 
-const replacement = (() => {
-  const replacementMap: Record<string, string> = {
-    "http://localhost:8899": TXTX_RPC_URL,
-    "ws://localhost:8900": TXTX_WS_RPC_URL,
-  };
+const createExplicitClientSetup = (pluginChain = ""): string => {
+  const baseClientName = pluginChain ? "baseClient" : "client";
 
-  const pattern = Object.keys(replacementMap)
-    .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
+  return [
+    "const feePayer = await generateKeyPairSigner();",
+    "",
+    `const ${baseClientName} = createClient({`,
+    `  url: ${JSON.stringify(TXTX_RPC_URL)},`,
+    "  payer: feePayer,",
+    "  rpcSubscriptionsConfig: {",
+    `    url: ${JSON.stringify(TXTX_WS_RPC_URL)},`,
+    "  },",
+    "});",
+    "",
+    "await airdropFactory({",
+    `  rpc: ${baseClientName}.rpc,`,
+    `  rpcSubscriptions: ${baseClientName}.rpcSubscriptions,`,
+    "})({",
+    "  recipientAddress: feePayer.address,",
+    "  lamports: lamports(5_000_000_000n),",
+    '  commitment: "confirmed",',
+    "});",
+    ...(pluginChain
+      ? ["", `const client = ${baseClientName}${pluginChain};`]
+      : []),
+  ].join("\n");
+};
 
-  return {
-    regex: new RegExp(pattern, "g"),
-    map: replacementMap,
-  };
-})();
+const replaceCreateLocalClientSetup = (code: string): string | null => {
+  const match = code.match(CREATE_LOCAL_CLIENT_SETUP_REGEX);
+  if (!match) {
+    return null;
+  }
+
+  const pluginChain = match[1]?.trim() ? match[1] : "";
+
+  return code.replace(
+    CREATE_LOCAL_CLIENT_SETUP_REGEX,
+    createExplicitClientSetup(pluginChain),
+  );
+};
 
 const replaceLocalHostUrl = (code: string): string => {
-  return code.replace(replacement.regex, (matched) => replacement.map[matched]);
+  return code
+    .replaceAll(LOCALHOST_RPC_URL, TXTX_RPC_URL)
+    .replaceAll(LOCALHOST_WS_URL, TXTX_WS_RPC_URL);
+};
+
+const upsertNamedImport = (
+  code: string,
+  moduleName: string,
+  additions: string[],
+  removals: string[] = [],
+): string => {
+  const escapedModuleName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const importRegex = new RegExp(
+    `import\\s*{\\s*([^}]*)\\s*}\\s*from\\s*["']${escapedModuleName}["'];?`,
+  );
+
+  const existingImport = code.match(importRegex);
+  if (!existingImport) {
+    return `import { ${additions.join(", ")} } from "${moduleName}";\n${code}`;
+  }
+
+  return code.replace(importRegex, (_match, specifierBlock: string) => {
+    const nextSpecifiers = specifierBlock
+      .split(",")
+      .map((specifier) => specifier.trim())
+      .filter(Boolean)
+      .filter((specifier) => !removals.includes(specifier));
+
+    for (const addition of additions) {
+      if (!nextSpecifiers.includes(addition)) {
+        nextSpecifiers.push(addition);
+      }
+    }
+
+    return `import { ${nextSpecifiers.join(", ")} } from "${moduleName}";`;
+  });
+};
+
+// `createLocalClient()` assumes the snippet is running with a local validator
+// with an auto-funded payer. The docs runner executes against a remote Surfnet
+// endpoint instead, so we rewrite the local-client assignment to an explicit
+// RPC client setup while preserving any chained `.use(...)` plugins.
+const replaceCreateLocalClientSnippet = (code: string): string => {
+  const nextClientSetup = replaceCreateLocalClientSetup(code);
+
+  if (!nextClientSetup) {
+    return code;
+  }
+
+  let nextCode = nextClientSetup;
+
+  nextCode = upsertNamedImport(nextCode, "@solana/kit", [
+    "generateKeyPairSigner",
+    "airdropFactory",
+    "lamports",
+  ]);
+  nextCode = upsertNamedImport(
+    nextCode,
+    "@solana/kit-client-rpc",
+    ["createClient"],
+    ["createLocalClient"],
+  );
+  nextCode = nextCode.replaceAll("client.payer.address", "feePayer.address");
+  nextCode = nextCode.replaceAll("client.payer", "feePayer");
+
+  return nextCode;
 };
 
 const getAPIRoute = (language: CodeRunPayload["language"]): string => {
@@ -78,7 +172,12 @@ export async function POST(req: Request) {
 
   const { code, language } = parseResult.data;
 
-  const executableCode = replaceLocalHostUrl(code);
+  let executableCode = replaceLocalHostUrl(code);
+
+  if (language === "ts" || language === "typescript") {
+    executableCode = replaceCreateLocalClientSnippet(executableCode);
+  }
+
   const url = getAPIRoute(language);
 
   try {

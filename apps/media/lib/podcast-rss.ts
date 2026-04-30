@@ -91,14 +91,14 @@ function generateEpisodeId(item: any): string {
  */
 export async function fetchEpisodesFromRSS(
   rssFeedUrl: string,
-  podcastSlug: string
+  podcastSlug: string,
 ): Promise<PodcastEpisode[]> {
   try {
     const feed = await parser.parseURL(rssFeedUrl);
 
     const episodes: PodcastEpisode[] = (feed.items || []).map((item: any) => {
       const duration = parseDuration(
-        item.itunesDuration || item.itunes?.duration
+        item.itunesDuration || item.itunes?.duration,
       );
 
       return {
@@ -119,7 +119,7 @@ export async function fetchEpisodesFromRSS(
     episodes.sort(
       (a, b) =>
         new Date(b.publishedDate).getTime() -
-        new Date(a.publishedDate).getTime()
+        new Date(a.publishedDate).getTime(),
     );
 
     return episodes;
@@ -135,7 +135,7 @@ export async function fetchEpisodesFromRSS(
 export async function fetchEpisodeByIdFromRSS(
   episodeId: string,
   rssFeedUrl: string,
-  podcastSlug: string
+  podcastSlug: string,
 ): Promise<PodcastEpisode | null> {
   try {
     const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
@@ -143,7 +143,7 @@ export async function fetchEpisodeByIdFromRSS(
   } catch (error) {
     console.error(
       `❌ Failed to fetch episode ${episodeId} from ${rssFeedUrl}:`,
-      error
+      error,
     );
     return null;
   }
@@ -159,7 +159,7 @@ const RSS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 export async function fetchEpisodesFromRSSCached(
   rssFeedUrl: string,
-  podcastSlug: string
+  podcastSlug: string,
 ): Promise<PodcastEpisode[]> {
   try {
     const now = Date.now();
@@ -180,7 +180,7 @@ export async function fetchEpisodesFromRSSCached(
   } catch (error) {
     console.error(
       `❌ Failed to fetch cached episodes from ${rssFeedUrl}:`,
-      error
+      error,
     );
     return [];
   }

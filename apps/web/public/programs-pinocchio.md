@@ -1,10 +1,13 @@
 # Programs with Pinocchio
 
-Pinocchio is a minimalist Rust library for crafting Solana programs without the heavyweight `solana-program` crate. It delivers significant performance gains through zero-copy techniques and minimal dependencies.
+Pinocchio is a minimalist Rust library for crafting Solana programs without the
+heavyweight `solana-program` crate. It delivers significant performance gains
+through zero-copy techniques and minimal dependencies.
 
 ## When to Use Pinocchio
 
 Use Pinocchio when you need:
+
 - **Maximum compute efficiency**: 84% CU savings compared to Anchor
 - **Minimal binary size**: Leaner code paths and smaller deployments
 - **Zero external dependencies**: Only Solana SDK types required
@@ -18,7 +21,8 @@ Use Pinocchio when you need:
 Before building/deploying, verify lib.rs contains all required components:
 
 - [ ] `entrypoint!(process_instruction)` macro
-- [ ] `pub const ID: Address = Address::new_from_array([...])` with correct program ID
+- [ ] `pub const ID: Address = Address::new_from_array([...])` with correct
+      program ID
 - [ ] `fn process_instruction(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult`
 - [ ] Instruction routing logic with proper discriminators
 - [ ] `pub mod instructions; pub use instructions::*;`
@@ -49,24 +53,28 @@ fn process_instruction(
 }
 ```
 
-Single-byte discriminators support 255 instructions; use two bytes for up to 65,535 variants.
+Single-byte discriminators support 255 instructions; use two bytes for up to
+65,535 variants.
 
 ### Panic Handler Configuration
 
 **For std environments (SBF builds):**
+
 ```rust
 entrypoint!(process_instruction);
 // Remove nostd_panic_handler!() - std provides panic handling
 ```
 
 **For no_std environments:**
+
 ```rust
 #![no_std]
 entrypoint!(process_instruction);
 nostd_panic_handler!();
 ```
 
-**Critical**: Never include both - causes duplicate lang item error in SBF builds.
+**Critical**: Never include both - causes duplicate lang item error in SBF
+builds.
 
 ### Program ID Declaration
 
@@ -76,6 +84,7 @@ pub const ID: Address = Address::new_from_array([
  0xXX, 0xXX, ..., 0xXX,
 ]);
 ```
+
 // Note: Use `Address::new_from_array()` not `Address::new()`
 
 ### Recommended Import Structure
@@ -126,7 +135,8 @@ impl<'a> Deposit<'a> {
 
 ## Account Validation
 
-Pinocchio requires manual validation. Wrap all checks in `TryFrom` implementations:
+Pinocchio requires manual validation. Wrap all checks in `TryFrom`
+implementations:
 
 ### Account Struct Validation
 
@@ -238,7 +248,8 @@ impl Mint {
 
 ### Token2022 Support
 
-Token2022 requires discriminator-based validation due to variable account sizes with extensions:
+Token2022 requires discriminator-based validation due to variable account sizes
+with extensions:
 
 ```rust
 pub const TOKEN_2022_PROGRAM_ID: [u8; 32] = [...];
@@ -559,7 +570,8 @@ if account.address() != &expected_ata {
 
 ## Batch Instructions
 
-Process multiple operations in a single CPI (saves ~1000 CU per batched operation):
+Process multiple operations in a single CPI (saves ~1000 CU per batched
+operation):
 
 ```rust
 const IX_HEADER_SIZE: usize = 2; // account_count + data_length
@@ -605,21 +617,25 @@ pub mod tests;
 // Run with: cargo test-sbf
 ```
 
-See [testing.md](testing.md) for detailed testing patterns with Mollusk and LiteSVM.
+See [testing.md](testing.md) for detailed testing patterns with Mollusk and
+LiteSVM.
 
 ## Build & Deployment
 
 ### Build Validation
 
 After `cargo build-sbf`:
+
 - [ ] Check .so file size (>1KB, typically 5-15KB for Pinocchio programs)
-- [ ] Verify file type: `file target/deploy/program.so` should show "ELF 64-bit LSB shared object"
+- [ ] Verify file type: `file target/deploy/program.so` should show "ELF 64-bit
+      LSB shared object"
 - [ ] Test regular compilation: `cargo build` should succeed
 - [ ] Run tests: `cargo test` should pass
 
 ### Dependency Compatibility Issues
 
 **If SBF build fails with "edition2024" errors:**
+
 ```bash
 # Downgrade problematic dependencies to compatible versions
 cargo update base64ct --precise 1.6.0
@@ -627,9 +643,12 @@ cargo update constant_time_eq --precise 0.4.1
 cargo update blake3 --precise 1.5.5
 ```
 
-**When to apply**: Only when encountering Cargo "edition2024" errors during `cargo build-sbf`. These downgrades resolve toolchain compatibility issues while maintaining functionality.
+**When to apply**: Only when encountering Cargo "edition2024" errors during
+`cargo build-sbf`. These downgrades resolve toolchain compatibility issues while
+maintaining functionality.
 
-**Note**: These specific versions were tested and verified to work with current Solana toolchain. Regular `cargo update` may pull incompatible versions.
+**Note**: These specific versions were tested and verified to work with current
+Solana toolchain. Regular `cargo update` may pull incompatible versions.
 
 ## Security Checklist
 

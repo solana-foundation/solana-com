@@ -1,404 +1,46 @@
 ---
 title: 토큰 계정 닫기
-description: 토큰 계정을 닫는 방법을 알아보세요.
+description: 토큰 계정을 닫고 계정의 lamport를 대상 계정으로 반환합니다.
+url: /docs/tokens/basics/close-account
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics/create-token-account
+related:
+  - /docs/tokens/basics/create-token-account
+  - /docs/tokens/basics/sync-native
+  - /docs/tokens/basics/burn-tokens
 ---
 
-## 계정 닫기
+## 토큰 계정 닫기는 무엇을 하나요?
 
-[`CloseAccount`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L212C5-L212C17)
-명령어는 token account를 영구적으로 닫고 남은 모든 SOL(rent)을 지정된 대상
-계정으로 전송합니다. token account를 닫기 전에 잔액이 0이어야 합니다. token
-account 소유자 또는 지정된 닫기 권한자만 이 명령어를 실행할 수 있습니다.
+토큰 계정을 닫으면 계정이 삭제되고 토큰 계정의 rent lamport가 대상 계정으로
+반환됩니다.
 
-<Callout type="info">
-  [토큰
-  프로그램](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L212C5-L212C17)과
-  [Token Extensions
-  프로그램](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L274)은
-  동일한 기능을 구현하기 위해 유사한 방식을 공유합니다.
-</Callout>
+계정을 닫기 전에 토큰 잔액이 0이어야 합니다. 동결된 계정도 토큰 잔액이 0이면
+닫을 수 있습니다. 래핑된 SOL 토큰 계정은 예외로, 기본 SOL을 회수하기 위해 토큰
+잔액이 있어도 닫을 수 있습니다. 계정 소유자 또는 계정의 닫기 권한자가 닫기
+명령에 서명합니다.
 
-### 타입스크립트
+## 토큰 계정을 닫는 방법
 
-<CodeTabs storage="token-ts" flags="r">
+토큰 계정 닫기는 Token Program의 _rs`CloseAccount`_ 명령을 사용합니다.
 
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_PROGRAM_ADDRESS,
-  findAssociatedTokenPda,
-  getCloseAccountInstruction
-} from "@solana-program/token";
+_rs`CloseAccount`_ 명령은 소스 계정의 lamport를 대상 계정으로 전송하고, 소스
+계정을 지우고, 소스 계정을 삭제합니다. Token Extensions Program은 특정 확장에
+대해 추가 닫기 검사를 적용하지만, 기본 닫기 흐름은 동일합니다.
 
-// Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+### 소스 참조
 
-// Generate keypairs for fee payer and destination
-const feePayer = await generateKeyPairSigner();
-const destination = await generateKeyPairSigner();
+| 항목                        | 설명                                                                                  | Token Program                                                                                                | Token Extensions Program                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| _rs`Account`_               | 토큰 계정 상태는 계정 닫기 중에 사용되는 잔액, 네이티브 상태, 닫기 권한을 저장합니다. | [소스](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/state.rs#L84-L108)        | [소스](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/state.rs#L99-L123)        |
+| _rs`CloseAccount`_          | 토큰 계정을 닫고 토큰 계정의 lamport를 대상 계정으로 전송하는 명령입니다.             | [소스](https://github.com/solana-program/token/blob/program%40v9.0.0/interface/src/instruction.rs#L197-L212) | [소스](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/instruction.rs#L240-L274) |
+| _rs`process_close_account`_ | 토큰 계정 닫기를 위한 공유 프로세서 로직입니다.                                       | [소스](https://github.com/solana-program/token/blob/program%40v9.0.0/program/src/processor.rs#L671-L709)     | [소스](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L1197-L1289)   |
 
-// Fund fee payer
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed"
-});
+### Typescript
 
-// Generate keypair to use as address of mint
-const mint = await generateKeyPairSigner();
-
-// Get default mint account size (in bytes), no extensions enabled
-const space = BigInt(getMintSize());
-
-// Get minimum balance for rent exemption
-const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
-
-// Get latest blockhash to include in transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Instruction to create new account for mint (token program)
-// Invokes the system program
-const createAccountInstruction = getCreateAccountInstruction({
-  payer: feePayer,
-  newAccount: mint,
-  lamports: rent,
-  space,
-  programAddress: TOKEN_PROGRAM_ADDRESS
-});
-
-// Instruction to initialize mint account data
-// Invokes the token program
-const initializeMintInstruction = getInitializeMintInstruction({
-  mint: mint.address,
-  decimals: 9,
-  mintAuthority: feePayer.address
-});
-
-// Use findAssociatedTokenPda to derive the ATA address
-const [associatedTokenAddress] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS
-});
-
-// Create instruction to create the associated token account
-const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
-  payer: feePayer,
-  mint: mint.address,
-  owner: feePayer.address
-});
-
-const instructions = [
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAtaInstruction
-];
-
-// Create transaction message
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions(instructions, tx)
-);
-
-// Sign transaction message with all required signers
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log("Mint Address:", mint.address.toString());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAddress.toString()
-);
-console.log("Destination Address:", destination.address.toString());
-console.log("Transaction Signature:", transactionSignature);
-
-// Get a fresh blockhash for the close transaction
-const { value: closeBlockhash } = await rpc.getLatestBlockhash().send();
-
-// Create instruction to close the token account
-const closeAccountInstruction = getCloseAccountInstruction({
-  account: associatedTokenAddress,
-  destination: destination.address,
-  owner: feePayer
-});
-
-// Create transaction message for closing
-const closeTxMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(closeBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([closeAccountInstruction], tx)
-);
-
-// Sign transaction message with all required signers
-const signedCloseTx = await signTransactionMessageWithSigners(closeTxMessage);
-
-// Send and confirm transaction
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedCloseTx,
-  { commitment: "confirmed" }
-);
-
-// Get transaction signature
-const transactionSignature2 = getSignatureFromTransaction(signedCloseTx);
-
-console.log("\nSuccessfully closed the token account");
-console.log("Transaction Signature:", transactionSignature2);
-```
-
-```ts !! title="Legacy"
-import {
-  Connection,
-  Keypair,
-  sendAndConfirmTransaction,
-  SystemProgram,
-  Transaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  createInitializeMintInstruction,
-  MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  createCloseAccountInstruction
-} from "@solana/spl-token";
-
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-// Generate a new keypair for the fee payer
-const feePayer = Keypair.generate();
-
-// Generate a new keypair for the destination (to receive SOL from closed account)
-const destination = Keypair.generate();
-
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
-
-// Generate keypair to use as address of mint
-const mint = Keypair.generate();
-
-// Get minimum balance for rent exemption
-const mintRent = await getMinimumBalanceForRentExemptMint(connection);
-
-// Get the associated token account address
-const associatedTokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  feePayer.publicKey,
-  false, // allowOwnerOffCurve
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-// Create account instruction
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: mintRent,
-  programId: TOKEN_PROGRAM_ID
-});
-
-// Initialize mint instruction
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // mint pubkey
-  9, // decimals
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  TOKEN_PROGRAM_ID
-);
-
-// Create associated token account instruction
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account address
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-
-// Create and sign transaction with mint creation and ATA creation
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
-}).add(
-  createAccountInstruction,
-  initializeMintInstruction,
-  createAssociatedTokenAccountIx
-);
-
-// Sign transaction
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [feePayer, mint]
-);
-
-console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAccount.toBase58()
-);
-console.log("Destination Address:", destination.publicKey.toBase58());
-console.log("Transaction Signature:", transactionSignature);
-
-// Get a new blockhash for the close transaction
-const latestBlockhash2 = await connection.getLatestBlockhash();
-
-// Create close account instruction
-const closeAccountInstruction = createCloseAccountInstruction(
-  associatedTokenAccount, // token account to close
-  destination.publicKey, // destination to receive SOL
-  feePayer.publicKey, // owner of token account
-  [], // multiSigners
-  TOKEN_PROGRAM_ID // programId
-);
-
-// Create and sign transaction for closing token account
-const closeTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash2.blockhash,
-  lastValidBlockHeight: latestBlockhash2.lastValidBlockHeight
-}).add(closeAccountInstruction);
-
-// Sign and send close transaction
-const transactionSignature2 = await sendAndConfirmTransaction(
-  connection,
-  closeTransaction,
-  [feePayer]
-);
-
-console.log("\nSuccessfully closed the token account");
-console.log("Transaction Signature:", transactionSignature2);
-```
-
-```ts !! title="Legacy Helper"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import {
-  createMint,
-  createAssociatedTokenAccount,
-  closeAccount,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
-
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-// Generate a new keypair for the fee payer
-const feePayer = Keypair.generate();
-
-// Generate a new keypair for the destination (to receive SOL from closed account)
-const destination = Keypair.generate();
-
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
-
-// Create mint using helper function
-const mintPubkey = await createMint(
-  connection, // connection
-  feePayer, // fee payer
-  feePayer.publicKey, // mint authority
-  feePayer.publicKey, // freeze authority
-  9, // decimals
-  Keypair.generate(), // keypair (optional)
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Mint Address:", mintPubkey.toBase58());
-
-// Create associated token account using helper function
-const associatedTokenAccount = await createAssociatedTokenAccount(
-  connection, // connection
-  feePayer, // fee payer
-  mintPubkey, // mint
-  feePayer.publicKey, // owner
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log(
-  "Associated Token Account Address:",
-  associatedTokenAccount.toBase58()
-);
-console.log("Destination Address:", destination.publicKey.toBase58());
-
-// Close the token account (balance must be 0)
-const closeSignature = await closeAccount(
-  connection,
-  feePayer,
-  associatedTokenAccount, // Token account to close
-  destination.publicKey, // Destination to receive SOL
-  feePayer, // Owner of token account
-  [],
-  {
-    commitment: "confirmed"
-  },
-  TOKEN_PROGRAM_ID
-);
-
-console.log("\nSuccessfully closed the token account");
-console.log("Transaction Signature:", closeSignature);
-```
-
-</CodeTabs>
-
-### 러스트
+아래의 `Kit` 예제는 `@solana/kit`를 사용하는 권장 접근 방식을 보여줍니다.
+`@solana/web3.js`를 사용하는 레거시 예제는 참조용으로 포함되어 있습니다.
 
 <CodeTabs storage="token-rs" flags="r">
 
@@ -603,6 +245,406 @@ async def main():
         print(f"Owner: {owner.pubkey()}")
         print(f"Destination: {destination}")
         print(f"Close token account transaction created successfully")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</CodeTabs>
+
+```ts !! title="Helper Function"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccount,
+  closeAccount,
+  createMint,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:40) collapsed
+// Setup: create a mint and the payer's ATA before closing the token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintPubkey = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  2,
+  Keypair.generate(),
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+const associatedTokenAccount = await createAssociatedTokenAccount(
+  connection,
+  feePayer,
+  mintPubkey,
+  feePayer.publicKey,
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+const destination = feePayer.publicKey;
+
+// !mark(1:12)
+const result = await closeAccount(
+  connection, // Connection to the local validator.
+  feePayer, // Account paying transaction fees.
+  associatedTokenAccount, // Token account to close.
+  destination, // Account receiving the reclaimed SOL.
+  feePayer, // Owner approving the account closure.
+  [], // Additional multisig signers.
+  {
+    commitment: "confirmed" // Confirmation options for the transaction.
+  },
+  TOKEN_PROGRAM_ID // Token program to invoke.
+);
+
+const tokenAccountData = await connection.getAccountInfo(
+  associatedTokenAccount,
+  "confirmed"
+);
+
+console.log("Mint Address:", mintPubkey.toBase58());
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nDestination Address:", destination.toBase58());
+console.log("\nTransaction Signature:", result);
+```
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createCloseAccountInstruction,
+  createInitializeMintInstruction,
+  getAssociatedTokenAddressSync,
+  getMinimumBalanceForRentExemptMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:61) collapsed
+// Setup: create a mint and the payer's ATA before closing the token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = Keypair.generate();
+const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+const associatedTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      2,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_PROGRAM_ID
+    ),
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey,
+      associatedTokenAccount,
+      feePayer.publicKey,
+      mint.publicKey,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )
+  ),
+  [feePayer, mint]
+);
+
+const destination = feePayer.publicKey;
+const closeBlockhash = await connection.getLatestBlockhash();
+
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: closeBlockhash.blockhash,
+    lastValidBlockHeight: closeBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:7)
+    createCloseAccountInstruction(
+      associatedTokenAccount, // Token account to close.
+      destination, // Account receiving the reclaimed SOL.
+      feePayer.publicKey, // Owner approving the account closure.
+      [], // Additional multisig signers.
+      TOKEN_PROGRAM_ID // Token program to invoke.
+    )
+  ),
+  [feePayer]
+);
+
+const tokenAccountData = await connection.getAccountInfo(
+  associatedTokenAccount,
+  "confirmed"
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nDestination Address:", destination.toBase58());
+console.log("\nTransaction Signature:", result);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address, instruction::create_associated_token_account,
+};
+use spl_token_interface::{
+    id as token_program_id,
+    instruction::{close_account, initialize_mint},
+    state::{Account, Mint},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // !collapse(1:48) collapsed
+    // Setup: create a mint and the payer's ATA before closing the token account.
+    let fee_payer = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let mint = Keypair::new();
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(Mint::LEN)
+        .await?;
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                Mint::LEN as u64,
+                &token_program_id(),
+            ),
+            initialize_mint(
+                &token_program_id(),
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                2,
+            )?,
+            create_associated_token_account(
+                &fee_payer.pubkey(),
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                &token_program_id(),
+            ),
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
+    client
+        .send_and_confirm_transaction(&setup_transaction)
+        .await?;
+
+    let associated_token_address = get_associated_token_address(&fee_payer.pubkey(), &mint.pubkey());
+    let destination = fee_payer.pubkey();
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            // !mark(1:7)
+            close_account(
+                &token_program_id(), // Token program to invoke.
+                &associated_token_address, // Token account to close.
+                &destination, // Account receiving the reclaimed SOL.
+                &fee_payer.pubkey(), // Owner approving the account closure.
+                &[], // Additional multisig signers.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let token_data = match client.get_account(&associated_token_address).await {
+        Ok(account) => Some(Account::unpack(&account.data)?),
+        Err(_) => None,
+    };
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "\nAssociated Token Account Address: {}",
+        associated_token_address
+    );
+    println!("Associated Token Account: {:#?}", token_data);
+    println!("\nDestination Address: {}", destination);
+    println!("\nTransaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Python
+
+<CodeTabs flags="r">
+
+```py !! title="Python"
+#!/usr/bin/env python3
+
+import asyncio
+import json
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.message import Message
+from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
+from spl.token.async_client import AsyncToken
+from spl.token.instructions import (
+    close_account,
+    CloseAccountParams,
+    create_associated_token_account,
+    get_associated_token_address,
+    initialize_mint,
+    InitializeMintParams,
+)
+from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
+
+async def main():
+    rpc = AsyncClient("http://localhost:8899")
+
+    async with rpc:
+        # !collapse(1:20) collapsed
+        # Setup: create a mint and empty token account before closing the token account.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        mint = Keypair()
+        token_account_address = get_associated_token_address(fee_payer.pubkey(), mint.pubkey())
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=2, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey())),
+            create_associated_token_account(fee_payer.pubkey(), fee_payer.pubkey(), mint.pubkey(), TOKEN_PROGRAM_ID),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
+
+        # !mark(1:8)
+        close_account_instruction = close_account(
+            CloseAccountParams(
+                program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                account=token_account_address,  # Token account to close.
+                dest=fee_payer.pubkey(),  # Account receiving the reclaimed lamports.
+                owner=fee_payer.pubkey(),  # Account allowed to close the token account.
+            )
+        )
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer],
+            Message([close_account_instruction], fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
+        )
+        result = await rpc.send_transaction(transaction)
+
+        closed_token_account = (await rpc.get_account_info(token_account_address)).value
+
+        print("Mint Address:", mint.pubkey())
+        print("\nToken Account Address:", token_account_address)
+        print("Token Account:")
+        print(json.dumps(closed_token_account, indent=2))
+        print("\nTransaction Signature:", result.value)
 
 if __name__ == "__main__":
     asyncio.run(main())

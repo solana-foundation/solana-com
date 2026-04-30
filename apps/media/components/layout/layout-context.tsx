@@ -50,7 +50,7 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({
     GlobalSettings | undefined
   >(initialGlobalSettings);
   const [pageData, setPageData] = useState<Record<string, unknown>>(
-    initialPageData || {}
+    initialPageData || {},
   );
 
   const theme = globalSettings?.theme || { color: "blue", darkMode: "system" };

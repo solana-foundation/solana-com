@@ -1,12 +1,21 @@
 ---
 title: 创建 Token Account
-description: 了解如何创建 SPL Token Account。
+description: 为特定铸币和所有者创建代币账户和关联代币账户。
+url: /docs/tokens/basics/create-token-account
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics
+  - /docs/tokens/basics/create-mint
+related:
+  - /docs/tokens/basics/mint-tokens
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/basics/close-account
+  - /docs/tokens/basics/sync-native
 ---
 
-## 什么是 Token Account？
+## 什么是代币账户
 
-Token Account 用于存储你某一特定代币的余额。每个 Token
-Account 都只关联一个 mint，并记录你的代币余额及其他详细信息。
+在 Solana 上,一个 token account 为一个铸币和一个代币账户所有者存储代币。
 
 ```rust title="Token Account Type"
 /// Account data.
@@ -36,38 +45,52 @@ pub struct Account {
 }
 ```
 
-<Callout type="info">
-  请注意，在源代码中，开发者将 Token Account 称为 `Account` 类型。无论是 [Token
-  Program](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
-  还是 [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/state.rs#L102-L123)，Token
-  Account 的底层实现都是一致的。
-</Callout>
+这里,_rs`owner`_ 是指能够从 token
+account 转移、销毁或委托代币的权限。该账户的程序所有者仍然是 Token
+Program 或 Token Extensions Program。
 
-要持有代币，你需要为该 mint 创建一个 Token Account。每个 Token Account 会记录：
+每个 token account 都与一个铸币绑定,这意味着该 token
+account 只能持有一种代币的单位,即由该 token account 的 _rs`mint`_
+字段标识的代币。
 
-1. **Mint**：它所持有的具体代币类型
-2. **Owner**：有权从该账户转出代币的权限方
+## 什么是关联代币账户
 
-### 示例：USD Coin (USDC)
+Associated token account (ATA) 是钱包和铸币的默认 token
+account。[Associated Token Program](https://github.com/solana-program/associated-token-account/tree/main/program/src)
+从钱包地址、代币程序地址和铸币地址派生 ATA 地址。
 
-- Mint 地址：`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
-- Circle 的 Token Account：`3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa`
-- 此账户仅持有 USDC 代币
-- Circle 通过 Token Account 的 owner 权限控制代币：
-  `7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE`
+只有由 Associated Token Program 创建的 token account 才被称为 associated token
+account。
 
-你可以在
-[Solana Explorer](https://explorer.solana.com/address/3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa)
-上查看该 Token Account 的详细信息。
+Associated Token Program 是一种在标准的、确定性地址创建 token
+account 的方法。生成的账户仍然是由 Token Program 或 Token Extensions
+Program 拥有的 token account,而不是由 Associated Token Program 拥有。
 
-<Callout type="info">
-  **理解“Owner”术语**
+Associated Token Program 按照
+[address.rs](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/interface/src/address.rs#L56-L70)
+中所示派生 ATA 地址:
 
-“Owner” 这个词在两种不同的语境下使用：
+```rust title="Associated Token Account Address Derivation"
+pub fn get_associated_token_address_and_bump_seed_internal(
+    wallet_address: &Pubkey,
+    token_mint_address: &Pubkey,
+    program_id: &Pubkey,
+    token_program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            &wallet_address.to_bytes(), // Owner's public key
+            &token_program_id.to_bytes(), // Token Program or Token Extension Program
+            &token_mint_address.to_bytes(), // Token mint address
+        ],
+        program_id, // Associated Token Program ID
+    )
+}
+```
 
-1. **Token Account Owner**：有权转账、销毁或委托代币的权限方。该信息存储在 Token
-   Account 的数据中。
+对于任何钱包、代币程序和铸币组合,都只有一个 ATA 地址。Associated Token
+Program 在该地址创建一个标准 token account,生成的账户仍然使用 Token
+Program 或 Token Extensions Program 定义的 _rs`Account`_ 类型。
 
 2. **Program Owner**：拥有该账户的程序（对于 Token Account 来说，始终是 Token
    Program 或 Token Extension Program）。
@@ -1137,6 +1160,212 @@ async def main():
         print(f"Associated Token Account: {associated_token_account}")
         print(f"Mint: {mint_address}")
         print(f"Associated token account created successfully")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</CodeTabs>
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_token_interface::{
+    id as token_program_id,
+    instruction::{initialize_account, initialize_mint},
+    state::{Account, Mint},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // !collapse(1:41) collapsed
+    // Setup: create a mint before creating the token account.
+    let fee_payer = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let mint = Keypair::new();
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(Mint::LEN)
+        .await?;
+
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let setup_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(),
+                &mint.pubkey(),
+                mint_rent,
+                Mint::LEN as u64,
+                &token_program_id(),
+            ),
+            initialize_mint(
+                &token_program_id(),
+                &mint.pubkey(),
+                &fee_payer.pubkey(),
+                Some(&fee_payer.pubkey()),
+                2,
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
+    client.send_and_confirm_transaction(&setup_transaction).await?;
+
+    let token_account = Keypair::new();
+    let token_account_rent = client
+        .get_minimum_balance_for_rent_exemption(Account::LEN)
+        .await?;
+
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+    // !mark(1:13)
+            create_account(
+                &fee_payer.pubkey(), // Account funding account creation.
+                &token_account.pubkey(), // New token account to create.
+                token_account_rent, // Lamports funding the new account rent.
+                Account::LEN as u64, // Account size in bytes.
+                &token_program_id(), // Program that owns the new account.
+            ),
+            initialize_account(
+                &token_program_id(),
+                &token_account.pubkey(), // Token account to initialize.
+                &mint.pubkey(), // Mint for the token this account holds.
+                &fee_payer.pubkey(), // Account that owns the token account.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &token_account],
+        latest_blockhash,
+    );
+
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let token_account_data = client.get_account(&token_account.pubkey()).await?;
+    let token_data = Account::unpack(&token_account_data.data)?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("\nToken Account Address: {}", token_account.pubkey());
+    println!("Token Account: {:#?}", token_data);
+    println!("\nTransaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+### Python
+
+<CodeTabs flags="r">
+
+```py !! title="Python"
+#!/usr/bin/env python3
+
+import asyncio
+import json
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.message import Message
+from solders.pubkey import Pubkey
+from solders.system_program import create_account, CreateAccountParams
+from solders.transaction import Transaction
+from spl.token.async_client import AsyncToken
+from spl.token.instructions import (
+    initialize_account,
+    InitializeAccountParams,
+    initialize_mint,
+    InitializeMintParams,
+)
+from spl.token.constants import ACCOUNT_LEN, MINT_LEN, TOKEN_PROGRAM_ID
+
+async def main():
+    rpc = AsyncClient("http://localhost:8899")
+
+    async with rpc:
+        # !collapse(1:18) collapsed
+        # Setup: create and initialize a mint before creating the token account.
+        fee_payer = Keypair()
+        airdrop_signature = (await rpc.request_airdrop(fee_payer.pubkey(), 1_000_000_000)).value
+        await rpc.confirm_transaction(airdrop_signature)
+        mint = Keypair()
+        mint_rent = (await rpc.get_minimum_balance_for_rent_exemption(MINT_LEN)).value
+        setup_instructions = [
+            create_account(CreateAccountParams(from_pubkey=fee_payer.pubkey(), to_pubkey=mint.pubkey(), lamports=mint_rent, space=MINT_LEN, owner=TOKEN_PROGRAM_ID)),
+            initialize_mint(InitializeMintParams(decimals=2, program_id=TOKEN_PROGRAM_ID, mint=mint.pubkey(), mint_authority=fee_payer.pubkey(), freeze_authority=fee_payer.pubkey())),
+        ]
+        setup_blockhash = await rpc.get_latest_blockhash()
+        setup_transaction = Transaction(
+            [fee_payer, mint],
+            Message(setup_instructions, fee_payer.pubkey()),
+            setup_blockhash.value.blockhash,
+        )
+        await rpc.send_transaction(setup_transaction)
+        token = AsyncToken(rpc, mint.pubkey(), TOKEN_PROGRAM_ID, fee_payer)
+
+        token_account = Keypair()
+        token_account_rent = (await rpc.get_minimum_balance_for_rent_exemption(ACCOUNT_LEN)).value
+
+        # !mark(1:19)
+        create_token_account_instructions = [
+            create_account(
+                CreateAccountParams(
+                    from_pubkey=fee_payer.pubkey(),  # Account funding account creation.
+                    to_pubkey=token_account.pubkey(),  # New token account to create.
+                    lamports=token_account_rent,  # Lamports funding the new account rent.
+                    space=ACCOUNT_LEN,  # Account size in bytes.
+                    owner=TOKEN_PROGRAM_ID,  # Program that owns the new token account.
+                )
+            ),
+            initialize_account(
+                InitializeAccountParams(
+                    program_id=TOKEN_PROGRAM_ID,  # Token program to invoke.
+                    account=token_account.pubkey(),  # Token account to initialize.
+                    mint=mint.pubkey(),  # Mint for the token this account holds.
+                    owner=fee_payer.pubkey(),  # Account that owns the token account.
+                )
+            ),
+        ]
+        latest_blockhash = await rpc.get_latest_blockhash()
+        transaction = Transaction(
+            [fee_payer, token_account],
+            Message(create_token_account_instructions, fee_payer.pubkey()),
+            latest_blockhash.value.blockhash,
+        )
+        result = await rpc.send_transaction(transaction)
+
+        token_account_info = await token.get_account_info(token_account.pubkey())
+        token_account_data = {
+            key: str(value) if isinstance(value, Pubkey) else value
+            for key, value in token_account_info._asdict().items()
+        }
+
+        print("Mint Address:", mint.pubkey())
+        print("\nToken Account Address:", token_account.pubkey())
+        print("Token Account:")
+        print(json.dumps(token_account_data, indent=2))
+        print("\nTransaction Signature:", result.value)
 
 if __name__ == "__main__":
     asyncio.run(main())

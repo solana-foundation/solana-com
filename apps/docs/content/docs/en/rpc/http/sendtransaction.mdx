@@ -4,7 +4,12 @@ hideTableOfContents: true
 h1: sendTransaction RPC Method
 ---
 
-Submits a signed transaction to the cluster for processing.
+Submits a signed transaction to the cluster and returns its first signature if
+the RPC accepts it.
+
+<Callout type="info" title="Source">
+  [`send_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L3796)
+</Callout>
 
 This method does not alter the transaction in any way; it relays the transaction
 created by clients to the node as-is.
@@ -23,10 +28,10 @@ transaction is processed and confirmed.
 Before submitting, the following preflight checks are performed:
 
 1. The transaction signatures are verified
-2. The transaction is simulated against the bank slot specified by the preflight
-   commitment. On failure an error will be returned. Preflight checks may be
-   disabled if desired. It is recommended to specify the same commitment and
-   preflight commitment to avoid confusing behavior.
+2. The transaction is simulated against the state at the preflight commitment.
+   On failure an error will be returned. Preflight checks may be disabled if
+   desired. It is recommended to specify the same commitment and preflight
+   commitment to avoid confusing behavior.
 
 The returned signature is the first signature in the transaction, which is used
 to identify the transaction
@@ -42,7 +47,14 @@ can be easily extracted from the transaction data before submission.
   "method": "sendTransaction",
   "params": [
     // !hover transaction
-    "4hXTCkRzt9WyecNzV1XPgCDfGAZzQKNxLXgynz5QDuWWPSAZBZSHptvWRL3BjCvzUXRdKvHL2b7yGrRQcWyaqsaBCncVG7BFggS8w9snUts67BSh3EqKpXLUm5UMHfD7ZBe9GhARjbNQMLJ1QD3Spr6oMTBU6EhdB4RD8CP2xUxr2u3d6fos36PD98XS6oX8TQjLpsMwncs5DAMiD4nNnR8NBfyghGCWvCVifVwvA8B8TJxE1aiyiv2L429BCWfyzAme5sZW8rDb14NeCQHhZbtNqfXhcp2tAnaAT"
+    "AX9ymHgILTd01GtdBsbQZ9by5D4z4UWh+1Tsh6LDuPHuZk/Z8LrIwoKZRp3le2RTb5lywL1xcJGQ8u3M3U0tyAgBAAEDXCL+JarHftfP5QgsRxpEsr+/YiRWQeCz7PI3jfzeppEvUc61u+TNHri9ChQdLN2evWGx+1O3MwbPFKV5rIqlxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAvOdVbvGn3R+uBkugNCq8C/Texc7ILBoYjbn4aVQV0OgBAgIAAQwCAAAAQEIPAAAAAAA=",
+    // !hover(1:5) config
+    {
+      // !hover encoding
+      "encoding": "base64",
+      // !hover skipPreflight
+      "skipPreflight": true
+    }
   ]
 }
 ```
@@ -50,7 +62,7 @@ can be easily extracted from the transaction data before submission.
 ```ts !!request title="Kit"
 import {
   createSolanaRpc,
-  type Base64EncodedWireTransaction,
+  type Base64EncodedWireTransaction
 } from "@solana/kit";
 
 const rpc_url = "https://api.devnet.solana.com";
@@ -62,7 +74,7 @@ const base64Tx =
 
 const signature = await rpc
   .sendTransaction(base64Tx as Base64EncodedWireTransaction, {
-    encoding: "base64",
+    encoding: "base64"
   })
   .send();
 
@@ -73,7 +85,7 @@ console.log(signature);
 import {
   Connection,
   VersionedTransaction,
-  clusterApiUrl,
+  clusterApiUrl
 } from "@solana/web3.js";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
@@ -136,39 +148,57 @@ async fn main() -> Result<()> {
 
 #### !! transaction
 
-!type string
-!required
+!type string !required
 
 Fully-signed Transaction, as encoded string.
 
 #### !! config
 
-!type object
+!type object !optional
 
 Configuration object containing the following fields:
 
 ##### !! encoding
 
-!type string
-!values base58 base64
-!default base58
+!type string !values binary base58 base64 !default base58
 
-Encoding used for the transaction data. Values: `base58` (_slow_,
-**DEPRECATED**), or `base64`.
+Encoding used for the transaction data.
+
+| Encoding | Notes                                                                          |
+| -------- | ------------------------------------------------------------------------------ |
+| `base64` | Recommended                                                                    |
+| `base58` | Slow                                                                           |
+| `binary` | ⚠️ Deprecated. Legacy alias for `base58`, retained for backwards compatibility |
 
 ##### !! skipPreflight
 
-!type bool
+!type bool !values true false !default false
 
 When `true`, skip the preflight transaction checks. Default: `false`.
 
+```json title="Example"
+{ "skipPreflight": true }
+```
+
 ##### !! preflightCommitment
 
-!type string
+!type string !values processed confirmed finalized !default finalized
 
-Commitment level to use for preflight. See
-[Configuring State Commitment](/docs/rpc#configuring-state-commitment).
-Default `finalized`.
+Commitment level to use for preflight when `skipPreflight` is `false`. Default
+`finalized`. When `skipPreflight` is `true`, this field is ignored and Agave
+uses `processed` internally.
+
+Solana RPC uses the following commitment levels:
+
+| Value       | Description                                                                                                                                                                                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `processed` | Return data from the highest slot this node has processed on the fork it currently considers best. This is the newest view, but it can still change if the cluster switches forks.                                                                                      |
+| `confirmed` | Return data from the highest slot that at least two-thirds of active stake has directly voted to confirm. This is more stable than `processed`, but it is still a weaker guarantee than `finalized`.                                                                    |
+| `finalized` | Return data from the highest slot that the cluster recognizes as finalized. In Agave, this means the slot has reached maximum vote lockout in validators' vote towers and is recognized by at least two-thirds of active stake. This is the strongest commitment level. |
+
+```json title="Example"
+{ "preflightCommitment": "confirmed" }
+```
 
 ##### !! maxRetries
 
@@ -178,12 +208,19 @@ Maximum number of times for the RPC node to retry sending the transaction to the
 leader. If this parameter not provided, the RPC node will retry the transaction
 until it is finalized or until the blockhash expires.
 
+```json title="Example"
+{ "maxRetries": 5 }
+```
+
 ##### !! minContextSlot
 
-!type number
-!optional
+!type number !optional
 
 Set the minimum slot at which to perform preflight transaction checks
+
+```json title="Example"
+{ "minContextSlot": 341197000 }
+```
 
 ### !!result
 

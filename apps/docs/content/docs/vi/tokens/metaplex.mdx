@@ -1,0 +1,359 @@
+---
+title: Metadata Metaplex
+description:
+  Tìm hiểu cách thêm metadata vào SPL Token bằng Chương trình Token Metadata của
+  Metaplex.
+---
+
+Các SPL Token tiêu chuẩn không bao gồm metadata như tên, ký hiệu hoặc hình ảnh.
+[Chương trình Token Metadata của Metaplex](https://developers.metaplex.com/token-metadata)
+giải quyết vấn đề này bằng cách tạo một tài khoản metadata liên kết với mỗi
+token mint.
+
+<Callout type="info">
+  Hướng dẫn này đề cập đến Chương trình Token Metadata của Metaplex có thể được
+  sử dụng cho các SPL Token tiêu chuẩn và Token-2022. Để sử dụng Token-2022
+  Metadata Extension, hãy xem [hướng dẫn Metadata
+  Extension](/docs/tokens/extensions/metadata) lưu trữ metadata trực tiếp trên
+  tài khoản mint.
+</Callout>
+
+## Cách Token Metadata Hoạt động
+
+Chương trình Token Metadata tạo một Program Derived Address (PDA) cho mỗi token
+mint. Tài khoản metadata này lưu trữ thông tin on-chain như tên và ký hiệu của
+token, cùng với URI trỏ đến metadata JSON off-chain (hình ảnh, mô tả, v.v.).
+
+```text
+┌─────────────────┐       ┌─────────────────────┐
+│   Mint Account  │       │  Metadata Account   │
+│                 │       │  (PDA)              │
+│  - Supply       │◄──────│  - Name             │
+│  - Decimals     │       │  - Symbol           │
+│  - Authority    │       │  - URI              │
+└─────────────────┘       │  - Seller Fee       │
+                          │  - Creators         │
+                          └─────────────────────┘
+```
+
+PDA metadata được tạo từ các seed: `["metadata", program_id, mint_address]`
+
+## Tạo Token với Metadata
+
+Lệnh `createV1` tạo cả tài khoản mint và metadata của nó trong một giao dịch duy
+nhất.
+
+### Typescript
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getCreateV1InstructionAsync,
+  TokenStandard
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Create fungible token with metadata
+const createInstruction = await getCreateV1InstructionAsync({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0,
+  tokenStandard: TokenStandard.Fungible
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+```ts !! title="Kit Helper"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { createFungible } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Use the createFungible helper for simpler API
+const createInstruction = await createFungible({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+</CodeTabs>
+
+## Lấy Token Metadata
+
+Để tìm hiểu cách lấy metadata cho các token hiện có, hãy xem công thức
+[Fetch Token Metadata](/developers/cookbook/tokens/fetch-token-metadata) trong
+cookbook.
+
+## Cập nhật Token Metadata
+
+Quyền cập nhật có thể sửa đổi metadata nếu tài khoản có thể thay đổi.
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getUpdateV1InstructionAsync,
+  findMetadataPda,
+  fetchMetadata
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// authority must be a KeyPairSigner with update authority
+const mintAddress = "YOUR_MINT_ADDRESS";
+
+// Fetch current metadata to preserve existing values
+const [metadataAddress] = await findMetadataPda({ mint: mintAddress });
+const currentMetadata = await fetchMetadata(rpc, metadataAddress);
+
+// Update metadata (must provide all data fields)
+const updateInstruction = await getUpdateV1InstructionAsync({
+  mint: mintAddress,
+  authority, // Update authority signer
+  payer: authority,
+  data: {
+    name: "Updated Token Name",
+    symbol: "UPD",
+    uri: "https://example.com/updated-token.json",
+    sellerFeeBasisPoints: 100, // 1%
+    creators:
+      currentMetadata.data.creators.__option === "Some"
+        ? currentMetadata.data.creators.value
+        : null
+  }
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([updateInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Metadata updated successfully");
+```
+
+</CodeTabs>
+
+## Tiêu chuẩn Token
+
+Chương trình Token Metadata hỗ trợ các tiêu chuẩn token khác nhau:
+
+| Tiêu chuẩn                       | Mô tả                                        | Trường hợp sử dụng               |
+| -------------------------------- | -------------------------------------------- | -------------------------------- |
+| `Fungible`                       | Token fungible tiêu chuẩn với metadata       | Tiền tệ, điểm                    |
+| `FungibleAsset`                  | Token fungible đại diện cho tài sản độc nhất | Vật phẩm bán-fungible            |
+| `NonFungible`                    | NFT với Master Edition                       | Tác phẩm nghệ thuật 1/1          |
+| `ProgrammableNonFungible`        | NFT với phí bản quyền bắt buộc               | Phí bản quyền cho người sáng tạo |
+| `NonFungibleEdition`             | Bản sao in của NFT                           | Phiên bản giới hạn               |
+| `ProgrammableNonFungibleEdition` | Bản sao in với phí bản quyền bắt buộc        | Phiên bản giới hạn               |
+
+```ts
+import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// For fungible tokens
+tokenStandard: TokenStandard.Fungible;
+
+// For NFTs
+tokenStandard: TokenStandard.NonFungible;
+
+// For programmable NFTs (enforced royalties)
+tokenStandard: TokenStandard.ProgrammableNonFungible;
+```
+
+## Định dạng Metadata Ngoài Chuỗi
+
+Trường `uri` trỏ đến một tệp JSON chứa metadata mở rộng. Định dạng chuẩn tuân
+theo
+[Tiêu chuẩn Token Metadata của Metaplex](https://developers.metaplex.com/token-metadata/token-standard):
+
+```json title="token-metadata.json"
+{
+  "name": "My Token",
+  "symbol": "MTK",
+  "description": "A description of the token",
+  "image": "https://example.com/token-image.png",
+  "external_url": "https://example.com",
+  "attributes": [
+    {
+      "trait_type": "Category",
+      "value": "Utility"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://example.com/token-image.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
+```
+
+<Callout type="caution">
+  Lưu trữ tệp JSON metadata của bạn trên giải pháp lưu trữ đáng tin cậy và vĩnh
+  viễn như Arweave, IPFS, hoặc CDN chuyên dụng. Nếu URI không thể truy cập được,
+  ví và trình khám phá sẽ không thể hiển thị metadata của token của bạn.
+</Callout>
+
+## Cấu trúc Tài khoản Metadata
+
+Tài khoản metadata trên chuỗi chứa:
+
+```rust
+pub struct Metadata {
+    pub key: Key,                              // Account type identifier
+    pub update_authority: Pubkey,              // Can update metadata
+    pub mint: Pubkey,                          // Associated mint
+    pub name: String,                          // Token name (max 32 chars)
+    pub symbol: String,                        // Token symbol (max 10 chars)
+    pub uri: String,                           // URI to off-chain JSON (max 200 chars)
+    pub seller_fee_basis_points: u16,          // Royalty % (100 = 1%)
+    pub creators: Option<Vec<Creator>>,        // Creator list with shares
+    pub primary_sale_happened: bool,           // Primary sale flag
+    pub is_mutable: bool,                      // Can metadata be updated
+    pub edition_nonce: Option<u8>,             // Edition nonce
+    pub token_standard: Option<TokenStandard>, // Token type
+    pub collection: Option<Collection>,        // Collection info
+    pub uses: Option<Uses>,                    // Use tracking
+}
+```
+
+## Thực hành Tốt nhất
+
+1. **Đặt khả năng thay đổi phù hợp**: Sử dụng `isMutable: false` cho các token
+   không bao giờ nên thay đổi
+2. **Sử dụng lưu trữ URI đáng tin cậy**: Metadata ngoài chuỗi nên được lưu trữ
+   trên bộ nhớ vĩnh viễn
+3. **Xác minh người tạo**: Địa chỉ người tạo nên được xác minh để xác nhận tính
+   xác thực
+4. **Cân nhắc về phí bản quyền**: Đặt `sellerFeeBasisPoints` cho phí bản quyền
+   bán thứ cấp (các sàn giao dịch có thể thực thi hoặc không thực thi các khoản
+   này)

@@ -356,7 +356,7 @@ export function preprocessMDX(source: string): string {
     // Followed by whitespace, >, or / to avoid matching partial names
     result = result.replace(
       new RegExp(`<(/?)(${tag})(\\s|>|/)`, "g"),
-      (_, slash, _name, after) => `<${slash}${capitalized}${after}`
+      (_, slash, _name, after) => `<${slash}${capitalized}${after}`,
     );
   }
   return result;

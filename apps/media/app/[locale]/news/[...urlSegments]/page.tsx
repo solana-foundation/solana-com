@@ -1,7 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { format } from "date-fns";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
@@ -10,7 +9,11 @@ import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { config } from "@/lib/config";
+import remarkGfm from "remark-gfm";
+import { newsPostMetadata } from "@/lib/metadata";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
+import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -24,7 +27,7 @@ export default async function PostPage({
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
 
-  const post = await reader.collections.posts.read(slug);
+  const post = await fetchPublishedPostBySlug(slug);
 
   if (!post) {
     notFound();
@@ -48,11 +51,7 @@ export default async function PostPage({
     switchback = await reader.collections.switchbacks.read(post.switchback);
   }
 
-  const date = post.date ? new Date(post.date) : null;
-  let formattedDate = "";
-  if (date && !isNaN(date.getTime())) {
-    formattedDate = format(date, "d MMMM yyyy");
-  }
+  const formattedDate = formatPublishedAt(post.publishedAt, "long");
 
   return (
     <ErrorBoundary>
@@ -109,30 +108,33 @@ export default async function PostPage({
           if (cta) {
             return (
               <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
-                <div className="flex gap-8 lg:gap-12 items-start">
-                  <div className="flex-1 min-w-0">
+                <div className="flex flex-col lg:flex-row lg:items-stretch lg:gap-12">
+                  <div className="min-w-0 lg:flex-1">
                     <div className="prose dark:prose-dark w-full max-w-none">
                       <MDXRemote
                         source={mdxSource}
                         components={mdxComponents}
+                        options={{
+                          mdxOptions: { remarkPlugins: [remarkGfm] },
+                        }}
                       />
                     </div>
                   </div>
 
-                  <div className="hidden lg:block lg:w-50 lg:flex-shrink-0 relative">
-                    <div className="sticky top-24">
-                      <CallToAction
-                        eyebrow={cta.eyebrow || undefined}
-                        headline={cta.headline || undefined}
-                        description={cta.description || undefined}
-                        button={{
-                          label: cta.button?.label || "",
-                          url: cta.button?.url || "",
-                        }}
-                        className={cta.className || undefined}
-                      />
-                    </div>
-                  </div>
+                  <aside className="hidden lg:block lg:w-64 lg:flex-shrink-0 lg:self-stretch">
+                    <CallToAction
+                      eyebrow={cta.eyebrow || undefined}
+                      headline={cta.headline || undefined}
+                      description={cta.description || undefined}
+                      button={{
+                        label: cta.button?.label || "",
+                        url: cta.button?.url || "",
+                      }}
+                      className={["sticky top-24", cta.className]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                  </aside>
                 </div>
               </div>
             );
@@ -141,14 +143,20 @@ export default async function PostPage({
           return (
             <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
               <div className="prose dark:prose-dark w-full max-w-none">
-                <MDXRemote source={mdxSource} components={mdxComponents} />
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                  }}
+                />
               </div>
             </div>
           );
         })()}
       </Section>
       {switchback && (
-        <Section className="max-w-6xl mx-auto">
+        <Section>
           <Switchback
             title={String(switchback.title)}
             image={{
@@ -160,12 +168,34 @@ export default async function PostPage({
               <MDXRemote
                 source={preprocessMDX(await switchback.body())}
                 components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
               />
             }
             buttons={switchback.buttons?.map((button) => ({
               label: button?.label || "",
               url: button?.url || "",
             }))}
+            isReport={switchback.isReport || undefined}
+            hubspotForm={
+              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
+                ? {
+                    buttonLabel:
+                      switchback.hubspotForm.buttonLabel ||
+                      "Get the full report",
+                    portalId: String(switchback.hubspotForm.portalId),
+                    formId: String(switchback.hubspotForm.formId),
+                  }
+                : undefined
+            }
+            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
+            headline={switchback.headline || undefined}
+            description={
+              switchback.description
+                ? String(switchback.description)
+                : undefined
+            }
           />
         </Section>
       )}
@@ -176,7 +206,16 @@ export default async function PostPage({
 export async function generateStaticParams() {
   try {
     const slugs = await reader.collections.posts.list();
-    return slugs.map((slug) => ({
+    const publishedSlugs: string[] = [];
+
+    for (const slug of slugs) {
+      const post = await reader.collections.posts.read(slug);
+      if (isPublishedPost(post)) {
+        publishedSlugs.push(slug);
+      }
+    }
+
+    return publishedSlugs.map((slug) => ({
       urlSegments: slug.split("/"),
     }));
   } catch (error) {
@@ -192,84 +231,5 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
-
-  const post = await reader.collections.posts.read(slug);
-
-  if (!post) {
-    return {
-      title: "Post Not Found",
-      description: "",
-    };
-  }
-
-  // Get author name for meta
-  let authorName: string | undefined;
-  if (post.author) {
-    const author = await reader.collections.authors.read(post.author);
-    if (author) {
-      authorName = String(author.name);
-    }
-  }
-
-  // Derive SEO from post title, description, and hero image
-  const title = String(post.title);
-
-  // Description is a plain text field, not a content document, so access it directly
-  const description = post.description
-    ? String(post.description).trim()
-    : undefined;
-
-  // Use hero image for OG and Twitter images
-  const ogImage = post.heroImage || config.siteMetadata.socialShare;
-
-  // Build canonical URL
-  const canonicalUrl = `${config.siteUrl}/news/${slug}`;
-
-  return {
-    title,
-    description: description || undefined,
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
-    openGraph: {
-      title,
-      description: description || undefined,
-      url: canonicalUrl,
-      type: "article",
-      siteName: config.siteMetadata.title,
-      images: ogImage
-        ? [
-            {
-              url: ogImage,
-              width: 1200,
-              height: 630,
-              alt: title,
-            },
-          ]
-        : undefined,
-      publishedTime: post.date || undefined,
-      authors: authorName ? [authorName] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: description || undefined,
-      images: ogImage ? [ogImage] : undefined,
-      creator: config.social.twitter.name
-        ? `@${config.social.twitter.name}`
-        : undefined,
-    },
-    authors: authorName ? [{ name: authorName }] : undefined,
-    alternates: {
-      canonical: canonicalUrl,
-    },
-  };
+  return newsPostMetadata(slug);
 }

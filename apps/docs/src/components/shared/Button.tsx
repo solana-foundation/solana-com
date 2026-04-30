@@ -106,7 +106,8 @@ const Button = ({
 
   const variantClasses = buttonVariants({ variant, size });
 
-  const disabledClasses = "disabled:opacity-[0.65] disabled:poiter-events-none";
+  const disabledClasses =
+    "disabled:opacity-[0.65] disabled:pointer-events-none";
 
   const Tag = to ? Link : "button";
   const tagProps = to

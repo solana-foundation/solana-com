@@ -35,7 +35,7 @@ const wrapper = cva(
         true: ["aspect-square"],
       },
     },
-  }
+  },
 );
 
 const content = cva([

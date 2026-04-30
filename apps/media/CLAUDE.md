@@ -1,36 +1,15 @@
-<!-- OPENSPEC:START -->
-
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 # Solana Media - Blog & News
 
 > See root `/CLAUDE.md` for monorepo-wide configuration and shared tooling.
 
 ## Overview
 
-The Solana blog and media site, powered by Keystatic for content management. Includes blog posts, podcasts, and marketing content with a visual CMS editing experience.
+The Solana blog and media site, powered by Keystatic for content management.
+Includes blog posts, podcasts, and marketing content with a visual CMS editing
+experience.
 
-**Package name**: `solana-com-media`
-**Default port**: 3002
-**Asset prefix**: `/media-assets`
+**Package name**: `solana-com-media` **Default port**: 3002 **Asset prefix**:
+`/media-assets`
 
 ## Tech Stack
 
@@ -51,9 +30,8 @@ apps/media/
 │   │   ├── news/              # Blog posts listing
 │   │   ├── podcast/           # Podcast episodes
 │   │   └── [...slug]/         # Dynamic content pages
-│   ├── admin/                 # Legacy admin interface
 │   ├── keystatic/             # Keystatic admin interface
-│   └── api/                   # API routes (RSS, etc.)
+│   └── api/                   # API routes (RSS, Keystatic, etc.)
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -123,15 +101,28 @@ Access the CMS at `/keystatic`:
 
 - Visual editing interface
 - Media management (uploads to `public/uploads/`)
-- GitHub mode for production, local mode for development
+- **Local mode** for development (filesystem storage, no auth needed)
+- **GitHub mode** for production (users authenticate via GitHub OAuth)
+
+### Authentication
+
+Keystatic uses a **GitHub App** (not an OAuth App) for production access:
+
+1. Deploy with GitHub storage enabled (`NEXT_PUBLIC_KEYSTATIC_LOCAL` unset or
+   false)
+2. Visit `/keystatic` and click "Create GitHub App"
+3. Keystatic walks you through GitHub's app creation wizard
+4. Env vars (`KEYSTATIC_GITHUB_CLIENT_ID`, etc.) are auto-generated
+5. Users with repo write access can edit directly; others create PRs via forks
 
 ### Environment Variables
 
 ```bash
-KEYSTATIC_LOCAL              # Set "true" for local mode (filesystem storage)
-KEYSTATIC_GITHUB_CLIENT_ID   # GitHub OAuth client ID (production)
-KEYSTATIC_GITHUB_CLIENT_SECRET # GitHub OAuth client secret (production)
-KEYSTATIC_SECRET             # Session signing secret (production)
+NEXT_PUBLIC_KEYSTATIC_LOCAL                          # Set "true" for local mode (filesystem storage)
+KEYSTATIC_GITHUB_CLIENT_ID               # GitHub App client ID (auto-generated)
+KEYSTATIC_GITHUB_CLIENT_SECRET           # GitHub App client secret (auto-generated)
+KEYSTATIC_SECRET                         # Session signing secret (auto-generated)
+NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG    # GitHub App slug (auto-generated)
 ```
 
 ## Content Authoring
@@ -186,14 +177,15 @@ Podcast episodes link to Simplecast:
 ## API Routes
 
 - `/api/rss` - RSS feed generation
-- Keystatic API routes (auto-generated via `@keystatic/next`)
+- `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
+  operations)
 
 ## Build Process
 
 The build runs:
 
 1. Next.js build (includes Keystatic)
-2. Conditional local vs GitHub mode based on `KEYSTATIC_LOCAL`
+2. Conditional local vs GitHub mode based on `NEXT_PUBLIC_KEYSTATIC_LOCAL`
 
 ## Lint-Staged Configuration
 
@@ -213,6 +205,10 @@ Pre-commit formatting:
 
 ## Gotchas
 
-1. **Local Mode**: Set `KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
-2. **GitHub Mode**: Requires `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, and `KEYSTATIC_SECRET`
-3. **Asset Prefix**: All assets served from `/media-assets/` path
+1. **Local Mode**: Set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` to use filesystem
+   storage (no GitHub auth needed)
+2. **GitHub Mode**: Requires a GitHub App — run the setup flow at `/keystatic`
+   to auto-generate env vars
+3. **Public Repo**: Since the repo is public, any GitHub user can authenticate.
+   Users with write access edit directly; others fork and create PRs
+4. **Asset Prefix**: All assets served from `/media-assets/` path

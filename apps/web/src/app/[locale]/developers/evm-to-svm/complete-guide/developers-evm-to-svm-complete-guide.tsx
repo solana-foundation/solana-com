@@ -343,24 +343,46 @@ pub struct Counter {
         </div>
         <div key="code-28">
           {renderCodeBlock({
-            code: "solana program deploy <PROGRAM_FILEPATH>",
-            language: "bash",
+            code: `mapping(address => uint) public balances;`,
+            language: "solidity",
             styleKey: "codeBlock",
           })}
         </div>
         <div key="copy-29">{renderCopyBlock({ index: 18 })}</div>
         <div key="code-30">
           {renderCodeBlock({
-            code: "solana program deploy <PROGRAM_FILEPATH>",
-            language: "bash",
+            code: `const [BALANCE_PDA] = await anchor.web3.PublicKey.findProgramAddress(
+  [Buffer.from("BALANCE"), pg.wallet.publicKey.toBuffer()],
+  pg.program.programId
+);`,
+            language: "typescript",
             styleKey: "codeBlock",
           })}
         </div>
         <div key="copy-31">{renderCopyBlock({ index: 19 })}</div>
         <div key="code-32">
           {renderCodeBlock({
-            code: "solana program deploy <PROGRAM_FILEPATH>",
-            language: "bash",
+            code: `#[derive(Accounts)]
+#[instruction(restaurant: String)]
+pub struct BalanceAccounts<'info> {
+    #[account(
+        init_if_needed,
+        payer = signer,
+        space = 500,
+        seeds = [balance.as_bytes().as_ref(), signer.key().as_ref()],
+        bump
+    )]
+    pub balance: Account<'info, BalanceAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+pub struct BalanceAccount {
+    pub balance: u8
+}`,
+            language: "rust",
             styleKey: "codeBlock",
           })}
         </div>
@@ -378,8 +400,25 @@ pub struct Counter {
         </div>
         <div key="code-36">
           {renderCodeBlock({
-            code: "solana program deploy <PROGRAM_FILEPATH>",
-            language: "bash",
+            code: `#[program]
+pub mod gettingSigners {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let the_signer: &mut Signer = &mut ctx.accounts.the_signer;
+
+        msg!("The signer: {:?}", *the_signer.key);
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub the_signer: Signer<'info>,
+}`,
+            language: "rust",
             styleKey: "codeBlock",
           })}
         </div>
@@ -387,7 +426,29 @@ pub struct Counter {
           {renderCopyBlock({ index: 22, styleKey: "spacing" })}
         </div>
         <div key="copy-38">
-          {renderCopyBlock({ index: 23, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `#[program]
+pub mod gettingSigners {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let the_signer: &mut Signer = &mut ctx.accounts.first_signer;
+
+        msg!("The signer: {:?}", *the_signer.key);
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub first_signer: Signer<'info>,
+    pub second_signer: Signer<'info>,
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-39">
           {renderCopyBlock({ index: 24, styleKey: "spacing" })}
@@ -396,43 +457,267 @@ pub struct Counter {
           {renderCopyBlock({ index: 25, id: "building", styleKey: "spacing" })}
         </div>
         <div key="copy-41">
-          {renderCopyBlock({ index: 26, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `pragma solidity ^0.6.4;
+
+contract Voting {
+
+    mapping (bytes32 => uint256) public votesReceived;
+
+    bytes32[] public candidateList;
+
+    constructor(bytes32[] memory candidateNames) public {
+        candidateList = candidateNames;
+    }
+
+    function voteForCandidate(bytes32 candidate) public {
+        require(validCandidate(candidate));
+        votesReceived[candidate] += 1;
+    }
+
+    function totalVotesFor(bytes32 candidate) view public returns (uint256) {
+        require(validCandidate(candidate));
+        return votesReceived[candidate];
+    }
+
+    function validCandidate(bytes32 candidate) view public returns (bool) {
+        for(uint i = 0; i < candidateList.length; i++) {
+            if (candidateList[i] == candidate) {
+                return true;
+            }
+        }
+        return false;
+    }
+}`,
+            language: "solidity",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-42">
           {renderCopyBlock({ index: 27, styleKey: "spacing" })}
         </div>
         <div key="copy-43">
-          {renderCopyBlock({ index: 28, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `use anchor_lang::prelude::*;
+
+declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
+
+#[program]
+pub mod voting {
+    use super::*;
+
+    pub fn init_candidate(ctx: Context<InitializeCandidate>) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn vote_for_candidate(ctx: Context<VoteCandidate>) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct InitializeCandidate {}
+
+#[derive(Accounts)]
+pub struct VoteCandidate {}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-44">
           {renderCopyBlock({ index: 29, styleKey: "spacing" })}
         </div>
         <div key="copy-45">
-          {renderCopyBlock({ index: 30, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `use anchor_lang::prelude::*;
+
+declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
+
+const OWNER: &str = "8os8PKYmeVjU1mmwHZZNTEv5hpBXi5VvEKGzykduZAik";
+
+#[program]
+pub mod voting {
+    use super::*;
+
+    #[access_control(check(&ctx))]
+    pub fn init_candidate(ctx: Context<InitializeCandidate>) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn vote_for_candidate(ctx: Context<VoteCandidate>) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct InitializeCandidate<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct VoteCandidate {}
+
+fn check(ctx: &Context<InitializeCandidate>) -> Result<()> {
+    // Check if signer === owner
+    require_keys_eq!(
+        ctx.accounts.payer.key(),
+        OWNER.parse::<Pubkey>().unwrap(),
+        OnlyOwnerError::NotOwner
+    );
+    Ok(())
+}
+
+#[error_code]
+pub enum OnlyOwnerError {
+    #[msg("Only owner can call this function!")]
+    NotOwner,
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-46">
           {renderCopyBlock({ index: 31, styleKey: "spacing" })}
         </div>
         <div key="copy-47">
-          {renderCopyBlock({ index: 32, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `#[account]
+#[derive(InitSpace)]
+pub struct Candidate {
+    pub votes_received: u8,
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-48">
           {renderCopyBlock({ index: 33, styleKey: "spacing" })}
         </div>
         <div key="copy-49">
-          {renderCopyBlock({ index: 34, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `#[derive(Accounts)]
+#[instruction(_candidate_Name: String)]
+pub struct InitializeCandidate<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        space = 8 + Candidate::INIT_SPACE,
+        payer = payer,
+        seeds = [_candidate_Name.as_bytes().as_ref()],
+        bump,
+    )]
+    pub candidate: Account<'info, Candidate>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(_candidate_Name: String)]
+pub struct VoteCandidate<'info> {
+    #[account(
+        mut,
+        seeds = [_candidate_Name.as_bytes().as_ref()],
+        bump,
+    )]
+    pub candidate: Account<'info, Candidate>,
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-50">
           {renderCopyBlock({ index: 35, styleKey: "spacing" })}
         </div>
         <div key="copy-51">
-          {renderCopyBlock({ index: 36, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `pub fn vote_for_candidate(ctx: Context<VoteCandidate>, _candidate_name: String) -> Result<()> {
+    ctx.accounts.candidate.votes_received += 1;
+    Ok(())
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-52">
           {renderCopyBlock({ index: 37, styleKey: "spacing" })}
         </div>
         <div key="copy-53">
-          {renderCopyBlock({ index: 38, styleKey: "codeBlock" })}
+          {renderCodeBlock({
+            code: `use anchor_lang::prelude::*;
+
+declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
+
+const OWNER: &str = "8os8PKYmeVjU1mmwHZZNTEv5hpBXi5VvEKGzykduZAik";
+
+#[program]
+pub mod voting {
+    use super::*;
+
+    #[access_control(check(&ctx))]
+    pub fn init_candidate(ctx: Context<InitializeCandidate>, _candidate_name: String) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn vote_for_candidate(ctx: Context<VoteCandidate>, _candidate_name: String) -> Result<()> {
+        ctx.accounts.candidate.votes_received += 1;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+#[instruction(_candidate_name: String)]
+pub struct InitializeCandidate<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        space = 8 + Candidate::INIT_SPACE,
+        payer = payer,
+        seeds = [_candidate_name.as_bytes().as_ref()],
+        bump,
+    )]
+    pub candidate: Account<'info, Candidate>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(_candidate_name: String)]
+pub struct VoteCandidate<'info> {
+    #[account(
+        mut,
+        seeds = [_candidate_name.as_bytes().as_ref()],
+        bump,
+    )]
+    pub candidate: Account<'info, Candidate>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Candidate {
+    pub votes_received: u8,
+}
+
+fn check(ctx: &Context<InitializeCandidate>) -> Result<()> {
+    // Check if signer === owner
+    require_keys_eq!(
+        ctx.accounts.payer.key(),
+        OWNER.parse::<Pubkey>().unwrap(),
+        OnlyOwnerError::NotOwner
+    );
+    Ok(())
+}
+
+#[error_code]
+pub enum OnlyOwnerError {
+    #[msg("Only owner can call this function!")]
+    NotOwner,
+}`,
+            language: "rust",
+            styleKey: "codeBlock",
+          })}
         </div>
         <div key="copy-54">
           {renderCopyBlock({ index: 39, styleKey: "spacing" })}

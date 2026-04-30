@@ -1,9 +1,9 @@
-import { createPreset } from "fumadocs-ui/tailwind-plugin";
+// import { createPreset } from "fumadocs-ui/tailwind-plugin";
 
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
-  presets: [createPreset()],
+  // presets: [createPreset()],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
@@ -47,6 +47,18 @@ export default {
         "nd-highlight-orange": "#F48252",
         "nd-highlight-green": "#55E9AB",
         "nd-highlight-lime": "#CFF15E",
+        // Solana logo gradient stops (purple → cyan → green)
+        "solana-purple": "#9945FF",
+        "solana-violet": "#7F5AF6",
+        "solana-blue-violet": "#6570ED",
+        "solana-blue": "#4B85E4",
+        "solana-steel": "#319ADB",
+        "solana-dark-cyan": "#17B0D2",
+        "solana-cyan": "#00D4FF",
+        "solana-teal": "#00C5C9",
+        "solana-seafoam": "#00EFAD",
+        "solana-mint": "#0AE99F",
+        "solana-green": "#14F195",
       },
       borderRadius: {
         lg: "var(--radius)",

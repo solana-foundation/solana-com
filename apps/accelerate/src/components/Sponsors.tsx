@@ -19,28 +19,14 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   VisuallyHidden,
 } from "@workspace/ui";
-import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
-import type { GridProfile, Sponsor, SponsorTier } from "@/types/sponsors";
+import type { Sponsor, SponsorProfile, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
+import { fadeInUp, staggerFast } from "@/lib/animations";
 
 const GRID_API_ENDPOINT = "https://beta.node.thegrid.id/graphql";
 
@@ -86,8 +72,45 @@ const GRID_PROFILE_QUERY = `
   }
 `;
 
+type GridProfileResponse = {
+  name?: string | null;
+  tagLine?: string | null;
+  descriptionShort?: string | null;
+  descriptionLong?: string | null;
+  foundingDate?: string | null;
+  profileSector?: { name?: string | null } | null;
+  profileStatus?: { name?: string | null } | null;
+  profileType?: { name?: string | null } | null;
+  urls?: Array<
+    | {
+        url?: string | null;
+        urlType?: { name?: string | null } | null;
+      }
+    | null
+    | undefined
+  > | null;
+  root?: {
+    slug?: string | null;
+    socials?: Array<
+      | {
+          socialType?: { name?: string | null } | null;
+          urls?: Array<
+            | {
+                url?: string | null;
+                urlType?: { name?: string | null } | null;
+              }
+            | null
+            | undefined
+          > | null;
+        }
+      | null
+      | undefined
+    > | null;
+  } | null;
+};
+
 type GridResponse = {
-  data?: { profileInfos?: GridProfile[] };
+  data?: { profileInfos?: GridProfileResponse[] };
   errors?: Array<{ message?: string }>;
 };
 
@@ -102,6 +125,26 @@ const SOCIAL_PRIORITY = [
 ];
 
 const URL_TYPE_PRIORITY = ["main", "website", "app", "documentation", "blog"];
+
+const GRID_SOCIAL_PLATFORM_MAP = {
+  "Twitter / X": "x",
+  LinkedIn: "linkedin",
+  GitHub: "github",
+  Discord: "discord",
+  Telegram: "telegram",
+  YouTube: "youtube",
+  Medium: "medium",
+} as const;
+
+const SOCIAL_LABELS: Record<string, string> = {
+  x: "Twitter / X",
+  discord: "Discord",
+  telegram: "Telegram",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  medium: "Medium",
+  github: "GitHub",
+};
 
 function getQuickLinkIcon(label: string, url?: string) {
   const labelNorm = label.toLowerCase().trim();
@@ -144,30 +187,35 @@ function getQuickLinkIcon(label: string, url?: string) {
   }
 }
 
-function getMainUrl(profile?: GridProfile) {
-  const urls = profile?.urls ?? [];
-  if (!urls.length) return undefined;
+function getMainUrl(profile?: SponsorProfile) {
+  const links = profile?.links;
+  if (!links) return undefined;
+
+  const linkByType: Record<string, string | undefined> = {
+    main: links.website,
+    website: links.website,
+    app: links.app,
+    documentation: links.docs,
+    blog: links.blog,
+  };
 
   for (const type of URL_TYPE_PRIORITY) {
-    const match = urls.find(
-      (item) => item?.urlType?.name?.toLowerCase() === type,
-    );
-    if (match?.url) return match.url;
+    const value = linkByType[type];
+    if (value) return value;
   }
 
-  return urls[0]?.url ?? undefined;
+  return Object.values(links).find(Boolean);
 }
 
-function getSocialLinks(profile?: GridProfile) {
-  const socials = profile?.root?.socials ?? [];
-  const seen = new Set<string>();
+function getSocialLinks(profile?: SponsorProfile) {
+  const socials = profile?.socials;
+  if (!socials) return [];
+
   const links: Array<{ label: string; url: string }> = [];
 
-  for (const social of socials) {
-    const label = social?.socialType?.name;
-    const url = social?.urls?.[0]?.url;
-    if (!label || !url || seen.has(label)) continue;
-    seen.add(label);
+  for (const [platform, url] of Object.entries(socials)) {
+    if (!url) continue;
+    const label = SOCIAL_LABELS[platform] ?? platform;
     links.push({ label, url });
   }
 
@@ -181,6 +229,64 @@ function getSocialLinks(profile?: GridProfile) {
   });
 
   return links;
+}
+
+function normalizeGridProfile(profile: GridProfileResponse): SponsorProfile {
+  const links: NonNullable<SponsorProfile["links"]> = {};
+
+  for (const entry of profile.urls ?? []) {
+    const type = entry?.urlType?.name?.toLowerCase();
+    const url = entry?.url ?? undefined;
+    if (!type || !url) continue;
+
+    if (type === "main" || type === "website") {
+      links.website ??= url;
+      continue;
+    }
+
+    if (type === "app") {
+      links.app ??= url;
+      continue;
+    }
+
+    if (type === "documentation") {
+      links.docs ??= url;
+      continue;
+    }
+
+    if (type === "blog") {
+      links.blog ??= url;
+    }
+  }
+
+  const socials: NonNullable<SponsorProfile["socials"]> = {};
+
+  for (const entry of profile.root?.socials ?? []) {
+    const label = entry?.socialType?.name;
+    const url = entry?.urls?.[0]?.url ?? undefined;
+    const platform =
+      label && label in GRID_SOCIAL_PLATFORM_MAP
+        ? GRID_SOCIAL_PLATFORM_MAP[
+            label as keyof typeof GRID_SOCIAL_PLATFORM_MAP
+          ]
+        : null;
+    if (!platform || !url) continue;
+    socials[platform] ??= url;
+  }
+
+  return {
+    name: profile.name ?? undefined,
+    tagline: profile.tagLine ?? undefined,
+    summary: profile.descriptionShort ?? undefined,
+    description: profile.descriptionLong ?? undefined,
+    founded: profile.foundingDate ?? undefined,
+    sector: profile.profileSector?.name ?? undefined,
+    status: profile.profileStatus?.name ?? undefined,
+    type: profile.profileType?.name ?? undefined,
+    dataPageSlug: profile.root?.slug ?? undefined,
+    links: Object.keys(links).length > 0 ? links : undefined,
+    socials: Object.keys(socials).length > 0 ? socials : undefined,
+  };
 }
 
 async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
@@ -207,9 +313,22 @@ async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
   }
 
   const profiles = payload.data?.profileInfos ?? [];
-  return profiles.reduce<Record<string, GridProfile>>((acc, profile) => {
-    const slug = profile.root?.slug;
-    if (slug) acc[slug] = profile;
+  const requestedByLower = new Map(
+    slugs.map((slug) => [slug.toLowerCase(), slug]),
+  );
+
+  return profiles.reduce<Record<string, SponsorProfile>>((acc, profile) => {
+    const normalizedProfile = normalizeGridProfile(profile);
+    const returnedSlug = normalizedProfile.dataPageSlug;
+    if (!returnedSlug) return acc;
+
+    acc[returnedSlug] = normalizedProfile;
+
+    const requestedSlug = requestedByLower.get(returnedSlug.toLowerCase());
+    if (requestedSlug) {
+      acc[requestedSlug] = normalizedProfile;
+    }
+
     return acc;
   }, {});
 }
@@ -238,14 +357,14 @@ type ActiveSponsor = {
   tier: SponsorTier;
 };
 
-export function Sponsors() {
-  const sponsorTiers = getSponsorsByTier(sponsorsData.sponsors as Sponsor[]);
+export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
+  const sponsorTiers = getSponsorsByTier(sponsors);
   const [activeSponsor, setActiveSponsor] = useState<ActiveSponsor | null>(
     null,
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [profilesBySlug, setProfilesBySlug] = useState<
-    Record<string, GridProfile>
+    Record<string, SponsorProfile>
   >({});
   const [unmatchedSlugs, setUnmatchedSlugs] = useState<Record<string, boolean>>(
     {},
@@ -255,7 +374,7 @@ export function Sponsors() {
   const t = useTranslations("accelerate.sponsors");
 
   const activeSponsorData = activeSponsor?.sponsor;
-  const activeManualProfile = activeSponsorData?.gridProfile ?? null;
+  const activeManualProfile = activeSponsorData?.profile ?? null;
   const activeSlug = activeSponsorData?.gridProfileSlug ?? null;
   const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
   const resolvedProfile = activeProfile ?? activeManualProfile ?? undefined;
@@ -267,18 +386,18 @@ export function Sponsors() {
     ? getSocialLinks(resolvedProfile).slice(0, 4)
     : [];
   const activeMeta = [
-    resolvedProfile?.profileSector?.name,
-    resolvedProfile?.profileType?.name,
-    resolvedProfile?.profileStatus?.name,
+    resolvedProfile?.sector,
+    resolvedProfile?.type,
+    resolvedProfile?.status,
   ].filter(Boolean);
   const activeDescription =
-    resolvedProfile?.descriptionLong ?? resolvedProfile?.descriptionShort;
+    resolvedProfile?.description ?? resolvedProfile?.summary;
   const isProfileMissing = Boolean(
     activeSlug && unmatchedSlugs[activeSlug] && !activeManualProfile,
   );
   const activeDisplayName =
     resolvedProfile?.name ?? activeSponsorData?.name ?? "Sponsor";
-  const dataPageSlug = activeProfile?.root?.slug;
+  const dataPageSlug = activeProfile?.dataPageSlug;
   const dataPageUrl = dataPageSlug
     ? `https://thegrid.id/profiles/${dataPageSlug}`
     : undefined;
@@ -295,7 +414,7 @@ export function Sponsors() {
     if (!isModalOpen || !activeSponsor) return;
 
     const slug = activeSponsor.sponsor.gridProfileSlug;
-    const manualProfile = activeSponsor.sponsor.gridProfile;
+    const manualProfile = activeSponsor.sponsor.profile;
     if (!slug || manualProfile || profilesBySlug[slug] || unmatchedSlugs[slug])
       return;
 
@@ -333,7 +452,7 @@ export function Sponsors() {
   }
 
   return (
-    <section id="sponsors" className="relative bg-black py-12 lg:py-16">
+    <section id="sponsors" className="section-accelerate relative">
       {/* Pattern background */}
       <div className="pointer-events-none absolute inset-0 z-0 opacity-50">
         <Image
@@ -345,12 +464,12 @@ export function Sponsors() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+      <div className="container-accelerate relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          variants={stagger}
+          variants={staggerFast}
         >
           {/* Header section with title and button */}
           <motion.div
@@ -358,13 +477,7 @@ export function Sponsors() {
             className="mb-8 flex flex-col items-start justify-between gap-6 lg:mb-12 lg:flex-row lg:items-center"
           >
             <div className="flex flex-col">
-              <h2
-                className="text-h1 text-accelerate-gray-100"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
+              <h2 className="text-h1 text-accelerate-gray-100">
                 {t("heading")}
               </h2>
             </div>
@@ -372,10 +485,6 @@ export function Sponsors() {
             <a
               href="mailto:events@solana.org"
               className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.05em] text-accelerate-green underline underline-offset-4 transition-colors hover:text-white lg:hidden"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
@@ -391,15 +500,7 @@ export function Sponsors() {
             {/* Desktop: Styled button */}
             <a
               href="mailto:events@solana.org"
-              className="hidden items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5 lg:inline-flex"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontSize: "16px",
-                background:
-                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                border: "1px solid transparent",
-              }}
+              className="btn-outline-gradient !hidden px-8 py-4 text-button lg:!inline-flex"
             >
               <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
@@ -415,7 +516,7 @@ export function Sponsors() {
           </motion.div>
 
           {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+          <div className="section-divider" />
 
           <div className="space-y-16 lg:space-y-20">
             {sponsorTiers.map((tier) => (
@@ -423,21 +524,17 @@ export function Sponsors() {
                 <motion.p
                   variants={fadeInUp}
                   className="text-button mb-8 text-center uppercase tracking-[0.2em]"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    color: tier.color,
-                  }}
+                  style={{ color: tier.color }}
                 >
                   {tier.name}
                 </motion.p>
                 <div
                   className={`flex flex-wrap items-center justify-center ${
                     tier.level === "headline"
-                      ? "gap-16"
+                      ? "gap-8 sm:gap-16"
                       : tier.level === "signature"
-                        ? "gap-12 lg:gap-[60px]"
-                        : "gap-8 lg:gap-12"
+                        ? "gap-6 sm:gap-12 lg:gap-[60px]"
+                        : "gap-4 sm:gap-8 lg:gap-12"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -449,10 +546,10 @@ export function Sponsors() {
                       aria-label={t("openProfile", { name: sponsor.name })}
                       className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
-                          ? "h-[168px] w-[400px]"
+                          ? "h-[100px] w-[260px] sm:h-[168px] sm:w-[400px]"
                           : tier.level === "signature"
-                            ? "h-[134px] w-[320px]"
-                            : "h-[80px] w-[200px]"
+                            ? "h-[80px] w-[200px] sm:h-[134px] sm:w-[320px]"
+                            : "h-[56px] w-[150px] sm:h-[80px] sm:w-[200px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
@@ -525,9 +622,9 @@ export function Sponsors() {
                             <p className="text-2xl font-semibold text-white">
                               {activeDisplayName}
                             </p>
-                            {activeProfile?.tagLine && (
+                            {resolvedProfile?.tagline && (
                               <p className="text-sm text-white/70">
-                                {activeProfile.tagLine}
+                                {resolvedProfile.tagline}
                               </p>
                             )}
                           </div>

@@ -34,7 +34,9 @@ const CATEGORY_NAME_TO_ID: Record<string, string> = {
 
 interface LinkConnectionParams {
   limit?: number;
+  cursor?: string;
   category?: string;
+  tag?: string;
 }
 
 /**
@@ -56,7 +58,7 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     source: link.source,
     linkType: link.linkType,
     categories: link.categories.map(
-      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase()
+      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase(),
     ),
   };
 }
@@ -69,18 +71,20 @@ async function fetchLinks(params: LinkConnectionParams) {
     // Map category ID back to category name for Keystatic query
     const categoryName = params.category
       ? Object.entries(CATEGORY_NAME_TO_ID).find(
-          ([, id]) => id === params.category
+          ([, id]) => id === params.category,
         )?.[0] || params.category
       : undefined;
 
     const { links } = await fetchLatestLinks({
       limit: params.limit ?? DEFAULT_LIMIT,
+      cursor: params.cursor,
       category: categoryName,
+      tag: params.tag,
     });
 
     // Transform links to terminal format
     const terminalItems: TerminalItem[] = links.map((link, index) =>
-      transformToTerminalItem(link, index)
+      transformToTerminalItem(link, index),
     );
 
     return terminalItems;
@@ -109,6 +113,16 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     params.category = categoryParam;
   }
 
+  const cursorParam = searchParams.get("cursor");
+  if (cursorParam) {
+    params.cursor = cursorParam;
+  }
+
+  const tagParam = searchParams.get("tag");
+  if (tagParam && tagParam !== "all") {
+    params.tag = tagParam;
+  }
+
   return params;
 }
 
@@ -118,7 +132,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.category ?? "all"}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,
@@ -142,7 +156,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

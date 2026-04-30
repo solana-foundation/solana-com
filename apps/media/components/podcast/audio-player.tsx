@@ -76,7 +76,7 @@ export const AudioPlayer = ({
       const percentage = Math.max(0, Math.min(1, x / rect.width));
       return percentage;
     },
-    [duration]
+    [duration],
   );
 
   // Handle seek
@@ -90,7 +90,7 @@ export const AudioPlayer = ({
         playerRef.current.seekTo(newTime, "seconds");
       }
     },
-    [duration, getProgressFromPosition, isDragging]
+    [duration, getProgressFromPosition, isDragging],
   );
 
   // Handle drag start
@@ -101,7 +101,7 @@ export const AudioPlayer = ({
       const progressValue = getProgressFromPosition(e.clientX);
       setDragProgress(progressValue);
     },
-    [getProgressFromPosition]
+    [getProgressFromPosition],
   );
 
   // Handle drag
@@ -111,7 +111,7 @@ export const AudioPlayer = ({
       const progressValue = getProgressFromPosition(e.clientX);
       setDragProgress(progressValue);
     },
-    [isDragging, getProgressFromPosition]
+    [isDragging, getProgressFromPosition],
   );
 
   // Handle drag end
@@ -136,7 +136,7 @@ export const AudioPlayer = ({
         justSeekedRef.current = false;
       }, 100);
     },
-    [isDragging, duration, getProgressFromPosition]
+    [isDragging, duration, getProgressFromPosition],
   );
 
   // Add mouse event listeners for dragging
@@ -176,7 +176,7 @@ export const AudioPlayer = ({
         setIsMuted(false);
       }
     },
-    [isMuted]
+    [isMuted],
   );
 
   // Toggle mute
@@ -246,7 +246,7 @@ export const AudioPlayer = ({
     if (waveformBarsRef.current.length === 0) {
       waveformBarsRef.current = Array.from(
         { length: barCount },
-        () => Math.random() * 0.8 + 0.1
+        () => Math.random() * 0.8 + 0.1,
       );
     }
 

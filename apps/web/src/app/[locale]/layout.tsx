@@ -9,17 +9,17 @@ import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { locales, staticLocales } from "@workspace/i18n/config";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import {
-  Header,
-  Footer,
   ThemeProvider,
   SitewideTopAlert,
   InkeepChatButton,
 } from "@solana-com/ui-chrome";
+import { ChromeWrapper } from "@/components/ChromeWrapper";
 import Script from "next/script";
+import { Header, Footer } from "@solana-com/ui-chrome";
 
 type Props = {
   children: React.ReactNode;
@@ -34,12 +34,8 @@ export default async function RootLayout({ children, params }: Props) {
   }
 
   const direction = getLangDir(locale);
-  // Load messages directly
-  const messages = (await import(`@@/public/locales/${locale}/common.json`))
-    .default;
+  const messages = await loadMergedMessages({ app: "web", locale });
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
-  const headersList = await headers();
-  const isCustomLayout = Boolean(headersList.get("x-custom-layout"));
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -59,9 +55,13 @@ export default async function RootLayout({ children, params }: Props) {
               <GTMTrackingSnippet />
               <SitewideTopAlert />
               <CookieConsent />
-              {isCustomLayout ? null : <Header />}
+              <ChromeWrapper>
+                <Header />
+              </ChromeWrapper>
               {children}
-              {isCustomLayout ? null : <Footer />}
+              <ChromeWrapper>
+                <Footer />
+              </ChromeWrapper>
               <InkeepChatButton />
               <Script
                 id="signals-script"

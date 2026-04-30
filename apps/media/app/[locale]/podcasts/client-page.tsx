@@ -27,7 +27,7 @@ export default function PodcastsClientPage({
   // Get latest podcast (one with the most recent episode upload)
   const latestPodcast = useMemo(() => {
     const podcastsWithEpisodes = podcasts.filter(
-      (p) => p.latestEpisode?.publishedDate
+      (p) => p.latestEpisode?.publishedDate,
     );
 
     if (podcastsWithEpisodes.length === 0) {
@@ -67,10 +67,10 @@ export default function PodcastsClientPage({
   // Group podcasts by foundation status
   const groupedPodcasts = useMemo(() => {
     const solanaFoundation = filteredPodcasts.filter((p) =>
-      p.tags?.some((tag) => tag.toLowerCase() === "solana foundation")
+      p.tags?.some((tag) => tag.toLowerCase() === "solana foundation"),
     );
     const otherPodcasts = filteredPodcasts.filter(
-      (p) => !p.tags?.some((tag) => tag.toLowerCase() === "solana foundation")
+      (p) => !p.tags?.some((tag) => tag.toLowerCase() === "solana foundation"),
     );
 
     return { solanaFoundation, otherPodcasts };
@@ -93,9 +93,9 @@ export default function PodcastsClientPage({
                     {latestPodcast.title}
                   </h1>
 
-                  {typeof latestPodcast.description === "string" && (
+                  {latestPodcast.descriptionPlainText && (
                     <p className="text-lg text-white/80 line-clamp-3">
-                      {latestPodcast.description}
+                      {latestPodcast.descriptionPlainText}
                     </p>
                   )}
 
@@ -122,7 +122,7 @@ export default function PodcastsClientPage({
                             <Calendar className="size-4" />
                             <span>
                               {formatEpisodeDate(
-                                latestPodcast.latestEpisode.publishedDate
+                                latestPodcast.latestEpisode.publishedDate,
                               )}
                             </span>
                           </div>
@@ -132,7 +132,7 @@ export default function PodcastsClientPage({
                             <Clock className="size-4" />
                             <span>
                               {formatDuration(
-                                latestPodcast.latestEpisode.duration
+                                latestPodcast.latestEpisode.duration,
                               )}
                             </span>
                           </div>
