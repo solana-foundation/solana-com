@@ -71,7 +71,7 @@ export default async function MiamiPage({ params }: PageProps) {
       <Hero
         translationPrefix="accelerate.miami"
         logoImage="/images/accelerate-usa-logo.svg"
-        agendaPath={null}
+        agendaPath="/accelerate/miami/agenda"
         showVideo={false}
         backgroundContent={<MiamiHeroSymbols />}
       />

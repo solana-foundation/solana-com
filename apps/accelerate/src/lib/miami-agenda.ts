@@ -1,16 +1,23 @@
 import { unstable_cache } from "next/cache";
 import miamiAgendaStatic from "@/data/miami/agenda.json";
+import {
+  AIRTABLE_API_BASE,
+  fetchAirtableJson,
+  type AirtableFetchOptions,
+} from "./airtable";
 
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
-const AIRTABLE_CACHE_SECONDS = 60 * 30;
+const AIRTABLE_CACHE_SECONDS = 60;
 const EVENT_TIMEZONE = "America/New_York";
+const AIRTABLE_NO_STORE_OPTIONS: AirtableFetchOptions = { cache: "no-store" };
 
 // Defaults baked in so we don't need Miami-specific env vars.
 // Override via the matching AIRTABLE_*_MIAMI_AGENDA env var if the schema moves.
 const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
 const DEFAULT_AGENDA_TABLE_ID = "tbl802700wD64jBNI";
-const DEFAULT_AGENDA_VIEW_ID = "viwphM46UvfUrP30z"; // "All Stages"
+const DEFAULT_AGENDA_VIEW_ID = "viw9MdyVxScVNZaZX"; // "For Web"
 const DEFAULT_FORMAT_TABLE_ID = "tbltJYMgzlVFeibNU";
+const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
+const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl"; // "Web Status"
 
 type SessionType =
   | "keynote"
@@ -50,6 +57,7 @@ export interface AgendaSession {
   title: string;
   subtitle?: string;
   type: SessionType;
+  format?: string;
   location: string;
   duration?: string;
   moderator?: AgendaSpeaker;
@@ -80,13 +88,27 @@ type AirtableListResponse = {
 
 function getAirtableConfig() {
   const token = process.env.AIRTABLE_PAT;
-  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS ?? DEFAULT_BASE_ID;
+  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS || DEFAULT_BASE_ID;
   const tableId =
-    process.env.AIRTABLE_TABLE_ID_MIAMI_AGENDA ?? DEFAULT_AGENDA_TABLE_ID;
+    process.env.AIRTABLE_TABLE_ID_MIAMI_AGENDA || DEFAULT_AGENDA_TABLE_ID;
   const viewId =
-    process.env.AIRTABLE_VIEW_ID_MIAMI_AGENDA ?? DEFAULT_AGENDA_VIEW_ID;
+    process.env.AIRTABLE_VIEW_ID_MIAMI_AGENDA || DEFAULT_AGENDA_VIEW_ID;
   const formatTableId = DEFAULT_FORMAT_TABLE_ID;
-  return { token, baseId, tableId, viewId, formatTableId };
+  const publishingStatusTableId =
+    process.env.AIRTABLE_TABLE_ID_MIAMI_AGENDA_PUBLISHING_STATUS ||
+    DEFAULT_PUBLISHING_STATUS_TABLE_ID;
+  const publishingStatusViewId =
+    process.env.AIRTABLE_VIEW_ID_MIAMI_AGENDA_PUBLISHING_STATUS ||
+    DEFAULT_PUBLISHING_STATUS_VIEW_ID;
+  return {
+    token,
+    baseId,
+    tableId,
+    viewId,
+    formatTableId,
+    publishingStatusTableId,
+    publishingStatusViewId,
+  };
 }
 
 async function fetchAll(
@@ -94,7 +116,6 @@ async function fetchAll(
   tableId: string,
   token: string,
   viewId?: string,
-  tag?: string,
 ): Promise<AirtableRecord[]> {
   const records: AirtableRecord[] = [];
   let offset: string | undefined;
@@ -102,22 +123,12 @@ async function fetchAll(
     const params = new URLSearchParams({ pageSize: "100" });
     if (viewId) params.set("view", viewId);
     if (offset) params.set("offset", offset);
-    const response = await fetch(
+    const payload = await fetchAirtableJson<AirtableListResponse>(
       `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        next: {
-          revalidate: AIRTABLE_CACHE_SECONDS,
-          tags: tag ? [tag] : undefined,
-        },
-      },
+      token,
+      AIRTABLE_NO_STORE_OPTIONS,
+      `Airtable ${tableId} request`,
     );
-    if (!response.ok) {
-      throw new Error(
-        `Airtable ${tableId} request failed (${response.status})`,
-      );
-    }
-    const payload = (await response.json()) as AirtableListResponse;
     for (const record of payload.records ?? []) records.push(record);
     offset = payload.offset;
   } while (offset);
@@ -225,45 +236,76 @@ function slugify(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function resolveFormatType(
+function resolveFormat(
   formatField: unknown,
   formatMap: Map<string, string>,
-): SessionType {
+): { name?: string; type: SessionType } {
   const ids = Array.isArray(formatField) ? formatField : [];
+  const names: string[] = [];
   for (const id of ids) {
     if (typeof id !== "string") continue;
     const name = formatMap.get(id);
-    if (name && FORMAT_TO_TYPE[name]) return FORMAT_TO_TYPE[name]!;
+    if (name) names.push(name);
   }
+
   // Fallback: if someone enabled a string lookup instead of the linked record
   const asText = asString(formatField);
-  if (asText && FORMAT_TO_TYPE[asText]) return FORMAT_TO_TYPE[asText]!;
-  return "panel";
+  if (asText) names.push(asText);
+
+  for (const name of names) {
+    if (FORMAT_TO_TYPE[name]) return { name, type: FORMAT_TO_TYPE[name]! };
+  }
+
+  return { name: names[0], type: "panel" };
+}
+
+function resolvePublishingStatuses(
+  statusField: unknown,
+  statusMap: Map<string, string>,
+) {
+  const statuses = new Set<string>();
+  for (const value of asStringArray(statusField)) {
+    statuses.add(statusMap.get(value) ?? value);
+  }
+  return statuses;
 }
 
 function normalizeSession(
   record: AirtableRecord,
   index: number,
   formatMap: Map<string, string>,
+  publishingStatusMap: Map<string, string>,
 ): { session: AgendaSession; sortOrder: number } | null {
   const fields = record.fields ?? {};
+  const publishingStatuses = resolvePublishingStatuses(
+    fields["Web Publishing Status"],
+    publishingStatusMap,
+  );
 
-  // Publish gate: checkbox is only present on records where it's true.
-  if (fields["Publish to web"] !== true) return null;
+  if (publishingStatuses.has("Do not publish")) return null;
+  if (!publishingStatuses.has("Title")) return null;
 
   const title = asString(fields["⚙️ Session Name"]);
   if (!title) return null;
 
   const startISO = asString(fields["Start Time"]);
   const endISO = asString(fields["End Time"]);
-  const time = formatTimeRange(startISO, endISO);
+  const time = publishingStatuses.has("Time")
+    ? formatTimeRange(startISO, endISO)
+    : "";
 
-  const type = resolveFormatType(fields["Format"], formatMap);
+  const { name: format, type } = resolveFormat(fields["Format"], formatMap);
   const location = asString(fields["Stage"]) ?? "";
-  const subtitle = asString(fields["Description"]);
+  const subtitle = publishingStatuses.has("Description")
+    ? asString(fields["Description"])
+    : undefined;
 
-  const speakers = parseSpeakers(fields["Speaker Name and Company"]);
-  const moderator = parseSpeakers(fields["Moderator Name and Company"])[0];
+  const speakers = publishingStatuses.has("Speaker")
+    ? parseSpeakers(fields["Speaker Name and Company"])
+    : [];
+  const moderator = publishingStatuses.has("Speaker")
+    ? parseSpeakers(fields["Moderator Name and Company"])[0]
+    : undefined;
 
   const sortOrder = asNumber(fields["Sequence Ordinal"]) ?? index;
   const slug = slugify(`${time}-${title}`) || record.id;
@@ -276,6 +318,7 @@ function normalizeSession(
       title,
       subtitle,
       type,
+      format,
       location,
       moderator,
       speakers,
@@ -288,13 +331,7 @@ async function fetchFormatMap(
   formatTableId: string,
   token: string,
 ): Promise<Map<string, string>> {
-  const records = await fetchAll(
-    baseId,
-    formatTableId,
-    token,
-    undefined,
-    "miami-agenda-formats",
-  );
+  const records = await fetchAll(baseId, formatTableId, token);
   const map = new Map<string, string>();
   for (const record of records) {
     const name =
@@ -304,21 +341,57 @@ async function fetchFormatMap(
   return map;
 }
 
+async function fetchPublishingStatusMap(
+  baseId: string,
+  publishingStatusTableId: string,
+  publishingStatusViewId: string,
+  token: string,
+): Promise<Map<string, string>> {
+  const records = await fetchAll(
+    baseId,
+    publishingStatusTableId,
+    token,
+    publishingStatusViewId,
+  );
+  const map = new Map<string, string>();
+  for (const record of records) {
+    const name = asString(record.fields?.["Web Status"]);
+    if (name) map.set(record.id, name);
+  }
+  return map;
+}
+
 async function fetchAirtableSessions(): Promise<AgendaSession[] | null> {
-  const { token, baseId, tableId, viewId, formatTableId } = getAirtableConfig();
+  const {
+    token,
+    baseId,
+    tableId,
+    viewId,
+    formatTableId,
+    publishingStatusTableId,
+    publishingStatusViewId,
+  } = getAirtableConfig();
   if (!token) {
     console.warn("Miami agenda: AIRTABLE_PAT missing");
     return null;
   }
 
   try {
-    const [records, formatMap] = await Promise.all([
-      fetchAll(baseId, tableId, token, viewId, "miami-agenda"),
+    const [records, formatMap, publishingStatusMap] = await Promise.all([
+      fetchAll(baseId, tableId, token, viewId),
       fetchFormatMap(baseId, formatTableId, token),
+      fetchPublishingStatusMap(
+        baseId,
+        publishingStatusTableId,
+        publishingStatusViewId,
+        token,
+      ),
     ]);
 
     const sessions = records
-      .map((record, index) => normalizeSession(record, index, formatMap))
+      .map((record, index) =>
+        normalizeSession(record, index, formatMap, publishingStatusMap),
+      )
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((entry) => entry.session);
@@ -332,8 +405,9 @@ async function fetchAirtableSessions(): Promise<AgendaSession[] | null> {
 
 const loadSessions =
   process.env.NODE_ENV === "production"
-    ? unstable_cache(fetchAirtableSessions, ["miami-agenda-airtable"], {
+    ? unstable_cache(fetchAirtableSessions, ["miami-agenda-airtable-v3"], {
         revalidate: AIRTABLE_CACHE_SECONDS,
+        tags: ["miami-agenda"],
       })
     : fetchAirtableSessions;
 

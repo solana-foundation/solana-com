@@ -35,10 +35,46 @@ interface Session {
     | "break"
     | "demo"
     | "closing";
+  format?: string;
   location: string;
   duration?: string;
   moderator?: Speaker;
   speakers: Speaker[];
+}
+
+type FilterMode = "type" | "format";
+
+interface FilterOption {
+  id: string;
+  type: Session["type"];
+  label: string;
+}
+
+function getFormatGroup(format?: string): string | undefined {
+  const formatName = format?.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (!formatName) return undefined;
+
+  if (/^open\/close$/i.test(formatName)) return "Open/Close";
+  if (/fireside/i.test(formatName)) return "Fireside";
+  if (/keynote/i.test(formatName)) return "Keynote";
+  if (/break/i.test(formatName)) return "Break";
+  if (/panel|debate/i.test(formatName)) return "Panel";
+
+  return formatName;
+}
+
+function getFormatFilterId(formatGroup: string): string {
+  return `format:${formatGroup.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+}
+
+function getSessionFilterId(session: Session, filterMode: FilterMode): string {
+  const formatGroup = getFormatGroup(session.format);
+
+  if (filterMode === "format" && formatGroup) {
+    return getFormatFilterId(formatGroup);
+  }
+
+  return `type:${session.type}`;
 }
 
 function SessionTypeBadge({
@@ -140,6 +176,8 @@ function SessionCard({
   moderatorLabel: string;
 }) {
   const isBreak = session.type === "break" || session.type === "closing";
+  const typeLabel =
+    getFormatGroup(session.format) ?? typeLabels[session.type] ?? session.type;
 
   return (
     <motion.div
@@ -161,10 +199,7 @@ function SessionCard({
           {session.time}
         </p>
         <div className="md:hidden">
-          <SessionTypeBadge
-            type={session.type}
-            label={typeLabels[session.type] ?? session.type}
-          />
+          <SessionTypeBadge type={session.type} label={typeLabel} />
         </div>
       </div>
 
@@ -179,10 +214,7 @@ function SessionCard({
             {session.title}
           </h3>
           <div className="hidden md:block">
-            <SessionTypeBadge
-              type={session.type}
-              label={typeLabels[session.type] ?? session.type}
-            />
+            <SessionTypeBadge type={session.type} label={typeLabel} />
           </div>
         </div>
         {session.subtitle && (
@@ -221,22 +253,22 @@ const SESSION_TYPES: Session["type"][] = [
 function FilterBar({
   searchQuery,
   setSearchQuery,
-  selectedTypes,
-  toggleType,
+  selectedFilters,
+  toggleFilter,
   clearFilters,
   hasActiveFilters,
-  typeLabels,
+  filterOptions,
   searchPlaceholder,
   filterByTypeLabel,
   clearLabel,
 }: {
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  selectedTypes: Session["type"][];
-  toggleType: (type: Session["type"]) => void;
+  setSearchQuery: (_query: string) => void;
+  selectedFilters: string[];
+  toggleFilter: (_filterId: string) => void;
   clearFilters: () => void;
   hasActiveFilters: boolean;
-  typeLabels: Record<string, string>;
+  filterOptions: FilterOption[];
   searchPlaceholder: string;
   filterByTypeLabel: string;
   clearLabel: string;
@@ -307,16 +339,16 @@ function FilterBar({
       {/* Type Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-sm text-white/40">{filterByTypeLabel}</span>
-        {SESSION_TYPES.map((type) => {
-          const style = badgeStyles[type];
-          const isSelected = selectedTypes.includes(type);
+        {filterOptions.map((option) => {
+          const style = badgeStyles[option.type];
+          const isSelected = selectedFilters.includes(option.id);
           return (
             <button
-              key={type}
-              onClick={() => toggleType(type)}
+              key={option.id}
+              onClick={() => toggleFilter(option.id)}
               className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-all ${style.text} ${isSelected ? style.activeBg : style.bg}`}
             >
-              {typeLabels[type]}
+              {option.label}
             </button>
           );
         })}
@@ -346,41 +378,96 @@ interface AgendaData {
   sessions: Session[];
 }
 
-export function Agenda({ data }: { data?: AgendaData } = {}) {
+interface AgendaProps {
+  data?: AgendaData;
+  filterMode?: FilterMode;
+}
+
+export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
   const { event, focusTopics, sessions } =
     data ?? (defaultAgendaData as AgendaData);
   const t = useTranslations("accelerate.agenda");
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState<Session["type"][]>([]);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
 
-  const typeLabels: Record<string, string> = {
-    keynote: t("types.keynote"),
-    panel: t("types.panel"),
-    fireside: t("types.fireside"),
-    lightning: t("types.lightning"),
-    break: t("types.break"),
-    demo: t("types.demo"),
-    closing: t("types.closing"),
-  };
+  const typeLabels = useMemo<Record<string, string>>(
+    () => ({
+      keynote: t("types.keynote"),
+      panel: t("types.panel"),
+      fireside: t("types.fireside"),
+      lightning: t("types.lightning"),
+      break: t("types.break"),
+      demo: t("types.demo"),
+      closing: t("types.closing"),
+    }),
+    [t],
+  );
 
-  const toggleType = (type: Session["type"]) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+  const filterOptions: FilterOption[] = useMemo(() => {
+    if (filterMode === "format") {
+      const seen = new Set<string>();
+      const options = (sessions as Session[]).reduce<FilterOption[]>(
+        (items, session) => {
+          const formatGroup = getFormatGroup(session.format);
+          const id = formatGroup
+            ? getFormatFilterId(formatGroup)
+            : getSessionFilterId(session, filterMode);
+          if (seen.has(id)) return items;
+
+          seen.add(id);
+          items.push({
+            id,
+            type: session.type,
+            label: formatGroup ?? typeLabels[session.type] ?? session.type,
+          });
+          return items;
+        },
+        [],
+      );
+
+      const formatOrder = new Map(
+        ["Open/Close", "Fireside", "Keynote", "Break", "Panel"].map(
+          (label, index) => [label, index],
+        ),
+      );
+
+      return options.sort(
+        (a, b) =>
+          (formatOrder.get(a.label) ?? Number.MAX_SAFE_INTEGER) -
+          (formatOrder.get(b.label) ?? Number.MAX_SAFE_INTEGER),
+      );
+    }
+
+    return SESSION_TYPES.map((type) => ({
+      id: `type:${type}`,
+      type,
+      label: typeLabels[type] ?? type,
+    }));
+  }, [filterMode, sessions, typeLabels]);
+
+  const toggleFilter = (filterId: string) => {
+    setSelectedFilters((prev) =>
+      prev.includes(filterId)
+        ? prev.filter((id) => id !== filterId)
+        : [...prev, filterId],
     );
   };
 
   const clearFilters = () => {
     setSearchQuery("");
-    setSelectedTypes([]);
+    setSelectedFilters([]);
   };
 
-  const hasActiveFilters = searchQuery.length > 0 || selectedTypes.length > 0;
+  const hasActiveFilters = searchQuery.length > 0 || selectedFilters.length > 0;
 
   const filteredSessions = useMemo(() => {
     return (sessions as Session[]).filter((session) => {
-      // Filter by type
-      if (selectedTypes.length > 0 && !selectedTypes.includes(session.type)) {
+      // Filter by type or Airtable format.
+      if (
+        selectedFilters.length > 0 &&
+        !selectedFilters.includes(getSessionFilterId(session, filterMode))
+      ) {
         return false;
       }
 
@@ -409,7 +496,7 @@ export function Agenda({ data }: { data?: AgendaData } = {}) {
 
       return true;
     });
-  }, [sessions, searchQuery, selectedTypes]);
+  }, [filterMode, sessions, searchQuery, selectedFilters]);
 
   const sessionCount = filteredSessions.length;
   const totalCount = (sessions as Session[]).length;
@@ -457,11 +544,11 @@ export function Agenda({ data }: { data?: AgendaData } = {}) {
           <FilterBar
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            selectedTypes={selectedTypes}
-            toggleType={toggleType}
+            selectedFilters={selectedFilters}
+            toggleFilter={toggleFilter}
             clearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
-            typeLabels={typeLabels}
+            filterOptions={filterOptions}
             searchPlaceholder={t("searchPlaceholder")}
             filterByTypeLabel={t("filterByType")}
             clearLabel={t("clear")}
