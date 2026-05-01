@@ -7,22 +7,32 @@ const RPC_URL = "http://localhost:8899";
 const READY_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 500;
 
-let validator: ChildProcess | null = null;
-let ledgerDir: string | null = null;
+let surfpool: ChildProcess | null = null;
+let workDir: string | null = null;
 
 export async function setup(): Promise<void> {
-  ledgerDir = mkdtempSync(join(tmpdir(), "docs-examples-ledger-"));
+  // surfpool writes ./.surfpool/logs by default; give it a throwaway cwd so
+  // these artifacts don't end up in the package directory.
+  workDir = mkdtempSync(join(tmpdir(), "docs-examples-surfpool-"));
 
-  validator = spawn(
-    "solana-test-validator",
-    ["--quiet", "--reset", "--ledger", ledgerDir, "--rpc-port", "8899"],
-    { stdio: "ignore", detached: false },
+  surfpool = spawn(
+    "surfpool",
+    [
+      "start",
+      "--no-tui",
+      "--no-studio",
+      "--no-deploy",
+      "--offline",
+      "--log-level",
+      "warn",
+      "-y",
+    ],
+    { cwd: workDir, stdio: "ignore", detached: false },
   );
 
-  validator.on("error", (err) => {
+  surfpool.on("error", (err) => {
     throw new Error(
-      `failed to spawn solana-test-validator: ${err.message}. ` +
-        `Install the Solana CLI: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"`,
+      `failed to spawn surfpool: ${err.message}. Install with: cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli`,
     );
   });
 
@@ -30,18 +40,18 @@ export async function setup(): Promise<void> {
 }
 
 export async function teardown(): Promise<void> {
-  if (validator && validator.pid !== undefined) {
+  if (surfpool && surfpool.pid !== undefined) {
     try {
-      process.kill(validator.pid, "SIGTERM");
+      process.kill(surfpool.pid, "SIGTERM");
     } catch {
       // already gone
     }
   }
-  if (ledgerDir) {
+  if (workDir) {
     try {
-      rmSync(ledgerDir, { recursive: true, force: true });
+      rmSync(workDir, { recursive: true, force: true });
     } catch {
-      // best-effort cleanup; tmp dir gets reaped eventually
+      // best-effort cleanup
     }
   }
 }
@@ -72,7 +82,7 @@ async function waitForRpc(url: string, timeoutMs: number): Promise<void> {
   }
 
   throw new Error(
-    `solana-test-validator did not become ready at ${url} within ${timeoutMs}ms` +
+    `surfpool did not become ready at ${url} within ${timeoutMs}ms` +
       (lastErr ? ` (last error: ${(lastErr as Error).message})` : ""),
   );
 }
