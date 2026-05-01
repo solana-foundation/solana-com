@@ -63,9 +63,9 @@ export async function teardown(): Promise<void> {
 
 /**
  * Cookbook examples assume a Solana CLI keypair exists at the default path.
- * On a dev machine `solana-keygen new` would have set this up; in CI we
- * generate a throwaway one so load-keypair-from-file etc. have something
- * real to read.
+ * On a dev machine `solana-keygen new` would have set this up; in CI we shell
+ * out to the same command so the file is written exactly the way a real user
+ * would have produced it.
  */
 function ensureCliKeypair(): void {
   const dir = join(homedir(), ".config", "solana");
@@ -80,7 +80,7 @@ function ensureCliKeypair(): void {
   );
   if (result.status !== 0) {
     throw new Error(
-      `failed to generate fixture keypair at ${path}. Either install the Solana CLI or pre-create the file.`,
+      `failed to generate fixture keypair at ${path}. Install the Solana CLI: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"`,
     );
   }
 }
