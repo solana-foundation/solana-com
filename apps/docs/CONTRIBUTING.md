@@ -79,15 +79,11 @@ To add or change a snippet:
    `// #endregion <name>` markers.
 3. Add a sibling `<name>.test.ts` that imports the file — that's enough to
    exercise it end-to-end against surfpool.
-4. In the MDX page, replace the fenced code block with a `file=` directive:
-
-   ````text
-   ```ts !! title="Kit" file=packages/docs-examples/cookbook/<section>/<page>/kit.ts#region=<name>
-   ````
-
-   ```
-
-   ```
+4. In the MDX page, replace the fenced code block with a `file=` directive on
+   the opening fence — same shape as
+   ` ```ts !! title="Kit" file=packages/docs-examples/cookbook/<section>/<page>/kit.ts#region=<name> `
+   followed by a closing ` ``` `. The Kit conversions already in
+   `cookbook/accounts` are good references.
 
 Run `pnpm --filter @workspace/docs-examples test` locally — needs the `surfpool`
 CLI installed via
