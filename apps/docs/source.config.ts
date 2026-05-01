@@ -69,8 +69,10 @@ const chConfig = {
 
 // Resolves `file=` paths against the workspace root so MDX authors can write
 // `file=packages/docs-examples/cookbook/...` regardless of which content
-// directory the doc lives in.
-const includeRoot = resolve(__dirname, "..", "..");
+// directory the doc lives in. Uses process.cwd() because fumadocs bundles
+// this file to .source/source.config.mjs at build time, breaking __dirname
+// resolution. cwd reliably points at apps/docs when next/fumadocs runs.
+const includeRoot = resolve(process.cwd(), "..", "..");
 
 export default defineConfig({
   mdxOptions: {
