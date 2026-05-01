@@ -1,7 +1,7 @@
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
 import { rehypeToc } from "fumadocs-core/mdx-plugins";
-import remarkIncludeCode from "@catmcgee/remark-include-code";
+import remarkIncludeCode from "@devrelkit/remark-include-code";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
