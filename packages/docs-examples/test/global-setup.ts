@@ -1,20 +1,24 @@
-import { spawn, ChildProcess } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { spawn, ChildProcess, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const RPC_URL = "http://localhost:8899";
-const READY_TIMEOUT_MS = 60_000;
+const READY_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 500;
 
 let surfpool: ChildProcess | null = null;
 let workDir: string | null = null;
 
 export async function setup(): Promise<void> {
-  // surfpool writes ./.surfpool/logs by default; give it a throwaway cwd so
-  // these artifacts don't end up in the package directory.
+  ensureCliKeypair();
+
   workDir = mkdtempSync(join(tmpdir(), "docs-examples-surfpool-"));
 
+  // Mainnet datasource so cookbook examples that look up real accounts
+  // (USDC mint, Token Program, Metaplex Token Metadata, etc.) resolve via
+  // surfpool's lazy account cloning. Override the upstream RPC by setting
+  // SURFPOOL_DATASOURCE_RPC_URL if you have a paid endpoint.
   surfpool = spawn(
     "surfpool",
     [
@@ -22,7 +26,8 @@ export async function setup(): Promise<void> {
       "--no-tui",
       "--no-studio",
       "--no-deploy",
-      "--offline",
+      "--network",
+      "mainnet",
       "--log-level",
       "warn",
       "-y",
@@ -53,6 +58,30 @@ export async function teardown(): Promise<void> {
     } catch {
       // best-effort cleanup
     }
+  }
+}
+
+/**
+ * Cookbook examples assume a Solana CLI keypair exists at the default path.
+ * On a dev machine `solana-keygen new` would have set this up; in CI we
+ * generate a throwaway one so load-keypair-from-file etc. have something
+ * real to read.
+ */
+function ensureCliKeypair(): void {
+  const dir = join(homedir(), ".config", "solana");
+  const path = join(dir, "id.json");
+  if (existsSync(path)) return;
+
+  mkdirSync(dir, { recursive: true });
+  const result = spawnSync(
+    "solana-keygen",
+    ["new", "--no-bip39-passphrase", "--silent", "--outfile", path],
+    { stdio: "ignore" },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `failed to generate fixture keypair at ${path}. Either install the Solana CLI or pre-create the file.`,
+    );
   }
 }
 
