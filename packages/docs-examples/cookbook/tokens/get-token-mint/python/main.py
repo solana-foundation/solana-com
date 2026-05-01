@@ -8,7 +8,8 @@ from spl.token.core import MintInfo
 async def main():
     rpc = AsyncClient("http://localhost:8899")
 
-    mint_address = Pubkey.from_string("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")
+    # USDC mint on mainnet — surfpool clones the account on demand
+    mint_address = Pubkey.from_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 
     async with rpc:
         # Get account info

@@ -1,5 +1,6 @@
 # #region subscribe
 import asyncio
+from solana.rpc.commitment import Confirmed
 from solana.rpc.websocket_api import connect
 from solders.keypair import Keypair
 
@@ -8,10 +9,10 @@ async def main():
 
     async with connect("ws://localhost:8900") as websocket:
         # Subscribe to account changes
-        await websocket.account_subscribe(keypair.pubkey())
+        await websocket.account_subscribe(keypair.pubkey(), commitment=Confirmed)
 
         # Subscribe to logs
-        await websocket.logs_subscribe()
+        await websocket.logs_subscribe(commitment=Confirmed)
 
         # Drain the first few messages then exit. In a real app you'd
         # iterate forever or until your application shuts down.
