@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <link
           rel="preload"
           as="image"
-          href="/assets/hero-architecture-poster.webp"
+          href="/assets/home-hero.webp"
           fetchPriority="high"
         />
       </head>

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
@@ -14,7 +15,6 @@ export default function HeroSection() {
   const [cursorY, setCursorY] = useState(50);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const mediaRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -31,43 +31,6 @@ export default function HeroSection() {
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (prefersReducedMotion) {
-      video.pause();
-      return;
-    }
-
-    const start = () => {
-      if (video.preload !== "auto") video.preload = "auto";
-      video.load();
-    };
-
-    const idle = (
-      window as Window & {
-        requestIdleCallback?: (
-          _cb: () => void,
-          _opts?: { timeout: number },
-        ) => number;
-      }
-    ).requestIdleCallback;
-
-    if (document.readyState === "complete") {
-      if (idle) idle(start, { timeout: 1500 });
-      else window.setTimeout(start, 200);
-      return;
-    }
-
-    const onLoad = () => {
-      if (idle) idle(start, { timeout: 1500 });
-      else window.setTimeout(start, 200);
-    };
-    window.addEventListener("load", onLoad, { once: true });
-    return () => window.removeEventListener("load", onLoad);
-  }, [prefersReducedMotion]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (prefersReducedMotion) return;
@@ -89,19 +52,23 @@ export default function HeroSection() {
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setInteracting(false)}
       >
-        <video
-          ref={videoRef}
-          autoPlay={!prefersReducedMotion}
-          muted
-          loop={!prefersReducedMotion}
-          playsInline
-          preload="none"
-          poster="/assets/hero-architecture-poster.webp"
-          className={`absolute inset-0 h-full w-full object-cover ${interacting ? "" : "bp-video-idle-glitch"}`}
-        >
-          <source src="/assets/hero-architecture.webm" type="video/webm" />
-          <source src="/assets/hero-architecture.mp4" type="video/mp4" />
-        </video>
+        <ImageTreatment
+          src="/assets/home-hero.webp"
+          alt=""
+          glitchPattern={prefersReducedMotion ? "none" : "p1"}
+          intensity={interacting ? 45 : 35}
+          lighting="even"
+          color="purple"
+          motion={!prefersReducedMotion}
+          flicker={!prefersReducedMotion && !interacting}
+          mouseReactive={!prefersReducedMotion}
+          className="absolute inset-0 h-full w-full"
+          overrides={{
+            exposure: 1,
+            contrast: 0,
+            animSpeed: interacting ? 0.32 : 0.24,
+          }}
+        />
 
         <AnimatePresence>
           {interacting && (
@@ -126,7 +93,7 @@ export default function HeroSection() {
 
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.98)_0%,rgba(0,0,0,0.92)_20%,rgba(0,0,0,0.35)_40%,transparent_60%)]"
+          className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.7)_0%,rgba(0,0,0,0.6)_20%,rgba(0,0,0,0.35)_40%,transparent_60%)]"
         />
       </div>
 
