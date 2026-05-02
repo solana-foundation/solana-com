@@ -33,6 +33,7 @@ export type BreakpointMessages = {
       {
         label: string;
         description: string;
+        originalPrice?: string;
         price: string;
         ctaLabel?: string;
         href?: string;

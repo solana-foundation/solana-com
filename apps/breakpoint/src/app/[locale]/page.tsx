@@ -38,7 +38,7 @@ export default async function HomePage({
       <HeroSection />
       <NarrativeSection />
       <Marquee />
-      {/* <TicketsSection /> */}
+      <TicketsSection />
       <WhyAttendSection />
       <GallerySection />
       <StatsSection />

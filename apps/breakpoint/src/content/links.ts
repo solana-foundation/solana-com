@@ -1,4 +1,5 @@
 export const GENERAL_ADMISSION_HREF = "https://luma.com/breakpoint2026";
+export const BREAKPOINT_LUMA_EVENT_ID = "evt-KFDtoSxKwrXxRwQ";
 export const DEVELOPER_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-devapp";
 export const STUDENT_APPLICATION_HREF =
