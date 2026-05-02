@@ -1,4 +1,4 @@
-import { TICKET_TRANSFER_HREF } from "@/content/links";
+import { SPONSOR_FORM_HREF, TICKET_TRANSFER_HREF } from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -38,6 +38,14 @@ export const faqPageSections = [
           "Speaker applications are not open yet. More information will be shared in the coming months.",
       },
       {
+        id: "general-sponsor",
+        question: "How can I sponsor Breakpoint?",
+        answer:
+          "If you're interested in sponsoring Breakpoint, submit your details",
+        answerHref: SPONSOR_FORM_HREF,
+        answerLinkLabel: "here",
+      },
+      {
         id: "general-press",
         question: "How can I apply for press access?",
         answer:
@@ -59,7 +67,7 @@ export const faqPageSections = [
         id: "tickets-included",
         question: "What is included in my Breakpoint ticket?",
         answer:
-          "Your ticket includes access to main conference programming, networking areas, and on-site experiences. Food and beverages will be available on-site.",
+          "Your ticket includes access to main conference programming, networking areas, and on-site experiences. Food and beverages will be available on-site. You'll also receive Breakpoint merch at check-in.",
       },
       {
         id: "tickets-refundable",

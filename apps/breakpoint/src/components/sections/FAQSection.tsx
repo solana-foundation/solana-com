@@ -5,7 +5,8 @@ import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
 import { getAnchorLinkProps } from "@/lib/links";
 
-const faqKeys = ["q1", "q2", "q3", "q4"] as const;
+const faqKeys = ["q1", "q2", "q3", "q4", "q5"] as const;
+const linkedFaqKeys = new Set<(typeof faqKeys)[number]>(["q3", "q5"]);
 
 export default function FAQSection() {
   const t = useTranslations("breakpoint");
@@ -19,7 +20,7 @@ export default function FAQSection() {
           {faqKeys.map((key) => (
             <Accordion key={key} question={t(`faq.items.${key}.question`)}>
               <p className="type-paragraph text-white md:pr-2xl">
-                {key === "q3"
+                {linkedFaqKeys.has(key)
                   ? t.rich(`faq.items.${key}.answer`, {
                       link: (chunks) => (
                         <a

@@ -2,7 +2,7 @@ import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
-const FAQ_KEYS = ["q1", "q2", "q3", "q4"] as const;
+const FAQ_KEYS = ["q1", "q2", "q3", "q4", "q5"] as const;
 
 type JsonLd = Record<string, unknown>;
 
