@@ -80,7 +80,8 @@ const eyebrowClassName = "type-eyebrow text-white";
 
 const titleClassName = "type-h1 w-full max-w-[1026px] text-white";
 
-const mediaBaseClassName = "absolute inset-0 h-full w-full";
+const mediaBaseClassName =
+  "absolute inset-y-0 right-0 h-full w-[1440px] max-w-none md:inset-0 md:w-full";
 
 function cn(...classNames: Array<string | false | null | undefined>) {
   return classNames.filter(Boolean).join(" ");
@@ -225,7 +226,7 @@ export default function SubpageHero({
         aria-hidden="true"
         width={1440}
         height={146}
-        className="pointer-events-none absolute left-1/2 top-[160px] h-[200px] w-[1078px] max-w-none -translate-x-1/2 object-cover md:left-0 md:w-full md:min-w-[840px] md:translate-x-0"
+        className="pointer-events-none absolute right-0 top-[160px] h-[200px] w-[1078px] max-w-none object-cover md:left-0 md:right-auto md:w-full md:min-w-[840px]"
         data-bp-hero-pixel-edge
       />
 

@@ -44,7 +44,7 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative h-[566px] w-full overflow-hidden bg-black">
+    <section className="relative h-[667px] w-full overflow-hidden bg-black md:h-[566px]">
       <div
         ref={mediaRef}
         aria-hidden="true"
@@ -98,7 +98,7 @@ export default function HeroSection() {
       </div>
 
       <div className="container relative z-10 h-full">
-        <div className="absolute left-5 right-5 top-16 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px]">
+        <div className="absolute left-4 right-4 top-[283px] md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px]">
           <TextScramble
             as="h1"
             text={t("hero.headline")}
@@ -113,7 +113,7 @@ export default function HeroSection() {
               href={GENERAL_ADMISSION_HREF}
             />
           </div>
-          <div className="type-eyebrow mt-10 grid grid-cols-1 gap-x-[24px] gap-y-2 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] xl:w-[609px] xl:grid-cols-[293px_minmax(0,292px)]">
+          <div className="type-eyebrow mt-12 grid w-[326px] max-w-full grid-cols-1 gap-x-[24px] gap-y-6 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:gap-y-2 xl:w-[609px] xl:grid-cols-[293px_minmax(0,292px)]">
             <WordReveal text={t("hero.date")} stepMs={70} startDelayMs={1100} />
             <span>
               <WordReveal
