@@ -1,15 +1,15 @@
 "use client";
 
-import React from "react";
+import { useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
-import { getAnchorLinkProps } from "@/lib/links";
-
-const faqKeys = ["q1", "q2", "q3", "q4", "q5"] as const;
-const linkedFaqKeys = new Set<(typeof faqKeys)[number]>(["q3", "q5"]);
+import FAQAnswer from "@/components/FAQAnswer";
+import { homepageFaqItems } from "@/content/faq-page";
 
 export default function FAQSection() {
   const t = useTranslations("breakpoint");
+  const firstItemId = homepageFaqItems[0]?.id ?? null;
+  const [openItemId, setOpenItemId] = useState<string | null>(firstItemId);
 
   return (
     <section id="faq" className="pt-xl md:pt-3xl">
@@ -17,25 +17,14 @@ export default function FAQSection() {
         <h2 className="type-h3 text-white md:flex-1">{t("faq.headline")}</h2>
 
         <div className="flex flex-col gap-s md:flex-1">
-          {faqKeys.map((key) => (
-            <Accordion key={key} question={t(`faq.items.${key}.question`)}>
-              <p className="type-paragraph text-white md:pr-2xl">
-                {linkedFaqKeys.has(key)
-                  ? t.rich(`faq.items.${key}.answer`, {
-                      link: (chunks) => (
-                        <a
-                          href={t(`faq.items.${key}.answerHref`)}
-                          className="underline decoration-white/40 underline-offset-4 transition-opacity hover:opacity-80"
-                          {...getAnchorLinkProps({
-                            href: t(`faq.items.${key}.answerHref`),
-                          })}
-                        >
-                          {chunks}
-                        </a>
-                      ),
-                    })
-                  : t(`faq.items.${key}.answer`)}
-              </p>
+          {homepageFaqItems.map((item) => (
+            <Accordion
+              key={item.id}
+              question={item.question}
+              open={openItemId === item.id}
+              onOpenChange={(isOpen) => setOpenItemId(isOpen ? item.id : null)}
+            >
+              <FAQAnswer item={item} />
             </Accordion>
           ))}
         </div>

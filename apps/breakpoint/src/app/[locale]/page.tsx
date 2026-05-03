@@ -3,6 +3,7 @@ import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
 import NarrativeSection from "@/components/sections/NarrativeSection";
 import TicketsSection from "@/components/sections/TicketsSection";
+import ParticipateSection from "@/components/sections/ParticipateSection";
 import WhyAttendSection from "@/components/sections/WhyAttendSection";
 import GallerySection from "@/components/sections/GallerySection";
 import StatsSection from "@/components/sections/StatsSection";
@@ -10,7 +11,6 @@ import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { buildBreakpointJsonLd } from "@/lib/structured-data";
 
 export default async function HomePage({
@@ -19,15 +19,15 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const jsonLd = await buildBreakpointJsonLd(locale);
+  const jsonLd = buildBreakpointJsonLd(locale);
 
   return (
     <PageShell
       contentId="breakpoint-content"
-      // navigation={{
-      //   ctaHref: GENERAL_ADMISSION_HREF,
-      //   ctaLabel: "Get tickets",
-      // }}
+      navigation={{
+        ctaHref: "/registration",
+        ctaLabel: "Register",
+      }}
       beforeNavigation={
         <script
           type="application/ld+json"
@@ -39,6 +39,7 @@ export default async function HomePage({
       <NarrativeSection />
       <Marquee />
       <TicketsSection />
+      <ParticipateSection />
       <WhyAttendSection />
       <GallerySection />
       <StatsSection />

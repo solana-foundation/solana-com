@@ -6,7 +6,9 @@ import { useTranslations } from "@workspace/i18n/client";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
   BREAKPOINT_LUMA_EVENT_ID,
+  DEVELOPER_APPLICATION_HREF,
   GENERAL_ADMISSION_HREF,
+  STUDENT_APPLICATION_HREF,
 } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
 
@@ -195,7 +197,6 @@ export default function TicketsSection() {
           <FeaturedTicketCard
             heading={t("tickets.categories.general.label")}
             description={t("tickets.categories.general.description")}
-            originalPrice={t("tickets.categories.general.originalPrice")}
             price={t("tickets.categories.general.price")}
             href={lumaHref}
             lumaEventId={lumaEventId}
@@ -204,14 +205,12 @@ export default function TicketsSection() {
             <HorizontalTicketCard
               heading={t("tickets.categories.developers.label")}
               price={t("tickets.categories.developers.price")}
-              href={lumaHref}
-              lumaEventId={lumaEventId}
+              href={DEVELOPER_APPLICATION_HREF}
             />
             <HorizontalTicketCard
               heading={t("tickets.categories.students.label")}
               price={t("tickets.categories.students.price")}
-              href={lumaHref}
-              lumaEventId={lumaEventId}
+              href={STUDENT_APPLICATION_HREF}
             />
             <HorizontalTicketCard
               heading={t("tickets.categories.lateBird.label")}

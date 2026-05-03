@@ -2,7 +2,11 @@ import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
-import { GENERAL_ADMISSION_HREF, SIDE_EVENTS_HREF } from "@/content/links";
+import {
+  GENERAL_ADMISSION_HREF,
+  SIDE_EVENTS_HREF,
+  SPONSOR_FORM_HREF,
+} from "@/content/links";
 
 type ComingSoonPageProps = {
   description: string;
@@ -15,12 +19,12 @@ const releaseLinks = [
     label: "Plan travel",
   },
   {
-    href: "/sponsors",
+    href: SPONSOR_FORM_HREF,
     label: "Sponsor",
   },
   {
     href: SIDE_EVENTS_HREF,
-    label: "Side events",
+    label: "Submit your side event",
   },
 ] as const;
 
@@ -31,12 +35,12 @@ export default function ComingSoonPage({
   return (
     <PageShell
       contentId={`breakpoint-${title.toLowerCase()}-coming-soon-content`}
-      // navigation={{
-      //   ctaAlwaysVisible: true,
-      //   ctaHref: GENERAL_ADMISSION_HREF,
-      //   ctaLabel: "Get tickets",
-      //   showMenuButton: true,
-      // }}
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: GENERAL_ADMISSION_HREF,
+        ctaLabel: "Get tickets",
+        showMenuButton: true,
+      }}
     >
       <SubpageHero
         heroImage={false}

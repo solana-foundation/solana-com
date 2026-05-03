@@ -1,8 +1,6 @@
-import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
+import { homepageFaqItems } from "@/content/faq-page";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
-
-const FAQ_KEYS = ["q1", "q2", "q3", "q4", "q5"] as const;
 
 type JsonLd = Record<string, unknown>;
 
@@ -24,9 +22,7 @@ const TICKET_OFFERS: OfferSeed[] = [
   },
 ];
 
-export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
-  const t = await getTranslations({ locale, namespace: "breakpoint" });
-
+export function buildBreakpointJsonLd(locale: string): JsonLd {
   const { siteUrl, siteMetadata, event } = config;
   const pageUrl = locale === "en" ? siteUrl : `${siteUrl}/${locale}`;
   const socialImage = new URL(siteMetadata.socialShare, siteUrl).toString();
@@ -85,12 +81,16 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
   const faqNode: JsonLd = {
     "@type": "FAQPage",
     "@id": `${pageUrl}#faq`,
-    mainEntity: FAQ_KEYS.map((key) => ({
+    mainEntity: homepageFaqItems.map((item) => ({
       "@type": "Question",
-      name: asPlainTextMessage(t.raw(`faq.items.${key}.question`)),
+      name: asPlainTextMessage(item.question),
       acceptedAnswer: {
         "@type": "Answer",
-        text: asPlainTextMessage(t.raw(`faq.items.${key}.answer`)),
+        text: asPlainTextMessage(
+          item.answerHref
+            ? `${item.answer} ${item.answerLinkLabel ?? item.answerHref}.`
+            : item.answer,
+        ),
       },
     })),
   };

@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
-import SponsorsPage from "@/components/pages/sponsors/SponsorsPage";
+import ComingSoonPage from "@/components/pages/ComingSoonPage";
 
 export const metadata: Metadata = {
   title: "Sponsors | Breakpoint 2026",
   description:
-    "Meet the Breakpoint 2026 sponsors supporting the Solana ecosystem in London.",
+    "Breakpoint 2026 sponsor announcements are coming soon for the London conference.",
 };
 
 export default function LocaleSponsorsPage() {
-  return <SponsorsPage />;
+  return (
+    <ComingSoonPage
+      title="Sponsors"
+      description="Sponsor announcements are coming soon. Check back for the teams supporting Breakpoint 2026 in London."
+    />
+  );
 }

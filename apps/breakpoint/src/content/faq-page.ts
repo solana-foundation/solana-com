@@ -47,9 +47,9 @@ export const faqPageSections = [
       },
       {
         id: "general-press",
-        question: "How can I apply for press access?",
+        question: "How can I apply for press or content creator access?",
         answer:
-          "Press registration details will be announced closer to the event. For urgent media requests, contact breakpoint@solana.org.",
+          "Use the Press or Content Creator application in the Get Involved section on the homepage.",
       },
       {
         id: "general-contact",
@@ -67,27 +67,24 @@ export const faqPageSections = [
         id: "tickets-included",
         question: "What is included in my Breakpoint ticket?",
         answer:
-          "Your ticket includes access to main conference programming, networking areas, and on-site experiences. Food and beverages will be available on-site. You'll also receive Breakpoint merch at check-in.",
+          "Your ticket includes access to main conference programming, networking areas, and on-site experiences. Food and beverages will be available on-site, along with Breakpoint merch.",
       },
       {
         id: "tickets-refundable",
         question: "Are tickets refundable?",
-        answer:
-          "Tickets are non-refundable but are transferable. If you've purchased a ticket, you can transfer it",
-        answerHref: TICKET_TRANSFER_HREF,
-        answerLinkLabel: "here",
+        answer: "Tickets are non-refundable but are transferable.",
       },
       {
         id: "tickets-developer-student",
         question: "Are developer and student tickets available?",
         answer:
-          "Yes. Developers and active higher education students can apply for discounted Breakpoint tickets through the registration page.",
+          "Yes. Developers and students can apply for discounted Breakpoint tickets through the registration page.",
       },
       {
         id: "tickets-pricing",
         question: "When do ticket prices change?",
         answer:
-          "The current general admission flash sale ends on June 1. Late bird general admission pricing begins September 1.",
+          "Ticket prices increase on a rolling basis as we approach the event. We recommend purchasing early for the best rates.",
       },
       {
         id: "tickets-transfer",
@@ -134,12 +131,6 @@ export const faqPageSections = [
           "Olympia is connected by London public transport and is also reachable by taxi or rideshare from central London.",
       },
       {
-        id: "travel-london",
-        question: "What should I do while in London?",
-        answer:
-          "The travel page includes nearby recommendations like the Science Museum, Design Museum, and Tate Modern.",
-      },
-      {
         id: "travel-visa-support",
         question: "Can Solana Foundation help with visas?",
         answer:
@@ -148,3 +139,27 @@ export const faqPageSections = [
     ],
   },
 ] satisfies FAQPageSection[];
+
+const homepageFaqItemIds = [
+  "general-location",
+  "tickets-included",
+  "tickets-refundable",
+  "general-speaking",
+  "general-sponsor",
+] as const;
+
+function getFaqItemsById(ids: readonly string[]): FAQPageItem[] {
+  return ids.map((id) => {
+    const item = faqPageSections
+      .flatMap((section) => section.items)
+      .find((faqItem) => faqItem.id === id);
+
+    if (!item) {
+      throw new Error(`Missing FAQ page item: ${id}`);
+    }
+
+    return item;
+  });
+}
+
+export const homepageFaqItems = getFaqItemsById(homepageFaqItemIds);

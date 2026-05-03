@@ -32,7 +32,7 @@ const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
   },
   {
     id: "breakpoint-2026-community-events",
-    title: "Explore community side events \u2197",
+    title: "Submit your side event \u2197",
     url: SIDE_EVENTS_HREF,
     tags: ["Events"],
   },

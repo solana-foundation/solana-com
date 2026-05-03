@@ -3,9 +3,13 @@ export const BREAKPOINT_LUMA_EVENT_ID = "evt-KFDtoSxKwrXxRwQ";
 export const DEVELOPER_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-devapp";
 export const STUDENT_APPLICATION_HREF =
-  "https://solanafoundation.typeform.com/bp26-studentapp";
+  "https://solanafoundation.typeform.com/bp26-studentapp?typeform-source=www.google.com";
 export const SPONSOR_FORM_HREF =
   "https://solanafoundation.typeform.com/bp26sponsorform";
+export const PRESS_APPLICATION_HREF =
+  "https://solanafoundation.typeform.com/bp26-press";
+export const CONTENT_CREATOR_APPLICATION_HREF =
+  "https://solanafoundation.typeform.com/bp26-creator";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
 export const BREAKPOINT_2025_ARCHIVES_URL =
   "https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z";

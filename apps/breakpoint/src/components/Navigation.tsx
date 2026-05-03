@@ -15,7 +15,6 @@ const CTA_SIZE_CLASSES = "type-button gap-2 px-3";
 
 const NAV_ITEMS = [
   { label: "Travel", href: "/travel" },
-  { label: "Sponsors", href: "/sponsors" },
   { label: "FAQ", href: "/faq" },
 ] as const;
 

@@ -18,7 +18,6 @@ type SocialLink = {
 
 const MENU_ITEMS: MenuItem[] = [
   { label: "Home", href: "/" },
-  { label: "Sponsors", href: "/sponsors" },
   { label: "Travel", href: "/travel" },
   { label: "Register", href: "/registration" },
   { label: "FAQ", href: "/faq" },

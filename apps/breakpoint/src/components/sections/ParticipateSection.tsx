@@ -1,68 +1,73 @@
 "use client";
 
-import React, { useRef, useCallback } from "react";
 import { useTranslations } from "@workspace/i18n/client";
-import SectionHeadline from "@/components/SectionHeadline";
-import CarouselControls from "@/components/CarouselControls";
+import Button from "@/components/Button";
+import {
+  CONTENT_CREATOR_APPLICATION_HREF,
+  PRESS_APPLICATION_HREF,
+  SPONSOR_FORM_HREF,
+} from "@/content/links";
+
+const PARTICIPATE_ACTIONS = [
+  {
+    href: SPONSOR_FORM_HREF,
+    key: "sponsor",
+    variant: "primary",
+  },
+  {
+    href: PRESS_APPLICATION_HREF,
+    key: "press",
+    variant: "secondary",
+  },
+  {
+    href: CONTENT_CREATOR_APPLICATION_HREF,
+    key: "creator",
+    variant: "secondary",
+  },
+] satisfies {
+  href: string;
+  key: "creator" | "press" | "sponsor";
+  variant: "primary" | "secondary";
+}[];
+
+type ParticipateAction = (typeof PARTICIPATE_ACTIONS)[number];
+
+function ParticipateButton({ action }: { action: ParticipateAction }) {
+  const t = useTranslations("breakpoint");
+
+  return (
+    <Button
+      arrow
+      className="w-full min-[1200px]:w-auto"
+      href={action.href}
+      label={t(`participate.actions.${action.key}.label`)}
+      variant={action.variant}
+    />
+  );
+}
 
 export default function ParticipateSection() {
   const t = useTranslations("breakpoint");
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const scrollBy = useCallback((direction: number) => {
-    const scroller = scrollRef.current;
-    if (!scroller) return;
-
-    const firstCard = scroller.querySelector<HTMLElement>(
-      "[data-participate-card]",
-    );
-    const scrollAmount = firstCard ? firstCard.offsetWidth + 16 : 400;
-    const maxScroll = scroller.scrollWidth - scroller.clientWidth;
-    const nextScroll = scroller.scrollLeft + direction * scrollAmount;
-
-    if (nextScroll < 0) {
-      scroller.scrollTo({ left: maxScroll, behavior: "smooth" });
-      return;
-    }
-
-    if (nextScroll > maxScroll) {
-      scroller.scrollTo({ left: 0, behavior: "smooth" });
-      return;
-    }
-
-    scroller.scrollBy({
-      left: direction * scrollAmount,
-      behavior: "smooth",
-    });
-  }, []);
-
   return (
-    <section className="border-t border-neutral-700 px-[20px] py-2xl md:px-m md:py-3xl">
-      {/* Header row */}
-      <div className="flex items-end justify-between">
-        <SectionHeadline
-          eyebrow={t("participate.eyebrow")}
-          headline={t("participate.headline")}
-          alignment="left"
-        />
-        <CarouselControls
-          onPrev={() => scrollBy(-1)}
-          onNext={() => scrollBy(1)}
-        />
-      </div>
+    <section
+      id="get-involved"
+      className="mt-2xl bg-background-secondary md:mt-[120px]"
+    >
+      <div className="px-m py-2xl min-[1200px]:flex min-[1200px]:items-end min-[1200px]:justify-center min-[1200px]:gap-[40px] min-[1200px]:p-2xl">
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-s min-[1200px]:items-start">
+          <p className="type-eyebrow text-center text-white min-[1200px]:text-left">
+            {t("participate.eyebrow")}
+          </p>
+          <h2 className="w-full text-center font-sans text-[28px] leading-[1.2] tracking-[-0.56px] text-white min-[1200px]:text-left min-[1200px]:text-[40px] min-[1200px]:leading-[1.15] min-[1200px]:tracking-[-0.8px]">
+            {t("participate.headline")}
+          </h2>
+        </div>
 
-      {/* Carousel */}
-      <div
-        ref={scrollRef}
-        className="scrollbar-hidden mt-xl flex snap-x snap-mandatory gap-xs overflow-x-auto"
-      >
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            data-participate-card
-            className="h-[400px] min-w-[400px] shrink-0 snap-start border border-stroke-card bg-neutral-800 md:min-w-[600px]"
-          />
-        ))}
+        <div className="mt-[40px] flex w-full flex-col items-center justify-center gap-xs min-[1200px]:mt-0 min-[1200px]:w-auto min-[1200px]:flex-row">
+          {PARTICIPATE_ACTIONS.map((action) => (
+            <ParticipateButton key={action.key} action={action} />
+          ))}
+        </div>
       </div>
     </section>
   );

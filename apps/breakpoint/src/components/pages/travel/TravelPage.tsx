@@ -4,7 +4,11 @@ import Marquee from "@/components/Marquee";
 import PageShell from "@/components/PageShell";
 import SubpageHero from "@/components/SubpageHero";
 import Footer from "@/components/sections/Footer";
-import { IAS_HREF, VISA_CHECK_HREF } from "@/content/links";
+import {
+  GENERAL_ADMISSION_HREF,
+  IAS_HREF,
+  VISA_CHECK_HREF,
+} from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
 import TravelSubnav from "./TravelSubnav";
 
@@ -145,12 +149,12 @@ export default function TravelPage() {
   return (
     <PageShell
       contentId="travel-content"
-      // navigation={{
-      //   ctaAlwaysVisible: true,
-      //   ctaHref: GENERAL_ADMISSION_HREF,
-      //   ctaLabel: "Get tickets",
-      //   showMenuButton: true,
-      // }}
+      navigation={{
+        ctaAlwaysVisible: true,
+        ctaHref: GENERAL_ADMISSION_HREF,
+        ctaLabel: "Get tickets",
+        showMenuButton: true,
+      }}
     >
       <TravelHero />
       <TravelSubnav />

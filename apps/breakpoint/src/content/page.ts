@@ -47,6 +47,7 @@ export type BreakpointMessages = {
     actions: Record<
       string,
       {
+        ctaLabel?: string;
         label: string;
         href?: string;
       }
