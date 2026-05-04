@@ -90,7 +90,7 @@ export const faqPageSections = [
         id: "tickets-transfer",
         question: "Can I transfer my ticket?",
         answer:
-          "Yes. If you purchased through Lu.ma, use the transfer tools in your ticket confirmation to assign the ticket to another attendee.",
+          "Yes. If you purchased through Lu.ma, use the transfer tools in your ticket confirmation to",
         answerHref: TICKET_TRANSFER_HREF,
         answerLinkLabel: "assign the ticket to another attendee",
       },

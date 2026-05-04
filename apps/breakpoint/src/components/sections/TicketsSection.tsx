@@ -189,7 +189,6 @@ export default function TicketsSection() {
 
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-xs md:px-m">
         <div className="flex flex-col items-center gap-6 text-center">
-          <p className="type-eyebrow text-white">{t("tickets.eyebrow")}</p>
           <h2 className="type-h3 text-white">{t("tickets.headline")}</h2>
         </div>
 

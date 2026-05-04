@@ -6,6 +6,7 @@ import SubpageHero from "@/components/SubpageHero";
 import Footer from "@/components/sections/Footer";
 import {
   GENERAL_ADMISSION_HREF,
+  HOTEL_BOOKING_HREF,
   IAS_HREF,
   VISA_CHECK_HREF,
 } from "@/content/links";
@@ -79,7 +80,12 @@ function HotelsSection() {
       <p className="type-p-large text-white">
         Hotel accommodations are available through aRes Travel.
       </p>
-      <Button disabled label="Book a hotel" variant="secondary" />
+      <Button
+        arrow
+        href={HOTEL_BOOKING_HREF}
+        label="Book a hotel"
+        variant="secondary"
+      />
     </SectionFrame>
   );
 }
