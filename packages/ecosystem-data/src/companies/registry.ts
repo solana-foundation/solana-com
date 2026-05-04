@@ -29,6 +29,7 @@ import { jito } from "./records/jito";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
+import { macropod } from "./records/macropod";
 import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
@@ -89,6 +90,7 @@ export const companies = [
   kast,
   kazakhstan,
   libeara,
+  macropod,
   matcha,
   mantle,
   mantleByreal,
