@@ -4,16 +4,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
 export default function HeroSection() {
   const t = useTranslations("breakpoint");
   const [interacting, setInteracting] = useState(false);
   const [cursorY, setCursorY] = useState(50);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const mediaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -110,7 +111,7 @@ export default function HeroSection() {
               label={t("hero.cta")}
               variant="primary"
               arrow
-              href={GENERAL_ADMISSION_HREF}
+              onClick={() => setSubscribeOpen(true)}
             />
           </div>
           <div className="type-eyebrow mt-12 grid w-[326px] max-w-full grid-cols-1 gap-x-[24px] gap-y-6 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:gap-y-2 xl:w-[609px] xl:grid-cols-[293px_minmax(0,292px)]">
@@ -139,6 +140,11 @@ export default function HeroSection() {
         width={1440}
         height={146}
         className="pointer-events-none absolute bottom-0 left-0 z-0 h-[146px] w-full object-cover"
+      />
+
+      <EmailSubscribeDialog
+        open={subscribeOpen}
+        onClose={() => setSubscribeOpen(false)}
       />
     </section>
   );
