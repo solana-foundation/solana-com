@@ -3,6 +3,11 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import Button from "@/components/Button";
 
+const ITERABLE_BASE_URL =
+  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
+const NEWSLETTER_FORM_ID = "16189fcd-ac6c-4cc9-ac4a-94aa102fccc1";
+const NEWSLETTER_ACTION_URL = `${ITERABLE_BASE_URL}${NEWSLETTER_FORM_ID}`;
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -10,11 +15,19 @@ interface Props {
 
 export default function EmailSubscribeDialog({ open, onClose }: Props) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">(
+    "idle",
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+
+  useEffect(() => {
+    if (open) return;
+    setEmail("");
+    setStatus("idle");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -62,11 +75,34 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
 
   if (!open) return null;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setStatus("error");
+      return;
+    }
+
     setStatus("sending");
-    setTimeout(() => setStatus("done"), 500);
+
+    try {
+      const data = new FormData();
+      data.append("email", trimmedEmail);
+
+      const response = await fetch(NEWSLETTER_ACTION_URL, {
+        method: "POST",
+        body: data,
+      });
+
+      if (!response.ok) {
+        throw new Error("Newsletter signup failed");
+      }
+
+      setEmail("");
+      setStatus("done");
+    } catch {
+      setStatus("error");
+    }
   };
 
   return (
@@ -132,10 +168,22 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
               type="email"
               value={email}
               required
-              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={status === "error"}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (status === "error") {
+                  setStatus("idle");
+                }
+              }}
               placeholder="you@domain.com"
+              disabled={status === "sending"}
               className="type-field h-[40px] border border-white/15 bg-transparent px-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
             />
+            {status === "error" && (
+              <p role="alert" className="type-caption text-pink">
+                Please enter a valid email address and try again.
+              </p>
+            )}
             <Button
               disabled={status === "sending"}
               label={status === "sending" ? "Subscribing…" : "Subscribe"}
