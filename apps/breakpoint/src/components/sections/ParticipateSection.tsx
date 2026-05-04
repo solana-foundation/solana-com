@@ -51,7 +51,7 @@ export default function ParticipateSection() {
   return (
     <section
       id="get-involved"
-      className="mt-2xl bg-background-secondary md:mt-[120px]"
+      className="mt-2xl min-h-[592px] bg-background-secondary md:mt-[120px] md:min-h-0"
     >
       <div className="px-m py-2xl min-[1200px]:flex min-[1200px]:items-end min-[1200px]:justify-center min-[1200px]:gap-[40px] min-[1200px]:p-2xl">
         <div className="flex min-w-0 flex-1 flex-col items-center gap-s min-[1200px]:items-start">

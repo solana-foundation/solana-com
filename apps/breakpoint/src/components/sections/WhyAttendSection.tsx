@@ -111,7 +111,7 @@ export default function WhyAttendSection() {
   const [activeIndex, setActiveIndex] = useState(0);
 
   return (
-    <section className="bg-black pt-[80px] md:pt-[120px]">
+    <section className="bg-black pt-[80px] md:pt-[120px] mb-[120px] md:mb-0">
       <div className="mx-auto flex w-full max-w-[1376px] flex-col items-center gap-l px-xs md:px-0">
         <h2 className="type-h3 text-center text-white">Why Breakpoint</h2>
 
