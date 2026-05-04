@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import macropodLogo from "../../../assets/companies/macropod/logo.jpg";
 import macropodMark from "../../../assets/companies/macropod/mark.svg";
 
 export const macropod = {
@@ -23,8 +24,16 @@ export const macropod = {
       linkedin: "https://www.linkedin.com/company/macropod-global",
     },
   },
-  defaultLogoId: "mark",
+  defaultLogoId: "logo",
   logos: [
+    {
+      id: "logo",
+      fileName: "logo.jpg",
+      format: "jpg",
+      source: macropodLogo,
+      kind: "logo",
+      theme: "light",
+    },
     {
       id: "mark",
       fileName: "mark.svg",
