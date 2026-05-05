@@ -94,11 +94,6 @@ const SOCIAL_LINKS: { name: string; href: string; icon: string }[] = [
     href: "https://github.com/solana-foundation",
     icon: "/assets/icon-github.svg",
   },
-  {
-    name: "Telegram",
-    href: "https://t.me/solana",
-    icon: "/assets/icon-telegram.svg",
-  },
 ];
 
 type CountdownParts = {
