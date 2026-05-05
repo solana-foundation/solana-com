@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { useScramble } from "@/components/Button";
-import { getAnchorLinkProps } from "@/lib/links";
+import { breakpointHref, getAnchorLinkProps } from "@/lib/links";
 
 type TicketButtonTone = "dark" | "light" | "muted";
 
@@ -57,7 +57,7 @@ export default function RegistrationTicketButton({
     );
   }
 
-  const activeHref = href ?? "";
+  const activeHref = breakpointHref(href ?? "");
 
   return (
     <a

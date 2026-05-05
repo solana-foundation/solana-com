@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { publicAssetPath } from "@/config";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isCurrentBreakpointHref,
+  isRelativeHref,
+} from "@/lib/links";
 import GlitchOverlay from "@/components/GlitchOverlay";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
 
@@ -116,6 +121,7 @@ function MenuItemRow({
 
   const className =
     "group relative flex w-full items-center gap-2 border-b border-white/10 py-4 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white min-[430px]:gap-4 md:gap-6 md:py-5";
+  const resolvedHref = breakpointHref(item.href);
 
   const handlers = {
     onMouseEnter: () => setHover(true),
@@ -128,7 +134,7 @@ function MenuItemRow({
   if (isRelativeHref(item.href)) {
     return (
       <Link
-        href={item.href}
+        href={resolvedHref}
         className={className}
         aria-current={isCurrent ? "page" : undefined}
         {...handlers}
@@ -140,9 +146,9 @@ function MenuItemRow({
 
   return (
     <a
-      href={item.href}
+      href={resolvedHref}
       className={className}
-      {...getAnchorLinkProps({ href: item.href })}
+      {...getAnchorLinkProps({ href: resolvedHref })}
       {...handlers}
     >
       {inner}
@@ -225,7 +231,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
         style={{ marginTop: 12 }}
       >
         <Link
-          href="/"
+          href={breakpointHref("/")}
           onClick={onClose}
           className="flex h-4 shrink-0 items-center gap-[5.705px] md:h-5 md:gap-[7px]"
           aria-label="Breakpoint 2026"
@@ -287,8 +293,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
       <nav aria-label="Site" className="relative z-10 flex-1 px-4 md:px-8">
         <ul className="unstyled-list border-t border-white/10">
           {MENU_ITEMS.map((item, idx) => {
-            const isCurrent =
-              item.href === "/" ? pathname === "/" : pathname === item.href;
+            const isCurrent = isCurrentBreakpointHref(pathname, item.href);
             return (
               <li key={item.href}>
                 <MenuItemRow

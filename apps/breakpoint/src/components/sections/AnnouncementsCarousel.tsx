@@ -4,7 +4,11 @@ import React, { useCallback, useId, useRef } from "react";
 import { Link } from "@workspace/i18n/routing";
 import CarouselControls from "@/components/CarouselControls";
 import type { BreakpointAnnouncementLink } from "@/lib/media-links";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isRelativeHref,
+} from "@/lib/links";
 
 interface AnnouncementsCarouselProps {
   headline: string;
@@ -73,13 +77,14 @@ export default function AnnouncementsCarousel({
         role="list"
       >
         {items.map((item) => {
+          const resolvedUrl = breakpointHref(item.url);
           const content = (
             <>
               <span className="type-eyebrow text-white opacity-80">
                 {item.tags?.[0] ?? "Article"}
               </span>
               <span className="type-h5 text-white">{item.title}</span>
-              {!isRelativeHref(item.url) && (
+              {!isRelativeHref(resolvedUrl) && (
                 <span className="sr-only">(opens in a new tab)</span>
               )}
             </>
@@ -94,14 +99,14 @@ export default function AnnouncementsCarousel({
               className="block h-[332px] w-[300px] shrink-0 snap-start md:w-[calc((100%-48px)/3)] md:min-w-[300px]"
             >
               {isRelativeHref(item.url) ? (
-                <Link href={item.url} className={className}>
+                <Link href={resolvedUrl} className={className}>
                   {content}
                 </Link>
               ) : (
                 <a
-                  href={item.url}
+                  href={resolvedUrl}
                   className={className}
-                  {...getAnchorLinkProps({ href: item.url })}
+                  {...getAnchorLinkProps({ href: resolvedUrl })}
                 >
                   {content}
                 </a>

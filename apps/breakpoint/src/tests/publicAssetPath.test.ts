@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { publicAssetPath } from "@/config";
+import { publicAssetPath, routePath } from "@/config";
+
+describe("routePath", () => {
+  it("prefixes Breakpoint app routes", () => {
+    expect(routePath("/")).toBe("/breakpoint");
+    expect(routePath("/travel")).toBe("/breakpoint/travel");
+    expect(routePath("faq")).toBe("/breakpoint/faq");
+  });
+
+  it("leaves already-prefixed, asset, and non-route hrefs unchanged", () => {
+    expect(routePath("/breakpoint/travel")).toBe("/breakpoint/travel");
+    expect(routePath("/breakpoint-assets/assets/home-hero.webp")).toBe(
+      "/breakpoint-assets/assets/home-hero.webp",
+    );
+    expect(routePath("#flights")).toBe("#flights");
+    expect(routePath("https://example.com")).toBe("https://example.com");
+  });
+});
 
 describe("publicAssetPath", () => {
   it("prefixes Breakpoint public asset directories", () => {

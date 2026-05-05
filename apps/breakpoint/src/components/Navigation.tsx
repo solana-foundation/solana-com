@@ -12,7 +12,12 @@ import {
   GENERAL_ADMISSION_HREF,
 } from "@/content/links";
 import { publicAssetPath } from "@/config";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isCurrentBreakpointHref,
+  isRelativeHref,
+} from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
@@ -92,11 +97,12 @@ function NavigationLink({
       <span aria-hidden="true">{"\u2192"}</span>
     </>
   );
+  const resolvedHref = breakpointHref(href);
 
   if (isRelativeHref(href)) {
     return (
       <Link
-        href={href}
+        href={resolvedHref}
         aria-current={isCurrent ? "page" : undefined}
         className={className}
         onClick={onNavigate}
@@ -108,11 +114,11 @@ function NavigationLink({
 
   return (
     <a
-      href={href}
+      href={resolvedHref}
       aria-current={isCurrent ? "page" : undefined}
       className={className}
       onClick={onNavigate}
-      {...getAnchorLinkProps({ href })}
+      {...getAnchorLinkProps({ href: resolvedHref })}
     >
       {inner}
     </a>
@@ -230,6 +236,7 @@ export default function Navigation({
   };
 
   const resolvedCtaLabel = ctaLabel ?? t("hero.cta");
+  const resolvedCtaHref = ctaHref ? breakpointHref(ctaHref) : "";
   const showCta = ctaAlwaysVisible || isSticky || menuOpen;
   const hasMenu = showMenuButton;
   const isLumaCheckoutCta = ctaHref === GENERAL_ADMISSION_HREF;
@@ -263,7 +270,7 @@ export default function Navigation({
   const ctaElement = ctaHref ? (
     isRelativeHref(ctaHref) ? (
       <Link
-        href={ctaHref}
+        href={resolvedCtaHref}
         className={ctaClasses}
         onFocus={triggerCtaGlitch}
         onMouseEnter={triggerCtaGlitch}
@@ -274,7 +281,7 @@ export default function Navigation({
       </Link>
     ) : (
       <a
-        href={ctaHref}
+        href={resolvedCtaHref}
         className={ctaClasses}
         onFocus={triggerCtaGlitch}
         onMouseEnter={triggerCtaGlitch}
@@ -284,7 +291,7 @@ export default function Navigation({
               "data-luma-action": "checkout",
               "data-luma-event-id": BREAKPOINT_LUMA_EVENT_ID,
             }
-          : getAnchorLinkProps({ href: ctaHref }))}
+          : getAnchorLinkProps({ href: resolvedCtaHref }))}
         {...ctaAriaProps}
       >
         {ctaInner}
@@ -347,7 +354,7 @@ export default function Navigation({
           className={`flex h-12 w-full items-center bg-black py-2 ${headerLayoutClass}`}
         >
           <Link
-            href="/"
+            href={breakpointHref("/")}
             className={`flex shrink-0 items-center ${logoSizeClasses}`}
             aria-label="Breakpoint 2026"
             onClick={closeMenu}
@@ -411,7 +418,7 @@ export default function Navigation({
             className="flex w-full flex-col items-start gap-4 bg-black p-4 shadow-[inset_0_1px_0_0_var(--color-stroke-primary)] md:px-6 md:py-5"
           >
             {NAV_ITEMS.map((item, index) => {
-              const isCurrent = pathname === item.href;
+              const isCurrent = isCurrentBreakpointHref(pathname, item.href);
               return (
                 <div key={item.href} className="contents">
                   <NavigationLink

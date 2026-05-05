@@ -2,7 +2,11 @@ import React from "react";
 import { Link } from "@workspace/i18n/routing";
 import Button from "./Button";
 import WordReveal from "./WordReveal";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isRelativeHref,
+} from "@/lib/links";
 
 interface TicketCardProps {
   variant: "ticket";
@@ -98,9 +102,14 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
   );
 
   if (href) {
+    const resolvedHref = breakpointHref(href);
+
     if (isRelativeHref(href)) {
       return (
-        <Link href={href} className="block transition-opacity hover:opacity-80">
+        <Link
+          href={resolvedHref}
+          className="block transition-opacity hover:opacity-80"
+        >
           {content}
         </Link>
       );
@@ -108,9 +117,9 @@ function LinkCard({ eyebrow, linkLabel, href }: LinkCardProps) {
 
     return (
       <a
-        href={href}
+        href={resolvedHref}
         className="block transition-opacity hover:opacity-80"
-        {...getAnchorLinkProps({ href })}
+        {...getAnchorLinkProps({ href: resolvedHref })}
       >
         {content}
       </a>

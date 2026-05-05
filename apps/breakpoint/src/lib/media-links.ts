@@ -1,5 +1,6 @@
 import { withRelatedProject } from "@vercel/related-projects";
 import { SIDE_EVENTS_HREF, SPONSOR_FORM_HREF } from "@/content/links";
+import { breakpointHref } from "@/lib/links";
 
 const VERCEL_MEDIA_APP_URL = withRelatedProject({
   projectName: "solana-com-media",
@@ -27,7 +28,7 @@ const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
   {
     id: "breakpoint-2026-plan-your-trip",
     title: "Plan your trip to London",
-    url: "/travel",
+    url: breakpointHref("/travel"),
     tags: ["Travel"],
   },
   {
@@ -60,6 +61,15 @@ function getBaseUrl(): string {
 
 function getFallbackBreakpointAnnouncementLinks(): BreakpointAnnouncementLink[] {
   return FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS.map((item) => ({ ...item }));
+}
+
+function normalizeBreakpointAnnouncementLink(
+  item: BreakpointAnnouncementLink,
+): BreakpointAnnouncementLink {
+  return {
+    ...item,
+    url: breakpointHref(item.url),
+  };
 }
 
 function isBreakpointAnnouncementLink(
@@ -98,7 +108,9 @@ export async function fetchBreakpointAnnouncementLinks(): Promise<
     }
 
     const links = data.filter(isBreakpointAnnouncementLink).slice(0, 10);
-    return links.length > 0 ? links : getFallbackBreakpointAnnouncementLinks();
+    return links.length > 0
+      ? links.map(normalizeBreakpointAnnouncementLink)
+      : getFallbackBreakpointAnnouncementLinks();
   } catch (error) {
     console.error("Failed to fetch Breakpoint announcement links:", error);
     return getFallbackBreakpointAnnouncementLinks();

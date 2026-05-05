@@ -4,7 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { useInView } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isRelativeHref,
+} from "@/lib/links";
 
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -152,9 +156,11 @@ export default function Button({
   };
 
   if (href) {
+    const resolvedHref = breakpointHref(href);
+
     if (isRelativeHref(href)) {
       return (
-        <Link href={href} {...commonProps}>
+        <Link href={resolvedHref} {...commonProps}>
           {inner}
         </Link>
       );
@@ -162,8 +168,8 @@ export default function Button({
 
     return (
       <a
-        href={href}
-        {...getAnchorLinkProps({ href, rel, target })}
+        href={resolvedHref}
+        {...getAnchorLinkProps({ href: resolvedHref, rel, target })}
         {...commonProps}
       >
         {inner}

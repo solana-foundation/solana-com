@@ -6,7 +6,11 @@ import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { publicAssetPath } from "@/config";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
-import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isRelativeHref,
+} from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
 
@@ -165,17 +169,22 @@ function SecondaryLink({ href, label }: { href: string; label: string }) {
       </span>
     </>
   );
+  const resolvedHref = breakpointHref(href);
 
   if (isRelativeHref(href)) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={resolvedHref} className={classes}>
         {content}
       </Link>
     );
   }
 
   return (
-    <a href={href} className={classes} {...getAnchorLinkProps({ href })}>
+    <a
+      href={resolvedHref}
+      className={classes}
+      {...getAnchorLinkProps({ href: resolvedHref })}
+    >
       {content}
     </a>
   );

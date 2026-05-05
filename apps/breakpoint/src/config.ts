@@ -7,17 +7,39 @@ const publicAssetDirectories = [
   "/live/",
 ] as const;
 
-const routePath = (path: string) =>
-  `${routePrefix}${path.startsWith("/") ? path : `/${path}`}`;
+const hasProtocol = (path: string) => /^[a-z][a-z\d+.-]*:/i.test(path);
+
+export const routePath = (path: string) => {
+  if (
+    path.startsWith("#") ||
+    path.startsWith("?") ||
+    path.startsWith("//") ||
+    hasProtocol(path)
+  ) {
+    return path;
+  }
+
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (
+    normalizedPath === routePrefix ||
+    normalizedPath.startsWith(`${routePrefix}/`) ||
+    normalizedPath.startsWith(`${assetPrefix}/`)
+  ) {
+    return normalizedPath;
+  }
+
+  return normalizedPath === "/"
+    ? routePrefix
+    : `${routePrefix}${normalizedPath}`;
+};
 
 export function publicAssetPath(path: string) {
-  const hasProtocol = /^[a-z][a-z\d+.-]*:/i.test(path);
-
   if (
     !path.startsWith("/") ||
     path.startsWith("//") ||
     path.startsWith(`${assetPrefix}/`) ||
-    hasProtocol
+    hasProtocol(path)
   ) {
     return path;
   }
