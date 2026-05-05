@@ -11,6 +11,7 @@ export const PROJECTS = [
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
     key: "jpmorgan",
+    href: "https://www.jpmorgan.com/about-us/corporate-news/2025/jpmorgan-commercial-paper-issuance-solana-blockchain",
   },
   {
     src: getCompanyLogoSrc("citi") ?? "",

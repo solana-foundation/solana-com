@@ -153,18 +153,15 @@ export const Projects = ({
                       <p className="text-white opacity-[0.64] text-base md:text-lg xl:text-xl tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                         {t(`${base}.description`)}
                         {project.href && (
-                          <>
-                            {" "}
-                            <a
-                              href={project.href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="whitespace-nowrap text-inherit underline underline-offset-4 decoration-current focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-sm"
-                              aria-label={`${t(`${base}.name`)} learn more`}
-                            >
-                              learn more
-                            </a>
-                          </>
+                          <a
+                            href={project.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 block w-fit whitespace-nowrap text-sm md:text-base uppercase underline underline-offset-4 decoration-current focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-sm"
+                            aria-label={`Learn more about ${t(`${base}.name`)}`}
+                          >
+                            Learn More
+                          </a>
                         )}
                       </p>
                     </div>
