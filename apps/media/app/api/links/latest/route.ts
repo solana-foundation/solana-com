@@ -22,7 +22,6 @@ interface TerminalItem {
   categories?: string[];
   tags?: string[];
   description?: string;
-  tags?: string[];
   thumbnailImage?: string;
 }
 
@@ -69,7 +68,6 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     ),
     tags: link.tags,
     description: contentDocumentToPlainText(link.description),
-    tags: link.tags,
     thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
