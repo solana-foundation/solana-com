@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import { CODE_OF_CONDUCT_HREF } from "@/content/links";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const LONDON_TIME_ZONE = "Europe/London";
@@ -255,7 +256,10 @@ export default function Footer({
               href="mailto:breakpoint@solana.org"
               label={t("contact")}
             />
-            <SecondaryLink href="/code-of-conduct" label={t("codeOfConduct")} />
+            <SecondaryLink
+              href={CODE_OF_CONDUCT_HREF}
+              label={t("codeOfConduct")}
+            />
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 import GlitchOverlay from "@/components/GlitchOverlay";
+import { CODE_OF_CONDUCT_HREF } from "@/content/links";
 
 type MenuItem = {
   label: string;
@@ -330,13 +331,14 @@ export default function MenuOverlay({ open, onClose }: Props) {
           >
             Contact Us
           </a>
-          <Link
-            href="/code-of-conduct"
-            onClick={onClose}
+          <a
+            href={CODE_OF_CONDUCT_HREF}
+            target="_blank"
+            rel="noreferrer"
             className="type-button text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             Code of Conduct
-          </Link>
+          </a>
           <p className="type-button text-white/50">© Solana Foundation 2026</p>
         </div>
       </div>
