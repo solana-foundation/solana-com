@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ImageTreatment from "@/components/ImageTreatment";
 
 const reasons = [
   {
@@ -34,19 +35,20 @@ function ImageMask({ activeIndex }: { activeIndex: number }) {
           "polygon(0 0, 78% 0, 78% 6%, 83% 6%, 83% 12%, 90% 12%, 90% 18%, 100% 18%, 100% 88%, 94% 88%, 94% 94%, 87% 94%, 87% 100%, 0 100%)",
       }}
     >
-      <img
+      <ImageTreatment
         key={activeReason.imageSrc}
         src={activeReason.imageSrc}
         alt={activeReason.imageAlt}
-        className="absolute inset-0 h-full w-full object-cover opacity-90 transition-opacity duration-300"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-blue mix-blend-color"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-black/35 mix-blend-multiply"
+        glitchPattern="p1"
+        intensity={40}
+        lighting="even"
+        color="blue"
+        motion
+        flicker
+        mouseReactive
+        mouseRadius={120}
+        objectFit="cover"
+        className="absolute inset-0 h-full w-full opacity-90 transition-opacity duration-300"
       />
     </div>
   );
