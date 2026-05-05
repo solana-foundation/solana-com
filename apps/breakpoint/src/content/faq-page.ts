@@ -15,7 +15,8 @@ export type FAQPageSection = {
 };
 
 export const faqPageMetadata = {
-  title: "FAQ | Breakpoint 2026",
+  path: "/faq",
+  title: "FAQ",
   description:
     "Answers to common Breakpoint 2026 questions about the event, tickets, travel, and attending in London.",
 };

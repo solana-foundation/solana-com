@@ -1,3 +1,5 @@
+import { defaultLocale } from "@workspace/i18n/config";
+
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
 const publicAssetDirectories = [
@@ -48,6 +50,17 @@ export const routePath = (path: string) => {
     : `${routePrefix}${normalizedPath}`;
 };
 
+export const localizedRoutePath = (
+  locale: string = defaultLocale,
+  path: string = "/",
+) =>
+  locale === defaultLocale ? routePath(path) : `/${locale}${routePath(path)}`;
+
+export const localizedRouteUrl = (
+  locale: string = defaultLocale,
+  path: string = "/",
+) => `${siteOrigin}${localizedRoutePath(locale, path)}`;
+
 export function publicAssetPath(path: string) {
   if (
     !path.startsWith("/") ||
@@ -65,7 +78,8 @@ export function publicAssetPath(path: string) {
 
 export const config = {
   assetPrefix,
-  siteUrl: `${siteOrigin}${routePrefix}`,
+  siteOrigin,
+  siteUrl: localizedRouteUrl(defaultLocale),
   siteMetadata: {
     title: "Breakpoint 2026",
     description:

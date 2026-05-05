@@ -1,4 +1,4 @@
-import { config } from "@/config";
+import { config, localizedRouteUrl } from "@/config";
 import { homepageFaqItems } from "@/content/faq-page";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
@@ -24,7 +24,7 @@ const TICKET_OFFERS: OfferSeed[] = [
 
 export function buildBreakpointJsonLd(locale: string): JsonLd {
   const { siteUrl, siteMetadata, event } = config;
-  const pageUrl = locale === "en" ? siteUrl : `${siteUrl}/${locale}`;
+  const pageUrl = localizedRouteUrl(locale);
   const socialImage = new URL(siteMetadata.socialShare, siteUrl).toString();
 
   const eventNode: JsonLd = {

@@ -4,19 +4,32 @@ import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 import { getTranslations } from "@workspace/i18n/server";
-import { config } from "@/config";
-
-const localePath = (locale: string) =>
-  locale === defaultLocale ? "" : `/${locale}`;
+import { config, localizedRouteUrl } from "@/config";
 
 const socialImageAlt =
   "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
 
+type PageMetadataConfig = {
+  description: string;
+  path: string;
+  title: string;
+};
+
+const getLanguageAlternates = (path: string) => {
+  const languages: Record<string, string> = Object.fromEntries(
+    locales.map((l) => [l, localizedRouteUrl(l, path)]),
+  );
+  languages["x-default"] = localizedRouteUrl(defaultLocale, path);
+
+  return languages;
+};
+
 export async function getBaseMetadata(
   locale: string = defaultLocale,
+  path: string = "/",
 ): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
-  const { siteUrl, siteMetadata, social } = config;
+  const { siteOrigin, siteMetadata, social } = config;
 
   const title = t("title");
   const titleTemplate = t("titleTemplate");
@@ -29,14 +42,11 @@ export async function getBaseMetadata(
     .map((k) => k.trim())
     .filter(Boolean);
 
-  const canonical = `${siteUrl}${localePath(locale)}`;
-  const languages: Record<string, string> = Object.fromEntries(
-    locales.map((l) => [l, `${siteUrl}${localePath(l)}`]),
-  );
-  languages["x-default"] = siteUrl;
+  const canonical = localizedRouteUrl(locale, path);
+  const languages = getLanguageAlternates(path);
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(siteOrigin),
     alternates: { canonical, languages },
     title: { default: title, template: titleTemplate },
     description,
@@ -81,5 +91,33 @@ export async function getBaseMetadata(
       { url: faviconSvg, rel: "icon", type: "image/svg+xml" },
       { url: appleTouchIcon.src, rel: "apple-touch-icon", sizes: "180x180" },
     ],
+  };
+}
+
+export async function getPageMetadata(
+  locale: string = defaultLocale,
+  { description, path, title }: PageMetadataConfig,
+): Promise<Metadata> {
+  const base = await getBaseMetadata(locale, path);
+  const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
+  const siteName = t("siteName");
+  const socialTitle = `${title} | ${siteName}`;
+  const openGraph = base.openGraph ?? {};
+  const twitter = base.twitter ?? {};
+
+  return {
+    ...base,
+    title,
+    description,
+    openGraph: {
+      ...openGraph,
+      title: socialTitle,
+      description,
+    },
+    twitter: {
+      ...twitter,
+      title: socialTitle,
+      description,
+    },
   };
 }
