@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { publicAssetPath } from "@/config";
 
 export type GlitchPattern = "none" | "p1" | "p2";
 export type Lighting = "even" | "contrast" | "exposure";
@@ -293,6 +294,10 @@ export default function ImageTreatment({
 }: ImageTreatmentProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const resolvedSrc = publicAssetPath(src);
+  const resolvedForegroundSrc = foregroundSrc
+    ? publicAssetPath(foregroundSrc)
+    : undefined;
   const mouseStateRef = useRef<{ x: number; y: number; hovering: boolean }>({
     x: 0,
     y: 0,
@@ -305,27 +310,27 @@ export default function ImageTreatment({
 
   useEffect(() => {
     const ctrl = new AbortController();
-    loadImage(src, ctrl.signal)
+    loadImage(resolvedSrc, ctrl.signal)
       .then(setImage)
       .catch((err: unknown) => {
         if ((err as DOMException)?.name !== "AbortError") console.error(err);
       });
     return () => ctrl.abort();
-  }, [src]);
+  }, [resolvedSrc]);
 
   useEffect(() => {
-    if (!foregroundSrc) {
+    if (!resolvedForegroundSrc) {
       setFgImage(null);
       return;
     }
     const ctrl = new AbortController();
-    loadImage(foregroundSrc, ctrl.signal)
+    loadImage(resolvedForegroundSrc, ctrl.signal)
       .then(setFgImage)
       .catch((err: unknown) => {
         if ((err as DOMException)?.name !== "AbortError") console.error(err);
       });
     return () => ctrl.abort();
-  }, [foregroundSrc]);
+  }, [resolvedForegroundSrc]);
 
   useEffect(() => {
     const el = wrapperRef.current;

@@ -4,6 +4,7 @@ import ImageTreatment, {
   type ImageTreatmentProps,
   type TreatmentColor,
 } from "@/components/ImageTreatment";
+import { publicAssetPath } from "@/config";
 
 type HeroCta = {
   href: string;
@@ -221,7 +222,7 @@ export default function SubpageHero({
       </div>
 
       <img
-        src={pixelEdgeSrc}
+        src={publicAssetPath(pixelEdgeSrc)}
         alt=""
         aria-hidden="true"
         width={1440}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
+import { publicAssetPath } from "@/config";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
@@ -238,7 +239,7 @@ export default function Footer({
                 className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
               >
                 <img
-                  src={social.icon}
+                  src={publicAssetPath(social.icon)}
                   alt=""
                   aria-hidden="true"
                   className="block h-auto max-h-[24px] w-[24px]"
@@ -276,14 +277,14 @@ export default function Footer({
       <div className="w-full bg-[var(--footer-background-color)] px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l">
         <div className="flex w-full items-center justify-center">
           <img
-            src="/assets/bp26-footer-logo-mobile.svg"
+            src={publicAssetPath("/assets/bp26-footer-logo-mobile.svg")}
             alt="BP26"
             width={343}
             height={50.0022}
             className="block h-auto w-full md:hidden"
           />
           <img
-            src="/assets/breakpoint-footer-logo-desktop.svg"
+            src={publicAssetPath("/assets/breakpoint-footer-logo-desktop.svg")}
             alt="Breakpoint"
             width={1376.996}
             height={100.876}

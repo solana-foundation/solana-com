@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { accordionButtonClassName } from "@/components/AccordionButton";
 import DisclosureIcon from "@/components/DisclosureIcon";
+import { publicAssetPath } from "@/config";
 import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 const FILTER_OPTIONS = [
@@ -164,7 +165,7 @@ function SpeakerImage({ speaker }: { speaker: BreakpointSpeaker }) {
   return (
     <div className="size-[120px] shrink-0 overflow-hidden bg-neutral-700 md:size-[200px]">
       <img
-        src={speaker.image}
+        src={publicAssetPath(speaker.image)}
         alt=""
         loading="lazy"
         className="h-full w-full object-cover object-top grayscale"

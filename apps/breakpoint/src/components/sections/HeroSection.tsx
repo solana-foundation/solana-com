@@ -8,6 +8,7 @@ import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
+import { publicAssetPath } from "@/config";
 
 export default function HeroSection() {
   const t = useTranslations("breakpoint");
@@ -134,7 +135,7 @@ export default function HeroSection() {
       </div>
 
       <img
-        src="/assets/pixel-edge.svg"
+        src={publicAssetPath("/assets/pixel-edge.svg")}
         alt=""
         aria-hidden="true"
         width={1440}

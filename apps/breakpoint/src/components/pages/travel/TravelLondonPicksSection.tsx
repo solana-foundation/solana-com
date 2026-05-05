@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import Button from "@/components/Button";
 import CarouselControls from "@/components/CarouselControls";
+import { publicAssetPath } from "@/config";
 import { getAnchorLinkProps } from "@/lib/links";
 
 const LONDON_PICKS = [
@@ -85,7 +86,7 @@ function LondonPickCard({ pick }: { pick: LondonPick }) {
         {...getAnchorLinkProps({ href: pick.href })}
       >
         <img
-          src={pick.imageSrc}
+          src={publicAssetPath(pick.imageSrc)}
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover"

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@workspace/i18n/routing";
+import { publicAssetPath } from "@/config";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 import GlitchOverlay from "@/components/GlitchOverlay";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
@@ -230,7 +231,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
           aria-label="Breakpoint 2026"
         >
           <img
-            src="/assets/nav-solana.svg"
+            src={publicAssetPath("/assets/nav-solana.svg")}
             alt=""
             aria-hidden="true"
             width={23}
@@ -238,7 +239,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
             className="block h-[15.64px] w-[18.15px] md:h-[19.55px] md:w-[22.68px]"
           />
           <img
-            src="/assets/nav-bp26.svg"
+            src={publicAssetPath("/assets/nav-bp26.svg")}
             alt=""
             aria-hidden="true"
             width={104}
@@ -315,7 +316,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
               className="flex size-6 items-center justify-center transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               <img
-                src={social.icon}
+                src={publicAssetPath(social.icon)}
                 alt=""
                 aria-hidden="true"
                 className="block h-auto max-h-6 w-6 invert"

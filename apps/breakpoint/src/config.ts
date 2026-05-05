@@ -1,8 +1,31 @@
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
+const publicAssetDirectories = [
+  "/_next/",
+  "/assets/",
+  "/img/",
+  "/live/",
+] as const;
 
 const routePath = (path: string) =>
   `${routePrefix}${path.startsWith("/") ? path : `/${path}`}`;
+
+export function publicAssetPath(path: string) {
+  const hasProtocol = /^[a-z][a-z\d+.-]*:/i.test(path);
+
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    path.startsWith(`${assetPrefix}/`) ||
+    hasProtocol
+  ) {
+    return path;
+  }
+
+  return publicAssetDirectories.some((directory) => path.startsWith(directory))
+    ? `${assetPrefix}${path}`
+    : path;
+}
 
 export const config = {
   assetPrefix,

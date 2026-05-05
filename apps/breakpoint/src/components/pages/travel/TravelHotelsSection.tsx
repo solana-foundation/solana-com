@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Button from "@/components/Button";
+import { publicAssetPath } from "@/config";
 
 const HOTELS = [
   {
@@ -66,6 +67,7 @@ function SectionHeading({ title }: { title: string }) {
 export default function HotelsSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeHotel = HOTELS[activeIndex] ?? HOTELS[0]!;
+  const hotelMaskImage = `url("${publicAssetPath("/img/travel/hotel-mask.svg")}")`;
 
   return (
     <section
@@ -79,17 +81,17 @@ export default function HotelsSection() {
           <div
             className="relative aspect-square w-full overflow-hidden bg-neutral-800 md:col-span-7"
             style={{
-              WebkitMaskImage: "url('/img/travel/hotel-mask.svg')",
+              WebkitMaskImage: hotelMaskImage,
               WebkitMaskRepeat: "no-repeat",
               WebkitMaskSize: "100% 100%",
-              maskImage: "url('/img/travel/hotel-mask.svg')",
+              maskImage: hotelMaskImage,
               maskRepeat: "no-repeat",
               maskSize: "100% 100%",
             }}
           >
             <img
               key={activeHotel.name}
-              src={activeHotel.imageSrc}
+              src={publicAssetPath(activeHotel.imageSrc)}
               alt=""
               aria-hidden="true"
               width={638}

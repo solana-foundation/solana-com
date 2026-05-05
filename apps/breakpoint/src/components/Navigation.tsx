@@ -11,6 +11,7 @@ import {
   BREAKPOINT_LUMA_EVENT_ID,
   GENERAL_ADMISSION_HREF,
 } from "@/content/links";
+import { publicAssetPath } from "@/config";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
@@ -352,7 +353,7 @@ export default function Navigation({
             onClick={closeMenu}
           >
             <img
-              src="/assets/nav-solana.svg"
+              src={publicAssetPath("/assets/nav-solana.svg")}
               alt=""
               aria-hidden="true"
               width={23}
@@ -360,7 +361,7 @@ export default function Navigation({
               className={`block ${solanaLogoClasses}`}
             />
             <img
-              src="/assets/nav-bp26.svg"
+              src={publicAssetPath("/assets/nav-bp26.svg")}
               alt=""
               aria-hidden="true"
               width={104}

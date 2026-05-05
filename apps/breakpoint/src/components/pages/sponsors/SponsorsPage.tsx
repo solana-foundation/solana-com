@@ -14,6 +14,7 @@ import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
+import { publicAssetPath } from "@/config";
 import { SPONSOR_FORM_HREF } from "@/content/links";
 
 const SPONSOR_LOGO_ID = "breakpoint-2026-white";
@@ -324,7 +325,7 @@ function LinkedInIcon() {
 function AssetIcon({ src }: { src: string }) {
   return (
     <img
-      src={src}
+      src={publicAssetPath(src)}
       alt=""
       aria-hidden="true"
       className="block max-h-5 max-w-5 brightness-0 invert"
@@ -449,7 +450,7 @@ function SponsorCard({
         }}
       >
         <img
-          src={logo.src}
+          src={publicAssetPath(logo.src)}
           alt=""
           aria-hidden="true"
           className="block h-full w-full object-contain brightness-0 invert"
@@ -617,7 +618,7 @@ function SponsorModal({
               }}
             >
               <img
-                src={logo.src}
+                src={publicAssetPath(logo.src)}
                 alt=""
                 aria-hidden="true"
                 className="block h-full w-full object-contain brightness-0 invert"

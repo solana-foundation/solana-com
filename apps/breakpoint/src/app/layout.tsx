@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import "@/app/globals.css";
+import { publicAssetPath } from "@/config";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -8,7 +9,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <link
           rel="preload"
           as="image"
-          href="/assets/home-hero.webp"
+          href={publicAssetPath("/assets/home-hero.webp")}
           fetchPriority="high"
         />
       </head>
