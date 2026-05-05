@@ -5,6 +5,7 @@ import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
 import { anchorage } from "./records/anchorage";
+import { anoma } from "./records/anoma";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
@@ -17,6 +18,7 @@ import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
 import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
+import { delorean } from "./records/delorean";
 import { darkresearch } from "./records/darkresearch";
 import { dawn } from "./records/dawn";
 import { dmcc } from "./records/dmcc";
@@ -45,6 +47,7 @@ import { phantom } from "./records/phantom";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
+import { ramp } from "./records/ramp";
 import { reap } from "./records/reap";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
@@ -82,6 +85,7 @@ export const companies = [
   allnodes,
   ampPay,
   anchorage,
+  anoma,
   banxa,
   arcium,
   atxp,
@@ -94,6 +98,7 @@ export const companies = [
   comicbook,
   d3,
   dabba,
+  delorean,
   darkresearch,
   dawn,
   dmcc,
@@ -122,6 +127,7 @@ export const companies = [
   pipeNetwork,
   playSolana,
   quicknode,
+  ramp,
   reap,
   renderNetwork,
   rockawayx,

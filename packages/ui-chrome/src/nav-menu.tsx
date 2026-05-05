@@ -105,7 +105,7 @@ function NavigationMenuContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof NavigationMenuPrimitive.Content> & {
-  align?: "center" | "right";
+  align?: "center" | "right" | "left";
 }) {
   return (
     <NavigationMenuPrimitive.Content

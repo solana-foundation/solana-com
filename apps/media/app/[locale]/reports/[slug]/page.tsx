@@ -13,6 +13,7 @@ import { reader } from "@/lib/reader";
 import { reportMetadata } from "@/lib/metadata";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
+import { SwitchbackItem } from "@/lib/switchback-types";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -23,7 +24,8 @@ export default async function ReportPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { slug } = await params;
-  const report = await reader.collections.switchbacks.read(slug);
+  const report: SwitchbackItem =
+    await reader.collections.switchbacks.read(slug);
 
   if (!isPublishedReport(report)) {
     notFound();
@@ -32,7 +34,9 @@ export default async function ReportPage({
   const formattedDate = formatPublishedAt(report.publishedAt, "long");
   const headline = String(report.headline || report.title);
   const buttons =
-    report.buttons?.filter((button) => button?.label && button?.url) || [];
+    report.buttons?.filter((button): button is { label: string; url: string } =>
+      Boolean(button?.label && button?.url),
+    ) || [];
   const categories = report.categories
     ? (
         await Promise.all(

@@ -184,8 +184,8 @@ const createVariantsWithTransition = (
     visible: {
       ...baseVariants.visible,
       transition: {
-        ...(hasTransition(baseVariants.visible)
-          ? baseVariants.visible.transition
+        ...(hasTransition(baseVariants.visible ?? {})
+          ? (baseVariants.visible as TargetAndTransition).transition
           : {}),
         ...mainTransition,
       },
@@ -193,8 +193,8 @@ const createVariantsWithTransition = (
     exit: {
       ...baseVariants.exit,
       transition: {
-        ...(hasTransition(baseVariants.exit)
-          ? baseVariants.exit.transition
+        ...(hasTransition(baseVariants.exit ?? {})
+          ? (baseVariants.exit as TargetAndTransition).transition
           : {}),
         ...mainTransition,
         staggerDirection: -1,

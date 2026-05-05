@@ -22,6 +22,8 @@ interface TerminalItem {
   categories?: string[];
   tags?: string[];
   description?: string;
+  tags?: string[];
+  thumbnailImage?: string;
 }
 
 // Map category names to category IDs
@@ -41,6 +43,7 @@ interface LinkConnectionParams {
   category?: string;
   tag?: string;
   featuredCount?: number;
+  linkType?: string;
 }
 
 /**
@@ -66,6 +69,8 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     ),
     tags: link.tags,
     description: contentDocumentToPlainText(link.description),
+    tags: link.tags,
+    thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
 
@@ -99,6 +104,7 @@ async function fetchLinks(params: LinkConnectionParams) {
           cursor: params.cursor,
           category: categoryName,
           tag: params.tag,
+          linkType: params.linkType,
         });
 
         const seen = new Set(featuredLinks.map((link) => link.id));
@@ -111,6 +117,7 @@ async function fetchLinks(params: LinkConnectionParams) {
         cursor: params.cursor,
         category: categoryName,
         tag: params.tag,
+        linkType: params.linkType,
       });
       links = response.links;
     }
@@ -167,6 +174,11 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     }
   }
 
+  const linkTypeParam = searchParams.get("linkType");
+  if (linkTypeParam && linkTypeParam !== "all") {
+    params.linkType = linkTypeParam;
+  }
+
   return params;
 }
 
@@ -176,7 +188,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}-${params.featuredCount ?? 0}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}-${params.featuredCount ?? 0}-${params.linkType ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

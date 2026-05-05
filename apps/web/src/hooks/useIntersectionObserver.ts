@@ -9,7 +9,7 @@ export interface UseIntersectionObserverOptions {
 
 export const useIntersectionObserver = <T extends HTMLElement>(
   options: UseIntersectionObserverOptions = {},
-): { ref: React.RefObject<T>; isIntersecting: boolean } => {
+): { ref: React.RefObject<T | null>; isIntersecting: boolean } => {
   const {
     threshold = 0.1,
     root = null,
