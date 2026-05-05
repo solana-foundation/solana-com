@@ -131,6 +131,7 @@ export default config({
         body: fields.mdx({
           label: "Body",
           options: {
+            table: true,
             image: {
               directory: "public/uploads/posts",
               publicPath: "/uploads/posts",
