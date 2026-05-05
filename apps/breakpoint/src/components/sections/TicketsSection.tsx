@@ -109,7 +109,7 @@ function FeaturedTicketCard({
       href={href}
       label={heading}
       lumaEventId={lumaEventId}
-      className="group relative flex h-[263px] flex-col justify-between overflow-hidden bg-green p-s text-black transition-colors hover:bg-green/90 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:h-[352px] md:p-m"
+      className="group relative flex h-[263px] flex-col justify-between overflow-hidden bg-green p-s text-black transition-colors hover:bg-green/90 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:col-span-8 md:h-[352px] md:p-m"
     >
       <div className="flex flex-col gap-1">
         <h3 className="type-p-large-bold text-black">{heading}</h3>
@@ -187,12 +187,12 @@ export default function TicketsSection() {
         onLoad={() => window.luma?.initCheckout?.()}
       />
 
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-xs md:px-m">
+      <div className="container flex w-full flex-col gap-l">
         <div className="flex flex-col items-center gap-6 text-center">
           <h2 className="type-h3 text-white">{t("tickets.headline")}</h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-xs md:grid-cols-2 md:gap-s">
+        <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
           <FeaturedTicketCard
             heading={t("tickets.categories.general.label")}
             description={t("tickets.categories.general.description")}
@@ -200,7 +200,7 @@ export default function TicketsSection() {
             href={lumaHref}
             lumaEventId={lumaEventId}
           />
-          <div className="grid gap-xs md:h-[352px] md:grid-rows-3 md:gap-s">
+          <div className="grid gap-xs md:col-span-8 md:h-[352px] md:grid-rows-3 md:gap-s">
             <HorizontalTicketCard
               heading={t("tickets.categories.developers.label")}
               price={t("tickets.categories.developers.price")}
