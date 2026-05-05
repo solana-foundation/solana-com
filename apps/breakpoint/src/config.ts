@@ -1,9 +1,5 @@
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
-const siteOrigin =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3005"
-    : "https://solana.com";
 const publicAssetDirectories = [
   "/_next/",
   "/assets/",
@@ -12,6 +8,20 @@ const publicAssetDirectories = [
 ] as const;
 
 const hasProtocol = (path: string) => /^[a-z][a-z\d+.-]*:/i.test(path);
+
+function getSiteOrigin() {
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3005";
+  }
+
+  if (process.env.VERCEL_ENV !== "production" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "https://solana.com";
+}
+
+const siteOrigin = getSiteOrigin();
 
 export const routePath = (path: string) => {
   if (
@@ -68,7 +78,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: `${siteOrigin}${routePath("/social-card.webp")}`,
+    socialShare: `${siteOrigin}${routePath("/social-card.jpg")}`,
   },
   social: {
     twitter: {

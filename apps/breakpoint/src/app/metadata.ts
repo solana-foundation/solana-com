@@ -9,6 +9,9 @@ import { config } from "@/config";
 const localePath = (locale: string) =>
   locale === defaultLocale ? "" : `/${locale}`;
 
+const socialImageAlt =
+  "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
+
 export async function getBaseMetadata(
   locale: string = defaultLocale,
 ): Promise<Metadata> {
@@ -47,14 +50,31 @@ export async function getBaseMetadata(
       siteName,
       title: ogTitle,
       description: ogDescription,
-      images: [{ url: siteMetadata.socialShare, width: 1200, height: 630 }],
+      images: [
+        {
+          url: siteMetadata.socialShare,
+          secureUrl: siteMetadata.socialShare,
+          width: 1200,
+          height: 630,
+          alt: socialImageAlt,
+          type: "image/jpeg",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
       title: ogTitle,
       description: ogDescription,
-      images: [siteMetadata.socialShare],
+      images: [
+        {
+          url: siteMetadata.socialShare,
+          alt: socialImageAlt,
+          width: 1200,
+          height: 630,
+          type: "image/jpeg",
+        },
+      ],
     },
     icons: [
       { url: faviconPng.src, rel: "icon", type: "image/png" },

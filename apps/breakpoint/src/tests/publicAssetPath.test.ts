@@ -51,8 +51,11 @@ describe("publicAssetPath", () => {
 
 describe("site metadata", () => {
   it("uses an absolute Breakpoint social card URL", () => {
-    expect(config.siteMetadata.socialShare).toBe(
-      "https://solana.com/breakpoint/social-card.webp",
+    expect(config.siteMetadata.socialShare).toMatch(
+      /^https?:\/\/.+\/breakpoint\/social-card\.jpg$/,
+    );
+    expect(config.siteMetadata.socialShare).not.toContain(
+      "/breakpoint/breakpoint/",
     );
   });
 });
