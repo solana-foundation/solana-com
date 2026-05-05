@@ -1,19 +1,12 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { getCompanyLogoSrc } from "@workspace/ecosystem-data";
 import { Formats, TranslationValues } from "next-intl";
-import {
-  ArrowsIcon,
-  ClockIcon,
-  LedgerIcon,
-  MoneyHandIcon,
-  TokenIcon,
-  UsersIcon,
-} from "@solana-com/ui-chrome/icons";
 
 export const PROJECTS = [
   {
     src: getCompanyLogoSrc("morgan-stanley") ?? "",
     key: "morganStanley",
+    href: "https://www.morganstanley.com/im/en-us/individual-investor/insights/press-release/msim-files-initial-registration-statements-for-two-cryptocurrency-etps.html",
   },
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
@@ -22,14 +15,17 @@ export const PROJECTS = [
   {
     src: getCompanyLogoSrc("citi") ?? "",
     key: "citi",
+    href: "https://www.citigroup.com/global/insights/supply-chain-financing-2026",
   },
   {
     src: getCompanyLogoSrc("societe-generale") ?? "",
     key: "societeGenerale",
+    href: "https://www.sgforge.com/societe-generale-forge-solana-network/",
   },
   {
     src: getCompanyLogoSrc("state-street") ?? "",
     key: "stateStreet",
+    href: "https://investors.statestreet.com/investor-news-events/press-releases/news-details/2025/State-Street-Investment-Management-and-Galaxy-Digital-Partner-to-Tokenize-Private-Liquidity-Fund-With-Planned-Seed-Investment-from-Ondo/default.aspx",
   },
 ];
 
@@ -53,54 +49,6 @@ export const LOGOS = [
   {
     src: getCompanyLogoSrc("galaxy", { theme: "dark" }) ?? "",
     alt: "Galaxy",
-  },
-];
-
-export const PRODUCTS = [
-  {
-    key: "0",
-    Icon: TokenIcon,
-    href: "/solutions/token-extensions",
-  },
-  {
-    key: "1",
-    Icon: UsersIcon,
-    href: "/solutions/solana-permissioned-environments",
-  },
-  {
-    key: "2",
-    Icon: MoneyHandIcon,
-    href: "/solutions/real-world-assets",
-  },
-  {
-    key: "3",
-    Icon: ArrowsIcon,
-  },
-  {
-    key: "4",
-    Icon: ClockIcon,
-  },
-  {
-    key: "5",
-    Icon: LedgerIcon,
-  },
-];
-
-export const USE_CASES = [
-  {
-    key: "0",
-  },
-  {
-    key: "1",
-  },
-  {
-    key: "2",
-  },
-  {
-    key: "3",
-  },
-  {
-    key: "4",
   },
 ];
 

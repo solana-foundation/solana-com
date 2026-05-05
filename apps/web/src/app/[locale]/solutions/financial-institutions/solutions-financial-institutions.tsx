@@ -5,13 +5,7 @@ import { SolutionHero } from "@/components/solutions/hero.v2";
 import { useState } from "react";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Projects } from "@/components/solutions/projects.v2";
-import {
-  LOGOS,
-  PRODUCTS,
-  PROJECTS,
-  VIDEOS,
-} from "@/data/solutions/financial-institutions";
-import { Products } from "@/components/solutions/products.v2";
+import { PROJECTS, VIDEOS } from "@/data/solutions/financial-institutions";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
@@ -20,11 +14,15 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import { FinancialInstitutionsLogoMarquee } from "./logo-marquee";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
 type SolutionsFinancialInstitutionsPageProps = {
   news: NewsItem[];
 };
+
+const CONNECT_TYPEFORM_URL =
+  "https://solanafoundation.typeform.com/to/jhgXGxtG";
 
 export function SolutionsFinancialInstitutionsPage({
   news,
@@ -44,12 +42,21 @@ export function SolutionsFinancialInstitutionsPage({
         <SolutionHero
           title={t("financial-institutions-solution.hero.title")}
           subtitle={t("financial-institutions-solution.hero.subtitle")}
-          emailCta={t("financial-institutions-solution.hero.emailCta")}
-          onEmailClick={() => setEmailModalOpen(true)}
+          extraCta={t("financial-institutions-solution.hero.emailCta")}
+          extraCtaHref={CONNECT_TYPEFORM_URL}
           reportImgSrc="/src/img/solutions/icm/hero-download.webp"
           bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
           showDownloadCard={false}
         />
+
+        <section
+          className="relative overflow-hidden bg-black text-white py-[32px] xl:py-[64px]"
+          aria-label="Featured financial institution deployments"
+        >
+          <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
+            <FinancialInstitutionsLogoMarquee />
+          </div>
+        </section>
 
         <Projects
           title={t.rich("financial-institutions-solution.projects.title", {
@@ -58,7 +65,7 @@ export function SolutionsFinancialInstitutionsPage({
           })}
           projects={PROJECTS}
           translationBase="financial-institutions-solution.projects"
-          logos={LOGOS}
+          controlsAlign="right"
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
         />
 
@@ -85,17 +92,6 @@ export function SolutionsFinancialInstitutionsPage({
         />
 
         <Divider />
-
-        <Products
-          className="z-[1]"
-          title={t("financial-institutions-solution.products.title")}
-          description={t(
-            "financial-institutions-solution.products.description",
-          )}
-          products={PRODUCTS}
-          translationBase="financial-institutions-solution.products"
-          highlightColor="#1E40AF"
-        />
 
         <Decor imageSrc="/src/img/solutions/icm/bg-1.webp" />
 
@@ -148,7 +144,7 @@ export function SolutionsFinancialInstitutionsPage({
       <EmailModal
         isOpen={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
-        formUrl="https://solanafoundation.typeform.com/to/L2kwha4R"
+        formUrl={CONNECT_TYPEFORM_URL}
       />
     </>
   );
