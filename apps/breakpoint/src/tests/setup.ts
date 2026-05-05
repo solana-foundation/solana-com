@@ -1,18 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
 import { vi } from "vitest";
-import { afterEach } from "vitest";
 
-HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
-
-// Mock IntersectionObserver for ScrollReveal
-class MockIntersectionObserver {
-  observe = vi.fn();
-  unobserve = vi.fn();
+class MockIntersectionObserver implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = "";
+  readonly thresholds = [];
   disconnect = vi.fn();
+  observe = vi.fn();
+  takeRecords = vi.fn(() => []);
+  unobserve = vi.fn();
 }
-Object.defineProperty(globalThis, "IntersectionObserver", {
-  value: MockIntersectionObserver,
-});
 
-afterEach(() => cleanup());
+vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
