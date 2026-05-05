@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { publicAssetPath, routePath } from "@/config";
+import { config, publicAssetPath, routePath } from "@/config";
 
 describe("routePath", () => {
   it("prefixes Breakpoint app routes", () => {
@@ -45,6 +45,14 @@ describe("publicAssetPath", () => {
     );
     expect(publicAssetPath("data:image/svg+xml;base64,abc")).toBe(
       "data:image/svg+xml;base64,abc",
+    );
+  });
+});
+
+describe("site metadata", () => {
+  it("uses an absolute Breakpoint social card URL", () => {
+    expect(config.siteMetadata.socialShare).toBe(
+      "https://solana.com/breakpoint/social-card.webp",
     );
   });
 });

@@ -1,5 +1,9 @@
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
+const siteOrigin =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3005"
+    : "https://solana.com";
 const publicAssetDirectories = [
   "/_next/",
   "/assets/",
@@ -51,7 +55,7 @@ export function publicAssetPath(path: string) {
 
 export const config = {
   assetPrefix,
-  siteUrl: `https://solana.com${routePrefix}`,
+  siteUrl: `${siteOrigin}${routePrefix}`,
   siteMetadata: {
     title: "Breakpoint 2026",
     description:
@@ -64,7 +68,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: routePath("/social-card.webp"),
+    socialShare: `${siteOrigin}${routePath("/social-card.webp")}`,
   },
   social: {
     twitter: {
