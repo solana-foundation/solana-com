@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
 import ComingSoonPage from "@/components/pages/ComingSoonPage";
+import { getPageMetadata } from "@/app/metadata";
 
-export const metadata: Metadata = {
-  title: "Speakers | Breakpoint 2026",
+const pageMetadata = {
+  path: "/speakers",
+  title: "Speakers",
   description:
     "Breakpoint 2026 speaker announcements are coming soon for the London conference.",
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return getPageMetadata(locale, pageMetadata);
+}
 
 export default function LocaleSpeakersPage() {
   return (

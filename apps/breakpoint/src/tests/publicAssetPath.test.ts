@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { config, publicAssetPath, routePath } from "@/config";
+import {
+  config,
+  localizedRoutePath,
+  localizedRouteUrl,
+  publicAssetPath,
+  routePath,
+} from "@/config";
 
 describe("routePath", () => {
   it("prefixes Breakpoint app routes", () => {
@@ -15,6 +21,22 @@ describe("routePath", () => {
     );
     expect(routePath("#flights")).toBe("#flights");
     expect(routePath("https://example.com")).toBe("https://example.com");
+  });
+});
+
+describe("localizedRoutePath", () => {
+  it("matches the public Breakpoint rewrites for default and localized routes", () => {
+    expect(localizedRoutePath("en")).toBe("/breakpoint");
+    expect(localizedRoutePath("en", "/travel")).toBe("/breakpoint/travel");
+    expect(localizedRoutePath("ar")).toBe("/ar/breakpoint");
+    expect(localizedRoutePath("ar", "/travel")).toBe("/ar/breakpoint/travel");
+  });
+
+  it("builds absolute localized Breakpoint URLs", () => {
+    expect(localizedRouteUrl("en")).toBe("https://solana.com/breakpoint");
+    expect(localizedRouteUrl("de", "/registration")).toBe(
+      "https://solana.com/de/breakpoint/registration",
+    );
   });
 });
 
