@@ -70,9 +70,9 @@ export default function TravelSubnav() {
       <nav
         ref={navRef}
         aria-label="Travel sections"
-        className="sticky top-20 z-30 border-b border-neutral-700 bg-black px-4 py-3 md:px-8"
+        className="sticky top-20 z-30 border-b border-neutral-700 bg-black py-3"
       >
-        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-1 md:gap-2">
+        <div className="container flex w-full max-w-[1440px] flex-wrap items-center gap-1 md:gap-2">
           {TRAVEL_LINKS.map((link) => (
             <QuickLink key={link.href} href={link.href} label={link.label} />
           ))}
