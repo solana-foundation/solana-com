@@ -93,6 +93,11 @@ export const config = {
     ],
     author: "Solana Foundation",
     socialShare: `${siteOrigin}${routePath("/social-card.jpg")}`,
+    googleAnalytics: {
+      trackingId: "G-94WS0LRZRS",
+      adWordsId: "AW-302884864",
+    },
+    googleTagManagerID: "GTM-TNX63HZ",
   },
   social: {
     twitter: {

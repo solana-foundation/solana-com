@@ -1,5 +1,6 @@
 import localFont from "next/font/local";
 import type { Metadata } from "next";
+import { CookieConsentBanner } from "@solana-com/ui-chrome";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import HomePage from "./[locale]/page";
 import { getBaseMetadata } from "./metadata";
@@ -60,6 +61,7 @@ export default async function RootPage() {
     >
       <NextIntlClientProvider locale="en" messages={messages}>
         <HomePage params={Promise.resolve({ locale: "en" })} />
+        <CookieConsentBanner />
       </NextIntlClientProvider>
     </div>
   );

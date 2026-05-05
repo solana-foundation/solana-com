@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import type { Metadata } from "next";
+import { CookieConsentBanner } from "@solana-com/ui-chrome";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import { locales } from "@workspace/i18n/config";
 import { getBaseMetadata } from "../metadata";
@@ -80,6 +81,7 @@ export default async function LocaleLayout({
       <NextIntlClientProvider locale={locale} messages={messages}>
         {children}
         <FabMenu />
+        <CookieConsentBanner />
       </NextIntlClientProvider>
     </div>
   );

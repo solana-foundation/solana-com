@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import "@/app/globals.css";
-import { publicAssetPath } from "@/config";
+import { config, publicAssetPath } from "@/config";
+import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const googleTagManagerID = config.siteMetadata.googleTagManagerID;
+
   return (
     <html lang="en">
       <head>
@@ -13,7 +16,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           fetchPriority="high"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          ></iframe>
+        </noscript>
+        <GTMTrackingSnippet />
+        {children}
+      </body>
     </html>
   );
 }
