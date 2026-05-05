@@ -51,7 +51,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
     item.imageAspectRatio ?? "16 / 9";
 
   return (
-    <section className="relative bg-black text-white text-left font-brand">
+    <section className="relative z-[1] bg-black text-white text-left font-brand">
       <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
         <div className={cn("w-full", isOneItem ? "xl:w-full" : "xl:w-7/12")}>
           {title && (
