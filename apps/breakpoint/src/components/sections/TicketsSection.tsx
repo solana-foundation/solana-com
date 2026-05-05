@@ -136,7 +136,8 @@ function HorizontalTicketCard({
 }: TicketCardProps) {
   const activeClasses =
     "bg-neutral-700 text-white transition-colors hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white";
-  const disabledClasses = "border border-stroke-primary bg-black text-white";
+  const disabledClasses =
+    "border border-stroke-primary bg-black text-text-secondary";
 
   return (
     <TicketLink
@@ -148,7 +149,11 @@ function HorizontalTicketCard({
         disabled ? disabledClasses : activeClasses
       }`}
     >
-      <h3 className="type-p-large-bold w-[141px] shrink-0 text-white md:w-auto">
+      <h3
+        className={`type-p-large-bold w-[141px] shrink-0 md:w-auto ${
+          disabled ? "text-text-secondary" : "text-white"
+        }`}
+      >
         {heading}
       </h3>
       <div className="flex min-w-0 items-center gap-1 md:gap-3">
