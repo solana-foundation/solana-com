@@ -1,17 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Script from "next/script";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import GlitchOverlay from "@/components/GlitchOverlay";
+import {
+  BREAKPOINT_LUMA_EVENT_ID,
+  GENERAL_ADMISSION_HREF,
+} from "@/content/links";
 import { getAnchorLinkProps, isRelativeHref } from "@/lib/links";
 
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
 const CTA_SIZE_CLASSES = "type-button gap-2 px-3";
+
+declare global {
+  interface Window {
+    luma?: {
+      initCheckout?: () => void;
+    };
+  }
+}
 
 const NAV_ITEMS = [
   { label: "Travel", href: "/travel" },
@@ -218,6 +231,12 @@ export default function Navigation({
   const resolvedCtaLabel = ctaLabel ?? t("hero.cta");
   const showCta = ctaAlwaysVisible || isSticky || menuOpen;
   const hasMenu = showMenuButton;
+  const isLumaCheckoutCta = ctaHref === GENERAL_ADMISSION_HREF;
+
+  useEffect(() => {
+    if (!isLumaCheckoutCta) return;
+    window.luma?.initCheckout?.();
+  }, [isLumaCheckoutCta]);
 
   const ctaInner = (
     <>
@@ -259,7 +278,12 @@ export default function Navigation({
         onFocus={triggerCtaGlitch}
         onMouseEnter={triggerCtaGlitch}
         style={{ cursor: showCta ? "pointer" : undefined }}
-        {...getAnchorLinkProps({ href: ctaHref })}
+        {...(isLumaCheckoutCta
+          ? {
+              "data-luma-action": "checkout",
+              "data-luma-event-id": BREAKPOINT_LUMA_EVENT_ID,
+            }
+          : getAnchorLinkProps({ href: ctaHref }))}
         {...ctaAriaProps}
       >
         {ctaInner}
@@ -303,6 +327,15 @@ export default function Navigation({
 
   return (
     <>
+      {isLumaCheckoutCta && (
+        <Script
+          id="luma-checkout"
+          src="https://embed.lu.ma/checkout-button.js"
+          strategy="afterInteractive"
+          onReady={() => window.luma?.initCheckout?.()}
+        />
+      )}
+
       <nav
         ref={navRef}
         aria-label="Primary"

@@ -11,6 +11,7 @@ import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { buildBreakpointJsonLd } from "@/lib/structured-data";
 
 export default async function HomePage({
@@ -25,7 +26,7 @@ export default async function HomePage({
     <PageShell
       contentId="breakpoint-content"
       navigation={{
-        ctaHref: "/registration",
+        ctaHref: GENERAL_ADMISSION_HREF,
         ctaLabel: "Register",
       }}
       beforeNavigation={

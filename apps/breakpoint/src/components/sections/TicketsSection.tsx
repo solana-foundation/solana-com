@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect } from "react";
-import Script from "next/script";
 import { useTranslations } from "@workspace/i18n/client";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
@@ -180,13 +179,6 @@ export default function TicketsSection() {
 
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
-      <Script
-        id="luma-checkout"
-        src="https://embed.lu.ma/checkout-button.js"
-        strategy="afterInteractive"
-        onLoad={() => window.luma?.initCheckout?.()}
-      />
-
       <div className="container flex w-full flex-col gap-l">
         <div className="flex flex-col items-center gap-6 text-center">
           <h2 className="type-h3 text-white">{t("tickets.headline")}</h2>
