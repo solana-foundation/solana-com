@@ -1,39 +1,9 @@
 import EventSingleCard from "./EventsSingleCard";
 import EventsSingleRow from "./EventsSingleRow";
-
-interface EventImage {
-  primary?:
-    | {
-        src?: string;
-        alt?: string;
-      }
-    | string;
-}
-
-interface EventSchedule {
-  from?: string | Date;
-  to?: string | Date;
-  timezone?: string;
-}
-
-interface Event {
-  title: string;
-  platform?: string;
-  key?: string;
-  rsvp?: string;
-  lumaUrl?: string;
-  img?: EventImage;
-  schedule?: EventSchedule;
-  type?: string;
-  venue?: {
-    address?: string;
-    city_state?: string;
-    [key: string]: string | undefined;
-  };
-}
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 interface EventsListProps {
-  list: Event[];
+  list: CalendarEvent[];
   isCompact?: boolean;
 }
 

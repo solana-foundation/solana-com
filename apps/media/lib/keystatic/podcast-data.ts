@@ -80,7 +80,7 @@ async function transformPodcast(
   } catch (error) {
     console.warn(`Failed to serialize podcast description for ${slug}:`, error);
   }
-  const descriptionString = contentDocumentToPlainText(rawDescription as any);
+  const descriptionString = contentDocumentToPlainText(rawDescription);
 
   return {
     id: slug,
@@ -321,7 +321,7 @@ export const fetchLatestEpisodeForPodcast = async (
       podcast.slug,
     );
 
-    return allEpisodes.length > 0 ? allEpisodes[0] : null;
+    return allEpisodes.length > 0 ? allEpisodes[0]! : null;
   } catch (error) {
     console.error(
       `Failed to fetch latest episode for podcast ${podcast.slug}:`,

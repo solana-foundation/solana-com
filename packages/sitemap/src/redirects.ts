@@ -8,7 +8,7 @@ const rewritesRedirectsPath = path.join(
   repoRoot,
   "apps",
   "web",
-  "rewrites-redirects.mjs",
+  "rewrites-redirects.ts",
 );
 
 function getRedirectBlockSource() {

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   CASE_STUDIES_PANEL,
   CTA_CARD_COLUMNS,
@@ -24,8 +25,6 @@ import {
   Hero,
   Switchback,
 } from "@solana-foundation/solana-lib";
-
-const FeatureHighlightAny = FeatureHighlight as any;
 
 interface Outlook2024PageProps {
   translations: {
@@ -86,8 +85,8 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
     },
   }));
   const videoCards = translations.videoHeadings.map((headingText, index) => ({
-    type: "image",
-    headingAs: "h3",
+    type: "image" as const,
+    headingAs: "h3" as const,
     heading: headingText,
     callToAction: {
       ...VIDEO_CARD_CTA[index],
@@ -122,43 +121,43 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
         newsLetter={false}
         eyebrow={translations.heroEyebrow}
         headline={translations.heroHeadline}
-        buttons={heroButtons as any}
+        buttons={heroButtons}
         image={{
           alt: translations.heroHeadline,
           src: HERO_IMAGE,
         }}
       />
 
-      <FeatureHighlightAny
+      <FeatureHighlight
         headline={translations.featureHighlightHeadline}
         body={translations.featureHighlightBody}
         headingAs={FEATURE_HIGHLIGHT_CONFIG.headingAs}
         cards={featureCards}
+        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+        valueOf={() => false}
       />
 
       <ConversionPanel
-        variant={DEVELOPER_ECOSYSTEM_PANEL.variant as any}
+        variant={DEVELOPER_ECOSYSTEM_PANEL.variant}
         heading={translations.devEcosystemHeading}
         body={translations.devEcosystemBody}
-        buttons={
-          DEVELOPER_ECOSYSTEM_PANEL.buttons.map((button) => ({
-            ...button,
-            label: translations.devEcosystemButtonLabel,
-          })) as any
-        }
+        buttons={DEVELOPER_ECOSYSTEM_PANEL.buttons.map((button) => ({
+          ...button,
+          label: translations.devEcosystemButtonLabel,
+        }))}
         listItems={[]}
       />
 
-      <CardDeck cards={researchCards as any} numCols={RESEARCH_CARD_COLUMNS} />
+      <CardDeck cards={researchCards} numCols={RESEARCH_CARD_COLUMNS} />
 
-      <CardDeck cards={ctaCards as any} numCols={CTA_CARD_COLUMNS} />
+      <CardDeck cards={ctaCards} numCols={CTA_CARD_COLUMNS} />
 
       <ConversionPanel
-        variant={CASE_STUDIES_PANEL.variant as any}
+        variant={CASE_STUDIES_PANEL.variant}
         heading={translations.caseStudiesHeading}
         body={translations.caseStudiesBody}
         buttons={[]}
-        listItems={caseStudyItems as any}
+        listItems={caseStudyItems}
       />
 
       <Heading
@@ -167,13 +166,13 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
         body={translations.headingBody}
       />
 
-      <CardDeck cards={videoCards as any} numCols={VIDEO_CARD_COLUMNS} />
+      <CardDeck cards={videoCards} numCols={VIDEO_CARD_COLUMNS} />
 
       <Switchback
-        assetSide={SWITCHBACK.assetSide as any}
+        assetSide={SWITCHBACK.assetSide}
         headline={translations.switchbackHeadline}
         body={translations.switchbackBody}
-        buttons={switchbackButtons as any}
+        buttons={switchbackButtons}
       />
     </>
   );
