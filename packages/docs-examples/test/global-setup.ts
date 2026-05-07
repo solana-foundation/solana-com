@@ -1,6 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
-import { createConnection, createServer, type Server, type Socket } from "node:net";
+import {
+  createConnection,
+  createServer,
+  type Server,
+  type Socket,
+} from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Surfnet } from "surfpool-sdk";
