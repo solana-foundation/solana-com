@@ -6,7 +6,6 @@ import TwitterIcon from "./assets/twitter.inline.svg";
 import DiscordIcon from "./assets/discord.inline.svg";
 import RedditIcon from "./assets/reddit.inline.svg";
 import GithubIcon from "./assets/github.inline.svg";
-import TelegramIcon from "./assets/telegram.inline.svg";
 import SolanaFoundationLogo from "./assets/logotype-foundation.inline.svg";
 import { useTranslations } from "next-intl";
 import { LanguageSelector } from "./language-selector";
@@ -30,7 +29,6 @@ const SOCIAL_LINKS = [
   { name: "Discord", url: "/discord", Icon: DiscordIcon, size: 20 },
   { name: "Reddit", url: "/reddit", Icon: RedditIcon, size: 20 },
   { name: "GitHub", url: "/github", Icon: GithubIcon, size: 20 },
-  { name: "Telegram", url: "/telegram", Icon: TelegramIcon, size: 20 },
 ];
 
 const CopyrightRow = () => {

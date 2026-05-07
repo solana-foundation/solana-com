@@ -108,7 +108,7 @@ export const AudioPlayer = ({
     const rates = [0.5, 0.75, 1, 1.25, 1.5, 2];
     const currentIndex = rates.indexOf(globalPlayer.playbackRate);
     const nextIndex = (currentIndex + 1) % rates.length;
-    globalPlayer.setPlaybackRate(rates[nextIndex]);
+    globalPlayer.setPlaybackRate(rates[nextIndex] ?? 1);
   }, [isGlobalEpisode, globalPlayer]);
 
   const getProgressFromPosition = useCallback((clientX: number) => {

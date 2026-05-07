@@ -1,5 +1,6 @@
 import { reader } from "../reader";
 import type { PageInfo, ReportItem } from "../report-types";
+import { SwitchbackItem } from "../switchback-types";
 import { formatPublishedAt, parsePublishedAt } from "./publishing";
 import { isPublishedReport } from "./report-status";
 
@@ -248,7 +249,8 @@ export const fetchFeaturedReport =
 
       for (const slug of allSlugs) {
         try {
-          const report = await reader.collections.switchbacks.read(slug);
+          const report: SwitchbackItem =
+            await reader.collections.switchbacks.read(slug);
           if (!isPublishedReport(report) || !report.tags) continue;
 
           const isFeatured = report.tags.some(
@@ -277,7 +279,7 @@ export const fetchFeaturedReport =
         return b.date.getTime() - a.date.getTime();
       });
 
-      if (featuredCandidates.length === 0) {
+      if (featuredCandidates.length === 0 || !featuredCandidates[0]) {
         return { report: null };
       }
 

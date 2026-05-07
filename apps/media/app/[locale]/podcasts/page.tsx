@@ -14,7 +14,7 @@ export const revalidate = 1800; // 30 minutes
 export const metadata: Metadata = podcastsListingMetadata();
 
 export default async function PodcastsPage({
-  params,
+  params: _,
 }: {
   params: Promise<{ locale: string }>;
 }) {

@@ -28,18 +28,18 @@ interface PlayerContextValue {
   isMuted: boolean;
   playbackRate: number;
   play: (
-    episode: PodcastEpisode,
-    podcastTitle?: string,
-    podcastSlug?: string,
+    _episode: PodcastEpisode,
+    _podcastTitle?: string,
+    _podcastSlug?: string,
   ) => void;
   pause: () => void;
   togglePlayPause: () => void;
-  seek: (fraction: number) => void;
-  skipForward: (seconds?: number) => void;
-  skipBackward: (seconds?: number) => void;
-  setVolume: (volume: number) => void;
+  seek: (_fraction: number) => void;
+  skipForward: (_seconds?: number) => void;
+  skipBackward: (_seconds?: number) => void;
+  setVolume: (_volume: number) => void;
   toggleMute: () => void;
-  setPlaybackRate: (rate: number) => void;
+  setPlaybackRate: (_rate: number) => void;
   setProgress: (_progress: number) => void;
   setDuration: (_duration: number) => void;
   dismiss: () => void;

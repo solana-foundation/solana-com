@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import solflareBreakpoint2026White from "../../../assets/companies/solflare/breakpoint-2026-white.svg";
 import solflareLogo from "../../../assets/companies/solflare/logo.svg";
 import solflareMark from "../../../assets/companies/solflare/mark.svg";
 import solflareWordmarkDark from "../../../assets/companies/solflare/wordmark-dark.svg";
@@ -27,6 +28,14 @@ export const solflare = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: solflareBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

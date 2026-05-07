@@ -20,6 +20,7 @@ interface HeroProps {
   logoImage?: string;
   homePath?: string;
   agendaPath?: string | null;
+  showSpeakersNav?: boolean;
   showVideo?: boolean;
   ctaLabel?: string;
   backgroundContent?: React.ReactNode;
@@ -31,6 +32,7 @@ export function Hero({
   logoImage = "/images/accelerate-logo.svg",
   homePath = "/accelerate",
   agendaPath = "/accelerate/hong-kong/agenda",
+  showSpeakersNav = true,
   showVideo = true,
   ctaLabel,
   backgroundContent,
@@ -151,9 +153,11 @@ export function Hero({
 
         {/* Navigation */}
         <nav className="hidden items-center gap-[38px] md:flex">
-          <a href="#speakers" className={navLinkStyle}>
-            {t("nav.speakers")}
-          </a>
+          {showSpeakersNav && (
+            <a href="#speakers" className={navLinkStyle}>
+              {t("nav.speakers")}
+            </a>
+          )}
           {agendaPath && (
             <Link href={agendaPath} className={navLinkStyle}>
               {t("nav.agenda")}
@@ -246,13 +250,15 @@ export function Hero({
                 </button>
               </div>
               <nav className="mt-8 flex flex-col gap-6">
-                <a
-                  href="#speakers"
-                  className={navLinkStyle}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t("nav.speakers")}
-                </a>
+                {showSpeakersNav && (
+                  <a
+                    href="#speakers"
+                    className={navLinkStyle}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {t("nav.speakers")}
+                  </a>
+                )}
                 {agendaPath && (
                   <Link
                     href={agendaPath}
