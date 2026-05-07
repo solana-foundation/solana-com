@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it } from "vitest";
+import { expectExampleLogsSignature } from "../../../test/assert-signature";
 
 describe("cookbook/transactions/calculate-cost/legacy", () => {
   it("simulates, calculates fee, sends a transfer", async () => {
-    await expect(import("./legacy")).resolves.toBeDefined();
+    await expectExampleLogsSignature(() => import("./legacy"));
   });
 });

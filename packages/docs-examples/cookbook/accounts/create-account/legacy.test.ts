@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it } from "vitest";
+import { expectExampleLogsSignature } from "../../../test/assert-signature";
 
 describe("cookbook/accounts/create-account/legacy", () => {
-  it("runs end-to-end against the local validator", async () => {
-    await expect(import("./legacy")).resolves.toBeDefined();
+  it("runs end-to-end and logs a valid tx signature", async () => {
+    await expectExampleLogsSignature(() => import("./legacy"));
   });
 });

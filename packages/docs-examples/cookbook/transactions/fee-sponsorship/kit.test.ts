@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it } from "vitest";
+import { expectExampleLogsSignature } from "../../../test/assert-signature";
 
 describe("cookbook/transactions/fee-sponsorship/kit", () => {
   it("creates a mint and transfers, fees paid by separate signer", async () => {
-    await expect(import("./kit")).resolves.toBeDefined();
+    await expectExampleLogsSignature(() => import("./kit"));
   });
 });
