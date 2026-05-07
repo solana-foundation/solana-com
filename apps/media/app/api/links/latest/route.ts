@@ -20,8 +20,8 @@ interface TerminalItem {
   source?: string;
   linkType?: string;
   categories?: string[];
-  description?: string;
   tags?: string[];
+  description?: string;
   thumbnailImage?: string;
 }
 
@@ -66,8 +66,8 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     categories: link.categories.map(
       (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase(),
     ),
-    description: contentDocumentToPlainText(link.description),
     tags: link.tags,
+    description: contentDocumentToPlainText(link.description),
     thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
