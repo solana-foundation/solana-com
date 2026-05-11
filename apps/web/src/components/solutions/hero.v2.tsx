@@ -174,9 +174,9 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
                 {
                   "xl:w-2/3": Boolean(emailCta),
-                  "xl:grid-cols-2": stats.length === 2,
-                  "xl:grid-cols-3": stats.length === 3,
-                  "xl:grid-cols-4": stats.length > 3,
+                  "xl:grid-cols-2": (stats?.length ?? 0) === 2,
+                  "xl:grid-cols-3": (stats?.length ?? 0) === 3,
+                  "xl:grid-cols-4": (stats?.length ?? 0) > 3,
                 },
               )}
             >
@@ -220,7 +220,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                   </div>
                 </div>
               ))}
-              {stats.length % 2 !== 0 && (
+              {(stats?.length ?? 0) % 2 !== 0 && (
                 <div
                   className={cn(
                     "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
@@ -230,7 +230,9 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                   )}
                   style={
                     isIntersecting
-                      ? { animationDelay: `${0.1 + stats.length * 0.1}s` }
+                      ? {
+                          animationDelay: `${0.1 + (stats?.length ?? 0) * 0.1}s`,
+                        }
                       : { opacity: 0 }
                   }
                 />

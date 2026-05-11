@@ -472,7 +472,7 @@ export default Carousel;
 
 // External controls for !controlsInline mode
 type CarouselControlsProps = {
-  carouselRef: React.RefObject<CarouselHandle>;
+  carouselRef: React.RefObject<CarouselHandle | null>;
   className?: string;
   prevButtonClassName?: string;
   nextButtonClassName?: string;

@@ -21,7 +21,7 @@ export function CommunityReport2024NewsletterSignUpPage({
   return (
     <Section>
       <Switchback
-        assetSide={SWITCHBACK.assetSide as any}
+        assetSide={SWITCHBACK.assetSide as "left" | "right"}
         image={SWITCHBACK.image}
         eyebrow={translations.switchbackEyebrow}
         headline={translations.switchbackHeadline}

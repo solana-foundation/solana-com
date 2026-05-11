@@ -1,7 +1,10 @@
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { VideoTrigger } from "@/component-library/video-modal";
-import Carousel, { CarouselControls } from "@/component-library/carousel";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 import { useRef } from "react";
 
 export type VideoItem = {
@@ -27,7 +30,7 @@ export const VideoGrid = ({
   moreVideosUrl,
   moreVideosLabel,
 }: VideoGridProps) => {
-  const carouselRef = useRef(null);
+  const carouselRef = useRef<CarouselHandle>(null);
 
   const videoCards = videos.map((video) => (
     <div
