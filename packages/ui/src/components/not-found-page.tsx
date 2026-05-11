@@ -17,6 +17,10 @@ export interface NotFoundPageProps {
   className?: string;
 }
 
+function isExternalHref(href: string): boolean {
+  return /^(https?:)?\/\//i.test(href);
+}
+
 export function NotFoundPage({
   title = "This page doesn\u2019t exist.",
   subtitle = "It may have been moved or is no longer available. There\u2019s plenty to explore.",
@@ -32,10 +36,18 @@ export function NotFoundPage({
     "active:translate-y-0",
   );
 
+  const linkTarget = isExternalHref(ctaHref) ? "_blank" : undefined;
+  const linkRel = linkTarget === "_blank" ? "noopener noreferrer" : undefined;
+
   const link = renderLink ? (
     renderLink({ href: ctaHref, children: ctaLabel, className: linkClassName })
   ) : (
-    <a href={ctaHref} className={linkClassName}>
+    <a
+      href={ctaHref}
+      className={linkClassName}
+      target={linkTarget}
+      rel={linkRel}
+    >
       {ctaLabel}
     </a>
   );

@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import altitudeBreakpoint2026White from "../../../assets/companies/altitude/breakpoint-2026-white.svg";
 import altitudeLogoMonotone from "../../../assets/companies/altitude/logo-monotone.svg";
 
 export const altitude = {
@@ -22,6 +23,14 @@ export const altitude = {
   },
   defaultLogoId: "logo-monotone",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: altitudeBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo-monotone",
       fileName: "logo-monotone.svg",

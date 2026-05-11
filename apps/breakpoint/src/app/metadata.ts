@@ -1,39 +1,123 @@
 import type { Metadata } from "next";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
-import { config } from "@/config";
+import { locales, defaultLocale } from "@workspace/i18n/config";
+import { getTranslations } from "@workspace/i18n/server";
+import { config, localizedRouteUrl } from "@/config";
 
-export function getBaseMetadata(locale = "en"): Metadata {
-  const { siteMetadata, siteUrl, social } = config;
+const socialImageAlt =
+  "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
+
+type PageMetadataConfig = {
+  description: string;
+  path: string;
+  title: string;
+};
+
+const getLanguageAlternates = (path: string) => {
+  const languages: Record<string, string> = Object.fromEntries(
+    locales.map((l) => [l, localizedRouteUrl(l, path)]),
+  );
+  languages["x-default"] = localizedRouteUrl(defaultLocale, path);
+
+  return languages;
+};
+
+export async function getBaseMetadata(
+  locale: string = defaultLocale,
+  path: string = "/",
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
+  const { siteOrigin, siteMetadata, social } = config;
+
+  const title = t("title");
+  const titleTemplate = t("titleTemplate");
+  const siteName = t("siteName");
+  const description = t("description");
+  const ogTitle = t("ogTitle");
+  const ogDescription = t("ogDescription");
+  const keywords = t("keywords")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  const canonical = localizedRouteUrl(locale, path);
+  const languages = getLanguageAlternates(path);
 
   return {
-    metadataBase: new URL(siteUrl),
-    title: {
-      default: siteMetadata.title,
-      template: `%s | ${siteMetadata.title}`,
-    },
-    description: siteMetadata.description,
-    keywords: siteMetadata.keywords,
+    metadataBase: new URL(siteOrigin),
+    alternates: { canonical, languages },
+    title: { default: title, template: titleTemplate },
+    description,
+    keywords,
     authors: [{ name: siteMetadata.author }],
+    robots: "index, follow",
     openGraph: {
       type: "website",
       locale,
-      url: siteUrl,
-      siteName: siteMetadata.title,
-      title: siteMetadata.title,
-      description: siteMetadata.description,
-      images: [{ url: siteMetadata.socialShare, width: 1200, height: 630 }],
+      url: canonical,
+      siteName,
+      title: ogTitle,
+      description: ogDescription,
+      images: [
+        {
+          url: siteMetadata.socialShare,
+          secureUrl: siteMetadata.socialShare,
+          width: 1200,
+          height: 630,
+          alt: socialImageAlt,
+          type: "image/jpeg",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
-      title: siteMetadata.title,
-      description: siteMetadata.description,
-      images: [siteMetadata.socialShare],
+      title: ogTitle,
+      description: ogDescription,
+      images: [
+        {
+          url: siteMetadata.socialShare,
+          alt: socialImageAlt,
+          width: 1200,
+          height: 630,
+          type: "image/jpeg",
+        },
+      ],
     },
-    icons: {
-      icon: [{ url: faviconSvg, type: "image/svg+xml" }],
-      apple: appleTouchIcon.src,
+    icons: [
+      { url: faviconPng.src, rel: "icon", type: "image/png" },
+      { url: faviconSvg, rel: "icon", type: "image/svg+xml" },
+      { url: appleTouchIcon.src, rel: "apple-touch-icon", sizes: "180x180" },
+    ],
+  };
+}
+
+export async function getPageMetadata(
+  locale: string = defaultLocale,
+  { description, path, title }: PageMetadataConfig,
+): Promise<Metadata> {
+  const base = await getBaseMetadata(locale, path);
+  const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
+  const siteName = t("siteName");
+  const socialTitle = `${title} | ${siteName}`;
+  const openGraph = base.openGraph ?? {};
+  const twitter = base.twitter ?? {};
+
+  return {
+    ...base,
+    title,
+    description,
+    openGraph: {
+      ...openGraph,
+      title: socialTitle,
+      description,
+    },
+    twitter: {
+      ...twitter,
+      title: socialTitle,
+      description,
     },
   };
 }
