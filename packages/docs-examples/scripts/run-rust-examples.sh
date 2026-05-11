@@ -1,28 +1,24 @@
 #!/usr/bin/env bash
-# Spawns surfpool, makes sure ~/.config/solana/id.json exists, and runs every
-# Rust binary in the workspace once against the local validator.
+# Spawns surfpool and runs every Rust binary in the workspace once against
+# the local validator. Examples are self-contained: each one generates its
+# own ephemeral Keypair in-process (the load-keypair-from-file example
+# writes the fixture file itself before reading it), so no Solana CLI is
+# needed.
 #
 # Used by CI (.github/workflows/docs-examples.yml) and reproducible locally.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RPC_URL="http://localhost:8899"
-KEYPAIR_PATH="$HOME/.config/solana/id.json"
 
-# 1. Make sure the fixture keypair exists (load-keypair-from-file reads it).
-if [ ! -f "$KEYPAIR_PATH" ]; then
-  mkdir -p "$(dirname "$KEYPAIR_PATH")"
-  solana-keygen new --no-bip39-passphrase --silent --outfile "$KEYPAIR_PATH"
-fi
-
-# 2. Spawn surfpool in the background.
+# 1. Spawn surfpool in the background.
 SURFPOOL_LOG="$(mktemp -t surfpool.log.XXXXXX)"
 surfpool start --no-tui --no-studio --no-deploy --network mainnet --log-level warn -y \
   >"$SURFPOOL_LOG" 2>&1 &
 SURFPOOL_PID=$!
 trap 'kill "$SURFPOOL_PID" 2>/dev/null || true' EXIT
 
-# 3. Wait for the RPC to come up.
+# 2. Wait for the RPC to come up.
 echo "waiting for surfpool RPC at $RPC_URL ..."
 for _ in $(seq 1 180); do
   if curl -sf -o /dev/null -X POST "$RPC_URL" \
@@ -41,10 +37,10 @@ if ! curl -sf -o /dev/null -X POST "$RPC_URL" \
   exit 1
 fi
 
-# 4. Build everything once. Faster than letting `cargo run` rebuild each time.
+# 3. Build everything once. Faster than letting `cargo run` rebuild each time.
 ( cd "$ROOT" && cargo build --workspace --release )
 
-# 5. Run every binary in the workspace, one after another.
+# 4. Run every binary in the workspace, one after another.
 fail=0
 while IFS=" " read -r pkg bin; do
   [ -z "$bin" ] && continue
