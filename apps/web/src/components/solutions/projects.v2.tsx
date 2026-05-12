@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useRef } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
@@ -15,6 +17,7 @@ const NAV_BUTTON_CLASSNAME =
 export type Project = {
   key: string;
   src: string;
+  href?: string;
   statIcon?: string;
 };
 
@@ -22,6 +25,7 @@ type EcoProjectsProps = {
   title: React.ReactNode;
   projects: Project[];
   translationBase: string;
+  controlsAlign?: "inline" | "right";
   hideStats?: boolean;
   statType?: "text" | "icon";
   bgSrc?: string;
@@ -53,6 +57,7 @@ export const Projects = ({
   projects,
   logos,
   translationBase,
+  controlsAlign = "inline",
   hideStats = false,
   statType = "text",
   bgSrc,
@@ -67,7 +72,12 @@ export const Projects = ({
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
-          <div className="flex flex-col xl:flex-row gap-4 xl:items-end mb-[32px] xl:mb-[64px] justify-start">
+          <div
+            className={cn(
+              "flex flex-col xl:flex-row gap-4 xl:items-end mb-[32px] xl:mb-[64px] justify-start",
+              controlsAlign === "right" && "xl:justify-between",
+            )}
+          >
             <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] max-w-xl mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
               {title}
             </h2>
@@ -145,6 +155,17 @@ export const Projects = ({
                       </div>
                       <p className="text-white opacity-[0.64] text-base md:text-lg xl:text-xl tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                         {t(`${base}.description`)}
+                        {project.href && (
+                          <a
+                            href={project.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 block w-fit whitespace-nowrap text-sm md:text-base uppercase underline underline-offset-4 decoration-current focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-sm"
+                            aria-label={`Learn more about ${t(`${base}.name`)}`}
+                          >
+                            Learn More
+                          </a>
+                        )}
                       </p>
                     </div>
                     {!hideStats && (
