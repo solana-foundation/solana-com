@@ -58,7 +58,7 @@ export function X402Page({ translations }: X402PageProps) {
         {/* Ecosystem Products - reduce vertical padding */}
         <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
           <Products
-            className="z-1"
+            className="z-[1]"
             title={translations.ecoProjectsTitle}
             products={PRODUCTS}
             translationBase="x402.ecoProjects"
@@ -71,7 +71,7 @@ export function X402Page({ translations }: X402PageProps) {
         {/* Tools Section - reduce vertical padding */}
         <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
           <Products
-            className="z-1"
+            className="z-[1]"
             title={translations.toolsTitle}
             description={translations.toolsDescription}
             products={TOOLS}

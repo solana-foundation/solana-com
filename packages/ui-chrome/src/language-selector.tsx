@@ -1,8 +1,8 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import Globe from "./assets/globe.inline.svg";
-import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg";
+import Globe from "./assets/icons/globe.inline.svg";
+import ChevronGrabberVertical from "./assets/icons/chevron-grabber-vertical.inline.svg";
 import { languages } from "@workspace/i18n/config";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";

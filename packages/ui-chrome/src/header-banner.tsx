@@ -1,6 +1,6 @@
 import { twMerge } from "tailwind-merge";
 import { Link } from "./link";
-import ChevronRightSmallIcon from "./assets/chevron-right-small.inline.svg";
+import ChevronRightSmallIcon from "./assets/icons/chevron-right-small.inline.svg";
 import ArrowIcon from "./assets/nav/banner/arrow.inline.svg";
 import CalendarTodayIcon from "./assets/nav/banner/calendar-today.inline.svg";
 
