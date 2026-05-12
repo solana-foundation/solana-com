@@ -23,6 +23,7 @@ export const HeaderListCommunity = () => {
       {isEventActive && (
         <HeaderBanner
           className="w-[350px] max-w-full"
+          backgroundClassName="xl:bg-[url(/src/img/nav/bp26-nav-banner-bg.webp)] bg-[url(/src/img/nav/bp26-nav-banner-bg-mobile.webp)]"
           logo={<BreakpointLogo width={220} height={32} />}
           title={communityEvent?.title}
           description={communityEvent?.description}
