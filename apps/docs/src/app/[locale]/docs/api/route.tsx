@@ -20,10 +20,22 @@ const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
 const LOCALHOST_RPC_URL = "http://localhost:8899";
 const LOCALHOST_WS_URL = "ws://localhost:8900";
 
+const LOCALHOST_SOLANA_RPC_CONNECTION = `solanaRpcConnection({ rpcUrl: "${LOCALHOST_RPC_URL}" })`;
+const TXTX_SOLANA_RPC_CONNECTION = [
+  "solanaRpcConnection({",
+  `  rpcUrl: "${TXTX_RPC_URL}",`,
+  `  rpcSubscriptionsUrl: "${TXTX_WS_RPC_URL}",`,
+  "})",
+].join("\n");
+
 const replaceLocalUrls = (code: string): string => {
-  return code
-    .replaceAll(LOCALHOST_RPC_URL, TXTX_RPC_URL)
-    .replaceAll(LOCALHOST_WS_URL, TXTX_WS_RPC_URL);
+  return (
+    code
+      // Kit snippets that only set rpcUrl still need Surfnet's websocket endpoint.
+      .replaceAll(LOCALHOST_SOLANA_RPC_CONNECTION, TXTX_SOLANA_RPC_CONNECTION)
+      .replaceAll(LOCALHOST_RPC_URL, TXTX_RPC_URL)
+      .replaceAll(LOCALHOST_WS_URL, TXTX_WS_RPC_URL)
+  );
 };
 
 const getAPIRoute = (language: CodeRunPayload["language"]): string => {
