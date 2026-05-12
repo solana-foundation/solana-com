@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import allnodesBreakpoint2026White from "../../../assets/companies/allnodes/breakpoint-2026-white.svg";
 import allnodesLogo from "../../../assets/companies/allnodes/logo.svg";
 
 export const allnodes = {
@@ -27,6 +28,14 @@ export const allnodes = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: allnodesBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

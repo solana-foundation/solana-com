@@ -139,12 +139,12 @@ export function HomePage({
       <Hero
         title={translations.heroTitle}
         subtitle={translations.heroSubtitle}
-        bannerEyebrow="Colosseum Frontier Hackathon"
-        bannerDescription="Online hackathon presented by Colosseum & Solana. April 6th – May 11th, 2026."
-        bannerImgSrc="/src/img/hackathon/frontier.webp"
-        bannerHref="https://colosseum.com/frontier"
-        bannerLabel="Sign Up Now"
-        bannerExpiryDate="2026-05-11"
+        bannerEyebrow="Breakpoint 2026"
+        bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
+        bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
+        bannerHref="/breakpoint"
+        bannerLabel="Learn More"
+        bannerExpiryDate="2026-11-17"
         cta={translations.heroCta}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"

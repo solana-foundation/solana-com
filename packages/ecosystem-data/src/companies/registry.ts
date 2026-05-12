@@ -18,12 +18,17 @@ import { byreal } from "./records/byreal";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
+import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
 import { delorean } from "./records/delorean";
 import { darkresearch } from "./records/darkresearch";
+import { dawn } from "./records/dawn";
+import { dmcc } from "./records/dmcc";
 import { doublezero } from "./records/doublezero";
+import { drpc } from "./records/drpc";
 import { dynamic } from "./records/dynamic";
 import { fireblocks } from "./records/fireblocks";
+import { flashTrade } from "./records/flash-trade";
 import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
@@ -33,24 +38,33 @@ import { jpmorgan } from "./records/jpmorgan";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
+import { listingHelp } from "./records/listing-help";
 import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
+import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
+import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
+import { pancakeswap } from "./records/pancakeswap";
 import { phantom } from "./records/phantom";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { quicknode } from "./records/quicknode";
 import { ramp } from "./records/ramp";
+import { reap } from "./records/reap";
+import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
+import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
+import { sanctum } from "./records/sanctum";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
 import { solflare } from "./records/solflare";
+import { solpay } from "./records/solpay";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
 import { stateStreet } from "./records/state-street";
@@ -58,12 +72,18 @@ import { stripe } from "./records/stripe";
 import { sunrise } from "./records/sunrise";
 import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
+import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
 import { theGraph } from "./records/the-graph";
+import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
+import { walletconnect } from "./records/walletconnect";
+import { walrus } from "./records/walrus";
 import { wyoming } from "./records/wyoming";
+import { xbit } from "./records/xbit";
+import { yala } from "./records/yala";
 import { zerion } from "./records/zerion";
 
 export const companies = [
@@ -86,12 +106,17 @@ export const companies = [
   citi,
   coinbase,
   comicbook,
+  d3,
   dabba,
   delorean,
   darkresearch,
+  dawn,
+  dmcc,
   doublezero,
+  drpc,
   dynamic,
   fireblocks,
+  flashTrade,
   franklinTempleton,
   frodobots,
   galaxy,
@@ -101,24 +126,33 @@ export const companies = [
   kast,
   kazakhstan,
   libeara,
+  listingHelp,
   matcha,
   mantle,
   mantleByreal,
+  monkeDao,
   morganStanley,
   openmined,
+  orbitflare,
   osl,
+  pancakeswap,
   phantom,
   pipeNetwork,
   playSolana,
   quicknode,
   ramp,
+  reap,
+  renderNetwork,
   rockawayx,
+  ryder,
   safepalWallet,
+  sanctum,
   societeGenerale,
   sofi,
   solanaSpaces,
   solayer,
   solflare,
+  solpay,
   spi,
   squads,
   stateStreet,
@@ -126,12 +160,18 @@ export const companies = [
   sunrise,
   superteamUsa,
   switchboard,
+  syndica,
   tala,
   theGraph,
+  trojan,
   triton,
   veliaNet,
   visa,
+  walletconnect,
+  walrus,
   wyoming,
+  xbit,
+  yala,
   zerion,
 ] as const satisfies readonly CompanyRecord[];
 

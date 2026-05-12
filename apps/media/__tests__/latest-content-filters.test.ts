@@ -71,6 +71,7 @@ vi.mock("@/lib/post-data", () => ({
 }));
 
 vi.mock("@/lib/content-renderer", () => ({
+  contentDocumentToPlainText: extractPlainTextMock,
   extractPlainText: extractPlainTextMock,
   contentDocumentToPlainText: contentDocumentToPlainTextMock,
 }));
