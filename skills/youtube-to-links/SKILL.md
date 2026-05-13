@@ -24,7 +24,7 @@ Run the helper script. It reads `YOUTUBE_DATA_API_KEY` (or `YOUTUBE_API_KEY`)
 from the environment, falling back to `apps/media/.env.local`:
 
 ```bash
-python3 .claude/skills/youtube-to-links/import_youtube.py "<youtube-url>"
+python3 skills/youtube-to-links/import_youtube.py "<youtube-url>"
 ```
 
 Multiple URLs are accepted and de-duped. Existing files (matched by slug) are

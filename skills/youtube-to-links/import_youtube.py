@@ -31,7 +31,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 LINKS_DIR = REPO_ROOT / "apps" / "media" / "content" / "links"
 MEDIA_ENV = REPO_ROOT / "apps" / "media" / ".env.local"
 
