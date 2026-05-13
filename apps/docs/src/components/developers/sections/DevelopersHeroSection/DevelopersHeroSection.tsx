@@ -1,14 +1,34 @@
 import classNames from "classnames";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
+import type { ReactNode } from "react";
 import Button from "@/components/shared/Button";
 import styles from "./DevelopersHeroSection.module.scss";
+
+type HeroSectionButton = {
+  href?: string;
+  label: string;
+  icon?: ReactNode;
+};
+
+type HeroSectionProps = {
+  img: {
+    src: StaticImageData | string;
+    alt?: string;
+  };
+  title: string;
+  description: string;
+  buttons?: {
+    cta?: HeroSectionButton;
+    secondary?: HeroSectionButton;
+  };
+};
 
 const HeroSection = ({
   img: { src, alt = "" },
   title,
   description,
   buttons,
-}) => {
+}: HeroSectionProps) => {
   return (
     <section
       className={classNames("pt-10 lg:pt-32 md:pb-32", styles["hero-section"])}
@@ -37,7 +57,9 @@ const HeroSection = ({
                   to={buttons.secondary.href}
                   newTab={buttons.secondary.href?.startsWith("http")}
                   className={
-                    buttons.secondary.icon ? styles["content__btn-icon"] : null
+                    buttons.secondary.icon
+                      ? styles["content__btn-icon"]
+                      : undefined
                   }
                 >
                   <span>{buttons.secondary.label}</span>

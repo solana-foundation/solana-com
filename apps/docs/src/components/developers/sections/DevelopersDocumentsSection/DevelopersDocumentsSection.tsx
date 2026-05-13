@@ -2,7 +2,9 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 
 import DevelopersDocumentItem from "./DevelopersDocumentItem";
-import DevelopersChangelog from "./DevelopersChangelog";
+import DevelopersChangelog, {
+  type LatestChangelogVideo,
+} from "./DevelopersChangelog";
 
 import styles from "./DevelopersDocumentsSection.module.scss";
 
@@ -11,7 +13,13 @@ import { InlineLink } from "../../../../utils/Link";
 import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 
-export default function DevelopersDocumentsSection({ latestVideo }) {
+type DevelopersDocumentsSectionProps = {
+  latestVideo?: LatestChangelogVideo | null;
+};
+
+export default function DevelopersDocumentsSection({
+  latestVideo,
+}: DevelopersDocumentsSectionProps) {
   const t = useTranslations();
 
   return (

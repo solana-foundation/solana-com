@@ -21,6 +21,8 @@ const schema = z.custom<{
   date?: string;
   difficulty?: string;
   index?: boolean;
+  featured?: boolean;
+  href?: string;
 }>();
 
 const docsData = defineDocs({

@@ -1,3 +1,4 @@
+import { isValidElement } from "react";
 import { z } from "zod";
 import { parseProps, Block, CodeBlock } from "codehike/blocks";
 import { SingleCode, toCodeGroup } from "@@/src/app/components/code/code";
@@ -40,17 +41,45 @@ import {
   ResizableHandle,
 } from "@@/src/app/components/ui/resizable";
 
+type ParamBlock = {
+  title?: string;
+  children?: React.ReactNode;
+  type: string;
+  required: boolean;
+  values?: string[];
+  default?: string;
+  blocks?: ParamBlock[];
+};
+
+type Result = ParamBlock & {
+  response?: RawCode;
+};
+
+type Method = {
+  title?: string;
+  children?: React.ReactNode;
+  request: RawCode[];
+  params: {
+    title?: string;
+    children?: React.ReactNode;
+    blocks?: ParamBlock[];
+  };
+  result: Result[];
+};
+
 const BaseParamSchema = Block.extend({
   type: z.string(),
   required: z.optional(z.string()).transform((val) => val != null),
   values: z.optional(z.string()).transform((val) => val?.split(/\s+/)),
   default: z.string().optional(),
 });
-const ParamSchema = BaseParamSchema.extend({
+
+const ParamSchema: z.ZodType<ParamBlock> = BaseParamSchema.extend({
   blocks: z.lazy(() => ParamSchema.array()).optional(),
 });
 
-const ResultSchema = ParamSchema.extend({
+const ResultSchema: z.ZodType<Result> = BaseParamSchema.extend({
+  blocks: z.lazy(() => ParamSchema.array()).optional(),
   response: CodeBlock.optional(),
 });
 
@@ -63,11 +92,7 @@ const MethodSchema = Block.extend({
 });
 
 export function APIMethod(props: unknown) {
-  const method = parseProps(props, MethodSchema) as {
-    params?: { blocks: ParamBlock[] };
-    request: RawCode[];
-    result: { response: RawCode; title: string }[];
-  };
+  const method = parseProps(props, MethodSchema) as Method;
   const paramsSection = <ParamsSection params={method.params?.blocks} />;
   const resultHeader = (
     <div className="flex gap-2 items-center">
@@ -202,10 +227,7 @@ function SmallLayout({
   );
 }
 
-type ParamBlock = z.infer<typeof BaseParamSchema> & {
-  blocks?: ParamBlock[];
-};
-function ParamsSection({ params }: { params: ParamBlock[] }) {
+function ParamsSection({ params }: { params?: ParamBlock[] }) {
   return (
     <>
       <h4 className="mt-0 mb-2 font-mono">params</h4>
@@ -214,7 +236,7 @@ function ParamsSection({ params }: { params: ParamBlock[] }) {
         {params?.map((param, i) => (
           <Hoverable
             key={i}
-            name={param.title}
+            name={param.title ?? ""}
             className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300 block"
           >
             <div className="[&>p]:inline">
@@ -241,9 +263,18 @@ function ParamsSection({ params }: { params: ParamBlock[] }) {
 }
 
 function ObjectParam({ block }: { block: ParamBlock }) {
-  const isEmpty = !(block.children as any)?.props.children;
+  const childElement = isValidElement<{ children?: React.ReactNode }>(
+    block.children,
+  )
+    ? block.children
+    : null;
+  const isEmpty = !childElement?.props.children;
   return (
-    <Hoverable key={block.title} name={block.title} className="block group">
+    <Hoverable
+      key={block.title}
+      name={block.title ?? ""}
+      className="block group"
+    >
       <Collapsible
         className="tw-border border-ch-border bg-ch-tabs-background rounded group-data-[hovered=true]:border-sky-500/40 transition-colors duration-300"
         disabled={isEmpty}
@@ -283,7 +314,7 @@ function ValuesTable({ block }: { block: ParamBlock }) {
         <tr>
           <td className="px-2 pb-3">
             <span className="flex flex-wrap gap-1">
-              {block.values.map((value) => (
+              {block.values?.map((value) => (
                 <Pill key={value} value={value} color="var(--ch-2)" />
               ))}
             </span>
@@ -301,9 +332,6 @@ function ValuesTable({ block }: { block: ParamBlock }) {
   );
 }
 
-type Result = ParamBlock & {
-  response?: RawCode;
-};
 function ResultSection({ result }: { result: Result }) {
   return (
     <Hoverable
@@ -372,10 +400,12 @@ async function getCurlTab(codeblock: RawCode) {
   const lines = highlighted.code.split(/\r?\n/);
   const params = highlighted.annotations
     .filter(
-      (a: BlockAnnotation) =>
-        a.name == "hover" && a.fromLineNumber === a.toLineNumber,
+      (a): a is BlockAnnotation =>
+        a.name == "hover" &&
+        (a as BlockAnnotation).fromLineNumber ===
+          (a as BlockAnnotation).toLineNumber,
     )
-    .map((a: BlockAnnotation) => {
+    .map((a) => {
       let line = lines[a.fromLineNumber - 1];
       // remove potential trailing commas
       line = line.trim().replace(/,$/, "");
@@ -472,7 +502,8 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   return <MultiCode group={group} className="flex-1 my-0 min-h-0 shrink-0" />;
 }
 
-async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
+async function ResponseBlock({ codeblock }: { codeblock?: RawCode }) {
+  if (!codeblock) return null;
   const highlighted = await highlight(codeblock, theme);
   const handlers = [mark, tokenTransitions, hover, ...collapse];
   const codeGroup = {

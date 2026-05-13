@@ -1,16 +1,20 @@
 import { useRouter } from "@workspace/i18n/use-router";
 import { useEffect, useMemo, useState } from "react";
 
-export const formatNumber = (locale, value, options) => {
+export const formatNumber = (
+  locale: string | string[] | undefined,
+  value: number | bigint | string,
+  options?: Intl.NumberFormatOptions,
+): string | number | bigint => {
   try {
-    return Intl.NumberFormat(locale, options).format(value);
+    return Intl.NumberFormat(locale, options).format(value as number);
   } catch (error) {
     console.error(error);
     return value;
   }
 };
 
-const humanFriendlyNumbers = {
+const humanFriendlyNumbers: Record<number, string> = {
   1: "",
   1e3: "K",
   1e6: "M",
@@ -22,22 +26,15 @@ const humanFriendlyNumbers = {
 
 /**
  * Format a number down and adds the above extensions.
- *
- * @param {string}                locale
- * @param {number}                value
- * @param {number}                digits          How many digits to display after the floating point, defaults to 1.
- * @param {number}                startDividing   When to start dividing, default to 1e4, divides by 1e3.
- * @param {NumberFormatOptions}   options
- * @return {`${*}${*}`|`${*}${*}`}
  */
 export const formatNumberHumanFriendly = (
-  locale,
-  value,
-  digits = 1,
-  startDividing = 1e4,
-  options = {},
-) => {
-  let dividend;
+  locale: string | string[] | undefined,
+  value: number,
+  digits: number = 1,
+  startDividing: number = 1e4,
+  options: Intl.NumberFormatOptions = {},
+): string => {
+  let dividend: number;
   switch (true) {
     case value >= 1e18: {
       dividend = 1e18;
@@ -67,13 +64,16 @@ export const formatNumberHumanFriendly = (
       dividend = 1;
   }
   const dividedDown = (value / dividend).toFixed(digits);
-  // console.log(value, dividedDown, dividend);
   return `${formatNumber(locale, dividedDown, options)}${
     humanFriendlyNumbers[dividend]
   }`;
 };
 
-export function FormattedNumber({ value, ...options }) {
+type FormattedNumberProps = Intl.NumberFormatOptions & {
+  value: number;
+};
+
+export function FormattedNumber({ value, ...options }: FormattedNumberProps) {
   const { locale } = useRouter();
 
   const formatted = useMemo(() => {
@@ -88,9 +88,13 @@ export function FormattedNumber({ value, ...options }) {
   return <>{formatted}</>;
 }
 
-export function FormattedDate({ value, ...options }) {
+type FormattedDateProps = Intl.DateTimeFormatOptions & {
+  value: number | Date;
+};
+
+export function FormattedDate({ value, ...options }: FormattedDateProps) {
   const { locale } = useRouter();
-  const [date, setDate] = useState(null);
+  const [date, setDate] = useState<number | Date | null>(null);
 
   useEffect(() => {
     setDate(value);
@@ -109,5 +113,5 @@ export function FormattedDate({ value, ...options }) {
     }
   }, [locale, date, options]);
 
-  return <>{formatted}</>;
+  return <>{formatted as React.ReactNode}</>;
 }

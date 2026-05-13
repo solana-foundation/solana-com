@@ -4,7 +4,21 @@ import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersChangelog.module.scss";
 
-export default function DevelopersChangelog({ latestVideo }) {
+export type LatestChangelogVideo = {
+  snippet: {
+    description?: string;
+    resourceId?: {
+      videoId?: string;
+    };
+    playlistId?: string;
+  };
+};
+
+export default function DevelopersChangelog({
+  latestVideo,
+}: {
+  latestVideo?: LatestChangelogVideo | null;
+}) {
   const t = useTranslations();
   if (!latestVideo) {
     return null;
@@ -23,14 +37,17 @@ export default function DevelopersChangelog({ latestVideo }) {
           "...",
         )}
       </p>
-      <Button
-        to={`https://www.youtube.com/watch?v=${latestVideo.snippet.resourceId.videoId}&list=${latestVideo.snippet.playlistId}`}
-        newTab
-        className={styles["changelog__cta"]}
-      >
-        <span>{t("developers.changelog.cta")}</span>
-        <ArrowRightCircle strokeWidth={1} />
-      </Button>
+      {latestVideo.snippet?.resourceId?.videoId &&
+      latestVideo.snippet?.playlistId ? (
+        <Button
+          to={`https://www.youtube.com/watch?v=${latestVideo.snippet?.resourceId?.videoId}&list=${latestVideo.snippet?.playlistId}`}
+          newTab
+          className={styles["changelog__cta"]}
+        >
+          <span>{t("developers.changelog.cta")}</span>
+          <ArrowRightCircle strokeWidth={1} />
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Button from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
 import DevelopersResources from "@/components/developers/DevelopersResources/DevelopersResources";
@@ -8,7 +9,21 @@ import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "@/components/developers/DevelopersContentPage/DevelopersContentPage.module.scss";
 
-export function GuidesIndex({ records, featured }) {
+export type GuideRecord = {
+  href?: string;
+  title?: ReactNode;
+  description?: ReactNode;
+  difficulty?: string;
+  tags?: string[];
+  featured?: boolean;
+};
+
+type GuidesIndexProps = {
+  records: GuideRecord[];
+  featured: GuideRecord[];
+};
+
+export function GuidesIndex({ records, featured }: GuidesIndexProps) {
   const t = useTranslations();
 
   return (

@@ -6,7 +6,19 @@ import { useSearchParams } from "next/navigation";
 import DevelopersResourceItem from "../sections/DevelopersResourcesSection/DevelopersResourceItem";
 import styles from "./DevelopersResourcesGrid.module.scss";
 
-function Grid({ items }) {
+type ResourceItem = {
+  category?: string;
+  difficulty?: string;
+  title?: string;
+  description?: string;
+  href?: string;
+  isExternal?: boolean;
+  labels?: string[];
+  tags?: string[];
+  [key: string]: unknown;
+};
+
+function Grid({ items }: { items: ResourceItem[] }) {
   return (
     <div className={classNames(styles["developers-resources-grid"])}>
       {items.map((item, id) => (
@@ -27,14 +39,14 @@ function Grid({ items }) {
   );
 }
 
-function FilteredGrid({ items }) {
+function FilteredGrid({ items }: { items: ResourceItem[] }) {
   const searchParams = useSearchParams();
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       let matchesFilters = true;
 
-      const filterKeys = new Set();
+      const filterKeys = new Set<string>();
       for (const [key] of searchParams.entries()) {
         filterKeys.add(key);
       }
@@ -66,7 +78,11 @@ function FilteredGrid({ items }) {
   return <Grid items={filteredItems} />;
 }
 
-export default memo(function DevelopersResourcesGrid({ items }) {
+export default memo(function DevelopersResourcesGrid({
+  items,
+}: {
+  items: ResourceItem[];
+}) {
   return (
     <Suspense fallback={<Grid items={items} />}>
       <FilteredGrid items={items} />

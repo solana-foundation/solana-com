@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import CarouselCards from "@/components/shared/CarouselCards";
 import DevelopersResourceItem from "./DevelopersResourceItem";
@@ -7,11 +7,26 @@ import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import styles from "./DevelopersResourcesSection.module.scss";
 import Button from "@/components/shared/Button";
 
+export type ResourceItem = {
+  category?: string;
+  difficulty?: string;
+  title?: ReactNode;
+  description?: ReactNode;
+  href?: string;
+  isExternal?: boolean;
+};
+
+export type DevelopersResourcesSectionProps = {
+  items: ResourceItem[];
+  baseHref?: string;
+  translationKey?: string;
+};
+
 export default function DevelopersResourcesSection({
   items,
   baseHref = "/developers/guides",
   translationKey = "guides",
-}) {
+}: DevelopersResourcesSectionProps) {
   const t = useTranslations();
 
   return (
@@ -44,9 +59,11 @@ export default function DevelopersResourcesSection({
   );
 }
 
-const ResourceCards = memo(function ResourceCards({ items }) {
-  // const t = useTranslations();
-
+const ResourceCards = memo(function ResourceCards({
+  items,
+}: {
+  items: ResourceItem[];
+}) {
   return (
     <>
       {items.map((item, id) => (
