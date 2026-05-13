@@ -73,9 +73,27 @@ The slug matches Keystatic's behavior (lowercase, non-alphanumerics → `-`,
 trimmed and truncated to 80 chars) so the filename matches what Keystatic would
 have generated had the entry been authored in the CMS.
 
+## Duplicate check
+
+After writing, the script scans every `.mdx` in `apps/media/content/links/`,
+extracts the `url:` field, and groups by YouTube video id (falling back to the
+raw URL for non-YouTube links). Any group with more than one file is printed as
+a duplicate group, e.g.:
+
+```
+Found 1 duplicate group(s) in apps/media/content/links:
+  yt:UW8qaI5SbEY
+    - apps/media/content/links/accelerate-usa-2026-anatoly-yakovenko.mdx
+    - apps/media/content/links/some-other-file-pointing-at-the-same-video.mdx
+```
+
+If you see this, decide which file to keep and delete the other — the script
+does not auto-delete.
+
 ## After running
 
-- The script prints `written` / `skipped` for each video and a final summary.
+- The script prints `written` / `skipped` for each video, a final summary, and
+  the duplicate-check result.
 - Spot-check one of the generated files against
   `apps/media/content/links/catherine-gu-sdp-interview-fireblocks.mdx`.
 - If you want categories or extra tags, add them in Keystatic — the script

@@ -191,6 +191,44 @@ def write_video(video: dict) -> tuple[Path, str]:
     return target, "written"
 
 
+YT_ID_RE = re.compile(r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})")
+
+
+def extract_url(text: str) -> str | None:
+    """Pull the `url:` field out of frontmatter, handling both inline
+    (`url: "https://…"`) and YAML folded forms (`url: >-\\n  https://…`)."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r'^url:\s*(.*)$', line)
+        if not m:
+            continue
+        rest = m.group(1).strip()
+        if rest in (">", ">-", "|", "|-"):
+            # value is on the next indented line(s); join them
+            parts: list[str] = []
+            for nxt in lines[i + 1 :]:
+                if not nxt.startswith((" ", "\t")):
+                    break
+                parts.append(nxt.strip())
+            return "".join(parts) or None
+        return rest.strip().strip('"').strip("'") or None
+    return None
+
+
+def find_duplicates() -> list[tuple[str, list[Path]]]:
+    """Group every file in LINKS_DIR by canonical key (YouTube id when present,
+    else raw url). Return (key, paths) for each group with >1 path."""
+    by_key: dict[str, list[Path]] = {}
+    for path in sorted(LINKS_DIR.glob("*.mdx")):
+        url = extract_url(path.read_text())
+        if not url:
+            continue
+        yt = YT_ID_RE.search(url)
+        key = f"yt:{yt.group(1)}" if yt else f"url:{url}"
+        by_key.setdefault(key, []).append(path)
+    return [(k, ps) for k, ps in by_key.items() if len(ps) > 1]
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         sys.stderr.write(__doc__ or "")
@@ -220,6 +258,16 @@ def main() -> None:
         written += status == "written"
         skipped += status == "skipped"
     print(f"Done. {written} written, {skipped} skipped.")
+
+    dups = find_duplicates()
+    if not dups:
+        print(f"No duplicates in {LINKS_DIR.relative_to(REPO_ROOT)} ✓")
+        return
+    print(f"\nFound {len(dups)} duplicate group(s) in {LINKS_DIR.relative_to(REPO_ROOT)}:")
+    for key, paths in dups:
+        print(f"  {key}")
+        for p in paths:
+            print(f"    - {p.relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":
