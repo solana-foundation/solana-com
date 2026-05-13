@@ -1,0 +1,218 @@
+---
+title: Fixed Delegation
+description: Guide for setting up fixed delegation transactions.
+---
+
+A fixed delegation lets a user approve another wallet or service to pull up to a
+fixed token amount. Each successful transfer reduces the remaining allowance.
+Use `expiryTs = 0` for no expiry.
+
+## Install
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```bash
+    pnpm add @subscriptions/client @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
+    ```
+  </Tab>
+
+  <Tab value="Rust">
+    ```toml
+    [dependencies]
+    subscriptions-client = { path = "clients/rust" }
+    solana-instruction = "^2"
+    solana-pubkey = "^2"
+    ```
+  </Tab>
+</Tabs>
+
+## Create The Delegation
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { address, createClient, type Address, type TransactionSigner } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findFixedDelegationPda,
+      findSubscriptionAuthorityPda,
+      subscriptionsProgram,
+    } from '@subscriptions/client';
+
+    export async function createFixedDelegation({
+      rpcUrl,
+      user,
+      tokenMint,
+      delegatee,
+      amount,
+      nonce = 0n,
+      expiryTs = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30),
+      tokenProgram = TOKEN_PROGRAM_ADDRESS,
+    }: {
+      rpcUrl: string;
+      user: TransactionSigner;
+      tokenMint: Address;
+      delegatee: Address;
+      amount: bigint;
+      nonce?: bigint;
+      expiryTs?: bigint;
+      tokenProgram?: Address;
+    }) {
+      const client = createClient()
+        .use(signer(user))
+        .use(solanaLocalRpc({ rpcUrl }))
+        .use(subscriptionsProgram());
+
+      const [userAta] = await findAssociatedTokenPda({ mint: tokenMint, owner: user.address, tokenProgram });
+      const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({ user: user.address, tokenMint });
+      const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(client.rpc, subscriptionAuthorityPda);
+
+      if (!subscriptionAuthority.exists) {
+        await client.subscriptions.instructions
+          .initSubscriptionAuthority({ tokenMint, tokenProgram, userAta })
+          .sendTransaction();
+      }
+
+      await client.subscriptions.instructions
+        .createFixedDelegation({ tokenMint, delegatee, nonce, amount, expiryTs })
+        .sendTransaction();
+
+      const [delegationPda] = await findFixedDelegationPda({
+        subscriptionAuthority: subscriptionAuthorityPda,
+        delegator: user.address,
+        delegatee,
+        nonce,
+      });
+
+      return { delegationPda, subscriptionAuthorityPda, userAta };
+    }
+
+    const result = await createFixedDelegation({
+      rpcUrl: 'http://127.0.0.1:8899',
+      user: userSigner,
+      tokenMint: address('TOKEN_MINT_ADDRESS_HERE'),
+      delegatee: address('DELEGATEE_WALLET_ADDRESS_HERE'),
+      amount: 1_000_000n,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use solana_instruction::Instruction;
+    use solana_pubkey::{pubkey, Pubkey};
+    use subscriptions_client::{
+        CreateFixedDelegationBuilder, CreateFixedDelegationData,
+        InitSubscriptionAuthorityBuilder, SUBSCRIPTIONS_ID,
+    };
+
+    const SYSTEM_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
+    const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    fn subscription_authority_pda(user: &Pubkey, mint: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(&[b"SubscriptionAuthority", user.as_ref(), mint.as_ref()], &SUBSCRIPTIONS_ID).0
+    }
+
+    fn fixed_delegation_pda(
+        subscription_authority: &Pubkey,
+        delegator: &Pubkey,
+        delegatee: &Pubkey,
+        nonce: u64,
+    ) -> Pubkey {
+        Pubkey::find_program_address(
+            &[
+                b"delegation",
+                subscription_authority.as_ref(),
+                delegator.as_ref(),
+                delegatee.as_ref(),
+                &nonce.to_le_bytes(),
+            ],
+            &SUBSCRIPTIONS_ID,
+        ).0
+    }
+
+    pub fn fixed_delegation_setup_ixs(
+        user: Pubkey,
+        user_ata: Pubkey,
+        token_mint: Pubkey,
+        delegatee: Pubkey,
+        amount: u64,
+        nonce: u64,
+        expiry_ts: i64,
+    ) -> (Vec<Instruction>, Pubkey) {
+        let subscription_authority = subscription_authority_pda(&user, &token_mint);
+        let delegation_pda = fixed_delegation_pda(&subscription_authority, &user, &delegatee, nonce);
+
+        let init_ix = InitSubscriptionAuthorityBuilder::new()
+            .owner(user)
+            .subscription_authority(subscription_authority)
+            .token_mint(token_mint)
+            .user_ata(user_ata)
+            .system_program(SYSTEM_PROGRAM_ID)
+            .token_program(TOKEN_PROGRAM_ID)
+            .instruction();
+
+        let create_ix = CreateFixedDelegationBuilder::new()
+            .delegator(user)
+            .subscription_authority(subscription_authority)
+            .delegation_account(delegation_pda)
+            .delegatee(delegatee)
+            .fixed_delegation(CreateFixedDelegationData { nonce, amount, expiry_ts })
+            .instruction();
+
+        (vec![init_ix, create_ix], delegation_pda)
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Transfer From The Delegation
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    await client.subscriptions.instructions
+      .transferFixed({
+        delegatee: delegateeSigner,
+        delegator: userAddress,
+        delegatorAta: userAta,
+        tokenMint,
+        delegationPda,
+        amount: 100_000n,
+        receiverAta,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions_client::{TransferData, TransferFixedBuilder};
+
+    let transfer_ix = TransferFixedBuilder::new()
+        .delegation_pda(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .delegator_ata(user_ata)
+        .receiver_ata(receiver_ata)
+        .token_program(TOKEN_PROGRAM_ID)
+        .delegatee(delegatee)
+        .transfer_data(TransferData { amount: 100_000, delegator: user, mint: token_mint })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Notes
+
+- The user's token account must exist before initialization.
+- Amounts are in base units. For a 6-decimal token, `1_000_000` means `1` token.
+- Reuse `initSubscriptionAuthority` only if the Subscription Authority does not
+  already exist.
+- The user signs setup and revoke transactions. The delegatee signs transfers.
