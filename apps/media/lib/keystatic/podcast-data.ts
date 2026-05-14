@@ -106,6 +106,37 @@ async function transformPodcast(
   };
 }
 
+const isBuzzsproutRepresentationUrl = (thumbnailUrl: string): boolean => {
+  try {
+    const url = new URL(thumbnailUrl);
+    return (
+      url.hostname.endsWith("buzzsprout.com") &&
+      url.pathname.includes("/rails/active_storage/representations/redirect/")
+    );
+  } catch {
+    return thumbnailUrl.includes(
+      "buzzsprout.com/rails/active_storage/representations/redirect/",
+    );
+  }
+};
+
+const normalizeEpisodeThumbnail = (
+  episode: PodcastEpisode,
+  podcast: PodcastShow,
+): PodcastEpisode => {
+  if (
+    !episode.thumbnailUrl ||
+    isBuzzsproutRepresentationUrl(episode.thumbnailUrl)
+  ) {
+    return {
+      ...episode,
+      thumbnailUrl: podcast.coverImage,
+    };
+  }
+
+  return episode;
+};
+
 /**
  * Fetch all podcasts from Keystatic
  */
@@ -177,7 +208,9 @@ export const fetchEpisodesForPodcast = async (
     const hasMore = offset + limit < allEpisodes.length;
 
     return {
-      episodes: paginatedEpisodes,
+      episodes: paginatedEpisodes.map((episode) =>
+        normalizeEpisodeThumbnail(episode, podcast),
+      ),
       hasMore,
       nextCursor: hasMore ? String(offset + limit) : undefined,
     };
@@ -214,7 +247,7 @@ export const fetchEpisodeById = async (
       podcastSlug,
     );
 
-    return episode;
+    return episode ? normalizeEpisodeThumbnail(episode, podcast) : null;
   } catch (error) {
     console.error(`Failed to fetch episode ${episodeId}:`, error);
     return null;
@@ -321,7 +354,9 @@ export const fetchLatestEpisodeForPodcast = async (
       podcast.slug,
     );
 
-    return allEpisodes.length > 0 ? allEpisodes[0]! : null;
+    return allEpisodes.length > 0
+      ? normalizeEpisodeThumbnail(allEpisodes[0]!, podcast)
+      : null;
   } catch (error) {
     console.error(
       `Failed to fetch latest episode for podcast ${podcast.slug}:`,
