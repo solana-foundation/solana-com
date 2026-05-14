@@ -7,6 +7,10 @@ A subscription plan lets a merchant publish billing terms that users can accept.
 After a user subscribes, the merchant or an approved puller can collect up to
 the plan amount each billing period.
 
+This guide shows the full flow as building blocks. The merchant creates a plan,
+the subscriber accepts it, and the merchant or puller collects payments from the
+resulting subscription PDA.
+
 ## Install
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -28,55 +32,46 @@ the plan amount each billing period.
 
 ## Create A Plan
 
+The merchant owns the plan. The plan PDA is derived from the merchant address
+and `planId`.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
-    import { address, createClient, type Address, type TransactionSigner } from '@solana/kit';
+    import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
     import { signer } from '@solana/kit-plugin-signer';
     import { findPlanPda, subscriptionsProgram } from '@subscriptions/client';
 
-    export async function createSubscriptionPlan({
-      rpcUrl,
-      merchant,
+    const merchantClient = createClient()
+      .use(signer(merchantSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const planId = 1n;
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const amount = 5_000_000n;
+    const periodHours = 720n;
+    const metadataUri = 'https://example.com/plan.json';
+    const destinations = [address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE')];
+    const pullers = [address('PULLER_WALLET_ADDRESS_HERE')];
+
+    await merchantClient.subscriptions.instructions
+      .createPlan({
+        planId,
+        mint: tokenMint,
+        amount,
+        periodHours,
+        endTs: 0n,
+        destinations,
+        pullers,
+        metadataUri,
+      })
+      .sendTransaction();
+
+    const [planPda] = await findPlanPda({
+      owner: merchantSigner.address,
       planId,
-      tokenMint,
-      amount,
-      periodHours,
-      pullers = [],
-      destinations = [],
-      metadataUri = 'https://example.com/plan.json',
-    }: {
-      rpcUrl: string;
-      merchant: TransactionSigner;
-      planId: bigint;
-      tokenMint: Address;
-      amount: bigint;
-      periodHours: bigint;
-      pullers?: Address[];
-      destinations?: Address[];
-      metadataUri?: string;
-    }) {
-      const client = createClient()
-        .use(signer(merchant))
-        .use(solanaLocalRpc({ rpcUrl }))
-        .use(subscriptionsProgram());
-
-      await client.subscriptions.instructions
-        .createPlan({ planId, mint: tokenMint, amount, periodHours, endTs: 0n, destinations, pullers, metadataUri })
-        .sendTransaction();
-
-      const [planPda] = await findPlanPda({ owner: merchant.address, planId });
-      return { planPda };
-    }
-
-    const { planPda } = await createSubscriptionPlan({
-      rpcUrl: 'http://127.0.0.1:8899',
-      merchant: merchantSigner,
-      planId: 1n,
-      tokenMint: address('TOKEN_MINT_ADDRESS_HERE'),
-      amount: 5_000_000n,
-      periodHours: 720n,
     });
     ```
 
@@ -84,52 +79,49 @@ the plan amount each billing period.
 
   <Tab value="Rust">
     ```rust
-    use solana_instruction::Instruction;
     use solana_pubkey::{pubkey, Pubkey};
     use subscriptions_client::{CreatePlanBuilder, PlanData, PlanTerms, SUBSCRIPTIONS_ID};
 
     const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-    fn plan_pda(merchant: &Pubkey, plan_id: u64) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"plan", merchant.as_ref(), &plan_id.to_le_bytes()], &SUBSCRIPTIONS_ID)
-    }
+    let merchant: Pubkey = pubkey!("MERCHANT_WALLET_ADDRESS_HERE");
+    let token_mint: Pubkey = pubkey!("TOKEN_MINT_ADDRESS_HERE");
+    let merchant_token_account: Pubkey = pubkey!("MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let puller: Pubkey = pubkey!("PULLER_WALLET_ADDRESS_HERE");
+    let plan_id = 1u64;
+    let amount = 5_000_000u64;
+    let period_hours = 720u64;
 
-    fn metadata_uri_bytes(uri: &str) -> [u8; 128] {
-        let mut out = [0u8; 128];
-        let bytes = uri.as_bytes();
-        let len = bytes.len().min(128);
-        out[..len].copy_from_slice(&bytes[..len]);
-        out
-    }
+    let (plan_pda, _) = Pubkey::find_program_address(
+        &[b"plan", merchant.as_ref(), &plan_id.to_le_bytes()],
+        &SUBSCRIPTIONS_ID,
+    );
 
-    pub fn create_plan_ix(
-        merchant: Pubkey,
-        plan_id: u64,
-        token_mint: Pubkey,
-        amount: u64,
-        period_hours: u64,
-    ) -> (Instruction, Pubkey) {
-        let (plan_pda, _) = plan_pda(&merchant, plan_id);
-        let empty = Pubkey::default();
+    let mut metadata_uri = [0u8; 128];
+    let metadata_bytes = b"https://example.com/plan.json";
+    metadata_uri[..metadata_bytes.len()].copy_from_slice(metadata_bytes);
 
-        let ix = CreatePlanBuilder::new()
-            .merchant(merchant)
-            .plan_pda(plan_pda)
-            .token_mint(token_mint)
-            .token_program(TOKEN_PROGRAM_ID)
-            .plan_data(PlanData {
-                plan_id,
-                mint: token_mint,
-                terms: PlanTerms { amount, period_hours, created_at: 0 },
-                end_ts: 0,
-                destinations: [empty; 4],
-                pullers: [empty; 4],
-                metadata_uri: metadata_uri_bytes("https://example.com/plan.json"),
-            })
-            .instruction();
+    let mut destinations = [Pubkey::default(); 4];
+    destinations[0] = merchant_token_account;
 
-        (ix, plan_pda)
-    }
+    let mut pullers = [Pubkey::default(); 4];
+    pullers[0] = puller;
+
+    let create_plan_ix = CreatePlanBuilder::new()
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .token_mint(token_mint)
+        .token_program(TOKEN_PROGRAM_ID)
+        .plan_data(PlanData {
+            plan_id,
+            mint: token_mint,
+            terms: PlanTerms { amount, period_hours, created_at: 0 },
+            end_ts: 0,
+            destinations,
+            pullers,
+            metadata_uri,
+        })
+        .instruction();
     ```
 
   </Tab>
@@ -137,53 +129,66 @@ the plan amount each billing period.
 
 ## Subscribe
 
+The subscriber accepts the current plan terms. The subscription PDA is derived
+from the plan PDA and subscriber address.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
-    import { createClient, type Address, type TransactionSigner } from '@solana/kit';
+    import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
     import { signer } from '@solana/kit-plugin-signer';
     import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
     import {
       fetchMaybeSubscriptionAuthority,
-      findPlanPda,
       findSubscriptionAuthorityPda,
       findSubscriptionDelegationPda,
       subscriptionsProgram,
     } from '@subscriptions/client';
 
-    export async function subscribeToPlan({ rpcUrl, subscriber, merchant, planId, tokenMint }: {
-      rpcUrl: string;
-      subscriber: TransactionSigner;
-      merchant: Address;
-      planId: bigint;
-      tokenMint: Address;
-    }) {
-      const client = createClient()
-        .use(signer(subscriber))
-        .use(solanaLocalRpc({ rpcUrl }))
-        .use(subscriptionsProgram());
+    const subscriberClient = createClient()
+      .use(signer(subscriberSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
 
-      const [subscriberAta] = await findAssociatedTokenPda({
-        mint: tokenMint,
-        owner: subscriber.address,
-        tokenProgram: TOKEN_PROGRAM_ADDRESS,
-      });
-      const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({ user: subscriber.address, tokenMint });
-      const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(client.rpc, subscriptionAuthorityPda);
+    const [subscriberAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: subscriberSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
 
-      if (!subscriptionAuthority.exists) {
-        await client.subscriptions.instructions
-          .initSubscriptionAuthority({ tokenMint, tokenProgram: TOKEN_PROGRAM_ADDRESS, userAta: subscriberAta })
-          .sendTransaction();
-      }
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: subscriberSigner.address,
+      tokenMint,
+    });
 
-      await client.subscriptions.instructions.subscribe({ merchant, planId, tokenMint }).sendTransaction();
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      subscriberClient.rpc,
+      subscriptionAuthorityPda,
+    );
 
-      const [planPda] = await findPlanPda({ owner: merchant, planId });
-      const [subscriptionPda] = await findSubscriptionDelegationPda({ planPda, subscriber: subscriber.address });
-      return { planPda, subscriptionPda, subscriptionAuthorityPda, subscriberAta };
+    if (!subscriptionAuthority.exists) {
+      await subscriberClient.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta: subscriberAta,
+        })
+        .sendTransaction();
     }
+
+    await subscriberClient.subscriptions.instructions
+      .subscribe({
+        merchant: merchantSigner.address,
+        planId,
+        tokenMint,
+      })
+      .sendTransaction();
+
+    const [subscriptionPda] = await findSubscriptionDelegationPda({
+      planPda,
+      subscriber: subscriberSigner.address,
+    });
     ```
 
   </Tab>
@@ -191,55 +196,56 @@ the plan amount each billing period.
   <Tab value="Rust">
     ```rust
     use subscriptions_client::{
-        InitSubscriptionAuthorityBuilder, SubscribeBuilder, SubscribeData, Plan,
+        InitSubscriptionAuthorityBuilder, Plan, SubscribeBuilder, SubscribeData,
     };
 
-    fn subscription_authority_pda(user: &Pubkey, mint: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[b"SubscriptionAuthority", user.as_ref(), mint.as_ref()], &SUBSCRIPTIONS_ID).0
-    }
+    const SYSTEM_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
 
-    fn subscription_pda(plan_pda: &Pubkey, subscriber: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[b"subscription", plan_pda.as_ref(), subscriber.as_ref()], &SUBSCRIPTIONS_ID).0
-    }
+    let subscriber: Pubkey = pubkey!("SUBSCRIBER_WALLET_ADDRESS_HERE");
+    let subscriber_ata: Pubkey = pubkey!("SUBSCRIBER_TOKEN_ACCOUNT_ADDRESS_HERE");
 
-    pub fn subscribe_ixs(
-        subscriber: Pubkey,
-        subscriber_ata: Pubkey,
-        merchant: Pubkey,
-        plan_id: u64,
-        token_mint: Pubkey,
-        fetched_plan: Plan,
-    ) -> (Vec<Instruction>, Pubkey) {
-        let subscription_authority = subscription_authority_pda(&subscriber, &token_mint);
-        let (plan_pda, plan_bump) = plan_pda(&merchant, plan_id);
-        let subscription_pda = subscription_pda(&plan_pda, &subscriber);
+    let (subscription_authority, _) = Pubkey::find_program_address(
+        &[b"SubscriptionAuthority", subscriber.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
 
-        let init_ix = InitSubscriptionAuthorityBuilder::new()
-            .owner(subscriber)
-            .subscription_authority(subscription_authority)
-            .token_mint(token_mint)
-            .user_ata(subscriber_ata)
-            .token_program(TOKEN_PROGRAM_ID)
-            .instruction();
+    let (subscription_pda, _) = Pubkey::find_program_address(
+        &[b"subscription", plan_pda.as_ref(), subscriber.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
 
-        let subscribe_ix = SubscribeBuilder::new()
-            .subscriber(subscriber)
-            .merchant(merchant)
-            .plan_pda(plan_pda)
-            .subscription_pda(subscription_pda)
-            .subscription_authority_pda(subscription_authority)
-            .subscribe_data(SubscribeData {
-                plan_id,
-                plan_bump,
-                expected_mint: fetched_plan.data.mint,
-                expected_amount: fetched_plan.data.terms.amount,
-                expected_period_hours: fetched_plan.data.terms.period_hours,
-                expected_created_at: fetched_plan.data.terms.created_at,
-            })
-            .instruction();
+    let (_, plan_bump) = Pubkey::find_program_address(
+        &[b"plan", merchant.as_ref(), &plan_id.to_le_bytes()],
+        &SUBSCRIPTIONS_ID,
+    );
 
-        (vec![init_ix, subscribe_ix], subscription_pda)
-    }
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(subscriber)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(subscriber_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+
+    // Fetch and decode the plan account before building SubscribeData.
+    let fetched_plan: Plan = fetched_plan;
+
+    let subscribe_ix = SubscribeBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority_pda(subscription_authority)
+        .subscribe_data(SubscribeData {
+            plan_id,
+            plan_bump,
+            expected_mint: fetched_plan.data.mint,
+            expected_amount: fetched_plan.data.terms.amount,
+            expected_period_hours: fetched_plan.data.terms.period_hours,
+            expected_created_at: fetched_plan.data.terms.created_at,
+        })
+        .instruction();
     ```
 
   </Tab>
@@ -247,13 +253,19 @@ the plan amount each billing period.
 
 ## Collect A Payment
 
+The merchant or a whitelisted puller signs collection. The receiver token
+account must match the plan's destination rules when the plan uses a destination
+allowlist.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
-    await client.subscriptions.instructions
+    const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
+
+    await merchantClient.subscriptions.instructions
       .transferSubscription({
         caller: merchantOrPullerSigner,
-        delegator: subscriberAddress,
+        delegator: subscriberSigner.address,
         tokenMint,
         subscriptionPda,
         planPda,
@@ -263,11 +275,15 @@ the plan amount each billing period.
       })
       .sendTransaction();
     ```
+
   </Tab>
 
   <Tab value="Rust">
     ```rust
     use subscriptions_client::{TransferData, TransferSubscriptionBuilder};
+
+    let merchant_or_puller: Pubkey = merchant;
+    let receiver_ata: Pubkey = merchant_token_account;
 
     let collect_ix = TransferSubscriptionBuilder::new()
         .subscription_pda(subscription_pda)

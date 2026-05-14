@@ -6,6 +6,10 @@ description: Guide for setting up recurring delegation transactions.
 A recurring delegation lets a user approve another wallet or service to pull up
 to a limit that resets every period.
 
+This guide keeps the moving parts visible. You derive the accounts first,
+initialize the Subscription Authority if needed, create the recurring
+delegation, then use that delegation PDA for transfers.
+
 ## Install
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -27,10 +31,19 @@ to a limit that resets every period.
 
 ## Create The Delegation
 
+The setup has four parts:
+
+1. Create a client with the user signer and subscriptions plugin.
+2. Derive the user's token account, Subscription Authority PDA, and recurring
+   delegation PDA.
+3. Initialize the Subscription Authority if it does not exist yet.
+4. Create the recurring delegation with the period amount, period length, start
+   time, and expiry.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
-    import { address, createClient, type Address, type TransactionSigner } from '@solana/kit';
+    import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
     import { signer } from '@solana/kit-plugin-signer';
     import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
@@ -41,76 +54,70 @@ to a limit that resets every period.
       subscriptionsProgram,
     } from '@subscriptions/client';
 
-    export async function createRecurringDelegation({
-      rpcUrl,
-      user,
+    const client = createClient()
+      .use(signer(userSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const delegatee = address('DELEGATEE_WALLET_ADDRESS_HERE');
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const nonce = 0n;
+    const amountPerPeriod = 1_000_000n;
+    const periodLengthS = 86_400n;
+    const startTs = now;
+    const expiryTs = now + periodLengthS * 30n;
+
+    const [userAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: userSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: userSigner.address,
       tokenMint,
+    });
+
+    const [delegationPda] = await findRecurringDelegationPda({
+      subscriptionAuthority: subscriptionAuthorityPda,
+      delegator: userSigner.address,
       delegatee,
-      amountPerPeriod,
-      periodLengthS,
-      startTs,
-      expiryTs,
-      nonce = 0n,
-      tokenProgram = TOKEN_PROGRAM_ADDRESS,
-    }: {
-      rpcUrl: string;
-      user: TransactionSigner;
-      tokenMint: Address;
-      delegatee: Address;
-      amountPerPeriod: bigint;
-      periodLengthS: bigint;
-      startTs: bigint;
-      expiryTs: bigint;
-      nonce?: bigint;
-      tokenProgram?: Address;
-    }) {
-      const client = createClient()
-        .use(signer(user))
-        .use(solanaLocalRpc({ rpcUrl }))
-        .use(subscriptionsProgram());
+      nonce,
+    });
 
-      const [userAta] = await findAssociatedTokenPda({ mint: tokenMint, owner: user.address, tokenProgram });
-      const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({ user: user.address, tokenMint });
-      const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(client.rpc, subscriptionAuthorityPda);
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      client.rpc,
+      subscriptionAuthorityPda,
+    );
 
-      if (!subscriptionAuthority.exists) {
-        await client.subscriptions.instructions
-          .initSubscriptionAuthority({ tokenMint, tokenProgram, userAta })
-          .sendTransaction();
-      }
-
+    if (!subscriptionAuthority.exists) {
       await client.subscriptions.instructions
-        .createRecurringDelegation({ tokenMint, delegatee, nonce, amountPerPeriod, periodLengthS, startTs, expiryTs })
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta,
+        })
         .sendTransaction();
-
-      const [delegationPda] = await findRecurringDelegationPda({
-        subscriptionAuthority: subscriptionAuthorityPda,
-        delegator: user.address,
-        delegatee,
-        nonce,
-      });
-
-      return { delegationPda, subscriptionAuthorityPda, userAta };
     }
 
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const result = await createRecurringDelegation({
-      rpcUrl: 'http://127.0.0.1:8899',
-      user: userSigner,
-      tokenMint: address('TOKEN_MINT_ADDRESS_HERE'),
-      delegatee: address('DELEGATEE_WALLET_ADDRESS_HERE'),
-      amountPerPeriod: 1_000_000n,
-      periodLengthS: 86_400n,
-      startTs: now,
-      expiryTs: now + 86_400n * 30n,
-    });
+    await client.subscriptions.instructions
+      .createRecurringDelegation({
+        tokenMint,
+        delegatee,
+        nonce,
+        amountPerPeriod,
+        periodLengthS,
+        startTs,
+        expiryTs,
+      })
+      .sendTransaction();
     ```
 
   </Tab>
 
   <Tab value="Rust">
     ```rust
-    use solana_instruction::Instruction;
     use solana_pubkey::{pubkey, Pubkey};
     use subscriptions_client::{
         CreateRecurringDelegationBuilder, CreateRecurringDelegationData,
@@ -120,56 +127,54 @@ to a limit that resets every period.
     const SYSTEM_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
     const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-    fn subscription_authority_pda(user: &Pubkey, mint: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[b"SubscriptionAuthority", user.as_ref(), mint.as_ref()], &SUBSCRIPTIONS_ID).0
-    }
+    let user: Pubkey = pubkey!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Pubkey = pubkey!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Pubkey = pubkey!("TOKEN_MINT_ADDRESS_HERE");
+    let delegatee: Pubkey = pubkey!("DELEGATEE_WALLET_ADDRESS_HERE");
+    let nonce = 0u64;
+    let amount_per_period = 1_000_000u64;
+    let period_length_s = 86_400u64;
+    let start_ts = 1_731_657_600i64;
+    let expiry_ts = start_ts + 86_400 * 30;
 
-    fn recurring_delegation_pda(sa: &Pubkey, delegator: &Pubkey, delegatee: &Pubkey, nonce: u64) -> Pubkey {
-        Pubkey::find_program_address(
-            &[b"delegation", sa.as_ref(), delegator.as_ref(), delegatee.as_ref(), &nonce.to_le_bytes()],
-            &SUBSCRIPTIONS_ID,
-        ).0
-    }
+    let (subscription_authority, _) = Pubkey::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
 
-    pub fn recurring_delegation_setup_ixs(
-        user: Pubkey,
-        user_ata: Pubkey,
-        token_mint: Pubkey,
-        delegatee: Pubkey,
-        amount_per_period: u64,
-        period_length_s: u64,
-        start_ts: i64,
-        expiry_ts: i64,
-        nonce: u64,
-    ) -> (Vec<Instruction>, Pubkey) {
-        let subscription_authority = subscription_authority_pda(&user, &token_mint);
-        let delegation_pda = recurring_delegation_pda(&subscription_authority, &user, &delegatee, nonce);
+    let (delegation_pda, _) = Pubkey::find_program_address(
+        &[
+            b"delegation",
+            subscription_authority.as_ref(),
+            user.as_ref(),
+            delegatee.as_ref(),
+            &nonce.to_le_bytes(),
+        ],
+        &SUBSCRIPTIONS_ID,
+    );
 
-        let init_ix = InitSubscriptionAuthorityBuilder::new()
-            .owner(user)
-            .subscription_authority(subscription_authority)
-            .token_mint(token_mint)
-            .user_ata(user_ata)
-            .system_program(SYSTEM_PROGRAM_ID)
-            .token_program(TOKEN_PROGRAM_ID)
-            .instruction();
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(user)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(user_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
 
-        let create_ix = CreateRecurringDelegationBuilder::new()
-            .delegator(user)
-            .subscription_authority(subscription_authority)
-            .delegation_account(delegation_pda)
-            .delegatee(delegatee)
-            .recurring_delegation(CreateRecurringDelegationData {
-                nonce,
-                amount_per_period,
-                period_length_s,
-                start_ts,
-                expiry_ts,
-            })
-            .instruction();
-
-        (vec![init_ix, create_ix], delegation_pda)
-    }
+    let create_ix = CreateRecurringDelegationBuilder::new()
+        .delegator(user)
+        .subscription_authority(subscription_authority)
+        .delegation_account(delegation_pda)
+        .delegatee(delegatee)
+        .recurring_delegation(CreateRecurringDelegationData {
+            nonce,
+            amount_per_period,
+            period_length_s,
+            start_ts,
+            expiry_ts,
+        })
+        .instruction();
     ```
 
   </Tab>
@@ -177,13 +182,18 @@ to a limit that resets every period.
 
 ## Transfer From The Delegation
 
+The delegatee signs each transfer. The program checks the current period and
+rejects transfers that would exceed the period's remaining allowance.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
+    const receiverAta = address('RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE');
+
     await client.subscriptions.instructions
       .transferRecurring({
         delegatee: delegateeSigner,
-        delegator: userAddress,
+        delegator: userSigner.address,
         delegatorAta: userAta,
         tokenMint,
         delegationPda,
@@ -193,11 +203,14 @@ to a limit that resets every period.
       })
       .sendTransaction();
     ```
+
   </Tab>
 
   <Tab value="Rust">
     ```rust
     use subscriptions_client::{TransferData, TransferRecurringBuilder};
+
+    let receiver_ata: Pubkey = pubkey!("RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE");
 
     let transfer_ix = TransferRecurringBuilder::new()
         .delegation_pda(delegation_pda)
