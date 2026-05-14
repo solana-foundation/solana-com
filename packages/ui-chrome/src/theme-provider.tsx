@@ -23,7 +23,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     ? pathname.startsWith("/docs") ||
       pathname.startsWith("/developers/cookbook") ||
       pathname.startsWith("/developers/guides") ||
-      pathname.startsWith("/developers/bootcamp")
+      pathname.startsWith("/developers/bootcamp") ||
+      pathname.startsWith("/developers/data")
     : false;
   const [theme, setTheme] = useState<Theme>("dark"); // Initial theme state; will be updated by useEffect.
 

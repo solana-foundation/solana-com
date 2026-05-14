@@ -19,6 +19,8 @@ type DashboardLoadState =
   | { status: "ready" }
   | { status: "error"; message: string };
 
+type DashboardColorScheme = "light" | "dark";
+
 type ApiErrorResponse = {
   error?: string;
 };
@@ -28,7 +30,26 @@ export function DatabricksDashboardEmbed() {
   const [loadState, setLoadState] = useState<DashboardLoadState>({
     status: "loading",
   });
+  const [colorScheme, setColorScheme] = useState<DashboardColorScheme>(() =>
+    typeof document === "undefined" ? "light" : getDocumentColorScheme(),
+  );
   const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const updateColorScheme = () => {
+      setColorScheme(getDocumentColorScheme());
+    };
+
+    updateColorScheme();
+
+    const observer = new MutationObserver(updateColorScheme);
+    observer.observe(document.documentElement, {
+      attributeFilter: ["class"],
+      attributes: true,
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -55,7 +76,7 @@ export function DatabricksDashboardEmbed() {
             const nextTokenResponse = await fetchDashboardToken();
             return nextTokenResponse.token;
           },
-          colorScheme: "light",
+          colorScheme,
           config: {
             version: 1,
             hideDatabricksLogo: true,
@@ -90,17 +111,17 @@ export function DatabricksDashboardEmbed() {
       abortController.abort();
       dashboard?.destroy();
     };
-  }, [reloadKey]);
+  }, [colorScheme, reloadKey]);
 
   const isLoading = loadState.status === "loading";
   const hasError = loadState.status === "error";
 
   return (
-    <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 shadow-sm md:min-h-[640px]">
+    <div className="relative min-h-[560px] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900 md:min-h-[640px]">
       <div
         ref={containerRef}
         aria-hidden={hasError}
-        className={`h-[min(760px,calc(100vh-220px))] min-h-[560px] w-full bg-white transition-opacity md:min-h-[640px] ${
+        className={`h-[min(760px,calc(100vh-220px))] min-h-[560px] w-full bg-white transition-opacity dark:bg-zinc-950 md:min-h-[640px] ${
           isLoading || hasError ? "opacity-0" : "opacity-100"
         }`}
       />
@@ -121,18 +142,18 @@ function DashboardLoadingState() {
   return (
     <div
       aria-live="polite"
-      className="absolute inset-0 flex flex-col gap-4 bg-white p-6"
+      className="absolute inset-0 flex flex-col gap-4 bg-white p-6 transition-colors dark:bg-zinc-950"
       role="status"
     >
-      <p className="text-sm font-medium text-zinc-700">
+      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
         Loading Solana data dashboard...
       </p>
       <div className="grid flex-1 gap-4 md:grid-cols-3">
-        <div className="rounded-md bg-zinc-100" />
-        <div className="rounded-md bg-zinc-100" />
-        <div className="rounded-md bg-zinc-100" />
-        <div className="rounded-md bg-zinc-100 md:col-span-2" />
-        <div className="rounded-md bg-zinc-100" />
+        <div className="rounded-md bg-zinc-100 dark:bg-zinc-900" />
+        <div className="rounded-md bg-zinc-100 dark:bg-zinc-900" />
+        <div className="rounded-md bg-zinc-100 dark:bg-zinc-900" />
+        <div className="rounded-md bg-zinc-100 dark:bg-zinc-900 md:col-span-2" />
+        <div className="rounded-md bg-zinc-100 dark:bg-zinc-900" />
       </div>
     </div>
   );
@@ -147,16 +168,16 @@ function DashboardErrorState({
 }) {
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center bg-white p-6"
+      className="absolute inset-0 flex items-center justify-center bg-white p-6 transition-colors dark:bg-zinc-950"
       role="alert"
     >
-      <div className="max-w-md rounded-md border border-red-200 bg-red-50 p-5 text-sm text-red-900">
-        <h2 className="text-base font-semibold text-red-950">
+      <div className="max-w-md rounded-md border border-red-200 bg-red-50 p-5 text-sm text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100">
+        <h2 className="text-base font-semibold text-red-950 dark:text-red-50">
           Dashboard unavailable
         </h2>
         <p className="mt-2 leading-6">{message}</p>
         <button
-          className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 font-medium text-red-950 transition-colors hover:bg-red-100"
+          className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 font-medium text-red-950 transition-colors hover:bg-red-100 dark:border-red-400/40 dark:bg-transparent dark:text-red-50 dark:hover:bg-red-500/20"
           onClick={onRetry}
           type="button"
         >
@@ -219,6 +240,10 @@ function clearDashboardContainer(container: HTMLDivElement | null) {
   if (container) {
     container.replaceChildren();
   }
+}
+
+function getDocumentColorScheme(): DashboardColorScheme {
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
 class DashboardTokenError extends Error {
