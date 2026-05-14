@@ -1,0 +1,102 @@
+---
+title: Create Subscription Authority
+description: Guide for initializing a user's Subscription Authority account.
+---
+
+A Subscription Authority is a PDA that the program uses as the SPL Token
+delegate for one user's token account and one token mint. Create it before
+creating fixed delegations, recurring delegations, or subscription plan
+subscriptions for that mint.
+
+The user's token account must already exist. Initialization creates the
+Subscription Authority PDA and approves it as the token delegate on the user's
+token account.
+
+## Create The Authority
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { address, createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findSubscriptionAuthorityPda,
+      subscriptionsProgram,
+    } from '@subscriptions/client';
+
+    const client = createClient()
+      .use(signer(userSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const [userAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: userSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: userSigner.address,
+      tokenMint,
+    });
+
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      client.rpc,
+      subscriptionAuthorityPda,
+    );
+
+    if (!subscriptionAuthority.exists) {
+      await client.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta,
+        })
+        .sendTransaction();
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use solana_pubkey::{pubkey, Pubkey};
+    use subscriptions_client::{generated::instructions::*, SUBSCRIPTIONS_ID};
+
+    const SYSTEM_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
+    const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let user: Pubkey = pubkey!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Pubkey = pubkey!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Pubkey = pubkey!("TOKEN_MINT_ADDRESS_HERE");
+
+    let (subscription_authority, _) = Pubkey::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(user)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(user_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Notes
+
+- The user signs the initialization transaction.
+- Create one Subscription Authority per user and token mint pair.
+- Reuse the existing Subscription Authority for later delegations on the same
+  mint.
+- Close the Subscription Authority only after every delegation that depends on
+  it has been revoked or closed.
