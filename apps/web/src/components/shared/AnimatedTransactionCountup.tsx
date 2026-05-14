@@ -17,10 +17,10 @@ const AnimatedTransactionCountup: React.FC<AnimatedTransactionCountupProps> = ({
   info,
   perfUpdateSec,
 }) => {
-  const countUpRef = useRef(null);
+  const countUpRef = useRef<HTMLElement | null>(null);
   const { totalTransactionCount, avgTPS } = info;
   const { update } = useCountUp({
-    ref: countUpRef,
+    ref: countUpRef as React.RefObject<HTMLElement>,
     start: totalTransactionCount,
     end: totalTransactionCount + avgTPS * perfUpdateSec,
     delay: 0,

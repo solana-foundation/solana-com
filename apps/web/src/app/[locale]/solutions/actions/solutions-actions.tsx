@@ -289,7 +289,8 @@ export function ActionsPage() {
           body={t("headings.aboutSolana.body")}
           dynamicDataFootnote="Live data"
           headingAs="h3"
-          valueOf={null}
+          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
+          valueOf={() => false}
         />
       </ResponsiveBox>
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   CardDeck,
   ConversionPanel,
@@ -273,7 +274,11 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
           image={SWITCHBACK.image}
           headline={translations.switchbackHeadline}
           body={translations.switchbackBody}
-          buttons={switchbackButtons as any}
+          buttons={
+            switchbackButtons as React.ComponentProps<
+              typeof Switchback
+            >["buttons"]
+          }
         />
       </ResponsiveBox>
 
@@ -288,7 +293,11 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
           variant={MINTING_PANEL.variant as "offset"}
           heading={translations.mintingPanelHeading}
           body={translations.mintingPanelBody}
-          buttons={mintingButtons as any}
+          buttons={
+            mintingButtons as React.ComponentProps<
+              typeof ConversionPanel
+            >["buttons"]
+          }
           desktopImage={MINTING_PANEL.desktopImage}
           mobileImage={MINTING_PANEL.mobileImage}
         />
@@ -314,13 +323,22 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
           small: { marginBottom: "-83px" },
         }}
       >
-        <CardDeck cards={cardDeckCards as any} numCols={CARD_DECK_COLUMNS} />
+        <CardDeck
+          cards={
+            cardDeckCards as React.ComponentProps<typeof CardDeck>["cards"]
+          }
+          numCols={CARD_DECK_COLUMNS}
+        />
       </ResponsiveBox>
 
       <ConversionPanel
         heading={translations.contactPanelHeading}
         body={translations.contactPanelBody}
-        buttons={contactButtons as any}
+        buttons={
+          contactButtons as React.ComponentProps<
+            typeof ConversionPanel
+          >["buttons"]
+        }
       />
     </>
   );

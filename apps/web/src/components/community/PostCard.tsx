@@ -2,17 +2,12 @@ import { Link } from "../../utils/Link";
 import Image from "next/legacy/image";
 import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
-
-type Post = {
-  url?: string;
-  heroImage?: string;
-  title?: string;
-};
+import type { PostItem } from "@/types/media";
 
 /**
  * Show blog post data in the card
  */
-const PostCard = ({ post }: { post: Post }) => {
+const PostCard = ({ post }: { post: PostItem }) => {
   const t = useTranslations();
   const url = post?.url;
   const featuredImage = post?.heroImage ?? "/src/img/news/blogbackup.png";

@@ -3,6 +3,7 @@ import { Speakers } from "./Speakers";
 
 export async function MiamiSpeakers() {
   const speakers = await getMiamiSpeakers();
+  if (!speakers?.length) return null;
 
   return <Speakers speakers={speakers} speakerOrder={null} />;
 }

@@ -62,7 +62,7 @@ export function AgentRegistryPage({ translations }: AgentRegistryPageProps) {
         {/* Ecosystem Projects */}
         <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
           <Products
-            className="z-1"
+            className="z-[1]"
             title={translations.ecoProjectsTitle}
             products={PRODUCTS}
             translationBase="agentRegistry.ecoProjects"
@@ -75,7 +75,7 @@ export function AgentRegistryPage({ translations }: AgentRegistryPageProps) {
         {/* Toolkit Section */}
         <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
           <Products
-            className="z-1"
+            className="z-[1]"
             title={translations.toolsTitle}
             description={translations.toolsDescription}
             products={TOOLS}

@@ -8,6 +8,9 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://solana.com/sitemap.xml",
+    sitemap: [
+      "https://solana.com/sitemap.xml",
+      "https://solana.com/news/google-news.xml",
+    ],
   };
 }

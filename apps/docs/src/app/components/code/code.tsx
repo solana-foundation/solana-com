@@ -116,10 +116,10 @@ export async function toCodeGroup(props: {
       }
       return {
         options,
-        title,
+        title: title || "",
         style: highlighted.style,
         code: highlighted.code,
-        icon: <CodeIcon title={title} lang={tab.lang} />,
+        icon: <CodeIcon title={title ?? ""} lang={tab.lang} />,
         lang: tab.lang,
         pre: (
           <Pre

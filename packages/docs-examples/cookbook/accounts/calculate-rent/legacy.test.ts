@@ -1,0 +1,7 @@
+import { describe, it, expect } from "vitest";
+
+describe("cookbook/accounts/calculate-rent/legacy", () => {
+  it("runs end-to-end against the local validator", async () => {
+    await expect(import("./legacy")).resolves.toBeDefined();
+  });
+});
