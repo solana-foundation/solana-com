@@ -21,6 +21,15 @@ Final proposed primary navigation:
 important and should live prominently under `Ecosystem`, with selected network
 proof also linked from `Enterprise`.
 
+This is a functional implementation spec. Agents should use it as the source of
+truth for IA, sequencing, acceptance criteria, and instrumentation, while
+following normal repo process separately where required.
+
+Conceptual destinations in this document are intentional. Do not create
+placeholder pages or dead links just to satisfy the menu structure. If a
+destination does not have an approved page yet, use an existing canonical route
+where one clearly fits, or omit that shipped link until the page is ready.
+
 ## Repo Context
 
 The Solana.com repo is a monorepo with shared chrome used across multiple apps.
@@ -29,7 +38,13 @@ Important implementation areas:
 
 - `packages/ui-chrome/src/header-section-metadata.ts`
 - `packages/ui-chrome/src/header-sections.tsx`
+- `packages/ui-chrome/src/header-list.*.tsx`
 - `packages/ui-chrome/src/nav-section-content-config.tsx`
+- `packages/ui-chrome/src/nav-types.ts`
+- `packages/ui-chrome/src/nav-active.ts`
+- `packages/ui-chrome/src/mobile-menu.tsx`
+- `packages/ui-chrome/src/inkeep-searchbar.tsx`
+- `packages/ui-chrome/src/inkeep-chat-button.tsx`
 - `packages/ui-chrome/src/footer.tsx`
 - `packages/i18n/messages/web/*/common.json`
 - `apps/web/rewrites-redirects.ts`
@@ -46,6 +61,12 @@ The shared `Header` and `Footer` are used by:
 
 This means navigation changes affect more than the marketing app. Delivery must
 include cross-app QA.
+
+Current shared chrome is keyed around the existing section IDs `learn`,
+`developers`, `solutions`, `network`, and `community`. Implementation must
+update typed section IDs, icon mappings, menu content mappings, active-route
+rules, desktop menu behavior, mobile menu behavior, and translations together.
+Do not only rename visible labels.
 
 ## Current-State Findings
 
@@ -112,10 +133,10 @@ The primary header navigation should contain:
 4. Products
 5. Ecosystem
 
-`Build` is the public header label for the existing developer audience path. It
-should continue to route to the existing `/developers` hub unless a separate
-SEO-approved migration creates a better destination. Do not create a `/build`
-route as part of this restructure.
+`Build` is the public header label for the existing developer audience path. The
+Build menu's primary CTA or landing-page link should continue to route to the
+existing `/developers` hub unless a separate SEO-approved migration creates a
+better destination. Do not create a `/build` route as part of this restructure.
 
 Persistent utilities:
 
@@ -139,6 +160,23 @@ Mega menus should include:
 
 On mobile, the navigation should collapse into an accessible menu with the same
 hierarchy.
+
+Functional acceptance criteria:
+
+1. Desktop header shows the five top-level items in the specified order.
+2. Each top-level item opens a menu and supports pointer and keyboard access.
+3. Mobile menu exposes the same five sections and the same practical hierarchy.
+4. Active state rules map existing routes into the new IA, including preserved
+   routes such as `/learn`, `/developers`, `/solutions/*`, `/wallets`,
+   `/events`, `/community`, `/validators`, `/news`, `/reports`, and `/podcasts`.
+5. Cross-app links continue to use the shared chrome link behavior so docs,
+   media, templates, and web routes do not accidentally become broken client
+   transitions.
+6. No shipped menu item points to a route that is known to redirect away from
+   the intended destination unless that redirect is the intended canonical
+   behavior.
+7. Dynamic modules are additive. If they fail, static menu links remain visible
+   and usable.
 
 ## Mega Menu Requirements
 
@@ -480,6 +518,20 @@ Canonical top-level hubs:
 - `/ecosystem`
 - `/network`
 
+Known current route conflicts and implementation requirements:
+
+- `/ecosystem(.*)` currently redirects to `/`. Before `/ecosystem` can become a
+  canonical hub, that redirect must be removed or replaced with narrower legacy
+  redirects that do not capture the new hub.
+- `/enterprise` currently redirects to `/solutions/enterprise`. Before
+  `/enterprise` can become a canonical hub, that redirect must be removed or
+  changed to the approved canonical destination.
+- `/use-solana`, `/products`, and `/network` require real app routes before they
+  are linked as landing-page destinations.
+- Top-level header triggers may ship before these hubs exist because they open
+  mega menus. Any menu CTA that points to a hub must wait until that hub exists
+  or use an existing canonical destination.
+
 Canonical routes that should remain because they are already strong or
 operationally important:
 
@@ -536,6 +588,12 @@ redirects, content rewrites, and dynamic menu work in one release.
 - Link to existing routes where new pages do not exist yet.
 - Treat new IA labels as navigation groupings first; do not rename routes just
   to match the header labels.
+- Update typed nav section IDs, section metadata, section component mappings,
+  mobile menu mappings, active-route rules, and translations as one unit.
+- Top-level header items may be menu triggers only; they do not need to navigate
+  to new hub pages during Stage 1.
+- Do not ship dead, placeholder, or self-redirecting CTA links for conceptual
+  pages that do not exist yet.
 - Add clear TODOs for routes that need future migration.
 - Move Breakpoint/event banner into `Ecosystem`.
 - Ensure header/footer work across `web`, `docs`, `media`, and `templates`.
@@ -553,6 +611,9 @@ Create new hub pages:
 These should be real landing pages, not thin link lists. They should complement
 existing canonical routes such as `/wallets`, `/learn`, `/events`, `/community`,
 `/validators`, `/docs`, and `/developers`, not replace them by default.
+
+Before shipping `/ecosystem` and `/enterprise`, resolve the current redirects
+that send those routes away from the intended canonical hubs.
 
 ### Stage 3: Priority Route Migration
 
@@ -649,6 +710,8 @@ Dynamic modules must fail silently. Static nav must remain usable.
 ### Stage 7: Redirects and Cleanup
 
 - Add redirects only after destination pages are complete.
+- Remove or narrow legacy redirects that block approved new hubs, including the
+  current `/ecosystem(.*)` and `/enterprise` redirects.
 - Update sitemap generation.
 - Update canonical metadata.
 - Update internal links.
@@ -852,6 +915,22 @@ Dynamic modules should never be the only path to critical content.
 
 If dynamic content fails to load, the static menu must remain fully usable.
 
+Implementation requirements:
+
+- Normalize dynamic menu content before rendering. The menu should not depend on
+  raw API response shapes.
+- Minimum normalized fields: `id`, `title`, `href`, `contentType`, and `source`.
+- Optional normalized fields: `description`, `eyebrow`, `image`, `publishedAt`,
+  `tag`, and `campaignId`.
+- Posts and reports may use the existing latest-content APIs with `tag` and
+  `limit` query params.
+- Events may use existing event sources, but event content should be normalized
+  to the same card contract before entering shared chrome.
+- Dynamic fetch failures, empty responses, and malformed records must render no
+  dynamic module rather than breaking or delaying the static menu.
+- Dynamic modules must not create layout shift that changes the position of
+  static critical links after user interaction.
+
 ## Search / Ask AI Requirements
 
 Search or Ask AI should be persistently available in the header.
@@ -902,22 +981,203 @@ where appropriate.
 
 ## Analytics Requirements
 
-The new structure should be instrumented to measure:
+Use lower snake case event names. Prefer one shared tracking helper in shared
+chrome so header, mobile menu, and footer events use the same schema.
 
-- Mega menu opens
-- Header link clicks
-- Footer link clicks
-- Dynamic card clicks
-- Search / Ask AI usage
-- Landing page entry rate
-- Cross-navigation between sections
-- Contact or CTA clicks
-- Build quickstart/docs clicks
-- Product outbound clicks
-- Tokens.xyz outbound clicks
-- Event and Breakpoint promo clicks
+Common properties for all navigation analytics events:
 
-Important segments:
+- `event_schema_version`: `nav_ia_v1`
+- `app_name`: value from `NEXT_PUBLIC_APP_NAME` where available
+- `locale`
+- `current_path`
+- `nav_surface`: `header`, `mobile_menu`, `footer`, `hub_page`, or
+  `developer_secondary_nav`
+- `nav_section`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`,
+  `network`, `organization`, `public_engagement`, or `unknown`
+- `nav_group`: submenu/group label when available
+- `nav_item_id`: stable code/config ID when available
+- `nav_item_label`
+- `href`
+- `destination_section`: best-known IA destination section
+- `destination_type`: `internal`, `cross_app`, `external`, `dynamic`, `search`,
+  or `cta`
+- `is_external`
+- `external_domain`: hostname for external links only
+- `link_role`: `primary`, `secondary`, `cta`, `utility`, `dynamic_card`, or
+  `promo`
+- `position`: zero-based position inside the current group where practical
+- `viewport`: `desktop`, `tablet`, or `mobile`
+
+Event catalog:
+
+### `nav_menu_opened`
+
+Capture when a top-level desktop mega menu or mobile section is opened.
+
+Additional properties:
+
+- `trigger_method`: `hover`, `click`, `keyboard`, or `touch`
+- `menu_variant`: `desktop_mega_menu` or `mobile_section`
+
+### `nav_menu_closed`
+
+Capture when practical, especially on mobile and keyboard flows.
+
+Additional properties:
+
+- `close_method`: `outside_click`, `escape`, `route_change`, `back`, or
+  `unknown`
+- `duration_ms`
+
+### `nav_link_clicked`
+
+Capture all static header, mobile menu, and footer link clicks.
+
+Additional properties:
+
+- `source_section`: same value as `nav_section`
+- `source_group`: same value as `nav_group`
+- `link_text`
+
+### `nav_cta_clicked`
+
+Capture primary CTAs inside menus and footer sections. This may be captured in
+addition to `nav_link_clicked` when the CTA is strategically important.
+
+Additional properties:
+
+- `cta_id`
+- `cta_label`
+- `cta_context`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`,
+  or `footer`
+
+### `nav_dynamic_card_impression`
+
+Capture when a dynamic module card becomes visible inside an open menu.
+
+Additional properties:
+
+- `content_id`
+- `content_type`: `post`, `report`, `event`, `guide`, `template`, `release`, or
+  `unknown`
+- `content_source`: `posts_api`, `reports_api`, `events_source`, or `manual`
+- `content_tag`
+- `campaign_id`
+
+### `nav_dynamic_card_clicked`
+
+Capture dynamic module card clicks.
+
+Additional properties:
+
+- `content_id`
+- `content_type`
+- `content_source`
+- `content_tag`
+- `campaign_id`
+
+### `nav_search_opened`
+
+Capture when Search / Ask AI opens from the header, mobile menu, menu link, or
+hub page.
+
+Additional properties:
+
+- `search_entrypoint`: `header_search`, `mobile_ask_ai`, `use_solana_help`,
+  `docs_hero`, `hub_page`, or `unknown`
+- `default_view`: `search` or `chat`
+- `has_prefilled_query`
+
+### `nav_search_submitted`
+
+Capture only if supported without storing sensitive user input. Do not record
+raw search query text by default.
+
+Additional properties:
+
+- `search_entrypoint`
+- `query_length`
+- `results_count`: when available
+- `results_source`: `inkeep`, `site_search`, or `unknown`
+
+### `nav_ai_chat_opened`
+
+Capture when Ask AI opens in chat mode.
+
+Additional properties:
+
+- `search_entrypoint`
+- `default_view`: `chat`
+
+### `nav_ai_question_submitted`
+
+Capture only if supported without storing sensitive user input. Do not record
+raw prompts by default.
+
+Additional properties:
+
+- `search_entrypoint`
+- `question_length`
+- `conversation_source`: `inkeep` or `unknown`
+
+### `ia_hub_page_viewed`
+
+Capture for new IA hub pages, or enrich the existing `$pageview` with these
+properties if that is cleaner in the current PostHog setup.
+
+Additional properties:
+
+- `ia_section`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`, or
+  `network`
+- `ia_landing_page`: `true`
+- `canonical_path`
+
+### `nav_product_outbound_clicked`
+
+Capture outbound clicks from Products links and product CTAs.
+
+Additional properties:
+
+- `product_name`
+- `outbound_category`: `product_surface`, `tool`, `docs`, `partner`, or
+  `unknown`
+
+### `tokens_xyz_outbound_clicked`
+
+Capture Tokens.xyz outbound clicks separately because token-market surfaces are
+business and compliance sensitive.
+
+Additional properties:
+
+- `origin_section`: `products`, `use_solana`, or `unknown`
+- `origin_context`: `menu`, `footer`, `hub_page`, or `content`
+
+### `event_promo_clicked`
+
+Capture event and Breakpoint promo clicks from menus, footer, homepage modules,
+and hub pages.
+
+Additional properties:
+
+- `promo_id`
+- `promo_location`: `ecosystem_menu`, `footer`, `homepage`, `hub_page`, or
+  `content`
+- `event_name`
+- `event_route`
+- `event_start_date`
+- `campaign_id`
+
+### `developer_start_clicked`
+
+Capture high-intent builder starts such as Quickstart, Docs, Templates, and
+developer hub clicks from Build.
+
+Additional properties:
+
+- `developer_destination`: `quickstart`, `docs`, `templates`, `rpc`, `cookbook`,
+  `guides`, `support`, or `unknown`
+
+Important reporting segments:
 
 - Organic search
 - Direct
@@ -929,6 +1189,9 @@ Important segments:
 - Enterprise page visitors
 - Use Solana/wallet visitors
 - Ecosystem/event visitors
+
+Cross-navigation between sections can be derived from `nav_link_clicked` where
+`source_section` and `destination_section` differ.
 
 ## Open Questions
 
