@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import useSWR from "swr";
 
-import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/utils";
 
 import {
@@ -100,75 +99,77 @@ export function SolanaDataDashboard() {
   return (
     <main className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text font-brand">
       <div className="max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-10 xl:py-16">
-        <header className="flex flex-col gap-10 xl:gap-14">
-          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8">
-            <div className="xl:max-w-[55%]">
-              <span className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full bg-nd-highlight-green"
-                />
-                Live network data
-              </span>
-              <h1 className="nd-heading-l mt-4">Solana data</h1>
-              <p className="nd-body-l text-nd-mid-em-text mt-4 xl:mt-6 max-w-[560px]">
-                Network and stablecoin metrics, sourced live from leading
-                on-chain providers.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap xl:justify-end">
-              <SegmentedControl
-                ariaLabel="Data section"
-                options={tabs}
-                value={activeTab}
-                onChange={(value) => updateQuery({ tab: value })}
+        <header>
+          <div>
+            <span className="font-brand-mono text-[11px] md:text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-nd-highlight-green"
               />
-              <SegmentedControl
-                ariaLabel="Date range"
-                options={rangeOptions}
-                value={rangeDays}
-                onChange={(value) => updateQuery({ days: value })}
-              />
-            </div>
+              Live network data
+            </span>
+            <h1 className="nd-heading-l mt-3">Solana data</h1>
+            <p className="nd-body-m text-nd-mid-em-text mt-3 max-w-[560px]">
+              Network and stablecoin metrics, sourced live from leading on-chain
+              providers.
+            </p>
           </div>
 
-          <section
-            aria-label="Providers"
-            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-nd-border-light pt-6"
+          <div
+            aria-label="Controls"
+            className="sticky top-[64px] z-30 mt-6 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/85 backdrop-blur-md border-y border-nd-border-light"
           >
-            <span className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text mr-1">
-              Providers
-            </span>
-            <ProviderButton
-              active={selectedProviders.size === providers.length}
-              label="All"
-              onClick={() => updateQuery({ providers: new Set(providers) })}
-            />
-            {providers.map((provider) => (
-              <ProviderButton
-                active={selectedProviders.has(provider)}
-                color={providerColors[provider]}
-                key={provider}
-                label={provider}
-                onClick={() => {
-                  const nextProviders = new Set(selectedProviders);
+            <div className="px-5 md:px-8 xl:px-10 py-2.5 flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <InlineControl
+                  ariaLabel="Data section"
+                  options={tabs}
+                  value={activeTab}
+                  onChange={(value) => updateQuery({ tab: value })}
+                />
+                <Separator />
+                <InlineControl
+                  ariaLabel="Date range"
+                  options={rangeOptions}
+                  value={rangeDays}
+                  onChange={(value) => updateQuery({ days: value })}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+                  Providers
+                </span>
+                <ProviderToggle
+                  active={selectedProviders.size === providers.length}
+                  label="All"
+                  onClick={() => updateQuery({ providers: new Set(providers) })}
+                />
+                {providers.map((provider) => (
+                  <ProviderToggle
+                    active={selectedProviders.has(provider)}
+                    color={providerColors[provider]}
+                    key={provider}
+                    label={provider}
+                    onClick={() => {
+                      const nextProviders = new Set(selectedProviders);
 
-                  if (nextProviders.has(provider)) {
-                    nextProviders.delete(provider);
-                  } else {
-                    nextProviders.add(provider);
-                  }
+                      if (nextProviders.has(provider)) {
+                        nextProviders.delete(provider);
+                      } else {
+                        nextProviders.add(provider);
+                      }
 
-                  if (nextProviders.size === 0) {
-                    nextProviders.add(provider);
-                  }
+                      if (nextProviders.size === 0) {
+                        nextProviders.add(provider);
+                      }
 
-                  updateQuery({ providers: nextProviders });
-                }}
-              />
-            ))}
-          </section>
+                      updateQuery({ providers: nextProviders });
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </header>
 
         {error ? <DataError error={error} /> : null}
@@ -398,7 +399,16 @@ function DataError({ error }: { error: Error }) {
   );
 }
 
-function SegmentedControl<T extends string | number>({
+function Separator() {
+  return (
+    <span
+      aria-hidden="true"
+      className="hidden md:inline-block h-3 w-px bg-nd-border-prominent"
+    />
+  );
+}
+
+function InlineControl<T extends string | number>({
   ariaLabel,
   onChange,
   options,
@@ -412,33 +422,30 @@ function SegmentedControl<T extends string | number>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex w-fit border border-nd-border-prominent"
+      className="inline-flex items-center gap-1"
       role="group"
     >
-      {options.map((option, index) => (
-        <Button
+      {options.map((option) => (
+        <button
           aria-pressed={option.value === value}
           className={cn(
-            "h-10 rounded-none border-none px-4 font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase",
-            index > 0 ? "border-l border-nd-border-prominent" : "",
+            "px-2 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
             option.value === value
-              ? "bg-nd-primary text-nd-on-primary hover:bg-nd-primary-hovered"
-              : "bg-transparent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
+              ? "bg-nd-primary text-nd-on-primary"
+              : "text-nd-mid-em-text hover:text-nd-high-em-text",
           )}
           key={option.value}
           onClick={() => onChange(option.value)}
-          rounded={false}
           type="button"
-          variant="ghost"
         >
           {option.label}
-        </Button>
+        </button>
       ))}
     </div>
   );
 }
 
-function ProviderButton({
+function ProviderToggle({
   active,
   color,
   label,
@@ -450,28 +457,26 @@ function ProviderButton({
   onClick: () => void;
 }) {
   return (
-    <Button
+    <button
       aria-pressed={active}
       className={cn(
-        "h-9 rounded-none px-3 font-brand-mono text-[12px] leading-[1.42] font-bold uppercase",
+        "inline-flex items-center gap-1.5 px-1.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
         active
-          ? "border-nd-border-hovered bg-nd-border-light/30 text-nd-high-em-text hover:bg-nd-border-light/40"
-          : "border-nd-border-prominent bg-transparent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
+          ? "text-nd-high-em-text"
+          : "text-nd-mid-em-text/60 hover:text-nd-high-em-text",
       )}
       onClick={onClick}
-      rounded={false}
       type="button"
-      variant="secondary-outline"
     >
       {color ? (
         <span
           aria-hidden="true"
           className="h-1.5 w-1.5"
-          style={{ backgroundColor: active ? color : `${color}80` }}
+          style={{ backgroundColor: active ? color : `${color}40` }}
         />
       ) : null}
       {label}
-    </Button>
+    </button>
   );
 }
 

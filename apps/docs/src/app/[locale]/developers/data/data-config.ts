@@ -47,16 +47,16 @@ export type DataApiResponse = {
 export const providerColors: Record<ProviderName, string> = {
   Allium: "#9945FF",
   Artemis: "#14F195",
-  Blockworks: "#00C2FF",
-  DefiLama: "#FB5EB5",
-  Dune: "#FFD512",
+  Blockworks: "#00D4FF",
+  DefiLama: "#DC1FFF",
+  Dune: "#CFF15E",
 };
 
 export const metricColors: Record<string, string> = {
   "Base Fees": "#9945FF",
   "Priority Fees": "#14F195",
   "Successful Transactions": "#14F195",
-  "Failed Transactions": "#FB7185",
+  "Failed Transactions": "#DC1FFF",
 };
 
 export const chartDefinitions = [
