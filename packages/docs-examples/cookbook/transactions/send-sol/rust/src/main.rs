@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
     let transfer_ix = transfer(
         &from_keypair.pubkey(),
         &to_keypair.pubkey(),
-        100 * LAMPORTS_PER_SOL,
+        LAMPORTS_PER_SOL,
     );
 
     let latest_blockhash = client.get_latest_blockhash().await?;
