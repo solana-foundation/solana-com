@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { cn } from "@/app/components/utils";
@@ -38,6 +38,7 @@ export function SolanaDataDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const showProviderControls = useMinWidth("(min-width: 768px)");
   const activeTab = parseTab(searchParams.get("tab"));
   const rangeDays = parseRangeDays(searchParams.get("days"));
   const selectedProviders = parseProviders(searchParams.get("providers"));
@@ -139,39 +140,41 @@ export function SolanaDataDashboard() {
                 onChange={(value) => updateQuery({ days: value })}
               />
             </div>
-            <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-                Providers
-              </span>
-              <ProviderToggle
-                active={selectedProviders.size === providers.length}
-                label="All"
-                onClick={() => updateQuery({ providers: new Set(providers) })}
-              />
-              {providers.map((provider) => (
+            {showProviderControls ? (
+              <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+                  Providers
+                </span>
                 <ProviderToggle
-                  active={selectedProviders.has(provider)}
-                  color={providerColors[provider]}
-                  key={provider}
-                  label={provider}
-                  onClick={() => {
-                    const nextProviders = new Set(selectedProviders);
-
-                    if (nextProviders.has(provider)) {
-                      nextProviders.delete(provider);
-                    } else {
-                      nextProviders.add(provider);
-                    }
-
-                    if (nextProviders.size === 0) {
-                      nextProviders.add(provider);
-                    }
-
-                    updateQuery({ providers: nextProviders });
-                  }}
+                  active={selectedProviders.size === providers.length}
+                  label="All"
+                  onClick={() => updateQuery({ providers: new Set(providers) })}
                 />
-              ))}
-            </div>
+                {providers.map((provider) => (
+                  <ProviderToggle
+                    active={selectedProviders.has(provider)}
+                    color={providerColors[provider]}
+                    key={provider}
+                    label={provider}
+                    onClick={() => {
+                      const nextProviders = new Set(selectedProviders);
+
+                      if (nextProviders.has(provider)) {
+                        nextProviders.delete(provider);
+                      } else {
+                        nextProviders.add(provider);
+                      }
+
+                      if (nextProviders.size === 0) {
+                        nextProviders.add(provider);
+                      }
+
+                      updateQuery({ providers: nextProviders });
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </nav>
 
@@ -623,6 +626,22 @@ async function fetchData(url: string) {
   }
 
   return payload as DataApiResponse;
+}
+
+function useMinWidth(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const updateMatches = () => setMatches(mediaQuery.matches);
+
+    updateMatches();
+    mediaQuery.addEventListener("change", updateMatches);
+
+    return () => mediaQuery.removeEventListener("change", updateMatches);
+  }, [query]);
+
+  return matches;
 }
 
 function parseTab(value: string | null): DashboardTab {
