@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import useSWR from "swr";
 
+import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/utils";
 
 import {
@@ -97,70 +98,78 @@ export function SolanaDataDashboard() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-50 text-zinc-950 transition-colors dark:bg-[#050506] dark:text-zinc-50">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 border-b border-zinc-200 pb-5 dark:border-zinc-800/80 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">
-              Solana data
-            </h1>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Live network and stablecoin metrics.
-            </p>
+    <main className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text font-brand">
+      <div className="max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-10 xl:py-16">
+        <header className="flex flex-col gap-10 xl:gap-14">
+          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-8">
+            <div className="xl:max-w-[55%]">
+              <span className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full bg-nd-highlight-green"
+                />
+                Live network data
+              </span>
+              <h1 className="nd-heading-l mt-4">Solana data</h1>
+              <p className="nd-body-l text-nd-mid-em-text mt-4 xl:mt-6 max-w-[560px]">
+                Network and stablecoin metrics, sourced live from leading
+                on-chain providers.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap xl:justify-end">
+              <SegmentedControl
+                ariaLabel="Data section"
+                options={tabs}
+                value={activeTab}
+                onChange={(value) => updateQuery({ tab: value })}
+              />
+              <SegmentedControl
+                ariaLabel="Date range"
+                options={rangeOptions}
+                value={rangeDays}
+                onChange={(value) => updateQuery({ days: value })}
+              />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center xl:justify-end">
-            <SegmentedControl
-              ariaLabel="Data section"
-              options={tabs}
-              value={activeTab}
-              onChange={(value) => updateQuery({ tab: value })}
-            />
-            <SegmentedControl
-              ariaLabel="Date range"
-              options={rangeOptions}
-              value={rangeDays}
-              onChange={(value) => updateQuery({ days: value })}
-            />
-          </div>
-        </header>
-
-        <section
-          aria-label="Providers"
-          className="flex flex-wrap items-center gap-2"
-        >
-          <span className="mr-1 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-500">
-            Provider
-          </span>
-          <ProviderButton
-            active={selectedProviders.size === providers.length}
-            label="All"
-            onClick={() => updateQuery({ providers: new Set(providers) })}
-          />
-          {providers.map((provider) => (
+          <section
+            aria-label="Providers"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-nd-border-light pt-6"
+          >
+            <span className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text mr-1">
+              Providers
+            </span>
             <ProviderButton
-              active={selectedProviders.has(provider)}
-              color={providerColors[provider]}
-              key={provider}
-              label={provider}
-              onClick={() => {
-                const nextProviders = new Set(selectedProviders);
-
-                if (nextProviders.has(provider)) {
-                  nextProviders.delete(provider);
-                } else {
-                  nextProviders.add(provider);
-                }
-
-                if (nextProviders.size === 0) {
-                  nextProviders.add(provider);
-                }
-
-                updateQuery({ providers: nextProviders });
-              }}
+              active={selectedProviders.size === providers.length}
+              label="All"
+              onClick={() => updateQuery({ providers: new Set(providers) })}
             />
-          ))}
-        </section>
+            {providers.map((provider) => (
+              <ProviderButton
+                active={selectedProviders.has(provider)}
+                color={providerColors[provider]}
+                key={provider}
+                label={provider}
+                onClick={() => {
+                  const nextProviders = new Set(selectedProviders);
+
+                  if (nextProviders.has(provider)) {
+                    nextProviders.delete(provider);
+                  } else {
+                    nextProviders.add(provider);
+                  }
+
+                  if (nextProviders.size === 0) {
+                    nextProviders.add(provider);
+                  }
+
+                  updateQuery({ providers: nextProviders });
+                }}
+              />
+            ))}
+          </section>
+        </header>
 
         {error ? <DataError error={error} /> : null}
 
@@ -169,22 +178,24 @@ export function SolanaDataDashboard() {
             <section
               aria-label="Key metrics"
               className={cn(
-                "grid grid-cols-2 gap-3 xl:grid-cols-4",
+                "mt-10 xl:mt-14 border-y border-nd-border-light relative",
+                "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
+                "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
+                "[&>*]:border-nd-border-light",
                 isValidating && rows.length > 0 ? "opacity-75" : "",
               )}
             >
               {isLoading && rows.length === 0
                 ? Array.from({ length: 4 }).map((_, index) => (
-                    <div
-                      className="h-[112px] animate-pulse rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-                      key={index}
-                    />
+                    <KpiSkeleton index={index} key={index} />
                   ))
-                : kpis.map((kpi) => (
-                    <KpiCard
+                : kpis.map((kpi, index) => (
+                    <KpiCell
                       delta={kpi.delta}
+                      index={index}
                       key={kpi.chart.id}
                       label={kpi.chart.title}
+                      unit={kpi.chart.valueLabel}
                       value={formatValue(kpi.value, kpi.chart.valueLabel)}
                     />
                   ))}
@@ -193,17 +204,23 @@ export function SolanaDataDashboard() {
             <section
               aria-label={`${activeTab} charts`}
               className={cn(
-                "grid gap-4 lg:grid-cols-2",
+                "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
+                "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
                 isValidating && rows.length > 0 ? "opacity-75" : "",
               )}
             >
               {isLoading && rows.length === 0
-                ? activeCharts.map((chart) => (
-                    <ChartSkeleton key={chart.id} title={chart.title} />
+                ? activeCharts.map((chart, index) => (
+                    <ChartSkeleton
+                      index={index}
+                      key={chart.id}
+                      title={chart.title}
+                    />
                   ))
-                : activeCharts.map((chart) => (
+                : activeCharts.map((chart, index) => (
                     <ChartCard
                       chart={chart}
+                      index={index}
                       key={chart.id}
                       rows={rows}
                       selectedProviders={selectedProviders}
@@ -213,17 +230,20 @@ export function SolanaDataDashboard() {
           </>
         ) : null}
 
-        <footer className="flex flex-col gap-1 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-800/80 dark:text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
           <span>
             {selectedProviderList.length === providers.length
               ? "All providers"
-              : selectedProviderList.join(", ")}
-            {" · "}
+              : selectedProviderList.join(" / ")}
+            <span className="mx-3 text-nd-border-prominent">·</span>
             Last {rangeDays} days
           </span>
           {data?.revisionCreatedAt ? (
             <span>
-              Databricks revision {formatTimestamp(data.revisionCreatedAt)}
+              Databricks rev{" "}
+              <span className="text-nd-high-em-text">
+                {formatTimestamp(data.revisionCreatedAt)}
+              </span>
             </span>
           ) : null}
         </footer>
@@ -234,10 +254,12 @@ export function SolanaDataDashboard() {
 
 function ChartCard({
   chart,
+  index,
   rows,
   selectedProviders,
 }: {
   chart: ChartDefinition;
+  index: number;
   rows: MetricRow[];
   selectedProviders: Set<ProviderName>;
 }) {
@@ -247,16 +269,14 @@ function ChartCard({
   );
 
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 transition-colors dark:border-zinc-800 dark:bg-zinc-900/80">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold tracking-normal text-zinc-900 dark:text-zinc-200">
-            {chart.title}
-          </h2>
-          <p className="mt-1 text-xs font-medium uppercase text-zinc-500 dark:text-zinc-500">
-            {chart.valueLabel}
-          </p>
-        </div>
+    <article className="p-6 xl:p-8 flex flex-col gap-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-[-0.4px] xl:tracking-[-0.48px]">
+          {chart.title}
+        </h2>
+        <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
+          {chart.valueLabel}
+        </span>
       </div>
 
       {series.length > 0 ? (
@@ -266,55 +286,100 @@ function ChartCard({
           valueLabel={chart.valueLabel}
         />
       ) : (
-        <div className="flex h-[320px] items-center justify-center rounded-md border border-dashed border-zinc-200 text-sm text-zinc-500 dark:border-zinc-800">
+        <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-wider">
           No data for this selection
         </div>
       )}
+
+      <span
+        aria-hidden="true"
+        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-[0.1em]"
+      >
+        {String(index + 1).padStart(2, "0")}
+      </span>
     </article>
   );
 }
 
-function KpiCard({
+function KpiCell({
   delta,
+  index,
   label,
+  unit,
   value,
 }: {
   delta: number;
+  index: number;
   label: string;
+  unit: string;
   value: string;
 }) {
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 transition-colors dark:border-zinc-800 dark:bg-zinc-900/80">
-      <h2 className="text-[10px] font-semibold uppercase leading-4 tracking-normal text-zinc-500 dark:text-zinc-500 sm:text-xs">
-        {label}
-      </h2>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <p className="text-xl font-semibold tabular-nums tracking-normal text-zinc-950 dark:text-zinc-50 sm:text-2xl">
+    <article
+      className={cn(
+        "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
+        index > 0 ? "border-l" : "",
+        index >= 2 ? "border-t xl:border-t-0" : "",
+        index === 2 ? "xl:border-l" : "",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+          {label}
+        </h2>
+        <span className="font-brand-mono text-[10px] leading-none uppercase text-nd-mid-em-text/60 tracking-[0.1em]">
+          {unit}
+        </span>
+      </div>
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-[28px] xl:text-[40px] leading-[1.0] font-light uppercase tabular-nums tracking-[-0.02em] text-nd-high-em-text">
           {value}
         </p>
         <p
           className={cn(
-            "text-xs font-semibold tabular-nums",
-            delta >= 0
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-rose-600 dark:text-rose-400",
+            "font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase tabular-nums",
+            delta >= 0 ? "text-nd-highlight-green" : "text-nd-highlight-orange",
           )}
         >
-          {delta >= 0 ? "+" : ""}
-          {formatPercent(delta)}
+          {delta >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(delta))}
         </p>
       </div>
     </article>
   );
 }
 
-function ChartSkeleton({ title }: { title: string }) {
+function KpiSkeleton({ index }: { index: number }) {
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/80">
-      <div className="mb-4 h-5 w-40 rounded bg-zinc-100 dark:bg-zinc-800">
-        <span className="sr-only">{title}</span>
+    <div
+      className={cn(
+        "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
+        index > 0 ? "border-l" : "",
+        index >= 2 ? "border-t xl:border-t-0" : "",
+        index === 2 ? "xl:border-l" : "",
+      )}
+    >
+      <div className="h-3 w-24 rounded-sm bg-nd-border-light animate-pulse" />
+      <div className="h-8 w-32 rounded-sm bg-nd-border-light animate-pulse" />
+    </div>
+  );
+}
+
+function ChartSkeleton({ index, title }: { index: number; title: string }) {
+  return (
+    <article className="p-6 xl:p-8 flex flex-col gap-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <div className="h-5 w-40 rounded-sm bg-nd-border-light animate-pulse">
+          <span className="sr-only">{title}</span>
+        </div>
+        <div className="h-3 w-12 rounded-sm bg-nd-border-light animate-pulse" />
       </div>
-      <div className="h-[352px] animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-950" />
+      <div className="h-[352px] animate-pulse bg-nd-border-light/40" />
+      <span
+        aria-hidden="true"
+        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-[0.1em]"
+      >
+        {String(index + 1).padStart(2, "0")}
+      </span>
     </article>
   );
 }
@@ -322,13 +387,13 @@ function ChartSkeleton({ title }: { title: string }) {
 function DataError({ error }: { error: Error }) {
   return (
     <section
-      className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm text-rose-950 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100"
+      className="mt-10 border border-nd-highlight-orange/40 bg-nd-highlight-orange/10 p-6 text-sm text-nd-high-em-text"
       role="alert"
     >
-      <h2 className="text-base font-semibold tracking-normal">
+      <h2 className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-highlight-orange">
         Data unavailable
       </h2>
-      <p className="mt-2 leading-6">{error.message}</p>
+      <p className="mt-3 nd-body-m text-nd-mid-em-text">{error.message}</p>
     </section>
   );
 }
@@ -347,23 +412,27 @@ function SegmentedControl<T extends string | number>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex w-fit rounded-md border border-zinc-200 bg-white p-0.5 dark:border-zinc-800 dark:bg-zinc-900"
+      className="inline-flex w-fit border border-nd-border-prominent"
       role="group"
     >
-      {options.map((option) => (
-        <button
+      {options.map((option, index) => (
+        <Button
+          aria-pressed={option.value === value}
           className={cn(
-            "rounded px-3 py-1.5 text-sm font-semibold transition-colors",
+            "h-10 rounded-none border-none px-4 font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase",
+            index > 0 ? "border-l border-nd-border-prominent" : "",
             option.value === value
-              ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950"
-              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
+              ? "bg-nd-primary text-nd-on-primary hover:bg-nd-primary-hovered"
+              : "bg-transparent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
           )}
           key={option.value}
           onClick={() => onChange(option.value)}
+          rounded={false}
           type="button"
+          variant="ghost"
         >
           {option.label}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -381,26 +450,28 @@ function ProviderButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+        "h-9 rounded-none px-3 font-brand-mono text-[12px] leading-[1.42] font-bold uppercase",
         active
-          ? "border-zinc-300 bg-white text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-          : "border-zinc-200 text-zinc-500 hover:border-zinc-300 dark:border-zinc-800 dark:text-zinc-500 dark:hover:border-zinc-700",
+          ? "border-nd-border-hovered bg-nd-border-light/30 text-nd-high-em-text hover:bg-nd-border-light/40"
+          : "border-nd-border-prominent bg-transparent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
       )}
       onClick={onClick}
+      rounded={false}
       type="button"
+      variant="secondary-outline"
     >
       {color ? (
         <span
           aria-hidden="true"
-          className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: color }}
+          className="h-1.5 w-1.5"
+          style={{ backgroundColor: active ? color : `${color}80` }}
         />
       ) : null}
       {label}
-    </button>
+    </Button>
   );
 }
 

@@ -60,8 +60,8 @@ export function TimeSeriesChart({
   );
 
   return (
-    <div className="grid gap-3 [--chart-axis:#a1a1aa] [--chart-grid:#e4e4e7] [--chart-muted:#71717a] dark:[--chart-axis:#71717a] dark:[--chart-grid:#27272a] dark:[--chart-muted:#a1a1aa]">
-      <div className="flex min-h-6 flex-wrap items-center gap-2">
+    <div className="grid gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
+      <div className="flex min-h-6 flex-wrap items-center gap-1.5">
         {series.map((item) => {
           const disabled = disabledSeries.has(item.id);
 
@@ -69,10 +69,10 @@ export function TimeSeriesChart({
             <button
               aria-pressed={!disabled}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex items-center gap-2 border px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
                 disabled
-                  ? "border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600"
-                  : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-700",
+                  ? "border-nd-border-light text-nd-mid-em-text/50"
+                  : "border-nd-border-prominent text-nd-high-em-text hover:bg-nd-border-light/20",
               )}
               key={item.id}
               onClick={() => {
@@ -92,8 +92,10 @@ export function TimeSeriesChart({
             >
               <span
                 aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: item.color }}
+                className="h-1.5 w-1.5"
+                style={{
+                  backgroundColor: disabled ? `${item.color}66` : item.color,
+                }}
               />
               {item.label}
             </button>
@@ -114,7 +116,7 @@ export function TimeSeriesChart({
             )}
           </ParentSize>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-md border border-dashed border-zinc-200 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
+          <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-wider text-nd-mid-em-text">
             Select at least one series
           </div>
         )}
@@ -248,14 +250,15 @@ function ChartSvg({
             }
 
             return (
-              <circle
-                cx={xScale(point.date)}
-                cy={yScale(point.value)}
-                fill="var(--chart-bg, #09090b)"
+              <rect
+                fill="#000000"
+                height={8}
                 key={item.label}
-                r={4}
                 stroke={item.color}
                 strokeWidth={2}
+                width={8}
+                x={xScale(point.date) - 4}
+                y={yScale(point.value) - 4}
               />
             );
           })}
@@ -317,11 +320,11 @@ function ChartSvg({
 
       {tooltipData ? (
         <TooltipWithBounds
-          className="!rounded-md !border !border-zinc-200 !bg-white !px-3 !py-2 !text-xs !text-zinc-950 !shadow-lg dark:!border-zinc-800 dark:!bg-zinc-950 dark:!text-zinc-50"
+          className="!rounded-none !border !border-nd-border-prominent !bg-nd-inverse !px-3 !py-2.5 !text-xs !text-nd-high-em-text !shadow-2xl font-brand"
           left={tooltipLeft}
           top={tooltipTop}
         >
-          <div className="font-semibold">
+          <div className="font-brand-mono text-[11px] font-bold uppercase tracking-wider text-nd-mid-em-text">
             {formatTooltipDate(tooltipData.date)}
           </div>
           <div className="mt-2 grid gap-1.5">
@@ -332,13 +335,11 @@ function ChartSvg({
               >
                 <span
                   aria-hidden="true"
-                  className="h-2 w-2 rounded-full"
+                  className="h-1.5 w-1.5"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {item.label}
-                </span>
-                <span className="font-semibold tabular-nums">
+                <span className="text-nd-mid-em-text">{item.label}</span>
+                <span className="font-medium tabular-nums text-nd-high-em-text">
                   {formatValue(item.value, valueLabel)}
                 </span>
               </div>
