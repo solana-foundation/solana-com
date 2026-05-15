@@ -116,7 +116,7 @@ export function TimeSeriesChart({
             )}
           </ParentSize>
         ) : (
-          <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-wider text-nd-mid-em-text">
+          <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-normal text-nd-mid-em-text">
             Select at least one series
           </div>
         )}
@@ -324,7 +324,7 @@ function ChartSvg({
           left={tooltipLeft}
           top={tooltipTop}
         >
-          <div className="font-brand-mono text-[11px] font-bold uppercase tracking-wider text-nd-mid-em-text">
+          <div className="font-brand-mono text-[11px] font-bold uppercase tracking-normal text-nd-mid-em-text">
             {formatTooltipDate(tooltipData.date)}
           </div>
           <div className="mt-2 grid gap-1.5">

@@ -49,8 +49,11 @@ export function SolanaDataDashboard() {
     dataUrl,
     fetchData,
     {
+      dedupingInterval: 60 * 1000,
       keepPreviousData: true,
-      refreshInterval: 5 * 60 * 1000,
+      refreshInterval: 10 * 60 * 1000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
     },
   );
   const rows = data?.rows ?? emptyRows;
@@ -97,7 +100,7 @@ export function SolanaDataDashboard() {
   };
 
   return (
-    <main className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text font-brand">
+    <main className="relative bg-nd-inverse text-nd-high-em-text font-brand">
       <div className="max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-10 xl:py-16">
         <header>
           <div>
@@ -114,63 +117,63 @@ export function SolanaDataDashboard() {
               providers.
             </p>
           </div>
+        </header>
 
-          <div
-            aria-label="Controls"
-            className="sticky top-[64px] z-30 mt-6 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/85 backdrop-blur-md border-y border-nd-border-light"
-          >
-            <div className="px-5 md:px-8 xl:px-10 py-2.5 flex flex-wrap items-center justify-between gap-x-5 gap-y-1">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <InlineControl
-                  ariaLabel="Data section"
-                  options={tabs}
-                  value={activeTab}
-                  onChange={(value) => updateQuery({ tab: value })}
-                />
-                <Separator />
-                <InlineControl
-                  ariaLabel="Date range"
-                  options={rangeOptions}
-                  value={rangeDays}
-                  onChange={(value) => updateQuery({ days: value })}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-                  Providers
-                </span>
+        <nav
+          aria-label="Controls"
+          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+        >
+          <div className="px-5 md:px-8 xl:px-10 py-2.5 grid gap-2 xl:flex xl:items-center xl:justify-between">
+            <div className="-mx-1 flex items-center gap-x-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <InlineControl
+                ariaLabel="Data section"
+                options={tabs}
+                value={activeTab}
+                onChange={(value) => updateQuery({ tab: value })}
+              />
+              <Separator />
+              <InlineControl
+                ariaLabel="Date range"
+                options={rangeOptions}
+                value={rangeDays}
+                onChange={(value) => updateQuery({ days: value })}
+              />
+            </div>
+            <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+                Providers
+              </span>
+              <ProviderToggle
+                active={selectedProviders.size === providers.length}
+                label="All"
+                onClick={() => updateQuery({ providers: new Set(providers) })}
+              />
+              {providers.map((provider) => (
                 <ProviderToggle
-                  active={selectedProviders.size === providers.length}
-                  label="All"
-                  onClick={() => updateQuery({ providers: new Set(providers) })}
+                  active={selectedProviders.has(provider)}
+                  color={providerColors[provider]}
+                  key={provider}
+                  label={provider}
+                  onClick={() => {
+                    const nextProviders = new Set(selectedProviders);
+
+                    if (nextProviders.has(provider)) {
+                      nextProviders.delete(provider);
+                    } else {
+                      nextProviders.add(provider);
+                    }
+
+                    if (nextProviders.size === 0) {
+                      nextProviders.add(provider);
+                    }
+
+                    updateQuery({ providers: nextProviders });
+                  }}
                 />
-                {providers.map((provider) => (
-                  <ProviderToggle
-                    active={selectedProviders.has(provider)}
-                    color={providerColors[provider]}
-                    key={provider}
-                    label={provider}
-                    onClick={() => {
-                      const nextProviders = new Set(selectedProviders);
-
-                      if (nextProviders.has(provider)) {
-                        nextProviders.delete(provider);
-                      } else {
-                        nextProviders.add(provider);
-                      }
-
-                      if (nextProviders.size === 0) {
-                        nextProviders.add(provider);
-                      }
-
-                      updateQuery({ providers: nextProviders });
-                    }}
-                  />
-                ))}
-              </div>
+              ))}
             </div>
           </div>
-        </header>
+        </nav>
 
         {error ? <DataError error={error} /> : null}
 
@@ -272,7 +275,7 @@ function ChartCard({
   return (
     <article className="p-6 xl:p-8 flex flex-col gap-5">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-[-0.4px] xl:tracking-[-0.48px]">
+        <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
           {chart.title}
         </h2>
         <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
@@ -287,14 +290,14 @@ function ChartCard({
           valueLabel={chart.valueLabel}
         />
       ) : (
-        <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-wider">
+        <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
           No data for this selection
         </div>
       )}
 
       <span
         aria-hidden="true"
-        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-[0.1em]"
+        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-normal"
       >
         {String(index + 1).padStart(2, "0")}
       </span>
@@ -328,12 +331,12 @@ function KpiCell({
         <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
           {label}
         </h2>
-        <span className="font-brand-mono text-[10px] leading-none uppercase text-nd-mid-em-text/60 tracking-[0.1em]">
+        <span className="font-brand-mono text-[10px] leading-none uppercase text-nd-mid-em-text/60 tracking-normal">
           {unit}
         </span>
       </div>
       <div className="flex items-end justify-between gap-3">
-        <p className="text-[28px] xl:text-[40px] leading-[1.0] font-light uppercase tabular-nums tracking-[-0.02em] text-nd-high-em-text">
+        <p className="text-[28px] xl:text-[40px] leading-[1.0] font-light uppercase tabular-nums tracking-normal text-nd-high-em-text">
           {value}
         </p>
         <p
@@ -377,7 +380,7 @@ function ChartSkeleton({ index, title }: { index: number; title: string }) {
       <div className="h-[352px] animate-pulse bg-nd-border-light/40" />
       <span
         aria-hidden="true"
-        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-[0.1em]"
+        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-normal"
       >
         {String(index + 1).padStart(2, "0")}
       </span>
@@ -403,7 +406,7 @@ function Separator() {
   return (
     <span
       aria-hidden="true"
-      className="hidden md:inline-block h-3 w-px bg-nd-border-prominent"
+      className="hidden md:inline-block h-3 w-px shrink-0 bg-nd-border-prominent"
     />
   );
 }
@@ -422,7 +425,7 @@ function InlineControl<T extends string | number>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex items-center gap-1"
+      className="inline-flex shrink-0 items-center gap-1"
       role="group"
     >
       {options.map((option) => (
@@ -460,7 +463,7 @@ function ProviderToggle({
     <button
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-1.5 px-1.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
+        "inline-flex shrink-0 items-center gap-1.5 px-1.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
         active
           ? "text-nd-high-em-text"
           : "text-nd-mid-em-text/60 hover:text-nd-high-em-text",
