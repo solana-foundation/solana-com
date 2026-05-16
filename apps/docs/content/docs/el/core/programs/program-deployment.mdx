@@ -1,0 +1,110 @@
+---
+title: Ανάπτυξη προγράμματος
+description: Ανάπτυξη, αναβάθμιση και επαλήθευση προγραμμάτων Solana.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Περίληψη">
+  Τα προγράμματα που αναπτύσσονται μέσω loader-v3 μπορούν να αναβαθμιστούν όταν
+  έχει οριστεί μια αρχή αναβάθμισης. Η ανάκληση της αρχής καθιστά το πρόγραμμα
+  αμετάβλητο. Καλύπτει τον μηχανισμό αναβάθμισης, τις οδηγίες ανάπτυξης και
+  αναβάθμισης loader-v3, την επαλήθευση κατασκευής και τα διαθέσιμα προγράμματα
+  φόρτωσης.
+</Callout>
+
+## Ανάπτυξη προγραμμάτων
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Αναπτύξτε χρησιμοποιώντας το Solana CLI με `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Αναπτύξτε χρησιμοποιώντας το framework Anchor με `anchor deploy`.
+  </Card>
+</Cards>
+
+## Αναβάθμιση προγραμμάτων
+
+Για να αναβαθμίσετε ένα πρόγραμμα, ένας λογαριασμός πρέπει να κατέχει την αρχή
+αναβάθμισης (συνήθως ο λογαριασμός που αρχικά
+[ανέπτυξε το πρόγραμμα](/docs/programs/deploying)). Κατά την ανάπτυξη ή
+αναβάθμιση, ο νέος bytecode μεταφορτώνεται σε έναν προσωρινό λογαριασμό buffer
+και στη συνέχεια εγγράφεται στον λογαριασμό program data. Ο ορισμός της αρχής
+αναβάθμισης σε _rs`None`_ καθιστά το πρόγραμμα αμετάβλητο και αποτρέπει μόνιμα
+περαιτέρω ενημερώσεις.
+
+### Μηχανισμός αναβάθμισης
+
+Όταν εκτελείται η εντολή
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662),
+το runtime:
+
+1. Επαληθεύει ότι ο λογαριασμός Program είναι εγγράψιμος και ανήκει στον
+   loader-v3.
+2. Επαληθεύει ότι ο λογαριασμός Buffer περιέχει μια κατάσταση _rs`Buffer`_ με τη
+   σωστή αρχή.
+3. Επαληθεύει ότι το `upgrade_authority_address` του λογαριασμού ProgramData
+   ταιριάζει και δεν είναι _rs`None`_.
+4. Επαληθεύει ότι το πρόγραμμα δεν είχε ήδη αναπτυχθεί στο τρέχον slot
+   (`clock.slot != slot`).
+5. Φορτώνει και επαληθεύει τα νέα ELF bytes από το buffer.
+6. Αντιγράφει τον νέο bytecode από το buffer στον λογαριασμό ProgramData και
+   μηδενίζει τα υπόλοιπα bytes.
+7. Χρηματοδοτεί τον λογαριασμό ProgramData για απαλλαγή από ενοίκιο.
+8. Αδειάζει τον λογαριασμό buffer (ορίζει τα lamports σε 0) και περικόπτει τα
+   δεδομένα του.
+9. Η νέα έκδοση τίθεται σε ισχύ στο επόμενο slot (`deployment_slot + 1`).
+
+Ο ίδιος ο λογαριασμός `Program` (η κατάστασή του και ο δείκτης
+`programdata_address`) δεν αλλάζει κατά τη διάρκεια μιας αναβάθμισης. Μόνο ο
+bytecode του λογαριασμού _rs`ProgramData`_ και τα μεταδεδομένα slot
+ενημερώνονται.
+
+## Αναφορά εντολών loader-v3
+
+Το loader-v3 (BPF Loader Upgradeable) είναι ο τρέχων προεπιλεγμένος loader για
+την ανάπτυξη προγραμμάτων στο Solana.
+
+| Οδηγία                                                                                                       | Περιγραφή                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Ορίζει την κατάσταση ενός λογαριασμού buffer σε `Buffer` με την καθορισμένη αρχή. Αποτυγχάνει εάν έχει ήδη αρχικοποιηθεί.                                                                                                                                                              |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Γράφει bytes στην καθορισμένη μετατόπιση σε έναν λογαριασμό buffer. Η αρχή πρέπει να υπογράψει.                                                                                                                                                                                        |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Δημιουργεί ένα νέο πρόγραμμα: παράγει τη διεύθυνση ProgramData, δημιουργεί τον λογαριασμό ProgramData μέσω CPI στο System Program, επαληθεύει και αναπτύσσει το ELF από το buffer, ορίζει την κατάσταση του λογαριασμού Program και τον σημειώνει ως εκτελέσιμο.                       |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Αντικαθιστά τον bytecode σε έναν υπάρχοντα λογαριασμό ProgramData προγράμματος από ένα buffer.                                                                                                                                                                                         |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Αλλάζει την αρχή ενός λογαριασμού Buffer ή ProgramData. Ο ορισμός σε `None` στο ProgramData καθιστά το πρόγραμμα αμετάβλητο. Η αρχή Buffer δεν μπορεί να οριστεί σε `None`.                                                                                                            |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Όπως το `SetAuthority`, αλλά απαιτεί η νέα αρχή να υπογράψει επίσης τη συναλλαγή.                                                                                                                                                                                                      |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Κλείνει έναν λογαριασμό buffer, μη αρχικοποιημένο ή ProgramData μεταφέροντας τα lamport του σε έναν αποδέκτη. Το κλείσιμο του ProgramData γράφει επίσης ένα `Closed` tombstone στην προσωρινή μνήμη προγράμματος. Δεν μπορεί να κλείσει ένα πρόγραμμα που αναπτύχθηκε στο τρέχον slot. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Επεκτείνει την κατανομή του λογαριασμού ProgramData κατά επιπλέον bytes, χρηματοδοτώντας το επιπλέον rent από τον πληρωτή.                                                                                                                                                             |
+
+## Επαλήθευση προγραμμάτων
+
+Η Solana υποστηρίζει [επαληθεύσιμες κατασκευές](/docs/programs/verified-builds),
+οι οποίες επιτρέπουν στους χρήστες να επιβεβαιώσουν ότι ο bytecode ενός
+προγράμματος onchain ταιριάζει με τον δημόσιο πηγαίο κώδικά του. Το πλαίσιο
+Anchor παρέχει
+[ενσωματωμένη υποστήριξη](https://www.anchor-lang.com/docs/verifiable-builds)
+για επαληθεύσιμες κατασκευές.
+
+Για να ελέγξετε την κατάσταση επαλήθευσης ενός αναπτυγμένου προγράμματος,
+αναζητήστε το αναγνωριστικό προγράμματος του στον
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+ή χρησιμοποιήστε το
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+της Ellipsis Labs για να επαληθεύσετε ανεξάρτητα τα onchain προγράμματα.
+
+## Προγράμματα φόρτωσης
+
+| Φορτωτής                   | Διεύθυνση                                     | Δυνατότητα Αναβάθμισης                        | Περιγραφή                                                     |
+| -------------------------- | --------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Μόνο μέσω αναβάθμισης λογισμικού validator    | Κατέχει τα builtins (System, Vote, Stake) και άλλους φορτωτές |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Όχι (η διαχείριση φορτωτή απενεργοποιήθηκε)   | Παλαιότερα προγράμματα                                        |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Όχι (η διαχείριση φορτωτή απενεργοποιήθηκε)   | Παλαιότερα προγράμματα                                        |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Ναι, εφόσον έχει οριστεί δικαίωμα αναβάθμισης | Κατέχει όλα τα πρόσφατα αναπτυγμένα προγράμματα               |

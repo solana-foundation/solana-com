@@ -25,8 +25,8 @@ export default function ChapterIndicator({
   category,
 }: ChapterIndicatorProps) {
   return (
-    <div className="flex items-center justify-between mb-8">
-      <div className="flex items-center gap-6">
+    <div className="flex items-center justify-between mb-12">
+      <div className="flex items-center gap-8">
         <div
           className="flex-shrink-0 w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center"
           aria-hidden="true"

@@ -1,0 +1,330 @@
+import {
+  Category,
+  DEFI,
+  INFRASTRUCTURE,
+  TOOLING,
+  TESTING,
+  PROGRAMS,
+} from "@/components/skills/skillCategories";
+
+export type CommunitySkill = {
+  slug: string;
+  title: string;
+  description: string;
+  url: string;
+  category: Category;
+};
+
+export const COMMUNITY_SKILLS: CommunitySkill[] = [
+  // ── AI Coding Skills – General ──────────────────────────────────────
+  {
+    slug: "solana-anchor-claude-skill",
+    title: "Solana Anchor Claude Skill",
+    description:
+      "End-to-end Solana development for Anchor and Solana Kit with modern code patterns and LiteSVM testing.",
+    url: "https://github.com/quiknode-labs/solana-anchor-claude-skill/tree/8a865b8d590ea8d9121f8c73e6abf99679f73a6a",
+    category: TESTING,
+  },
+  {
+    slug: "solana-skills-plugin",
+    title: "Solana Skills Plugin",
+    description:
+      "Solana skills covering program development, security auditing with vulnerability detection, and ZK compression.",
+    url: "https://github.com/tenequm/skills/tree/bedc922b6301179fbc2772079692cd3d748762d2/skills/solana-development",
+    category: PROGRAMS,
+  },
+
+  // ── AI Coding Skills – DeFi ─────────────────────────────────────────
+  {
+    slug: "clawpump-skill",
+    title: "ClawPump Skill",
+    description:
+      "AI agent skill for gasless and self-funded token launches on pump.fun with dynamic dev buys and trading fee revenue sharing.",
+    url: "https://github.com/openclaw/skills/tree/d449f70d9e347694c47a95964ea6503dacd43c86/skills/tomi204/clawpump",
+    category: DEFI,
+  },
+  {
+    slug: "clawpump-arbitrage-skill",
+    title: "ClawPump Arbitrage Skill",
+    description:
+      "AI agent skill for multi-DEX arbitrage on Solana with quote aggregation and transaction bundle generation.",
+    url: "https://github.com/openclaw/skills/tree/d449f70d9e347694c47a95964ea6503dacd43c86/skills/tomi204/clawpump",
+    category: DEFI,
+  },
+  {
+    slug: "dflow-phantom-connect-skill",
+    title: "DFlow Phantom Connect Skill",
+    description:
+      "Official DFlow + Phantom Connect skill for wallet-connected Solana apps with swaps and prediction market trading.",
+    url: "https://github.com/DFlowProtocol/dflow_phantom-connect-skill/tree/a0a06f522b51893cbebe4f03597538093c668e4c",
+    category: DEFI,
+  },
+  {
+    slug: "dflow-skill",
+    title: "DFlow Skill",
+    description:
+      "AI coding skill for DFlow trading protocol covering spot trading, prediction markets, and WebSocket streaming.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/dflow",
+    category: DEFI,
+  },
+  {
+    slug: "glam-skill",
+    title: "GLAM Skill",
+    description:
+      "AI coding skill for GLAM Protocol covering Solana vault management, tokenized vaults, and DeFi integrations.",
+    url: "https://github.com/glamsystems/glam-skill/tree/v1.0.0",
+    category: DEFI,
+  },
+  {
+    slug: "jupiter-skill",
+    title: "Jupiter Skill",
+    description:
+      "AI coding skill for Jupiter covering Ultra swaps, limit orders, DCA, perpetuals, and lending.",
+    url: "https://github.com/jup-ag/agent-skills/tree/35f50e9f00288cfddbbecc31c9e97d036df8541a/skills/integrating-jupiter",
+    category: DEFI,
+  },
+  {
+    slug: "kamino-skill",
+    title: "Kamino Skill",
+    description:
+      "AI coding skill for Kamino Finance covering lending, borrowing, liquidity management, and leverage trading.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/kamino",
+    category: DEFI,
+  },
+  {
+    slug: "lulo-skill",
+    title: "Lulo Skill",
+    description:
+      "AI coding skill for Lulo, Solana's lending aggregator routing deposits to highest-yielding protocols.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/lulo",
+    category: DEFI,
+  },
+  {
+    slug: "meteora-skill",
+    title: "Meteora Skill",
+    description:
+      "AI coding skill for Meteora DeFi SDK covering liquidity pools, AMMs, bonding curves, and token launches.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/meteora",
+    category: DEFI,
+  },
+  {
+    slug: "octav-api-skill",
+    title: "Octav API Skill",
+    description:
+      "AI coding skill for Octav API covering wallet portfolio tracking, transaction history, and DeFi positions.",
+    url: "https://github.com/Octav-Labs/octav-api-skill/tree/eba042fdada9167334dc40fb46ff3a05a4ffe8a0",
+    category: DEFI,
+  },
+  {
+    slug: "orca-skill",
+    title: "Orca Skill",
+    description:
+      "AI coding skill for Orca Whirlpools concentrated liquidity AMM covering swaps and position management.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/orca",
+    category: DEFI,
+  },
+  {
+    slug: "pumpfun-skill",
+    title: "PumpFun Skill",
+    description:
+      "AI coding skill for PumpFun Protocol covering token launches, bonding curves, and PumpSwap integrations.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/pumpfun",
+    category: DEFI,
+  },
+  {
+    slug: "ranger-finance-skill",
+    title: "Ranger Finance Skill",
+    description:
+      "AI coding skill for Ranger Finance, a Solana perps aggregator across Drift, Flash, and Jupiter.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/ranger-finance",
+    category: DEFI,
+  },
+  {
+    slug: "raydium-skill",
+    title: "Raydium Skill",
+    description:
+      "AI coding skill for Raydium Protocol covering CLMM, CPMM, AMM pools, farming, and Trade API.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/raydium",
+    category: DEFI,
+  },
+  {
+    slug: "sanctum-skill",
+    title: "Sanctum Skill",
+    description:
+      "AI coding skill for Sanctum covering liquid staking, LST swaps, and Infinity pool operations.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/sanctum",
+    category: DEFI,
+  },
+  {
+    slug: "pnp-markets-skill",
+    title: "PNP Markets Skill",
+    description:
+      "AI coding skill for PNP Protocol covering permissionless prediction markets with P2P betting and custom oracles.",
+    url: "https://github.com/pnp-protocol/solana-skill/tree/54d164c1f1182a0674c9e57b24a82cf18e60e500",
+    category: DEFI,
+  },
+
+  // ── AI Coding Skills – Infrastructure ───────────────────────────────
+  {
+    slug: "magicblock-dev-skill",
+    title: "MagicBlock Dev Skill",
+    description:
+      "End-to-end MagicBlock development skill for Claude Code covering latency/privacy solutions and VRFs on Solana.",
+    url: "https://github.com/magicblock-labs/magicblock-dev-skill/tree/5546320bff3e544825d9f678b5458057e1a653f3",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "metaplex-skill",
+    title: "Metaplex Skill",
+    description:
+      "Official Metaplex development skill covering Core NFTs, Token Metadata, Bubblegum, and Candy Machine.",
+    url: "https://github.com/metaplex-foundation/skill/tree/9e12103401d9813666da451babf433c8da647d16",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "solana-game-skill",
+    title: "Solana Game Skill",
+    description:
+      "Claude Code skills for developing games on Solana using C#, React Native, and Magicblock's Unity SDK.",
+    url: "https://github.com/solanabr/solana-game-skill/tree/762b3b28e62b4c6cabc01ae179d316958a852a07",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "coingecko-skill",
+    title: "CoinGecko Skill",
+    description:
+      "AI coding skill for CoinGecko Solana API covering token prices, DEX pool data, and market analytics.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/coingecko",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "birdeye-skill",
+    title: "Birdeye Skill",
+    description:
+      "AI coding skill for Birdeye API covering real-time token prices, OHLCV charts, market discovery, wallet portfolio and P&L, trader intelligence, and live WebSocket streams.",
+    url: "https://github.com/sendaifun/skills/tree/ff8d226b5a99615d9bed24c549631ba791dec529/skills/birdeye",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "debridge-skill",
+    title: "deBridge Skill",
+    description:
+      "AI coding skill for deBridge Protocol covering cross-chain bridges and token transfers between chains.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/debridge",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "helius-skill",
+    title: "Helius Skill",
+    description:
+      "AI coding skill for Helius RPC infrastructure covering DAS API, Enhanced Transactions, and webhooks.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/helius",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "light-protocol-skill",
+    title: "Light Protocol Skill",
+    description:
+      "AI coding skill for Light Protocol's ZK Compression covering rent-free compressed tokens and PDAs.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/light-protocol",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "metaplex-community-skill",
+    title: "Metaplex Community Skill",
+    description:
+      "Community AI coding skill for Metaplex Protocol covering Core NFTs, Token Metadata, and Umi framework.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/metaplex",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "pyth-skill",
+    title: "Pyth Skill",
+    description:
+      "AI coding skill for Pyth Network oracle covering real-time price feeds with confidence intervals.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/pyth",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "quicknode-blockchain-skills",
+    title: "QuickNode Blockchain Skills",
+    description:
+      "AI coding skill for QuickNode infrastructure covering Solana RPC, Jupiter Swap API, and Yellowstone gRPC.",
+    url: "https://github.com/quiknode-labs/blockchain-skills/tree/c18430c1aef4a19e88bb21d2947b5c6e9a153576",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "solana-dev-skill-rent-free",
+    title: "Solana Dev Skill (Rent-Free)",
+    description:
+      "Solana development agent skills for Claude Code covering ZK programs and rent-free development.",
+    url: "https://github.com/Lightprotocol/skills/tree/e149bdca6ce440fb5a3421ae684d553fbd21ba0d",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "squads-skill",
+    title: "Squads Skill",
+    description:
+      "AI coding skill for Squads Protocol covering multisig wallets and account abstraction on Solana.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/squads",
+    category: INFRASTRUCTURE,
+  },
+  {
+    slug: "switchboard-skill",
+    title: "Switchboard Skill",
+    description:
+      "AI coding skill for Switchboard Oracle covering permissionless price feeds, VRF randomness, and streaming.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/switchboard",
+    category: INFRASTRUCTURE,
+  },
+
+  // ── Developer Tools ─────────────────────────────────────────────────
+  {
+    slug: "solana-kit-skill",
+    title: "Solana Kit Skill",
+    description:
+      "AI coding skill for @solana/kit, the modern zero-dependency JavaScript SDK from Anza.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/solana-kit",
+    category: TOOLING,
+  },
+  {
+    slug: "solana-kit-migration-skill",
+    title: "Solana Kit Migration Skill",
+    description:
+      "AI coding skill for migrating from @solana/web3.js v1.x to @solana/kit with API mappings.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/solana-kit-migration",
+    category: TOOLING,
+  },
+  {
+    slug: "pinocchio-skill",
+    title: "Pinocchio Skill",
+    description:
+      "AI coding skill for Pinocchio, a zero-dependency framework for high-performance Solana programs.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/pinocchio-development",
+    category: TOOLING,
+  },
+  {
+    slug: "vulnhunter-skill",
+    title: "VulnHunter Skill",
+    description:
+      "AI coding skill for security vulnerability detection and dangerous API hunting across Solana codebases.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/vulnhunter",
+    category: TOOLING,
+  },
+  {
+    slug: "code-recon-skill",
+    title: "Code Recon Skill",
+    description:
+      "AI coding skill for deep architectural analysis and security audits mapping trust boundaries.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/zz-code-recon",
+    category: TOOLING,
+  },
+  {
+    slug: "surfpool-skill",
+    title: "Surfpool Skill",
+    description:
+      "AI coding skill for Surfpool, a Solana development environment with mainnet forking and cheatcodes.",
+    url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/surfpool",
+    category: TOOLING,
+  },
+];

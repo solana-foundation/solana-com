@@ -1,5 +1,6 @@
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import React from "react";
 
 type CTAButton = {
@@ -30,7 +31,12 @@ export function CallToAction(props: CallToActionProps) {
 
   return (
     <div className={props.className}>
-      <div className="max-w-[200px] p-4 border border-border/50 rounded-md">
+      <div
+        className={cn(
+          "w-full rounded-md border border-border/50 p-4",
+          "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70",
+        )}
+      >
         {eyebrow ? (
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {eyebrow}

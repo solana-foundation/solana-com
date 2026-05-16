@@ -21,13 +21,11 @@ const nextConfig: NextConfig = {
       {
         pathname: "/media-assets/uploads/**",
       },
+      {
+        pathname: "/builder/**",
+      },
     ],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "assets.tina.io",
-        port: "",
-      },
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
@@ -51,6 +49,21 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "*.vercel.app",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "www.buzzsprout.com",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "megaphone.imgix.net",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "img.transistor.fm",
         port: "",
       },
     ],
@@ -121,6 +134,10 @@ const nextConfig: NextConfig = {
         },
       ],
     };
+  },
+
+  outputFileTracingIncludes: {
+    "/*": ["./content/**/*", "./keystatic.config.tsx"],
   },
 
   experimental: {

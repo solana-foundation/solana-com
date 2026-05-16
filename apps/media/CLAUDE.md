@@ -4,16 +4,17 @@
 
 ## Overview
 
-The Solana blog and media site, powered by TinaCMS for content management. Includes blog posts, podcasts, and marketing content with a visual CMS editing experience.
+The Solana blog and media site, powered by Keystatic for content management.
+Includes blog posts, podcasts, and marketing content with a visual CMS editing
+experience.
 
-**Package name**: `solana-com-media`
-**Default port**: 3002
-**Asset prefix**: `/media-assets`
+**Package name**: `solana-com-media` **Default port**: 3002 **Asset prefix**:
+`/media-assets`
 
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **CMS**: TinaCMS (Git-backed headless CMS)
+- **CMS**: Keystatic (Git-backed headless CMS)
 - **Styling**: Tailwind CSS 4.x (latest), tw-animate-css
 - **Animation**: Motion (formerly Framer Motion)
 - **Code Highlighting**: Shiki
@@ -29,8 +30,8 @@ apps/media/
 │   │   ├── news/              # Blog posts listing
 │   │   ├── podcast/           # Podcast episodes
 │   │   └── [...slug]/         # Dynamic content pages
-│   ├── admin/                 # TinaCMS admin interface
-│   └── api/                   # API routes (RSS, etc.)
+│   ├── keystatic/             # Keystatic admin interface
+│   └── api/                   # API routes (RSS, Keystatic, etc.)
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -39,7 +40,7 @@ apps/media/
 │   ├── ui/                    # UI primitives
 │   ├── magicui/               # Magic UI effects
 │   └── motion-primitives/     # Animation primitives
-├── content/                   # TinaCMS content (MDX/JSON)
+├── content/                   # Keystatic content (MDX/JSON)
 │   ├── authors/               # Author profiles
 │   ├── categories/            # Post categories
 │   ├── ctas/                  # Call-to-action blocks
@@ -49,13 +50,9 @@ apps/media/
 │   ├── posts/                 # Blog posts (MDX)
 │   ├── switchbacks/           # Switchback sections
 │   └── tags/                  # Content tags
-├── tina/
-│   ├── config.tsx             # TinaCMS configuration
-│   ├── collection/            # Content collection schemas
-│   ├── fields/                # Custom field definitions
-│   ├── queries/               # GraphQL queries
-│   └── __generated__/         # Generated types (gitignored)
+├── keystatic.config.tsx       # Keystatic configuration
 ├── lib/                       # Utility libraries
+│   └── keystatic/             # Keystatic component blocks
 ├── i18n/                      # i18n configuration
 ├── scripts/                   # Build scripts
 ├── public/                    # Static files
@@ -66,20 +63,11 @@ apps/media/
 ## Local Development
 
 ```bash
-# Development with TinaCMS (recommended)
+# Development
 pnpm dev
-
-# Development without TinaCMS
-pnpm dev:build && next dev
 
 # Build for production
 pnpm build
-
-# Build with local TinaCMS (no auth)
-pnpm build-local
-
-# Build with public local mode
-pnpm build-public
 
 # Format content files
 pnpm format:content
@@ -88,11 +76,11 @@ pnpm format:content
 pnpm clean
 ```
 
-## TinaCMS Configuration
+## Keystatic Configuration
 
 ### Collections
 
-Defined in `tina/collection/`:
+Defined in `keystatic.config.tsx`:
 
 - **Post** - Blog posts with rich content blocks
 - **Podcast** - Podcast episodes with audio links
@@ -101,33 +89,40 @@ Defined in `tina/collection/`:
 - **Tag** - Content tags
 - **CTA** - Call-to-action blocks
 - **Switchback** - Alternating content sections
-- **Global** - Site-wide settings
 - **Link** - Reusable link collections
 
-### Content Schema
+### Singletons
 
-Each collection has:
-
-- TypeScript schema in `tina/collection/*.ts`
-- Custom fields in `tina/fields/`
-- Generated types in `tina/__generated__/`
+- **Global** - Site-wide settings
 
 ### Admin Interface
 
-Access the CMS at `/admin`:
+Access the CMS at `/keystatic`:
 
 - Visual editing interface
 - Media management (uploads to `public/uploads/`)
-- Branch switcher for content staging
+- **Local mode** for development (filesystem storage, no auth needed)
+- **GitHub mode** for production (users authenticate via GitHub OAuth)
+
+### Authentication
+
+Keystatic uses a **GitHub App** (not an OAuth App) for production access:
+
+1. Deploy with GitHub storage enabled (`NEXT_PUBLIC_KEYSTATIC_LOCAL` unset or
+   false)
+2. Visit `/keystatic` and click "Create GitHub App"
+3. Keystatic walks you through GitHub's app creation wizard
+4. Env vars (`KEYSTATIC_GITHUB_CLIENT_ID`, etc.) are auto-generated
+5. Users with repo write access can edit directly; others create PRs via forks
 
 ### Environment Variables
 
 ```bash
-NEXT_PUBLIC_TINA_CLIENT_ID  # TinaCMS client ID
-NEXT_PUBLIC_TINA_BRANCH     # Git branch for content
-TINA_TOKEN                  # TinaCMS API token
-TINA_SEARCH_INDEXER_TOKEN   # Search indexing token
-TINA_PUBLIC_IS_LOCAL        # Set "true" for local mode
+NEXT_PUBLIC_KEYSTATIC_LOCAL                          # Set "true" for local mode (filesystem storage)
+KEYSTATIC_GITHUB_CLIENT_ID               # GitHub App client ID (auto-generated)
+KEYSTATIC_GITHUB_CLIENT_SECRET           # GitHub App client secret (auto-generated)
+KEYSTATIC_SECRET                         # Session signing secret (auto-generated)
+NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG    # GitHub App slug (auto-generated)
 ```
 
 ## Content Authoring
@@ -169,7 +164,7 @@ Podcast episodes link to Simplecast:
 
 ## Key Dependencies (App-Specific)
 
-- `tinacms`, `@tinacms/cli` - CMS framework
+- `@keystatic/core`, `@keystatic/next` - CMS framework
 - `shiki` - Code syntax highlighting
 - `react-tweet` - Twitter/X embeds
 - `react-player` - Video playback
@@ -182,15 +177,15 @@ Podcast episodes link to Simplecast:
 ## API Routes
 
 - `/api/rss` - RSS feed generation
-- TinaCMS API routes (auto-generated)
+- `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
+  operations)
 
 ## Build Process
 
-The build script (`scripts/build.sh`) handles:
+The build runs:
 
-1. TinaCMS build (generates GraphQL client)
-2. Next.js build
-3. Conditional local vs cloud mode
+1. Next.js build (includes Keystatic)
+2. Conditional local vs GitHub mode based on `NEXT_PUBLIC_KEYSTATIC_LOCAL`
 
 ## Lint-Staged Configuration
 
@@ -204,14 +199,16 @@ Pre-commit formatting:
 
 - Local uploads: `public/uploads/`
 - Remote images allowed from:
-  - `assets.tina.io` (TinaCMS media)
   - `res.cloudinary.com`
   - `*.cloudfront.net`
   - `assets.getriver.io`
 
 ## Gotchas
 
-1. **Generated Files**: Run `pnpm clean` to clear `tina/__generated__/` if types are stale
-2. **Local Mode**: Set `TINA_PUBLIC_IS_LOCAL=true` to bypass authentication
-3. **Branch Content**: TinaCMS uses Git branches for content staging
+1. **Local Mode**: Set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` to use filesystem
+   storage (no GitHub auth needed)
+2. **GitHub Mode**: Requires a GitHub App — run the setup flow at `/keystatic`
+   to auto-generate env vars
+3. **Public Repo**: Since the repo is public, any GitHub user can authenticate.
+   Users with write access edit directly; others fork and create PRs
 4. **Asset Prefix**: All assets served from `/media-assets/` path

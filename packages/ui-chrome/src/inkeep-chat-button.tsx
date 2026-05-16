@@ -82,7 +82,8 @@ export function InkeepChatButton({
       </button>
 
       <InkeepModalSearchAndChat
-        defaultView="chat"
+        defaultView={inkeepConfig.shouldForceSearchView ? "search" : "chat"}
+        forceDefaultView={inkeepConfig.shouldForceSearchView}
         baseSettings={inkeepConfig.baseSettings}
         searchSettings={inkeepConfig.searchSettings}
         aiChatSettings={inkeepConfig.aiChatSettings}

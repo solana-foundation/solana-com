@@ -1,0 +1,96 @@
+---
+title: Quy tắc sửa đổi
+description:
+  Các quy tắc được thực thi bởi runtime để sửa đổi lamports, dữ liệu, owner, cờ
+  executable và ngữ nghĩa borrow của tài khoản Solana.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="Tóm tắt">
+  Kiểm tra runtime sau mỗi instruction: chỉ owner mới có thể trừ lamports hoặc
+  sửa đổi dữ liệu, dữ liệu có thể tăng tối đa 10 KiB mỗi instruction, thay đổi
+  owner yêu cầu dữ liệu được khởi tạo bằng không, và cờ executable là không thể
+  đảo ngược.
+</Callout>
+
+Solana runtime thực thi các quy tắc này sau khi mỗi instruction được thực thi
+thông qua các phương thức
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727).
+Mỗi quy tắc được kiểm tra tại thời điểm sửa đổi, và transaction sẽ bị rollback
+nếu bất kỳ kiểm tra nào thất bại.
+
+## Quy tắc lamports
+
+| Quy tắc                                                             | Thực thi                                                                                                                                                                                                            | Lỗi                           |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Chỉ owner mới có thể trừ lamports                                   | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): kiểm tra `is_owned_by_current_program()` khi `lamports < current`                                       | `ExternalAccountLamportSpend` |
+| Tài khoản read-only không thể thay đổi lamports                     | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): kiểm tra `is_writable()`                                                                                | `ReadonlyLamportChange`       |
+| Bất kỳ program nào cũng có thể cộng lamports vào tài khoản writable | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): kiểm tra ownership chỉ áp dụng khi số dư mới nhỏ hơn số dư hiện tại; kiểm tra writable vẫn được áp dụng | `ReadonlyLamportChange`       |
+| Lamports phải cân bằng trong một instruction                        | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): xác minh `get_lamports_delta() == 0`                                                         | `UnbalancedInstruction`       |
+
+## Quy tắc dữ liệu
+
+| Quy tắc                                          | Thực thi                                                                                                                                                                                                                             | Lỗi                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Chỉ owner mới có thể sửa đổi dữ liệu             | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): kiểm tra `is_owned_by_current_program()`                                                                        | `ExternalAccountDataModified`        |
+| Tài khoản read-only không thể sửa đổi dữ liệu    | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): kiểm tra `is_writable()`                                                                                        | `ReadonlyDataModified`               |
+| Chỉ owner mới có thể thay đổi kích thước dữ liệu | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): kiểm tra `is_owned_by_current_program()` khi `new_len != old_len`                                               | `AccountDataSizeChanged`             |
+| Kích thước dữ liệu tối đa: 10 MiB                | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): kiểm tra `new_len <= MAX_ACCOUNT_DATA_LEN`                                  | `InvalidRealloc`                     |
+| Tăng trưởng tối đa mỗi instruction: 10 KiB       | Deserialization trong [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): kiểm tra `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`               | `InvalidRealloc`                     |
+| Tăng trưởng tối đa mỗi transaction: 20 MiB       | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): kiểm tra tích lũy `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## Quy tắc owner
+
+| Quy tắc                                          | Thực thi                                                                                                                                          | Lỗi                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Chỉ owner hiện tại mới có thể chỉ định lại owner | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): kiểm tra `is_owned_by_current_program()` | `ModifiedProgramId` |
+| Tài khoản phải có thể ghi                        | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): kiểm tra `is_writable()`                 | `ModifiedProgramId` |
+| Dữ liệu phải được khởi tạo bằng zero             | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): kiểm tra `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## Quy tắc cờ executable
+
+| Quy tắc                     | Thực thi                                                                                                                                                    | Lỗi                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Tài khoản phải miễn rent    | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): kiểm tra `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Chỉ owner mới có thể đặt cờ | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): kiểm tra `is_owned_by_current_program()`      | `ExecutableModified`             |
+| Tài khoản phải có thể ghi   | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): kiểm tra `is_writable()`                      | `ExecutableModified`             |
+
+## Chuyển đổi trạng thái rent
+
+Tài khoản tồn tại ở một trong ba giá trị
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30):
+_rs`Uninitialized`_ (0 lamports), _rs`RentPaying`_ (trên 0 nhưng dưới mức tối
+thiểu miễn rent), và _rs`RentExempt`_ (bằng hoặc trên mức tối thiểu). Các chuyển
+đổi không được phép tạo ra _rs`TransactionError::InsufficientFundsForRent`_.
+
+Runtime thực thi các quy tắc này thông qua
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- Bất kỳ tài khoản nào cũng có thể chuyển sang _rs`Uninitialized`_ (đóng) hoặc
+  _rs`RentExempt`_.
+- Không có tài khoản nào có thể chuyển vào _rs`RentPaying`_ từ
+  _rs`Uninitialized`_ hoặc _rs`RentExempt`_. Tất cả tài khoản mới phải miễn
+  rent.
+
+## Quy tắc borrow tài khoản
+
+Trong quá trình thực thi instruction, runtime thực thi ngữ nghĩa borrow
+single-writer trên các tài khoản. Một program có thể lấy một mutable reference
+hoặc nhiều immutable reference đến một tài khoản, nhưng không thể có cả hai cùng
+lúc. Nếu một program cố gắng borrow một tài khoản đã được mutably borrow (hoặc
+mutably borrow một tài khoản đã được immutably borrow), instruction sẽ thất bại
+với _rs`AccountBorrowFailed`_ thông qua
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+và
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+Nếu một instruction hoàn thành trong khi một borrow vẫn còn tồn tại, runtime trả
+về _rs`AccountBorrowOutstanding`_ trong
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).

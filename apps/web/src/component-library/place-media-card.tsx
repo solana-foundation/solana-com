@@ -38,7 +38,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
       </div>
       <h3 className="nd-heading-s mt-6">{title}</h3>
       {(location || date) && (
-        <div className="mt-twd-2 flex gap-twd-1 flex-wrap">
+        <div className="mt-2 flex gap-1 flex-wrap">
           {date && (
             <Badge
               title={format(new Date(date), "EEE, MMM d")}

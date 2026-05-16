@@ -1,6 +1,7 @@
 import { docsSource } from "@@/src/app/sources/docs";
 import { DocsPage } from "@@/src/app/components/docs-page";
 import { notFound } from "next/navigation";
+import type { ComponentProps } from "react";
 import { mdxComponents } from "@@/src/app/mdx-components";
 import { getMdxMetadata } from "@@/src/app/metadata";
 import { DocsCategory } from "fumadocs-ui/page";
@@ -22,15 +23,22 @@ export async function MainDocsPage({
       toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
+      description={page.data.description}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}
+      isRoot={slug.length === 0}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
-        <DocsCategory page={page} from={docsSource as any} />
+        <DocsCategory
+          page={page}
+          from={
+            docsSource as unknown as ComponentProps<typeof DocsCategory>["from"]
+          }
+        />
       ) : null}
     </DocsPage>
   );

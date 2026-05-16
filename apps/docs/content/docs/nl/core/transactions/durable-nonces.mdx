@@ -1,0 +1,96 @@
+---
+title: Duurzame nonces
+description:
+  Hoe duurzame nonces werken op Solana voor offline ondertekening en uitgestelde
+  transactie-indiening, inclusief nonce-levenscyclus, detectie, validatie en
+  faalgedrag.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Samenvatting">
+  Duurzame nonce-transacties vervangen de recente blockhash door een opgeslagen
+  nonce-waarde, waardoor het vervalvenster van 150 slots voor een transactie
+  wordt verwijderd. Dit maakt offline ondertekening en uitgestelde indiening
+  mogelijk.
+</Callout>
+
+<Callout type="warn">
+  Duurzame nonces kunnen in een toekomstige release worden afgeschaft. Zie
+  [SIMD-discussie](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  voor details.
+</Callout>
+
+## Duurzame nonces
+
+Een duurzame nonce-transactie vervangt de recente blockhash door een opgeslagen
+nonce-waarde, waardoor het vervalvenster van 150 slots wordt verwijderd. Dit
+maakt offline ondertekening en uitgestelde indiening mogelijk.
+
+### Hoe nonce-transacties werken
+
+Een nonce-account is een account dat eigendom is van het System Program en een
+_rs`State::Initialized`_-waarde opslaat met drie velden: een **authority**
+pubkey (wie de nonce kan vooruitschuiven), een **duurzame nonce**-waarde (een
+hash afgeleid van een recente blockhash), en **lamports per handtekening** (het
+tarief toen de nonce voor het laatst werd vooruitgeschoven).
+
+Om een duurzame nonce te gebruiken:
+
+1. Maak en initialiseer een nonce-account met _rs`CreateAccount`_ +
+   _rs`InitializeNonceAccount`_
+2. Bouw de transactie met _rs`AdvanceNonceAccount`_ als de **eerste instructie**
+   en de nonce-waarde als de `recent_blockhash`
+3. Onderteken de transactie (kan offline worden gedaan, aangezien de nonce niet
+   verloopt)
+4. Dien in wanneer gereed
+
+### Nonce-detectie
+
+De runtime detecteert nonce-transacties door te controleren of de eerste
+instructie (index
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) een aanroep is naar het System Program met de
+_rs`AdvanceNonceAccount`_-instructie. Het nonce-account moet het eerste account
+van die instructie zijn en moet schrijfbaar zijn. Zie
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Nonce-validatiestroom
+
+Wanneer de `recent_blockhash` van een transactie niet wordt gevonden in de
+`BlockhashQueue`, controleert de validator of het een geldige nonce-transactie
+is via
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. De opgeslagen `durable_nonce` van de nonce moet verschillen van de volgende
+   duurzame nonce (afgeleid van de huidige blockhash). Dit zorgt ervoor dat de
+   nonce niet al is gebruikt in dit blok
+2. Het nonce-account moet worden geladen en moet worden geparsed als
+   _rs`State::Initialized`_
+3. De opgeslagen `durable_nonce` moet overeenkomen met de `recent_blockhash` van
+   de transactie
+
+De controle van de nonce-authority-ondertekening wordt later uitgevoerd
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+Als alle controles slagen, wordt de nonce verhoogd naar de volgende duurzame
+nonce-waarde voordat de uitvoering begint. Bij een mislukte uitvoering worden de
+verhoogde nonce en de fee-betaler waarvan de fee is afgetrokken toch gecommit
+(waardoor replay wordt voorkomen terwijl fees worden geïnd).
+
+### Gedrag bij nonce-fouten
+
+Als een nonce-transactie **de validatie niet doorstaat** (nonce al gebruikt,
+authority niet ondertekend, account niet gevonden), wordt de hele transactie
+verworpen. Geen fees geïnd, geen statuswijzigingen.
+
+Als een nonce-transactie **de validatie doorstaat maar de uitvoering mislukt**
+(een instructie retourneert een fout), wordt de nonce toch verhoogd en worden
+fees toch geïnd. Dit voorkomt dat de transactie opnieuw wordt afgespeeld en
+zorgt ervoor dat de validator wel wordt gecompenseerd.

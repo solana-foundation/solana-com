@@ -16,7 +16,7 @@ references, cookbook recipes, and learning resources for building on Solana.
 - **Documentation**: Fumadocs (MDX-based documentation framework)
 - **Code Highlighting**: CodeHike for advanced code blocks
 - **Diagrams**: Mermaid for flowcharts and diagrams
-- **Styling**: Tailwind CSS, SCSS, styled-components
+- **Styling**: Tailwind CSS, SCSS
 - **AI Integration**: Vercel AI SDK with OpenAI
 - **UI Components**: Radix UI primitives, Fumadocs UI
 

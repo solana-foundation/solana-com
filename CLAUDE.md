@@ -8,6 +8,7 @@ Next.js applications and shared packages deployed on Vercel.
 ```
 solana-com/
 ├── apps/
+│   ├── accelerate/   # Solana Accelerate conference - port 3004
 │   ├── web/          # Main website (solana.com) - port 3000
 │   ├── docs/         # Developer documentation - port 3003
 │   ├── media/        # Blog & news (TinaCMS) - port 3002
@@ -28,7 +29,7 @@ solana-com/
 - **Framework**: Next.js 15.5.9 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.1.2
-- **Styling**: Tailwind CSS 3.4+ / SCSS / styled-components
+- **Styling**: Tailwind CSS 3.4+ / SCSS
 - **i18n**: next-intl (20 supported languages)
 - **Build System**: Turborepo for monorepo orchestration
 - **Deployment**: Vercel (multi-project setup with rewrites)
@@ -45,10 +46,11 @@ pnpm install
 pnpm dev
 
 # Development (specific app)
-pnpm dev --filter solana-com        # Main website
-pnpm dev --filter solana-docs       # Documentation
-pnpm dev --filter solana-com-media  # Blog/Media
-pnpm dev --filter solana-templates  # Templates
+pnpm dev --filter solana-com              # Main website
+pnpm dev --filter solana-docs             # Documentation
+pnpm dev --filter solana-com-media        # Blog/Media
+pnpm dev --filter solana-templates        # Templates
+pnpm dev --filter solana-com-accelerate   # Accelerate conference
 
 # Build all apps
 pnpm build
@@ -129,6 +131,7 @@ PRs should include:
 
 Each app has its own CLAUDE.md with app-specific details:
 
+- `apps/accelerate/CLAUDE.md` - Accelerate conference site
 - `apps/web/CLAUDE.md` - Main website
 - `apps/docs/CLAUDE.md` - Documentation site
 - `apps/media/CLAUDE.md` - Blog/Media site

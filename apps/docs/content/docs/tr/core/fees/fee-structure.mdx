@@ -1,0 +1,320 @@
+---
+title: Ücret yapısı
+description:
+  Solana işlem ücretlerinin nasıl hesaplandığı; imza başına temel ücret,
+  önceliklendirme ücreti formülü, ücret dağılımı ve hesaplama bütçesi
+  talimatlarını kullanarak ücretlerin nasıl belirleneceği.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="Özet">
+  Toplam ücret = temel ücret (5.000 lamport/imza, %50 yakılır) + öncelik ücreti
+  (CU_fiyatı * CU_limiti / 1M lamport, %100 validator'a). İşlem başarılı veya
+  başarısız olsa da ücretlendirilir.
+</Callout>
+
+## Ücret hesaplama algoritması
+
+Bir işlem için toplam ücret,
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72)
+tarafından hesaplanır:
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+Girdiler; işlem mesajı, mevcut `lamports_per_signature` (şu anda 5.000) ve
+hesaplama bütçesi talimatlarından türetilen önceliklendirme ücretidir. Toplam
+ücret, yürütme başlamadan önce ücret ödeyicisinden düşülür. İşlem başarısız
+olursa, ücret yine de tahsil edilir.
+
+## Temel ücret
+
+Temel ücret, Ed25519 imza doğrulamasının maliyetini ve herhangi bir ön derleme
+imza doğrulamasını kapsar. İşlemdeki her imza ücretlendirilir; buna Ed25519,
+Secp256k1 ve Secp256r1 ön derleme programları tarafından doğrulanan imzalar da
+dahildir.
+
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+fonksiyonu şunu hesaplar:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: işlemdeki Ed25519 imzalarının sayısı (genellikle
+  imzalayan başına bir).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: ilgili ön derleme programları tarafından
+  doğrulanan imzalar.
+- `lamports_per_signature`: şu anda
+  [5.000 lamport](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### Ücret dağılımı
+
+Temel ücret ve önceliklendirme ücreti farklı şekilde dağıtılır.
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+fonksiyonu runtime'da şunu hesaplar:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **Temel ücret (transaction_fee)**: %50'si
+  [yakılır](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (dolaşımdaki arzdan çıkarılır) ve %50'si blok üreten validator'a gider. Yakma
+  yüzdesi
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70)
+  olarak belirlenmiştir.
+- **Önceliklendirme ücreti**: %100'ü validator'a gider (hiçbiri yakılmaz),
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)
+  uyarınca.
+
+Validator'ın bir işlem için toplam ödülü:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## Önceliklendirme ücreti
+
+Önceliklendirme ücreti, bir işlemin zamanlama önceliğini artıran isteğe bağlı
+bir ücrettir. Hesaplama birimi (CU), çalışma zamanının işlem yürütme sırasında
+ölçtüğü bir hesaplama birimidir. Her işlem (aritmetik, bellek erişimi, syscall)
+sabit sayıda CU'ya mal olur. İşleminize hesaplama bütçesi talimatları ekleyerek
+önceliklendirme ücretini belirleyebilirsiniz. (Ayrıntılar için
+[Öncelik Ücretleri Nasıl Kullanılır kılavuzuna](/developers/guides/advanced/how-to-use-priority-fees)
+bakın.)
+
+### Önceliklendirme ücreti formülü
+
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+fonksiyonu şunu hesaplar:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| Değişken             | Açıklama                                                                                                                                                                    | Varsayılan                             |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `compute_unit_price` | CU başına mikro-lamport, `SetComputeUnitPrice` ile ayarlanır                                                                                                                | 0 mikro-lamport                        |
+| `compute_unit_limit` | İşlemin tüketebileceği maksimum CU, `SetComputeUnitLimit` ile ayarlanır                                                                                                     | Talimat başına varsayılanların toplamı |
+| `1,000,000`          | Mikro-lamport'tan lamport'a dönüşüm faktörü ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                                     |
+
+### Hesaplama birimi limiti
+
+Hesaplama birimi limiti, bir işlemin tüketebileceği maksimum CU sayısıdır. Eğer
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+talimatı dahil edilmemişse, varsayılan değer talimatların sayısı ve türünden
+hesaplanır (yerleşik olmayan talimat başına 200.000 CU, yerleşik için 3.000).
+Varsayılan hesaplama hakkında ayrıntılar için
+[Hesaplama Bütçesi](/docs/core/fees/compute-budget) bölümüne bakın.
+
+<Callout type="warn">
+  Öncelik ücreti, gerçek CU kullanımına değil, talep edilen CU limitine göre
+  belirlenir. Gerekenden daha yüksek bir limit belirlemek, kullanılmayan
+  hesaplama birimleri için ödeme yapmak anlamına gelir.
+</Callout>
+
+### Hesaplama birimi fiyatı
+
+Hesaplama birimi fiyatı, talep edilen her CU için ödenen isteğe bağlı bir
+mikro-lamport miktarıdır. CU fiyatı, önceliklendirme ücretini doğrudan belirler.
+CU fiyatını ayarlamak için işleminize bir
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+talimatı ekleyin.
+
+<Callout>
+  Varsayılan CU fiyatı 0'dır, yani varsayılan önceliklendirme ücreti de 0'dır.
+</Callout>
+
+Gerçek zamanlı CU fiyat tahminleri için aşağıdaki öncelik ücreti API
+sağlayıcılarına bakın.
+
+| Sağlayıcı                               | Öncelik ücreti API'si                                                             |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| [Helius](https://www.helius.dev/)       | [Dokümantasyon](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [Dokümantasyon](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [Dokümantasyon](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### İşlem zamanlama önceliği
+
+Zamanlayıcı, işlemleri
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546)
+fonksiyonunu kullanarak sıralar:
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: doğrulayıcının ücret geliri = önceliklendirme ücreti + temel
+  ücretin yakılmayan kısmı.
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83)
+  tarafından hesaplanır.
+- **cost**: zamanlayıcının
+  [tahmini CU maliyeti](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost-model.rs#L37-L57)
+  (imza maliyetleri + yazma kilidi maliyetleri + instruction data maliyetleri +
+  program yürütme maliyetleri + yüklenen hesap veri boyutu maliyeti). Ayrıntılar
+  için [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model)
+  bölümüne bakın.
+- **1,000,000**: hassasiyeti korumak için bir çarpan, çünkü maliyet genellikle
+  ham lamport cinsinden ödülü aşar.
+- **+1**: sıfıra bölmeyi önler.
+
+Öncelik, işlemlerin zamanlayıcının tamponundan yürütme için sıradan çıkarılma
+sırasını belirler.
+
+## Örnek: CU limitini ve CU fiyatını ayarlama
+
+Aşağıdaki örnekler, Solana SDK'larını kullanarak bir işlemde CU limitinin ve CU
+fiyatının nasıl ayarlanacağını gösterir.
+
+| SDK                            | Kaynak kod referansı                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

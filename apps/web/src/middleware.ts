@@ -12,19 +12,37 @@ export default async function middleware(req: NextRequest) {
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
+    pathname.startsWith("/accelerate") ||
     pathname.startsWith("/breakpoint") ||
     pathname === "/developers" ||
     pathname.startsWith("/developers/templates") ||
     pathname.startsWith("/developers/cookbook") ||
     pathname.startsWith("/developers/guides") ||
+    pathname.startsWith("/developers/bootcamp") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
-    pathname.startsWith("/news") ||
+    (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
+    pathname.startsWith("/reports") ||
     pathname.startsWith("/podcasts") ||
     pathname.startsWith("/media-assets") ||
     pathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
+  }
+
+  const canonicalSkillPath = "/SKILL.md";
+  if (pathname.toLowerCase() === "/skill.md") {
+    if (pathname !== canonicalSkillPath) {
+      return NextResponse.redirect(
+        `${req.nextUrl.origin}${canonicalSkillPath}`,
+        308,
+      );
+    }
+
+    // Rewrite /SKILL.md to the skills.md route handler
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = "/skill.md";
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   if (pathname !== pathname.toLowerCase()) {
@@ -64,14 +82,18 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
-  return handleI18nRouting(req);
+  const response = await handleI18nRouting(req);
+
+  return response;
 }
 
 export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
+    "/SKILL.md",
+    "/skill.md",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

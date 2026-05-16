@@ -1,0 +1,314 @@
+---
+title: 수수료 구조
+description:
+  서명당 기본 수수료, 우선순위 수수료 공식, 수수료 분배, 컴퓨트 예산 명령어를
+  사용한 수수료 설정 방법을 포함한 Solana 트랜잭션 수수료 계산 방법입니다.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="요약">
+  총 수수료 = 기본 수수료(5,000 lamports/서명, 50% 소각) + 우선순위
+  수수료(CU_price * CU_limit / 1M lamports, 100% validator에게 지급). 트랜잭션
+  성공 여부와 관계없이 청구됩니다.
+</Callout>
+
+## 수수료 계산 알고리즘
+
+트랜잭션의 총 수수료는
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72)에
+의해 계산됩니다:
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+입력값은 트랜잭션 메시지, 현재 `lamports_per_signature`(현재 5,000), 그리고
+컴퓨트 예산 명령어에서 파생된 우선순위 수수료입니다. 총 수수료는 실행이 시작되기
+전에 수수료 지불자로부터 차감됩니다. 트랜잭션이 실패하더라도 수수료는
+청구됩니다.
+
+## 기본 수수료
+
+기본 수수료는 Ed25519 서명 검증 비용과 프리컴파일 서명 검증 비용을 포함합니다.
+트랜잭션의 모든 서명에 대해 수수료가 부과되며, 여기에는 Ed25519, Secp256k1,
+Secp256r1 프리컴파일 프로그램에 의해 검증된 서명도 포함됩니다.
+
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+함수는 다음을 계산합니다:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: 트랜잭션의 Ed25519 서명 수(일반적으로 서명자당
+  하나).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: 해당 프리컴파일 프로그램에 의해 검증된 서명.
+- `lamports_per_signature`: 현재
+  [5,000 lamports](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### 수수료 분배
+
+기본 수수료와 우선순위 수수료는 다르게 분배됩니다. 런타임의
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+함수는 다음을 계산합니다:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **기본 수수료(transaction_fee)**: 50%는
+  [소각](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (유통 공급량에서 제거)되고 50%는 블록 생성 validator에게 지급됩니다. 소각
+  비율은
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70)입니다.
+- **우선순위 수수료**: 100%가 validator에게 지급됩니다(소각되지 않음),
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)에
+  따름.
+
+트랜잭션에 대한 validator의 총 보상은 다음과 같습니다:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## 우선순위 수수료
+
+우선순위 수수료는 트랜잭션의 스케줄링 우선순위를 높이는 선택적 수수료입니다.
+컴퓨트 유닛(CU)은 런타임이 트랜잭션 실행 중에 측정하는 계산 단위입니다. 모든
+작업(산술 연산, 메모리 액세스, 시스템 콜)은 고정된 수의 CU를 소비합니다.
+트랜잭션에 컴퓨트 예산 명령어를 포함하여 우선순위 수수료를 설정할 수 있습니다.
+(자세한 내용은
+[우선순위 수수료 사용 방법 가이드](/developers/guides/advanced/how-to-use-priority-fees)를
+참조하세요.)
+
+### 우선순위 수수료 공식
+
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+함수는 다음을 계산합니다:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| 변수                 | 설명                                                                                                                                                                     | 기본값                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `compute_unit_price` | CU당 마이크로 램포트, `SetComputeUnitPrice`를 통해 설정                                                                                                                  | 0 마이크로 램포트      |
+| `compute_unit_limit` | 트랜잭션이 소비할 수 있는 최대 CU, `SetComputeUnitLimit`를 통해 설정                                                                                                     | 명령어별 기본값의 합계 |
+| `1,000,000`          | 마이크로 램포트에서 램포트로의 변환 계수 ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                     |
+
+### 컴퓨트 유닛 한도
+
+컴퓨트 유닛 한도는 트랜잭션이 소비할 수 있는 최대 CU 수입니다.
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+명령어가 포함되지 않은 경우, 기본값은 명령어의 수와 유형에 따라
+계산됩니다(비내장 명령어당 200,000 CU, 내장 명령어당 3,000 CU). 기본 계산에 대한
+자세한 내용은 [컴퓨트 예산](/docs/core/fees/compute-budget)을 참조하세요.
+
+<Callout type="warn">
+  우선순위 수수료는 실제 CU 사용량이 아닌 요청된 CU 한도를 기준으로 합니다.
+  필요한 것보다 높은 한도를 설정하면 사용하지 않은 컴퓨트 유닛에 대해 비용을
+  지불하게 됩니다.
+</Callout>
+
+### 컴퓨트 유닛 가격
+
+컴퓨트 유닛 가격은 요청된 각 CU에 대해 지불되는 선택적 마이크로 램포트
+금액입니다. CU 가격은 우선순위 수수료를 직접 결정합니다. CU 가격을 설정하려면
+트랜잭션에
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+명령어를 포함하세요.
+
+<Callout>
+  기본 CU 가격은 0이며, 이는 기본 우선순위 수수료도 0임을 의미합니다.
+</Callout>
+
+실시간 CU 가격 추정치는 아래의 우선순위 수수료 API 제공업체를 참조하세요.
+
+| 제공업체                                | 우선순위 수수료 API                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| [Helius](https://www.helius.dev/)       | [문서](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [문서](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [문서](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### 트랜잭션 스케줄링 우선순위
+
+스케줄러는
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546)
+함수를 사용하여 트랜잭션의 순위를 매깁니다:
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: validator의 수수료 수입 = 우선순위 수수료 + 기본 수수료의 소각되지
+  않은 부분.
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83)에
+  의해 계산됩니다.
+- **cost**: 스케줄러의
+  [추정 CU 비용](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  (서명 비용 + 쓰기 잠금 비용 + instruction data 비용 + 프로그램 실행 비용 +
+  로드된 계정 데이터 크기 비용). 자세한 내용은
+  [컴퓨트 예산](/docs/core/fees/compute-budget#scheduler-cost-model)을
+  참조하세요.
+- **1,000,000**: 정밀도를 유지하기 위한 승수입니다. 비용이 종종 원시 램포트
+  단위의 보상을 초과하기 때문입니다.
+- **+1**: 0으로 나누는 것을 방지합니다.
+
+우선순위는 스케줄러의 버퍼에서 실행을 위해 트랜잭션이 대기열에서 제거되는 순서를
+결정합니다.
+
+## 예제: CU 한도 및 CU 가격 설정
+
+아래 예제는 Solana SDK를 사용하여 트랜잭션에 CU 한도와 CU 가격을 설정하는 방법을
+보여줍니다.
+
+| SDK                            | 소스 코드 참조                                                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

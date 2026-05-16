@@ -1,17 +1,21 @@
 import { DocsLayout as FumaDocsLayout } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
-import { Sidebar, SidebarViewport } from "fumadocs-ui/layouts/docs/sidebar";
+import {
+  CollapsibleSidebar,
+  SidebarPageTree,
+  SidebarViewport,
+} from "fumadocs-ui/layouts/docs/sidebar";
 import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs.client";
-import { SidebarPageTree } from "fumadocs-ui/layouts/docs/sidebar";
 import { RootProvider } from "fumadocs-ui/provider";
 import { I18nProvider } from "fumadocs-ui/i18n";
 import { getTranslations } from "next-intl/server";
+import { DocsSidebarTogglePortal } from "./docs-sidebar-toggle-portal";
 
 export async function DocsLayout({
   children,
   tree,
   sidebarEnabled = true,
-  locale,
+  locale = "en",
 }: {
   children: ReactNode;
   tree: any; // TODO: fix after updating to fumadocs-ui@15
@@ -43,6 +47,7 @@ export async function DocsLayout({
           >
             {children}
           </FumaDocsLayout>
+          <DocsSidebarTogglePortal enabled={sidebarEnabled} />
         </div>
       </RootProvider>
     </I18nProvider>
@@ -52,8 +57,8 @@ export async function DocsLayout({
 function CustomSidebar() {
   return (
     <>
-      <Sidebar
-        className="md:bg-transparent text-base"
+      <CollapsibleSidebar
+        className="md:bg-transparent text-base data-[collapsed=true]:pointer-events-none"
         style={{ maxHeight: "calc(100vh - 65px)" }}
       >
         <SidebarViewport>
@@ -61,9 +66,9 @@ function CustomSidebar() {
             <SidebarPageTree />
           </div>
         </SidebarViewport>
-      </Sidebar>
+      </CollapsibleSidebar>
       <div
-        className="fixed bottom-0 left-0 z-50 p-7 md:hidden"
+        className="fixed bottom-0 left-0 z-50 p-10 md:hidden"
         id="fd-sidebar-toggle"
       >
         <NavbarSidebarTrigger />

@@ -1,0 +1,221 @@
+---
+title: CPI:n suoritus ja oikeudet
+description:
+  11-vaiheinen CPI-suorituskulku Solana-ajonaikaympäristön läpi, oikeuksien
+  laajennussäännöt, uudelleenkutsurajoitukset ja valtuutettujen ohjelmien
+  tarkistukset.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI execution flow, Privilege rules */}
+
+<Callout type="info" title="Yhteenveto">
+  CPI:t kulkevat 11 ajonaikaisen vaiheen läpi, mukaan lukien oikeuksien
+  tarkistus, tilin käännös ja datan synkronointi. Maksimi kutsusyvyys: 5 (9
+  SIMD-0268:n kanssa). Oikeussäännöt estävät kutsuttavaa laajentamasta oikeuksia
+  yli sen, mitä kutsuja myönsi.
+</Callout>
+
+## Oikeussäännöt
+
+CPI:t laajentavat kutsujan tilioikeudet kutsuttavalle tiukalla valvonnalla.
+Ajonaikaympäristö tarkistaa nämä säännöt funktiossa
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
+
+| Skenaario                                                                                                                      | Sallittu? | Valvontapiste                                                                                                               | Virhe                  |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Kutsuja välittää tilin kirjoitettavana, kutsuttava merkitsee kirjoitettavaksi                                                  | Kyllä     | --                                                                                                                          | --                     |
+| Kutsuja välittää tilin vain luku -tilassa, kutsuttava merkitsee kirjoitettavaksi                                               | Ei        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Kutsuja välittää tilin kirjoitettavana, kutsuttava merkitsee vain luku -tilaan                                                 | Kyllä     | --                                                                                                                          | --                     |
+| Kutsuja välittää tilin allekirjoittajana, kutsuttava merkitsee allekirjoittajaksi                                              | Kyllä     | --                                                                                                                          | --                     |
+| Kutsuja välittää tilin ei-allekirjoittajana, kutsuttava merkitsee allekirjoittajaksi, tili on kutsujan siemenistä johdettu PDA | Kyllä     | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Kutsuja välittää tilin ei-allekirjoittajana, kutsuttava merkitsee allekirjoittajaksi, tili EI ole kutsujan PDA                 | Ei        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Kutsuja välittää tilin allekirjoittajana, kutsuttava merkitsee ei-allekirjoittajaksi                                           | Kyllä     | --                                                                                                                          | --                     |
+| Ohjelma A kutsuu itseään suoraan (A -> A)                                                                                      | Kyllä     | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Ohjelma A kutsuu B:tä, joka kutsuu A:ta (epäsuora uudelleenkutsu)                                                              | Ei        | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI native loaderiin, bpf_loaderiin, bpf_loader_deprecatediin tai precompileihin                                               | Ei        | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Tiliä ei löydy transaktiosta                                                                                                   | Ei        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+Oikeussäännöt voidaan tiivistää seuraavasti:
+
+1. **Kirjoitusoikeus ei voi laajentua.** Jos kutsuja merkitsee tilin vain luku
+   -tilaan, kutsuttava ei voi merkitä sitä kirjoitettavaksi.
+2. **Allekirjoittajaoikeus vaatii valtuutuksen.** Tili voi olla allekirjoittaja
+   kutsutussa vain, jos (a) se oli jo allekirjoittaja kutsujassa TAI (b) se on
+   PDA, joka on johdettu kutsuvan ohjelman siemenistä
+   _rs`invoke_signed`_-funktion kautta.
+3. **Oikeuksien vähentäminen on aina sallittua.** Kutsuttu voi käyttää vähemmän
+   oikeuksia kuin kutsuja myönsi.
+
+## CPI-suorituskulku
+
+CPI kulkee useiden runtime-kerrosten läpi. Tämä osio dokumentoi koko putkilinjan
+ohjelman SDK-kutsusta syscall-rajan yli runtimeen ja takaisin. Jokainen vaihe
+viittaa sen toteuttavaan lähdetiedostoon.
+
+<Callout>
+  Ohjelman käskyn kutsun maksimikorkeus on nimeltään
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  ja se on asetettu
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  -vakioon arvoon 5. Kun [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) on aktiivinen, tämä kasvaa arvoon 9.
+
+Pinosyvyys 1 on alkuperäinen transaktio-ohje. Jokainen CPI kasvattaa syvyyttä
+yhdellä. Maksimi 5 tarkoittaa, että ohjelma voi tehdä CPI-kutsuja jopa 4 tasoa
+syvälle (8 tasoa syvälle SIMD-0268:n kanssa).
+
+</Callout>
+
+### Vaihe 1: Ohjelma kutsuu `invoke`- tai `invoke_signed`-funktiota
+
+Ohjelma kutsuu
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+-funktiota tai
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)
+-funktiota. _rs`invoke`_ on ohut wrapper, joka kutsuu
+_rs`invoke_signed`_-funktiota tyhjällä allekirjoittajan siemen-taulukolla.
+SDK-funktio serialisoi _rs`Instruction`_-rakenteen, _rs`AccountInfo`_-taulukon
+ja allekirjoittajan siemenet VM-muistiin ja laukaisee sitten syscall-kutsun.
+
+### Vaihe 2: Syscall-sisääntulo
+
+SBF VM ohjaa
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+-syscall-käsittelijälle, joka kutsuu jaettua sisääntulopistettä:
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
+
+### Vaihe 3: Kutsukustannuksen kuluttaminen
+
+Ensimmäinen toiminto _rs`cpi_common`_-funktion sisällä on
+[kiinteän kutsukustannuksen veloittaminen](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+jaetusta laskentamittarista:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1 000 CU:ta (tai 946 CU:ta SIMD-0339:n kanssa).
+
+### Vaihe 4: Käskyn kääntäminen VM-muistista
+
+Syscall-käsittelijä kääntää käskyn ohjelman VM-osoiteavaruudesta isäntäpuolen
+Rust-tyyppeihin
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590)-funktion
+kautta, joka lukee _rs`StableInstruction`_-rakenteen, validoi datan pituuden
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)-arvoa
+vasten (10 240 tavua) ja veloittaa sitten
+[datan serialisointikustannuksen](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).
+
+### Vaihe 5: Allekirjoittaja-seedien kääntäminen ja PDA:iden johdattaminen
+
+Käsittelijä kutsuu
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)-funktiota.
+Jokaiselle allekirjoittaja-seedien joukolle runtime:
+
+1. Tarkistaa allekirjoittaja-seed-joukkojen määrän
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)-arvoa
+   vasten (16).
+2. Tarkistaa kunkin seed-joukon pituuden
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)-arvoa
+   vasten (16 seedia per joukko).
+3. Kutsuu
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)-funktiota
+   sedeillä ja **kutsujan** ohjelma-ID:llä. Jos seedit eivät tuota kelvollista
+   PDA:ta, CPI epäonnistuu
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)-virheellä.
+4. Kerää tuloksena saadut PDA-pubkeyit `signers`-vektoriin.
+
+Näitä johdettuja PDA:ita käsitellään kelvollisin allekirjoittajina kutsuttavalle
+käskylle.
+
+### Vaihe 6: Valtuutetun ohjelman tarkistus
+
+Ennen jatkamista runtime kutsuu
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)-funktiota
+varmistaakseen, että kohdeohjelma on sallittu CPI:lle. Seuraavat ohjelmat on
+estetty:
+
+- Native loader
+- `bpf_loader` ja `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (paitsi tietyt hallintakäskyt: `upgrade`,
+  `set_authority`, `set_authority_checked` (feature-gated),
+  `extend_program_checked` (feature-gated), `close`)
+- Precompile-ohjelmat (ed25519, secp256k1 jne.)
+
+Rikkomus palauttaa
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55)-virheen.
+
+### Vaihe 7: Oikeuksien varmennus (`prepare_next_instruction`)
+
+Runtime kutsuu
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)-funktiota,
+joka rakentaa kutsuttavan _rs`InstructionAccount`_-listan ja valvoo
+oikeussääntöjä. Katso täydellinen päätöstaulukko kohdasta
+[Oikeussäännöt](#privilege-rules).
+
+### Vaihe 8: Tilitietojen kääntäminen
+
+Käsittelijä kutsuu `translate_accounts`-funktiota, joka:
+
+1. [Validoi tilitietojen määrän](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   verrattuna _rs`MAX_CPI_ACCOUNT_INFOS`_-arvoon (128 tai 255 SIMD-0339:n
+   kanssa).
+2. [Veloittaa tilitietojen käännöskustannuksen](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (vain SIMD-0339): `(num_account_infos * 80) / 250` CU:ta.
+3. Rakentaa jokaiselle ei-suoritettavalle, ei-duplikaattitilille
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)-rakenteen
+   kääntämällä osoittimet VM-muistista isäntämuistiin. Tämä sisältää
+   [tilikohtaisen datan serialisointikustannuksen veloituksen](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374):
+   `account_data_len / cpi_bytes_per_unit` CU:ta.
+
+### Vaihe 9: CPI:tä edeltävä tilisynkronointi (kutsujalta kutsuttavalle)
+
+Ennen kutsuttavan suorittamista ajonaikaympäristö synkronoi kutsujan
+tilimuutokset, jotta kutsuttava voi nähdä ne. Funktio
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+kutsutaan jokaiselle käännetylle tilille, kopioimalla lamportit, datan ja
+omistajan. Katso
+[tilidata-synkronointi](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+yksityiskohtaista kenttien kartoitusta varten.
+
+### Vaihe 10: Käskykontekstin lisääminen, kutsuttavan suoritus ja poisto
+
+Ajonaikaympäristö kutsuu
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)-funktiota,
+joka:
+
+1. Kutsuu
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)-funktiota
+   lisätäkseen uuden kehyksen käskypinoon. _rs`push()`_ valvoo
+   [uudelleensisääntulosääntöä](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259):
+   ohjelma voi kutsua itseään vain, jos se on suora kutsuja (eli ohjelma A voi
+   kutsua A:ta, mutta A ei voi kutsua B:tä, joka kutsuu A:ta). Rikkomus
+   palauttaa _rs`ReentrancyNotAllowed`_-virheen.
+2. Kutsuu
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)-funktiota,
+   joka selvittää kutsuttavan ohjelman tulokohtaan ja kutsuu sitä. Kutsuttava
+   suoritetaan samalla jaetulla laskentamittarilla. Kaikki kutsuttavan
+   CU-kulutus vähentää kutsujan jäljellä olevaa budjettia.
+3. Kutsuu
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)-funktiota
+   poistaakseen kutsuttavan kehyksen ja varmistaakseen, että lamport-saldot ovat
+   muuttumattomat (_rs`UnbalancedInstruction`_, jos eivät ole).
+
+### Vaihe 11: CPI:n jälkeinen tilisynkronointi (kutsuttavalta kutsujalle)
+
+Kun `process_instruction` palaa (mikä sisältää poiston), ajonaikaympäristö
+synkronoi muutokset takaisin kutsujalle
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)-funktion
+kautta jokaiselle kirjoitettavalle tilille. Lisäksi
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+päivittää VM-muistialueiden kartoitukset tileille, joiden data-alueet
+muuttuivat. Katso
+[tilidata-synkronointi](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+yksityiskohtaista kenttien kartoitusta varten.
+
+CPI-systeemikutsu palauttaa `0` (onnistuminen) kutsuvalle ohjelmalle.

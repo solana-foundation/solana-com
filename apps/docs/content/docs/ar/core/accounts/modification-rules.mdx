@@ -1,0 +1,90 @@
+---
+title: قواعد التعديل
+description:
+  قواعد مفروضة في وقت التشغيل لتعديل lamports حساب سولانا، البيانات، المالك،
+  علامة قابل للتنفيذ، ودلالات الاستعارة.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="ملخص">
+  عمليات فحص وقت التشغيل بعد كل تعليمة: المالك فقط يمكنه خصم lamports أو تعديل
+  البيانات، يمكن للبيانات أن تنمو بحد أقصى 10 كيلوبايت لكل تعليمة، تغييرات
+  المالك تتطلب بيانات مهيأة بالصفر، وعلامة قابل للتنفيذ غير قابلة للإلغاء.
+</Callout>
+
+يفرض وقت تشغيل سولانا هذه القواعد بعد تنفيذ كل تعليمة عبر طرق
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727).
+يتم فحص كل قاعدة عند نقطة التعديل، ويتم التراجع عن المعاملة إذا فشل أي فحص.
+
+## قواعد lamports
+
+| القاعدة                                                | الإنفاذ                                                                                                                                                                                                             | الخطأ                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| المالك فقط يمكنه خصم lamports                          | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): يفحص `is_owned_by_current_program()` عندما `lamports < current`                                         | `ExternalAccountLamportSpend` |
+| الحسابات للقراءة فقط لا يمكن تغيير lamports الخاصة بها | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): يفحص `is_writable()`                                                                                    | `ReadonlyLamportChange`       |
+| أي برنامج يمكنه إضافة lamports إلى حساب قابل للكتابة   | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): فحص الملكية ينطبق فقط عندما يكون الرصيد الجديد أقل من الرصيد الحالي؛ فحص القابلية للكتابة لا يزال ينطبق | `ReadonlyLamportChange`       |
+| يجب أن تتوازن lamports عبر التعليمة                    | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): يتحقق من `get_lamports_delta() == 0`                                                         | `UnbalancedInstruction`       |
+
+## قواعد البيانات
+
+| القاعدة                                     | الإنفاذ                                                                                                                                                                                                                          | الخطأ                                |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| المالك فقط يمكنه تعديل البيانات             | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): يفحص `is_owned_by_current_program()`                                                                        | `ExternalAccountDataModified`        |
+| الحسابات للقراءة فقط لا يمكن تعديل بياناتها | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): يفحص `is_writable()`                                                                                        | `ReadonlyDataModified`               |
+| المالك فقط يمكنه تغيير حجم البيانات         | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): يفحص `is_owned_by_current_program()` عندما `new_len != old_len`                                             | `AccountDataSizeChanged`             |
+| الحد الأقصى لحجم البيانات: 10 ميجابايت      | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): يفحص `new_len <= MAX_ACCOUNT_DATA_LEN`                                  | `InvalidRealloc`                     |
+| الحد الأقصى للنمو لكل تعليمة: 10 كيلوبايت   | إلغاء التسلسل في [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): يفحص `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                    | `InvalidRealloc`                     |
+| الحد الأقصى للنمو لكل معاملة: 20 ميجابايت   | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): يفحص التراكمي `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## قواعد المالك
+
+| القاعدة                                    | التطبيق                                                                                                                                           | الخطأ               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| المالك الحالي فقط يمكنه إعادة تعيين المالك | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): يتحقق من `is_owned_by_current_program()` | `ModifiedProgramId` |
+| يجب أن يكون الحساب قابلاً للكتابة          | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): يتحقق من `is_writable()`                 | `ModifiedProgramId` |
+| يجب أن تكون البيانات مهيأة بالصفر          | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): يتحقق من `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## قواعد علامة القابلية للتنفيذ
+
+| القاعدة                            | التطبيق                                                                                                                                                     | الخطأ                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| يجب أن يكون الحساب معفى من الإيجار | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): يتحقق من `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| المالك فقط يمكنه تعيين العلامة     | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): يتحقق من `is_owned_by_current_program()`      | `ExecutableModified`             |
+| يجب أن يكون الحساب قابلاً للكتابة  | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): يتحقق من `is_writable()`                      | `ExecutableModified`             |
+
+## تحولات حالة الإيجار
+
+تتواجد الحسابات في واحدة من ثلاث قيم
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30):
+_rs`Uninitialized`_ (0 lamports)، _rs`RentPaying`_ (أعلى من 0 ولكن أقل من الحد
+الأدنى للإعفاء من الإيجار)، و _rs`RentExempt`_ (عند الحد الأدنى أو أعلى منه).
+التحولات غير المسموح بها تنتج _rs`TransactionError::InsufficientFundsForRent`_.
+
+يطبق وقت التشغيل هذه القواعد عبر
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- يمكن لأي حساب الانتقال إلى _rs`Uninitialized`_ (إغلاق) أو _rs`RentExempt`_.
+- لا يمكن لأي حساب الدخول إلى _rs`RentPaying`_ من _rs`Uninitialized`_ أو
+  _rs`RentExempt`_. يجب أن تكون جميع الحسابات الجديدة معفاة من الإيجار.
+
+## قواعد استعارة الحساب
+
+أثناء تنفيذ التعليمات، يطبق وقت التشغيل دلالات استعارة الكاتب الواحد على
+الحسابات. يمكن للبرنامج الحصول على مرجع قابل للتعديل واحد أو عدة مراجع غير قابلة
+للتعديل لحساب، ولكن ليس كليهما في نفس الوقت. إذا حاول برنامج استعارة حساب مستعار
+بالفعل بشكل قابل للتعديل (أو استعارة حساب بشكل قابل للتعديل مستعار بالفعل بشكل
+غير قابل للتعديل)، تفشل التعليمة مع _rs`AccountBorrowFailed`_ عبر
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+و
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+إذا اكتملت تعليمة بينما لا تزال الاستعارة قائمة، يعيد وقت التشغيل
+_rs`AccountBorrowOutstanding`_ في
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).

@@ -12,6 +12,8 @@ export type WhatIsItProps = {
   description: React.ReactNode;
   highlightColor?: string;
   imageSrc?: string;
+  ctaButton?: string;
+  ctaButtonHref?: string;
 };
 
 /**
@@ -36,6 +38,8 @@ export const WhatIsIt = ({
   description,
   highlightColor,
   imageSrc,
+  ctaButton,
+  ctaButtonHref,
 }: WhatIsItProps) => {
   const id = useId();
   const { ref } = useScrollTextHighlight<HTMLParagraphElement>({
@@ -159,6 +163,18 @@ export const WhatIsIt = ({
             >
               {description}
             </p>
+            {ctaButton && ctaButtonHref && (
+              <div className="mt-6 xl:mt-8">
+                <a
+                  href={ctaButtonHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center rounded-full bg-white text-black px-5 py-2.5 text-base md:text-lg font-medium hover:bg-white/90 transition-colors tracking-[-0.16px] md:tracking-[-0.18px]"
+                >
+                  {ctaButton}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

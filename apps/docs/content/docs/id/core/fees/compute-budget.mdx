@@ -1,0 +1,213 @@
+---
+title: Anggaran komputasi
+description:
+  Batas unit komputasi, varian ComputeBudgetInstruction, model biaya penjadwal,
+  batas blok, dan konstanta anggaran eksekusi di Solana.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="Ringkasan">
+  Default 200K CU per instruksi, maksimal 1,4M per transaksi. Gunakan instruksi
+  `SetComputeUnitLimit` dan `SetComputeUnitPrice` untuk optimasi. Biaya
+  prioritas didasarkan pada CU yang diminta, bukan penggunaan aktual.
+</Callout>
+
+## Batas unit komputasi
+
+Setiap instruksi dialokasikan
+[default 200.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44),
+dan setiap transaksi dibatasi pada
+[1.400.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+Ketika tidak ada instruksi _rs`SetComputeUnitLimit`_ eksplisit, maka
+[default dihitung](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+berdasarkan jenis instruksi:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Instruksi builtin** (System Program, Stake, Vote, dll. yang belum
+  dimigrasikan ke SBF): masing-masing dialokasikan
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3.000 CU (sesuai
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **Instruksi non-builtin** (program SBF yang di-deploy pengguna): masing-masing
+  dialokasikan
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200.000 CU.
+- **Builtin yang sedang migrasi** yang telah menyelesaikan migrasi ke SBF
+  (feature-gated): diperlakukan sebagai non-builtin (200.000 CU masing-masing).
+
+Hasilnya dibatasi pada _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1.400.000).
+
+Anda dapat mengganti default ini dengan menyertakan instruksi
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+dalam transaksi Anda.
+
+Untuk menentukan batas CU yang sesuai:
+
+1. Simulasikan transaksi untuk mengukur konsumsi CU.
+2. Tambahkan margin keamanan 10% pada nilai hasil simulasi.
+
+<Callout type="warn">
+  Biaya prioritas ditentukan oleh batas unit komputasi yang diminta pada
+  transaksi, *bukan* jumlah unit komputasi yang benar-benar digunakan. Jika Anda
+  menetapkan batas unit komputasi yang terlalu tinggi atau menggunakan jumlah
+  default, Anda membayar untuk unit komputasi yang tidak terpakai.
+</Callout>
+
+## Instruksi compute budget
+
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) memiliki empat instruksi.
+
+| Varian                           | Diskriminator | Parameter        | Tipe  | Deskripsi                                                                |
+| -------------------------------- | ------------- | ---------------- | ----- | ------------------------------------------------------------------------ |
+| `RequestHeapFrame`               | `1`           | `bytes`          | `u32` | Ukuran heap yang diminta dalam byte untuk setiap program dalam transaksi |
+| `SetComputeUnitLimit`            | `2`           | `units`          | `u32` | CU maksimum yang dapat dikonsumsi transaksi                              |
+| `SetComputeUnitPrice`            | `3`           | `micro_lamports` | `u64` | Harga CU dalam micro-lamport                                             |
+| `SetLoadedAccountsDataSizeLimit` | `4`           | `bytes`          | `u32` | Total byte maksimum data akun yang dapat dimuat transaksi                |
+
+[Sumber: enum `ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### Batasan dan kondisi error
+
+Aturan berikut berlaku saat
+[memproses instruksi compute budget](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **Satu per tipe**: hanya satu dari setiap varian instruksi yang diizinkan per
+  transaksi. Menyertakan duplikat menyebabkan error _rs`DuplicateInstruction`_
+  (seluruh transaksi gagal).
+- **`RequestHeapFrame`**: nilai harus antara
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) dan
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB), dan harus merupakan
+  [kelipatan 1.024](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  Jika tidak, transaksi gagal dengan _rs`InvalidInstructionData`_. Ukuran heap
+  berlaku untuk setiap program yang dipanggil dalam transaksi (termasuk CPI).
+- **`SetComputeUnitLimit`**: nilai `u32` apa pun diterima. Batas efektif
+  dibatasi hingga
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1.400.000).
+- **`SetComputeUnitPrice`**: nilai `u64` apa pun diterima (0 hingga `u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: nilai harus lebih besar dari 0
+  (`NonZeroU32`). Nilai 0 menyebabkan
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141).
+  Batas efektif dibatasi hingga
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB).
+- **Data tidak dikenali**: instruksi apa pun yang dikirim ke Compute Budget
+  Program yang tidak dapat di-deserialisasi menjadi varian yang dikenal gagal
+  dengan _rs`InvalidInstructionData`_.
+
+<Callout>
+  Model biaya scheduler di bawah ini menjelaskan estimasi biaya pra-eksekusi
+  internal validator. Sebagian besar developer hanya memerlukan instruksi
+  compute budget di atas.
+</Callout>
+
+## Model biaya scheduler
+
+[Scheduler](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+validator menggunakan
+[model biaya](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+untuk memperkirakan penggunaan sumber daya transaksi **sebelum eksekusi**.
+Estimasi biaya pra-eksekusi ini menentukan apakah suatu transaksi sesuai dengan
+kapasitas blok yang tersisa. Ini terpisah dari pengukuran CU yang terjadi selama
+eksekusi.
+
+Total biaya scheduler adalah jumlah dari lima komponen
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Komponen biaya
+
+| Komponen                                                                                                               | Deskripsi                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| [**Biaya signature**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)            | Biaya per signature untuk setiap jenis signature |
+| [**Biaya write lock**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)           | Per akun yang dapat ditulis                      |
+| [**Biaya instruction data**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)     | Berdasarkan total byte instruction data          |
+| [**Biaya eksekusi program**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)     | Batas CU dari compute budget atau default        |
+| [**Biaya loaded accounts data**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | Berdasarkan total ukuran loaded account data     |
+
+Semua nilai dalam compute unit.
+
+### Konstanta biaya scheduler
+
+| Konstanta                                                                                                              | Nilai    |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6.690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2.280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2.400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4.800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### Biaya transaksi vote
+
+Transaksi vote menggunakan
+[biaya statis sebesar 3.428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+terlepas dari konten aktualnya.
+
+### Batas blok
+
+Scheduler memberlakukan batas per blok. Jika menambahkan transaksi akan melebihi
+batas apa pun, transaksi tersebut tidak akan disertakan dalam blok.
+
+| Batas                                                                                                                         | Nilai      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60.000.000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12.000.000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36.000.000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  mengusulkan peningkatan _rs`MAX_BLOCK_UNITS`_ menjadi 100.000.000.
+</Callout>
+
+## Konstanta budget eksekusi
+
+Konstanta berikut dari
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+mendefinisikan batas runtime selama eksekusi transaksi:
+
+| Konstanta                                                                                                                                | Nilai      | Deskripsi                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1.400.000  | Batas CU maksimum per transaksi                                       |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200.000    | CU default per instruksi non-builtin                                  |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3.000      | CU default per instruksi builtin (SIMD-0170)                          |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU       | Biaya per halaman heap 32 KiB                                         |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1.000 CU   | Biaya satu pemanggilan CPI                                            |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU     | Biaya pemanggilan CPI dengan SIMD-0339                                |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32.768     | Ukuran heap minimum (32 KiB)                                          |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262.144    | Ukuran heap maksimum (256 KiB)                                        |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67.108.864 | Data akun maksimum yang dimuat per transaksi (64 MiB)                 |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5          | Kedalaman stack instruksi maksimum (top-level + CPI)                  |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9          | Kedalaman stack instruksi maksimum (top-level + CPI) dengan SIMD-0268 |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64         | Kedalaman pemanggilan SBF-ke-SBF maksimum dalam program               |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4.096 byte | Ukuran satu stack frame SBF                                           |

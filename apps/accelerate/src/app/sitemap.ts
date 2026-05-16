@@ -1,13 +1,16 @@
 import { MetadataRoute } from "next";
 import { config } from "@@/src/config";
-
+import sitemapRoutes from "./sitemap-routes.json";
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: config.siteUrl,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-  ];
+  return (
+    sitemapRoutes as {
+      path: string;
+      changeFrequency?: MetadataRoute.Sitemap[number]["changeFrequency"];
+      priority?: number;
+    }[]
+  ).map(({ path, changeFrequency, priority }) => ({
+    url: `${config.siteUrl}${path}`,
+    changeFrequency,
+    priority,
+  }));
 }

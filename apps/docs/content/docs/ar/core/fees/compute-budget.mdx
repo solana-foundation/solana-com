@@ -1,0 +1,208 @@
+---
+title: ميزانية الحوسبة
+description:
+  حدود وحدات الحوسبة، أشكال ComputeBudgetInstruction، نموذج تكلفة المجدول، حدود
+  الكتلة، وثوابت ميزانية التنفيذ على سولانا.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="ملخص">
+  الافتراضي 200 ألف وحدة حوسبة لكل تعليمة، بحد أقصى 1.4 مليون لكل معاملة. استخدم
+  تعليمات `SetComputeUnitLimit` و `SetComputeUnitPrice` للتحسين. تعتمد رسوم
+  الأولوية على وحدات الحوسبة المطلوبة، وليس الاستخدام الفعلي.
+</Callout>
+
+## حد وحدات الحوسبة
+
+يتم تخصيص
+[افتراضي 200,000 وحدة حوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+لكل تعليمة، ويتم تحديد كل معاملة بحد أقصى
+[1,400,000 وحدة حوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+عندما لا تكون هناك تعليمة _rs`SetComputeUnitLimit`_ صريحة،
+[يتم حساب الافتراضي](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+بناءً على نوع التعليمة:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **التعليمات المدمجة** (System Program، Stake، Vote، إلخ. التي لم يتم ترحيلها
+  إلى SBF): يتم تخصيص
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3,000 وحدة حوسبة لكل منها (وفقًا لـ
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **التعليمات غير المدمجة** (برامج SBF المنشورة من قبل المستخدم): يتم تخصيص
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200,000 وحدة حوسبة لكل منها.
+- **البرامج المدمجة قيد الترحيل** التي أكملت الترحيل إلى SBF (محكومة بميزة):
+  تُعامل كبرامج غير مدمجة (200,000 وحدة حوسبة لكل منها).
+
+يتم تقييد النتيجة إلى _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1,400,000).
+
+يمكنك تجاوز هذا الافتراضي من خلال تضمين تعليمة
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+في معاملتك.
+
+لتحديد حد وحدات الحوسبة المناسب:
+
+1. محاكاة المعاملة لقياس استهلاك وحدات الحوسبة.
+2. إضافة هامش أمان بنسبة 10% إلى القيمة المحاكاة.
+
+<Callout type="warn">
+  يتم تحديد رسوم الأولوية بناءً على حد وحدات الحوسبة المطلوب في المعاملة، *وليس*
+  عدد وحدات الحوسبة المستخدمة فعليًا. إذا قمت بتعيين حد وحدات حوسبة مرتفع جدًا
+  أو استخدمت المقدار الافتراضي، فإنك تدفع مقابل وحدات الحوسبة غير المستخدمة.
+</Callout>
+
+## تعليمات ميزانية الحوسبة
+
+يحتوي
+[برنامج ميزانية الحوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) على أربع تعليمات.
+
+| المتغير                          | المميز | المعامل          | النوع | الوصف                                                            |
+| -------------------------------- | ------ | ---------------- | ----- | ---------------------------------------------------------------- |
+| `RequestHeapFrame`               | `1`    | `bytes`          | `u32` | حجم الذاكرة المطلوب بالبايتات لكل برنامج في المعاملة             |
+| `SetComputeUnitLimit`            | `2`    | `units`          | `u32` | الحد الأقصى لوحدات الحوسبة التي قد تستهلكها المعاملة             |
+| `SetComputeUnitPrice`            | `3`    | `micro_lamports` | `u64` | سعر وحدة الحوسبة بالميكرو لامبورت                                |
+| `SetLoadedAccountsDataSizeLimit` | `4`    | `bytes`          | `u32` | الحد الأقصى لإجمالي بايتات بيانات الحساب التي قد تحملها المعاملة |
+
+[المصدر: `ComputeBudgetInstruction` enum](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### القيود وشروط الخطأ
+
+تنطبق القواعد التالية عند
+[معالجة تعليمات ميزانية الحوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **واحد لكل نوع**: يُسمح بمتغير واحد فقط من كل تعليمة لكل معاملة. يؤدي تضمين
+  نسخ مكررة إلى خطأ _rs`DuplicateInstruction`_ (تفشل المعاملة بأكملها).
+- **`RequestHeapFrame`**: يجب أن تكون القيمة بين
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 كيلوبايت) و
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 كيلوبايت)، ويجب أن تكون
+  [مضاعفاً للعدد 1,024](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  وإلا تفشل المعاملة مع _rs`InvalidInstructionData`_. ينطبق حجم الذاكرة على كل
+  برنامج يتم استدعاؤه في المعاملة (بما في ذلك CPIs).
+- **`SetComputeUnitLimit`**: يتم قبول أي قيمة `u32`. يتم تقييد الحد الفعلي إلى
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1,400,000).
+- **`SetComputeUnitPrice`**: يتم قبول أي قيمة `u64` (من 0 إلى `u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: يجب أن تكون القيمة أكبر من 0
+  (`NonZeroU32`). تتسبب القيمة 0 في
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141).
+  يتم تقييد الحد الفعلي إلى
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 ميجابايت).
+- **بيانات غير معروفة**: أي تعليمة يتم إرسالها إلى برنامج ميزانية الحوسبة ولا
+  يمكن إلغاء تسلسلها إلى متغير معروف تفشل مع _rs`InvalidInstructionData`_.
+
+<Callout>
+  يصف نموذج تكلفة المجدول أدناه تقدير التكلفة الداخلي للمدقق قبل التنفيذ. معظم
+  المطورين يحتاجون فقط إلى تعليمات ميزانية الحوسبة أعلاه.
+</Callout>
+
+## نموذج تكلفة المجدول
+
+يستخدم
+[المجدول](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+الخاص بالمدقق
+[نموذج تكلفة](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+لتقدير استخدام موارد المعاملة **قبل التنفيذ**. تحدد تقديرات التكلفة هذه قبل
+التنفيذ ما إذا كانت المعاملة تتناسب مع السعة المتبقية للكتلة. وهي منفصلة عن قياس
+وحدات الحوسبة الذي يحدث أثناء التنفيذ.
+
+إجمالي تكلفة المجدول هو مجموع خمسة مكونات
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### مكونات التكلفة
+
+| المكون                                                                                                                    | الوصف                                            |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| [**تكلفة التوقيع**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)                 | التكلفة لكل توقيع حسب نوع التوقيع                |
+| [**تكلفة قفل الكتابة**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)             | لكل حساب قابل للكتابة                            |
+| [**تكلفة بيانات التعليمات**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)        | بناءً على إجمالي بايتات بيانات التعليمات         |
+| [**تكلفة تنفيذ البرامج**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)           | حد وحدات الحوسبة من ميزانية الحوسبة أو الافتراضي |
+| [**تكلفة بيانات الحسابات المحملة**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | بناءً على إجمالي حجم بيانات الحسابات المحملة     |
+
+جميع القيم بوحدات الحوسبة.
+
+### ثوابت تكلفة المجدول
+
+| الثابت                                                                                                                 | القيمة           |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30               |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 وحدة حوسبة   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6,690 وحدة حوسبة |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2,280 وحدة حوسبة |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2,400 وحدة حوسبة |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4,800 وحدة حوسبة |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 وحدة حوسبة   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4                |
+
+### تكلفة معاملة التصويت
+
+تستخدم معاملات التصويت
+[تكلفة ثابتة قدرها 3,428 وحدة حوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+بغض النظر عن محتواها الفعلي.
+
+### حدود الكتلة
+
+يفرض المجدول حدودًا لكل كتلة. إذا كانت إضافة معاملة ستتجاوز أي حد، فلن يتم
+تضمينها في الكتلة.
+
+| الحد                                                                                                                          | القيمة       |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000   |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000   |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000   |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 ميجابايت |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  يقترح زيادة _`MAX_BLOCK_UNITS`_ إلى 100,000,000.
+</Callout>
+
+## ثوابت ميزانية التنفيذ
+
+الثوابت التالية من
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+تحدد حدود وقت التشغيل أثناء تنفيذ المعاملة:
+
+| الثابت                                                                                                                                   | القيمة          | الوصف                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000       | الحد الأقصى لوحدات الحساب لكل معاملة                                 |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000         | وحدات الحساب الافتراضية لكل تعليمة غير مدمجة                         |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000           | وحدات الحساب الافتراضية لكل تعليمة مدمجة (SIMD-0170)                 |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 وحدات حساب    | التكلفة لكل صفحة ذاكرة مؤقتة بحجم 32 كيلوبايت                        |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 وحدة حساب | تكلفة استدعاء CPI واحد                                               |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 وحدة حساب   | تكلفة استدعاء CPI مع SIMD-0339                                       |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768          | الحد الأدنى لحجم الذاكرة المؤقتة (32 كيلوبايت)                       |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144         | الحد الأقصى لحجم الذاكرة المؤقتة (256 كيلوبايت)                      |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864      | الحد الأقصى لبيانات الحساب المحملة لكل معاملة (64 ميجابايت)          |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5               | الحد الأقصى لعمق مكدس التعليمات (المستوى الأعلى + CPIs)              |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9               | الحد الأقصى لعمق مكدس التعليمات (المستوى الأعلى + CPIs) مع SIMD-0268 |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64              | الحد الأقصى لعمق استدعاء SBF-to-SBF داخل البرنامج                    |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096 بايت      | حجم إطار مكدس SBF واحد                                               |

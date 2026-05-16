@@ -15,7 +15,7 @@ module.exports = {
           "Space Grotesk",
           "sans-serif",
         ],
-        diatype: ["ABC Diatype", "Inter", "sans-serif"],
+        diatype: ["var(--font-diatype)", "ABC Diatype", "sans-serif"],
         brand: ["Diatype", "sans-serif"],
         mono: ["ABCFavoritMono", "monospace"],
       },
@@ -99,7 +99,7 @@ module.exports = {
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "accelerate-gradient":
-          "linear-gradient(135deg, #9945FF 0%, #14F195 50%, #00D4FF 100%)",
+          "linear-gradient(135deg, #9945FF 0%, #19FB9B 50%, #00D4FF 100%)",
         "accelerate-cta": "linear-gradient(to right, #9945FF, #19FB9B)",
       },
       spacing: {

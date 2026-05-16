@@ -1,4 +1,7 @@
-import Carousel, { CarouselControls } from "@/component-library/carousel";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { Container } from "./container";
@@ -40,7 +43,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
   cta,
   ctaHref,
 }) => {
-  const carouselRef = useRef(null);
+  const carouselRef = useRef<CarouselHandle>(null);
   const isTablet = useMediaQuery("(min-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1280px)");
   const isDesktop2xl = useMediaQuery("(min-width: 1440px)");
@@ -57,20 +60,20 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
       className={cn("relative overflow-hidden text-white text-left", className)}
     >
       <div className={cn("py-10", wrapperClassName)}>
-        <Container className="mb-twd-8 xl:mb-twd-12 flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
+        <Container className="mb-8 xl:mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           {(title || subtitle) && (
             // Title and subtitle
             <div className="max-w-xl">
               {title && <h2 className="nd-heading-l">{title}</h2>}
               {subtitle && (
-                <p className="text-nd-mid-em-text nd-body-xl max-xl:mt-twd-3 xl:mt-twd-5">
+                <p className="text-nd-mid-em-text nd-body-xl max-xl:mt-3 xl:mt-5">
                   {subtitle}
                 </p>
               )}
             </div>
           )}
           {totalItems > 1 || cta ? (
-            <div className="flex gap-twd-3 items-center">
+            <div className="flex gap-3 items-center">
               {/** CTA */}
               {cta && ctaHref && (
                 <Button
@@ -107,7 +110,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
               panels={1}
               enableSwipe={true}
               className={cn(
-                "!m-twd-0 [&>div]:!overflow-visible [&>div]:!p-twd-0",
+                "!m-0 [&>div]:!overflow-visible [&>div]:!p-0",
                 cardWidthClassName,
                 containerClassName,
               )}
@@ -121,10 +124,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
         ) : (
           // Already stacks on mobile, no change needed
           <Container
-            className={cn(
-              "flex flex-col gap-twd-4 xl:gap-twd-8",
-              containerClassName,
-            )}
+            className={cn("flex flex-col gap-4 xl:gap-8", containerClassName)}
           >
             {children}
           </Container>

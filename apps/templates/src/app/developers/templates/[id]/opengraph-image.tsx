@@ -119,111 +119,109 @@ export default async function Image({
   const keywords = generateKeywords(id);
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        background: "#0a0a0a",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        padding: "60px",
+      }}
+    >
       <div
         style={{
-          background: "#0a0a0a",
-          width: "100%",
-          height: "100%",
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 30% 30%, rgba(20, 241, 149, 0.08) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(153, 69, 255, 0.08) 0%, transparent 50%)",
+        }}
+      />
+
+      <div
+        style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          position: "relative",
-          padding: "60px",
+          gap: "40px",
+          maxWidth: "1000px",
+          width: "100%",
+          textAlign: "center",
         }}
       >
-        <div
+        <h1
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(circle at 30% 30%, rgba(20, 241, 149, 0.08) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(153, 69, 255, 0.08) 0%, transparent 50%)",
+            fontSize: "72px",
+            fontWeight: "700",
+            fontFamily:
+              'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+            margin: 0,
+            padding: "20px 0",
+            backgroundImage:
+              "linear-gradient(135deg, #9945FF 0%, #14F195 100%)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            color: "transparent",
+            display: "flex",
           }}
-        />
+        >
+          {displayName}
+        </h1>
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "40px",
-            maxWidth: "1000px",
+            gap: "12px",
             width: "100%",
-            textAlign: "center",
+            alignItems: "center",
           }}
         >
-          <h1
+          <p
             style={{
-              fontSize: "72px",
-              fontWeight: "700",
-              fontFamily:
-                'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              letterSpacing: "-0.03em",
-              lineHeight: 1,
+              fontSize: "28px",
+              color: "#e2e8f0",
               margin: 0,
-              padding: "20px 0",
-              backgroundImage:
-                "linear-gradient(135deg, #9945FF 0%, #14F195 100%)",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              color: "transparent",
-              display: "flex",
+              maxWidth: "800px",
+              lineHeight: 1.4,
             }}
           >
-            {displayName}
-          </h1>
+            {description}
+          </p>
 
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
+              flexWrap: "wrap",
               gap: "12px",
-              width: "100%",
-              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <p
-              style={{
-                fontSize: "28px",
-                color: "#e2e8f0",
-                margin: 0,
-                maxWidth: "800px",
-                lineHeight: 1.4,
-              }}
-            >
-              {description}
-            </p>
-
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "12px",
-                justifyContent: "center",
-              }}
-            >
-              {keywords.slice(0, 6).map((keyword) => (
-                <span
-                  key={keyword}
-                  style={{
-                    fontSize: "18px",
-                    color: "#94a3b8",
-                    background: "rgba(255, 255, 255, 0.06)",
-                    padding: "8px 14px",
-                    borderRadius: "999px",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                  }}
-                >
-                  {keyword}
-                </span>
-              ))}
-            </div>
+            {keywords.slice(0, 6).map((keyword) => (
+              <span
+                key={keyword}
+                style={{
+                  fontSize: "18px",
+                  color: "#94a3b8",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  padding: "8px 14px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                {keyword}
+              </span>
+            ))}
           </div>
         </div>
       </div>
-    ),
+    </div>,
     {
       ...size,
       headers: {

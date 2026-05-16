@@ -1,34 +1,41 @@
-import { PostConnectionEdges } from "@/tina/__generated__/types";
-import { PostItem } from "./post-types";
-import { format } from "date-fns";
+import { PostItem, ContentDocument } from "./post-types";
+import { formatPublishedAt } from "./keystatic/publishing";
 
-// Helper function to transform post data
-export function transformPost(postData: PostConnectionEdges): PostItem | null {
-  const post = postData?.node;
-  if (!post) return null;
+// Type for post data from Keystatic reader
+export interface PostData {
+  slug: string;
+  title: string;
+  publishedAt: string | null;
+  description: ContentDocument;
+  heroImage: string | null;
+  author: string | null;
+  tags: readonly string[] | null;
+  categories: readonly string[] | null;
+}
 
-  const date = post.date ? new Date(post.date) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+// Helper function to transform post data from Keystatic format
+export function transformPost(
+  postData: PostData,
+  resolvedAuthor?: { name: string; avatar: string | null } | null,
+  resolvedTags?: string[],
+  resolvedCategories?: string[],
+): PostItem {
+  const formattedDate = formatPublishedAt(postData.publishedAt);
 
   return {
-    id: post.id,
+    id: postData.slug,
     published: formattedDate,
-    title: post.title,
-    tags:
-      post.tags
-        ?.map((tag) => tag?.tag?.name)
-        .filter((name): name is string => name !== undefined) || [],
-    categories:
-      post.categories?.map((category) => category?.category?.name) || [],
-    url: `/news/${post._sys?.breadcrumbs?.join("/") || ""}`,
-    description: post.description,
+    publishedAt: postData.publishedAt,
+    title: postData.title,
+    tags: resolvedTags || [],
+    categories: resolvedCategories || [],
+    url: `/news/${postData.slug}`,
+    description: postData.description,
     heroImage:
-      post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
+      postData.heroImage || "/media-assets/uploads/posts/default-blog.webp",
     author: {
-      name: post.author?.name || "Solana Foundation",
-      avatar: post.author?.avatar,
+      name: resolvedAuthor?.name || "Solana Foundation",
+      avatar: resolvedAuthor?.avatar || null,
     },
-    cursor: postData.cursor,
-  } as PostItem;
+  };
 }

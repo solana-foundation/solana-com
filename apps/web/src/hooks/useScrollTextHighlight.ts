@@ -12,7 +12,7 @@ export interface UseScrollTextHighlightOptions {
 
 export const useScrollTextHighlight = <T extends HTMLElement>(
   options: UseScrollTextHighlightOptions = {},
-): { ref: React.RefObject<T> } => {
+): { ref: React.RefObject<T | null> } => {
   const { highlightColor = "rgba(255,255,255,0.2)" } = options;
 
   const targetRef = useRef<T | null>(null);

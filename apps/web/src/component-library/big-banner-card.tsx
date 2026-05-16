@@ -39,15 +39,15 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
           loading="lazy"
         />
       </div>
-      <div className="w-full xl:w-1/3 bg-[#0D0C11] p-twd-5 xl:p-twd-8 rounded-bl-xl rounded-br-xl xl:rounded-bl-none xl:rounded-tr-xl xl:flex xl:flex-1 xl:flex-col min-w-0 overflow-hidden">
+      <div className="w-full xl:w-1/3 bg-[#0D0C11] p-5 xl:p-8 rounded-bl-xl rounded-br-xl xl:rounded-bl-none xl:rounded-tr-xl xl:flex xl:flex-1 xl:flex-col min-w-0 overflow-hidden">
         <h3 className="nd-heading-m xl:order-1 line-clamp-4">{title}</h3>
         {description && (
-          <p className="text-nd-mid-em-text nd-body-l font-medium max-xl:mt-twd-3 xl:mt-twd-8 xl:pt-twd-8 xl:border-t xl:border-nd-border-light xl:order-3 line-clamp-5">
+          <p className="text-nd-mid-em-text nd-body-l font-medium max-xl:mt-3 xl:mt-8 xl:pt-8 xl:border-t xl:border-nd-border-light xl:order-3 line-clamp-5">
             {description}
           </p>
         )}
         {href && buttonLabel && (
-          <div className="mt-[25px] xl:mt-twd-8 xl:order-2 xl:grow">
+          <div className="mt-[25px] xl:mt-8 xl:order-2 xl:grow">
             <Button
               className="w-full xl:w-auto nd-body-m"
               asChild

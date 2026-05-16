@@ -1,0 +1,100 @@
+---
+title: نشر البرنامج
+description: نشر وترقية والتحقق من برامج سولانا.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="ملخص">
+  يمكن ترقية البرامج المنشورة عبر loader-v3 عند تعيين سلطة الترقية. إلغاء السلطة
+  يجعل البرنامج غير قابل للتغيير. يغطي آلية الترقية، وتعليمات النشر والترقية لـ
+  loader-v3، والتحقق من البناء، وبرامج التحميل المتاحة.
+</Callout>
+
+## نشر البرامج
+
+<Cards>
+  <Card title="Rust الأصلي" href="/docs/programs/deploying">
+    النشر باستخدام Solana CLI مع `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    النشر باستخدام إطار عمل Anchor مع `anchor deploy`.
+  </Card>
+</Cards>
+
+## ترقية البرامج
+
+لترقية برنامج، يجب أن يحمل حساب صلاحية الترقية (عادةً الحساب الذي
+[نشر البرنامج](/docs/programs/deploying) في الأصل). أثناء النشر أو الترقية، يتم
+تحميل الكود الثنائي الجديد إلى حساب مؤقت مخصص للتخزين المؤقت، ثم يُكتب إلى حساب
+بيانات البرنامج. تعيين صلاحية الترقية إلى _rs`None`_ يجعل البرنامج غير قابل
+للتغيير ويمنع التحديثات الإضافية بشكل دائم.
+
+### آلية الترقية
+
+عند معالجة
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)،
+يقوم وقت التشغيل بـ:
+
+1. التحقق من أن حساب البرنامج قابل للكتابة ومملوك بواسطة loader-v3.
+2. التحقق من أن حساب المخزن المؤقت يحتوي على حالة _rs`Buffer`_ مع الصلاحية
+   الصحيحة.
+3. التحقق من أن `upgrade_authority_address` لحساب ProgramData يتطابق وليس
+   _rs`None`_.
+4. التحقق من أن البرنامج لم يتم نشره بالفعل في الفترة الزمنية الحالية
+   (`clock.slot != slot`).
+5. تحميل والتحقق من بايتات ELF الجديدة من المخزن المؤقت.
+6. نسخ الكود الثنائي الجديد من المخزن المؤقت إلى حساب ProgramData وتصفير
+   البايتات المتبقية.
+7. تمويل حساب ProgramData للإعفاء من الإيجار.
+8. تفريغ حساب المخزن المؤقت (تعيين lamports إلى 0) واقتطاع بياناته.
+9. تصبح النسخة الجديدة فعالة في الفترة الزمنية التالية (`deployment_slot + 1`).
+
+حساب `Program` نفسه (حالته ومؤشر `programdata_address`) لا يتغير أثناء الترقية.
+يتم تحديث الكود الثنائي وبيانات الـ slot الوصفية لحساب _rs`ProgramData`_ فقط.
+
+## مرجع تعليمات Loader-v3
+
+Loader-v3 (BPF Loader Upgradeable) هو المحمّل الافتراضي الحالي لنشر البرامج على
+سولانا.
+
+| التعليمة                                                                                                     | الوصف                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | يعيّن حالة حساب المخزن المؤقت إلى `Buffer` مع السلطة المحددة. يفشل إذا كان قد تم تهيئته مسبقاً.                                                                                                                          |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | يكتب البايتات في الإزاحة المحددة في حساب المخزن المؤقت. يجب أن توقع السلطة.                                                                                                                                              |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | ينشئ برنامجاً جديداً: يشتق عنوان ProgramData، وينشئ حساب ProgramData عبر CPI إلى System Program، ويتحقق وينشر ELF من المخزن المؤقت، ويعيّن حالة حساب البرنامج ويضع علامة عليه كقابل للتنفيذ.                             |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | يستبدل الشيفرة الثنائية في حساب ProgramData لبرنامج موجود من مخزن مؤقت.                                                                                                                                                  |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | يغيّر سلطة حساب Buffer أو ProgramData. التعيين إلى `None` على ProgramData يجعل البرنامج غير قابل للتغيير. لا يمكن تعيين سلطة Buffer إلى `None`.                                                                          |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | مثل `SetAuthority`، لكن يتطلب أيضاً أن توقع السلطة الجديدة على المعاملة.                                                                                                                                                 |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | يغلق حساب buffer أو uninitialized أو ProgramData عن طريق تحويل lamports الخاصة به إلى مستلم. إغلاق ProgramData يكتب أيضاً علامة `Closed` إلى ذاكرة التخزين المؤقت للبرنامج. لا يمكن إغلاق برنامج تم نشره في slot الحالي. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | يوسّع تخصيص حساب ProgramData ببايتات إضافية، ويموّل rent الإضافي من الدافع.                                                                                                                                              |
+
+## التحقق من البرامج
+
+تدعم سولانا [عمليات البناء القابلة للتحقق](/docs/programs/verified-builds)،
+والتي تتيح للمستخدمين التأكد من أن الشيفرة الثنائية للبرنامج على السلسلة تطابق
+الشيفرة المصدرية العامة. يوفر إطار عمل Anchor
+[دعماً مدمجاً](https://www.anchor-lang.com/docs/verifiable-builds) لعمليات
+البناء القابلة للتحقق.
+
+للتحقق من حالة التحقق لبرنامج تم نشره، ابحث عن معرف البرنامج الخاص به على
+[مستكشف سولانا](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)،
+أو استخدم أداة سطر الأوامر
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+من Ellipsis Labs للتحقق بشكل مستقل من البرامج الموجودة على السلسلة.
+
+## برامج التحميل
+
+| المحمّل                      | العنوان                                       | قابل للترقية                     | الوصف                                                             |
+| ---------------------------- | --------------------------------------------- | -------------------------------- | ----------------------------------------------------------------- |
+| **المحمّل الأصلي**           | `NativeLoader1111111111111111111111111111111` | فقط عبر ترقية برنامج المدقق      | يمتلك البرامج المدمجة (النظام، التصويت، الرهان) والمحمّلات الأخرى |
+| **محمّل BPF (الإصدار 1)**    | `BPFLoader1111111111111111111111111111111111` | لا (إدارة المحمّل معطلة)         | البرامج القديمة                                                   |
+| **محمّل BPF (الإصدار 2)**    | `BPFLoader2111111111111111111111111111111111` | لا (إدارة المحمّل معطلة)         | البرامج القديمة                                                   |
+| **محمّل BPF القابل للترقية** | `BPFLoaderUpgradeab1e11111111111111111111111` | نعم، إذا تم تعيين صلاحية الترقية | يمتلك جميع البرامج المنشورة حديثاً                                |

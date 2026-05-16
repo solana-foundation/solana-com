@@ -1,0 +1,104 @@
+---
+title: Program dağıtımı
+description: Solana programlarını dağıtma, yükseltme ve doğrulama.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Özet">
+  loader-v3 aracılığıyla dağıtılan programlar, bir yükseltme yetkisi
+  ayarlandığında yükseltilebilir. Yetkinin iptal edilmesi programı
+  değiştirilemez hale getirir. Yükseltme mekanizmasını, loader-v3 dağıtım ve
+  yükseltme talimatlarını, yapı doğrulamasını ve kullanılabilir yükleyici
+  programları kapsar.
+</Callout>
+
+## Programları dağıtma
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Solana CLI kullanarak `solana program deploy` ile dağıtın.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Anchor framework kullanarak `anchor deploy` ile dağıtın.
+  </Card>
+</Cards>
+
+## Programları yükseltme
+
+Bir programı yükseltmek için, bir hesabın yükseltme yetkisine sahip olması
+gerekir (genellikle [programı ilk dağıtan](/docs/programs/deploying) hesap).
+Dağıtım veya yükseltme sırasında, yeni bytecode geçici bir buffer hesabına
+yüklenir, ardından program data hesabına yazılır. Yükseltme yetkisinin
+_rs`None`_ olarak ayarlanması programı değiştirilemez hale getirir ve kalıcı
+olarak daha fazla güncellemeyi engeller.
+
+### Yükseltme mekanizması
+
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+işlendiğinde, runtime:
+
+1. Program hesabının yazılabilir olduğunu ve loader-v3'e ait olduğunu doğrular.
+2. Buffer hesabının doğru yetki ile bir _rs`Buffer`_ durumu içerdiğini doğrular.
+3. ProgramData hesabının `upgrade_authority_address` değerinin eşleştiğini ve
+   _rs`None`_ olmadığını doğrular.
+4. Programın mevcut slot'ta zaten dağıtılmadığını doğrular
+   (`clock.slot != slot`).
+5. Buffer'dan yeni ELF byte'larını yükler ve doğrular.
+6. Yeni bytecode'u buffer'dan ProgramData hesabına kopyalar ve kalan byte'ları
+   sıfırlar.
+7. ProgramData hesabını kira muafiyetine fon sağlar.
+8. Buffer hesabını boşaltır (lamports'u 0'a ayarlar) ve verisini keser.
+9. Yeni sürüm bir sonraki slot'ta yürürlüğe girer (`deployment_slot + 1`).
+
+`Program` hesabının kendisi (durumu ve `programdata_address` işaretçisi) bir
+yükseltme sırasında değişmez. Yalnızca _rs`ProgramData`_ hesabının bayt kodu ve
+slot meta verileri güncellenir.
+
+## Loader-v3 talimat referansı
+
+Loader-v3 (BPF Loader Upgradeable), Solana üzerinde program dağıtımı için mevcut
+varsayılan yükleyicidir.
+
+| Talimat                                                                                                      | Açıklama                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Bir buffer hesabının durumunu belirtilen yetkiyle `Buffer` olarak ayarlar. Zaten başlatılmışsa başarısız olur.                                                                                                                                   |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Bir buffer hesabında belirtilen ofsette bayt yazar. Yetkinin imzalaması gerekir.                                                                                                                                                                 |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Yeni bir program oluşturur: ProgramData adresini türetir, System Program'a CPI aracılığıyla ProgramData hesabını oluşturur, buffer'dan ELF'yi doğrular ve dağıtır, Program hesabının durumunu ayarlar ve çalıştırılabilir olarak işaretler.      |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Mevcut bir programın ProgramData hesabındaki bayt kodunu bir buffer'dan değiştirir.                                                                                                                                                              |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Bir Buffer veya ProgramData hesabının yetkisini değiştirir. ProgramData üzerinde `None` olarak ayarlanması programı değiştirilemez hale getirir. Buffer yetkisi `None` olarak ayarlanamaz.                                                       |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | `SetAuthority` gibidir, ancak yeni yetkinin de işlemi imzalamasını gerektirir.                                                                                                                                                                   |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Lamport'larını bir alıcıya aktararak bir buffer, başlatılmamış veya ProgramData hesabını kapatır. ProgramData'nın kapatılması aynı zamanda program önbelleğine bir `Closed` mezar taşı yazar. Mevcut slot'ta dağıtılmış bir program kapatılamaz. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | ProgramData hesabının tahsisini ek baytlarla genişletir ve ekstra rent'i ödeyenden finanse eder.                                                                                                                                                 |
+
+## Programları doğrulama
+
+Solana, kullanıcıların bir programın zincir üstü bayt kodunun halka açık kaynak
+koduyla eşleştiğini doğrulamalarını sağlayan
+[doğrulanabilir yapıları](/docs/programs/verified-builds) destekler. Anchor
+framework'ü, doğrulanabilir yapılar için
+[yerleşik destek](https://www.anchor-lang.com/docs/verifiable-builds) sağlar.
+
+Dağıtılmış bir programın doğrulama durumunu kontrol etmek için, program
+kimliğini
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)'da
+arayın veya zincir üzerindeki programları bağımsız olarak doğrulamak için
+Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+aracını kullanın.
+
+## Yükleyici programlar
+
+| Yükleyici                  | Adres                                         | Yükseltilebilir                            | Açıklama                                                                   |
+| -------------------------- | --------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Yalnızca validator yazılım yükseltmesi ile | Yerleşik programlara (System, Vote, Stake) ve diğer yükleyicilere sahiptir |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Hayır (yükleyici yönetimi devre dışı)      | Eski programlar                                                            |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Hayır (yükleyici yönetimi devre dışı)      | Eski programlar                                                            |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Evet, yükseltme yetkisi ayarlandıysa       | Yeni dağıtılan tüm programlara sahiptir                                    |

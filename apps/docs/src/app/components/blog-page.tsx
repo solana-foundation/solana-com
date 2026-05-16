@@ -25,12 +25,12 @@ export function BlogPage(props: {
   tags?: string[];
   date?: string;
   difficulty?: string;
-  pageTree?: any;
+  pageTree?: Parameters<typeof findNeighbour>[0];
 }) {
   const record: ContentRecord = {
     href: props.href,
     title: props.title,
-    date: props.date,
+    date: props.date ?? "",
     tags: props.tags,
     difficulty: props.difficulty,
   };
@@ -40,14 +40,14 @@ export function BlogPage(props: {
   const filePath = props.filePath?.replace(/^\//, "");
   const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/${baseHref}/${filePath}`;
   return (
-    <div className="container">
-      <div className="my-6">
-        <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
+    <div className="mx-auto w-full px-5">
+      <div className="my-8">
+        <Breadcrumb root={props.baseHref ?? ""} items={props.breadcrumb} />
       </div>
       <div>
         <HeroTitle record={record} baseHref={props.baseHref} />
       </div>
-      <div className="flex gap-8">
+      <div className="flex gap-12">
         <Toc
           className="max-xl:block max-[990px]:hidden"
           style={{ "--fd-toc-width": "268px" } as React.CSSProperties}
@@ -57,21 +57,29 @@ export function BlogPage(props: {
               <Text className="size-4" />
               <TocLabel />
             </h3>
-            <TOCItems items={props.toc} />
+            <TOCItems items={props.toc ?? []} />
             <EditOnGithub href={href} />
             <ScrollToTop />
           </div>
         </Toc>
         <article className="min-w-0">
-          <DocsBody className="mb-6 text-lg">{props.children}</DocsBody>
-          <Footer pageTree={props.pageTree} pageUrl={props.href} />
+          <DocsBody className="mb-8 text-lg">{props.children}</DocsBody>
+          {props.pageTree ? (
+            <Footer pageTree={props.pageTree} pageUrl={props.href} />
+          ) : null}
         </article>
       </div>
     </div>
   );
 }
 
-function Footer({ pageTree, pageUrl }: { pageTree: any; pageUrl: string }) {
+function Footer({
+  pageTree,
+  pageUrl,
+}: {
+  pageTree: Parameters<typeof findNeighbour>[0];
+  pageUrl: string;
+}) {
   let { next, previous } = findNeighbour(pageTree, pageUrl);
 
   // only if neighbours are in the same folder

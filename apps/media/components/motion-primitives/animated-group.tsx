@@ -125,11 +125,21 @@ function AnimatedGroup({
       variants={containerVariants}
       className={className}
     >
-      {React.Children.map(children, (child, index) => (
-        <MotionChild key={index} variants={itemVariants}>
-          {child}
-        </MotionChild>
-      ))}
+      {React.Children.map(children, (child, index) => {
+        const key =
+          React.isValidElement(child) && child.key != null ? child.key : index;
+
+        return (
+          <MotionChild
+            key={key}
+            initial="hidden"
+            animate="visible"
+            variants={itemVariants}
+          >
+            {child}
+          </MotionChild>
+        );
+      })}
     </MotionComponent>
   );
 }

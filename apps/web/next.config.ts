@@ -1,10 +1,9 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
-import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
+import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
-import { builder } from "@builder.io/sdk";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
@@ -22,8 +21,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value:
-      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234",
+    value: "frame-ancestors 'self'",
   },
 ];
 
@@ -65,6 +63,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     const existingRedirects: Redirect[] = [
       {
+        source: "/ai",
+        destination: "/solutions/ai",
+        permanent: true,
+      },
+      {
         source: "/news/tag/:tag*/page/:page*",
         destination: `/news/tag/:tag*`,
         permanent: true,
@@ -79,59 +82,15 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map((redirect) => ({
-        ...redirect,
-        permanent: redirect.permanent ?? true,
-      })),
+      ...rewritesAndRedirectsJson.redirects.map(
+        (redirect): Redirect => ({
+          ...redirect,
+          permanent: redirect.permanent ?? true,
+        }),
+      ),
     ];
 
-    try {
-      return builder
-        .getAll("url-redirects", {
-          apiKey:
-            process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-            "ce0c7323a97a4d91bd0baa7490ec9139",
-          options: { noTargeting: true },
-          cachebust: true,
-        })
-        .then((results) => {
-          try {
-            return [
-              ...existingRedirects,
-              ...results
-                .filter((content) => {
-                  const data = (content || {}).data || {};
-                  const isValid = !!(
-                    data.sourceUrl &&
-                    data.destinationUrl &&
-                    data.sourceUrl.startsWith("/")
-                  );
-                  if (!isValid && data.sourceUrl) {
-                    console.warn(
-                      `Ignoring invalid redirect from Builder.io: ${data.sourceUrl}`,
-                    );
-                  }
-                  return isValid;
-                })
-                .map(({ data }) => ({
-                  source: data.sourceUrl,
-                  destination: data.destinationUrl,
-                  permanent: !!data.permanentRedirect,
-                })),
-            ];
-          } catch (error) {
-            console.log("Error processing redirects", error);
-            return existingRedirects;
-          }
-        })
-        .catch((error) => {
-          console.log("Error setting up redirects", error);
-          return existingRedirects;
-        });
-    } catch (error) {
-      console.log("Error fetching redirects from Builder:", error);
-      return existingRedirects;
-    }
+    return existingRedirects;
   },
 
   webpack(config) {
@@ -190,10 +149,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "cdn.builder.io",
-      },
-      {
-        protocol: "https",
         hostname: "solana-developer-content.vercel.app",
       },
       {
@@ -212,10 +167,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "raw.githubusercontent.com",
         pathname: "/solana-foundation/templates/**",
-      },
-      {
-        protocol: "https",
-        hostname: "assets.tina.io",
       },
       {
         protocol: "https",
@@ -244,6 +195,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/:path*.md",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "text/markdown; charset=utf-8",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: securityHeaders,
       },
@@ -260,7 +220,7 @@ const nextConfig: NextConfig = {
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")
@@ -286,6 +246,9 @@ export default withSentryConfig(moduleExports, {
   project: "javascript-nextjs",
   silent: !process.env.CI,
   widenClientFileUpload: true,
+  _experimental: {
+    thirdPartyOriginStackFrames: true,
+  },
   disableLogger: true,
   automaticVercelMonitors: true,
   sourcemaps: {

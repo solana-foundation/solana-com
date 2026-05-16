@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
@@ -14,6 +16,10 @@ interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   className?: string;
   scroll?: boolean;
   prefetch?: boolean;
+}
+
+function isExternalHref(href: string): boolean {
+  return /^(https?:)?\/\//i.test(href);
 }
 
 const Link = ({
@@ -58,15 +64,25 @@ const Link = ({
       </I18nLink>
     );
   }
+  const { rel, target, ...anchorProps } = other;
+  const resolvedTarget = isExternalHref(linkTo) ? (target ?? "_blank") : target;
+  const resolvedRel =
+    resolvedTarget === "_blank" ? (rel ?? "noopener noreferrer") : rel;
+
   return (
-    <a href={linkTo} {...other} className={className}>
+    <a
+      href={linkTo}
+      {...anchorProps}
+      target={resolvedTarget}
+      rel={resolvedRel}
+      className={className}
+    >
       {children}
     </a>
   );
 };
 
-interface InlineLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+interface InlineLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   to: string;
   children: React.ReactNode;
 }

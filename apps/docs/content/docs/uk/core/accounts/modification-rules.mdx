@@ -1,0 +1,97 @@
+---
+title: Правила модифікації
+description:
+  Правила, що застосовуються під час виконання, для модифікації lamports, даних,
+  власника, прапорця executable та семантики запозичення облікових записів
+  Solana.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="Підсумок">
+  Перевірки середовища виконання після кожної інструкції: лише власник може
+  списувати lamports або змінювати дані, дані можуть зростати максимум на 10 КіБ
+  за інструкцію, зміна власника вимагає нульових даних, а прапорець executable є
+  незворотним.
+</Callout>
+
+Середовище виконання Solana застосовує ці правила після виконання кожної
+інструкції через методи
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727).
+Кожне правило перевіряється в момент модифікації, і транзакція відкочується,
+якщо будь-яка перевірка не вдається.
+
+## Правила lamports
+
+| Правило                                                                    | Застосування                                                                                                                                                                                                                                  | Помилка                       |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Лише власник може списувати lamports                                       | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): перевіряє `is_owned_by_current_program()`, коли `lamports < current`                                                              | `ExternalAccountLamportSpend` |
+| Облікові записи лише для читання не можуть мати змінені lamports           | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): перевіряє `is_writable()`                                                                                                         | `ReadonlyLamportChange`       |
+| Будь-яка програма може зараховувати lamports на обліковий запис для запису | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): перевірка власності застосовується лише коли новий баланс менший за поточний; перевірка можливості запису все одно застосовується | `ReadonlyLamportChange`       |
+| Lamports мають балансуватися в межах інструкції                            | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): перевіряє `get_lamports_delta() == 0`                                                                                  | `UnbalancedInstruction`       |
+
+## Правила даних
+
+| Правило                                                      | Застосування                                                                                                                                                                                                                             | Помилка                              |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Лише власник може змінювати дані                             | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): перевіряє `is_owned_by_current_program()`                                                                           | `ExternalAccountDataModified`        |
+| Облікові записи лише для читання не можуть мати змінені дані | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): перевіряє `is_writable()`                                                                                           | `ReadonlyDataModified`               |
+| Лише власник може змінювати розмір даних                     | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): перевіряє `is_owned_by_current_program()`, коли `new_len != old_len`                                                | `AccountDataSizeChanged`             |
+| Максимальний розмір даних: 10 МіБ                            | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): перевіряє `new_len <= MAX_ACCOUNT_DATA_LEN`                                     | `InvalidRealloc`                     |
+| Максимальне зростання за інструкцію: 10 КіБ                  | Десеріалізація в [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): перевіряє `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                       | `InvalidRealloc`                     |
+| Максимальне зростання за транзакцію: 20 МіБ                  | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): перевіряє кумулятивне `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## Правила власника
+
+| Правило                                           | Застосування                                                                                                                                       | Помилка             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Лише поточний власник може переназначити власника | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): перевіряє `is_owned_by_current_program()` | `ModifiedProgramId` |
+| Акаунт має бути доступним для запису              | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): перевіряє `is_writable()`                 | `ModifiedProgramId` |
+| Дані мають бути ініціалізовані нулями             | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): перевіряє `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## Правила прапорця виконуваності
+
+| Правило                                | Застосування                                                                                                                                                 | Помилка                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| Акаунт має бути звільнений від rent    | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): перевіряє `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Лише власник може встановити прапорець | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): перевіряє `is_owned_by_current_program()`      | `ExecutableModified`             |
+| Акаунт має бути доступним для запису   | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): перевіряє `is_writable()`                      | `ExecutableModified`             |
+
+## Переходи стану rent
+
+Акаунти існують в одному з трьох
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+значень: _rs`Uninitialized`_ (0 lamports), _rs`RentPaying`_ (вище 0, але нижче
+мінімуму для звільнення від rent), та _rs`RentExempt`_ (на рівні або вище
+мінімуму). Заборонені переходи призводять до
+_rs`TransactionError::InsufficientFundsForRent`_.
+
+Середовище виконання застосовує ці правила через
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- Будь-який акаунт може перейти до _rs`Uninitialized`_ (закрити) або
+  _rs`RentExempt`_.
+- Жоден акаунт не може перейти до _rs`RentPaying`_ з _rs`Uninitialized`_ або
+  _rs`RentExempt`_. Усі нові акаунти мають бути звільнені від rent.
+
+## Правила запозичення акаунтів
+
+Під час виконання інструкції середовище виконання застосовує семантику одного
+записувача для запозичення акаунтів. Програма може отримати або одне змінне
+посилання, або кілька незмінних посилань на акаунт, але не обидва одночасно.
+Якщо програма намагається запозичити акаунт, який уже запозичено зі зміною (або
+запозичити зі зміною акаунт, який уже запозичено без зміни), інструкція
+завершується помилкою _rs`AccountBorrowFailed`_ через
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+та
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+Якщо інструкція завершується, поки запозичення все ще активне, середовище
+виконання повертає _rs`AccountBorrowOutstanding`_ у
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).

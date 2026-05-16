@@ -1,3 +1,14 @@
+import type { Profile } from "@workspace/ecosystem-data";
+
+export type SponsorProfile = Omit<Profile, "sector" | "type"> & {
+  name?: string | null;
+  founded?: string;
+  sector?: string;
+  status?: string | null;
+  type?: string;
+  dataPageSlug?: string | null;
+};
+
 export interface Sponsor {
   slug: string;
   name: string;
@@ -5,6 +16,8 @@ export interface Sponsor {
   sponsorshipLevel: string;
   logo: string;
   availableLogos: string[];
+  gridProfileSlug?: string | null;
+  profile?: SponsorProfile | null;
 }
 
 export interface SponsorTier {

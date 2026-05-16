@@ -2,7 +2,7 @@ import * as React from "react";
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu";
 import classNames, { ArgumentArray } from "classnames";
 import { twMerge } from "tailwind-merge";
-import AngleDown from "./assets/angle-down.inline.svg";
+import AngleDown from "./assets/icons/angle-down.inline.svg";
 
 function cn(...inputs: ArgumentArray) {
   return twMerge(classNames(inputs));
@@ -105,7 +105,7 @@ function NavigationMenuContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof NavigationMenuPrimitive.Content> & {
-  align?: "center" | "right";
+  align?: "center" | "right" | "left";
 }) {
   return (
     <NavigationMenuPrimitive.Content

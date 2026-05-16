@@ -2,6 +2,10 @@ import { config } from "@@/src/config";
 import { getUrlWithoutLocale } from "@@/src/app/sources/utils";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
+import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+import { Page } from "fumadocs-core/source";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
@@ -28,17 +32,17 @@ export function getBaseMetadata(locale: string) {
     metadataBase: new URL(siteUrl),
     icons: [
       {
-        url: "/favicon.png",
+        url: faviconPng.src,
         rel: "icon",
         type: "image/png",
       },
       {
-        url: "/favicon.svg",
+        url: faviconSvg,
         rel: "icon",
         type: "image/svg+xml",
       },
       {
-        url: "/apple-touch-icon.png",
+        url: appleTouchIcon.src,
         rel: "apple-touch-icon",
         sizes: "180x180",
       },
@@ -51,6 +55,11 @@ export async function getIndexMetadata({
   descriptionKey,
   locale,
   path,
+}: {
+  titleKey: string;
+  descriptionKey: string;
+  locale: string;
+  path: string;
 }) {
   const t = await getTranslations();
   return {
@@ -60,11 +69,18 @@ export async function getIndexMetadata({
   };
 }
 
-export function getMdxMetadata(page) {
+type DocPage = Page<{
+  title: string;
+  seoTitle?: string;
+  h1?: string;
+  description?: string;
+}>;
+
+export function getMdxMetadata(page: DocPage) {
   const url = getUrlWithoutLocale(page);
   const title = page.data.seoTitle || page.data.h1 || page.data.title;
   const description = page.data.description;
-  const { openGraph } = getBaseMetadata(page.locale);
+  const { openGraph } = getBaseMetadata(page.locale ?? "en");
 
   const imagePrefix = url?.startsWith("/docs")
     ? "/opengraph/developers"
@@ -73,7 +89,7 @@ export function getMdxMetadata(page) {
   return {
     title,
     description,
-    alternates: getAlternates(url, page.locale),
+    alternates: getAlternates(url, page.locale ?? "en"),
     openGraph: {
       ...openGraph,
       images: [imagePrefix + url],

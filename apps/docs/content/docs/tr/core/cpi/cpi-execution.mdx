@@ -1,0 +1,222 @@
+---
+title: CPI yürütme ve yetkiler
+description:
+  Solana çalışma zamanı üzerinden 11 adımlı CPI yürütme akışı, yetki genişletme
+  kuralları, yeniden giriş kısıtlamaları ve yetkili program kontrolleri.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI execution flow, Privilege rules */}
+
+<Callout type="info" title="Özet">
+  CPI'lar yetki kontrolü, hesap çevirisi ve veri senkronizasyonu dahil 11
+  çalışma zamanı adımından geçer. Maksimum çağrı derinliği: 5 (SIMD-0268 ile 9).
+  Yetki kuralları, çağrılanın çağıranın verdiği yetkinin ötesine geçmesini
+  engeller.
+</Callout>
+
+## Yetki kuralları
+
+CPI'lar çağıranın hesap yetkilerini katı bir şekilde çağrılana genişletir.
+Çalışma zamanı bu kuralları
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+içinde kontrol eder:
+
+| Senaryo                                                                                                                                | İzinli mi? | Uygulama noktası                                                                                                            | Hata                   |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Çağıran hesabı yazılabilir olarak geçirir, çağrılan yazılabilir olarak işaretler                                                       | Evet       | --                                                                                                                          | --                     |
+| Çağıran hesabı salt okunur olarak geçirir, çağrılan yazılabilir olarak işaretler                                                       | Hayır      | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Çağıran hesabı yazılabilir olarak geçirir, çağrılan salt okunur olarak işaretler                                                       | Evet       | --                                                                                                                          | --                     |
+| Çağıran hesabı imzalayan olarak geçirir, çağrılan imzalayan olarak işaretler                                                           | Evet       | --                                                                                                                          | --                     |
+| Çağıran hesabı imzalayan olmayan olarak geçirir, çağrılan imzalayan olarak işaretler, hesap çağıranın seed'lerinden türetilmiş bir PDA | Evet       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Çağıran hesabı imzalayan olmayan olarak geçirir, çağrılan imzalayan olarak işaretler, hesap çağırandan bir PDA DEĞİL                   | Hayır      | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Çağıran hesabı imzalayan olarak geçirir, çağrılan imzalayan olmayan olarak işaretler                                                   | Evet       | --                                                                                                                          | --                     |
+| Program A kendisini doğrudan çağırır (A -> A)                                                                                          | Evet       | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Program A, B'yi çağırır, B de A'yı çağırır (dolaylı yeniden giriş)                                                                     | Hayır      | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| Native loader, bpf_loader, bpf_loader_deprecated veya precompile'a CPI                                                                 | Hayır      | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Hesap işlemde bulunamadı                                                                                                               | Hayır      | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+Ayrıcalık kuralları şu şekilde özetlenebilir:
+
+1. **Yazılabilir ayrıcalık yükseltilemez.** Çağıran bir hesabı salt okunur
+   olarak işaretlerse, çağrılan onu yazılabilir olarak işaretleyemez.
+2. **İmzalayan ayrıcalığı yetkilendirme gerektirir.** Bir hesap, çağrılanda
+   yalnızca şu durumlarda imzalayan olabilir: (a) çağıran içinde zaten imzalayan
+   ise, VEYA (b) _rs`invoke_signed`_ aracılığıyla çağıran programın
+   seed'lerinden türetilmiş bir PDA ise.
+3. **Ayrıcalık azaltmaya her zaman izin verilir.** Çağrılan, çağıranın
+   verdiğinden daha az ayrıcalık kullanabilir.
+
+## CPI yürütme akışı
+
+Bir CPI, birkaç runtime katmanından geçer. Bu bölüm, program SDK çağrısından
+syscall sınırı üzerinden runtime'a ve geri dönüşe kadar olan tam pipeline'ı
+belgeler. Her adım, onu uygulayan kaynak dosyasına referans verir.
+
+<Callout>
+  Program instruction çağrısının maksimum yüksekliğine
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  denir ve
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  sabiti olan 5'e ayarlanmıştır. [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) aktif olduğunda, bu 9'a yükselir.
+
+Stack yüksekliği 1, başlangıç transaction instruction'ıdır. Her CPI, yüksekliği
+1 artırır. Maksimum 5, bir programın 4 seviye derinliğe kadar CPI yapabileceği
+anlamına gelir (SIMD-0268 ile 8 seviye derinliğe kadar).
+
+</Callout>
+
+### Adım 1: Program `invoke` veya `invoke_signed` çağırır
+
+Program,
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+veya
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)
+çağırır. _rs`invoke`_, boş bir imzalayan seed dizisi ile _rs`invoke_signed`_
+çağıran ince bir wrapper'dır. SDK fonksiyonu, _rs`Instruction`_,
+_rs`AccountInfo`_ slice'ını ve imzalayan seed'lerini VM belleğine serileştirir,
+ardından syscall'u tetikler.
+
+### Adım 2: Syscall girişi
+
+SBF VM,
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+syscall handler'ına dispatch eder, bu da paylaşılan giriş noktasını çağırır:
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
+
+### Adım 3: Çağrı maliyetini tüket
+
+_rs`cpi_common`_ içindeki ilk işlem, paylaşılan hesaplama ölçerinden
+[sabit çağrı maliyetini düşmektir](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818):
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1.000 CU (veya SIMD-0339 ile 946 CU).
+
+### Adım 4: Talimatı VM belleğinden çevir
+
+Syscall işleyicisi, talimatı programın VM adres alanından ana taraf Rust
+tiplerine
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590)
+aracılığıyla çevirir. Bu işlem bir _rs`StableInstruction`_ yapısını okur, veri
+uzunluğunu
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10.240 bayt) ile doğrular, ardından
+[veri serileştirme maliyetini](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)
+düşer.
+
+### Adım 5: İmzalayan seed'lerini çevir ve PDA'ları türet
+
+İşleyici
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)
+fonksiyonunu çağırır. Her imzalayan seed seti için runtime:
+
+1. İmzalayan seed setlerinin sayısını
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) ile kontrol eder.
+2. Her seed setinin uzunluğunu
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (set başına 16 seed) ile kontrol eder.
+3. Seed'ler ve **çağıranın** program ID'si ile
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   fonksiyonunu çağırır. Eğer seed'ler geçerli bir PDA üretmezse, CPI
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)
+   hatası ile başarısız olur.
+4. Elde edilen PDA pubkey'lerini bir `signers` vektöründe toplar.
+
+Bu türetilmiş PDA'lar, çağrılan talimat için geçerli imzalayanlar olarak kabul
+edilir.
+
+### Adım 6: Yetkili programı kontrol et
+
+Devam etmeden önce runtime, hedef programın CPI için izinli olduğunu doğrulamak
+üzere
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)
+fonksiyonunu çağırır. Aşağıdaki programlar engellenmiştir:
+
+- Native loader
+- `bpf_loader` ve `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (belirli yönetim talimatları hariç: `upgrade`,
+  `set_authority`, `set_authority_checked` (feature-gated),
+  `extend_program_checked` (feature-gated), `close`)
+- Precompile programları (ed25519, secp256k1, vb.)
+
+İhlal durumunda
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55)
+döner.
+
+### Adım 7: Yetki doğrulaması (`prepare_next_instruction`)
+
+Runtime, çağrılanın _rs`InstructionAccount`_ listesini oluşturan ve yetki
+kurallarını uygulayan
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+fonksiyonunu çağırır. Tam karar tablosu için aşağıdaki
+[Yetki kuralları](#privilege-rules) bölümüne bakın.
+
+### Adım 8: Hesap bilgilerini çevir
+
+İşleyici, aşağıdakileri yapan `translate_accounts` fonksiyonunu çağırır:
+
+1. [Hesap bilgisi sayısını doğrular](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   _rs`MAX_CPI_ACCOUNT_INFOS`_ değerine göre (128 veya SIMD-0339 ile 255).
+2. [Hesap bilgisi çeviri maliyetini hesaplar](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (yalnızca SIMD-0339): `(num_account_infos * 80) / 250` CU.
+3. Her çalıştırılamayan, tekrarlanmayan hesap için, VM belleğinden ana
+   bilgisayar belleğine işaretçileri çevirerek bir
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   oluşturur. Bu,
+   [hesap başına veri serileştirme maliyetinin hesaplanmasını](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)
+   içerir: `account_data_len / cpi_bytes_per_unit` CU.
+
+### Adım 9: CPI öncesi hesap senkronizasyonu (çağıran'dan çağrılan'a)
+
+Çağrılanı yürütmeden önce, runtime çağıranın hesap değişikliklerini senkronize
+eder, böylece çağrılan bunları görebilir.
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+fonksiyonu her çevrilen hesap için çağrılır ve lamport'ları, verileri ve sahibi
+kopyalar.
+[Hesap verisi senkronizasyonu](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+bölümünde ayrıntılı alan eşlemesine bakın.
+
+### Adım 10: Komut bağlamını yığına ekle, çağrılanı yürüt ve çıkar
+
+Runtime,
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)
+fonksiyonunu çağırır ve bu fonksiyon:
+
+1. Komut yığınına yeni bir çerçeve eklemek için
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   fonksiyonunu çağırır. _rs`push()`_,
+   [yeniden giriş kuralını](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)
+   uygular: bir program kendisini yalnızca doğrudan çağıran ise çağırabilir
+   (yani, program A A'yı çağırabilir, ancak A, A'yı çağıran B'yi çağıramaz).
+   İhlal durumunda _rs`ReentrancyNotAllowed`_ döndürür.
+2. Çağrılanın program giriş noktasını çözen ve onu çağıran
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)
+   fonksiyonunu çağırır. Çağrılan, aynı paylaşılan hesaplama ölçeri ile çalışır.
+   Çağrılan tarafından yapılan tüm CU tüketimi, çağıranın kalan bütçesini
+   azaltır.
+3. Çağrılanın çerçevesini kaldırmak ve lamport bakiyelerinin değişmediğini
+   doğrulamak için
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   fonksiyonunu çağırır (değişmişse _rs`UnbalancedInstruction`_ döndürür).
+
+### Adım 11: CPI sonrası hesap senkronizasyonu (çağrılan'dan çağıran'a)
+
+`process_instruction` döndükten sonra (çıkarma işlemini içerir), runtime
+değişiklikleri her yazılabilir hesap için
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+aracılığıyla çağırana geri senkronize eder. Ek olarak,
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+veri bölgeleri değişen hesaplar için VM bellek bölgesi eşlemelerini günceller.
+[Hesap verisi senkronizasyonu](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+bölümünde ayrıntılı alan eşlemesine bakın.
+
+CPI syscall, çağıran programa `0` (başarılı) döndürür.

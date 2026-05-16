@@ -1,0 +1,276 @@
+---
+title: Transaktioputki
+description:
+  Miten Solana-transaktiot käsitellään lähetyksestä vahvistukseen, mukaan lukien
+  täydellinen 8-vaiheinen validointiputki, transaktiotietojen lukeminen verkosta
+  ja yleiset validointivirheet.
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="Yhteenveto">
+  Transaktiot kulkevat 8 vaiheen läpi: vastaanotto, allekirjoituksen varmennus,
+  puhdistus, budjetin/iän tarkistukset, maksajan validointi, tilin lataus,
+  käskyn suoritus ja vahvistus.
+</Callout>
+
+## Transaktioiden käsittelyputki
+
+Kun transaktio saapuu validatorille, se kulkee läpi sarjan validointi- ja
+suoritusvaiheita. Seuraavassa kuvataan täydellinen putki vastaanottamisesta
+vahvistukseen, sisältäen viittaukset lähdetiedostoihin
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8)-validator-clientissa.
+
+### 1. Vastaanotto ja deserialisointi
+
+Validator vastaanottaa transaktiotavut UDP/QUIC-yhteyden kautta. Raakadatan on
+mahduttava yksittäiseen pakettiin (_rs`PACKET_DATA_SIZE`_ = 1 232 tavua). Tavut
+deseralisoidaan _rs`VersionedTransaction`_-muotoon, joka sisältää
+allekirjoitustaulukon ja _rs`VersionedMessage`_-viestin (joko legacy tai v0).
+
+### 2. Allekirjoituksen varmennus (sigverify)
+
+Allekirjoitukset varmennetaan
+[sigverify-vaiheessa](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+ennen kuin transaktio siirtyy banking-vaiheeseen. Jokaiselle allekirjoitukselle
+indeksissä `i` varmennin tarkistaa Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). Jos jokin allekirjoitus on virheellinen, paketti hylätään.
+
+Varmennus on rinnakkaistettu: validator jakaa pakettierät
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)-kokoisiin
+paloihin (128) ja käsittelee ne rinnakkain.
+
+### 3. Puhdistus
+
+Deserialisoitu transaktio puhdistetaan tuottamaan _rs`SanitizedTransaction`_
+(tai
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Puhdistus validoi rakenteelliset invariantit:
+
+- Allekirjoitusten määrä vastaa `num_required_signatures`-arvoa otsikossa
+- Kaikki käskyjen `program_id_index`- ja `account_indices`-arvot ovat rajojen
+  sisällä
+- Maksaja (tilin indeksi 0) on kirjoitettava allekirjoittaja
+
+_rs`RuntimeTransaction`_-kääre tallentaa välimuistiin esikäsitellyt metatiedot
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44)-rakenteesta:
+viestin hash, äänestystransaktiolippu, esikäännösten allekirjoitusmäärät
+(Ed25519/secp256k1/secp256r1), laskentabudjetin käskytiedot ja käskyjen
+kokonaisdatan pituus.
+
+### 4. Tarkista laskentabudjetti, ikä ja tilavälimuisti
+
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)-metodi
+suorittaa useita tarkistuksia transaktiota kohden:
+
+**Laskentabudjetti**: Transaktion laskentabudjetti-instruktiot jäsennetään ja
+validoidaan ensin. Maksutiedot lasketaan budjettirajoista ja
+priorisointimaksusta. Jos laskentabudjetti on virheellinen tai ristiriitainen,
+transaktio epäonnistuu laskentabudjetin jäsennysvirheillä, kuten
+_rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)` tai
+_rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+**Blockhash-ikä**: Transaktion `recent_blockhash` haetaan
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)-jonosta.
+Jos hash löytyy ja sen ikä on _rs`MAX_PROCESSING_AGE`_-arvon sisällä (150
+slottia), transaktio jatkaa. Jos sitä ei löydy, validaattori tarkistaa
+kelvollisen [durable nonce](/docs/core/transactions/durable-nonces) -arvon.
+
+**Tilavälimuisti**: Transaktion viestihashin tarkistetaan tilavälimuistista. Jos
+se löytyy, transaktio hylätään virheellä _rs`AlreadyProcessed`_.
+
+### 5. Validoi nonce ja maksaja
+
+SVM:n
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)-metodi
+käsittelee kaksi validointia:
+
+**Nonce-validointi** (jos sovellettavissa): Nonce-transaktioissa validaattori
+lataa nonce-tilin ja varmistaa:
+
+- Tilin omistaa System Program
+- Se jäsentyy muotoon _rs`State::Initialized`_
+- Tallennettu durable nonce vastaa transaktion `recent_blockhash`-arvoa
+- Noncea voidaan edistää (sen nykyinen durable nonce eroaa seuraavasta durable
+  noncesta, eli noncea ei ole jo käytetty nykyisessä lohkossa)
+- Nonce-auktoriteetti on allekirjoittanut transaktion
+
+Jos kelvollinen, nonce edistetään seuraavaan durable nonce -arvoon. Katso
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Maksajan validointi**: Maksajatili (aina indeksi 0) ladataan ja tarkistetaan
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)-metodilla:
+
+- Tilin on oltava olemassa (lamports > 0), muuten _rs`AccountNotFound`_
+- Tilin on oltava järjestelmätili tai nonce-tili, muuten
+  _rs`InvalidAccountForFee`_
+- Lamportien on katettava `min_balance + total_fee`, jossa `min_balance` on 0
+  järjestelmätileille tai `rent.minimum_balance(NonceState::size())`
+  nonce-tileille; muuten _rs`InsufficientFundsForFee`_
+- Maksun vähentämisen jälkeen tilin on pysyttävä rent-exempt-tilassa (ei voi
+  siirtyä rent-exempt-tilasta rent-paying-tilaan)
+
+Maksu vähennetään maksajalta tässä vaiheessa. Tilannekuva maksusta vähennetystä
+maksajasta (ja edistetystä noncesta, jos sovellettavissa) tallennetaan nimellä
+_rs`RollbackAccounts`_, jotka ovat tilejä, jotka vahvistetaan, vaikka suoritus
+epäonnistuisi.
+
+### 6. Lataa tilit
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+lataa kaikki tilit, joihin transaktio viittaa.
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+käärii ulkoisen tilivaraston ja ylläpitää eräkohtaista välimuistia, jotta saman
+erän aiempien transaktioiden muokkaamat tilit ovat näkyvissä myöhemmille
+transaktioille.
+
+Jokaiselle ei-maksajatilille lataaja:
+
+1. Hakee tilin välimuistista tai accounts-db:stä
+2. Päivittää vuokravapautuksen tilan tarvittaessa
+3. Kerää tilin datakoon
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   -rajaan (oletuksena 64 MiB). Jokainen tili aiheuttaa peruskuorman
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 tavua) plus sen datapituuden
+
+Jokaiselle transaktion käskyjen kutsumalle ohjelmalle lataaja varmistaa, että
+ohjelmatili on olemassa ja sen omistaa kelvollinen lataaja (`NativeLoader` tai
+jokin _rs`PROGRAM_OWNERS`_). Virheelliset ohjelmat epäonnistuvat virheellä
+_rs`ProgramAccountNotFound`_ tai _rs`InvalidProgramForExecution`_.
+
+LoaderV3 (päivitettävät) ohjelmat lataavat implisiittisesti niihin liittyvän
+programdata-tilin, joka myös lasketaan ladatun datan kokorajaan.
+
+Jos tilin lataus epäonnistuu, mutta maksaja validoitiin onnistuneesti,
+transaktiosta tulee
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+-tulos: maksu peritään silti, mutta käskyjä ei suoriteta.
+
+### 7. Suorita käskyt
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+luo _rs`TransactionContext`_ -olion kaikilla ladatuilla tileillä ja kutsuu
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs)
+-funktiota. Käskyt suoritetaan peräkkäin siinä järjestyksessä, jossa ne
+esiintyvät viestissä. Jokainen käskyn kutsu luo _rs`InvokeContext`_ -olion ja
+kutsuu kohdeohjelmaa.
+
+#### Käskyn käsittelyn yksityiskohdat
+
+Ajoympäristön
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+-funktio iteroi jokaisen käskyn läpi ja kutsuu kohdeohjelmaa:
+
+1. Jokaiselle ohjeelle runtime kutsuu
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436),
+   joka rakentaa
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519).
+   Tämä konteksti sisältää viittaukset ohjeen tileille (ratkaistuna käännetyistä
+   indekseistä), instruction datan ja program account -indeksin.
+2. Runtime tarkistaa, onko ohjelma [precompile](/docs/core/programs/precompiles)
+   (Ed25519, Secp256k1, Secp256r1). Precompilet vahvistetaan suoraan ilman BPF
+   VM:n kutsumista.
+3. Kaikille muille ohjelmille runtime kutsuu
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477),
+   joka lataa ohjelman välimuistista ja suorittaa sen BPF-virtuaalikoneessa.
+4. Ohjeen suorittamisen jälkeen runtime
+   [vahvistaa](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398),
+   että lamport-saldo kaikkien ohjeen tilien välillä ei ole muuttunut
+   (_rs`UnbalancedInstruction`_ -tarkistus).
+5. Jos jokin ohje epäonnistuu, koko transaktio peruutetaan. Mitään välitilan
+   muutoksia ei vahvisteta.
+
+Jokainen ohje kasvattaa instruction trace -jälkeä. Jälki sisältää sekä ylätason
+ohjeet että kaikki niiden kutsutut [CPI:t](/docs/core/cpi). Jäljen
+kokonaispituus (ylätason ohjeet plus kaikki sisäkkäiset CPI:t) ei voi ylittää
+64:ää (_rs`MAX_INSTRUCTION_TRACE_LENGTH`_). Tämän rajan ylittäminen palauttaa
+_rs`InstructionError::MaxInstructionTraceLengthExceeded`_.
+
+Suorituksen jälkeen runtime vahvistaa, että:
+
+- Lamport-summa kaikkien tilien välillä ei ole muuttunut
+- Mikään tili ei ole siirtynyt rent-exempt-tilasta rent-paying-tilaan
+
+### 8. Vahvistus tai peruutus
+
+Jos suoritus onnistuu, muokatut tilitilat `TransactionContext`:sta kirjoitetaan
+takaisin _rs`AccountLoader`_:n batch-paikalliseen välimuistiin. Jos suoritus
+epäonnistuu, vain _rs`RollbackAccounts`_ (maksaja, jolta maksu on vähennetty ja
+nonce edistetty) kirjoitetaan takaisin. Maksu peritään silti, mutta kaikki muut
+tilimuutokset hylätään.
+
+### Pipeline-yhteenveto
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## Transaktiovirheiden viite
+
+Seuraava taulukko listaa kaikki
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+-variantit ja missä pipeline-vaiheessa ne esiintyvät:
+
+| Virhe                                                                                                                                   | Vaihe                           | Syy                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Ajastus                         | Tili on jo toisen tapahtuman lukitsema samassa erässä                                                |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Ajastus                         | Pubkey esiintyy kahdesti tapahtuman `account_keys`-kentässä                                          |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Maksajan validointi             | Maksajatiliä ei ole olemassa                                                                         |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Tilin lataus                    | Kutsuttua ohjelmaa ei ole olemassa                                                                   |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Maksajan validointi             | Maksaja ei voi kattaa maksua + rent-exempt-minimiä                                                   |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Maksajan validointi             | Maksaja ei ole järjestelmä- tai nonce-tili                                                           |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Tilavälimuisti                  | Tapahtuma oli jo käsitelty                                                                           |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Ikätarkistus                    | Blockhash ei ole jonossa eikä kelvollinen nonce                                                      |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Suoritus                        | Virhe tapahtui käskyä suoritettaessa (sisältää käskyn indeksin ja tietyn `InstructionError`-virheen) |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Tilin lataus                    | Lataajan kutsuketju on liian syvä                                                                    |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitointi                      | Tapahtuma vaatii maksun, mutta allekirjoitusta ei ole                                                |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitointi                      | Tapahtuma sisältää virheellisen tiliviitteen                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Allekirjoituksen varmennus      | Ed25519-allekirjoitus ei täsmää (paketti hylätään)                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Tilin lataus                    | Ohjelman omistaja ei ole kelvollinen lataaja                                                         |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitointi                      | Tapahtuman tilien offsetien sanitointi epäonnistui                                                   |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Ajastus                         | Tapahtumat ovat tällä hetkellä pois käytöstä klusterin huollon vuoksi                                |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Suoritus                        | Tapahtuman käsittely jätti tilille avoimen lainaviitteen                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Ajastus                         | Tapahtuma ylittäisi lohkon maksimikustannusrajan                                                     |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitointi                      | Tapahtuman versio ei ole tuettu                                                                      |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Tilin lataus                    | Tapahtuma lataa kirjoitettavan tilin, johon ei voi kirjoittaa                                        |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Ajastus                         | Tapahtuma ylittäisi tilin maksimikustannusrajan lohkossa                                             |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Ajastus                         | Tapahtuma ylittäisi tilin datarajan lohkossa                                                         |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Ajastus                         | Tapahtuma lukitsi liian monta tiliä                                                                  |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Tilin lataus                    | Osoitehakutaulun tiliä ei ole olemassa                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Tilin lataus                    | Osoitehakutaulun omistaa väärä ohjelma                                                               |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Tilin lataus                    | Osoitehakutaulu sisältää virheellistä dataa                                                          |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Tilin lataus                    | Osoitetaulun haku käyttää virheellistä indeksiä                                                      |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Suorituksen jälkeinen tarkistus | Tili siirtyi rent-exempt-tilasta rent-paying-tilaan                                                  |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Ajastus                         | Tapahtuma ylittäisi äänestyksen maksimikustannusrajan                                                |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Ajastus                         | Tapahtuma ylittäisi tilin kokonaisdatarajan                                                          |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Laskentabudjetin jäsennys       | Compute budget -käskyn variantti esiintyy kahdesti samassa tapahtumassa                              |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Suorituksen jälkeinen tarkistus | Tilillä ei ole tarpeeksi lamportteja kattamaan rent-maksua sen datakoolle                            |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Tilin lataus                    | Ladattu data ylittää 64 MiB -rajan                                                                   |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Laskentabudjetin jäsennys       | `SetLoadedAccountsDataSizeLimit` asetettu arvoon 0                                                   |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitointi                      | Tapahtuma erosi ennen/jälkeen ominaisuuden aktivoinnin ja vaatii uudelleensanitoinnin                |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Tilin lataus                    | Ohjelman suoritus on väliaikaisesti rajoitettu viitatulla tilillä                                    |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Suorituksen jälkeinen tarkistus | Lamporttien kokonaissaldo ennen tapahtumaa ei vastaa saldoa sen jälkeen                              |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Tilin lataus                    | Ohjelmavälimuisti saavutti maksimirajan                                                              |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                          | Commit peruutettu sisäisesti                                                                         |

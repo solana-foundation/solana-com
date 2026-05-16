@@ -1,7 +1,25 @@
 import React from "react";
 import { notFound } from "next/navigation";
-import client from "@/tina/__generated__/client";
-import PostClientPage from "./client-page";
+import Image from "next/image";
+import { reader } from "@/lib/reader";
+import { Section } from "@/components/layout/section";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowLeft } from "lucide-react";
+import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
+import ErrorBoundary from "@/components/error-boundary";
+import { Button } from "@/components/ui/button";
+import { CallToAction } from "@/components/ui/call-to-action";
+import { TableOfContents } from "@/components/ui/table-of-contents";
+import Switchback from "@/components/ui/switchback";
+import { SocialShare } from "@/components/ui/social-share";
+import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
+import { newsPostMetadata } from "@/lib/metadata";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
+import { extractHeadings } from "@/lib/extract-headings";
+import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -13,51 +31,221 @@ export default async function PostPage({
   params: Promise<{ urlSegments: string[]; locale: string }>;
 }) {
   const resolvedParams = await params;
-  const filepath = resolvedParams.urlSegments.join("/");
+  const slug = resolvedParams.urlSegments.join("/");
 
-  let data;
-  try {
-    data = await client.queries.post({
-      relativePath: `${filepath}.mdx`,
-    });
-  } catch (error) {
+  const post = await fetchPublishedPostBySlug(slug);
+
+  if (!post) {
     notFound();
   }
 
-  return <PostClientPage {...data} />;
+  // Resolve author
+  let author = null;
+  if (post.author) {
+    author = await reader.collections.authors.read(post.author);
+  }
+
+  // Resolve category
+  let categoryName: string | null = null;
+  if (post.categories) {
+    for (const catItem of post.categories) {
+      if (catItem && typeof catItem === "object" && "category" in catItem) {
+        if (catItem.category) {
+          const catData = await reader.collections.categories.read(
+            catItem.category,
+          );
+          if (catData?.name) {
+            categoryName = String(catData.name);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Resolve CTA
+  let cta = null;
+  if (post.cta) {
+    cta = await reader.collections.ctas.read(post.cta);
+  }
+
+  // Resolve switchback
+  let switchback = null;
+  if (post.switchback) {
+    switchback = await reader.collections.switchbacks.read(post.switchback);
+  }
+
+  const formattedDate = formatPublishedAt(post.publishedAt, "long");
+
+  return (
+    <ErrorBoundary>
+      <Section>
+        <div className="relative w-full py-12 pt-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
+
+          <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
+            <div className="mb-6">
+              <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
+                <Link href="/news">
+                  <ArrowLeft className="size-4" />
+                  <span>Back to News</span>
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {categoryName && (
+                <span className="text-primary font-semibold uppercase tracking-wider text-xs">
+                  {categoryName}
+                </span>
+              )}
+              <span className="text-gray-400">{formattedDate}</span>
+              {author && (
+                <span className="flex items-center gap-2 text-gray-400">
+                  <span>by</span>
+                  {author.avatar && (
+                    <Image
+                      src={author.avatar}
+                      alt={String(author.name)}
+                      width={12}
+                      height={12}
+                    />
+                  )}
+                  <span>{String(author.name)}</span>
+                </span>
+              )}
+            </div>
+
+            <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
+              {String(post.title)}
+            </h1>
+
+            {post.heroImage && (
+              <div className="rounded-lg overflow-hidden">
+                <Image
+                  priority={true}
+                  src={post.heroImage}
+                  alt={String(post.title)}
+                  width={720}
+                  height={400}
+                  className="w-full h-auto"
+                  style={{ maxWidth: "100%" }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {await (async () => {
+          const rawMdxSource = await post.body();
+          const mdxSource = preprocessMDX(rawMdxSource);
+          const headings = extractHeadings(rawMdxSource);
+
+          return (
+            <div className="relative mx-auto mt-12 max-w-[720px] px-4 md:px-6 lg:px-8">
+              <article className="prose prose-lg dark:prose-dark w-full max-w-none">
+                <MDXRemote
+                  source={mdxSource}
+                  components={mdxComponents}
+                  options={{
+                    mdxOptions: {
+                      remarkPlugins: [remarkGfm],
+                      rehypePlugins: [rehypeSlug],
+                    },
+                  }}
+                />
+              </article>
+
+              <SocialShare title={String(post.title)} variant="card" />
+
+              <aside className="hidden xl:block absolute top-0 bottom-0 left-full ml-12 w-56">
+                <div className="sticky top-24 space-y-8">
+                  <TableOfContents headings={headings} />
+
+                  {cta && (
+                    <CallToAction
+                      eyebrow={cta.eyebrow || undefined}
+                      headline={cta.headline || undefined}
+                      description={cta.description || undefined}
+                      button={{
+                        label: cta.button?.label || "",
+                        url: cta.button?.url || "",
+                      }}
+                      className={cta.className || undefined}
+                    />
+                  )}
+                </div>
+              </aside>
+            </div>
+          );
+        })()}
+      </Section>
+      {switchback && (
+        <Section>
+          <Switchback
+            title={String(switchback.title)}
+            image={{
+              src: switchback.image?.src ?? "",
+              alt: switchback.image?.alt ?? "",
+            }}
+            eyebrow={switchback.eyebrow || undefined}
+            body={
+              <MDXRemote
+                source={preprocessMDX(await switchback.body())}
+                components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
+              />
+            }
+            buttons={switchback.buttons?.map(
+              (button: { label?: string; url?: string } | undefined) => ({
+                label: button?.label || "",
+                url: button?.url || "",
+              }),
+            )}
+            isReport={switchback.isReport || undefined}
+            hubspotForm={
+              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
+                ? {
+                    buttonLabel:
+                      switchback.hubspotForm.buttonLabel ||
+                      "Get the full report",
+                    portalId: String(switchback.hubspotForm.portalId),
+                    formId: String(switchback.hubspotForm.formId),
+                  }
+                : undefined
+            }
+            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
+            headline={switchback.headline || undefined}
+            description={
+              switchback.description
+                ? String(switchback.description)
+                : undefined
+            }
+          />
+        </Section>
+      )}
+    </ErrorBoundary>
+  );
 }
 
 export async function generateStaticParams() {
   try {
-    let posts = await client.queries.postConnection();
-    const allPosts = posts;
+    const slugs = await reader.collections.posts.list();
+    const publishedSlugs: string[] = [];
 
-    if (!allPosts.data.postConnection.edges) {
-      return [];
-    }
-
-    while (posts.data?.postConnection.pageInfo.hasNextPage) {
-      posts = await client.queries.postConnection({
-        after: posts.data.postConnection.pageInfo.endCursor,
-      });
-
-      if (!posts.data.postConnection.edges) {
-        break;
+    for (const slug of slugs) {
+      const post = await reader.collections.posts.read(slug);
+      if (isPublishedPost(post)) {
+        publishedSlugs.push(slug);
       }
-
-      allPosts.data.postConnection.edges.push(
-        ...posts.data.postConnection.edges
-      );
     }
 
-    return (
-      allPosts.data?.postConnection.edges.map((edge) => ({
-        urlSegments: edge?.node?._sys.breadcrumbs,
-      })) || []
-    );
+    return publishedSlugs.map((slug) => ({
+      urlSegments: slug.split("/"),
+    }));
   } catch (error) {
-    // During build, if the server isn't available, return empty array
-    // This allows the build to complete even if static generation fails
     console.warn("Failed to generate static params for posts:", error);
     return [];
   }
@@ -69,58 +257,6 @@ export async function generateMetadata({
   params: Promise<{ urlSegments: string[]; locale: string }>;
 }): Promise<Metadata> {
   const resolvedParams = await params;
-  const filepath = resolvedParams.urlSegments.join("/");
-
-  let post;
-  try {
-    const res = await client.queries.post({ relativePath: `${filepath}.mdx` });
-    post = res.data.post;
-  } catch (error) {
-    // Fallback metadata if query fails during build
-    return {
-      title: "Post Not Found",
-      description: "",
-    };
-  }
-
-  const title = post.seo?.title || post.title;
-  const description =
-    (typeof post.seo?.description === "string" && post.seo.description) ||
-    undefined;
-
-  const ogImage =
-    post.seo?.openGraph?.ogImage ||
-    post.seo?.twitter?.twitterImage ||
-    post.heroImage;
-
-  const twitterImage = post.seo?.twitter?.twitterImage || ogImage;
-
-  return {
-    title,
-    description,
-    robots: {
-      index: post.seo?.noIndex ? false : true,
-      follow: post.seo?.noFollow ? false : true,
-      googleBot: {
-        index: post.seo?.noIndex ? false : true,
-        follow: post.seo?.noFollow ? false : true,
-      },
-    },
-    openGraph: {
-      title: post.seo?.openGraph?.ogTitle || title,
-      description: post.seo?.openGraph?.ogDescription || description,
-      url: post.seo?.openGraph?.ogUrl || undefined,
-      type: Array.isArray(post.seo?.openGraph?.ogType)
-        ? post.seo.openGraph.ogType[0]
-        : (post.seo?.openGraph?.ogType as any) || "article",
-      images: ogImage ? [ogImage] : undefined,
-    },
-    twitter: {
-      card: twitterImage ? "summary_large_image" : "summary",
-      title: post.seo?.twitter?.twitterTitle || title,
-      description: post.seo?.twitter?.twitterDescription || description,
-      images: twitterImage ? [twitterImage] : undefined,
-    },
-    authors: post.author?.name ? [{ name: post.author.name }] : undefined,
-  };
+  const slug = resolvedParams.urlSegments.join("/");
+  return newsPostMetadata(slug);
 }

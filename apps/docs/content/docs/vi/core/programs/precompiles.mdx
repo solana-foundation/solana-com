@@ -1,0 +1,187 @@
+---
+title: Chương trình biên dịch sẵn
+description:
+  Các chương trình biên dịch sẵn của Solana để xác minh chữ ký — Ed25519,
+  Secp256k1 và Secp256r1 — bỏ qua sBPF VM và chạy dưới dạng mã gốc trong
+  validator.
+url: /docs/core/programs/precompiles
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/builtin-programs
+related:
+  - /docs/core/fees/fee-structure
+  - /docs/core/programs/syscall-reference
+  - /docs/core/transactions/transaction-structure
+---
+
+<Callout type="info" title="Tóm tắt">
+  Precompiles (Ed25519, Secp256k1, Secp256r1) xác minh chữ ký dưới dạng mã gốc,
+  bỏ qua sBPF VM. Chúng xử lý các thao tác mã hóa mà việc thực thi sBPF sẽ quá
+  chậm. Precompiles không thể gọi qua CPI.
+</Callout>
+
+## Chương trình biên dịch sẵn
+
+Các chương trình biên dịch sẵn bỏ qua máy ảo sBPF và chạy dưới dạng mã gốc trong
+validator. Chúng xử lý các thao tác mã hóa mà việc thực thi sBPF sẽ quá chậm.
+
+### Xác minh chữ ký ed25519
+
+Chương trình ed25519 xác minh một hoặc nhiều chữ ký ed25519 trong một
+instruction duy nhất.
+
+| Chương trình    | Program ID                                    | Mô tả                                                                        | Instructions                                                                                    | Nguồn                                                                             |
+| --------------- | --------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Ed25519 Program | `Ed25519SigVerify111111111111111111111111111` | Xác minh chữ ký ed25519. Nếu bất kỳ chữ ký nào thất bại, lỗi sẽ được trả về. | [Instructions](https://docs.rs/solana-ed25519-program/latest/solana_ed25519_program/index.html) | [Nguồn](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/ed25519.rs) |
+
+Byte đầu tiên của instruction `u8` chứa số lượng chữ ký cần kiểm tra, theo sau
+là một byte padding. Sau đó, struct sau được serialized một lần cho mỗi chữ ký:
+
+```rs title="Ed25519SignatureOffsets"
+struct Ed25519SignatureOffsets {
+    signature_offset: u16,             // offset to ed25519 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to public key of 32 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+```
+
+```txt title="Signature verification pseudocode"
+process_instruction() {
+    for i in 0..count {
+        // i'th index values referenced:
+        instructions = &transaction.message().instructions
+        instruction_index = ed25519_signature_instruction_index != u16::MAX ? ed25519_signature_instruction_index : current_instruction;
+        signature = instructions[instruction_index].data[ed25519_signature_offset..ed25519_signature_offset + 64]
+        instruction_index = ed25519_pubkey_instruction_index != u16::MAX ? ed25519_pubkey_instruction_index : current_instruction;
+        pubkey = instructions[instruction_index].data[ed25519_pubkey_offset..ed25519_pubkey_offset + 32]
+        instruction_index = ed25519_message_instruction_index != u16::MAX ? ed25519_message_instruction_index : current_instruction;
+        message = instructions[instruction_index].data[ed25519_message_data_offset..ed25519_message_data_offset + ed25519_message_data_size]
+        if pubkey.verify(signature, message) != Success {
+            return Error
+        }
+    }
+    return Success
+}
+```
+
+### Xác minh khôi phục secp256k1
+
+Chương trình secp256k1 xác minh các thao tác khôi phục khóa công khai secp256k1
+(ecrecover).
+
+| Chương trình      | Program ID                                    | Mô tả                                                                 | Instructions                                                                                        | Nguồn                                                                               |
+| ----------------- | --------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Secp256k1 Program | `KeccakSecp256k11111111111111111111111111111` | Xác minh các thao tác khôi phục khóa công khai secp256k1 (ecrecover). | [Instructions](https://docs.rs/solana-secp256k1-program/latest/solana_secp256k1_program/index.html) | [Nguồn](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256k1.rs) |
+
+Byte đầu tiên của instruction chứa số lượng khóa công khai cần kiểm tra. Sau đó,
+struct sau được serialized một lần cho mỗi khóa công khai:
+
+```rs title="SecpSignatureOffsets"
+struct SecpSignatureOffsets {
+    signature_offset: u16,                // offset to [signature,recovery_id] of 64+1 bytes
+    signature_instruction_index: u8,      // instruction index to find signature
+    eth_address_offset: u16,              // offset to ethereum_address of 20 bytes
+    eth_address_instruction_index: u8,    // instruction index to find ethereum address
+    message_data_offset: u16,             // offset to start of message data
+    message_data_size: u16,               // size of message data
+    message_instruction_index: u8,        // instruction index to find message data
+}
+```
+
+```txt title="Recovery verification pseudocode"
+process_instruction() {
+  for i in 0..count {
+      // i'th index values referenced:
+      instructions = &transaction.message().instructions
+      signature = instructions[signature_instruction_index].data[signature_offset..signature_offset + 64]
+      recovery_id = instructions[signature_instruction_index].data[signature_offset + 64]
+      ref_eth_pubkey = instructions[eth_address_instruction_index].data[eth_address_offset..eth_address_offset + 20]
+      message_hash = keccak256(instructions[message_instruction_index].data[message_data_offset..message_data_offset + message_data_size])
+      pubkey = ecrecover(signature, recovery_id, message_hash)
+      eth_pubkey = keccak256(pubkey[1..])[12..]
+      if eth_pubkey != ref_eth_pubkey {
+          return Error
+      }
+  }
+  return Success
+}
+```
+
+Chữ ký và dữ liệu thông điệp có thể tham chiếu đến bất kỳ instruction data nào
+trong giao dịch. Bằng cách chỉ định instructions sysvar đặc biệt, các chương
+trình cũng có thể đọc dữ liệu từ chính giao dịch đó.
+
+Chi phí giao dịch bằng số lượng chữ ký cần xác minh nhân với chi phí xác minh
+cho mỗi chữ ký.
+
+### Xác minh chữ ký secp256r1
+
+Chương trình secp256r1 xác minh tối đa 8 chữ ký secp256r1 cho mỗi lệnh.
+
+| Chương trình           | ID chương trình                               | Mô tả                                                                                                                     | Lệnh                                                                                      | Nguồn                                                                               |
+| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Chương trình Secp256r1 | `Secp256r1SigVerify1111111111111111111111111` | Xác minh tối đa 8 chữ ký secp256r1. Nhận chữ ký, khóa công khai và thông điệp. Trả về lỗi nếu bất kỳ chữ ký nào thất bại. | [Lệnh](https://docs.rs/solana-secp256r1-program/latest/solana_secp256r1_program/all.html) | [Nguồn](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256r1.rs) |
+
+`u8` đầu tiên của lệnh là số lượng chữ ký cần kiểm tra, theo sau là một byte
+đệm. Sau đó, cấu trúc sau được tuần tự hóa một lần cho mỗi chữ ký:
+
+```rs title="Secp256r1SignatureOffsets"
+struct Secp256r1SignatureOffsets {
+    signature_offset: u16,             // offset to compact secp256r1 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to compressed public key of 33 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+
+```
+
+<Callout>
+  Giá trị S thấp được áp dụng cho tất cả chữ ký để tránh tính dễ thay đổi của
+  chữ ký một cách vô tình.
+</Callout>
+
+```txt title="Signature verification pseudocode"
+process_instruction() {
+    if data.len() < SIGNATURE_OFFSETS_START {
+        return Error
+    }
+
+    num_signatures = data[0] as usize
+    if num_signatures == 0 || num_signatures > 8 {
+        return Error
+    }
+
+    expected_data_size = num_signatures * SIGNATURE_OFFSETS_SERIALIZED_SIZE + SIGNATURE_OFFSETS_START
+    if data.len() < expected_data_size {
+        return Error
+    }
+
+    for i in 0..num_signatures {
+        offsets = parse_signature_offsets(data, i)
+
+        signature = get_data_slice(data, instruction_datas, offsets.signature_instruction_index, offsets.signature_offset, SIGNATURE_SERIALIZED_SIZE)
+
+        if s > half_curve_order {
+            return Error
+        }
+
+        pubkey = get_data_slice(data, instruction_datas, offsets.public_key_instruction_index, offsets.public_key_offset, COMPRESSED_PUBKEY_SERIALIZED_SIZE)
+
+        message = get_data_slice(data, instruction_datas, offsets.message_instruction_index, offsets.message_data_offset, offsets.message_data_size)
+
+        if !verify_signature(signature, pubkey, message) {
+            return Error
+        }
+    }
+
+    return Success
+}
+```

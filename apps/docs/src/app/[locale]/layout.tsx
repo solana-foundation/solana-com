@@ -6,14 +6,18 @@ import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 import { NextIntlClientProvider } from "next-intl";
 import { Metadata } from "next";
 import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";
-import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
-
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
-import { loadMessages } from "@workspace/i18n/load-messages";
+import {
+  Header,
+  Footer,
+  PersistentPodcastPlayer,
+  ThemeProvider,
+  SitewideTopAlert,
+} from "@solana-com/ui-chrome";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 
 type Props = {
   children: React.ReactNode;
@@ -23,23 +27,8 @@ type Props = {
 export default async function RootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
-  // Load messages from both sources in parallel with automatic fallback to English
-  const [webMessages, docsMessages] = await Promise.all([
-    loadMessages(
-      (loc) =>
-        import(`../../../../../apps/web/public/locales/${loc}/common.json`),
-      locale,
-    ),
-    loadMessages(
-      (loc) => import(`@@/public/locales/${loc}/common.json`),
-      locale,
-    ),
-  ]);
-
-  // Merge translations, with docs-specific taking precedence.
-  const messages = { ...webMessages, ...docsMessages };
+  const messages = await loadMergedMessages({ app: "docs", locale });
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
-  const builderLocale = locale == "en" ? "Default" : locale;
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -57,11 +46,12 @@ export default async function RootLayout({ children, params }: Props) {
           <PostHogProvider>
             <ThemeProvider>
               <GTMTrackingSnippet />
-              <SitewideTopAlert locale={builderLocale} />
+              <SitewideTopAlert />
               <CookieConsent />
               <Header />
               {children}
               <Footer />
+              <PersistentPodcastPlayer />
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>

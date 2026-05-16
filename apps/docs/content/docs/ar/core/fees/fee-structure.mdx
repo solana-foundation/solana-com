@@ -1,0 +1,317 @@
+---
+title: هيكل الرسوم
+description:
+  كيفية حساب رسوم معاملات سولانا، بما في ذلك الرسوم الأساسية لكل توقيع، وصيغة
+  رسوم الأولوية، وتوزيع الرسوم، وكيفية تعيين الرسوم باستخدام تعليمات ميزانية
+  الحوسبة.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="ملخص">
+  إجمالي الرسوم = الرسوم الأساسية (5,000 لامبورت/توقيع، يتم حرق 50%) + رسوم
+  الأولوية (سعر_وحدة_الحوسبة * حد_وحدة_الحوسبة / 1 مليون لامبورت، 100% للمدقق).
+  يتم فرض الرسوم سواء نجحت المعاملة أو فشلت.
+</Callout>
+
+## خوارزمية حساب الرسوم
+
+يتم حساب إجمالي الرسوم للمعاملة بواسطة
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+المدخلات هي رسالة المعاملة، وقيمة `lamports_per_signature` الحالية (حالياً
+5,000)، ورسوم الأولوية المستمدة من تعليمات ميزانية الحوسبة. يتم خصم إجمالي
+الرسوم من دافع الرسوم قبل بدء التنفيذ. إذا فشلت المعاملة، يتم فرض الرسوم على أي
+حال.
+
+## الرسوم الأساسية
+
+تغطي الرسوم الأساسية تكلفة التحقق من توقيع Ed25519 بالإضافة إلى أي عمليات تحقق
+من توقيعات البرامج المجمعة مسبقاً. يتم فرض رسوم على كل توقيع في المعاملة، بما في
+ذلك التوقيعات التي يتم التحقق منها بواسطة برامج Ed25519 وSecp256k1 وSecp256r1
+المجمعة مسبقاً.
+
+تقوم دالة
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+بحساب:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: عدد توقيعات Ed25519 على المعاملة (عادةً واحد لكل
+  موقّع).
+- `num_ed25519_signatures`، `num_secp256k1_signatures`،
+  `num_secp256r1_signatures`: التوقيعات التي يتم التحقق منها بواسطة البرامج
+  المجمعة مسبقاً المقابلة.
+- `lamports_per_signature`: حالياً
+  [5,000 لامبورت](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### توزيع الرسوم
+
+يتم توزيع الرسوم الأساسية ورسوم الأولوية بشكل مختلف. تقوم دالة
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+في وقت التشغيل بحساب:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **الرسوم الأساسية (transaction_fee)**: يتم
+  [حرق](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  50% (إزالتها من العرض المتداول) وتذهب 50% إلى المدقق المنتج للكتلة. نسبة الحرق
+  هي
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70).
+- **رسوم الأولوية**: تذهب 100% إلى المدقق (لا يتم حرق أي شيء)، وفقاً لـ
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
+
+إجمالي مكافأة المدقق للمعاملة هو:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## رسوم الأولوية
+
+رسوم الأولوية هي رسوم اختيارية تزيد من أولوية جدولة المعاملة. وحدة الحوسبة (CU)
+هي وحدة حسابية يقيسها وقت التشغيل أثناء تنفيذ المعاملة. كل عملية (حسابية، الوصول
+إلى الذاكرة، استدعاء النظام) تكلف عدداً ثابتاً من وحدات الحوسبة. يمكنك تعيين
+رسوم الأولوية من خلال تضمين تعليمات ميزانية الحوسبة في معاملتك. (راجع
+[دليل كيفية استخدام رسوم الأولوية](/developers/guides/advanced/how-to-use-priority-fees)
+للحصول على التفاصيل.)
+
+### صيغة رسوم الأولوية
+
+تحسب دالة
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+ما يلي:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| المتغير              | الوصف                                                                                                                                                                      | الافتراضي                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `compute_unit_price` | ميكرو-لامبورت لكل وحدة حوسبة، يتم تعيينها عبر `SetComputeUnitPrice`                                                                                                        | 0 ميكرو-لامبورت              |
+| `compute_unit_limit` | الحد الأقصى لوحدات الحوسبة التي قد تستهلكها المعاملة، يتم تعيينها عبر `SetComputeUnitLimit`                                                                                | مجموع الافتراضيات لكل تعليمة |
+| `1,000,000`          | معامل التحويل من ميكرو-لامبورت إلى لامبورت ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                           |
+
+### حد وحدة الحوسبة
+
+حد وحدة الحوسبة هو الحد الأقصى لعدد وحدات الحوسبة التي قد تستهلكها المعاملة. إذا
+لم يتم تضمين تعليمة
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)،
+يتم حساب الافتراضي من عدد ونوع التعليمات (200,000 وحدة حوسبة لكل تعليمة غير
+مدمجة، 3,000 لكل تعليمة مدمجة). راجع
+[ميزانية الحوسبة](/docs/core/fees/compute-budget) للحصول على تفاصيل حول الحساب
+الافتراضي.
+
+<Callout type="warn">
+  تعتمد رسوم الأولوية على حد وحدات الحوسبة المطلوب، وليس على الاستخدام الفعلي
+  لوحدات الحوسبة. تعيين حد أعلى من اللازم يعني الدفع مقابل وحدات حوسبة غير
+  مستخدمة.
+</Callout>
+
+### سعر وحدة الحوسبة
+
+سعر وحدة الحوسبة هو مبلغ اختياري من الميكرو-لامبورت يُدفع مقابل كل وحدة حوسبة
+مطلوبة. يحدد سعر وحدة الحوسبة رسوم الأولوية بشكل مباشر. لتعيين سعر وحدة الحوسبة،
+قم بتضمين تعليمة
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+في معاملتك.
+
+<Callout>
+  سعر CU الافتراضي هو 0، مما يعني أن رسوم الأولوية الافتراضية هي أيضاً 0.
+</Callout>
+
+للحصول على تقديرات سعر CU في الوقت الفعلي، راجع مزودي واجهة برمجة تطبيقات رسوم
+الأولوية أدناه.
+
+| المزود                                  | واجهة برمجة تطبيقات رسوم الأولوية                                           |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| [Helius](https://www.helius.dev/)       | [التوثيق](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [التوثيق](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [التوثيق](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### أولوية جدولة المعاملات
+
+يقوم المجدول بترتيب المعاملات باستخدام دالة
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546):
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **المكافأة**: دخل المدقق من الرسوم = رسوم الأولوية + الجزء غير المحروق من
+  الرسوم الأساسية. يتم حسابها بواسطة
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **التكلفة**:
+  [تكلفة CU المقدرة](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  للمجدول (تكاليف التوقيع + تكاليف قفل الكتابة + تكاليف بيانات التعليمات +
+  تكاليف تنفيذ البرنامج + تكلفة حجم بيانات الحسابات المحملة). راجع
+  [ميزانية الحوسبة](/docs/core/fees/compute-budget#scheduler-cost-model) للحصول
+  على التفاصيل.
+- **1,000,000**: مضاعف للحفاظ على الدقة، حيث غالباً ما تتجاوز التكلفة المكافأة
+  بوحدات lamports الخام.
+- **+1**: يمنع القسمة على صفر.
+
+تحدد الأولوية الترتيب الذي يتم به إزالة المعاملات من قائمة انتظار المجدول
+للتنفيذ.
+
+## مثال: تعيين حد CU وسعر CU
+
+توضح الأمثلة أدناه كيفية تعيين حد CU وسعر CU على معاملة باستخدام مجموعات تطوير
+برمجيات سولانا.
+
+| مجموعة التطوير البرمجية        | مرجع الكود المصدري                                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

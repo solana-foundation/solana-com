@@ -1,0 +1,94 @@
+---
+title: Ανθεκτικά nonces
+description:
+  Πώς λειτουργούν τα ανθεκτικά nonces στο Solana για offline υπογραφή και
+  καθυστερημένη υποβολή συναλλαγών, συμπεριλαμβανομένου του κύκλου ζωής nonce,
+  ανίχνευσης, επικύρωσης και συμπεριφοράς αποτυχίας.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Περίληψη">
+  Οι συναλλαγές με ανθεκτικό nonce αντικαθιστούν το πρόσφατο blockhash με μια
+  αποθηκευμένη τιμή nonce, εξαλείφοντας το παράθυρο λήξης των 150 slots για μια
+  συναλλαγή. Αυτό επιτρέπει την offline υπογραφή και την καθυστερημένη υποβολή.
+</Callout>
+
+<Callout type="warn">
+  Τα ανθεκτικά nonces ενδέχεται να καταργηθούν σε μελλοντική έκδοση. Δείτε τη
+  [συζήτηση
+  SIMD](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  για λεπτομέρειες.
+</Callout>
+
+## Ανθεκτικά nonces
+
+Μια συναλλαγή με ανθεκτικό nonce αντικαθιστά το πρόσφατο blockhash με μια
+αποθηκευμένη τιμή nonce, εξαλείφοντας το παράθυρο λήξης των 150 slots. Αυτό
+επιτρέπει την offline υπογραφή και την καθυστερημένη υποβολή.
+
+### Πώς λειτουργούν οι συναλλαγές nonce
+
+Ένας λογαριασμός nonce είναι ένας λογαριασμός που ανήκει στο System Program και
+αποθηκεύει μια τιμή _rs`State::Initialized`_ που περιέχει τρία πεδία: ένα
+**authority** pubkey (ποιος μπορεί να προωθήσει το nonce), μια τιμή **durable
+nonce** (ένα hash που προέρχεται από ένα πρόσφατο blockhash) και **lamports ανά
+υπογραφή** (το ποσοστό χρέωσης όταν το nonce προωθήθηκε τελευταία φορά).
+
+Για να χρησιμοποιήσετε ένα ανθεκτικό nonce:
+
+1. Δημιουργήστε και αρχικοποιήστε έναν λογαριασμό nonce χρησιμοποιώντας
+   _rs`CreateAccount`_ + _rs`InitializeNonceAccount`_
+2. Δημιουργήστε τη συναλλαγή με _rs`AdvanceNonceAccount`_ ως την **πρώτη
+   εντολή** και την τιμή nonce ως το `recent_blockhash`
+3. Υπογράψτε τη συναλλαγή (μπορεί να γίνει offline, καθώς το nonce δεν λήγει)
+4. Υποβάλετε όταν είστε έτοιμοι
+
+### Ανίχνευση nonce
+
+Το runtime ανιχνεύει τις συναλλαγές nonce ελέγχοντας αν η πρώτη εντολή (index
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) είναι μια κλήση στο System Program με την εντολή _rs`AdvanceNonceAccount`_.
+Ο λογαριασμός nonce πρέπει να είναι ο πρώτος λογαριασμός αυτής της εντολής και
+πρέπει να είναι εγγράψιμος. Δείτε
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Ροή επικύρωσης nonce
+
+Όταν το `recent_blockhash` μιας συναλλαγής δεν βρίσκεται στο `BlockhashQueue`, ο
+validator ελέγχει αν είναι έγκυρη συναλλαγή nonce μέσω της
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. Το αποθηκευμένο `durable_nonce` του nonce πρέπει να διαφέρει από το επόμενο
+   durable nonce (που προκύπτει από το τρέχον blockhash). Αυτό διασφαλίζει ότι
+   το nonce δεν έχει ήδη χρησιμοποιηθεί σε αυτό το block
+2. Ο λογαριασμός nonce πρέπει να φορτωθεί και να αναλυθεί ως
+   _rs`State::Initialized`_
+3. Το αποθηκευμένο `durable_nonce` πρέπει να ταιριάζει με το `recent_blockhash`
+   της συναλλαγής
+
+Ο έλεγχος υπογραφής της εξουσιοδότησης nonce εκτελείται αργότερα
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+Εάν όλοι οι έλεγχοι περάσουν επιτυχώς, το nonce προωθείται στην επόμενη τιμή
+durable nonce πριν αρχίσει η εκτέλεση. Σε περίπτωση αποτυχίας εκτέλεσης, το
+προωθημένο nonce και ο πληρωτής τελών με αφαιρεμένα τέλη εξακολουθούν να
+καταχωρούνται (αποτρέποντας την επανάληψη ενώ εισπράττονται τέλη).
+
+### Συμπεριφορά αποτυχίας nonce
+
+Εάν μια συναλλαγή nonce **αποτύχει στην επικύρωση** (το nonce έχει ήδη
+χρησιμοποιηθεί, η εξουσιοδότηση δεν έχει υπογραφεί, ο λογαριασμός δεν βρέθηκε),
+ολόκληρη η συναλλαγή απορρίπτεται. Δεν εισπράττονται τέλη, δεν γίνονται αλλαγές
+κατάστασης.
+
+Εάν μια συναλλαγή nonce **περάσει την επικύρωση αλλά αποτύχει η εκτέλεση** (μια
+εντολή επιστρέφει σφάλμα), το nonce εξακολουθεί να προωθείται και τα τέλη
+εξακολουθούν να εισπράττονται. Αυτό αποτρέπει την επανάληψη της συναλλαγής ενώ
+διασφαλίζει ότι ο validator αποζημιώνεται.

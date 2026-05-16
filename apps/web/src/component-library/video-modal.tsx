@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Video Modal System
  *
@@ -36,9 +38,9 @@ import { Video, VideoProps } from "./video";
 
 const OPEN_VIDEO_EVENT = "open-video-player" as const;
 
-export interface VideoSource extends VideoProps {}
+export type { VideoProps as VideoSource };
 
-export function openVideoPlayer(source: VideoSource) {
+export function openVideoPlayer(source: VideoProps) {
   window.dispatchEvent(
     new CustomEvent(OPEN_VIDEO_EVENT, {
       detail: { ...source, autoplay: source.autoplay ?? true },
@@ -47,13 +49,15 @@ export function openVideoPlayer(source: VideoSource) {
 }
 
 export interface VideoTriggerProps {
-  platform: "youtube" | "vimeo";
+  platform: "youtube" | "vimeo" | "local";
   id: string;
   title?: string;
   bgColorClass: string; // e.g. "bg-purple-600/90"
   className?: string;
   iconClassName?: string;
   autoplay?: boolean;
+  mode?: "icon" | "button" | "icon-cover";
+  children?: React.ReactNode;
 }
 
 export const VideoTrigger = React.forwardRef<
@@ -69,34 +73,75 @@ export const VideoTrigger = React.forwardRef<
       className,
       iconClassName,
       autoplay = true,
+      mode = "icon",
+      children,
     },
     ref,
-  ) => (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
-      aria-label={title}
-      tabIndex={0}
-      className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
-    >
-      <Play
-        fill="white"
-        strokeWidth={0}
-        className={`w-8 h-8 ${iconClassName ?? ""}`}
-      />
-    </button>
-  ),
+  ) => {
+    if (mode === "button") {
+      return (
+        <button
+          ref={ref}
+          type="button"
+          aria-label={title}
+          tabIndex={0}
+          className={`${className ?? ""} border-none bg-none z-10 cursor-pointer`}
+          onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        >
+          {children}
+        </button>
+      );
+    }
+    if (mode === "icon-cover") {
+      return (
+        <div
+          className="absolute inset-0 z-10 group cursor-pointer"
+          role="button"
+          onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        >
+          <button
+            ref={ref}
+            type="button"
+            aria-label={title}
+            tabIndex={0}
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110`}
+          >
+            <Play
+              fill="white"
+              strokeWidth={0}
+              className={`w-8 h-8 ${iconClassName ?? ""}`}
+            />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        aria-label={title}
+        tabIndex={0}
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+      >
+        <Play
+          fill="white"
+          strokeWidth={0}
+          className={`w-8 h-8 ${iconClassName ?? ""}`}
+        />
+      </button>
+    );
+  },
 );
 VideoTrigger.displayName = "VideoTrigger";
 
 export function VideoPlayerModal() {
   const [open, setOpen] = useState(false);
-  const [video, setVideo] = useState<VideoSource | null>(null);
+  const [video, setVideo] = useState<VideoProps | null>(null);
 
   useEffect(() => {
     function handleOpen(e: Event) {
-      const detail = (e as CustomEvent<VideoSource>).detail;
+      const detail = (e as CustomEvent<VideoProps>).detail;
       setVideo(detail);
       setOpen(true);
     }

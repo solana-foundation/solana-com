@@ -27,7 +27,7 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
     <article
       className={cn(
         "relative group shrink-0",
-        "p-[24px_20px] xl:p-twd-8",
+        "p-[24px_20px] xl:p-8",
         "flex flex-col justify-between",
         className,
       )}
@@ -35,7 +35,7 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
     >
       {src && (
         <div className="relative">
-          <div className="relative h-twd-6 xl:h-twd-8">
+          <div className="relative h-6 xl:h-8">
             <Image
               src={src}
               alt={name || ""}
@@ -48,9 +48,9 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
         </div>
       )}
       {!hideStats && (
-        <div className="mt-twd-8 mb-twd-0 relative">
+        <div className="mt-8 mb-0 relative">
           {statType === "icon" ? (
-            <div className="relative h-twd-10 overflow-hidden">
+            <div className="relative h-10 overflow-hidden">
               {statIcon && (
                 <Image
                   src={statIcon}
@@ -64,7 +64,7 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
           ) : (
             <>
               <div className="sr-only">{statLabel}</div>
-              <div className="text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-twd-1 uppercase">
+              <div className="text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-1 uppercase">
                 {stat}
               </div>
               <div className="nd-body-m font-medium">{statLabel}</div>

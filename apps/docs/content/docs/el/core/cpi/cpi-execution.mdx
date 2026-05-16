@@ -1,0 +1,226 @@
+---
+title: Εκτέλεση CPI και δικαιώματα
+description:
+  Η ροή εκτέλεσης CPI σε 11 βήματα μέσω του Solana runtime, κανόνες επέκτασης
+  δικαιωμάτων, περιορισμοί επανεισόδου και έλεγχοι εξουσιοδοτημένων
+  προγραμμάτων.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI execution flow, Privilege rules */}
+
+<Callout type="info" title="Περίληψη">
+  Τα CPI περνούν από 11 βήματα runtime που περιλαμβάνουν έλεγχο δικαιωμάτων,
+  μετάφραση λογαριασμών και συγχρονισμό δεδομένων. Μέγιστο βάθος κλήσης: 5 (9 με
+  SIMD-0268). Οι κανόνες δικαιωμάτων αποτρέπουν τον καλούμενο από κλιμάκωση πέρα
+  από αυτό που παραχώρησε ο καλών.
+</Callout>
+
+## Κανόνες δικαιωμάτων
+
+Τα CPI επεκτείνουν τα δικαιώματα λογαριασμού του καλούντος στον καλούμενο με
+αυστηρή επιβολή. Το runtime ελέγχει αυτούς τους κανόνες στο
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
+
+| Σενάριο                                                                                                                                                  | Επιτρέπεται; | Σημείο επιβολής                                                                                                             | Σφάλμα                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Ο καλών περνά λογαριασμό ως εγγράψιμο, ο καλούμενος τον σημειώνει ως εγγράψιμο                                                                           | Ναι          | --                                                                                                                          | --                     |
+| Ο καλών περνά λογαριασμό ως μόνο για ανάγνωση, ο καλούμενος τον σημειώνει ως εγγράψιμο                                                                   | Όχι          | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Ο καλών περνά λογαριασμό ως εγγράψιμο, ο καλούμενος τον σημειώνει ως μόνο για ανάγνωση                                                                   | Ναι          | --                                                                                                                          | --                     |
+| Ο καλών περνά λογαριασμό ως υπογράφοντα, ο καλούμενος τον σημειώνει ως υπογράφοντα                                                                       | Ναι          | --                                                                                                                          | --                     |
+| Ο καλών περνά λογαριασμό ως μη υπογράφοντα, ο καλούμενος τον σημειώνει ως υπογράφοντα, ο λογαριασμός είναι PDA που προέρχεται από τα seeds του καλούντος | Ναι          | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Ο καλών περνά λογαριασμό ως μη υπογράφοντα, ο καλούμενος τον σημειώνει ως υπογράφοντα, ο λογαριασμός ΔΕΝ είναι PDA από τον καλούντα                      | Όχι          | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Ο καλών περνά λογαριασμό ως υπογράφοντα, ο καλούμενος τον σημειώνει ως μη υπογράφοντα                                                                    | Ναι          | --                                                                                                                          | --                     |
+| Το πρόγραμμα A καλεί τον εαυτό του απευθείας (A -> A)                                                                                                    | Ναι          | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Το πρόγραμμα A καλεί το B που καλεί το A (έμμεση επανείσοδος)                                                                                            | Όχι          | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI σε native loader, bpf_loader, bpf_loader_deprecated ή precompile                                                                                     | Όχι          | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Ο λογαριασμός δεν βρέθηκε στη συναλλαγή                                                                                                                  | Όχι          | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+Οι κανόνες προνομίων μπορούν να συνοψιστούν ως εξής:
+
+1. **Το προνόμιο εγγραφής δεν μπορεί να κλιμακωθεί.** Εάν ο καλών επισημάνει
+   έναν λογαριασμό ως μόνο για ανάγνωση, ο καλούμενος δεν μπορεί να τον
+   επισημάνει ως εγγράψιμο.
+2. **Το προνόμιο υπογραφής απαιτεί εξουσιοδότηση.** Ένας λογαριασμός μπορεί να
+   είναι υπογράφων στον καλούμενο μόνο εάν (α) ήταν ήδη υπογράφων στον καλούντα,
+   Ή (β) είναι ένα PDA που προέρχεται από τα seeds του προγράμματος κλήσης μέσω
+   _rs`invoke_signed`_.
+3. **Η μείωση προνομίων επιτρέπεται πάντα.** Ο καλούμενος μπορεί να
+   χρησιμοποιήσει λιγότερα προνόμια από αυτά που παραχώρησε ο καλών.
+
+## Ροή εκτέλεσης CPI
+
+Ένα CPI διέρχεται από πολλαπλά επίπεδα runtime. Αυτή η ενότητα τεκμηριώνει την
+πλήρη διαδικασία από την κλήση SDK του προγράμματος μέσω του ορίου syscall στο
+runtime και πίσω. Κάθε βήμα αναφέρεται στο αρχείο πηγαίου κώδικα που το
+υλοποιεί.
+
+<Callout>
+  Το μέγιστο ύψος της κλήσης εντολής προγράμματος ονομάζεται
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  και ορίζεται στη σταθερά
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  με τιμή 5. Με το [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) ενεργό, αυτό αυξάνεται σε 9.
+
+Το ύψος στοίβας 1 είναι η αρχική εντολή συναλλαγής. Κάθε CPI αυξάνει το ύψος
+κατά 1. Ένα μέγιστο των 5 σημαίνει ότι ένα πρόγραμμα μπορεί να πραγματοποιήσει
+CPIs έως 4 επίπεδα βάθους (8 επίπεδα βάθους με το SIMD-0268).
+
+</Callout>
+
+### Βήμα 1: Το πρόγραμμα καλεί το `invoke` ή το `invoke_signed`
+
+Το πρόγραμμα καλεί το
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+ή το
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51).
+Το _rs`invoke`_ είναι ένα λεπτό wrapper που καλεί το _rs`invoke_signed`_ με έναν
+κενό πίνακα signer seeds. Η συνάρτηση SDK σειριοποιεί το _rs`Instruction`_, το
+slice _rs`AccountInfo`_ και τα signer seeds στη μνήμη VM, και στη συνέχεια
+ενεργοποιεί το syscall.
+
+### Βήμα 2: Είσοδος syscall
+
+Το SBF VM διανέμει στον χειριστή syscall
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33),
+ο οποίος καλεί το κοινό σημείο εισόδου:
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
+
+### Βήμα 3: Κατανάλωση κόστους κλήσης
+
+Η πρώτη ενέργεια μέσα στο _rs`cpi_common`_ είναι να
+[χρεώσει το σταθερό κόστος κλήσης](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+από τον κοινόχρηστο μετρητή υπολογισμού:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1.000 CUs (ή 946 CUs με SIMD-0339).
+
+### Βήμα 4: Μετάφραση εντολής από τη μνήμη VM
+
+Ο χειριστής syscall μεταφράζει την εντολή από τον χώρο διευθύνσεων VM του
+προγράμματος σε τύπους Rust πλευράς host μέσω του
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590),
+ο οποίος διαβάζει ένα struct _rs`StableInstruction`_, επικυρώνει το μήκος
+δεδομένων έναντι του
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10.240 bytes), και στη συνέχεια χρεώνει το
+[κόστος σειριοποίησης δεδομένων](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).
+
+### Βήμα 5: Μετάφραση signer seeds και παραγωγή PDAs
+
+Ο χειριστής καλεί το
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661).
+Για κάθε σύνολο signer seeds, το runtime:
+
+1. Ελέγχει τον αριθμό των συνόλων signer seed έναντι του
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16).
+2. Ελέγχει το μήκος κάθε συνόλου seed έναντι του
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16 seeds ανά σύνολο).
+3. Καλεί το
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   με τα seeds και το program ID **του καλούντος**. Εάν τα seeds δεν παράγουν
+   έγκυρο PDA, το CPI αποτυγχάνει με
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+4. Συλλέγει τα προκύπτοντα PDA pubkeys σε ένα `signers` vec.
+
+Αυτά τα παραγόμενα PDAs αντιμετωπίζονται ως έγκυροι signers για την εντολή του
+callee.
+
+### Βήμα 6: Έλεγχος εξουσιοδοτημένου προγράμματος
+
+Πριν προχωρήσει, το runtime καλεί το
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)
+για να επαληθεύσει ότι το πρόγραμμα-στόχος επιτρέπεται για CPI. Τα ακόλουθα
+προγράμματα αποκλείονται:
+
+- Ο native loader
+- `bpf_loader` και `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (εκτός από συγκεκριμένες εντολές διαχείρισης:
+  `upgrade`, `set_authority`, `set_authority_checked` (feature-gated),
+  `extend_program_checked` (feature-gated), `close`)
+- Προγράμματα precompile (ed25519, secp256k1, κ.λπ.)
+
+Η παραβίαση επιστρέφει
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55).
+
+### Βήμα 7: Επαλήθευση προνομίων (`prepare_next_instruction`)
+
+Το runtime καλεί το
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+το οποίο δημιουργεί τη λίστα _rs`InstructionAccount`_ του callee και επιβάλλει
+τους κανόνες προνομίων. Δείτε [Κανόνες προνομίων](#privilege-rules) παρακάτω για
+τον πλήρη πίνακα αποφάσεων.
+
+### Βήμα 8: Μετάφραση πληροφοριών λογαριασμού
+
+Ο χειριστής καλεί το `translate_accounts` το οποίο:
+
+1. [Επικυρώνει τον αριθμό πληροφοριών λογαριασμού](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   έναντι του _rs`MAX_CPI_ACCOUNT_INFOS`_ (128, ή 255 με το SIMD-0339).
+2. [Χρεώνει το κόστος μετάφρασης πληροφοριών λογαριασμού](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (μόνο SIMD-0339): `(num_account_infos * 80) / 250` CUs.
+3. Για κάθε μη εκτελέσιμο, μη διπλότυπο λογαριασμό, δημιουργεί ένα
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   μεταφράζοντας δείκτες από τη μνήμη VM στη μνήμη host. Αυτό περιλαμβάνει
+   [χρέωση κόστους σειριοποίησης δεδομένων ανά λογαριασμό](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374):
+   `account_data_len / cpi_bytes_per_unit` CUs.
+
+### Βήμα 9: Συγχρονισμός λογαριασμού πριν το CPI (από καλούντα σε καλούμενο)
+
+Πριν την εκτέλεση του καλούμενου, το runtime συγχρονίζει τις τροποποιήσεις
+λογαριασμού του καλούντος ώστε ο καλούμενος να μπορεί να τις δει. Η συνάρτηση
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+καλείται για κάθε μεταφρασμένο λογαριασμό, αντιγράφοντας lamports, δεδομένα και
+ιδιοκτήτη. Δείτε
+[Συγχρονισμός δεδομένων λογαριασμού](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+για τη λεπτομερή αντιστοίχιση πεδίων.
+
+### Βήμα 10: Push πλαισίου εντολής, εκτέλεση καλούμενου και pop
+
+Το runtime καλεί το
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488),
+το οποίο:
+
+1. Καλεί το
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   για να προσθέσει ένα νέο frame στη στοίβα εντολών. Το _rs`push()`_ επιβάλλει
+   τον
+   [κανόνα επανεισόδου](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259):
+   ένα πρόγραμμα μπορεί να καλέσει τον εαυτό του μόνο αν είναι ο άμεσος καλών
+   (δηλαδή, το πρόγραμμα A μπορεί να καλέσει το A, αλλά το A δεν μπορεί να
+   καλέσει το B που καλεί το A). Η παραβίαση επιστρέφει
+   _rs`ReentrancyNotAllowed`_.
+2. Καλεί το
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)
+   το οποίο επιλύει το σημείο εισόδου του προγράμματος του καλούμενου και το
+   καλεί. Ο καλούμενος εκτελείται με τον ίδιο κοινόχρηστο μετρητή υπολογισμού.
+   Όλη η κατανάλωση CU από τον καλούμενο μειώνει τον υπόλοιπο προϋπολογισμό του
+   καλούντος.
+3. Καλεί το
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   για να αφαιρέσει το frame του καλούμενου και να επαληθεύσει ότι τα υπόλοιπα
+   lamport παραμένουν αμετάβλητα (_rs`UnbalancedInstruction`_ αν όχι).
+
+### Βήμα 11: Συγχρονισμός λογαριασμού μετά το CPI (από καλούμενο σε καλούντα)
+
+Αφού το `process_instruction` επιστρέψει (το οποίο περιλαμβάνει το pop), το
+runtime συγχρονίζει τις αλλαγές πίσω στον καλούντα μέσω του
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+για κάθε εγγράψιμο λογαριασμό. Επιπλέον, το
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+ενημερώνει τις αντιστοιχίσεις περιοχών μνήμης VM για λογαριασμούς των οποίων οι
+περιοχές δεδομένων άλλαξαν. Δείτε
+[Συγχρονισμός δεδομένων λογαριασμού](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+για τη λεπτομερή αντιστοίχιση πεδίων.
+
+Η κλήση συστήματος CPI επιστρέφει `0` (επιτυχία) στο πρόγραμμα που την καλεί.

@@ -1,0 +1,75 @@
+---
+title: 持久 nonce
+description:
+  介绍 Solana 上持久 nonce 的工作原理，包括离线签名和延迟交易提交，以及 nonce
+  生命周期、检测、验证和失败行为。
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="摘要">
+  持久 nonce 交易用存储的 nonce 值替换了最近的 blockhash，移除了交易的 150 slot
+  过期窗口。这使得离线签名和延迟提交成为可能。
+</Callout>
+
+<Callout type="warn">
+  持久 nonce 未来版本可能会被弃用。详情请参见 [SIMD
+  讨论](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)。
+</Callout>
+
+## 持久 nonce
+
+持久 nonce 交易用存储的 nonce 值替换了最近的 blockhash，移除了 150
+slot 的过期窗口。这使得离线签名和延迟提交成为可能。
+
+### nonce 交易的工作原理
+
+nonce 账户是一个由 System Program 拥有的账户，存储一个 _rs`State::Initialized`_
+值，包含三个字段：**authority** pubkey（可以推进 nonce 的人）、**durable nonce**
+值（由最近的 blockhash 派生的哈希值）、以及 **lamports per
+signature**（nonce 上次推进时的手续费率）。
+
+使用持久 nonce 的步骤：
+
+1. 使用 _rs`CreateAccount`_ 和 _rs`InitializeNonceAccount`_
+   创建并初始化 nonce 账户
+2. 构建交易时，将 _rs`AdvanceNonceAccount`_
+   作为**第一条指令**，并将 nonce 值作为 `recent_blockhash`
+3. 签名交易（可以离线完成，因为 nonce 不会过期）
+4. 准备好后提交
+
+### nonce 检测
+
+运行时通过检查第一条指令（索引
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0）是否为调用 System Program 的 _rs`AdvanceNonceAccount`_
+指令来检测 nonce 交易。nonce 账户必须是该指令的第一个账户，并且必须可写。详见
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121)。
+
+### Nonce 验证流程
+
+当交易的 `recent_blockhash` 未在 `BlockhashQueue` 中找到时，validator 会通过
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180)
+检查该交易是否为有效的 nonce 交易：
+
+1. nonce 存储的 `durable_nonce`
+   必须与下一个持久 nonce（由当前 blockhash 派生）不同。这确保该 nonce 未在本区块中被使用。
+2. nonce 账户必须已加载，并且能够解析为 _rs`State::Initialized`_
+3. 存储的 `durable_nonce` 必须与交易的 `recent_blockhash` 匹配
+
+nonce 权限签名检查会在之后进行（[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)）。
+
+如果所有检查都通过，nonce 会在执行开始前推进到下一个持久 nonce 值。如果执行失败，已推进的 nonce 和已扣费的 fee
+payer 仍然会被提交（防止重放并收取费用）。
+
+### Nonce 失败行为
+
+如果 nonce 交易**验证失败**（nonce 已被使用、权限未签名、账户未找到），整个交易会被丢弃。不收取费用，也不会有状态变更。
+
+如果 nonce 交易**验证通过但执行失败**（某条指令返回错误），nonce 仍然会被推进，费用也会被收取。这可以防止交易被重放，同时确保 validator 获得补偿。

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { fetchLatestLinks } from "@/lib/link-data";
+import { contentDocumentToPlainText } from "@/lib/content-renderer";
+import { fetchFeaturedLinks, fetchLatestLinks } from "@/lib/link-data";
 import { LinkItem } from "@/lib/link-types";
 
 const CACHE_TAG = "links";
 const REVALIDATE_SECONDS = 300; // 5 minutes
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 250;
 
 // Terminal item format expected by the web app
 interface TerminalItem {
@@ -16,6 +17,12 @@ interface TerminalItem {
   categoryId: string;
   date: string;
   url: string;
+  source?: string;
+  linkType?: string;
+  categories?: string[];
+  tags?: string[];
+  description?: string;
+  thumbnailImage?: string;
 }
 
 // Map category names to category IDs
@@ -31,7 +38,11 @@ const CATEGORY_NAME_TO_ID: Record<string, string> = {
 
 interface LinkConnectionParams {
   limit?: number;
+  cursor?: string;
   category?: string;
+  tag?: string;
+  featuredCount?: number;
+  linkType?: string;
 }
 
 /**
@@ -48,31 +59,69 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     index: index + 1,
     title: link.title,
     categoryId,
-    date: link.publishedAt,
+    date: link.publishedAtRaw || link.publishedAt,
     url: link.url,
+    source: link.source,
+    linkType: link.linkType,
+    categories: link.categories.map(
+      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase(),
+    ),
+    tags: link.tags,
+    description: contentDocumentToPlainText(link.description),
+    thumbnailImage: link.thumbnailImage ?? undefined,
   };
 }
 
 /**
- * Cached function to fetch links from TinaCMS
+ * Cached function to fetch links from Keystatic
  */
 async function fetchLinks(params: LinkConnectionParams) {
   try {
-    // Map category ID back to category name for TinaCMS query
+    // Map category ID back to category name for Keystatic query
     const categoryName = params.category
       ? Object.entries(CATEGORY_NAME_TO_ID).find(
-          ([, id]) => id === params.category
+          ([, id]) => id === params.category,
         )?.[0] || params.category
       : undefined;
 
-    const { links } = await fetchLatestLinks({
-      limit: params.limit ?? DEFAULT_LIMIT,
-      category: categoryName,
-    });
+    let links: LinkItem[] = [];
+    const totalLimit = params.limit ?? DEFAULT_LIMIT;
 
-    // Transform links to terminal format
+    if (params.featuredCount && params.featuredCount > 0) {
+      const featuredLimit = Math.min(params.featuredCount, totalLimit);
+      const { links: featuredLinks } = await fetchFeaturedLinks({
+        limit: featuredLimit,
+        category: categoryName,
+      });
+
+      if (featuredLimit >= totalLimit) {
+        links = featuredLinks.slice(0, totalLimit);
+      } else {
+        const { links: latestLinks } = await fetchLatestLinks({
+          limit: MAX_LIMIT,
+          cursor: params.cursor,
+          category: categoryName,
+          tag: params.tag,
+          linkType: params.linkType,
+        });
+
+        const seen = new Set(featuredLinks.map((link) => link.id));
+        const remaining = latestLinks.filter((link) => !seen.has(link.id));
+        links = [...featuredLinks, ...remaining].slice(0, totalLimit);
+      }
+    } else {
+      const response = await fetchLatestLinks({
+        limit: totalLimit,
+        cursor: params.cursor,
+        category: categoryName,
+        tag: params.tag,
+        linkType: params.linkType,
+      });
+      links = response.links;
+    }
+
     const terminalItems: TerminalItem[] = links.map((link, index) =>
-      transformToTerminalItem(link, index)
+      transformToTerminalItem(link, index),
     );
 
     return terminalItems;
@@ -101,6 +150,33 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     params.category = categoryParam;
   }
 
+  const cursorParam = searchParams.get("cursor");
+  if (cursorParam) {
+    params.cursor = cursorParam;
+  }
+
+  const tagParam = searchParams.get("tag");
+  if (tagParam && tagParam !== "all") {
+    params.tag = tagParam;
+  }
+
+  const featuredCountParam = searchParams.get("featuredCount");
+  if (featuredCountParam) {
+    const featuredCount = parseInt(featuredCountParam, 10);
+    if (
+      !Number.isNaN(featuredCount) &&
+      featuredCount > 0 &&
+      featuredCount <= MAX_LIMIT
+    ) {
+      params.featuredCount = featuredCount;
+    }
+  }
+
+  const linkTypeParam = searchParams.get("linkType");
+  if (linkTypeParam && linkTypeParam !== "all") {
+    params.linkType = linkTypeParam;
+  }
+
   return params;
 }
 
@@ -110,7 +186,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.category ?? "all"}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}-${params.featuredCount ?? 0}-${params.linkType ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,
@@ -134,7 +210,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

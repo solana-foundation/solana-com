@@ -55,7 +55,7 @@ interface X402HackathonPageProps {
     sponsorBountiesSubtitle: string;
     sponsorBounties: Array<{
       sponsor: string;
-      logo: string;
+      logo?: string;
       title: string;
       description: string;
       prizeAmount: string;

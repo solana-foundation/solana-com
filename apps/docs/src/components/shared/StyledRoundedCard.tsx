@@ -1,5 +1,4 @@
 import { SimpleComponentProps } from "@@/src/types";
-import styled from "styled-components";
 
 type StyledDivProps = SimpleComponentProps<{
   color?: string;
@@ -8,16 +7,25 @@ type StyledDivProps = SimpleComponentProps<{
   shadow?: string;
 }>;
 
-const StyledDiv: React.FC<StyledDivProps> = ({ children, className }) => {
-  return <div className={className}>{children}</div>;
+const StyledRoundedCard = ({
+  children,
+  className,
+  color,
+  bgColor,
+  borderRadius,
+}: StyledDivProps) => {
+  return (
+    <div
+      className={`relative z-[1] ${className ?? ""}`}
+      style={{
+        color: color ?? "#000",
+        background: bgColor ?? "#14f195",
+        borderRadius: borderRadius ?? "1rem",
+      }}
+    >
+      {children}
+    </div>
+  );
 };
-
-const StyledRoundedCard = styled(StyledDiv)`
-  position: relative;
-  z-index: 1;
-  color: ${(props) => props.color ?? `#000`};
-  background: ${(props) => props.bgColor ?? `#14f195`};
-  border-radius: ${(props) => props.borderRadius ?? "1rem"};
-`;
 
 export default StyledRoundedCard;

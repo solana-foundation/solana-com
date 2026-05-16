@@ -27,7 +27,7 @@ export default function ChapterNavigation({
 }: ChapterNavigationProps) {
   return (
     <aside
-      className="hidden xl:block sticky top-24 h-fit ml-8 w-64"
+      className="hidden xl:block sticky top-24 h-fit ml-12 w-64"
       aria-label={translations.chapterNavigationAriaLabel}
     >
       <div className="rounded-lg p-4">

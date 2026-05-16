@@ -1,0 +1,175 @@
+---
+title: Модель вартості CPI та синхронізація даних
+description:
+  Обчислювальні витрати CPI, синхронізація даних облікових записів між
+  викликаючою та викликаною програмами, механіка підпису PDA та повернення даних
+  у Solana.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="Підсумок">
+  Кожен CPI коштує ~1,000 CU базово плюс витрати на серіалізацію. Дані облікових
+  записів синхронізуються до та після виконання викликаної програми. Підпис PDA
+  використовує program ID викликаючої програми. Повернення даних обмежене 1,024
+  байтами.
+</Callout>
+
+## Модель вартості CPI
+
+Витрати CPI вираховуються з того самого бюджету обчислень транзакції (спільний
+лічильник). Повна формула вартості для кожного виклику _rs`invoke`_ /
+_rs`invoke_signed`_:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### Розбивка витрат
+
+| Компонент витрат                      | Формула                                                                                                                                   | Джерело                                                                                                                                                                                                                                                                                             |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Виклик (фіксований)                   | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1,000 CU (946 з SIMD-0339) | Стягується при [вході в CPI](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)                                                                                                                                                                                    |
+| Серіалізація instruction data         | `instruction_data_len / cpi_bytes_per_unit`                                                                                               | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. Стягується в [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).                                                 |
+| Серіалізація account meta (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                           | Кожен `AccountMeta` становить 34 байти (32 pubkey + 1 is_signer + 1 is_writable). Стягується в [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567).                                                                                         |
+| Трансляція account info (SIMD-0339)   | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                           | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 байтів (32 key + 32 owner + 8 lamports + 8 data_len). Стягується в [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981). |
+| Дані на обліковий запис               | `account_data_len / cpi_bytes_per_unit`                                                                                                   | Стягується для кожного облікового запису в [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) та для [виконуваних облікових записів](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060).     |
+| Виконання викликаної програми         | Стільки CU, скільки споживає викликана програма                                                                                           | Вираховується зі спільного лічильника під час виконання викликаної програми.                                                                                                                                                                                                                        |
+
+### Приклад розрахунку вартості
+
+CPI зі 100 байтами instruction data, 5 account meta, 5 account info (кожен з
+1,000 байтами даних), SIMD-0339 активний:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## Синхронізація даних облікового запису
+
+Стан облікового запису синхронізується між викликаючою та викликаною стороною у
+двох точках під час CPI. Це забезпечує узгоджене бачення даних облікового запису
+з обох сторін.
+
+### Синхронізація перед CPI (від викликаючої до викликаної сторони)
+
+Перед виконанням викликаної сторони,
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+копіює поточні модифікації викликаючої сторони до представлення облікового
+запису викликаної сторони:
+
+| Поле          | Напрямок                        | Коли                                                                                                                                          |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamports      | Викликаюча -> Викликана сторона | Якщо значення відрізняється від поточного представлення викликаної сторони                                                                    |
+| Довжина даних | Викликаюча -> Викликана сторона | Якщо викликаюча сторона змінила розмір облікового запису. Не повинна перевищувати `original_data_len + MAX_PERMITTED_DATA_INCREASE` (10 КіБ). |
+| Вміст даних   | Викликаюча -> Викликана сторона | Якщо дані облікового запису можна модифікувати (`can_data_be_changed` проходить перевірку)                                                    |
+| Власник       | Викликаюча -> Викликана сторона | Встановлюється останнім, щоб зміни даних/lamports були дозволені під старим власником                                                         |
+
+### Синхронізація після CPI (від викликаної до викликаючої сторони)
+
+Після повернення викликаної сторони,
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+копіює модифікації викликаної сторони назад до представлення викликаючої
+сторони. Це виконується лише для облікових записів, позначених як доступні для
+запису:
+
+| Поле          | Напрямок                        | Коли                                                                                                                                                                                                                                                                  |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamports      | Викликана -> Викликаюча сторона | Завжди копіюється назад                                                                                                                                                                                                                                               |
+| Власник       | Викликана -> Викликаюча сторона | Завжди копіюється назад                                                                                                                                                                                                                                               |
+| Довжина даних | Викликана -> Викликаюча сторона | Якщо змінено. Вказівник на зріз даних VM та поле серіалізованої довжини оновлюються. Якщо обліковий запис було зменшено, звільнена пам'ять обнуляється. Якщо нова довжина перевищує `original_data_len + MAX_PERMITTED_DATA_INCREASE`, повертається `InvalidRealloc`. |
+| Вміст даних   | Викликана -> Викликаюча сторона | Копіюється з буфера даних викликаної сторони до серіалізованої області даних викликаючої сторони                                                                                                                                                                      |
+
+### Обмеження realloc
+
+Розмір даних облікового запису може бути змінений під час CPI до
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10 240 байтів (10 КіБ) понад довжину даних облікового запису на початку
+поточної інструкції верхнього рівня. Це обмеження застосовується як у
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(перед CPI), так і в
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(після CPI). Перевищення цього ліміту повертає _rs`InvalidRealloc`_.
+
+## Підписування PDA
+
+Коли викликається _rs`invoke_signed`_, середовище виконання виводить адреси PDA
+з наданих seed та ідентифікатора програми викликача. Це відбувається в
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. Масив signer seeds валідується: максимум
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) наборів signer seed.
+2. Кожен набір seed валідується: максимум
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seed на набір, кожен seed максимум
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) байти.
+3. Викликається
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   з seed та **ідентифікатором програми викликача** (а не викликуваної
+   програми).
+4. Якщо seed не створюють валідну PDA (тобто результуюча точка знаходиться на
+   кривій ed25519), CPI завершується з помилкою
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. Виведені pubkey PDA збираються та передаються до `prepare_next_instruction`
+   як валідні підписувачі. Під час перевірки привілеїв, якщо обліковий запис
+   викликуваної програми позначений як підписувач і його pubkey збігається з
+   одним із цих виведених PDA, перевірка підписувача проходить успішно.
+
+<Callout>
+  PDA виводиться з використанням ідентифікатора програми **викликача**, а не
+  викликуваної програми. Це означає, що лише програма, яка володіє PDA (та, чий
+  ідентифікатор використовувався для її виведення), може підписувати від її
+  імені. Програма не може підписувати для PDA, виведених з інших програм.
+</Callout>
+
+## Повернення даних
+
+Програми можуть передавати дані назад викликачам, використовуючи механізм
+повернення даних. Для цього використовуються два системні виклики:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Встановлює до
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1024) байтів даних для повернення для поточної інструкції. Вартість становить
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` обчислювальних одиниць.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Зчитує дані, встановлені останньою виконаною інструкцією. Повертає дані разом
+  з ідентифікатором програми, яка їх встановила. Вартість становить
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` обчислювальних
+  одиниць (32 байти для ідентифікатора програми).
+
+Дані, що повертаються, зберігаються для кожної транзакції і перезаписуються
+кожною інструкцією, яка викликає `sol_set_return_data`. На початку кожного
+виклику програми середовище виконання
+[скидає дані, що повертаються](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+до порожнього стану. Після повернення CPI викликач може прочитати будь-які дані,
+які останніми встановив викликаний код (або будь-яка програма, яку він
+викликав).
+
+<Callout>
+  Дані, що повертаються, обмежені 1024 байтами. Тільки **остання** програма, яка
+  викликала `sol_set_return_data` у ланцюжку викликів, визначає те, що бачить
+  викликач. Якщо викликаний код здійснює подальші CPI, які встановлюють дані для
+  повернення, його власні дані перезаписуються.
+</Callout>

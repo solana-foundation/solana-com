@@ -1,0 +1,78 @@
+---
+title: 버전 관리 트랜잭션
+description:
+  Solana의 레거시 및 버전 관리(V0) 트랜잭션 형식, 주소 조회 테이블(ALT), 버전
+  감지, V0 메시지 형식 및 ALT 해석을 포함합니다.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="요약">
+  V0 트랜잭션은 주소 조회 테이블(ALT)을 추가하여 32바이트 키 대신 1바이트
+  인덱스를 통해 계정을 참조할 수 있습니다. 이를 통해 ALT로 해석된 계정당
+  31바이트를 절약할 수 있습니다.
+</Callout>
+
+Solana는 두 가지 트랜잭션 형식을 지원합니다: **레거시**와 **버전 관리**(v0).
+
+validator는 메시지의 첫 번째 바이트를 검사하여 형식을 결정합니다:
+
+- 첫 번째 바이트에
+  [버전 접두사](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  비트가 설정되어 있으면 **버전 관리 메시지**입니다. 현재는 버전 0만 지원됩니다.
+  다음 3바이트는 *`MessageHeader`*입니다.
+- 그렇지 않으면 **레거시 메시지**입니다. 첫 번째 바이트는
+  `num_required_signatures`이며, 다음 2바이트가 헤더를 완성합니다.
+
+<Callout type="info" title="V0 트랜잭션을 사용해야 하는 경우">
+  트랜잭션이 많은 계정을 참조하고 1,232바이트 패킷 제한에 근접할 때 V0를
+  사용하세요. 모든 계정이 인라인으로 포함되어 트랜잭션이 크기 제한 내에 맞는다면
+  레거시 트랜잭션이 더 간단하고 더 광범위한 도구 지원을 받습니다. 주소 조회
+  테이블을 사용하려면 V0가 필요합니다.
+</Callout>
+
+## V0 메시지 형식
+
+v0 메시지는 레거시 메시지와 동일한 필드를 가지며, 명령어 뒤에 추가
+`address_table_lookups` 배열이 추가됩니다:
+
+| 필드                    | 크기                       | 설명                               |
+| ----------------------- | -------------------------- | ---------------------------------- |
+| `0x80`                  | 1바이트                    | 버전 접두사 바이트                 |
+| `header`                | 3바이트                    | MessageHeader(레거시와 동일)       |
+| `static_account_keys`   | compact-u16 + N x 32바이트 | 트랜잭션에 문자 그대로 나타나는 키 |
+| `recent_blockhash`      | 32바이트                   | 블록해시                           |
+| `instructions`          | compact-u16 + 가변         | 레거시와 동일한 형식               |
+| `address_table_lookups` | compact-u16 + 가변         | ALT 참조(아래 참조)                |
+
+각 주소 테이블 조회 항목에는 다음이 포함됩니다:
+
+| 필드               | 크기                      | 설명                               |
+| ------------------ | ------------------------- | ---------------------------------- |
+| `account_key`      | 32바이트                  | ALT 계정의 공개 키                 |
+| `writable_indexes` | compact-u16 + N x 1바이트 | 쓰기 가능한 계정에 대한 ALT 인덱스 |
+| `readonly_indexes` | compact-u16 + N x 1바이트 | 읽기 전용 계정에 대한 ALT 인덱스   |
+
+## 주소 조회 테이블 해석
+
+ALT는 최대 256개의 공개 키를 저장하는 온체인 계정입니다. ALT를 참조함으로써
+트랜잭션은 32바이트 공개 키 대신 1바이트 인덱스를 사용하여 추가 계정을 포함할 수
+있으며, 이를 통해 계정당 오버헤드를 크게 줄일 수 있습니다.
+
+런타임에서 실행이 시작되기 전에 validator는 모든 ALT 참조를 전체 공개 키로
+해석합니다. 해석된 주소는 정적 계정 키에 추가되어 전체 계정 키 목록을
+형성합니다. ALT로 해석된 계정은 정적 계정과 동일한 순서를 따릅니다: 쓰기 가능한
+조회가 읽기 전용 조회보다 먼저 옵니다.
+
+<Callout>
+  주소 조회 테이블은 온와이어 트랜잭션에서 계정이 참조되는 방식에만 영향을
+  미칩니다. 실행 시점에 런타임은 모든 인덱스를 전체 계정 주소로 해석합니다.
+  ALT로 해석된 계정은 쓰기 가능하거나 읽기 전용(비서명자)일 수만 있으며,
+  서명자가 될 수 없습니다.
+</Callout>

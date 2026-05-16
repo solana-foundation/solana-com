@@ -1,3 +1,5 @@
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+
 export const config = {
   siteMetadata: {
     title: `Solana Media`,
@@ -32,6 +34,9 @@ export const config = {
           ? `https://${process.env.VERCEL_URL}`
           : `https://media.solana.com`) || `https://media.solana.com`,
 
+  /** Public-facing base URL for canonical links, OG tags, and social sharing */
+  publicUrl: `https://solana.com`,
+
   shareImageWidth: 1000,
   shareImageHeight: 523,
   social: {
@@ -44,5 +49,5 @@ export const config = {
       },
     },
   },
-  siteIcon: `https://solana.com/favicon.png`,
+  siteIcon: faviconPng.src,
 };

@@ -1,15 +1,19 @@
+import { ContentDocument } from "./post-types";
+
 // Application Types
 
 export interface PodcastHost {
   name: string;
   avatar?: string;
+  twitterUrl?: string;
 }
 
 export interface PodcastShow {
   id: string;
   title: string;
   slug: string;
-  description: string;
+  description: string | ContentDocument;
+  descriptionPlainText?: string;
   coverImage: string;
   category?: string;
   featured: boolean;
@@ -21,6 +25,7 @@ export interface PodcastShow {
   riversideStudioId?: string;
   applePodcastsUrl?: string;
   spotifyUrl?: string;
+  youtubeUrl?: string;
   rssFeedUrl?: string;
   releaseFrequency?: string;
   firstEpisodeDate?: string;
@@ -30,10 +35,12 @@ export interface PodcastShow {
 
 export interface PodcastEpisode {
   id: string;
+  slug: string;
   recordingId: string;
   podcastSlug: string;
   title: string;
   description?: string;
+  descriptionHtml?: string;
   publishedDate: string;
   duration: number;
   audioUrl: string;

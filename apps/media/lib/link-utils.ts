@@ -1,60 +1,47 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import { TinaMarkdownContent } from "tinacms/dist/rich-text";
+import { ContentDocument } from "./post-types";
+import { formatPublishedAt } from "./keystatic/publishing";
 
-dayjs.extend(utc);
-
-// Type for the TinaCMS link connection edge
-interface LinkConnectionEdge {
-  cursor?: string;
-  node?: {
-    id: string;
-    title: string;
-    url: string;
-    linkType: string;
-    description?: any;
-    thumbnailImage?: string | null;
-    source?: string;
-    publishedAt?: string;
-    featured?: boolean;
-    categories?: Array<{ category?: { name?: string } }>;
-    tags?: Array<{ tag?: { name?: string } }>;
-    _sys?: { breadcrumbs?: string[] };
-  };
+// Type for link data from Keystatic
+interface LinkData {
+  slug: string;
+  title: string;
+  url: string;
+  linkType: string;
+  description?: ContentDocument;
+  thumbnailImage?: string | null;
+  source?: string;
+  publishedAt?: string;
+  featured?: boolean;
+  categories?: string[];
+  tags?: string[];
 }
 
 /**
- * Transform TinaCMS link data to LinkItem
+ * Transform Keystatic link data to LinkItem
  */
-export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
-  const link = linkData?.node;
-  if (!link) return null;
-
-  // Format date in UTC to avoid timezone conversion issues
-  const formattedDate = link.publishedAt
-    ? dayjs.utc(link.publishedAt).format("DD MMM YYYY")
-    : "";
+export function transformLink(
+  linkData: LinkData,
+  resolvedCategories?: string[],
+  resolvedTags?: string[],
+): LinkItem {
+  const publishedAtRaw = linkData.publishedAt ?? null;
+  const formattedDate = formatPublishedAt(publishedAtRaw);
 
   return {
-    id: link.id,
-    title: link.title,
-    url: link.url,
-    linkType: (link.linkType as LinkType) || "other",
-    description: link.description,
-    thumbnailImage: link.thumbnailImage,
-    source: link.source || getSourceFromUrl(link.url),
+    id: linkData.slug,
+    title: linkData.title,
+    url: linkData.url,
+    linkType: (linkData.linkType as LinkType) || "other",
+    description: linkData.description,
+    thumbnailImage: linkData.thumbnailImage,
+    source: linkData.source || getSourceFromUrl(linkData.url),
     publishedAt: formattedDate,
-    categories:
-      link.categories
-        ?.map((category) => category?.category?.name)
-        .filter((name): name is string => name !== undefined) || [],
-    tags:
-      link.tags
-        ?.map((tag) => tag?.tag?.name)
-        .filter((name): name is string => name !== undefined) || [],
-    featured: link.featured || false,
-    cursor: linkData.cursor,
+    publishedAtRaw,
+    categories: resolvedCategories || [],
+    tags: resolvedTags || [],
+    featured: linkData.featured || false,
+    cursor: linkData.slug,
   };
 }
 
@@ -62,13 +49,13 @@ export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
  * Check if a link needs metadata enrichment
  */
 function needsMetadataEnrichment(link: LinkItem): boolean {
-  if (!link.description) return false;
+  if (!link.description) return true;
 
-  const desc = link.description as TinaMarkdownContent | string;
+  const desc = link.description as ContentDocument | string;
   const hasDescription =
     typeof desc === "string"
       ? desc.trim().length > 0
-      : (desc as TinaMarkdownContent).children?.length > 0;
+      : Array.isArray(desc) && desc.length > 0;
 
   return !link.thumbnailImage || !hasDescription;
 }
@@ -84,24 +71,22 @@ async function enrichLinkWithMetadata(link: LinkItem): Promise<LinkItem> {
   try {
     const metadata = await fetchLinkMetadata(link.url);
 
-    const desc = link.description as TinaMarkdownContent | string | undefined;
+    const desc = link.description as ContentDocument | string | undefined;
     const hasDescription = desc
       ? typeof desc === "string"
         ? desc.trim().length > 0
-        : (desc as TinaMarkdownContent).children?.length > 0
+        : Array.isArray(desc) && desc.length > 0
       : false;
 
-    let newDescription: TinaMarkdownContent | undefined = link.description;
+    let newDescription: ContentDocument | undefined = link.description;
     if (!hasDescription && metadata.description) {
-      newDescription = {
-        type: "root",
-        children: [
-          {
-            type: "p",
-            children: [{ type: "text", text: metadata.description }],
-          },
-        ],
-      } as unknown as TinaMarkdownContent;
+      // Create a simple content document structure
+      newDescription = [
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: metadata.description }],
+        },
+      ] as unknown as ContentDocument;
     }
 
     return {
@@ -120,10 +105,10 @@ async function enrichLinkWithMetadata(link: LinkItem): Promise<LinkItem> {
  * Enrich multiple links with fetched metadata (parallel)
  */
 export async function enrichLinksWithMetadata(
-  links: LinkItem[]
+  links: LinkItem[],
 ): Promise<LinkItem[]> {
   const enrichedLinks = await Promise.all(
-    links.map((link) => enrichLinkWithMetadata(link))
+    links.map((link) => enrichLinkWithMetadata(link)),
   );
   return enrichedLinks;
 }
@@ -139,7 +124,7 @@ function extractYouTubeVideoId(url: string): string | null {
 
   for (const pattern of patterns) {
     const match = url.match(pattern);
-    if (match) return match[1];
+    if (match) return match[1] ?? null;
   }
   return null;
 }
@@ -149,7 +134,8 @@ function extractYouTubeVideoId(url: string): string | null {
  */
 function extractGitHubRepo(url: string): string | null {
   const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
-  return match ? match[1] : null;
+  if (match) return match[1] ?? null;
+  return null;
 }
 
 /**
@@ -184,16 +170,16 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
         if (response.ok) {
           const html = await response.text();
           const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if (titleMatch) {
+          if (titleMatch && titleMatch[1]) {
             metadata.title = titleMatch[1]
               .replace(" - YouTube", "")
               .replace(/&amp;/g, "&")
               .replace(/&#39;/g, "'");
           }
           const descMatch = html.match(
-            /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
+            /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i,
           );
-          if (descMatch) {
+          if (descMatch && descMatch[1]) {
             metadata.description = descMatch[1]
               .replace(/&amp;/g, "&")
               .replace(/&#39;/g, "'");
@@ -239,46 +225,48 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
     // Helper to extract meta content (handles both property/content orders)
     const extractMeta = (
       property: string,
-      attrName: string = "property"
+      attrName: string = "property",
     ): string | null => {
       // Try property="..." content="..."
       let match = html.match(
         new RegExp(
           `<meta[^>]*${attrName}=["']${property}["'][^>]*content=["']([^"']+)["']`,
-          "i"
-        )
+          "i",
+        ),
       );
-      if (match) return match[1];
+      if (match) return match[1] ?? null;
 
       // Try content="..." property="..."
       match = html.match(
         new RegExp(
           `<meta[^>]*content=["']([^"']+)["'][^>]*${attrName}=["']${property}["']`,
-          "i"
-        )
+          "i",
+        ),
       );
-      return match ? match[1] : null;
+      if (match) return match[1] ?? null;
+      return null;
     };
 
     // Extract Open Graph tags
-    metadata.title = extractMeta("og:title");
-    metadata.description = extractMeta("og:description");
-    metadata.image = extractMeta("og:image");
-    metadata.siteName = extractMeta("og:site_name");
-    metadata.type = extractMeta("og:type");
+    metadata.title = extractMeta("og:title") ?? undefined;
+    metadata.description = extractMeta("og:description") ?? undefined;
+    metadata.image = extractMeta("og:image") ?? undefined;
+    metadata.siteName = extractMeta("og:site_name") ?? undefined;
+    metadata.type = extractMeta("og:type") ?? undefined;
 
     // Fallback to Twitter Card tags
     if (!metadata.image) {
-      metadata.image = extractMeta("twitter:image", "name");
+      metadata.image = extractMeta("twitter:image", "name") ?? undefined;
     }
     if (!metadata.description) {
-      metadata.description = extractMeta("twitter:description", "name");
+      metadata.description =
+        extractMeta("twitter:description", "name") ?? undefined;
     }
 
     // Fallback to standard meta tags if OG tags not found
     if (!metadata.title) {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (titleMatch) {
+      if (titleMatch && titleMatch[1]) {
         metadata.title = titleMatch[1]
           .replace(/&amp;/g, "&")
           .replace(/&#39;/g, "'");
@@ -286,7 +274,7 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
     }
 
     if (!metadata.description) {
-      metadata.description = extractMeta("description", "name");
+      metadata.description = extractMeta("description", "name") ?? undefined;
     }
 
     // Decode HTML entities
@@ -326,6 +314,15 @@ export function detectLinkType(url: string): LinkType {
     lowerUrl.includes("vimeo.com")
   ) {
     return "video";
+  }
+
+  if (
+    lowerUrl.includes("spotify.com") ||
+    lowerUrl.includes("podcasts.apple.com") ||
+    lowerUrl.includes("podcast") ||
+    lowerUrl.includes("simplecast.com")
+  ) {
+    return "podcast";
   }
 
   if (lowerUrl.includes("github.com")) {

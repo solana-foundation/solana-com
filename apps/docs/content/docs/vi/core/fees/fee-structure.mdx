@@ -1,0 +1,319 @@
+---
+title: Cấu trúc phí
+description:
+  Cách tính phí giao dịch Solana, bao gồm phí cơ bản cho mỗi chữ ký, công thức
+  phí ưu tiên, phân phối phí và cách thiết lập phí bằng các lệnh ngân sách tính
+  toán.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="Tóm tắt">
+  Tổng phí = phí cơ bản (5.000 lamports/chữ ký, 50% bị đốt) + phí ưu tiên
+  (giá_CU * giới_hạn_CU / 1M lamports, 100% cho validator). Phí được tính dù
+  giao dịch thành công hay thất bại.
+</Callout>
+
+## Thuật toán tính phí
+
+Tổng phí cho một giao dịch được tính bởi
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+Các đầu vào là thông điệp giao dịch, `lamports_per_signature` hiện tại (hiện là
+5.000), và phí ưu tiên được tính từ các lệnh ngân sách tính toán. Tổng phí được
+khấu trừ từ người trả phí trước khi bắt đầu thực thi. Nếu giao dịch thất bại,
+phí vẫn được tính.
+
+## Phí cơ bản
+
+Phí cơ bản bao gồm chi phí xác minh chữ ký Ed25519 cộng với bất kỳ xác minh chữ
+ký precompile nào. Mọi chữ ký trong giao dịch đều được tính phí, bao gồm các chữ
+ký được xác minh bởi các chương trình precompile Ed25519, Secp256k1 và
+Secp256r1.
+
+Hàm
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+tính toán:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: số lượng chữ ký Ed25519 trên giao dịch (thường
+  là một chữ ký cho mỗi người ký).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: các chữ ký được xác minh bởi các chương trình
+  precompile tương ứng.
+- `lamports_per_signature`: hiện tại là
+  [5.000 lamports](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### Phân phối phí
+
+Phí cơ bản và phí ưu tiên được phân phối khác nhau. Hàm
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+trong runtime tính toán:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **Phí cơ bản (transaction_fee)**: 50% bị
+  [đốt](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (loại bỏ khỏi nguồn cung lưu thông) và 50% được chuyển cho validator sản xuất
+  block. Tỷ lệ đốt là
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70).
+- **Phí ưu tiên**: 100% được chuyển cho validator (không bị đốt), theo
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
+
+Tổng phần thưởng của validator cho một giao dịch là:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## Phí ưu tiên
+
+Phí ưu tiên là khoản phí tùy chọn giúp tăng mức độ ưu tiên lập lịch cho một giao
+dịch. Đơn vị tính toán (CU) là đơn vị tính toán mà runtime đo lường trong quá
+trình thực thi giao dịch. Mỗi thao tác (số học, truy cập bộ nhớ, syscall) tiêu
+tốn một số lượng CU cố định. Bạn có thể thiết lập phí ưu tiên bằng cách bao gồm
+các lệnh compute budget trong giao dịch của mình. (Xem
+[Hướng dẫn cách sử dụng phí ưu tiên](/developers/guides/advanced/how-to-use-priority-fees)
+để biết chi tiết.)
+
+### Công thức phí ưu tiên
+
+Hàm
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+tính toán:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| Biến                 | Mô tả                                                                                                                                                                          | Mặc định                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `compute_unit_price` | Micro-lamport trên mỗi CU, được thiết lập qua `SetComputeUnitPrice`                                                                                                            | 0 micro-lamport                          |
+| `compute_unit_limit` | Số CU tối đa mà giao dịch có thể tiêu thụ, được thiết lập qua `SetComputeUnitLimit`                                                                                            | Tổng các giá trị mặc định theo từng lệnh |
+| `1,000,000`          | Hệ số chuyển đổi từ micro-lamport sang lamport ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                                       |
+
+### Giới hạn đơn vị tính toán
+
+Giới hạn đơn vị tính toán là số lượng CU tối đa mà một giao dịch có thể tiêu
+thụ. Nếu không có lệnh
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+được bao gồm, giá trị mặc định được tính toán dựa trên số lượng và loại lệnh
+(200.000 CU cho mỗi lệnh không phải builtin, 3.000 cho builtin). Xem
+[Compute Budget](/docs/core/fees/compute-budget) để biết chi tiết về cách tính
+toán mặc định.
+
+<Callout type="warn">
+  Phí ưu tiên dựa trên giới hạn CU được yêu cầu, không phải mức sử dụng CU thực
+  tế. Thiết lập giới hạn cao hơn mức cần thiết có nghĩa là bạn phải trả cho các
+  đơn vị tính toán không sử dụng.
+</Callout>
+
+### Giá đơn vị tính toán
+
+Giá đơn vị tính toán là số lượng micro-lamport tùy chọn được trả cho mỗi CU được
+yêu cầu. Giá CU trực tiếp xác định phí ưu tiên. Để thiết lập giá CU, hãy bao gồm
+lệnh
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+trong giao dịch của bạn.
+
+<Callout>
+  Giá CU mặc định là 0, nghĩa là phí ưu tiên mặc định cũng là 0.
+</Callout>
+
+Để biết ước tính giá CU theo thời gian thực, xem các nhà cung cấp API phí ưu
+tiên bên dưới.
+
+| Nhà cung cấp                            | API phí ưu tiên                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| [Helius](https://www.helius.dev/)       | [Tài liệu](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [Tài liệu](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [Tài liệu](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### Mức độ ưu tiên lập lịch giao dịch
+
+Bộ lập lịch xếp hạng các giao dịch bằng cách sử dụng hàm
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546):
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: thu nhập phí của validator = phí ưu tiên + phần không bị đốt của
+  phí cơ bản. Được tính bởi
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **cost**:
+  [chi phí CU ước tính](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  của bộ lập lịch (chi phí chữ ký + chi phí khóa ghi + chi phí dữ liệu lệnh +
+  chi phí thực thi chương trình + chi phí kích thước dữ liệu tài khoản được
+  tải). Xem
+  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model) để biết
+  chi tiết.
+- **1,000,000**: hệ số nhân để bảo toàn độ chính xác, vì chi phí thường vượt quá
+  phần thưởng tính bằng lamport thô.
+- **+1**: ngăn chặn chia cho không.
+
+Mức độ ưu tiên xác định thứ tự các giao dịch được lấy ra khỏi bộ đệm của bộ lập
+lịch để thực thi.
+
+## Ví dụ: Thiết lập giới hạn CU và giá CU
+
+Các ví dụ dưới đây cho thấy cách thiết lập giới hạn CU và giá CU trên một giao
+dịch bằng cách sử dụng Solana SDK.
+
+| SDK                            | Tham chiếu mã nguồn                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

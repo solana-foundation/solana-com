@@ -1,0 +1,221 @@
+---
+title: Wykonywanie CPI i uprawnienia
+description:
+  11-etapowy przebieg wykonywania CPI w środowisku uruchomieniowym Solana,
+  zasady rozszerzania uprawnień, ograniczenia reentrancji oraz weryfikacja
+  autoryzowanych programów.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Przebieg wykonywania CPI, Zasady uprawnień */}
+
+<Callout type="info" title="Podsumowanie">
+  CPI przechodzi przez 11 etapów środowiska uruchomieniowego, w tym sprawdzanie
+  uprawnień, translację kont i synchronizację danych. Maksymalna głębokość
+  wywołań: 5 (9 z SIMD-0268). Zasady uprawnień uniemożliwiają podwyższanie
+  uprawnień przez wywoływany program ponad to, co przyznał wywołujący.
+</Callout>
+
+## Zasady uprawnień
+
+CPI rozszerza uprawnienia kont wywołującego na wywoływany program przy ścisłym
+przestrzeganiu zasad. Środowisko uruchomieniowe sprawdza te zasady w
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
+
+| Scenariusz                                                                                                               | Dozwolone? | Punkt egzekwowania                                                                                                          | Błąd                   |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Wywołujący przekazuje konto jako zapisywalne, wywoływany oznacza jako zapisywalne                                        | Tak        | --                                                                                                                          | --                     |
+| Wywołujący przekazuje konto jako tylko do odczytu, wywoływany oznacza jako zapisywalne                                   | Nie        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Wywołujący przekazuje konto jako zapisywalne, wywoływany oznacza jako tylko do odczytu                                   | Tak        | --                                                                                                                          | --                     |
+| Wywołujący przekazuje konto jako podpisujący, wywoływany oznacza jako podpisujący                                        | Tak        | --                                                                                                                          | --                     |
+| Wywołujący przekazuje konto jako niepodpisujące, wywoływany oznacza jako podpisujące, konto to PDA z seedów wywołującego | Tak        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Wywołujący przekazuje konto jako niepodpisujące, wywoływany oznacza jako podpisujące, konto NIE jest PDA od wywołującego | Nie        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Wywołujący przekazuje konto jako podpisujące, wywoływany oznacza jako niepodpisujące                                     | Tak        | --                                                                                                                          | --                     |
+| Program A wywołuje sam siebie bezpośrednio (A -> A)                                                                      | Tak        | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Program A wywołuje B, który wywołuje A (pośrednia reentrancja)                                                           | Nie        | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI do native loader, bpf_loader, bpf_loader_deprecated lub precompile                                                   | Nie        | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Konto nie znalezione w transakcji                                                                                        | Nie        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+Zasady przyznawania uprawnień można podsumować następująco:
+
+1. **Uprawnienie do zapisu nie może być eskalowane.** Jeśli wywołujący oznaczy
+   konto jako tylko do odczytu, wywoływany nie może oznaczyć go jako
+   zapisywalne.
+2. **Uprawnienie do podpisu wymaga autoryzacji.** Konto może być podpisującym u
+   wywoływanego tylko wtedy, gdy (a) już było podpisującym u wywołującego LUB
+   (b) jest to PDA wyprowadzone z seedów programu wywołującego za pomocą
+   _rs`invoke_signed`_.
+3. **Redukcja uprawnień jest zawsze dozwolona.** Wywoływany może użyć mniejszych
+   uprawnień niż te przyznane przez wywołującego.
+
+## Przebieg wykonania CPI
+
+CPI przechodzi przez kilka warstw środowiska uruchomieniowego. Ta sekcja
+dokumentuje cały pipeline od wywołania SDK programu, przez granicę syscall, do
+środowiska uruchomieniowego i z powrotem. Każdy krok odnosi się do pliku
+źródłowego, który go implementuje.
+
+<Callout>
+  Maksymalna wysokość wywołania instrukcji programu nazywana jest
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  i jest ustawiona na
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  o wartości 5. Przy aktywnym [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) wzrasta ona do 9.
+
+Wysokość stosu 1 oznacza początkową instrukcję transakcji. Każdy CPI zwiększa
+wysokość o 1. Maksymalna wartość 5 oznacza, że program może wykonać CPI do 4
+poziomów w głąb (do 8 poziomów z SIMD-0268).
+
+</Callout>
+
+### Krok 1: Program wywołuje `invoke` lub `invoke_signed`
+
+Program wywołuje
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+lub
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51).
+_rs`invoke`_ to cienki wrapper, który wywołuje _rs`invoke_signed`_ z pustą
+tablicą seedów podpisujących. Funkcja SDK serializuje _rs`Instruction`_,
+_rs`AccountInfo`_ (slice) oraz seedy podpisujących do pamięci VM, a następnie
+wywołuje syscall.
+
+### Krok 2: Wejście do syscall
+
+SBF VM przekazuje obsługę do
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33),
+który wywołuje wspólny punkt wejścia:
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
+
+### Krok 3: Pobranie kosztu wywołania
+
+Pierwszą akcją wewnątrz _rs`cpi_common`_ jest
+[pobranie stałego kosztu wywołania](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+z współdzielonego licznika obliczeń:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1 000 CU (lub 946 CU z SIMD-0339).
+
+### Krok 4: Translacja instrukcji z pamięci VM
+
+Handler syscall tłumaczy instrukcję z przestrzeni adresowej VM programu na typy
+Rust po stronie hosta za pomocą
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590),
+który odczytuje strukturę _rs`StableInstruction`_, sprawdza długość danych
+względem
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10 240 bajtów), a następnie pobiera
+[koszt serializacji danych](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).
+
+### Krok 5: Translacja seedów podpisujących i wyprowadzanie PDA
+
+Handler wywołuje
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661).
+Dla każdego zestawu seedów podpisujących, runtime:
+
+1. Sprawdza liczbę zestawów seedów podpisujących względem
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16).
+2. Sprawdza długość każdego zestawu seedów względem
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16 seedów na zestaw).
+3. Wywołuje
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   z seedami i program ID **wywołującego**. Jeśli seed nie generuje poprawnego
+   PDA, CPI kończy się błędem
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+4. Zbiera powstałe klucze publiczne PDA do wektora `signers`.
+
+Wyprowadzone w ten sposób PDA są traktowane jako ważni podpisujący dla
+instrukcji wywoływanego programu.
+
+### Krok 6: Sprawdzenie autoryzowanego programu
+
+Przed kontynuacją runtime wywołuje
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222),
+aby zweryfikować, czy docelowy program jest dozwolony dla CPI. Następujące
+programy są blokowane:
+
+- Natwny loader
+- `bpf_loader` oraz `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (z wyjątkiem określonych instrukcji zarządzających:
+  `upgrade`, `set_authority`, `set_authority_checked` (zależne od funkcji),
+  `extend_program_checked` (zależne od funkcji), `close`)
+- Programy prekompilowane (ed25519, secp256k1 itd.)
+
+Naruszenie skutkuje zwróceniem
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55).
+
+### Krok 7: Weryfikacja uprawnień (`prepare_next_instruction`)
+
+Runtime wywołuje
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432),
+który buduje listę _rs`InstructionAccount`_ wywoływanego programu i egzekwuje
+reguły uprawnień. Pełna tabela decyzyjna znajduje się w sekcji
+[Reguły uprawnień](#privilege-rules) poniżej.
+
+### Krok 8: Tłumaczenie informacji o kontach
+
+Handler wywołuje `translate_accounts`, który:
+
+1. [Weryfikuje liczbę informacji o kontach](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   względem _rs`MAX_CPI_ACCOUNT_INFOS`_ (128 lub 255 z SIMD-0339).
+2. [Pobiera opłatę za tłumaczenie informacji o koncie](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (tylko SIMD-0339): `(num_account_infos * 80) / 250` CU.
+3. Dla każdego nie-wykonywalnego, niepowtarzającego się konta buduje
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   poprzez tłumaczenie wskaźników z pamięci VM do pamięci hosta. Obejmuje to
+   [naliczanie kosztu serializacji danych konta](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374):
+   `account_data_len / cpi_bytes_per_unit` CU.
+
+### Krok 9: Synchronizacja kont przed CPI (od wywołującego do wywoływanego)
+
+Przed wykonaniem wywoływanego programu, runtime synchronizuje zmiany na kontach
+wywołującego, aby wywoływany mógł je zobaczyć. Funkcja
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+wywoływana jest dla każdego przetłumaczonego konta, kopiując lamporty, dane i
+właściciela. Szczegółowe mapowanie pól znajdziesz w sekcji
+[Synchronizacja danych konta](/docs/core/cpi/cpi-cost-model#account-data-synchronization).
+
+### Krok 10: Dodanie kontekstu instrukcji, wykonanie wywoływanego i usunięcie z kontekstu
+
+Runtime wywołuje
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488),
+który:
+
+1. Wywołuje
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   aby dodać nową ramkę do stosu instrukcji. _rs`push()`_ wymusza
+   [regułę reentrancy](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259):
+   program może wywołać sam siebie tylko jeśli jest bezpośrednim wywołującym
+   (czyli program A może wywołać A, ale A nie może wywołać B, który wywołuje A).
+   Naruszenie skutkuje zwróceniem _rs`ReentrancyNotAllowed`_.
+2. Wywołuje
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602),
+   który rozwiązuje punkt wejścia programu wywoływanego i uruchamia go.
+   Wywoływany działa na tym samym współdzielonym liczniku CU. Całe zużycie CU
+   przez wywoływanego zmniejsza pozostały budżet wywołującego.
+3. Wywołuje
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   aby usunąć ramkę wywoływanego i zweryfikować, że salda lamportów się nie
+   zmieniły (_rs`UnbalancedInstruction`_ w przeciwnym razie).
+
+### Krok 11: Synchronizacja kont po CPI (od wywoływanego do wywołującego)
+
+Po powrocie z `process_instruction` (w tym usunięciu z kontekstu), runtime
+synchronizuje zmiany z powrotem do wywołującego za pomocą
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+dla każdego zapisywalnego konta. Dodatkowo,
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+aktualizuje mapowanie regionów pamięci VM dla kont, których regiony danych się
+zmieniły. Szczegółowe mapowanie pól znajdziesz w sekcji
+[Synchronizacja danych konta](/docs/core/cpi/cpi-cost-model#account-data-synchronization).
+
+Syscall CPI zwraca `0` (sukces) do programu wywołującego.

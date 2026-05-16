@@ -3,3 +3,13 @@ declare module "*.inline.svg" {
   const content: FC<SVGProps<SVGElement>>;
   export default content;
 }
+
+declare module "*.svg" {
+  const content: string;
+  export default content;
+}
+
+declare module "*.png" {
+  const content: { src: string };
+  export default content;
+}

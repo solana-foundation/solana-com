@@ -1,0 +1,137 @@
+---
+title: Syscall 参考
+description:
+  为 Solana 程序提供所有可用 sBPF syscall
+  的完整参考，包括哈希、加密、CPI、日志、内存操作等的计算单元消耗。
+url: /docs/core/programs/syscall-reference
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="概要">
+  程序通过 syscall 与运行时交互，涵盖日志、哈希、
+  加密、CPI、sysvars、内存操作等。每次调用都会从交易的共享预算中扣除计算单元。
+</Callout>
+
+## Syscall
+
+程序通过在
+[`create_program_runtime_environment_v1()`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L282)
+注册的 syscall 与运行时交互。每个 syscall 都会从交易的计算预算中扣除计算单元。
+
+### Syscall 成本
+
+每个 syscall 的基础计算单元成本常量定义在
+[`SVMTransactionExecutionCost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L198-L236)。部分 syscall 在实现中会将这些常量组合为更复杂的公式（例如，随输入大小变化或增加
+`syscall_base_cost` 的开销）。具体成本计算请参见下方各 syscall 源码链接。
+
+### 可用的 syscall
+
+sBPF 程序可用的所有 syscall，均注册于
+[`create_program_runtime_environment_v1()`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L282)。带有功能门控的 syscall 仅在对应功能在集群上激活时可用。
+
+#### 控制流
+
+| Syscall      | 描述                                                         | 源码                                                                                     |
+| ------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `abort`      | 立即终止程序。由 LLVM 在不可恢复条件下插入；不建议显式使用。 | [`SyscallAbort`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L691) |
+| `sol_panic_` | 终止程序并输出文件名、行号和列号以便诊断。                   | [`SyscallPanic`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L710) |
+
+#### 日志
+
+| Syscall                  | 描述                                             | 源码                                                                                                     |
+| ------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `sol_log_`               | 将 UTF-8 字符串消息记录到程序日志。              | [`SyscallLog`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/logging.rs#L5)                 |
+| `sol_log_64_`            | 以十六进制形式将五个 `u64` 值记录到程序日志。    | [`SyscallLogU64`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/logging.rs#L37)             |
+| `sol_log_pubkey`         | 将 `Pubkey` 以 base58 字符串形式记录到程序日志。 | [`SyscallLogPubkey`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/logging.rs#L84)          |
+| `sol_log_compute_units_` | 记录剩余计算单元到程序日志。                     | [`SyscallLogBpfComputeUnits`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/logging.rs#L60) |
+| `sol_log_data`           | 以 base64 编码形式记录任意字节切片数据。         | [`SyscallLogData`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/logging.rs#L109)           |
+
+#### PDA
+
+| 系统调用                       | 描述                                                                                        | 源码                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `sol_create_program_address`   | 根据种子和程序 ID 派生程序地址。如果派生出的地址位于 Ed25519 曲线上，则返回 1（无效 PDA）。 | [`SyscallCreateProgramAddress`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798)  |
+| `sol_try_find_program_address` | 通过从 255 递减到 1 迭代 bump 种子，查找有效的 PDA。返回地址和 bump。                       | [`SyscallTryFindProgramAddress`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836) |
+
+#### 哈希
+
+| 系统调用        | 描述                                               | 源码                                                                                                      |
+| --------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `sol_sha256`    | 对一个或多个字节切片计算 SHA-256 哈希。            | [`SyscallHash<Sha256Hasher>`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1912)    |
+| `sol_keccak256` | 对一个或多个字节切片计算 Keccak-256 哈希。         | [`SyscallHash<Keccak256Hasher>`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1912) |
+| `sol_blake3`    | 对一个或多个字节切片计算 Blake3 哈希。需特性开启。 | [`SyscallHash<Blake3Hasher>`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1912)    |
+| `sol_poseidon`  | 对输入计算 Poseidon 哈希。需特性开启。             | [`SyscallPoseidon`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1737)              |
+
+#### 密码学
+
+| 系统调用                    | 描述                                                                          | 源码                                                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `sol_secp256k1_recover`     | 从签名消息哈希和恢复 ID 恢复 secp256k1 公钥。                                 | [`SyscallSecp256k1Recover`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L888)                |
+| `sol_curve_validate_point`  | 验证字节数组是否为 Curve25519（Edwards 或 Ristretto）上的有效点。需特性开启。 | [`SyscallCurvePointValidation`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L946)            |
+| `sol_curve_group_op`        | 对 Curve25519 Edwards 或 Ristretto 点执行群操作（加、减、乘）。需特性开启。   | [`SyscallCurveGroupOps`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1009)                  |
+| `sol_curve_multiscalar_mul` | 对 Curve25519 Edwards 或 Ristretto 点执行多标量乘法。需特性开启。             | [`SyscallCurveMultiscalarMultiplication`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1237) |
+| `sol_alt_bn128_group_op`    | 执行 alt_bn128（BN254）群操作：G1 加法、G1 乘法和配对检查。需特性开启。       | [`SyscallAltBn128`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1558)                       |
+| `sol_alt_bn128_compression` | 压缩和解压 alt_bn128 G1 和 G2 点。需特性开启。                                | [`SyscallAltBn128Compression`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1823)            |
+| `sol_big_mod_exp`           | 计算大整数模幂（base^exp mod modulus）。需特性开启。                          | [`SyscallBigModExp`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1662)                      |
+
+#### CPI
+
+| 系统调用                 | 描述                                                                           | 来源                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `sol_invoke_signed_rust` | 从 Rust 程序调用跨程序指令。使用 Rust ABI 对指令、账户和签名者种子进行序列化。 | [`SyscallInvokeSignedRust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11) |
+| `sol_invoke_signed_c`    | 从 C 程序调用跨程序指令。序列化时使用 C `SolInstruction` ABI。                 | [`SyscallInvokeSignedC`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L78)    |
+
+#### 系统变量
+
+| 系统调用                        | 描述                                                                                                         | 来源                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `sol_get_clock_sysvar`          | 将 Clock 系统变量写入程序提供的缓冲区。                                                                      | [`SyscallGetClockSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L44)            |
+| `sol_get_epoch_schedule_sysvar` | 将 EpochSchedule 系统变量写入程序提供的缓冲区。                                                              | [`SyscallGetEpochScheduleSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L66)    |
+| `sol_get_rent_sysvar`           | 将 Rent 系统变量写入程序提供的缓冲区。                                                                       | [`SyscallGetRentSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L135)            |
+| `sol_get_epoch_rewards_sysvar`  | 将 EpochRewards 系统变量写入程序提供的缓冲区。                                                               | [`SyscallGetEpochRewardsSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L88)     |
+| `sol_get_last_restart_slot`     | 将 LastRestartSlot 系统变量写入程序提供的缓冲区。受功能开关控制。                                            | [`SyscallGetLastRestartSlotSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L157) |
+| `sol_get_fees_sysvar`           | 将已弃用的 Fees 系统变量写入程序提供的缓冲区。受功能开关控制（已弃用）。                                     | [`SyscallGetFeesSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L110)            |
+| `sol_get_sysvar`                | 通用系统变量访问：通过 pubkey、偏移量和长度从任何缓存的系统变量中读取字节切片（SIMD-0127）。受功能开关控制。 | [`SyscallGetSysvar`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/sysvar.rs#L184)                |
+
+#### 内存操作
+
+| 系统调用       | 描述                                                                          | 来源                                                                                          |
+| -------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `sol_memcpy_`  | 从源地址复制 `n` 字节到目标地址。如果区域在虚拟机地址空间中重叠则中止。       | [`SyscallMemcpy`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/mem_ops.rs#L26)  |
+| `sol_memmove_` | 从源地址复制 `n` 字节到目标地址，正确处理重叠区域。                           | [`SyscallMemmove`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/mem_ops.rs#L49) |
+| `sol_memcmp_`  | 比较两个内存区域的 `n` 字节。将结果（第一个不同字节的比较结果）写入结果地址。 | [`SyscallMemcmp`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/mem_ops.rs#L67)  |
+| `sol_memset_`  | 用指定字节值填充内存区域的 `n` 字节。                                         | [`SyscallMemset`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/mem_ops.rs#L113) |
+
+#### 程序数据
+
+| Syscall                                 | 描述                                                                                | 来源                                                                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `sol_set_return_data`                   | 为当前指令设置返回数据（最大 1,024 字节）。CPI 返回后，调用方可读取。               | [`SyscallSetReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1354)                  |
+| `sol_get_return_data`                   | 读取最近一次 CPI 设置的返回数据。返回数据长度和设置该数据的程序 ID。                | [`SyscallGetReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1402)                  |
+| `sol_get_processed_sibling_instruction` | 获取同一堆栈高度下先前执行的兄弟指令（按反向索引）。返回程序 ID、数据和账户元信息。 | [`SyscallGetProcessedSiblingInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1450) |
+| `sol_get_stack_height`                  | 返回当前调用堆栈高度。高度 1 = 顶层指令，每次 CPI 增加 1。                          | [`SyscallGetStackHeight`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1538)                 |
+
+#### 计算
+
+| Syscall                       | 描述                                         | 来源                                                                                                      |
+| ----------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `sol_remaining_compute_units` | 返回交易预算中剩余的计算单元数。受功能门控。 | [`SyscallRemainingComputeUnits`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1803) |
+
+#### Epoch stake
+
+| Syscall               | 描述                                                                                     | 来源                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `sol_get_epoch_stake` | 返回当前 epoch 的集群总质押（空指针）或指定投票账户的委托质押（SIMD-0133）。受功能门控。 | [`SyscallGetEpochStake`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L1974) |
+
+#### 内存分配
+
+| Syscall           | 描述                                                                             | 来源                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `sol_alloc_free_` | 用于动态内存分配的传统 bump 分配器。新部署已禁用，仅对功能门控前部署的程序可用。 | [`SyscallAllocFree`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L735) |

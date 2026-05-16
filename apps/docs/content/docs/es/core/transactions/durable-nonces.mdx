@@ -1,0 +1,94 @@
+---
+title: Nonces duraderos
+description:
+  Cómo funcionan los nonces duraderos en Solana para la firma sin conexión y el
+  envío diferido de transacciones, incluyendo el ciclo de vida del nonce,
+  detección, validación y comportamiento ante fallos.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Resumen">
+  Las transacciones con nonce duradero reemplazan el blockhash reciente con un
+  valor de nonce almacenado, eliminando la ventana de caducidad de 150 slots
+  para una transacción. Esto permite la firma sin conexión y el envío diferido.
+</Callout>
+
+<Callout type="warn">
+  Los nonces duraderos pueden quedar obsoletos en una versión futura. Consulta
+  la [discusión
+  SIMD](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  para más detalles.
+</Callout>
+
+## Nonces duraderos
+
+Una transacción con nonce duradero reemplaza el blockhash reciente con un valor
+de nonce almacenado, eliminando la ventana de caducidad de 150 slots. Esto
+permite la firma sin conexión y el envío diferido.
+
+### Cómo funcionan las transacciones con nonce
+
+Una cuenta de nonce es una cuenta propiedad del System Program que almacena un
+valor _rs`State::Initialized`_ que contiene tres campos: una pubkey de
+**autoridad** (quién puede avanzar el nonce), un valor de **nonce duradero** (un
+hash derivado de un blockhash reciente) y **lamports por firma** (la tasa de
+comisión cuando el nonce fue avanzado por última vez).
+
+Para usar un nonce duradero:
+
+1. Crea e inicializa una cuenta de nonce usando _rs`CreateAccount`_ +
+   _rs`InitializeNonceAccount`_
+2. Construye la transacción con _rs`AdvanceNonceAccount`_ como la **primera
+   instrucción** y el valor del nonce como `recent_blockhash`
+3. Firma la transacción (se puede hacer sin conexión, ya que el nonce no caduca)
+4. Envía cuando esté listo
+
+### Detección de nonce
+
+El runtime detecta transacciones con nonce verificando si la primera instrucción
+(índice
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) es una llamada al System Program con la instrucción
+_rs`AdvanceNonceAccount`_. La cuenta de nonce debe ser la primera cuenta de esa
+instrucción y debe ser escribible. Consulta
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Flujo de validación de nonce
+
+Cuando el `recent_blockhash` de una transacción no se encuentra en el
+`BlockhashQueue`, el validador verifica si es una transacción nonce válida
+mediante
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. El `durable_nonce` almacenado del nonce debe diferir del siguiente nonce
+   durable (derivado del blockhash actual). Esto asegura que el nonce no haya
+   sido utilizado ya en este bloque
+2. La cuenta nonce debe cargarse y debe analizarse como _rs`State::Initialized`_
+3. El `durable_nonce` almacenado debe coincidir con el `recent_blockhash` de la
+   transacción
+
+La verificación de firma de la autoridad del nonce se realiza más tarde
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+Si todas las verificaciones pasan, el nonce avanza al siguiente valor de nonce
+durable antes de que comience la ejecución. En caso de fallo de ejecución, el
+nonce avanzado y el pagador de comisiones con la comisión deducida aún se
+confirman (evitando la repetición mientras se cobran las comisiones).
+
+### Comportamiento de fallo del nonce
+
+Si una transacción nonce **falla la validación** (nonce ya utilizado, autoridad
+no firmada, cuenta no encontrada), la transacción completa se descarta. No se
+cobran comisiones, no hay cambios de estado.
+
+Si una transacción nonce **pasa la validación pero la ejecución falla** (una
+instrucción devuelve un error), el nonce aún avanza y las comisiones aún se
+cobran. Esto evita que la transacción se repita mientras se asegura que el
+validador sea compensado.

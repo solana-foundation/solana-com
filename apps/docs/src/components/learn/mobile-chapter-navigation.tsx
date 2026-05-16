@@ -26,7 +26,7 @@ export default function MobileChapterNavigation({
   translations,
 }: MobileChapterNavigationProps) {
   return (
-    <div className="xl:hidden sticky top-16 z-50 -mx-4 px-4 pb-6 bg-[rgb(18_18_18_/_95%)] backdrop-blur-md">
+    <div className="xl:hidden sticky top-16 z-50 -mx-4 px-4 pb-8 bg-[rgb(18_18_18_/_95%)] backdrop-blur-md">
       <details className="rounded-lg relative">
         <summary
           className="px-4 py-3 cursor-pointer flex items-center justify-between text-white hover:bg-zinc-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black"

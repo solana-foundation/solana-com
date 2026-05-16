@@ -1,6 +1,7 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const prefix = "/accelerate-assets";
 const nextConfig: NextConfig = {
@@ -65,15 +66,23 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.tina.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {
         protocol: "http",
         hostname: "localhost",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.airtableusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "dl.airtable.com",
       },
     ],
   },
@@ -91,7 +100,11 @@ const nextConfig: NextConfig = {
           source: "/accelerate-assets/images/:path+",
           destination: "/images/:path+",
         },
-        // Rewrite /accelerate routes to root for proxy compatibility
+        {
+          source: "/accelerate-assets/video/:path+",
+          destination: "/video/:path+",
+        },
+        // Rewrite /accelerate routes for proxy compatibility
         {
           source: "/accelerate",
           destination: "/",
@@ -102,11 +115,11 @@ const nextConfig: NextConfig = {
         },
         {
           source: "/:locale/accelerate",
-          destination: "/",
+          destination: "/:locale",
         },
         {
           source: "/:locale/accelerate/:path*",
-          destination: "/:path*",
+          destination: "/:locale/:path*",
         },
       ],
     };
@@ -136,4 +149,15 @@ const withMDX = createMDX({
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-export default withNextIntl(withMDX(nextConfig));
+export default withSentryConfig(withNextIntl(withMDX(nextConfig)), {
+  org: "solana-fndn",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  sourcemaps: {
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
+  },
+});

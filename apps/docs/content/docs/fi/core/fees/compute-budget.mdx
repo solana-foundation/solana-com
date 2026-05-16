@@ -1,0 +1,215 @@
+---
+title: Laskentabudjetti
+description:
+  Laskentayksikkörajat, ComputeBudgetInstruction-variantit, ajastimen
+  kustannusmalli, lohkorajat ja suoritusbudjetin vakiot Solanassa.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="Yhteenveto">
+  Oletuksena 200 000 CU:ta per ohje, maksimi 1,4 miljoonaa per transaktio. Käytä
+  `SetComputeUnitLimit`- ja `SetComputeUnitPrice`-ohjeita optimointiin.
+  Prioriteettimaksu perustuu pyydettyihin CU:ihin, ei todelliseen käyttöön.
+</Callout>
+
+## Laskentayksikkörajoitus
+
+Jokaiselle ohjeelle allokoidaan
+[oletuksena 200 000 CU:ta](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44),
+ja jokainen transaktio on rajoitettu
+[1 400 000 CU:hun](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+Kun eksplisiittistä _rs`SetComputeUnitLimit`_-ohjetta ei ole läsnä,
+[oletusarvo lasketaan](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+ohjeen tyypin perusteella:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Sisäänrakennetut ohjeet** (System Program, Stake, Vote jne., joita ei ole
+  siirretty SBF:ään): kullekin allokoidaan
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3 000 CU:ta (mukaan lukien
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **Ei-sisäänrakennetut ohjeet** (käyttäjän julkaisemat SBF-ohjelmat): kullekin
+  allokoidaan
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200 000 CU:ta.
+- **Siirtyvät sisäänrakennetut**, jotka on siirretty SBF:ään (feature-gated):
+  käsitellään ei-sisäänrakennettuina (200 000 CU:ta kullekin).
+
+Tulos rajataan arvoon _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1 400 000).
+
+Voit ohittaa tämän oletusarvon sisällyttämällä
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)-ohjeen
+transaktioon.
+
+Sopivan CU-rajan määrittämiseksi:
+
+1. Simuloi transaktio CU-kulutuksen mittaamiseksi.
+2. Lisää 10 %:n turvamarginaali simuloituun arvoon.
+
+<Callout type="warn">
+  Prioriteettimaksu määräytyy transaktion pyydetyn laskentayksikkörajoituksen
+  perusteella, *ei* todellisten käytettyjen laskentayksiköiden perusteella. Jos
+  asetat laskentayksikkörajoituksen liian korkeaksi tai käytät oletusmäärää,
+  maksat käyttämättömistä laskentayksiköistä.
+</Callout>
+
+## Laskentabudjetin ohjeet
+
+[Laskentabudjetin ohjelmassa](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) on neljä ohjetta.
+
+| Variantti                        | Erottelija | Parametri        | Tyyppi | Kuvaus                                                       |
+| -------------------------------- | ---------- | ---------------- | ------ | ------------------------------------------------------------ |
+| `RequestHeapFrame`               | `1`        | `bytes`          | `u32`  | Pyydetty heap-koko tavuina jokaiselle transaktion ohjelmalle |
+| `SetComputeUnitLimit`            | `2`        | `units`          | `u32`  | Maksimi CU-määrä, jonka transaktio voi kuluttaa              |
+| `SetComputeUnitPrice`            | `3`        | `micro_lamports` | `u64`  | CU-hinta mikrolamporteissa                                   |
+| `SetLoadedAccountsDataSizeLimit` | `4`        | `bytes`          | `u32`  | Maksimi tavumäärä tilidataa, jonka transaktio voi ladata     |
+
+[Lähde: `ComputeBudgetInstruction` enum](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### Rajoitukset ja virhetilanteet
+
+Seuraavat säännöt pätevät
+[laskentabudjetin ohjeiden käsittelyssä](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **Yksi per tyyppi**: vain yksi kutakin ohjevarianttia sallitaan per
+  transaktio. Duplikaattien sisällyttäminen aiheuttaa
+  _rs`DuplicateInstruction`_-virheen (koko transaktio epäonnistuu).
+- **`RequestHeapFrame`**: arvon on oltava välillä
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) ja
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB), ja sen on oltava
+  [1 024:n monikerta](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  Muussa tapauksessa transaktio epäonnistuu
+  _rs`InvalidInstructionData`_-virheeseen. Heap-koko koskee jokaista
+  transaktiossa kutsuttua ohjelmaa (mukaan lukien CPI:t).
+- **`SetComputeUnitLimit`**: mikä tahansa `u32`-arvo hyväksytään. Todellinen
+  raja rajataan arvoon
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1 400 000).
+- **`SetComputeUnitPrice`**: mikä tahansa `u64`-arvo hyväksytään (0–`u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: arvon on oltava suurempi kuin 0
+  (`NonZeroU32`). Arvo 0 aiheuttaa
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141)-virheen.
+  Todellinen raja rajataan arvoon
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB).
+- **Tunnistamaton data**: mikä tahansa laskentabudjetin ohjelmalle lähetetty
+  ohje, joka ei deserialisoidu tunnetuksi variantiksi, epäonnistuu
+  _rs`InvalidInstructionData`_-virheeseen.
+
+<Callout>
+  Alla oleva ajoittimen kustannusmalli kuvaa validatorin sisäistä suoritusta
+  edeltävää kustannusarviointia. Useimmat kehittäjät tarvitsevat vain yllä
+  olevat laskentabudjetin ohjeet.
+</Callout>
+
+## Ajoittimen kustannusmalli
+
+Validatorin
+[ajoitin](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+käyttää
+[kustannusmallia](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+transaktion resurssien käytön arvioimiseen **ennen suoritusta**. Nämä suoritusta
+edeltävät kustannusarviot määrittävät, mahtuuko transaktio lohkon jäljellä
+olevaan kapasiteettiin. Ne ovat erillisiä suorituksen aikana tapahtuvasta
+CU-mittauksesta.
+
+Ajoittimen kokonaiskustannus on viiden komponentin summa
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Kustannuskomponentit
+
+| Komponentti                                                                                                                 | Kuvaus                                                          |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [**Allekirjoituskustannus**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)          | Allekirjoituskohtainen kustannus kullekin allekirjoitustyypille |
+| [**Kirjoituslukituskustannus**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)       | Kirjoitettavaa tiliä kohden                                     |
+| [**Instruction data -kustannus**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)     | Perustuu instruction data -tavujen kokonaismäärään              |
+| [**Ohjelmien suorituskustannus**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)     | CU-raja laskentabudjetista tai oletusarvo                       |
+| [**Ladattujen tilien datakustannus**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | Perustuu ladattujen tilien datan kokonaiskokoon                 |
+
+Kaikki arvot ovat laskentayksiköissä.
+
+### Ajoittimen kustannusvakiot
+
+| Vakio                                                                                                                  | Arvo     |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6 690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2 280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2 400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4 800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### Äänestystransaktion kustannus
+
+Äänestystransaktiot käyttävät
+[staattista kustannusta 3 428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+riippumatta niiden todellisesta sisällöstä.
+
+### Lohkorajat
+
+Ajoitin valvoo lohkokohtaisia rajoja. Jos transaktion lisääminen ylittäisi
+jonkin rajan, sitä ei sisällytetä lohkoon.
+
+| Rajoitus                                                                                                                      | Arvo       |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60 000 000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12 000 000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36 000 000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 Mt     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  ehdottaa `MAX_BLOCK_UNITS`-arvon nostamista 100 000 000:aan.
+</Callout>
+
+## Suoritubudjetin vakiot
+
+Seuraavat vakiot tiedostosta
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+määrittelevät ajonaikaiset rajoitukset transaktion suorituksen aikana:
+
+| Vakio                                                                                                                                    | Arvo        | Kuvaus                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1 400 000   | Maksimi CU-raja per transaktio                                 |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200 000     | Oletus-CU:t per ei-sisäänrakennettu käsky                      |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3 000       | Oletus-CU:t per sisäänrakennettu käsky (SIMD-0170)             |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU:ta     | Hinta per 32 KiB heap-sivu                                     |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1 000 CU:ta | Yhden CPI-kutsun hinta                                         |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU:ta   | CPI-kutsun hinta SIMD-0339:n kanssa                            |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32 768      | Pienin heap-koko (32 KiB)                                      |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262 144     | Suurin heap-koko (256 KiB)                                     |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67 108 864  | Maksimi ladattu tilidata per transaktio (64 MiB)               |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5           | Maksimi käskypinon syvyys (ylätaso + CPI:t)                    |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9           | Maksimi käskypinon syvyys (ylätaso + CPI:t) SIMD-0268:n kanssa |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64          | Maksimi SBF-SBF-kutsusyvyys ohjelman sisällä                   |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4 096 tavua | Yhden SBF-pinokehyksen koko                                    |

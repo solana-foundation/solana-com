@@ -1,0 +1,215 @@
+---
+title: Ngân sách tính toán
+description:
+  Giới hạn đơn vị tính toán, các biến thể ComputeBudgetInstruction, mô hình chi
+  phí bộ lập lịch, giới hạn khối và hằng số ngân sách thực thi trên Solana.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="Tóm tắt">
+  Mặc định 200K CU cho mỗi lệnh, tối đa 1,4M cho mỗi giao dịch. Sử dụng các lệnh
+  `SetComputeUnitLimit` và `SetComputeUnitPrice` để tối ưu hóa. Phí ưu tiên dựa
+  trên CU được yêu cầu, không phải mức sử dụng thực tế.
+</Callout>
+
+## Giới hạn đơn vị tính toán
+
+Mỗi lệnh được phân bổ
+[mặc định 200.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44),
+và mỗi giao dịch được giới hạn ở
+[1.400.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+Khi không có lệnh _rs`SetComputeUnitLimit`_ rõ ràng, giá trị
+[mặc định được tính toán](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+dựa trên loại lệnh:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Lệnh builtin** (System Program, Stake, Vote, v.v. chưa được chuyển sang
+  SBF): mỗi lệnh được phân bổ
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3.000 CU (theo
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **Lệnh non-builtin** (chương trình SBF do người dùng triển khai): mỗi lệnh
+  được phân bổ
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200.000 CU.
+- **Builtin đang chuyển đổi** đã hoàn tất việc chuyển sang SBF (được kiểm soát
+  bởi feature): được xử lý như non-builtin (200.000 CU cho mỗi lệnh).
+
+Kết quả được giới hạn ở _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1.400.000).
+
+Bạn có thể ghi đè giá trị mặc định này bằng cách thêm lệnh
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+vào giao dịch của bạn.
+
+Để xác định giới hạn CU phù hợp:
+
+1. Mô phỏng giao dịch để đo lường mức tiêu thụ CU.
+2. Thêm biên an toàn 10% vào giá trị mô phỏng.
+
+<Callout type="warn">
+  Phí ưu tiên được xác định bởi giới hạn đơn vị tính toán được yêu cầu trong
+  giao dịch, *không phải* số lượng đơn vị tính toán thực sự được sử dụng. Nếu
+  bạn đặt giới hạn đơn vị tính toán quá cao hoặc sử dụng số lượng mặc định, bạn
+  sẽ trả tiền cho các đơn vị tính toán không được sử dụng.
+</Callout>
+
+## Hướng dẫn về compute budget
+
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) có bốn hướng dẫn.
+
+| Biến thể                         | Discriminator | Tham số          | Kiểu  | Mô tả                                                                            |
+| -------------------------------- | ------------- | ---------------- | ----- | -------------------------------------------------------------------------------- |
+| `RequestHeapFrame`               | `1`           | `bytes`          | `u32` | Kích thước heap được yêu cầu tính bằng byte cho mỗi chương trình trong giao dịch |
+| `SetComputeUnitLimit`            | `2`           | `units`          | `u32` | Số CU tối đa mà giao dịch có thể tiêu thụ                                        |
+| `SetComputeUnitPrice`            | `3`           | `micro_lamports` | `u64` | Giá CU tính bằng micro-lamport                                                   |
+| `SetLoadedAccountsDataSizeLimit` | `4`           | `bytes`          | `u32` | Tổng số byte tối đa của dữ liệu tài khoản mà giao dịch có thể tải                |
+
+[Nguồn: enum `ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### Ràng buộc và điều kiện lỗi
+
+Các quy tắc sau áp dụng khi
+[xử lý các hướng dẫn compute budget](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **Một cho mỗi loại**: chỉ cho phép một biến thể của mỗi hướng dẫn trong mỗi
+  giao dịch. Bao gồm các bản sao trùng lặp sẽ gây ra lỗi
+  _rs`DuplicateInstruction`_ (toàn bộ giao dịch thất bại).
+- **`RequestHeapFrame`**: giá trị phải nằm trong khoảng từ
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) đến
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB), và phải là
+  [bội số của 1.024](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  Nếu không, giao dịch sẽ thất bại với lỗi _rs`InvalidInstructionData`_. Kích
+  thước heap áp dụng cho mọi chương trình được gọi trong giao dịch (bao gồm cả
+  CPI).
+- **`SetComputeUnitLimit`**: mọi giá trị `u32` đều được chấp nhận. Giới hạn hiệu
+  quả được giới hạn ở
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1.400.000).
+- **`SetComputeUnitPrice`**: mọi giá trị `u64` đều được chấp nhận (từ 0 đến
+  `u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: giá trị phải lớn hơn 0 (`NonZeroU32`).
+  Giá trị 0 sẽ gây ra
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141).
+  Giới hạn hiệu quả được giới hạn ở
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB).
+- **Dữ liệu không được nhận dạng**: bất kỳ hướng dẫn nào được gửi đến Compute
+  Budget Program mà không deserialize thành biến thể đã biết sẽ thất bại với lỗi
+  _rs`InvalidInstructionData`_.
+
+<Callout>
+  Mô hình chi phí của bộ lập lịch bên dưới mô tả việc ước tính chi phí trước khi
+  thực thi nội bộ của validator. Hầu hết các nhà phát triển chỉ cần các hướng
+  dẫn về ngân sách tính toán ở trên.
+</Callout>
+
+## Mô hình chi phí của bộ lập lịch
+
+[Bộ lập lịch](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+của validator sử dụng một
+[mô hình chi phí](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+để ước tính mức sử dụng tài nguyên của giao dịch **trước khi thực thi**. Các ước
+tính chi phí trước khi thực thi này xác định liệu một giao dịch có phù hợp với
+dung lượng còn lại của khối hay không. Chúng tách biệt với việc đo lường CU diễn
+ra trong quá trình thực thi.
+
+Tổng chi phí của bộ lập lịch là tổng của năm thành phần
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Các thành phần chi phí
+
+| Thành phần                                                                                                                   | Mô tả                                             |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [**Chi phí chữ ký**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)                   | Chi phí cho mỗi chữ ký theo từng loại chữ ký      |
+| [**Chi phí khóa ghi**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)                 | Cho mỗi tài khoản có thể ghi                      |
+| [**Chi phí instruction data**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)         | Dựa trên tổng số byte instruction data            |
+| [**Chi phí thực thi chương trình**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)    | Giới hạn CU từ ngân sách tính toán hoặc mặc định  |
+| [**Chi phí dữ liệu tài khoản đã tải**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | Dựa trên tổng kích thước dữ liệu tài khoản đã tải |
+
+Tất cả các giá trị đều tính bằng đơn vị tính toán (compute units).
+
+### Các hằng số chi phí của bộ lập lịch
+
+| Hằng số                                                                                                                | Giá trị   |
+| ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30        |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CUs   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6.690 CUs |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2.280 CUs |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2.400 CUs |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4.800 CUs |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CUs   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4         |
+
+### Chi phí giao dịch bỏ phiếu
+
+Các giao dịch bỏ phiếu sử dụng
+[chi phí cố định là 3.428 CUs](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+bất kể nội dung thực tế của chúng.
+
+### Giới hạn khối
+
+Bộ lập lịch áp dụng các giới hạn cho mỗi khối. Nếu việc thêm một giao dịch vượt
+quá bất kỳ giới hạn nào, nó sẽ không được đưa vào khối.
+
+| Giới hạn                                                                                                                      | Giá trị    |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  đề xuất tăng _rs`MAX_BLOCK_UNITS`_ lên 100,000,000.
+</Callout>
+
+## Hằng số ngân sách thực thi
+
+Các hằng số sau từ
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+xác định các giới hạn runtime trong quá trình thực thi giao dịch:
+
+| Hằng số                                                                                                                                  | Giá trị    | Mô tả                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------ |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000  | Giới hạn CU tối đa mỗi giao dịch                                   |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000    | CU mặc định cho mỗi instruction không phải builtin                 |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000      | CU mặc định cho mỗi instruction builtin (SIMD-0170)                |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU       | Chi phí cho mỗi trang heap 32 KiB                                  |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 CU   | Chi phí của một lần gọi CPI                                        |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU     | Chi phí gọi CPI với SIMD-0339                                      |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768     | Kích thước heap tối thiểu (32 KiB)                                 |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144    | Kích thước heap tối đa (256 KiB)                                   |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864 | Dữ liệu tài khoản được tải tối đa mỗi giao dịch (64 MiB)           |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5          | Độ sâu ngăn xếp instruction tối đa (top-level + CPI)               |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9          | Độ sâu ngăn xếp instruction tối đa (top-level + CPI) với SIMD-0268 |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64         | Độ sâu gọi SBF-to-SBF tối đa trong một chương trình                |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096 byte | Kích thước của một stack frame SBF                                 |

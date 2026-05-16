@@ -2,8 +2,6 @@ import slugify from "@sindresorhus/slugify";
 import { isExternalLink } from "../utils/isExternalLink";
 import breakpointImg from "@@/assets/events/breakpoint.jpg";
 import shipordieImg from "@@/assets/events/shipordie.jpg";
-import scaleordieImg from "@@/assets/events/scaleordie.jpg";
-import crossroadsImg from "@@/assets/events/crossroads.jpg";
 import solanaEventImg from "@@/assets/events/solana-event.jpg";
 
 export type LumaEvent = {
@@ -46,6 +44,9 @@ export type CalendarEvent = {
   description: string;
   platform?: string;
   rsvp: string;
+  lumaUrl?: string;
+  /** When true, this event is shown as the featured event on the events page */
+  featured?: boolean;
   schedule: {
     from: string | null;
     to: string | null;
@@ -62,6 +63,7 @@ export type CalendarEvent = {
     country: string | null;
     address: string | null;
   };
+  type?: string;
 };
 
 const dummyEvent = [
@@ -90,6 +92,9 @@ const dummyEvent = [
   },
 ];
 
+/** Static signup form events (e.g. link-in-bio) shown on the events calendar */
+const signupFormEvents: CalendarEvent[] = [];
+
 /**
  *
  * @param {string} calendarId The calendar ID to fetch events from.
@@ -98,7 +103,7 @@ const dummyEvent = [
  */
 export async function fetchCalendarEvents(
   calendarId: string,
-  options: Record<string, any>,
+  options: Record<string, string | number>,
 ): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
@@ -133,12 +138,13 @@ export async function fetchCalendarEvents(
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("LUMA API request timed out. Returning empty array.");
     } else {
-      console.warn("LUMA API request failed:", error.message || error);
+      console.warn("LUMA API request failed:", err.message || error);
     }
     return [];
   }
@@ -210,6 +216,9 @@ export async function fetchCalendarEvents(
     }),
   );
 
+  // Append static signup form events before overrides so they can be customized here too
+  allEvents = allEvents.concat(signupFormEvents);
+
   // Add custom img and timezone overrides
   allEvents.forEach((el) => {
     if (el.key === "https://solana.com/breakpoint") {
@@ -220,17 +229,12 @@ export async function fetchCalendarEvents(
       el.img.primary = shipordieImg.src;
       el.schedule.timezone = "America/New_York";
       el.schedule.to = "2025-05-23T23:59:59-04:00";
-    } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
-      el.img.primary = scaleordieImg.src;
-      el.schedule.timezone = "America/New_York";
-      el.schedule.to = "2025-05-20T23:59:59-04:00";
-    } else if (el.key === "https://www.solanacrossroads.com/") {
-      el.img.primary = crossroadsImg.src;
-      el.schedule.timezone = "Europe/Istanbul";
-      el.schedule.to = "2025-04-26T23:59:59+03:00";
-    } else if (el.rsvp === "https://lu.ma/solana-summit-apac-2025") {
-      el.schedule.timezone = "Asia/Ho_Chi_Minh";
-      el.schedule.to = "2025-04-26T23:59:59+07:00";
+    } else if (
+      el.key === "accelerate-miami" ||
+      el.rsvp === "https://lu.ma/accelerate-miami" ||
+      el.rsvp === "https://luma.com/accelerate-miami"
+    ) {
+      el.featured = true;
     }
     return el;
   });
@@ -248,7 +252,9 @@ export async function fetchCalendarEvents(
  * @param {object} options Options for the query.
  * @returns {Promise<Array>} An array of events.
  */
-export async function fetchCalendarRiverEvents(options: Record<string, any>) {
+export async function fetchCalendarRiverEvents(
+  options: Record<string, string | number>,
+) {
   if (!process.env.RIVER_KEY) {
     console.warn("RIVER_KEY is not set. Returning dummy data.");
     return dummyEvent;
@@ -260,7 +266,9 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     "https://app.getriver.io/api/v1alpha1/community/solana/list-events",
   );
 
-  getCalendarEventsUrl.search = new URLSearchParams(options).toString();
+  getCalendarEventsUrl.search = new URLSearchParams(
+    options as Record<string, string>,
+  ).toString();
 
   let res: Response;
   try {
@@ -278,12 +286,13 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("River API request timed out. Returning empty array.");
     } else {
-      console.warn("River API request failed:", error.message || error);
+      console.warn("River API request failed:", err.message || error);
     }
     return [];
   }

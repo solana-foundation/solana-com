@@ -23,7 +23,7 @@
  * </Marquee>
  */
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useId } from "react";
 
 type MarqueeProps = {
   children: React.ReactNode;
@@ -40,13 +40,21 @@ const Marquee: React.FC<MarqueeProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [contentWidth, setContentWidth] = useState(0);
+  const uid = useId().replace(/:/g, "");
 
   useEffect(() => {
-    if (contentRef.current) {
-      setContentWidth(contentRef.current.offsetWidth);
-    }
-  }, [children]);
+    const el = contentRef.current;
+    if (!el) return;
 
+    const observer = new ResizeObserver(() => {
+      setContentWidth(el.offsetWidth);
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const animationName = `marquee-${uid}`;
   const duration = contentWidth > 0 ? contentWidth / speed : 0;
 
   return (
@@ -61,9 +69,12 @@ const Marquee: React.FC<MarqueeProps> = ({
       <div
         className="flex whitespace-nowrap"
         style={{
-          animation: contentWidth
-            ? `${duration}s linear 0s infinite normal none running marquee`
-            : "none",
+          animationName: contentWidth ? animationName : "none",
+          animationDuration: contentWidth ? `${duration}s` : undefined,
+          animationTimingFunction: "linear",
+          animationIterationCount: "infinite",
+          animationDirection: "normal",
+          animationFillMode: "none",
           animationPlayState: isHovered ? "paused" : "running",
         }}
       >
@@ -78,7 +89,7 @@ const Marquee: React.FC<MarqueeProps> = ({
       {/* Keyframes in style tag for isolation */}
       <style>
         {`
-          @keyframes marquee {
+          @keyframes ${animationName} {
             0% { transform: translateX(0); }
             100% { transform: translateX(-${contentWidth}px); }
           }

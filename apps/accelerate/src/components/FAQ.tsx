@@ -2,20 +2,10 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
+import { fadeInUp, staggerFast } from "@/lib/animations";
 
 interface FAQItem {
   question: string;
@@ -44,24 +34,24 @@ function FAQAccordionItem({
           className={`text-h2 pr-8 font-normal transition-colors ${
             isOpen ? "text-accelerate-green" : "text-accelerate-gray-100"
           }`}
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-          }}
         >
           {item.question}
         </span>
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
           {isOpen ? (
-            <img
+            <Image
               src={getImagePath("/images/faq-arrow-expanded.svg")}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9"
             />
           ) : (
-            <img
+            <Image
               src={getImagePath("/images/faq-arrow.svg")}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9"
             />
           )}
@@ -86,54 +76,39 @@ function FAQAccordionItem({
   );
 }
 
-export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+interface FAQProps {
+  faqKeys?: string[];
+  translationPrefix?: string;
+}
 
-  // FAQ items matching the Figma design content
-  const faqs: FAQItem[] = [
-    {
-      question: "What is included in my ticket?",
-      answer:
-        "Your ticket includes full access to Accelerate Hong Kong, featuring boundary-pushing talks, workshops, and meaningful connections across the Solana ecosystem and beyond.",
-    },
-    {
-      question: "Does my Consensus ticket also give me access to Accelerate?",
-      answer: "No - Accelerate requires a separate ticket from Consensus.",
-    },
-    {
-      question: "Is there a dress code?",
-      answer:
-        "There's no dress code. Come as you are and wear whatever you're comfortable in.",
-    },
-    {
-      question: "Where should I stay?",
-      answer: "Visit the Getting There section for more information.",
-    },
-  ];
+export function FAQ({
+  faqKeys = ["q1", "q2", "q3", "q4"],
+  translationPrefix = "accelerate.faq",
+}: FAQProps = {}) {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const t = useTranslations(translationPrefix);
+
+  const faqs: FAQItem[] = faqKeys.map((key) => ({
+    question: t(`items.${key}.question`),
+    answer: t(`items.${key}.answer`),
+  }));
 
   return (
-    <section id="faq" className="bg-black py-12 lg:py-16">
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+    <section id="faq" className="section-accelerate">
+      <div className="container-accelerate">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          variants={stagger}
+          variants={staggerFast}
         >
           {/* Section heading */}
-          <motion.h2
-            variants={fadeInUp}
-            className="text-h1 mb-8 text-accelerate-gray-100 lg:mb-12"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
-          >
-            FAQ
+          <motion.h2 variants={fadeInUp} className="section-heading">
+            {t("heading")}
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+          <div className="section-divider" />
 
           <div className="mx-auto max-w-4xl">
             {faqs.map((faq, index) => (

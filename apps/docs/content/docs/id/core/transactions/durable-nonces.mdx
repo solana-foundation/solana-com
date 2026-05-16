@@ -1,0 +1,92 @@
+---
+title: Durable nonces
+description:
+  Cara kerja durable nonces di Solana untuk penandatanganan offline dan
+  pengiriman transaksi tertunda, termasuk siklus hidup nonce, deteksi, validasi,
+  dan perilaku kegagalan.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Ringkasan">
+  Transaksi durable nonce menggantikan blockhash terkini dengan nilai nonce yang
+  tersimpan, menghilangkan jendela kedaluwarsa 150 slot untuk sebuah transaksi.
+  Ini memungkinkan penandatanganan offline dan pengiriman tertunda.
+</Callout>
+
+<Callout type="warn">
+  Durable nonces mungkin akan dihapus dalam rilis mendatang. Lihat [diskusi
+  SIMD](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  untuk detail lebih lanjut.
+</Callout>
+
+## Durable nonces
+
+Transaksi durable nonce menggantikan blockhash terkini dengan nilai nonce yang
+tersimpan, menghilangkan jendela kedaluwarsa 150 slot. Ini memungkinkan
+penandatanganan offline dan pengiriman tertunda.
+
+### Cara kerja transaksi nonce
+
+Akun nonce adalah akun yang dimiliki oleh System Program yang menyimpan nilai
+_rs`State::Initialized`_ yang berisi tiga field: sebuah **authority** pubkey
+(yang dapat memajukan nonce), sebuah nilai **durable nonce** (hash yang
+diturunkan dari blockhash terkini), dan **lamports per signature** (tarif biaya
+saat nonce terakhir kali dimajukan).
+
+Untuk menggunakan durable nonce:
+
+1. Buat dan inisialisasi akun nonce menggunakan _rs`CreateAccount`_ +
+   _rs`InitializeNonceAccount`_
+2. Bangun transaksi dengan _rs`AdvanceNonceAccount`_ sebagai **instruksi
+   pertama** dan nilai nonce sebagai `recent_blockhash`
+3. Tandatangani transaksi (dapat dilakukan secara offline, karena nonce tidak
+   kedaluwarsa)
+4. Kirim saat siap
+
+### Deteksi nonce
+
+Runtime mendeteksi transaksi nonce dengan memeriksa apakah instruksi pertama
+(indeks
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) adalah panggilan ke System Program dengan instruksi
+_rs`AdvanceNonceAccount`_. Akun nonce harus menjadi akun pertama dari instruksi
+tersebut dan harus dapat ditulis. Lihat
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Alur validasi nonce
+
+Ketika `recent_blockhash` transaksi tidak ditemukan dalam `BlockhashQueue`,
+validator memeriksa apakah itu adalah transaksi nonce yang valid melalui
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. `durable_nonce` yang tersimpan pada nonce harus berbeda dari nonce durable
+   berikutnya (diturunkan dari blockhash saat ini). Ini memastikan nonce belum
+   digunakan dalam blok ini
+2. Akun nonce harus dimuat dan harus diurai sebagai _rs`State::Initialized`_
+3. `durable_nonce` yang tersimpan harus cocok dengan `recent_blockhash`
+   transaksi
+
+Pemeriksaan penandatanganan otoritas nonce dilakukan kemudian
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+Jika semua pemeriksaan berhasil, nonce dimajukan ke nilai nonce durable
+berikutnya sebelum eksekusi dimulai. Pada kegagalan eksekusi, nonce yang telah
+dimajukan dan fee payer yang telah dikurangi biaya tetap di-commit (mencegah
+replay sambil mengumpulkan biaya).
+
+### Perilaku kegagalan nonce
+
+Jika transaksi nonce **gagal validasi** (nonce sudah digunakan, otoritas tidak
+menandatangani, akun tidak ditemukan), seluruh transaksi dibatalkan. Tidak ada
+biaya yang dikumpulkan, tidak ada perubahan state.
+
+Jika transaksi nonce **lolos validasi tetapi eksekusi gagal** (sebuah instruksi
+mengembalikan error), nonce tetap dimajukan dan biaya tetap dikumpulkan. Ini
+mencegah transaksi diulang sambil memastikan validator mendapat kompensasi.

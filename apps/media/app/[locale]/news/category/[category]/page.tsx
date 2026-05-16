@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import CategoryPostsClientPage from "./client-page";
 import { notFound } from "next/navigation";
 import { fetchLatestPosts, LatestPostsResponse } from "@/lib/post-data";
 import { fetchCategoryByPath } from "@/lib/category-data";
+import { categoryListingMetadata } from "@/lib/metadata";
 
 export const revalidate = 300;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; category: string }>;
+}): Promise<Metadata> {
+  const { category: categoryParam } = await params;
+  return categoryListingMetadata(categoryParam);
+}
 
 export default async function CategoryPostsPage({
   params,
@@ -18,7 +29,7 @@ export default async function CategoryPostsPage({
   try {
     const { category } = await fetchCategoryByPath(categoryParam);
     categoryName = category?.name || null;
-  } catch (error) {
+  } catch {
     return notFound();
   }
 
@@ -28,7 +39,7 @@ export default async function CategoryPostsPage({
 
   try {
     latestPosts = await fetchLatestPosts({ limit: 13, category: categoryName });
-  } catch (error) {
+  } catch {
     return notFound();
   }
 

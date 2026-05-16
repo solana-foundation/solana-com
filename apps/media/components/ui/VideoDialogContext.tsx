@@ -5,12 +5,12 @@ import { createContext, useContext, useState, ReactNode } from "react";
 interface VideoDialogContextProps {
   isVideoOpen: boolean;
   videoUrl: string | null;
-  openVideo: (url: string) => void;
+  openVideo: (_url: string) => void;
   closeVideo: () => void;
 }
 
 const VideoDialogContext = createContext<VideoDialogContextProps | undefined>(
-  undefined
+  undefined,
 );
 
 export const VideoDialogProvider = ({ children }: { children: ReactNode }) => {

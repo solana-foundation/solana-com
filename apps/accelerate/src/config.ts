@@ -12,14 +12,21 @@ export const ASSET_PREFIX = "/accelerate-assets";
  */
 export function getImagePath(path: string): string {
   if (!path) return path;
-  // Already has the asset prefix or is an external URL
-  if (path.startsWith(ASSET_PREFIX) || path.startsWith("http")) {
+  // Already has the asset prefix, is an external URL, or is an imported data/blob URL
+  if (
+    path.startsWith(ASSET_PREFIX) ||
+    path.startsWith("http") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:")
+  ) {
     return path;
   }
   // Ensure path starts with /
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${ASSET_PREFIX}${normalizedPath}`;
 }
+
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 const getSiteUrl = () => {
   if (process.env.NODE_ENV === `development`) {
@@ -38,15 +45,16 @@ const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 
 export const config = {
   siteMetadata: {
-    title: `Solana Accelerate APAC - Hong Kong`,
-    description: `Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.`,
-    shortDescription: `Solana Accelerate APAC - Hong Kong | February 11, 2026`,
+    title: `Solana Accelerate 2026`,
+    description: `Solana Accelerate brings together the global Solana community across multiple events in 2026. Join us in Hong Kong and Miami.`,
+    shortDescription: `Solana Accelerate 2026 — Hong Kong & Miami`,
     keywords: [
       "Solana",
       "blockchain",
       "cryptocurrency",
       "web3",
       "Hong Kong",
+      "Miami",
       "APAC",
       "conference",
       "event",
@@ -62,7 +70,32 @@ export const config = {
       name: `solana`,
     },
   },
-  siteIcon: `https://solana.com/favicon.png`,
+  siteIcon: faviconPng.src,
+  events: {
+    hongKong: {
+      name: "Solana Accelerate APAC",
+      location: {
+        name: "Hong Kong",
+        address: "Hong Kong",
+      },
+      startDate: "2026-02-11",
+      endDate: "2026-02-11",
+      description:
+        "Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
+    },
+    miami: {
+      name: "Solana Accelerate Miami",
+      location: {
+        name: "Miami",
+        address: "Miami, FL",
+      },
+      startDate: "2026-05-05",
+      endDate: "2026-05-05",
+      description:
+        "Solana Accelerate comes to Miami on 5 May 2026. Connect with builders, developers, and the global Solana community.",
+      lumaUrl: "https://lu.ma/accelerate-miami",
+    },
+  },
   event: {
     name: "Solana Accelerate APAC",
     location: {
@@ -72,6 +105,6 @@ export const config = {
     startDate: "2026-02-11",
     endDate: "2026-02-11",
     description:
-      "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
+      "Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
   },
 };
