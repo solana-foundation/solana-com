@@ -2,12 +2,7 @@
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
 import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
 import { payer } from "@solana/kit-plugin-signer";
-import {
-  fetchToken,
-  findAssociatedTokenPda,
-  TOKEN_PROGRAM_ADDRESS,
-  tokenProgram,
-} from "@solana-program/token";
+import { tokenProgram } from "@solana-program/token";
 
 // Generate keypairs for fee payer, sender, recipient, and mint
 const feePayer = await generateKeyPairSigner();
@@ -48,27 +43,9 @@ const setup = await client.sendTransaction([createMintIx, mintToSenderIx]);
 console.log("Transaction Signature:", setup.context.signature);
 console.log("Successfully minted 1.0 tokens");
 
-// Derive the ATAs for fee payer, sender and recipient
-const [senderAta] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: sender.address,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS,
-});
-const [recipientAta] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: recipient.address,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS,
-});
-const [feePayerAta] = await findAssociatedTokenPda({
-  mint: mint.address,
-  owner: feePayer.address,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS,
-});
-
 // Transfer tokens to recipient
 const transferToRecipientIx = await client.token.instructions.transferToATA({
   mint: mint.address,
-  source: senderAta,
   authority: sender,
   recipient: recipient.address,
   amount: 50n,
@@ -79,7 +56,6 @@ const transferToRecipientIx = await client.token.instructions.transferToATA({
 // For a real-world application, calculate this from the SOL fee.
 const reimburseFeePayerIx = await client.token.instructions.transferToATA({
   mint: mint.address,
-  source: senderAta,
   authority: sender,
   recipient: feePayer.address,
   amount: 50n,
@@ -95,23 +71,4 @@ console.log(
   "Successfully transferred 0.5 tokens to recipient + 0.5 to fee payer",
 );
 
-// Final balances
-const [feePayerAcct, senderAcct, recipientAcct] = await Promise.all([
-  fetchToken(client.rpc, feePayerAta, { commitment: "confirmed" }),
-  fetchToken(client.rpc, senderAta, { commitment: "confirmed" }),
-  fetchToken(client.rpc, recipientAta, { commitment: "confirmed" }),
-]);
-
-console.log("=== Final Balances ===");
-console.log(
-  "Fee Payer balance:",
-  Number(feePayerAcct.data.amount) / 100,
-  "tokens",
-);
-console.log("Sender balance:", Number(senderAcct.data.amount) / 100, "tokens");
-console.log(
-  "Recipient balance:",
-  Number(recipientAcct.data.amount) / 100,
-  "tokens",
-);
 // #endregion pay-fees
