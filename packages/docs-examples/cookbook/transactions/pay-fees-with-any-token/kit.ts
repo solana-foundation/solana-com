@@ -1,7 +1,7 @@
 // #region pay-fees
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
-import { payer } from "@solana/kit-plugin-signer";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import { tokenProgram } from "@solana-program/token";
 
 // Generate keypairs for fee payer, sender, recipient, and mint
@@ -15,15 +15,18 @@ console.log("Sender Address:", sender.address);
 console.log("Recipient Address:", recipient.address);
 console.log("Mint Address:", mint.address);
 
-// Build a Kit client: fee payer, local RPC + airdrop + planner + executor,
-// and the token program plugin
-const client = createClient()
+// Build a Kit client: fee payer (funded with 1 SOL), local RPC, and the token program plugin
+const client = await createClient()
   .use(payer(feePayer))
-  .use(solanaLocalRpc())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)))
   .use(tokenProgram());
-
-// Fund fee payer
-await client.airdrop(feePayer.address, lamports(1_000_000_000n));
 
 // Create the mint and mint 1.00 tokens to sender's ATA
 const createMintIx = client.token.instructions.createMint({
