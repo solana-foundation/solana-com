@@ -40,15 +40,21 @@ if ! curl -sf -o /dev/null -X POST "$RPC_URL" \
   exit 1
 fi
 
-# 4. Run every main.py in the cookbook tree.
+# 4. Run every main.py in the cookbook tree, capturing stdout so we can
+#    sweep for silent failures and validate any logged signatures.
 fail=0
 while IFS= read -r script; do
   rel="${script#"$ROOT/"}"
   echo "::group::$rel"
-  if ! "$PYTHON" "$script"; then
+  out_file="$(mktemp -t docs-py-stdout.XXXXXX)"
+  if ! "$PYTHON" "$script" 2>&1 | tee "$out_file"; then
     echo "::error::$rel exited non-zero"
     fail=1
   fi
+  if ! "$PYTHON" "$ROOT/scripts/validate_python_output.py" "$rel" "$out_file"; then
+    fail=1
+  fi
+  rm -f "$out_file"
   echo "::endgroup::"
 done < <(find "$ROOT/cookbook" -name 'main.py' -path '*/python/*' | sort)
 

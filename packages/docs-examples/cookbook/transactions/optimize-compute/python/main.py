@@ -24,8 +24,11 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
         # Create transaction for simulation
         transaction = VersionedTransaction(message, [])
 
-        # Simulate transaction to get compute units
-        simulation_result = await rpc.simulate_transaction(transaction)
+        # Simulate transaction to get compute units. sig_verify=False
+        # lets us simulate a transaction we haven't signed yet.
+        simulation_result = await rpc.simulate_transaction(
+            transaction, sig_verify=False
+        )
 
         if simulation_result.value.err:
             print(f"Simulation error: {simulation_result.value.err}")
