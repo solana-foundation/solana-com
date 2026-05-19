@@ -7,7 +7,7 @@ from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
-async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_tables=[]):
+async def get_simulation_compute_units(rpc, instructions, signer, lookup_tables=[]):
     """Simulate transaction to get actual compute units needed"""
     try:
         # Create a temporary transaction for simulation
@@ -15,17 +15,17 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
 
         # Create message for simulation
         message = MessageV0.try_compile(
-            payer=payer_pubkey,
+            payer=signer.pubkey(),
             instructions=instructions,
             address_lookup_table_accounts=lookup_tables,
             recent_blockhash=recent_blockhash.value.blockhash
         )
 
-        # Create transaction for simulation
-        transaction = VersionedTransaction(message, [])
+        # VersionedTransaction needs a real signer at construction time,
+        # so sign with the fee payer. sig_verify=False on the RPC call
+        # means surfpool won't re-check the signature against the blockhash.
+        transaction = VersionedTransaction(message, [signer])
 
-        # Simulate transaction to get compute units. sig_verify=False
-        # lets us simulate a transaction we haven't signed yet.
         simulation_result = await rpc.simulate_transaction(
             transaction, sig_verify=False
         )
@@ -48,7 +48,7 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
 async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[]):
     """Build optimal transaction similar to JavaScript version"""
     micro_lamports = 100  # Get optimal priority fees
-    units = await get_simulation_compute_units(rpc, instructions, signer.pubkey(), lookup_tables)
+    units = await get_simulation_compute_units(rpc, instructions, signer, lookup_tables)
     recent_blockhash = await rpc.get_latest_blockhash()
 
     # Add compute budget instructions at the beginning (like unshift in JS)
@@ -84,6 +84,10 @@ async def main():
     amount = 1_000_000_000  # 1 SOL
 
     async with rpc:
+        # Fund the sender so simulation has a real account to spend from.
+        airdrop_sig = await rpc.request_airdrop(sender.pubkey(), 2 * amount)
+        await rpc.confirm_transaction(airdrop_sig.value)
+
         # Create transfer instruction
         transfer_instruction = transfer(
             TransferParams(
