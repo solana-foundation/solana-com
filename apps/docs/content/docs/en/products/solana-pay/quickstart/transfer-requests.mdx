@@ -1,0 +1,389 @@
+---
+title: Transfer Requests
+description: Create simple payment URLs for SOL and SPL token transfers
+---
+
+# Transfer Requests
+
+Transfer requests are the simplest form of Solana Pay integration. They create
+non-interactive payment URLs that wallets can use to directly compose and send
+transactions without requiring a server.
+
+## Overview
+
+A transfer request URL follows this format:
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+## Basic SOL Transfer
+
+Create a simple SOL payment request:
+
+```typescript
+import { address } from "@solana/kit";
+import { encodeURL } from "@solana/pay";
+
+// Recipient's Solana wallet address
+const recipient = address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB");
+
+// Create the payment URL
+const url = encodeURL({
+  recipient,
+  amount: 0.01, // 0.01 SOL
+  label: "My Store",
+  message: "Thanks for your purchase!"
+});
+
+console.log(url.toString());
+// Output: solana:FvJ8k8Hh...?amount=0.01&label=My%20Store&message=Thanks%20for%20your%20purchase!
+```
+
+## SPL Token Transfer
+
+Create a USDC payment request:
+
+```typescript
+import { address } from "@solana/kit";
+import { encodeURL } from "@solana/pay";
+
+// USDC mint address on mainnet
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB"),
+  amount: 10.5, // $10.50 USDC
+  splToken: usdcMint,
+  label: "Coffee Shop",
+  message: "Grande Latte + Tip"
+});
+
+console.log(url.toString());
+```
+
+## URL Parameters
+
+### Required Parameters
+
+#### Recipient
+
+The recipient's Solana wallet address (base58-encoded):
+
+```typescript
+const recipient = address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB");
+```
+
+### Optional Parameters
+
+#### Amount
+
+Payment amount in user-friendly units (SOL or token units):
+
+```typescript
+// SOL amounts
+const solAmount = 1.5; // 1.5 SOL
+const smallAmount = 0.001; // 0.001 SOL
+
+// Token amounts (USDC example)
+const usdcAmount = 25.99; // $25.99 USDC
+```
+
+If omitted, the wallet will prompt the user to enter the amount.
+
+#### SPL Token
+
+For token transfers, specify the mint address:
+
+```typescript
+// Common SPL tokens
+const USDC = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const USDT = address("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
+// Omit splToken for native SOL transfers
+```
+
+#### Reference
+
+Unique identifiers for tracking payments. Generate an address to use as a
+reference key:
+
+```typescript
+import { generateKeyPair, getAddressFromPublicKey } from "@solana/kit";
+
+// Generate a unique reference
+const keypair = await generateKeyPair();
+const reference = await getAddressFromPublicKey(keypair.publicKey);
+```
+
+#### Label
+
+Merchant or app name displayed to users:
+
+```typescript
+const label = "Acme Coffee Shop";
+```
+
+#### Message
+
+Description of the payment:
+
+```typescript
+const message = "Order #12345 - 2x Americano";
+```
+
+#### Memo
+
+On-chain memo (publicly visible):
+
+```typescript
+const memo = "OrderId:12345";
+```
+
+## QR Code Integration
+
+Generate QR codes using the built-in `createQR` function:
+
+```typescript
+import { address } from "@solana/kit";
+import { encodeURL, createQR } from "@solana/pay";
+
+const url = encodeURL({
+  recipient: address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB"),
+  amount: 0.05,
+  label: "Donation",
+  message: "Support our project"
+});
+
+// Generate a QR code element
+const qr = createQR(url);
+
+// Append to DOM
+const element = document.getElementById("qr-code");
+qr.append(element);
+```
+
+## Payment Validation
+
+### Using the Merchant Client
+
+The simplest way to find and validate payments:
+
+```typescript
+import { address } from "@solana/kit";
+import { createMerchantClient } from "@solana/pay";
+
+const merchant = createMerchantClient({
+  rpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+const recipient = address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB");
+const reference = address("YOUR_REFERENCE_ADDRESS");
+
+// Find the transaction by reference
+const found = await merchant.pay.findReference(reference);
+
+// Validate the transfer matches expected fields
+await merchant.pay.validateTransfer(found.signature, {
+  recipient,
+  amount: 0.1
+});
+
+console.log("Payment confirmed!", found.signature);
+```
+
+### Using Standalone Functions
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findReference, validateTransfer } from "@solana/pay";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const reference = address("YOUR_REFERENCE_ADDRESS");
+
+// Find transaction by reference
+const found = await findReference(rpc, reference);
+
+// Validate transaction details
+await validateTransfer(rpc, found.signature, {
+  recipient: address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB"),
+  amount: 0.1
+});
+
+console.log("Payment confirmed!", found.signature);
+```
+
+### Watching for Payments (WebSocket)
+
+The recommended approach — `watchReference` subscribes via WebSocket and
+resolves as soon as a matching transaction lands. No polling needed.
+
+```typescript
+async function waitForPayment(reference, recipient, amount) {
+  const merchant = createMerchantClient({
+    rpcUrl: "https://api.mainnet-beta.solana.com"
+  });
+
+  // Resolves on the first transaction mentioning this reference
+  const result = await merchant.pay.watchReference(reference);
+
+  if (result.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(result.err)}`);
+  }
+
+  // Validate that the transaction matches the expected payment
+  await merchant.pay.validateTransfer(result.signature, { recipient, amount });
+
+  return { signature: result.signature };
+}
+```
+
+### Polling for Payments (HTTP fallback)
+
+If WebSocket subscriptions aren't available (e.g. some RPC providers), fall back
+to polling with `findReference`:
+
+```typescript
+async function pollForPayment(reference, recipient, amount) {
+  const merchant = createMerchantClient({
+    rpcUrl: "https://api.mainnet-beta.solana.com"
+  });
+
+  const checkPayment = async () => {
+    try {
+      const found = await merchant.pay.findReference(reference);
+      await merchant.pay.validateTransfer(found.signature, {
+        recipient,
+        amount
+      });
+      return { success: true, signature: found.signature };
+    } catch {
+      return { success: false };
+    }
+  };
+
+  // Check every 2 seconds
+  return new Promise((resolve) => {
+    const interval = setInterval(async () => {
+      const result = await checkPayment();
+      if (result.success) {
+        clearInterval(interval);
+        resolve(result);
+      }
+    }, 2000);
+  });
+}
+```
+
+## Complete Example
+
+Here's a complete example with QR code generation and payment monitoring:
+
+```typescript
+import { address, generateKeyPair, getAddressFromPublicKey } from "@solana/kit";
+import { encodeURL, createQR, createMerchantClient } from "@solana/pay";
+
+const recipient = address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB");
+const amount = 0.1;
+
+// Generate unique reference for this payment
+const keypair = await generateKeyPair();
+const reference = await getAddressFromPublicKey(keypair.publicKey);
+
+// Create payment URL and QR code
+const url = encodeURL({
+  recipient,
+  amount,
+  reference,
+  label: "Demo Store",
+  message: "Test Purchase"
+});
+const qr = createQR(url);
+qr.append(document.getElementById("qr-code"));
+
+// Monitor for payment
+const merchant = createMerchantClient({
+  rpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+const interval = setInterval(async () => {
+  try {
+    const found = await merchant.pay.findReference(reference);
+    await merchant.pay.validateTransfer(found.signature, {
+      recipient,
+      amount,
+      reference
+    });
+    clearInterval(interval);
+    console.log("Payment confirmed!", found.signature);
+  } catch {
+    // Payment not found yet, keep polling
+  }
+}, 2000);
+```
+
+## Best Practices
+
+### Security
+
+- Always validate payments server-side
+- Use unique references for each payment
+- Verify transaction amounts and recipients
+- Check for transaction success status
+
+### User Experience
+
+- Show clear payment amounts and descriptions
+- Provide payment status updates
+- Handle wallet connection gracefully
+- Support both QR codes and direct links
+
+### Error Handling
+
+- Handle wallet connection failures
+- Provide fallback for unsupported wallets
+- Show helpful error messages
+- Implement payment timeouts
+
+## Common Use Cases
+
+### Point of Sale
+
+```typescript
+const posPayment = encodeURL({
+  recipient: merchantWallet,
+  amount: 15.99,
+  label: "Local Coffee Shop",
+  message: `Receipt #${receiptNumber}`,
+  memo: `POS-${terminalId}-${Date.now()}`
+});
+```
+
+### Donations
+
+```typescript
+// Flexible donation amount (user enters amount in wallet)
+const donationUrl = encodeURL({
+  recipient: charityWallet,
+  label: "Save the Ocean",
+  message: "Support marine conservation"
+});
+```
+
+### E-commerce Checkout
+
+```typescript
+const checkoutUrl = encodeURL({
+  recipient: storeWallet,
+  amount: cartTotal,
+  reference: orderReference,
+  label: storeName,
+  message: `Order ${orderId}`,
+  memo: `ORDER:${orderId}`
+});
+```
