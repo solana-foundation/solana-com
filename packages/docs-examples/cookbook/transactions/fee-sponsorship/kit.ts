@@ -1,6 +1,6 @@
 // #region sponsor
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import {
   fetchToken,
@@ -23,7 +23,13 @@ console.log("Mint Address:", mint.address);
 // Build a Kit client: fee payer (funded with 1 SOL), local RPC, and the token program plugin
 const client = await createClient()
   .use(payer(feePayer))
-  .use(solanaLocalRpc())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
   .use(airdropPayer(lamports(1_000_000_000n)))
   .use(tokenProgram());
 

@@ -5,7 +5,7 @@ import {
   lamports,
   type MicroLamports,
 } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import { getAddMemoInstruction } from "@solana-program/memo";
 
@@ -18,13 +18,16 @@ const keypairSigner = await generateKeyPairSigner();
 const client = await createClient()
   .use(payer(keypairSigner))
   .use(
-    solanaLocalRpc({
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
       transactionConfig: {
         microLamportsPerComputeUnit: 5000n as MicroLamports,
         version: "legacy",
       },
     }),
   )
+  .use(rpcAirdrop())
   .use(airdropPayer(lamports(1_000_000_000n)));
 
 const memoInstruction = getAddMemoInstruction({ memo: "Hello, world!" });

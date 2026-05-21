@@ -19,7 +19,7 @@ import {
   signTransactionMessageWithSigners,
   type TransactionMessageBytesBase64,
 } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import {
   getSetComputeUnitLimitInstruction,
@@ -31,7 +31,13 @@ import { getAddMemoInstruction } from "@solana-program/memo";
 const signer = await generateKeyPairSigner();
 const client = await createClient()
   .use(payer(signer))
-  .use(solanaLocalRpc())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
   .use(airdropPayer(lamports(1_000_000_000n)));
 console.log("Create and fund account with address", signer.address);
 

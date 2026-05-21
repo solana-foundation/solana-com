@@ -16,7 +16,7 @@ import {
   type Address,
   type Instruction,
 } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
 
@@ -65,7 +65,13 @@ const signer = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
 const client = await createClient()
   .use(payer(signer))
-  .use(solanaLocalRpc())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
   .use(airdropPayer(lamports(1_000_000_000n)));
 
 // Build a transfer with dontfront protection

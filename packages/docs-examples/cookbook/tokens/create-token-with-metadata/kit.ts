@@ -1,6 +1,6 @@
 // #region create
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
-import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer as kitPayer } from "@solana/kit-plugin-signer";
 import {
   getCreateV1InstructionAsync,
@@ -13,7 +13,13 @@ const mint = await generateKeyPairSigner();
 
 const client = await createClient()
   .use(kitPayer(payer))
-  .use(solanaLocalRpc())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
   .use(airdropPayer(lamports(1_000_000_000n)));
 
 // Create token with metadata
