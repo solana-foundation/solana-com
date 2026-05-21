@@ -6,7 +6,7 @@ use solana_sdk::pubkey;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new_with_commitment(
-        String::from("http://localhost:8899"),
+        String::from("https://api.mainnet.solana.com"),
         CommitmentConfig::confirmed(),
     );
 

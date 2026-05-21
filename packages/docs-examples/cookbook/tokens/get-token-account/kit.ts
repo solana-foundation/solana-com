@@ -6,7 +6,7 @@ import {
 } from "@solana-program/token-2022";
 import { address, createSolanaRpc } from "@solana/kit";
 
-const rpc = createSolanaRpc("http://localhost:8899");
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
 
 const mintAddress = address("2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo");
 const authority = address("AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2");

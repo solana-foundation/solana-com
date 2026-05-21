@@ -2,7 +2,10 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed",
+);
 
 const mintAddress = new PublicKey(
   "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",

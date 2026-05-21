@@ -14,7 +14,7 @@ use spl_token_2022_interface::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new_with_commitment(
-        String::from("http://localhost:8899"),
+        String::from("https://api.mainnet.solana.com"),
         CommitmentConfig::confirmed(),
     );
 
