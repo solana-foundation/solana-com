@@ -1,0 +1,253 @@
+---
+title: 固定委托
+description: 设置固定委托交易的指南。
+---
+
+固定委托允许用户批准另一个钱包或服务提取最多固定数量的代币。每次成功转账都会减少剩余的额度。使用
+`expiryTs = 0` 表示无过期时间。
+
+本指南保持流程的可见性。每个代码片段直接使用 SDK 函数，以便您可以看到派生了哪个账户、发送了哪个指令，以及哪个签名者支付或授权每个步骤。
+
+## 安装
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```bash
+    pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```toml
+    [dependencies]
+    subscriptions = "^0.1"
+    solana-instruction = "^2"
+    solana-address = { version = "^2", features = ["curve25519"] }
+    ```
+
+  </Tab>
+</Tabs>
+
+## 创建委托
+
+设置包含四个部分:
+
+1. 使用用户签名者和订阅插件创建客户端。
+2. 派生用户的代币账户和订阅授权 PDA。
+3. 如果订阅授权尚不存在,则进行初始化。
+4. 创建固定委托并派生其 PDA 以用于后续转账。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { address, createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findFixedDelegationPda,
+      findSubscriptionAuthorityPda,
+      subscriptionsProgram,
+    } from '@solana/subscriptions';
+
+    const client = createClient()
+      .use(signer(userSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const delegatee = address('DELEGATEE_WALLET_ADDRESS_HERE');
+    const nonce = 0n;
+    const amount = 1_000_000n;
+    const expiryTs = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30);
+
+    const [userAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: userSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: userSigner.address,
+      tokenMint,
+    });
+
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      client.rpc,
+      subscriptionAuthorityPda,
+    );
+
+    if (!subscriptionAuthority.exists) {
+      await client.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta,
+        })
+        .sendTransaction();
+    }
+
+    await client.subscriptions.instructions
+      .createFixedDelegation({
+        tokenMint,
+        delegatee,
+        nonce,
+        amount,
+        expiryTs,
+      })
+      .sendTransaction();
+
+    const [delegationPda] = await findFixedDelegationPda({
+      subscriptionAuthority: subscriptionAuthorityPda,
+      delegator: userSigner.address,
+      delegatee,
+      nonce,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
+
+    const SYSTEM_PROGRAM_ID: Address = address!("11111111111111111111111111111111");
+    const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let user: Address = address!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Address = address!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Address = address!("TOKEN_MINT_ADDRESS_HERE");
+    let delegatee: Address = address!("DELEGATEE_WALLET_ADDRESS_HERE");
+    let nonce = 0u64;
+    let amount = 1_000_000u64;
+    let expiry_ts = 1_734_249_600i64;
+
+    let (subscription_authority, _) = Address::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let (delegation_pda, _) = Address::find_program_address(
+        &[
+            b"delegation",
+            subscription_authority.as_ref(),
+            user.as_ref(),
+            delegatee.as_ref(),
+            &nonce.to_le_bytes(),
+        ],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(user)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(user_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+
+    let create_ix = CreateFixedDelegationBuilder::new()
+        .delegator(user)
+        .subscription_authority(subscription_authority)
+        .delegation_account(delegation_pda)
+        .delegatee(delegatee)
+        .fixed_delegation(CreateFixedDelegationData { nonce, amount, expiry_ts })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 从委托中转账
+
+被委托方对转账进行签名。SDK 需要相同的委托 PDA、用户的代币账户和接收方代币账户。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    const receiverAta = address('RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE');
+
+    await client.subscriptions.instructions
+      .transferFixed({
+        delegatee: delegateeSigner,
+        delegator: userSigner.address,
+        delegatorAta: userAta,
+        tokenMint,
+        delegationPda,
+        amount: 100_000n,
+        receiverAta,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::{TransferData, TransferFixedBuilder};
+
+    let receiver_ata: Address = address!("RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE");
+
+    let transfer_ix = TransferFixedBuilder::new()
+        .delegation_pda(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .delegator_ata(user_ata)
+        .receiver_ata(receiver_ata)
+        .token_program(TOKEN_PROGRAM_ID)
+        .delegatee(delegatee)
+        .transfer_data(TransferData { amount: 100_000, delegator: user, mint: token_mint })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 撤销委托
+
+委托人可以随时撤销委托。撤销操作会关闭委托 PDA 并将其 rent 返还给签名者。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await client.subscriptions.instructions
+      .revokeDelegation({
+        authority: userSigner,
+        delegationAccount: delegationPda,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let revoke_ix = RevokeDelegationBuilder::new()
+        .authority(user)
+        .delegation_account(delegation_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 注意事项
+
+- 用户的 token account 必须在初始化之前存在。
+- 金额以基本单位表示。对于 6 位小数的代币，`1_000_000` 表示 `1` 个代币。
+- 仅在订阅授权账户尚不存在时才运行 `initSubscriptionAuthority`。
+- 用户对设置和撤销交易进行签名。受托人对转账进行签名。
