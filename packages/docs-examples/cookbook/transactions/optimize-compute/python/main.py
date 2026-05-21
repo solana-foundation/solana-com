@@ -51,7 +51,8 @@ async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[])
     units = await get_simulation_compute_units(rpc, instructions, signer, lookup_tables)
     recent_blockhash = await rpc.get_latest_blockhash()
 
-    # Add compute budget instructions at the beginning (like unshift in JS)
+    # Copy so we don't mutate the caller's list when prepending compute-budget ixs.
+    instructions = [*instructions]
     instructions.insert(0, set_compute_unit_price(micro_lamports))
 
     if units:

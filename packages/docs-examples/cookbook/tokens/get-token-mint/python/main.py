@@ -15,6 +15,10 @@ async def main():
         # Get account info
         account_info = await rpc.get_account_info(mint_address)
 
+        if account_info.value is None:
+            print(f"Mint account {mint_address} not found")
+            return
+
         # Parse mint data using layout
         mint_data = MINT_LAYOUT.parse(account_info.value.data)
 

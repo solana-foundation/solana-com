@@ -65,9 +65,7 @@ async def main():
     print(f"Fee payer signature: {base58.b58encode(fee_payer_signature).decode()}")
     print(f"Alice signature: {base58.b58encode(alice_signature).decode()}")
 
-    # 3. Recover Transaction
-
-    # You can verify signatures before recovering the transaction
+    # Verify signatures before recovering the transaction
     fee_payer_verify_key = nacl.signing.VerifyKey(bytes(fee_payer.pubkey()))
     try:
         fee_payer_verify_key.verify(message_bytes, fee_payer_signature)
@@ -88,11 +86,12 @@ async def main():
 
     # 4. Send transaction
     try:
-        txhash = await connection.send_raw_transaction(bytes(recover_tx))
-        print(f"Transaction hash: {txhash}")
+        txhash_resp = await connection.send_raw_transaction(bytes(recover_tx))
+        signature = txhash_resp.value
+        print(f"Transaction hash: {signature}")
 
         # Confirm transaction
-        await connection.confirm_transaction(txhash.value)
+        await connection.confirm_transaction(signature)
         print("OK Transaction confirmed")
     except Exception as e:
         print(f"Transaction failed: {e}")

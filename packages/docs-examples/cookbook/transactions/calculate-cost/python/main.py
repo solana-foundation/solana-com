@@ -38,14 +38,19 @@ async def main():
         # Create transaction
         transaction = VersionedTransaction(message, [sender])
 
-        # Get fee for transaction
+        # get_fee_for_message returns RpcResponse[Optional[int]] — value is
+        # None when the blockhash has rolled out of the recent-blockhash cache.
         fee_response = await rpc.get_fee_for_message(message)
+        if fee_response.value is None:
+            print("Could not fetch fee — blockhash may have expired")
+            return
+        fee = fee_response.value
 
-        print(f"Transaction fee: {fee_response.value} lamports")
-        print(f"Transaction fee: {fee_response.value / 1_000_000_000} SOL")
+        print(f"Transaction fee: {fee} lamports")
+        print(f"Transaction fee: {fee / 1_000_000_000} SOL")
 
         # Calculate total cost (amount + fee)
-        total_cost = amount + fee_response.value
+        total_cost = amount + fee
         print(f"Total cost: {total_cost} lamports")
         print(f"Total cost: {total_cost / 1_000_000_000} SOL")
 

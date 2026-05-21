@@ -12,9 +12,11 @@ async def main():
     payer = Keypair()
     program_id = Pubkey.from_string("11111111111111111111111111111111")
 
-    # Create PDA (Program Derived Address)
+    # Derive a deterministic address from (base, seed, program_id). The
+    # runtime uses the same SHA-256 formula in create_account_with_seed, so
+    # this address and the one the System Program computes have to match.
     seed = "hello"
-    pda, bump = Pubkey.find_program_address([seed.encode()], program_id)
+    derived_address = Pubkey.create_with_seed(payer.pubkey(), seed, program_id)
 
     space = 100  # Account data space
 
@@ -25,14 +27,12 @@ async def main():
         # Get latest blockhash
         recent_blockhash = await rpc.get_latest_blockhash()
 
-        # For PDA accounts, we need to use create_account_with_seed since PDA cannot sign
         from solders.system_program import create_account_with_seed, CreateAccountWithSeedParams
 
-        # Use the payer as base for seed derivation
         create_account_instruction = create_account_with_seed(
             CreateAccountWithSeedParams(
                 from_pubkey=payer.pubkey(),
-                to_pubkey=pda,
+                to_pubkey=derived_address,
                 base=payer.pubkey(),
                 seed=seed,
                 lamports=rent_lamports.value,
@@ -53,12 +53,11 @@ async def main():
         transaction = VersionedTransaction(message, [payer])
 
         print(f"Payer: {payer.pubkey()}")
-        print(f"PDA: {pda}")
-        print(f"Bump: {bump}")
+        print(f"Derived address: {derived_address}")
         print(f"Program ID: {program_id}")
         print(f"Seed: {seed}")
         print(f"Rent Lamports: {rent_lamports.value}")
-        print(f"PDA account creation transaction created successfully")
+        print(f"Account creation transaction created successfully")
 
 if __name__ == "__main__":
     asyncio.run(main())
