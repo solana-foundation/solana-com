@@ -1,6 +1,5 @@
 import type { CompanyRecord } from "../types";
 import { aisa } from "./records/aisa";
-import { tokenCreator } from "./records/token-creator";
 import { alchemy } from "./records/alchemy";
 import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
@@ -79,6 +78,7 @@ import { tala } from "./records/tala";
 import { theGraph } from "./records/the-graph";
 import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
+import { tokenCreator } from "./records/token-creator";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
 import { walletconnect } from "./records/walletconnect";
@@ -168,6 +168,7 @@ export const companies = [
   theGraph,
   trojan,
   triton,
+  tokenCreator,
   veliaNet,
   visa,
   walletconnect,
@@ -175,7 +176,6 @@ export const companies = [
   wyoming,
   xbit,
   yala,
-  tokenCreator,
   zerion,
 ] as const satisfies readonly CompanyRecord[];
 
