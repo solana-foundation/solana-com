@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../types";
 import { aisa } from "./records/aisa";
+import { tokenCreator } from "./records/token-creator";
 import { alchemy } from "./records/alchemy";
 import { altitude } from "./records/altitude";
 import { allnodes } from "./records/allnodes";
@@ -174,6 +175,7 @@ export const companies = [
   wyoming,
   xbit,
   yala,
+  tokenCreator,
   zerion,
 ] as const satisfies readonly CompanyRecord[];
 
