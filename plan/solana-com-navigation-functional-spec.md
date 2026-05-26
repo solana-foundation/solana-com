@@ -414,6 +414,13 @@ reach the bottom of a page without finding the right path.
 
 Recommended footer columns:
 
+- Use Solana
+- Build
+- Enterprise
+- Products
+- Ecosystem
+- Foundation
+
 ### Use Solana
 
 - Wallets (`/wallets`)
@@ -464,10 +471,8 @@ Recommended footer columns:
 - Legacy initiatives
 - Historical programs
 
-### Network
-
-This may be a subsection inside `Ecosystem` or a separate footer column if the
-footer has enough room.
+Network should be a subsection inside `Ecosystem` rather than a separate footer
+column.
 
 - Live Metrics
 - Validators
@@ -480,10 +485,9 @@ footer has enough room.
 - Issuance and Inception
 - Status
 
-### Organization
+### Foundation
 
 - About
-- Foundation
 - Press
 - Brand
 - Careers
@@ -491,9 +495,6 @@ footer has enough room.
 - Legal
 - Privacy
 - Terms
-
-### Public Engagement
-
 - Solana Policy Institute
 - Government engagement
 - Policy resources
@@ -662,8 +663,8 @@ Create and consolidate user paths while preserving strong existing URLs:
 - Existing wallet legacy path: review `/solana-wallets` traffic before deciding
   whether it redirects to `/wallets`, remains live, or becomes a transitional
   alias.
-- Apps / Explore Projects: prefer an existing high-value destination if one
-  exists before creating `/use-solana/apps` or `/use-solana/explore-projects`.
+- Apps: prefer an existing high-value destination if one exists before creating
+  `/use-solana/apps`.
 - Safety: create `/use-solana/safety` only if there is no existing high-value
   safety route to preserve.
 - Tokens: create `/use-solana/tokens` only after legal and SEO review; link to
@@ -993,7 +994,7 @@ Common properties for all navigation analytics events:
 - `nav_surface`: `header`, `mobile_menu`, `footer`, `hub_page`, or
   `developer_secondary_nav`
 - `nav_section`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`,
-  `network`, `organization`, `public_engagement`, or `unknown`
+  `network`, `foundation`, or `unknown`
 - `nav_group`: submenu/group label when available
 - `nav_item_id`: stable code/config ID when available
 - `nav_item_label`
@@ -1160,8 +1161,8 @@ and hub pages.
 Additional properties:
 
 - `promo_id`
-- `promo_location`: `ecosystem_menu`, `footer`, `homepage`, `hub_page`, or
-  `content`
+- `promo_location`: `menu`, `footer`, `homepage`, `hub_page`, or `content`
+- `promo_section`: source menu section when `promo_location` is `menu`
 - `event_name`
 - `event_route`
 - `event_start_date`
