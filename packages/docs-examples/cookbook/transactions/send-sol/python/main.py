@@ -16,6 +16,10 @@ async def main():
     transfer_amount = LAMPORTS_PER_SOL // 100  # 0.01 SOL
 
     async with rpc:
+        # Airdrop to sender so they can pay for the transfer
+        airdrop_resp = await rpc.request_airdrop(sender.pubkey(), LAMPORTS_PER_SOL)
+        await rpc.confirm_transaction(airdrop_resp.value)
+
         # Get latest blockhash
         latest_blockhash = await rpc.get_latest_blockhash()
 
@@ -42,7 +46,12 @@ async def main():
         print(f"Sender: {sender.pubkey()}")
         print(f"Recipient: {recipient.pubkey()}")
         print(f"Transfer Amount: {transfer_amount / LAMPORTS_PER_SOL} SOL")
-        print(f"Transaction created successfully")
+
+        # Send the transaction
+        tx_resp = await rpc.send_raw_transaction(bytes(transaction))
+        signature = tx_resp.value
+        print(f"Transaction signature: {signature}")
+        await rpc.confirm_transaction(signature)
 
 if __name__ == "__main__":
     asyncio.run(main())

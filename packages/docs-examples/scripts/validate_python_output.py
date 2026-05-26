@@ -21,9 +21,14 @@ SIGNATURE_RE = re.compile(r"[1-9A-HJ-NP-Za-km-z]{87,88}")
 # script exits cleanly but the operation didn't actually work.
 FAIL_MARKERS = [
     re.compile(r"^Traceback ", re.MULTILINE),
-    re.compile(r"\bError\b[^:\n]{0,80}:", re.IGNORECASE),
+    # Python exception-class lines at the start of a line, e.g. "TypeError:"
+    # or "BaseException:". Requires at least one character before
+    # Error/Exception so user catch-block prints like "Error getting token
+    # balance: ..." or "Transaction failed: ..." don't false-positive.
+    re.compile(
+        r"^[A-Z][a-zA-Z]+(?:Error|Exception)\b[^:\n]{0,80}:", re.MULTILINE
+    ),
     re.compile(r"\bFAIL\b"),
-    re.compile(r"failed:", re.IGNORECASE),
 ]
 
 

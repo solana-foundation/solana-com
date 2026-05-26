@@ -11,6 +11,9 @@ async def main():
         res = await client.request_airdrop(keypair.pubkey(), 1_000_000_000)
         print(f"Airdrop signature: {res.value}")
 
+        # Wait for confirmation so the balance call sees the airdrop
+        await client.confirm_transaction(res.value)
+
         # Check balance
         balance = await client.get_balance(keypair.pubkey())
         print(f"Balance: {balance.value} lamports")

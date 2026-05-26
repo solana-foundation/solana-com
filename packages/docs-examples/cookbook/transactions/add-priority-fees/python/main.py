@@ -21,6 +21,10 @@ async def main():
     priority_fee_lamports = 5000  # 5000 lamports priority fee
 
     async with rpc:
+        # Airdrop to sender so they can pay for the transfer + fees
+        airdrop_resp = await rpc.request_airdrop(sender.pubkey(), 2 * amount)
+        await rpc.confirm_transaction(airdrop_resp.value)
+
         # Get latest blockhash
         latest_blockhash = await rpc.get_latest_blockhash()
 
@@ -51,7 +55,12 @@ async def main():
         print(f"Recipient: {recipient.pubkey()}")
         print(f"Amount: {amount / 1_000_000_000} SOL")
         print(f"Priority Fee: {priority_fee_lamports} lamports")
-        print(f"Transaction with priority fee created successfully")
+
+        # Send the transaction
+        tx_resp = await rpc.send_raw_transaction(bytes(transaction))
+        signature = tx_resp.value
+        print(f"Transaction signature: {signature}")
+        await rpc.confirm_transaction(signature)
 
 if __name__ == "__main__":
     asyncio.run(main())
