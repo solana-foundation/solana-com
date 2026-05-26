@@ -1,11 +1,12 @@
 import { twMerge } from "tailwind-merge";
 import { Link } from "./link";
-import ChevronRightSmallIcon from "./assets/chevron-right-small.inline.svg";
+import ChevronRightSmallIcon from "./assets/icons/chevron-right-small.inline.svg";
 import ArrowIcon from "./assets/nav/banner/arrow.inline.svg";
 import CalendarTodayIcon from "./assets/nav/banner/calendar-today.inline.svg";
 
 interface HeaderBannerProps {
   className?: string;
+  backgroundClassName?: string;
   title?: string;
   description?: string;
   logo?: React.ReactNode;
@@ -17,6 +18,7 @@ interface HeaderBannerProps {
 
 export const HeaderBanner: React.FC<HeaderBannerProps> = ({
   className,
+  backgroundClassName = `xl:bg-[url(/src/img/nav/nav-banner-bg.webp)] bg-[url(/src/img/nav/nav-banner-bg-mobile.webp)]`,
   title,
   description,
   logo,
@@ -31,7 +33,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
         "aspect-[5/4] xl:aspect-square p-4 rounded-xl flex flex-col items-start justify-between gap-2.5 max-xl:py-3 xl:py-2.5 text-[14px] xl:text-[16px] leading-[1.5]",
         className,
         `bg-cover bg-center bg-no-repeat bg-black`,
-        `xl:bg-[url(/src/img/nav/nav-banner-bg.webp)] bg-[url(/src/img/nav/nav-banner-bg-mobile.webp)]`,
+        backgroundClassName,
       )}
     >
       <div>

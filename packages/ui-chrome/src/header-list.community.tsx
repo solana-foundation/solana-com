@@ -1,11 +1,11 @@
 import { useTranslations } from "next-intl";
 import { HeaderBanner } from "./header-banner";
-import AccelerateLogo from "./assets/nav/community/accelerate-logo.inline.svg";
+import BreakpointLogo from "./assets/nav/community/bp26-footer-logo-mobile.inline.svg";
 import { NavItemsList, SectionHeading } from "./nav-section-renderers";
 import { communityInvolvedItems } from "./nav-section-content-config";
 
 /** Hide the community event banner after this date (ISO date string, exclusive). */
-const COMMUNITY_EVENT_EXPIRY = "2026-05-07";
+const COMMUNITY_EVENT_EXPIRY = "2026-11-18";
 
 export const HeaderListCommunity = () => {
   const t = useTranslations();
@@ -23,11 +23,12 @@ export const HeaderListCommunity = () => {
       {isEventActive && (
         <HeaderBanner
           className="w-[350px] max-w-full"
-          logo={<AccelerateLogo width={158} height={64} />}
+          backgroundClassName="xl:bg-[url(/src/img/nav/bp26-nav-banner-bg.webp)] bg-[url(/src/img/nav/bp26-nav-banner-bg-mobile.webp)]"
+          logo={<BreakpointLogo width={220} height={32} />}
           title={communityEvent?.title}
           description={communityEvent?.description}
           cta={communityEvent?.cta}
-          ctaHref="/accelerate/miami"
+          ctaHref="/breakpoint"
           location={communityEvent?.location}
           date={communityEvent?.date}
         />

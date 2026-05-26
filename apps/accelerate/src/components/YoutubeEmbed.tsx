@@ -14,18 +14,42 @@ const getYoutubeEmbedUrl = (id: string) => {
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 };
 
+const getVimeoEmbedUrl = (id: string, hash?: string) => {
+  const params = new URLSearchParams({
+    ...(hash && { h: hash }),
+    title: "0",
+    byline: "0",
+    portrait: "0",
+    dnt: "1",
+  });
+  return `https://player.vimeo.com/video/${id}?${params.toString()}`;
+};
+
 const getYoutubeThumbnailUrl = (id: string) => {
   return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
 };
 
 interface YoutubeEmbedProps {
   id: string;
+  platform?: "youtube" | "vimeo";
+  vimeoHash?: string;
   title?: string;
   className?: string;
 }
 
-export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
+export function YoutubeEmbed({
+  id,
+  platform = "youtube",
+  vimeoHash,
+  title,
+  className,
+}: YoutubeEmbedProps) {
   const [playing, setPlaying] = useState(false);
+  const isYoutube = platform === "youtube";
+  const embedUrl = isYoutube
+    ? getYoutubeEmbedUrl(id)
+    : getVimeoEmbedUrl(id, vimeoHash);
+  const fallbackTitle = isYoutube ? "YouTube video" : "Vimeo video";
 
   return (
     <div className={`relative ${className ?? ""}`}>
@@ -49,7 +73,7 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
         {/* Inner container */}
         <div className="relative w-full overflow-hidden rounded-[10px] bg-black">
           <AnimatePresence mode="wait">
-            {!playing ? (
+            {isYoutube && !playing ? (
               <motion.div
                 key="thumbnail"
                 initial={{ opacity: 0 }}
@@ -61,7 +85,7 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
               >
                 <Image
                   src={getYoutubeThumbnailUrl(id)}
-                  alt={title || "YouTube video"}
+                  alt={title || fallbackTitle}
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 900px"
                   quality={90}
@@ -115,10 +139,10 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
                 className="relative aspect-[16/9] w-full"
               >
                 <iframe
-                  src={getYoutubeEmbedUrl(id)}
-                  title={title || "YouTube video"}
+                  src={embedUrl}
+                  title={title || fallbackTitle}
                   className="absolute inset-0 h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
               </motion.div>

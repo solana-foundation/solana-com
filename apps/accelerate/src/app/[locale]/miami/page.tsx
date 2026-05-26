@@ -8,12 +8,9 @@ import {
   GettingThere,
   FooterCTA,
   HashScroll,
-  MiamiSpeakers,
 } from "@/components";
-import { EventLineup } from "@/components/homepage";
 import sponsorsData from "@/data/miami/sponsors.json";
 import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
-import { getMiamiAgenda } from "@/lib/miami-agenda";
 import type { Sponsor } from "@/types/sponsors";
 import { MiamiHeroSymbols } from "./MiamiHeroSymbols";
 import { config } from "@/config";
@@ -51,17 +48,6 @@ export default async function MiamiPage({ params }: PageProps) {
     sponsorsData.sponsors as SponsorAugmentation[],
   );
 
-  const agenda = await getMiamiAgenda();
-  const sessionsCount = agenda.sessions.length;
-  const uniqueSpeakers = new Set<string>();
-  for (const session of agenda.sessions) {
-    for (const speaker of session.speakers) {
-      if (speaker.name) uniqueSpeakers.add(speaker.name);
-    }
-    if (session.moderator?.name) uniqueSpeakers.add(session.moderator.name);
-  }
-  const speakersCount = uniqueSpeakers.size;
-
   return (
     <>
       <SeoJsonLd
@@ -72,7 +58,9 @@ export default async function MiamiPage({ params }: PageProps) {
         translationPrefix="accelerate.miami"
         logoImage="/images/accelerate-usa-logo.svg"
         agendaPath="/accelerate/miami/agenda"
-        showVideo={false}
+        showSpeakersNav={false}
+        showCta={false}
+        videoId="T6x_TIoZWPY"
         backgroundContent={<MiamiHeroSymbols />}
       />
       <EventDetails
@@ -85,11 +73,8 @@ export default async function MiamiPage({ params }: PageProps) {
       <AgendaBanner
         translationPrefix="accelerate.miami.agendaBanner"
         agendaPath="/accelerate/miami/agenda"
-        sessionsCount={sessionsCount > 0 ? String(sessionsCount) : undefined}
-        speakersCount={speakersCount > 0 ? String(speakersCount) : undefined}
+        showSpeakersCount={false}
       />
-      <MiamiSpeakers />
-      <EventLineup futureOnly />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
@@ -106,6 +91,7 @@ export default async function MiamiPage({ params }: PageProps) {
         translationPrefix="accelerate.miami.footerCta"
         backgroundImage="/images/palm-trees.svg"
         lumaId="accelerate-miami"
+        showCta={false}
       />
     </>
   );

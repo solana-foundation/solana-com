@@ -243,12 +243,12 @@ export const components = {
       <div className="overflow-x-auto my-4">
         <table className="w-full border-collapse border border-border">
           {head && (
-            <thead className="bg-muted">
+            <thead className="bg-primary text-primary-foreground">
               <tr className="border-b border-border">
                 {head.map((cell, i) => (
                   <th
                     key={i}
-                    className="px-4 py-2 text-left font-semibold border border-border"
+                    className="px-4 py-2 text-left font-semibold border border-border text-primary-foreground"
                     colSpan={cell.colSpan}
                     rowSpan={cell.rowSpan}
                   >

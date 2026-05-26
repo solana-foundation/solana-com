@@ -48,6 +48,18 @@ function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
   });
 }
 
+const breakpointSubrouteRedirects: RedirectInput[] = [
+  { source: "/agenda", destination: "/breakpoint/schedule" },
+  { source: "/faq", destination: "/breakpoint/faq" },
+  { source: "/registration", destination: "/breakpoint/registration" },
+  { source: "/schedule", destination: "/breakpoint/schedule" },
+  { source: "/speakers", destination: "/breakpoint/speakers" },
+  { source: "/sponsors", destination: "/breakpoint/sponsors" },
+  { source: "/tickets", destination: "/breakpoint/registration" },
+  { source: "/travel", destination: "/breakpoint/travel" },
+  { source: "/breakpoint/tickets", destination: "/breakpoint/registration" },
+];
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -438,6 +450,10 @@ export default {
       destination:
         "https://drive.google.com/file/d/13u20-ItOcNXQpqlO3JHrC1eYhtz1PilE/view?usp=sharing",
     },
+    {
+      source: "/tokenized-equities",
+      destination: "/reports/tokenized-equities",
+    },
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/news/tag/:path*", destination: "/news" },
@@ -567,8 +583,8 @@ export default {
       source: "/environment",
       destination: "https://climate.solana.com/",
     },
+    ...breakpointSubrouteRedirects,
     { source: "/breakpoint/side-events", destination: "/breakpoint" },
-    { source: "/breakpoint/sponsors", destination: "/breakpoint" },
     {
       source: "/verifiable-builds",
       destination:

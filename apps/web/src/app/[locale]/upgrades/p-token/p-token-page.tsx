@@ -1,4 +1,8 @@
-import React from "react";
+import React, {
+  ClassAttributes,
+  ComponentPropsWithoutRef,
+  HTMLAttributes,
+} from "react";
 import Link from "next/link";
 import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -51,55 +55,55 @@ function SocialShare({ title }: { title: string }) {
 
 // MDX Components for rendering - matching news article style
 const mdxComponents = {
-  h1: (props: any) => (
+  h1: (props: ComponentPropsWithoutRef<"h1">) => (
     <h1
       className="text-4xl md:text-5xl font-bold mb-6 mt-12 first:mt-0"
       {...props}
     />
   ),
-  h2: (props: any) => (
+  h2: (props: ComponentPropsWithoutRef<"h2">) => (
     <h2 className="text-3xl md:text-4xl font-bold mb-6 mt-16" {...props} />
   ),
-  h3: (props: any) => (
+  h3: (props: ComponentPropsWithoutRef<"h3">) => (
     <h3 className="text-2xl md:text-3xl font-semibold mb-4 mt-12" {...props} />
   ),
-  h4: (props: any) => (
+  h4: (props: ComponentPropsWithoutRef<"h4">) => (
     <h4 className="text-xl md:text-2xl font-semibold mb-3 mt-8" {...props} />
   ),
-  p: (props: any) => (
+  p: (props: ComponentPropsWithoutRef<"p">) => (
     <p className="text-lg text-gray-300 mb-6 leading-relaxed" {...props} />
   ),
-  ul: (props: any) => (
+  ul: (props: ComponentPropsWithoutRef<"ul">) => (
     <ul
       className="list-disc list-inside mb-6 space-y-3 text-gray-300 ml-4"
       {...props}
     />
   ),
-  ol: (props: any) => (
+  ol: (props: ComponentPropsWithoutRef<"ol">) => (
     <ol
       className="list-decimal list-inside mb-6 space-y-3 text-gray-300 ml-4"
       {...props}
     />
   ),
-  li: (props: any) => (
+  li: (props: ComponentPropsWithoutRef<"li">) => (
     <li className="text-lg text-gray-300 leading-relaxed" {...props} />
   ),
-  a: (props: any) => (
+  a: (props: ComponentPropsWithoutRef<"a">) => (
     <a className="text-[#14F195] hover:underline font-medium" {...props} />
   ),
-  code: (props: any) => (
+  code: (props: ComponentPropsWithoutRef<"code">) => (
     <code
       className="bg-gray-800 px-2 py-1 rounded text-sm font-mono text-[#14F195]"
       {...props}
     />
   ),
-  pre: (props: any) => (
+  pre: (props: ComponentPropsWithoutRef<"pre">) => (
     <pre
       className="bg-gray-900 p-6 rounded-lg overflow-x-auto mb-6 border border-white/10"
       {...props}
     />
   ),
-  table: (props: any) => (
+  table: (props: ComponentPropsWithoutRef<"table">) => (
     <div className="overflow-x-auto mb-8">
       <table
         className="w-full border-collapse border border-white/10 rounded-lg"
@@ -107,29 +111,37 @@ const mdxComponents = {
       />
     </div>
   ),
-  thead: (props: any) => <thead className="bg-gray-900" {...props} />,
-  tbody: (props: any) => <tbody {...props} />,
-  tr: (props: any) => <tr className="border-b border-white/10" {...props} />,
-  th: (props: any) => (
+  thead: (props: ComponentPropsWithoutRef<"thead">) => (
+    <thead className="bg-gray-900" {...props} />
+  ),
+  tbody: (props: ComponentPropsWithoutRef<"tbody">) => <tbody {...props} />,
+  tr: (props: ComponentPropsWithoutRef<"tr">) => (
+    <tr className="border-b border-white/10" {...props} />
+  ),
+  th: (props: ComponentPropsWithoutRef<"th">) => (
     <th
       className="px-6 py-4 text-left text-sm font-semibold text-white"
       {...props}
     />
   ),
-  td: (props: any) => (
+  td: (props: ComponentPropsWithoutRef<"td">) => (
     <td className="px-6 py-4 text-base text-gray-300" {...props} />
   ),
-  hr: (props: any) => <hr className="my-12 border-white/20" {...props} />,
-  blockquote: (props: any) => (
+  hr: (props: ComponentPropsWithoutRef<"hr">) => (
+    <hr className="my-12 border-white/20" {...props} />
+  ),
+  blockquote: (props: ComponentPropsWithoutRef<"blockquote">) => (
     <blockquote
       className="border-l-4 border-[#14F195] pl-6 italic text-gray-400 my-8 text-lg"
       {...props}
     />
   ),
-  strong: (props: any) => (
+  strong: (props: ComponentPropsWithoutRef<"strong">) => (
     <strong className="font-semibold text-white" {...props} />
   ),
-  em: (props: any) => <em className="italic text-gray-200" {...props} />,
+  em: (props: ComponentPropsWithoutRef<"em">) => (
+    <em className="italic text-gray-200" {...props} />
+  ),
 };
 
 interface PTokenPageProps {

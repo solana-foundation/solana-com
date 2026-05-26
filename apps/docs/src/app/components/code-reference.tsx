@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseProps, Block, CodeBlock } from "codehike/blocks";
-import { AnnotationHandler } from "codehike/code";
+import { AnnotationHandler, RawCode } from "codehike/code";
 import { isValidElement, ReactNode } from "react";
 import { cn } from "@@/src/app/components/utils";
 import { Code } from "./code/code";
@@ -12,11 +12,30 @@ import {
 import { ChevronDown } from "lucide-react";
 import { Hoverable, HoverBlock, HoverProvider } from "./code/hover.client";
 
+type FieldBlock = {
+  title?: string;
+  children?: ReactNode;
+  type: string;
+  blocks?: FieldBlock[];
+};
+
+type Reference = {
+  title?: string;
+  children?: ReactNode;
+  code: RawCode[];
+  reference: {
+    title?: string;
+    children?: ReactNode;
+    blocks?: FieldBlock[];
+  };
+};
+
 const BaseFieldSchema = Block.extend({
   type: z.string(),
 });
-const FieldSchema = BaseFieldSchema.extend({
-  blocks: z.lazy(() => FieldSchema.array()).optional(),
+
+const FieldSchema: z.ZodType<FieldBlock> = BaseFieldSchema.extend({
+  blocks: z.lazy(() => z.array(FieldSchema)).optional(),
 });
 
 const Schema = Block.extend({
@@ -26,19 +45,13 @@ const Schema = Block.extend({
   }),
 });
 
-type FieldBlock = z.infer<typeof BaseFieldSchema> & {
-  blocks?: FieldBlock[];
-};
-
 const hover: AnnotationHandler = {
   name: "hover",
   Block: HoverBlock,
 };
 
 export async function CodeReference(props: unknown) {
-  const { code, reference } = parseProps(props, Schema) as z.infer<
-    typeof Schema
-  >;
+  const { code, reference } = parseProps(props, Schema) as Reference;
 
   return (
     <HoverProvider>
@@ -79,7 +92,8 @@ function FieldsSection({
   return (
     <div className="flex flex-col gap-2">
       {fields.map((field, i) => {
-        const path = prefix ? `${prefix}.${field.title}` : field.title;
+        const title = field.title ?? "";
+        const path = prefix ? `${prefix}.${title}` : title;
         return (
           <Hoverable
             key={i}
