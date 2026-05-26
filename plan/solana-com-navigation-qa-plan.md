@@ -21,7 +21,7 @@ Required reviewers:
 
 Approve the proposed top-level navigation:
 
-> Use Solana / Developers / Enterprise / Products / Ecosystem
+Use Solana / Build / Enterprise / Products / Ecosystem
 
 With:
 
@@ -52,7 +52,7 @@ should stop delivery until resolved.
 Primary navigation:
 
 - Use Solana
-- Developers
+- Build
 - Enterprise
 - Products
 - Ecosystem
@@ -71,7 +71,6 @@ visitors.
 Likely menu items:
 
 - Wallets
-- Explore Projects
 - Learn the Basics
 - Safety
 - Tokens
@@ -80,7 +79,7 @@ Likely menu items:
 SOL, staking, token purchasing, yield, issuance, and investment-related content
 requires legal-approved language before being promoted.
 
-### Developers
+### Build
 
 Purpose: help builders quickly start, build, debug, and scale on Solana.
 
@@ -145,7 +144,8 @@ Event treatment:
 - `/events` remains canonical.
 - Event archive remains discoverable.
 - Submit/host event CTAs remain discoverable.
-- Breakpoint/event promo banner appears only under `Ecosystem`.
+- Breakpoint/event promo banner appears under `Ecosystem` but promo section will
+  be available for any menu section.
 - Events remain first-class even though `Community` is no longer top-level.
 
 ### Footer
@@ -157,9 +157,7 @@ Use a larger footer with explicit columns:
 - Enterprise
 - Products
 - Ecosystem
-- Network, either as its own column or subsection
-- Organization
-- Public Engagement
+- Foundation
 
 ## Core Review Questions
 
