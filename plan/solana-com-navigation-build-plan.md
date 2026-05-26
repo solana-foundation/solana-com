@@ -90,7 +90,13 @@ inside navigation, footer, or hub-page copy.
 
 ## UI Implementation Standard
 
-Use the repo's shadcn-style component system across new implementation work.
+Maintain the current Solana.com nav design. This restructure is an IA/content
+and route-mapping change, not a visual redesign of the header, mega menus,
+mobile menu, or footer.
+
+Use the repo's shadcn-style component system where it is required to improve
+accessibility, behavior, maintainability, or shared reuse without changing the
+current visual direction.
 
 - Prefer `@workspace/ui` components for shared surfaces.
 - Promote reusable shadcn-style primitives into `packages/ui` before using them
@@ -104,6 +110,11 @@ Use the repo's shadcn-style component system across new implementation work.
   patterns.
 - Use `@solana-com/ui-chrome/link` or the existing cross-app link behavior for
   shared header/footer links.
+- Do not replace current Solana.com nav styling with default shadcn visual
+  styling.
+- Preserve current header/menu proportions, interaction patterns, animation
+  feel, and brand treatment unless a change is needed for accessibility or the
+  new IA cannot fit otherwise.
 
 Relevant existing primitives:
 
@@ -643,6 +654,8 @@ Acceptance checks:
 - No page introduces new legal-sensitive claims.
 - Pages use standard shadcn-style primitives rather than one-off interaction
   components.
+- Hub-page components may use shadcn-style primitives, but visual styling should
+  remain aligned with the current Solana.com design system.
 
 Validation:
 
@@ -736,6 +749,10 @@ Acceptance checks:
   configured for another section.
 - Dynamic content failures do not remove static menu links or break menu layout.
 - Shared chrome still works in `web`, `docs`, `media`, and `templates`.
+- Header, mega menu, and mobile menu preserve the current Solana.com visual
+  design unless a targeted accessibility or fit issue requires adjustment.
+- Any shadcn/Radix primitive swap is visually adapted to match the existing nav,
+  not shipped with generic default styling.
 
 Validation:
 
@@ -919,6 +936,7 @@ Manual QA checklist:
   navigation.
 - Dynamic content absence does not remove static nav paths.
 - Dynamic menu modules show section-appropriate content when configured.
+- Current nav visual design is retained across desktop and mobile.
 
 ## Out Of Scope For This Delivery
 
@@ -931,7 +949,8 @@ Manual QA checklist:
 - Reworking preserved canonical routes such as `/wallets`, `/learn`, `/docs`,
   `/developers`, `/events`, `/community`, `/validators`, `/news`, `/reports`,
   `/podcasts`, and `/solutions/*`.
-- Visual redesign beyond what is needed to make the new IA usable and polished.
+- Visual redesign. Only targeted visual adjustments needed for accessibility,
+  responsiveness, or fitting the new IA are in scope.
 
 ## Dynamic Content Hardening
 
@@ -981,6 +1000,8 @@ The migration is ready to ship when:
   canonical destination.
 - Dynamic menu modules are section-scoped, have fallbacks, and do not remove
   static nav paths when unavailable.
+- Header, mega menu, mobile menu, and footer retain the current Solana.com
+  design language rather than adopting generic shadcn defaults.
 - No redirect blocks `/use-solana`, `/enterprise`, `/products`, `/ecosystem`, or
   `/network`.
 - Active nav state is correct for preserved solution pages, preserved canonical

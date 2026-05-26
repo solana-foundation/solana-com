@@ -155,7 +155,7 @@ SEO.
 
 This specification does not define:
 
-- Final visual design
+- A new visual design for the current navigation
 - Final page copy
 - Final SEO metadata
 - Final legal-approved SOL, staking, or token language
@@ -206,6 +206,16 @@ Build menu's primary CTA or landing-page link should continue to route to the
 existing `/developers` hub unless a separate SEO-approved migration creates a
 better destination. Do not create a `/build` route as part of this restructure.
 
+Design requirement:
+
+- Preserve the current Solana.com nav design and interaction model.
+- Treat shadcn/Radix components as implementation primitives only where needed
+  for accessibility, behavior, maintainability, or shared reuse.
+- Do not ship generic default shadcn styling in place of the existing Solana.com
+  header, mega menu, mobile menu, or footer treatment.
+- Keep visual changes targeted to what is required for the new IA to fit and
+  remain accessible.
+
 Persistent utilities:
 
 - Search / Ask AI
@@ -240,6 +250,8 @@ Functional acceptance criteria:
    behavior.
 7. Dynamic modules are additive. If they fail, static menu links remain visible
    and usable.
+8. The header, mega menu, and mobile menu retain the current Solana.com visual
+   design unless a targeted accessibility or fit issue requires adjustment.
 
 Dynamic modules are a maintained capability, not a replacement for static IA.
 They should resolve from the current nav section and support contextual
@@ -607,6 +619,10 @@ where appropriate.
 - Preserve the dynamic menu module and scope it by the current nav section.
 - Move Breakpoint/event banner into `Ecosystem` unless another section has an
   explicitly approved placement.
+- Preserve the current Solana.com nav visual design while changing labels,
+  grouping, and content.
+- Use shadcn/Radix primitives only where needed and adapt them to existing nav
+  styling.
 - Ensure header/footer work across `web`, `docs`, `media`, and `templates`.
 
 ### Stage 3: Solution Page Reframing
