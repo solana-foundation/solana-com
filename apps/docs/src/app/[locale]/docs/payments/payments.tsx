@@ -24,6 +24,7 @@ export async function PaymentsDocsPage({
       title={page.data.h1 || page.data.title}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
+      hidePageNavigation={page.data.hidePageNavigation}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}
