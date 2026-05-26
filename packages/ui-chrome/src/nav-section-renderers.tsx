@@ -1,8 +1,9 @@
 import { useTranslations } from "next-intl";
 import { Link } from "./link";
 import { HeaderItem } from "./header-item";
+import { HeaderBanner } from "./header-banner";
 import { CollapseMenu } from "./collapse-menu";
-import type { NavItemDefinition } from "./nav-types";
+import type { NavItemDefinition, NavPromoDefinition } from "./nav-types";
 
 export function SectionHeading({ title }: { title: string }) {
   return (
@@ -85,5 +86,44 @@ export function CollapsibleNavGroup({
     >
       {children}
     </CollapseMenu>
+  );
+}
+
+export function NavSectionPromo({ promo }: { promo?: NavPromoDefinition }) {
+  const t = useTranslations();
+
+  if (!promo) {
+    return null;
+  }
+
+  if (promo.expiresAt && new Date() >= new Date(promo.expiresAt)) {
+    return null;
+  }
+
+  const content = t.raw(promo.translationKey) as {
+    title?: string;
+    description?: string;
+    cta?: string;
+    location?: string;
+    date?: string;
+  };
+  const Logo = promo.Logo;
+
+  return (
+    <HeaderBanner
+      className={promo.className}
+      backgroundClassName={promo.backgroundClassName}
+      logo={
+        Logo ? (
+          <Logo width={promo.logoWidth} height={promo.logoHeight} />
+        ) : undefined
+      }
+      title={content?.title}
+      description={content?.description}
+      cta={content?.cta}
+      ctaHref={promo.href}
+      location={content?.location}
+      date={content?.date}
+    />
   );
 }

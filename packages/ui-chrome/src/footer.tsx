@@ -14,7 +14,6 @@ import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import SolanaBgSvg from "./assets/solana-bg.svg";
 import dynamic from "next/dynamic";
-import { NewsletterModal } from "./newsletter-modal";
 
 const FooterMouseEffect = dynamic(
   () => import("./footer-mouse-effect").then((mod) => mod.FooterMouseEffect),
@@ -29,6 +28,73 @@ const SOCIAL_LINKS = [
   { name: "Discord", url: "/discord", Icon: DiscordIcon, size: 20 },
   { name: "Reddit", url: "/reddit", Icon: RedditIcon, size: 20 },
   { name: "GitHub", url: "/github", Icon: GithubIcon, size: 20 },
+];
+
+const FOOTER_COLUMNS = [
+  {
+    headingKey: "footer.useSolana.heading",
+    links: [
+      { labelKey: "footer.useSolana.hub", href: "/use-solana" },
+      { labelKey: "footer.useSolana.wallets", href: "/wallets" },
+      { labelKey: "footer.useSolana.learn", href: "/learn" },
+      { labelKey: "footer.useSolana.staking", href: "/staking" },
+    ],
+  },
+  {
+    headingKey: "footer.build.heading",
+    links: [
+      { labelKey: "footer.build.developers", href: "/developers" },
+      { labelKey: "footer.build.docs", href: "/docs" },
+      { labelKey: "footer.build.guides", href: "/developers/guides" },
+      { labelKey: "footer.build.templates", href: "/developers/templates" },
+    ],
+  },
+  {
+    headingKey: "footer.enterprise.heading",
+    links: [
+      { labelKey: "footer.enterprise.hub", href: "/enterprise" },
+      {
+        labelKey: "footer.enterprise.payments",
+        href: "/solutions/institutional-payments",
+      },
+      {
+        labelKey: "footer.enterprise.tokenization",
+        href: "/solutions/tokenization",
+      },
+      { labelKey: "footer.enterprise.reports", href: "/reports" },
+    ],
+  },
+  {
+    headingKey: "footer.products.heading",
+    links: [
+      { labelKey: "footer.products.hub", href: "/products" },
+      { labelKey: "footer.products.sdp", href: "/solutions/sdp" },
+      { labelKey: "footer.products.x402", href: "/x402" },
+      { labelKey: "footer.products.agentRegistry", href: "/agent-registry" },
+      { labelKey: "footer.products.skills", href: "/skills" },
+    ],
+  },
+  {
+    headingKey: "footer.ecosystem.heading",
+    links: [
+      { labelKey: "footer.ecosystem.hub", href: "/ecosystem" },
+      { labelKey: "footer.ecosystem.network", href: "/network" },
+      { labelKey: "footer.ecosystem.events", href: "/events" },
+      { labelKey: "footer.ecosystem.community", href: "/community" },
+      { labelKey: "footer.ecosystem.news", href: "/news" },
+      { labelKey: "footer.ecosystem.newsletter", href: "/newsletter" },
+    ],
+  },
+  {
+    headingKey: "footer.solana.heading",
+    links: [
+      { labelKey: "footer.solana.grants", href: "https://solana.org/grants" },
+      { labelKey: "footer.solana.media", href: "/branding" },
+      { labelKey: "footer.solana.careers", href: "https://jobs.solana.com/" },
+      { labelKey: "footer.solana.disclaimer", href: "/tos" },
+      { labelKey: "footer.solana.privacy-policy", href: "/privacy-policy" },
+    ],
+  },
 ];
 
 const CopyrightRow = () => {
@@ -57,6 +123,34 @@ const CopyrightRow = () => {
   );
 };
 
+const FooterColumn = ({
+  column,
+}: {
+  column: (typeof FOOTER_COLUMNS)[number];
+}) => {
+  const t = useTranslations();
+
+  return (
+    <div className="col-span-1">
+      <div className="mb-4 md:mb-6 text-base md:text-lg font-medium leading-[1.33]">
+        {t(column.headingKey)}
+      </div>
+      <ul className="list-unstyled m-0">
+        {column.links.map((link) => (
+          <li key={`${column.headingKey}-${link.href}`}>
+            <Link
+              to={link.href}
+              className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+            >
+              {t(link.labelKey)}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 export const Footer = ({ className = "" }) => {
   const t = useTranslations();
 
@@ -73,8 +167,8 @@ export const Footer = ({ className = "" }) => {
         className="w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat"
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
-        <div className="relative grid grid-cols-2 xl:grid-cols-6 gap-[30px]">
-          <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-3">
+        <div className="relative grid grid-cols-2 md:grid-cols-3 xl:grid-cols-8 gap-[30px]">
+          <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-2">
             <p className="text-base md:text-lg font-medium mb-0 leading-[1.33]">
               {t("footer.foundation")}
             </p>
@@ -108,86 +202,14 @@ export const Footer = ({ className = "" }) => {
               ))}
             </div>
           </div>
-          <div className="col-span-1 absolute right-0 top-0 md:relative xl:order-4">
+          <div className="col-span-1 absolute right-0 top-0 md:relative xl:order-8">
             <div className="relative flex justify-end xl:justify-start">
               <LanguageSelector className="!text-[#ababbc] hover:!text-white" />
             </div>
           </div>
-          <div className="col-span-1">
-            <div className="mb-4 md:mb-6 text-base md:text-lg font-medium leading-[1.33]">
-              {t("footer.solana.heading")}
-            </div>
-            <ul className="list-unstyled m-0">
-              <li>
-                <InlineLink
-                  to="https://solana.org/grants"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.grants")}
-                </InlineLink>
-              </li>
-              <li>
-                <Link
-                  to="/branding"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.media")}
-                </Link>
-              </li>
-              <li>
-                <InlineLink
-                  to="https://jobs.solana.com/"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.careers")}
-                </InlineLink>
-              </li>
-              <li>
-                <Link
-                  to="/tos"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.disclaimer")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/privacy-policy"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.privacy-policy")}
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div className="col-span-1">
-            <div>
-              <div className="mb-4 md:mb-6 text-base md:text-lg font-medium leading-[1.33]">
-                {t("footer.get-connected.heading")}
-              </div>
-              <ul className="list-unstyled m-0">
-                <li>
-                  <Link
-                    to="/news"
-                    aria-label={t("footer.get-connected.blog")}
-                    className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                  >
-                    {t("footer.get-connected.blog")}
-                  </Link>
-                </li>
-                <li>
-                  <NewsletterModal formId="fdd4a0db-f4af-4b29-90f9-98b0556d4c89">
-                    <button
-                      type="button"
-                      className="!no-underline !text-[#ababbc] hover:!text-white transition-colors text-sm md:text-base font-normal leading-[1.42] md:leading-[1.5] cursor-pointer bg-transparent border-none p-0"
-                    >
-                      {t("footer.get-connected.newsletter")}
-                    </button>
-                  </NewsletterModal>
-                </li>
-              </ul>
-            </div>
-          </div>
+          {FOOTER_COLUMNS.map((column) => (
+            <FooterColumn key={column.headingKey} column={column} />
+          ))}
         </div>
       </div>
       <FooterMouseEffect className="absolute bottom-0 left-0 w-full h-[300px] hidden xl:block" />

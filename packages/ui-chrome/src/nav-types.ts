@@ -2,11 +2,11 @@ import type React from "react";
 
 export type NavItemVariant = "medium" | "large";
 export type NavTopLevelSectionId =
-  | "learn"
-  | "developers"
-  | "solutions"
-  | "network"
-  | "community";
+  | "use_solana"
+  | "build"
+  | "enterprise"
+  | "products"
+  | "ecosystem";
 
 export interface NavItemDefinition {
   id: string;
@@ -47,4 +47,20 @@ export interface NavTopLevelSection extends Omit<
     className?: string;
   }>;
   Content: React.ComponentType<{ isMobile?: boolean }>;
+}
+
+export interface NavPromoDefinition {
+  id: string;
+  translationKey: string;
+  href: string;
+  expiresAt?: string;
+  className?: string;
+  backgroundClassName?: string;
+  Logo?: React.ComponentType<{
+    className?: string;
+    width?: number;
+    height?: number;
+  }>;
+  logoWidth?: number;
+  logoHeight?: number;
 }
