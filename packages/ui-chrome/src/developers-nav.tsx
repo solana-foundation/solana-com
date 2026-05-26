@@ -3,7 +3,7 @@ import DocsIcon from "./assets/developers/docs.inline.svg";
 import RpcApiIcon from "./assets/developers/api.inline.svg";
 import CookbookIcon from "./assets/developers/cookbook.inline.svg";
 import CoursesIcon from "./assets/developers/courses.inline.svg";
-import ProductsIcon from "./assets/developers/templates.inline.svg";
+import ToolsIcon from "./assets/developers/templates.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import SkillsIcon from "./assets/developers/skills.inline.svg";
 import StackExchangeIcon from "./assets/developers/stackexchange.inline.svg";
@@ -58,7 +58,7 @@ export function DevelopersNav({
                 partiallyActiveIgnore={[
                   "/docs/rpc",
                   "/docs/payments",
-                  "/docs/products",
+                  "/docs/tools",
                 ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
@@ -127,16 +127,16 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
-                to="/docs/products"
+                to="/docs/tools"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
-                <ProductsIcon
+                <ToolsIcon
                   height="16"
                   width="16"
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
-                  {t("developers.nav.products")}
+                  {t("developers.nav.tools")}
                 </span>
               </NavLink>
               <NavLink

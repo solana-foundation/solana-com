@@ -12,11 +12,7 @@ export default async function Layout({
 }) {
   const { locale } = await params;
   const tree = docsSource.pageTree[locale];
-  const standaloneDocsRoutes = [
-    "/docs/rpc",
-    "/docs/payments",
-    "/docs/products",
-  ];
+  const standaloneDocsRoutes = ["/docs/rpc", "/docs/payments", "/docs/tools"];
   const pageTree = {
     ...tree,
     children: tree.children?.filter(
