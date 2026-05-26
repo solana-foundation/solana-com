@@ -40,6 +40,11 @@ Important SEO decision:
   not as a top-level header label.
 - Header/footer menus may link directly to preserved `/solutions/*` pages when
   those pages are the best current destination for the audience intent.
+- Preserve dynamic menu modules as part of the restructure. Each top-level menu
+  may include a contextual promo/content slot for Breakpoint, current events,
+  report highlights, product launches, or content highlights. The module is
+  scoped by the current nav section and must never be the only path to critical
+  content.
 
 ## Hybrid IA Model
 
@@ -118,12 +123,17 @@ Primary implementation areas:
 - `packages/ui-chrome/src/header-sections.tsx`
 - `packages/ui-chrome/src/header-list.*.tsx`
 - `packages/ui-chrome/src/nav-section-content-config.tsx`
+- `packages/ui-chrome/src/nav-section-renderers.tsx`
 - `packages/ui-chrome/src/nav-types.ts`
 - `packages/ui-chrome/src/nav-active.ts`
 - `packages/ui-chrome/src/mobile-menu.tsx`
 - `packages/ui-chrome/src/footer.tsx`
 - `packages/ui-chrome/src/__tests__/nav-active.test.ts`
 - `packages/i18n/messages/web/*/common.json`
+- `apps/web/src/lib/media/post.ts`
+- `apps/web/src/lib/media/report.ts`
+- `apps/media/app/api/posts/latest/route.ts`
+- `apps/media/app/api/reports/latest/route.ts`
 - `apps/web/src/app/[locale]/use-solana`
 - `apps/web/src/app/[locale]/enterprise`
 - `apps/web/src/app/[locale]/products`
@@ -520,8 +530,51 @@ Ecosystem categories and programs:
 Notes:
 
 - Events stay prominent.
-- Breakpoint/event promo content belongs under `Ecosystem`.
+- Breakpoint/event promo content belongs under `Ecosystem` by default.
 - `Network` is not top-level, but `/network` exists as a canonical hub.
+
+## Dynamic Menu Module Requirements
+
+Preserve a dynamic module inside mega menus for contextual promotion and content
+highlights.
+
+The module should be section-aware:
+
+- Use Solana: wallet education, safety guides, beginner learn content
+- Build: technical guides, releases, templates, docs updates
+- Enterprise: reports, case studies, institutional announcements
+- Products: launches, changelogs, product updates, product explainers
+- Ecosystem: events, Breakpoint, grants, community, network reports
+
+Functional requirements:
+
+- Configure the module from the same nav section data used by static menu
+  listings.
+- Support one featured item per open menu at launch unless design explicitly
+  approves a larger module.
+- Allow a static fallback promo per section for campaign-critical items such as
+  Breakpoint.
+- Normalize dynamic content before rendering.
+- Minimum normalized fields: `id`, `title`, `href`, `contentType`, `source`, and
+  `navSection`.
+- Optional fields: `description`, `eyebrow`, `image`, `publishedAt`, `tag`,
+  `campaignId`, and `expiresAt`.
+- Fail silently when dynamic content fetches fail.
+- Avoid layout shift when a menu opens or when dynamic content resolves.
+- Do not make dynamic cards the only path to critical pages such as `/events`,
+  `/breakpoint`, `/reports`, `/news`, or `/docs`.
+- Do not show a promo in the wrong audience menu just because it is globally
+  high priority.
+
+Implementation notes:
+
+- Breakpoint and event promos belong under `Ecosystem` by default.
+- A global campaign can appear in more than one menu only when each placement
+  has an explicit section mapping.
+- The dynamic module should use shadcn-style card/link primitives where possible
+  and shared chrome link behavior for navigation.
+- No new CMS schema is required for this delivery if existing APIs plus static
+  section config can provide the needed featured items.
 
 ## Delivery Stages
 
@@ -540,13 +593,18 @@ Tasks:
   approval tracking.
 - Record route owners for `Use Solana`, `Enterprise`, `Products`, `Ecosystem`,
   `Network`, and `Solutions`.
+- Record ownership for dynamic menu modules, including who can approve
+  Breakpoint, event, report, news, and product-launch placements.
+- Confirm the launch module inventory and fallback promo for each top-level
+  menu.
 
 Acceptance checks:
 
 - The five top-level nav labels are approved.
 - The five hub routes are in scope for this delivery.
 - `/solutions` and `/solutions/*` remain canonical.
-- Dynamic menu content is explicitly out of scope.
+- Dynamic menu modules are in scope as contextual, section-aware promo/content
+  slots.
 - Legal-sensitive content will use existing destinations and neutral labels.
 
 ### Stage 1: Route Foundation And Shared Page Components
@@ -645,6 +703,9 @@ Tasks:
 - Keep `Build` linked conceptually to `/developers`.
 - Link audience menus to preserved canonical routes, including `/solutions/*`
   pages where they are the best current destination.
+- Preserve and re-scope the dynamic menu module so each menu can show a
+  contextual promo/content highlight.
+- Add fallback promos for section-critical campaigns where required.
 - Keep static links usable without dynamic content.
 - Ensure desktop mega menus support pointer and keyboard access.
 - Ensure mobile menu exposes the same practical hierarchy.
@@ -658,6 +719,8 @@ Suggested files:
 - `packages/ui-chrome/src/header-list.*.tsx`
 - `packages/ui-chrome/src/mobile-menu.tsx`
 - `packages/i18n/messages/web/*/common.json`
+- `apps/web/src/lib/media/post.ts`
+- `apps/web/src/lib/media/report.ts`
 
 Acceptance checks:
 
@@ -667,6 +730,11 @@ Acceptance checks:
 - No visible top-level `Solutions`, `Network`, `Community`, or `Learn` label
   remains in shared primary navigation.
 - Header/mobile menu may link to `/solutions/*` where those pages are canonical.
+- Each mega menu can render a section-scoped dynamic module or its configured
+  fallback.
+- Breakpoint/event promo content is scoped to `Ecosystem` unless explicitly
+  configured for another section.
+- Dynamic content failures do not remove static menu links or break menu layout.
 - Shared chrome still works in `web`, `docs`, `media`, and `templates`.
 
 Validation:
@@ -822,6 +890,8 @@ Tasks:
 - Verify cross-app links use full reload behavior where required by
   `@solana-com/ui-chrome/url-config`.
 - Verify search/Ask AI remains available in header and mobile menu.
+- Verify dynamic module fallback behavior in at least one menu with content
+  unavailable.
 
 Validation:
 
@@ -848,10 +918,10 @@ Manual QA checklist:
 - `docs`, `media`, and `templates` links do not break through client-side
   navigation.
 - Dynamic content absence does not remove static nav paths.
+- Dynamic menu modules show section-appropriate content when configured.
 
 ## Out Of Scope For This Delivery
 
-- Dynamic menu cards from media/report/event APIs.
 - New CMS schema.
 - New legal-sensitive SOL, staking, token-market, yield, or investment copy.
 - Redirecting the `/solutions` namespace.
@@ -863,20 +933,16 @@ Manual QA checklist:
   `/podcasts`, and `/solutions/*`.
 - Visual redesign beyond what is needed to make the new IA usable and polished.
 
-## Dynamic Content Future Phase
+## Dynamic Content Hardening
 
-Dynamic modules should be added only after the static IA, routes, redirects, and
-footer are stable.
+After the static IA is working, harden dynamic modules without changing the menu
+contract:
 
-Future requirements:
-
-- Normalize dynamic content before rendering.
-- Minimum normalized fields: `id`, `title`, `href`, `contentType`, and `source`.
-- Optional fields: `description`, `eyebrow`, `image`, `publishedAt`, `tag`, and
-  `campaignId`.
-- Fail silently when content fetches fail.
-- Never make dynamic cards the only path to critical content.
-- Avoid layout shift inside open menus.
+- Add tests for normalization and fallback selection.
+- Add analytics for impressions and clicks.
+- Confirm cache behavior for media/report/event API-backed content.
+- Confirm campaign expiry behavior.
+- Confirm localized titles/descriptions where translated content exists.
 
 ## Analytics Future Phase
 
@@ -892,6 +958,8 @@ Core events:
 - `nav_menu_closed`
 - `nav_link_clicked`
 - `nav_cta_clicked`
+- `nav_dynamic_card_impression`
+- `nav_dynamic_card_clicked`
 - `nav_search_opened`
 - `ia_hub_page_viewed`
 - `event_promo_clicked`
@@ -911,6 +979,8 @@ The migration is ready to ship when:
 - Header/footer/mobile menu use the new five-section IA.
 - Header/footer/mobile menu may link to `/solutions/*` where those pages are the
   canonical destination.
+- Dynamic menu modules are section-scoped, have fallbacks, and do not remove
+  static nav paths when unavailable.
 - No redirect blocks `/use-solana`, `/enterprise`, `/products`, `/ecosystem`, or
   `/network`.
 - Active nav state is correct for preserved solution pages, preserved canonical

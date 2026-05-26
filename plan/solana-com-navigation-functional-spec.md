@@ -148,8 +148,8 @@ SEO.
    rather than forced redirects.
 10. Allow future audience-specific pages only when they have distinct search
     intent and value proposition.
-11. Allow dynamic content inside mega menus without making critical paths
-    dependent on dynamic content.
+11. Maintain dynamic promo/content modules inside mega menus without making
+    critical paths dependent on dynamic content.
 
 ## Non-Goals
 
@@ -221,7 +221,7 @@ Mega menus should include:
 - Static high-intent links
 - Optional short descriptions
 - A clear primary CTA where applicable
-- Optional dynamic module in a later phase
+- A section-scoped dynamic promo/content module where configured
 
 On mobile, the navigation should collapse into an accessible menu with the same
 practical hierarchy.
@@ -240,6 +240,12 @@ Functional acceptance criteria:
    behavior.
 7. Dynamic modules are additive. If they fail, static menu links remain visible
    and usable.
+
+Dynamic modules are a maintained capability, not a replacement for static IA.
+They should resolve from the current nav section and support contextual
+promotion such as Breakpoint under `Ecosystem`, report highlights under
+`Enterprise` or `Ecosystem`, product launches under `Products`, and technical
+content under `Build`.
 
 ## Mega Menu Requirements
 
@@ -456,7 +462,7 @@ Ecosystem categories and programs:
 Notes:
 
 - Events must remain easy to find.
-- Breakpoint/event promo banner appears under `Ecosystem`.
+- Breakpoint/event promo banner appears under `Ecosystem` by default.
 - Network must be prominent inside `Ecosystem`.
 - Ecosystem may link to preserved `/solutions/*` category pages where those are
   the canonical current destination.
@@ -471,7 +477,8 @@ Requirements:
 
 1. Events should remain first-class inside `Ecosystem`.
 2. `/events` should remain canonical.
-3. Breakpoint banner should appear only under `Ecosystem`.
+3. Breakpoint banner should appear under `Ecosystem` by default, with other
+   section placements allowed only when explicitly configured.
 4. Event archive should remain discoverable.
 5. Submit/host event CTAs should remain discoverable.
 6. Homepage event modules should continue independently from nav IA.
@@ -573,6 +580,8 @@ from the relevant menu instead.
 - Identify page ownership by section and solution topic.
 - Identify legal-sensitive content.
 - Identify event/promo ownership.
+- Identify dynamic module ownership, launch inventory, and fallback promo for
+  each top-level menu.
 
 ### Stage 1: Hub Pages
 
@@ -595,7 +604,9 @@ where appropriate.
 - Link to existing routes where those routes are canonical.
 - Update typed nav section IDs, metadata, content mappings, mobile menu
   mappings, active-route rules, and translations as one unit.
-- Move Breakpoint/event banner into `Ecosystem`.
+- Preserve the dynamic menu module and scope it by the current nav section.
+- Move Breakpoint/event banner into `Ecosystem` unless another section has an
+  explicitly approved placement.
 - Ensure header/footer work across `web`, `docs`, `media`, and `templates`.
 
 ### Stage 3: Solution Page Reframing
@@ -624,10 +635,10 @@ where appropriate.
   blocked routes.
 - Keep intentional links to canonical `/solutions/*` pages.
 
-### Stage 6: Dynamic Content
+### Stage 6: Dynamic Module Hardening
 
-Add dynamic mega menu modules later using tagged content from media/report APIs
-and event sources.
+Harden dynamic mega menu modules using tagged content from media/report APIs,
+event sources, and static fallback config.
 
 Dynamic modules must fail silently. Static nav must remain usable.
 
@@ -765,7 +776,8 @@ Enterprise should still link to network proof directly.
 
 ## Dynamic Content Requirements
 
-Mega menus may support dynamic content modules in a later phase.
+Mega menus should maintain dynamic promo/content modules as a section-aware
+capability.
 
 Each dynamic module should be tag-driven and scoped to the current menu:
 
@@ -775,9 +787,27 @@ Each dynamic module should be tag-driven and scoped to the current menu:
 - Products: launches, changelogs, product updates
 - Ecosystem: events, Breakpoint, grants, community, network reports
 
+Functional requirements:
+
+- Configure dynamic modules from nav section config so the current menu decides
+  what can appear.
+- Support one featured item per open menu at launch unless design approves a
+  larger module.
+- Allow a static fallback promo for campaign-critical placements.
+- Normalize dynamic content before rendering.
+- Minimum normalized fields are `id`, `title`, `href`, `contentType`, `source`,
+  and `navSection`.
+- Optional fields are `description`, `eyebrow`, `image`, `publishedAt`, `tag`,
+  `campaignId`, and `expiresAt`.
+- Breakpoint and event promos belong under `Ecosystem` by default.
+- A global campaign can appear in multiple menus only when each placement has an
+  explicit section mapping.
+
 Dynamic modules should never be the only path to critical content.
 
 If dynamic content fails to load, the static menu must remain fully usable.
+
+Dynamic content should not cause layout shift inside an open menu.
 
 ## Search / Ask AI Requirements
 
@@ -883,4 +913,4 @@ Do not record raw search query text or raw AI prompts by default.
    routes or later receive product namespace aliases.
 7. Which topics deserve distinct future audience-specific pages, such as
    `/enterprise/depin` or `/ecosystem/depin`.
-8. Final list of dynamic content tags.
+8. Final list of dynamic content tags, section ownership, and fallback promos.
