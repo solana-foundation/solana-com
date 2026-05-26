@@ -8,7 +8,8 @@
 
 ## LiteSVM
 
-A lightweight Solana Virtual Machine that runs directly in your test process. Created by Aursen from Exotic Markets.
+A lightweight Solana Virtual Machine that runs directly in your test process.
+Created by Aursen from Exotic Markets.
 
 ### When to Use LiteSVM
 
@@ -59,8 +60,8 @@ npm i --save-dev litesvm
 ```
 
 ```typescript
-import { LiteSVM } from 'litesvm';
-import { PublicKey, Transaction, Keypair } from '@solana/web3.js';
+import { LiteSVM } from "litesvm";
+import { PublicKey, Transaction, Keypair } from "@solana/web3.js";
 
 const programId = new PublicKey("YourProgramId11111111111111111111111111111");
 const svm = new LiteSVM();
@@ -82,14 +83,17 @@ const result = svm.sendTransaction(tx);
 ### Account Types in LiteSVM
 
 **System Accounts:**
+
 - Payer accounts (contain lamports)
 - Uninitialized accounts (empty, awaiting setup)
 
 **Program Accounts:**
+
 - Serialize with `borsh`, `bincode`, or `solana_program_pack`
 - Calculate rent-exempt minimum balance
 
 **Token Accounts:**
+
 - Use `spl_token::state::Mint` and `spl_token::state::Account`
 - Serialize with Pack trait
 
@@ -115,7 +119,9 @@ println!("CUs used: {}", result.compute_units_consumed);
 
 ## Mollusk
 
-A lightweight test harness providing direct interface to program execution without full validator runtime. Best for Rust-only testing with fine-grained control.
+A lightweight test harness providing direct interface to program execution
+without full validator runtime. Best for Rust-only testing with fine-grained
+control.
 
 ### When to Use Mollusk
 
@@ -225,7 +231,9 @@ mollusk.sysvars.clock = Clock {
 
 ## Surfpool
 
-SDK and tooling suite for integration testing with realistic cluster state. Surfnet is the local network component (drop-in replacement for solana-test-validator).
+SDK and tooling suite for integration testing with realistic cluster state.
+Surfnet is the local network component (drop-in replacement for
+solana-test-validator).
 
 ### When to Use Surfpool
 
@@ -247,7 +255,7 @@ surfpool start
 ### Connection Setup
 
 ```typescript
-import { Connection } from '@solana/web3.js';
+import { Connection } from "@solana/web3.js";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
 ```
@@ -256,51 +264,61 @@ const connection = new Connection("http://localhost:8899", "confirmed");
 
 ```typescript
 // Time travel to specific slot
-await connection._rpcRequest('surfnet_timeTravel', [{
- absoluteSlot: 250000000
-}]);
+await connection._rpcRequest("surfnet_timeTravel", [
+  {
+    absoluteSlot: 250000000,
+  },
+]);
 
 // Pause/resume block production
-await connection._rpcRequest('surfnet_pauseClock', []);
-await connection._rpcRequest('surfnet_resumeClock', []);
+await connection._rpcRequest("surfnet_pauseClock", []);
+await connection._rpcRequest("surfnet_resumeClock", []);
 ```
 
 ### Account Manipulation
 
 ```typescript
 // Set account state
-await connection._rpcRequest('surfnet_setAccount', [{
- pubkey: accountPubkey.toString(),
- lamports: 1000000000,
- data: Buffer.from(accountData).toString('base64'),
- owner: programId.toString(),
-}]);
+await connection._rpcRequest("surfnet_setAccount", [
+  {
+    pubkey: accountPubkey.toString(),
+    lamports: 1000000000,
+    data: Buffer.from(accountData).toString("base64"),
+    owner: programId.toString(),
+  },
+]);
 
 // Set token account
-await connection._rpcRequest('surfnet_setTokenAccount', [{
- pubkey: ownerPubkey.toString(), // Owner of the token account (wallet)
- mint: mintPubkey.toString(),
- owner: ownerPubkey.toString(),
- amount: "1000000",
-}]);
+await connection._rpcRequest("surfnet_setTokenAccount", [
+  {
+    pubkey: ownerPubkey.toString(), // Owner of the token account (wallet)
+    mint: mintPubkey.toString(),
+    owner: ownerPubkey.toString(),
+    amount: "1000000",
+  },
+]);
 
 // Clone account from another program
-await connection._rpcRequest('surfnet_cloneProgramAccount', [{
- source: sourceProgramId.toString(),
- destination: destProgramId.toString(),
- account: accountPubkey.toString(),
-}]);
+await connection._rpcRequest("surfnet_cloneProgramAccount", [
+  {
+    source: sourceProgramId.toString(),
+    destination: destProgramId.toString(),
+    account: accountPubkey.toString(),
+  },
+]);
 ```
 
 ### SOL Supply Configuration
 
 ```typescript
 // Configure supply for economic edge case testing
-await connection._rpcRequest('surfnet_setSupply', [{
- circulating: "500000000000000000",
- nonCirculating: "100000000000000000",
- total: "600000000000000000",
-}]);
+await connection._rpcRequest("surfnet_setSupply", [
+  {
+    circulating: "500000000000000000",
+    nonCirculating: "100000000000000000",
+    total: "600000000000000000",
+  },
+]);
 ```
 
 ## Test Layout Recommendation

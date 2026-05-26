@@ -1,11 +1,11 @@
 import { PostItem, ContentDocument } from "./post-types";
-import { format } from "date-fns";
+import { formatPublishedAt } from "./keystatic/publishing";
 
 // Type for post data from Keystatic reader
 export interface PostData {
   slug: string;
   title: string;
-  date: string | null;
+  publishedAt: string | null;
   description: ContentDocument;
   heroImage: string | null;
   author: string | null;
@@ -18,15 +18,14 @@ export function transformPost(
   postData: PostData,
   resolvedAuthor?: { name: string; avatar: string | null } | null,
   resolvedTags?: string[],
-  resolvedCategories?: string[]
+  resolvedCategories?: string[],
 ): PostItem {
-  const date = postData.date ? new Date(postData.date) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const formattedDate = formatPublishedAt(postData.publishedAt);
 
   return {
     id: postData.slug,
     published: formattedDate,
+    publishedAt: postData.publishedAt,
     title: postData.title,
     tags: resolvedTags || [],
     categories: resolvedCategories || [],

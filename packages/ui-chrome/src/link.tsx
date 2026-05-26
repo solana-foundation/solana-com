@@ -18,6 +18,10 @@ interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   prefetch?: boolean;
 }
 
+function isExternalHref(href: string): boolean {
+  return /^(https?:)?\/\//i.test(href);
+}
+
 const Link = ({
   children,
   to,
@@ -60,15 +64,25 @@ const Link = ({
       </I18nLink>
     );
   }
+  const { rel, target, ...anchorProps } = other;
+  const resolvedTarget = isExternalHref(linkTo) ? (target ?? "_blank") : target;
+  const resolvedRel =
+    resolvedTarget === "_blank" ? (rel ?? "noopener noreferrer") : rel;
+
   return (
-    <a href={linkTo} {...other} className={className}>
+    <a
+      href={linkTo}
+      {...anchorProps}
+      target={resolvedTarget}
+      rel={resolvedRel}
+      className={className}
+    >
       {children}
     </a>
   );
 };
 
-interface InlineLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+interface InlineLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   to: string;
   children: React.ReactNode;
 }

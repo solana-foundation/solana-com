@@ -39,7 +39,7 @@ export default function DevelopersCourseFeaturedItem({
     >
       <div className={classNames("container", styles["course-item__content"])}>
         <div className={styles["details"]}>
-          {!!courseCreator ? (
+          {courseCreator ? (
             <div className={styles["details__pill"]}>
               <span>By {courseCreator}</span>
             </div>

@@ -29,7 +29,6 @@ export function HomepageFooter() {
         className="pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 overflow-hidden"
         style={{ width: 1345, height: 359 }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getImagePath("/images/homepage/planet-dots.png")}
           alt=""

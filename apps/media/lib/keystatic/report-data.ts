@@ -1,6 +1,8 @@
-import { format } from "date-fns";
 import { reader } from "../reader";
 import type { PageInfo, ReportItem } from "../report-types";
+import { SwitchbackItem } from "../switchback-types";
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
+import { isPublishedReport } from "./report-status";
 
 export interface LatestReportsParams {
   limit?: number;
@@ -18,18 +20,10 @@ export interface FeaturedReportResponse {
   report: ReportItem | null;
 }
 
-function isPublishedReport(
-  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-): report is NonNullable<
-  Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-> {
-  return Boolean(report && report.isReport && report.status === "published");
-}
-
 async function resolveCategoryNames(
   categories: Awaited<
     ReturnType<typeof reader.collections.switchbacks.read>
-  >["categories"]
+  >["categories"],
 ): Promise<string[]> {
   const categoryNames: string[] = [];
 
@@ -51,7 +45,7 @@ async function resolveCategoryNames(
 }
 
 async function resolveTagNames(
-  tags: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>["tags"]
+  tags: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>["tags"],
 ): Promise<string[]> {
   const tagNames: string[] = [];
 
@@ -77,7 +71,7 @@ async function matchesCategoryOrTag(
     Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
   >,
   normalizedCategory?: string,
-  normalizedTag?: string
+  normalizedTag?: string,
 ): Promise<boolean> {
   let matchesCategory = !normalizedCategory;
   if (normalizedCategory && report.categories) {
@@ -124,15 +118,13 @@ async function matchesCategoryOrTag(
 
 async function transformReport(
   slug: string,
-  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
+  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>,
 ): Promise<ReportItem | null> {
   if (!report) return null;
 
-  const dateString =
-    typeof report.date === "string" ? report.date : String(report.date || "");
-  const date = dateString ? new Date(dateString) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAt =
+    typeof report.publishedAt === "string" ? report.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAt);
 
   const [categories, tags] = await Promise.all([
     resolveCategoryNames(report.categories),
@@ -143,6 +135,7 @@ async function transformReport(
     id: slug,
     title: String(report.title),
     published: formattedDate,
+    publishedAt,
     tags,
     categories,
     url: `/reports/${slug}`,
@@ -156,7 +149,7 @@ async function transformReport(
 }
 
 export const fetchLatestReports = async (
-  params: LatestReportsParams = {}
+  params: LatestReportsParams = {},
 ): Promise<LatestReportsResponse> => {
   try {
     const allSlugs = await reader.collections.switchbacks.list();
@@ -177,16 +170,11 @@ export const fetchLatestReports = async (
         const report = await reader.collections.switchbacks.read(slug);
         if (!isPublishedReport(report)) continue;
 
-        const dateString =
-          typeof report.date === "string"
-            ? report.date
-            : String(report.date || "");
-
         if (
           !(await matchesCategoryOrTag(
             report,
             normalizedCategory,
-            normalizedTag
+            normalizedTag,
           ))
         ) {
           continue;
@@ -194,7 +182,7 @@ export const fetchLatestReports = async (
 
         reportsWithDates.push({
           slug,
-          date: dateString ? new Date(dateString) : null,
+          date: parsePublishedAt(report.publishedAt),
           report,
         });
       } catch (error) {
@@ -212,7 +200,7 @@ export const fetchLatestReports = async (
     let startIndex = 0;
     if (params.cursor) {
       const cursorIndex = reportsWithDates.findIndex(
-        (item) => item.slug === params.cursor
+        (item) => item.slug === params.cursor,
       );
       if (cursorIndex >= 0) {
         startIndex = cursorIndex + 1;
@@ -221,7 +209,7 @@ export const fetchLatestReports = async (
 
     const paginatedReports = reportsWithDates.slice(
       startIndex,
-      startIndex + limit
+      startIndex + limit,
     );
     const reports: ReportItem[] = [];
 
@@ -261,29 +249,25 @@ export const fetchFeaturedReport =
 
       for (const slug of allSlugs) {
         try {
-          const report = await reader.collections.switchbacks.read(slug);
+          const report: SwitchbackItem =
+            await reader.collections.switchbacks.read(slug);
           if (!isPublishedReport(report) || !report.tags) continue;
 
           const isFeatured = report.tags.some(
-            (tagItem) => tagItem?.tag && String(tagItem.tag) === "featured"
+            (tagItem) => tagItem?.tag && String(tagItem.tag) === "featured",
           );
 
           if (!isFeatured) continue;
 
-          const dateString =
-            typeof report.date === "string"
-              ? report.date
-              : String(report.date || "");
-
           featuredCandidates.push({
             slug,
-            date: dateString ? new Date(dateString) : null,
+            date: parsePublishedAt(report.publishedAt),
             report,
           });
         } catch (error) {
           console.error(
             `Failed to read report "${slug}" in fetchFeaturedReport:`,
-            error
+            error,
           );
         }
       }
@@ -295,14 +279,14 @@ export const fetchFeaturedReport =
         return b.date.getTime() - a.date.getTime();
       });
 
-      if (featuredCandidates.length === 0) {
+      if (featuredCandidates.length === 0 || !featuredCandidates[0]) {
         return { report: null };
       }
 
       return {
         report: await transformReport(
           featuredCandidates[0].slug,
-          featuredCandidates[0].report
+          featuredCandidates[0].report,
         ),
       };
     } catch (error) {

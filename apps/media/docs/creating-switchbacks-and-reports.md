@@ -20,8 +20,8 @@ At the simplest level, a switchback contains:
 - One or more buttons
 
 Switchbacks were originally used as supporting marketing sections attached to
-posts. They now also serve a second purpose: they can act as the source of
-truth for **reports**.
+posts. They now also serve a second purpose: they can act as the source of truth
+for **reports**.
 
 This means there are now **two valid ways** to use a switchback:
 
@@ -73,8 +73,8 @@ For a general Keystatic walkthrough, see:
 The existing switchback screenshots in that walkthrough are still accurate for
 finding the collection and creating a new entry:
 
-- `screenshots/09-switchbacks-list.png`
-- `screenshots/10-switchback-create-form.png`
+- `screenshots/09-switchbacks-list.webp`
+- `screenshots/10-switchback-create-form.webp`
 
 No new screenshots were required for this guide.
 
@@ -106,7 +106,8 @@ not need it to become a report page.
 
 ### Important authoring note
 
-The main body content belongs in the **main content editor**, not in frontmatter.
+The main body content belongs in the **main content editor**, not in
+frontmatter.
 
 In the content file on disk, the body is stored below the frontmatter block
 because `body` is the collection `contentField`.
@@ -162,19 +163,19 @@ If either is missing, the report page will not resolve.
 
 Fill these fields for every report:
 
-| Field                | Why it matters                                       |
-| -------------------- | ---------------------------------------------------- |
-| `Title`              | Defines the entry slug                               |
-| `Use As Report`      | Enables report behavior                              |
-| `Report Status`      | Must be `published` for the route to work            |
-| `Report Date`        | Used for sorting and display                         |
-| `Report Description` | Used for SEO and preview copy                        |
-| `Image`              | Main hero image for the report page                  |
-| `Eyebrow`            | Category-style label above the headline              |
-| `Headline`           | Main report title shown on page                      |
-| Main editor body     | Structured report copy shown in the hero text column |
-| `Report Categories`  | Used for filtering and page metadata                 |
-| `Report Tags`        | Used for filtering and tagging                       |
+| Field                | Why it matters                                                    |
+| -------------------- | ----------------------------------------------------------------- |
+| `Title`              | Defines the entry slug                                            |
+| `Use As Report`      | Enables report behavior                                           |
+| `Report Status`      | Must be `published` for the route to work                         |
+| `Publish Date`       | Controls scheduling, sorting, and display; enter the value in UTC |
+| `Report Description` | Used for SEO and preview copy                                     |
+| `Image`              | Main hero image for the report page                               |
+| `Eyebrow`            | Category-style label above the headline                           |
+| `Headline`           | Main report title shown on page                                   |
+| Main editor body     | Structured report copy shown in the hero text column              |
+| `Report Categories`  | Used for filtering and page metadata                              |
+| `Report Tags`        | Used for filtering and tagging                                    |
 
 ### Optional report fields
 
@@ -336,7 +337,7 @@ Before marking a report as published, confirm all of the following:
 
 - `Use As Report` is enabled
 - `Report Status` is `published`
-- `Report Date` is set
+- `Publish Date` is set with the correct UTC date and time
 - `Report Description` is filled
 - `Headline` is correct
 - `Image` is uploaded

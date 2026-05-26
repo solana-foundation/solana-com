@@ -20,7 +20,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOCALES_DIR = join(__dirname, "../public/locales");
+const LOCALES_DIR = join(__dirname, "../../../packages/i18n/messages/web");
 
 const locales = [
   "ar",
@@ -29,7 +29,6 @@ const locales = [
   "es",
   "fi",
   "fr",
-  "hi",
   "id",
   "it",
   "ja",
@@ -244,7 +243,7 @@ function main() {
     }
 
     const commonlyMissing = Object.entries(keyMissingCounts)
-      .filter(([_, count]) => count >= Math.ceil(localesWithMissing.length / 2))
+      .filter(([, count]) => count >= Math.ceil(localesWithMissing.length / 2))
       .sort((a, b) => b[1] - a[1]);
 
     if (commonlyMissing.length > 0) {

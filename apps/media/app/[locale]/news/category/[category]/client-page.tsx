@@ -17,7 +17,7 @@ interface CategoryPostsClientPageProps {
 }
 
 export default function CategoryPostsClientPage(
-  props: CategoryPostsClientPageProps
+  props: CategoryPostsClientPageProps,
 ) {
   const { category, latestPosts } = props;
   const [posts, setPosts] = useState<(PostItem | null)[]>([]);
@@ -28,7 +28,7 @@ export default function CategoryPostsClientPage(
       hasNextPage: false,
       startCursor: null,
       endCursor: null,
-    }
+    },
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
@@ -125,7 +125,7 @@ export default function CategoryPostsClientPage(
                         post={post}
                         variant="horizontal"
                       />
-                    )
+                    ),
                 )}
               </div>
             )}

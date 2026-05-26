@@ -176,11 +176,11 @@ function isSerializedWalletExtensionRejection(
 ): boolean {
   return Boolean(
     isSynthetic &&
-      exceptionType === "UnhandledRejection" &&
-      serialized &&
-      typeof serialized === "object" &&
-      "code" in serialized &&
-      "message" in serialized,
+    exceptionType === "UnhandledRejection" &&
+    serialized &&
+    typeof serialized === "object" &&
+    "code" in serialized &&
+    "message" in serialized,
   );
 }
 
@@ -190,8 +190,8 @@ function isKnownExtensionRejectionMessage(
 ): boolean {
   return Boolean(
     exceptionType === "UnhandledRejection" &&
-      value &&
-      EXTENSION_REJECTION_PATTERNS.some((pattern) => pattern.test(value)),
+    value &&
+    EXTENSION_REJECTION_PATTERNS.some((pattern) => pattern.test(value)),
   );
 }
 

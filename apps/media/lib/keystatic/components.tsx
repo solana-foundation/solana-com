@@ -216,7 +216,7 @@ const gallery = block({
             }),
             link: fields.text({ label: "Link" }),
           },
-          { label: "Button" }
+          { label: "Button" },
         ),
         size: fields.select({
           label: "Size",
@@ -236,14 +236,14 @@ const gallery = block({
             }),
             alt: fields.text({ label: "Alt Text" }),
           },
-          { label: "Image" }
+          { label: "Image" },
         ),
         square: fields.checkbox({ label: "Square" }),
       }),
       {
         label: "Images",
         itemLabel: (props) => props.fields.heading.value || "Gallery Image",
-      }
+      },
     ),
   },
   ContentView: (props) => (
@@ -285,7 +285,7 @@ const stats = block({
         label: "Stats",
         itemLabel: (props) =>
           `${props.fields.stat.value} ${props.fields.type.value}`,
-      }
+      },
     ),
   },
   ContentView: (props) => (

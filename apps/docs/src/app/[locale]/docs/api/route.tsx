@@ -15,28 +15,15 @@ interface CodeRunResult {
 const { CODE_RUN_SERVER_URL, TXTX_SURFNET_URL } = process.env;
 
 const isEnvConfigured = !!CODE_RUN_SERVER_URL && !!TXTX_SURFNET_URL;
-
 const TXTX_RPC_URL = isEnvConfigured ? `https://${TXTX_SURFNET_URL}:8899` : "";
 const TXTX_WS_RPC_URL = isEnvConfigured ? `wss://${TXTX_SURFNET_URL}:8900` : "";
+const LOCALHOST_RPC_URL = "http://localhost:8899";
+const LOCALHOST_WS_URL = "ws://localhost:8900";
 
-const replacement = (() => {
-  const replacementMap: Record<string, string> = {
-    "http://localhost:8899": TXTX_RPC_URL,
-    "ws://localhost:8900": TXTX_WS_RPC_URL,
-  };
-
-  const pattern = Object.keys(replacementMap)
-    .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
-
-  return {
-    regex: new RegExp(pattern, "g"),
-    map: replacementMap,
-  };
-})();
-
-const replaceLocalHostUrl = (code: string): string => {
-  return code.replace(replacement.regex, (matched) => replacement.map[matched]);
+const replaceLocalUrls = (code: string): string => {
+  return code
+    .replaceAll(LOCALHOST_RPC_URL, TXTX_RPC_URL)
+    .replaceAll(LOCALHOST_WS_URL, TXTX_WS_RPC_URL);
 };
 
 const getAPIRoute = (language: CodeRunPayload["language"]): string => {
@@ -78,7 +65,8 @@ export async function POST(req: Request) {
 
   const { code, language } = parseResult.data;
 
-  const executableCode = replaceLocalHostUrl(code);
+  const executableCode = replaceLocalUrls(code);
+
   const url = getAPIRoute(language);
 
   try {

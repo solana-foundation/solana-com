@@ -21,7 +21,8 @@ The system SHALL remove all Builder-specific library code from the codebase.
 
 - **WHEN** the migration is complete
 - **THEN** the entire `apps/web/src/lib/builder/` directory SHALL be deleted
-- **AND** this includes `builderConstants.js`, `api.js`, `index.js`, `getUrls.js`
+- **AND** this includes `builderConstants.js`, `api.js`, `index.js`,
+  `getUrls.js`
 - **AND** this includes subdirectories `page/`, `breakpoint/`, `accelerate/`
 
 #### Scenario: Delete Builder utility files

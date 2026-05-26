@@ -6,7 +6,7 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
     const { slug } = await params;
@@ -25,7 +25,7 @@ export async function GET(
     console.error("Failed to fetch episodes:", error);
     return NextResponse.json(
       { error: "Failed to fetch episodes" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

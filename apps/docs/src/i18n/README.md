@@ -13,4 +13,5 @@ router uses `getStaticProps`.
 Translations can be manually triggered:
 
 - run `npx lingo.dev@latest login` to login to Lingo
-- run `"i18n:lingo": "npx lingo.dev@latest i18n"` in `./package.json`
+- run `pnpm i18n:lingo` from `apps/docs` to sync docs UI plus docs content
+- or run `pnpm i18n:docs` from repo root to sync docs content only

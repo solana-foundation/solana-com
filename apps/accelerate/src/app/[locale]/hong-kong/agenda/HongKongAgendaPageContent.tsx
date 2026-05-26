@@ -43,12 +43,6 @@ export function HongKongAgendaPageContent() {
 
           <nav className="hidden items-center gap-[38px] md:flex">
             <Link
-              href="/accelerate/hong-kong#speakers"
-              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
-            >
-              {t("nav.speakers")}
-            </Link>
-            <Link
               href="/accelerate/hong-kong/agenda"
               className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80 text-button"
             >
@@ -152,13 +146,6 @@ export function HongKongAgendaPageContent() {
                 </button>
               </div>
               <nav className="mt-8 flex flex-col gap-6">
-                <Link
-                  href="/accelerate/hong-kong#speakers"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t("nav.speakers")}
-                </Link>
                 <Link
                   href="/accelerate/hong-kong/agenda"
                   className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80 text-button"

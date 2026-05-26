@@ -52,7 +52,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border",
       )}
     >
       {link.thumbnailImage && (
@@ -64,7 +64,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
-            unoptimized={hasExternalImage}
+            unoptimized={hasExternalImage || undefined}
           />
         </div>
       )}
@@ -93,7 +93,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       <h3 className="text-xl font-semibold group-hover:underline">
         {link.title}
       </h3>
-      {link.description && (
+      {link.description ? (
         <div className="text-muted-foreground grow line-clamp-3">
           {typeof link.description === "string" ? (
             <p>{link.description}</p>
@@ -101,7 +101,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
             <p>{String(link.description)}</p>
           )}
         </div>
-      )}
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {link.tags?.map(
           (tag: string) =>
@@ -109,7 +109,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
               <Badge key={`${link.id}-${tag}`} variant="outline">
                 {tag}
               </Badge>
-            )
+            ),
         )}
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">

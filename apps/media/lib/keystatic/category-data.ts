@@ -9,7 +9,7 @@ export interface CategoryPostsResponse {
  * Fetch category by path from Keystatic
  */
 export const fetchCategoryByPath = async (
-  path: string
+  path: string,
 ): Promise<CategoryPostsResponse> => {
   try {
     const category = await reader.collections.categories.read(path);

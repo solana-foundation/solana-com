@@ -2,7 +2,11 @@
 
 ## Purpose
 
-Solana Media is a Next.js-based content management and distribution platform for publishing news articles and podcasts about the Solana blockchain ecosystem. It's part of a monorepo architecture where the media app (`solana-com-media.vercel.app`) is deployed separately and proxied through the main Solana.com website via Next.js rewrites.
+Solana Media is a Next.js-based content management and distribution platform for
+publishing news articles and podcasts about the Solana blockchain ecosystem.
+It's part of a monorepo architecture where the media app
+(`solana-com-media.vercel.app`) is deployed separately and proxied through the
+main Solana.com website via Next.js rewrites.
 
 **Key Features:**
 
@@ -133,7 +137,8 @@ tina/                  # TinaCMS configuration
 
 ### Testing Strategy
 
-No formal test suite is currently implemented. Testing relies on manual testing and type checking.
+No formal test suite is currently implemented. Testing relies on manual testing
+and type checking.
 
 ### Git Workflow
 
@@ -169,7 +174,8 @@ No formal test suite is currently implemented. Testing relies on manual testing 
 - **Locale Routing**: All public routes must be prefixed with `[locale]`
 - **Admin Routes**: Exempt from locale prefixing
 - **Asset Prefix**: Static assets served from `/media-assets`
-- **Image Sources**: Must be whitelisted in `next.config.ts` (Tina assets, Cloudinary, CloudFront, River)
+- **Image Sources**: Must be whitelisted in `next.config.ts` (Tina assets,
+  Cloudinary, CloudFront, River)
 - **TypeScript Strict Mode**: Disabled - be mindful of null/undefined handling
 
 ## External Dependencies
@@ -177,7 +183,8 @@ No formal test suite is currently implemented. Testing relies on manual testing 
 **Content Delivery:**
 
 - **TinaCMS Cloud**: Optional (can run local mode)
-  - Environment variables: `NEXT_PUBLIC_TINA_CLIENT_ID`, `TINA_TOKEN`, `NEXT_PUBLIC_TINA_BRANCH`
+  - Environment variables: `NEXT_PUBLIC_TINA_CLIENT_ID`, `TINA_TOKEN`,
+    `NEXT_PUBLIC_TINA_BRANCH`
 - **RSS Feeds**: External podcast episode sources
 - **Image CDNs**: Cloudinary, CloudFront
 

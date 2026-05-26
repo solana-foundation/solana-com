@@ -4,6 +4,7 @@ import {
   fetchEpisodeByIdFromRSS,
 } from "../podcast-rss";
 import { contentDocumentToPlainText } from "../content-renderer";
+import { getSafeExternalUrl } from "../external-url";
 import type {
   PodcastShow,
   PodcastEpisode,
@@ -16,7 +17,7 @@ import type {
  */
 async function transformPodcast(
   slug: string,
-  podcast: Awaited<ReturnType<typeof reader.collections.podcasts.read>>
+  podcast: Awaited<ReturnType<typeof reader.collections.podcasts.read>>,
 ): Promise<PodcastShow | null> {
   if (!podcast) return null;
 
@@ -27,9 +28,14 @@ async function transformPodcast(
       if (hostRef.host) {
         const hostData = await reader.collections.authors.read(hostRef.host);
         if (hostData) {
+          const safeTwitterUrl = getSafeExternalUrl(hostData.twitterUrl);
+
           hosts.push({
             name: String(hostData.name) || "Unknown Host",
             ...(hostData.avatar && { avatar: hostData.avatar }),
+            ...(safeTwitterUrl && {
+              twitterUrl: safeTwitterUrl,
+            }),
           });
         }
       }
@@ -74,7 +80,7 @@ async function transformPodcast(
   } catch (error) {
     console.warn(`Failed to serialize podcast description for ${slug}:`, error);
   }
-  const descriptionString = contentDocumentToPlainText(rawDescription as any);
+  const descriptionString = contentDocumentToPlainText(rawDescription);
 
   return {
     id: slug,
@@ -91,13 +97,45 @@ async function transformPodcast(
     hosts,
     riversideProjectId: podcast.riversideProjectId || "",
     riversideStudioId: podcast.riversideStudioId || undefined,
-    applePodcastsUrl: podcast.applePodcastsUrl || undefined,
-    spotifyUrl: podcast.spotifyUrl || undefined,
-    rssFeedUrl: podcast.rssFeedUrl || undefined,
+    applePodcastsUrl: getSafeExternalUrl(podcast.applePodcastsUrl),
+    spotifyUrl: getSafeExternalUrl(podcast.spotifyUrl),
+    youtubeUrl: getSafeExternalUrl(podcast.youtubeUrl),
+    rssFeedUrl: getSafeExternalUrl(podcast.rssFeedUrl),
     releaseFrequency: podcast.releaseFrequency || undefined,
     firstEpisodeDate: podcast.firstEpisodeDate || undefined,
   };
 }
+
+const isBuzzsproutRepresentationUrl = (thumbnailUrl: string): boolean => {
+  try {
+    const url = new URL(thumbnailUrl);
+    return (
+      url.hostname.endsWith("buzzsprout.com") &&
+      url.pathname.includes("/rails/active_storage/representations/redirect/")
+    );
+  } catch {
+    return thumbnailUrl.includes(
+      "buzzsprout.com/rails/active_storage/representations/redirect/",
+    );
+  }
+};
+
+const normalizeEpisodeThumbnail = (
+  episode: PodcastEpisode,
+  podcast: PodcastShow,
+): PodcastEpisode => {
+  if (
+    !episode.thumbnailUrl ||
+    isBuzzsproutRepresentationUrl(episode.thumbnailUrl)
+  ) {
+    return {
+      ...episode,
+      thumbnailUrl: podcast.coverImage,
+    };
+  }
+
+  return episode;
+};
 
 /**
  * Fetch all podcasts from Keystatic
@@ -133,7 +171,7 @@ export const fetchAllPodcasts = async (): Promise<PodcastShow[]> => {
  * Fetch a single podcast by slug
  */
 export const fetchPodcastBySlug = async (
-  slug: string
+  slug: string,
 ): Promise<PodcastShow | null> => {
   try {
     const podcast = await reader.collections.podcasts.read(slug);
@@ -150,7 +188,7 @@ export const fetchPodcastBySlug = async (
 export const fetchEpisodesForPodcast = async (
   podcast: PodcastShow,
   limit: number = 12,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<PaginatedEpisodes> => {
   if (!podcast.rssFeedUrl) {
     console.warn(`No RSS feed URL configured for podcast: ${podcast.slug}`);
@@ -163,21 +201,23 @@ export const fetchEpisodesForPodcast = async (
   try {
     const allEpisodes = await fetchEpisodesFromRSSCached(
       podcast.rssFeedUrl,
-      podcast.slug
+      podcast.slug,
     );
 
     const paginatedEpisodes = allEpisodes.slice(offset, offset + limit);
     const hasMore = offset + limit < allEpisodes.length;
 
     return {
-      episodes: paginatedEpisodes,
+      episodes: paginatedEpisodes.map((episode) =>
+        normalizeEpisodeThumbnail(episode, podcast),
+      ),
       hasMore,
       nextCursor: hasMore ? String(offset + limit) : undefined,
     };
   } catch (error) {
     console.error(
       `Failed to fetch episodes for podcast ${podcast.slug}:`,
-      error
+      error,
     );
     return {
       episodes: [],
@@ -187,11 +227,11 @@ export const fetchEpisodesForPodcast = async (
 };
 
 /**
- * Fetch a single episode by ID from RSS feed
+ * Fetch a single episode by slug or ID from RSS feed
  */
 export const fetchEpisodeById = async (
   episodeId: string,
-  podcastSlug: string
+  podcastSlug: string,
 ): Promise<PodcastEpisode | null> => {
   try {
     const podcast = await fetchPodcastBySlug(podcastSlug);
@@ -204,10 +244,10 @@ export const fetchEpisodeById = async (
     const episode = await fetchEpisodeByIdFromRSS(
       episodeId,
       podcast.rssFeedUrl,
-      podcastSlug
+      podcastSlug,
     );
 
-    return episode;
+    return episode ? normalizeEpisodeThumbnail(episode, podcast) : null;
   } catch (error) {
     console.error(`Failed to fetch episode ${episodeId}:`, error);
     return null;
@@ -223,7 +263,7 @@ export const filterAndSortPodcasts = (
     status?: PodcastShow["status"];
     category?: string;
     featured?: boolean;
-  } = {}
+  } = {},
 ): PodcastShow[] => {
   let filtered = [...podcasts];
 
@@ -302,7 +342,7 @@ export const formatEpisodeDate = (dateString: string): string => {
  * Fetch the most recent episode for a podcast
  */
 export const fetchLatestEpisodeForPodcast = async (
-  podcast: PodcastShow
+  podcast: PodcastShow,
 ): Promise<PodcastEpisode | null> => {
   if (!podcast.rssFeedUrl) {
     return null;
@@ -311,14 +351,16 @@ export const fetchLatestEpisodeForPodcast = async (
   try {
     const allEpisodes = await fetchEpisodesFromRSSCached(
       podcast.rssFeedUrl,
-      podcast.slug
+      podcast.slug,
     );
 
-    return allEpisodes.length > 0 ? allEpisodes[0] : null;
+    return allEpisodes.length > 0
+      ? normalizeEpisodeThumbnail(allEpisodes[0]!, podcast)
+      : null;
   } catch (error) {
     console.error(
       `Failed to fetch latest episode for podcast ${podcast.slug}:`,
-      error
+      error,
     );
     return null;
   }

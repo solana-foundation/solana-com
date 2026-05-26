@@ -8,7 +8,7 @@ interface CategoryData {
 
 // Helper function to transform category data
 export function transformCategory(
-  categoryData?: CategoryData | null
+  categoryData?: CategoryData | null,
 ): CategoryItem | null {
   if (!categoryData) return null;
 

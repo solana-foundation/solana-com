@@ -3,6 +3,17 @@
 import type { PodcastShow } from "./podcast-types";
 
 /**
+ * Get initials from a name (e.g. "John Doe" → "JD")
+ */
+export const getInitials = (name: string): string => {
+  return name
+    .split(" ")
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("")
+    .substring(0, 2);
+};
+
+/**
  * Filter and sort podcasts
  */
 export const filterAndSortPodcasts = (
@@ -11,7 +22,7 @@ export const filterAndSortPodcasts = (
     status?: PodcastShow["status"];
     category?: string;
     featured?: boolean;
-  } = {}
+  } = {},
 ): PodcastShow[] => {
   let filtered = [...podcasts];
 

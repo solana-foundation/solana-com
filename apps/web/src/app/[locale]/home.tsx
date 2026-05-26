@@ -76,9 +76,7 @@ interface HomePageProps {
     communitySubtitle: string;
     communityLinksTranslations: { title: string; description: string }[];
   };
-  events: (Omit<CalendarEvent, "schedule"> & {
-    schedule: CalendarEvent["schedule"] & { from: string; to: string };
-  })[];
+  events: CalendarEvent[];
   firstFeaturedEventIndex: number;
   videos: YouTubePlaylistItem[];
   news: PostItem[];
@@ -130,8 +128,8 @@ export function HomePage({
         return eventDate >= oneWeekAgo;
       })
       .sort((a, b) => {
-        const dateA = new Date(a.schedule.from).getTime();
-        const dateB = new Date(b.schedule.from).getTime();
+        const dateA = new Date(a.schedule.from ?? 0).getTime();
+        const dateB = new Date(b.schedule.from ?? 0).getTime();
         return dateA - dateB;
       });
   }, [events]);
@@ -141,13 +139,12 @@ export function HomePage({
       <Hero
         title={translations.heroTitle}
         subtitle={translations.heroSubtitle}
-        bannerEyebrow="Graveyard Hack"
-        bannerDescription="Build undead ideas on Solana. Join from February 12-27, 2026 and compete for prizes."
-        bannerImgSrc="/assets/graveyard-hack/background.png"
-        // rm bannerHref and bannerLabel to hide banner
-        bannerHref="/graveyard-hack"
-        bannerLabel="Explore Graveyard Hack"
-        bannerExpiryDate="2026-02-27"
+        bannerEyebrow="Breakpoint 2026"
+        bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
+        bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
+        bannerHref="/breakpoint"
+        bannerLabel="Learn More"
+        bannerExpiryDate="2026-11-17"
         cta={translations.heroCta}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"
@@ -212,8 +209,8 @@ export function HomePage({
                 key={event.key}
                 imageSrc={event.img.primary || defaultImg.src}
                 title={event.title}
-                date={event.schedule.from}
-                location={event.venue.city || event.venue.address}
+                date={event.schedule.from ?? undefined}
+                location={event.venue.city ?? event.venue.address ?? undefined}
                 href={event.rsvp}
                 className="px-1"
               />
@@ -279,7 +276,7 @@ export function HomePage({
           <BigBannerCard
             key={item.id}
             className="px-1"
-            imageSrc={item.heroImage}
+            imageSrc={item.heroImage ?? ""}
             title={item.title}
             description={item.description}
             href={item.url}
@@ -299,8 +296,11 @@ export function HomePage({
         {videos.map((item) => (
           <BigVideoCard
             key={item.id}
-            id={item.contentDetails.videoId}
-            thumbnail={item.snippet.thumbnails.maxres.url}
+            id={item.contentDetails?.videoId ?? ""}
+            thumbnail={
+              item.snippet.thumbnails.maxres?.url ??
+              item.snippet.thumbnails.high.url
+            }
             alt={item.snippet.title}
             className="px-1"
             title={item.snippet.title}

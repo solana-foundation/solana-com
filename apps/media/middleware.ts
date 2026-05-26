@@ -11,7 +11,7 @@ function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
   return MARKDOWN_PREFIXES.some(
     (prefix) =>
-      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`)
+      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
   );
 }
 
@@ -34,13 +34,13 @@ export default async function middleware(req: NextRequest) {
   // Lowercase all paths
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url)
+      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url),
     );
   }
 
   const pathSegments = pathname.split("/").filter(Boolean);
   // Strip locale prefix to get the normalized path
-  const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const hasLocalePrefix = locales.includes(pathSegments[0] ?? "");
   const normalizedSegments = hasLocalePrefix
     ? pathSegments.slice(1)
     : pathSegments;
@@ -63,7 +63,8 @@ export default async function middleware(req: NextRequest) {
   // Serve raw markdown for .md extension URLs
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
     const segments = [...normalizedSegments];
-    segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
+    segments[segments.length - 1] =
+      segments[segments.length - 1]?.slice(0, -3) ?? "";
     const url = req.nextUrl.clone();
     url.pathname = `/api/markdown/${segments.join("/")}`;
     return NextResponse.rewrite(url);

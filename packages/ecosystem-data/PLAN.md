@@ -2,14 +2,20 @@
 
 ## Goal
 
-Create a shared workspace package that stores reusable company records and their logo assets once, then lets apps such as `apps/accelerate` build event-specific sponsor lists from that canonical source.
+Create a shared workspace package that stores reusable company records and their
+logo assets once, then lets apps such as `apps/accelerate` build event-specific
+sponsor lists from that canonical source.
 
-This package should replace app-local duplicated company data in `apps/accelerate` while preserving the current rendering shape used by the sponsor UI through app-level composition.
+This package should replace app-local duplicated company data in
+`apps/accelerate` while preserving the current rendering shape used by the
+sponsor UI through app-level composition.
 
-The package should be designed so that company data and logo assets are atomic and composable:
+The package should be designed so that company data and logo assets are atomic
+and composable:
 
 - atomic: each company owns its own record and assets in one place
-- composable: apps reference company atoms and add their own context-specific fields
+- composable: apps reference company atoms and add their own context-specific
+  fields
 
 ## Why the current structure is limiting
 
@@ -21,8 +27,11 @@ Today `apps/accelerate` stores sponsor data per event in:
 That creates three problems:
 
 1. Company metadata is duplicated across events.
-2. Logo assets are mostly flat files under `public/images/sponsors/`, which does not scale to light/dark or multiple file formats.
-3. Event sponsorship information and reusable company identity data are mixed into the same record even though sponsorship level is not a stable company property.
+2. Logo assets are mostly flat files under `public/images/sponsors/`, which does
+   not scale to light/dark or multiple file formats.
+3. Event sponsorship information and reusable company identity data are mixed
+   into the same record even though sponsorship level is not a stable company
+   property.
 
 ## Package boundary
 
@@ -35,13 +44,16 @@ Responsibilities:
 - Own the canonical company registry.
 - Own company logo metadata.
 - Export typed helpers for finding companies and selecting logos.
-- Keep app consumption simple enough that `apps/accelerate` can compose event-specific sponsor data with minimal churn.
+- Keep app consumption simple enough that `apps/accelerate` can compose
+  event-specific sponsor data with minimal churn.
 
 Design principle:
 
 - the smallest reusable unit is a company package atom
-- apps compose atoms into sponsors, speakers, partners, directory entries, or any future ecosystem listing
-- the package must not own app-specific augmentation such as sponsorship level, event URLs, or sort order
+- apps compose atoms into sponsors, speakers, partners, directory entries, or
+  any future ecosystem listing
+- the package must not own app-specific augmentation such as sponsorship level,
+  event URLs, or sort order
 
 Do not put app-specific presentation code in this package.
 
@@ -139,16 +151,22 @@ export type CompanyRecord = {
 
 Notes:
 
-- `id` should be the stable internal key. Use it everywhere instead of event-local names.
-- `slug` can remain URL-friendly and human-readable, but should not be the only identifier.
+- `id` should be the stable internal key. Use it everywhere instead of
+  event-local names.
+- `slug` can remain URL-friendly and human-readable, but should not be the only
+  identifier.
 - `logos` replaces `logo` and `availableLogos` as the source of truth.
-- `profile` should use explicit named fields for known links and socials instead of nested tagged arrays copied from an external CMS shape.
-- a single `CompanyRecord` should be independently reusable anywhere in the monorepo without requiring an event dataset
-- fields should only exist here if they are inherent to the company itself or its canonical public identity
+- `profile` should use explicit named fields for known links and socials instead
+  of nested tagged arrays copied from an external CMS shape.
+- a single `CompanyRecord` should be independently reusable anywhere in the
+  monorepo without requiring an event dataset
+- fields should only exist here if they are inherent to the company itself or
+  its canonical public identity
 
 ### What does not belong in this package
 
-Do not store fields here when they can vary by app, event, campaign, or presentation context.
+Do not store fields here when they can vary by app, event, campaign, or
+presentation context.
 
 Examples that should stay out of `@workspace/ecosystem-data`:
 
@@ -166,7 +184,11 @@ Apps should reference company atoms and layer their own augmentation on top:
 ```ts
 const miamiSponsors = [
   { companyId: "jito", sponsorshipLevel: "Signature" },
-  { companyId: "solflare", sponsorshipLevel: "Premium", featuredLogoId: "logo-dark" },
+  {
+    companyId: "solflare",
+    sponsorshipLevel: "Premium",
+    featuredLogoId: "logo-dark",
+  },
 ];
 ```
 
@@ -206,10 +228,12 @@ assets/companies/solflare/
 Rules:
 
 - One folder per company.
-- File names should encode variant meaning instead of relying on implicit ordering.
+- File names should encode variant meaning instead of relying on implicit
+  ordering.
 - Prefer SVG when available.
 - PNG/WebP remain valid fallbacks.
-- Keep a manifest entry in the company record so apps do not need to inspect the filesystem.
+- Keep a manifest entry in the company record so apps do not need to inspect the
+  filesystem.
 - assets should be co-located with the company atom they belong to
 
 Atomicity rule:
@@ -238,10 +262,14 @@ export type { CompanyRecord, CompanyLogoVariant } from "./types";
 Key helper:
 
 ```ts
-function toSponsor(company: CompanyRecord, augmentation: AppSponsorAugmentation): Sponsor
+function toSponsor(
+  company: CompanyRecord,
+  augmentation: AppSponsorAugmentation,
+): Sponsor;
 ```
 
-This adapter can live in the app or in a thin app-specific helper layer and should output the exact shape currently used by `apps/accelerate`:
+This adapter can live in the app or in a thin app-specific helper layer and
+should output the exact shape currently used by `apps/accelerate`:
 
 - `slug`
 - `name`
@@ -251,7 +279,8 @@ This adapter can live in the app or in a thin app-specific helper layer and shou
 - `availableLogos`
 - `profile`
 
-That adapter is the migration hinge. It lets `apps/accelerate` keep its existing `Sponsors` component while the company source moves underneath it.
+That adapter is the migration hinge. It lets `apps/accelerate` keep its existing
+`Sponsors` component while the company source moves underneath it.
 
 Recommended additional selectors:
 
@@ -261,7 +290,8 @@ getCompanyLogos(companyId: string): CompanyLogoVariant[]
 getCompanyLogo(companyId: string, options?: LogoSelectorOptions): CompanyLogoVariant | undefined
 ```
 
-These selectors are the composable API surface. Consumers should not need to understand internal storage layout.
+These selectors are the composable API surface. Consumers should not need to
+understand internal storage layout.
 
 ## Migration plan for `apps/accelerate`
 
@@ -275,7 +305,8 @@ These selectors are the composable API surface. Consumers should not need to und
 ### Phase 2: Add adapter compatibility
 
 1. In `apps/accelerate`, keep Miami and Hong Kong sponsor augmentation in JSON.
-2. Add an app-level adapter that composes those JSON records with `@workspace/ecosystem-data` company records.
+2. Add an app-level adapter that composes those JSON records with
+   `@workspace/ecosystem-data` company records.
 3. Replace direct sponsor-object usage with the app-level composed result.
 
 Target replacements:
@@ -289,7 +320,8 @@ This should avoid a component rewrite.
 
 1. Migrate canonical sponsor logos into package-owned company asset folders.
 2. Add imported logo entries per company.
-3. Compose app sponsor objects from imported package assets instead of mirrored `public/` files.
+3. Compose app sponsor objects from imported package assets instead of mirrored
+   `public/` files.
 
 ### Phase 4: Retire duplicated company data from app JSON
 
@@ -315,22 +347,28 @@ import sponsorsJson from "@/data/miami/sponsors.json";
 import { composeSponsors } from "@/lib/sponsor-data";
 ```
 
-The app should keep importing event-local JSON, but only as augmentation keyed by `companyId`.
+The app should keep importing event-local JSON, but only as augmentation keyed
+by `companyId`.
 
 Consumer rule:
 
 - import selectors and derived datasets from the package
-- do not reach into `assets/` directly unless the package explicitly documents that contract
+- do not reach into `assets/` directly unless the package explicitly documents
+  that contract
 
 ## Sync and authoring strategy
 
-The existing sponsor sync script in `apps/accelerate/scripts/sync-sponsors.ts` already contains logic for per-sponsor folders. That logic should move into the package or into a shared script that writes into `packages/ecosystem-data`.
+The existing sponsor sync script in `apps/accelerate/scripts/sync-sponsors.ts`
+already contains logic for per-sponsor folders. That logic should move into the
+package or into a shared script that writes into `packages/ecosystem-data`.
 
 Recommended direction:
 
 - Keep raw ingestion separate from published package data.
-- Generate typed TS modules or a canonical JSON artifact inside `packages/ecosystem-data/src/generated/`.
-- Validate that every company has at least one logo variant or an explicit exception.
+- Generate typed TS modules or a canonical JSON artifact inside
+  `packages/ecosystem-data/src/generated/`.
+- Validate that every company has at least one logo variant or an explicit
+  exception.
 - keep app-specific augmentation generation outside this package
 
 ## Validation rules
@@ -344,7 +382,8 @@ Add validation during build or sync:
 
 ## Recommendation on storage format
 
-Use TypeScript modules, not hand-authored large JSON files, for the canonical package source.
+Use TypeScript modules, not hand-authored large JSON files, for the canonical
+package source.
 
 Reasoning:
 
@@ -364,22 +403,28 @@ Deliver the smallest replacement that unblocks reuse:
 2. Add shared atomic types and selectors.
 3. Add a package `README.md` with ecosystem asset instructions.
 4. Add company records for every sponsor currently used by `apps/accelerate`.
-5. In `apps/accelerate`, reduce Miami and Hong Kong JSON files to augmentation-only records.
+5. In `apps/accelerate`, reduce Miami and Hong Kong JSON files to
+   augmentation-only records.
 6. Replace both `apps/accelerate` page imports with app-level composed data.
 7. Preserve the existing `Sponsors` UI contract via an adapter.
 
 ## Open decisions
 
-1. Whether `profile` should stay embedded as optional package-owned enrichment data, or move into a separate enrichment layer.
-2. Whether the sync source remains Google Sheets or moves to a more explicit registry workflow.
+1. Whether `profile` should stay embedded as optional package-owned enrichment
+   data, or move into a separate enrichment layer.
+2. Whether the sync source remains Google Sheets or moves to a more explicit
+   registry workflow.
 
 ## Recommended answer to those decisions
 
 For the first version:
 
-- keep `profile` override support in the package using the flat package schema rather than the external Grid response shape
+- keep `profile` override support in the package using the flat package schema
+  rather than the external Grid response shape
 - keep all event-specific sponsor declarations outside the package
 - keep the current `Sponsor` UI type as an app-derived compatibility layer
-- import package-owned company assets directly instead of copying them into app `public/`
+- import package-owned company assets directly instead of copying them into app
+  `public/`
 
-That gives you a clean long-term structure without forcing a full sponsor UI rewrite at the same time.
+That gives you a clean long-term structure without forcing a full sponsor UI
+rewrite at the same time.

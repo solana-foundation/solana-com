@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import React from "react";
 import type { ReactNode, ElementType } from "react";
-import Image from "next/image";
+import Image, { ImageProps } from "next/image";
 import { Video } from "./blocks/video";
 import { Mermaid } from "./blocks/mermaid";
 import { Tweet } from "react-tweet";
@@ -45,6 +45,83 @@ type GalleryImage = {
   };
   square?: boolean;
 };
+
+function readJsExpression(
+  input: string,
+  start: number,
+): { expression: string; end: number } | null {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | null = null;
+  let escaped = false;
+
+  for (let i = start; i < input.length; i++) {
+    const char = input[i];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "{" || char === "[" || char === "(") {
+      depth++;
+      continue;
+    }
+
+    if (char === "}" || char === "]" || char === ")") {
+      if (depth === 0) {
+        return {
+          expression: input.slice(start, i),
+          end: i,
+        };
+      }
+      depth--;
+    }
+  }
+
+  return null;
+}
+
+function serializeLegacyGalleryProps(source: string): string {
+  return source.replace(/<Gallery\b[\s\S]*?\/>/g, (tag) => {
+    const imagesPropIndex = tag.indexOf("images={");
+    if (imagesPropIndex === -1) {
+      return tag;
+    }
+
+    const expressionStart = imagesPropIndex + "images={".length;
+    const parsedExpression = readJsExpression(tag, expressionStart);
+    if (!parsedExpression) {
+      return tag;
+    }
+
+    const backgroundMatch = tag.match(/\sbackground="([^"]+)"/);
+    const backgroundProp = backgroundMatch
+      ? ` background="${backgroundMatch[1]}"`
+      : "";
+
+    const serializedImages = Buffer.from(
+      parsedExpression.expression.trim(),
+      "utf8",
+    ).toString("base64");
+
+    return `<Gallery${backgroundProp} imagesRaw="${serializedImages}" />`;
+  });
+}
 
 // Keystatic DocumentRenderer renderers for MDX content
 // Using 'as any' to work around complex type constraints in DocumentRendererProps
@@ -166,12 +243,12 @@ export const components = {
       <div className="overflow-x-auto my-4">
         <table className="w-full border-collapse border border-border">
           {head && (
-            <thead className="bg-muted">
+            <thead className="bg-primary text-primary-foreground">
               <tr className="border-b border-border">
                 {head.map((cell, i) => (
                   <th
                     key={i}
-                    className="px-4 py-2 text-left font-semibold border border-border"
+                    className="px-4 py-2 text-left font-semibold border border-border text-primary-foreground"
                     colSpan={cell.colSpan}
                     rowSpan={cell.rowSpan}
                   >
@@ -291,7 +368,7 @@ export const components = {
 
     gallery: (props: { background?: string; images?: GalleryImage[] }) => {
       // Cast to any to avoid type conflicts between Keystatic schema and Gallery component
-      return <Gallery {...(props as any)} />;
+      return <Gallery {...props} />;
     },
 
     stats: (props: StatsBlockData) => {
@@ -320,7 +397,7 @@ export const components = {
     ),
   },
 } as DocumentRendererProps["renderers"] & {
-  block?: Record<string, (props: any) => React.ReactNode>;
+  block?: Record<string, React.FC<unknown>>;
 };
 
 // Custom component tags used in MDX content (from Keystatic component blocks).
@@ -356,10 +433,10 @@ export function preprocessMDX(source: string): string {
     // Followed by whitespace, >, or / to avoid matching partial names
     result = result.replace(
       new RegExp(`<(/?)(${tag})(\\s|>|/)`, "g"),
-      (_, slash, _name, after) => `<${slash}${capitalized}${after}`
+      (_, slash, _name, after) => `<${slash}${capitalized}${after}`,
     );
   }
-  return result;
+  return serializeLegacyGalleryProps(result);
 }
 
 // Component implementations for custom MDX blocks.
@@ -405,13 +482,25 @@ const IframeBlock = (props: {
 const GalleryBlock = (props: {
   background?: string;
   images?: GalleryImage[];
-}) => <Gallery {...(props as any)} />;
+  imagesRaw?: string;
+  data?: {
+    background?: string;
+    images?: GalleryImage[];
+    imagesRaw?: string;
+  };
+}) => (
+  <Gallery
+    background={props.background ?? props.data?.background}
+    images={props.images ?? props.data?.images}
+    imagesRaw={props.imagesRaw ?? props.data?.imagesRaw}
+  />
+);
 
 const StatsBlock = (props: StatsBlockData) => {
   const statsData = {
     title: props.title || "",
     description: props.description || "",
-    stats: props.stats?.map((stat: any) => ({
+    stats: props.stats?.map((stat) => ({
       stat: stat?.stat,
       type: stat?.type,
     })),
@@ -501,7 +590,7 @@ const SupBlock = (props: { children: React.ReactNode }) => (
 // - Capitalized names: for custom inline JSX components (after preprocessMDX capitalizes tags)
 //   MDX v3 resolves capitalized JSX from props.components via destructuring
 // - Lowercase names: for markdown-generated HTML element overrides (img, blockquote from > syntax)
-export const mdxComponents: Record<string, React.ComponentType<any>> = {
+export const mdxComponents = {
   // Capitalized custom components (resolved by MDX v3 for inline JSX)
   Tweet: TweetBlock,
   Video: VideoBlock,
@@ -515,7 +604,7 @@ export const mdxComponents: Record<string, React.ComponentType<any>> = {
   Sup: SupBlock,
   // Lowercase overrides for markdown-generated elements
   blockquote: BlockquoteBlock,
-  img: ({ src, alt }: any) => {
+  img: ({ src, alt }: { src?: ImageProps["src"]; alt?: ImageProps["alt"] }) => {
     if (!src) return null;
     return (
       <span className="block w-full my-6">

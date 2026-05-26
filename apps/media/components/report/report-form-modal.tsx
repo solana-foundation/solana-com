@@ -16,6 +16,7 @@ interface ReportFormModalProps {
   buttonLabel: string;
   portalId: string;
   formId: string;
+  formUrl?: string;
   title?: string;
 }
 
@@ -29,7 +30,7 @@ declare global {
   interface Window {
     hbspt?: {
       forms: {
-        create: (config: Record<string, unknown>) => void;
+        create: (_config: Record<string, unknown>) => void;
       };
     };
   }
@@ -39,6 +40,7 @@ export function ReportFormModal({
   buttonLabel,
   portalId,
   formId,
+  formUrl,
   title = "Get the full report",
 }: ReportFormModalProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,16 +57,16 @@ export function ReportFormModal({
         formId,
         region: "na1" as const,
       }) satisfies ParsedHubSpotForm,
-    [formId, portalId]
+    [formId, portalId],
   );
 
   useEffect(() => {
-    if (!isOpen || window.hbspt?.forms) {
+    if (!isOpen || formUrl || window.hbspt?.forms) {
       return;
     }
 
     const existingScript = document.querySelector<HTMLScriptElement>(
-      'script[src="https://js.hsforms.net/forms/embed/v2.js"]'
+      'script[src="https://js.hsforms.net/forms/embed/v2.js"]',
     );
 
     if (existingScript) {
@@ -75,10 +77,16 @@ export function ReportFormModal({
     script.src = "https://js.hsforms.net/forms/embed/v2.js";
     script.async = true;
     document.body.appendChild(script);
-  }, [isOpen]);
+  }, [formUrl, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !containerMounted || !containerRef.current || isSubmitted) {
+    if (
+      !isOpen ||
+      formUrl ||
+      !containerMounted ||
+      !containerRef.current ||
+      isSubmitted
+    ) {
       return;
     }
 
@@ -195,7 +203,7 @@ export function ReportFormModal({
       window.removeEventListener("message", onMessage);
       observer.disconnect();
     };
-  }, [containerMounted, isOpen, isSubmitted, parsedForm, targetId]);
+  }, [containerMounted, formUrl, isOpen, isSubmitted, parsedForm, targetId]);
 
   return (
     <Dialog
@@ -254,6 +262,13 @@ export function ReportFormModal({
                 </p>
               </div>
             </div>
+          ) : formUrl ? (
+            <iframe
+              src={formUrl}
+              title={title}
+              className="h-[640px] max-h-[80vh] w-full border-0 bg-white"
+              onLoad={() => setIsLoading(false)}
+            />
           ) : (
             <div
               id={targetId}

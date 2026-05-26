@@ -13,12 +13,12 @@ export const revalidate = 60;
 
 export default async function Page(_props: Props) {
   // Solana Foundation calendar
-  let mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
+  const mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
     period: "past",
   });
 
   // HH calendar
-  let hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
+  const hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
     period: "past",
   });
 
@@ -33,12 +33,15 @@ export default async function Page(_props: Props) {
     limit: 20,
   });
 
-  const sortInstructions = [[(x: any) => x.schedule.from], ["desc"]];
+  const sortInstructions = [
+    [(x: { schedule: { from: string | null } }) => x.schedule.from],
+    ["desc"],
+  ];
   const sorted = orderBy(
     [...mainEvents, ...hhEvents, ...communityEvents, ...communityRiverEvents],
     ...sortInstructions,
   );
-  let unique = uniqBy(sorted, "key");
+  const unique = uniqBy(sorted, "key");
 
   return <EventsArchivePage events={unique} />;
 }

@@ -42,68 +42,68 @@ test("Keystatic walkthrough screenshots", async ({ page }) => {
 
   // 01 — Dashboard (includes sidebar navigation)
   await gotoKeystatic(page);
-  await snap(page, "01-dashboard.png");
+  await snap(page, "01-dashboard.webp");
 
   // 02 — Posts list
   await clickSidebarLink(page, "Posts");
-  await snap(page, "02-posts-list.png");
+  await snap(page, "02-posts-list.webp");
 
   // 03 — Post create form
   await clickAddButton(page);
-  await snap(page, "03-post-create-form.png");
+  await snap(page, "03-post-create-form.webp");
 
   // 04 — Post create form, lower fields
   await page.mouse.wheel(0, 1800);
   await page.waitForTimeout(1000);
-  await snap(page, "04-post-form-details.png");
+  await snap(page, "04-post-form-details.webp");
 
   // 05 — Links list
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Links");
-  await snap(page, "05-links-list.png");
+  await snap(page, "05-links-list.webp");
 
   // 06 — Link create form
   await clickAddButton(page);
-  await snap(page, "06-link-create-form.png");
+  await snap(page, "06-link-create-form.webp");
 
   // 07 — CTAs list
   await gotoKeystatic(page);
   await clickSidebarLink(page, "CTAs");
-  await snap(page, "07-ctas-list.png");
+  await snap(page, "07-ctas-list.webp");
 
   // 08 — CTA create form
   await clickAddButton(page);
-  await snap(page, "08-cta-create-form.png");
+  await snap(page, "08-cta-create-form.webp");
 
   // 09 — Switchbacks list
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Switchbacks");
-  await snap(page, "09-switchbacks-list.png");
+  await snap(page, "09-switchbacks-list.webp");
 
   // 10 — Switchback create form
   await clickAddButton(page);
-  await snap(page, "10-switchback-create-form.png");
+  await snap(page, "10-switchback-create-form.webp");
 
   // 11 — Categories list
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Categories");
-  await snap(page, "11-categories-list.png");
+  await snap(page, "11-categories-list.webp");
 
   // 12 — Category create form
   await clickAddButton(page);
-  await snap(page, "12-category-create-form.png");
+  await snap(page, "12-category-create-form.webp");
 
   // 13 — Tags list
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Tags");
-  await snap(page, "13-tags-list.png");
+  await snap(page, "13-tags-list.webp");
 
   // 14 — Tag create form
   await clickAddButton(page);
-  await snap(page, "14-tag-create-form.png");
+  await snap(page, "14-tag-create-form.webp");
 
   // 15 — Global settings
   await gotoKeystatic(page);
   await clickSidebarLink(page, "Global Settings");
-  await snap(page, "15-global-settings.png");
+  await snap(page, "15-global-settings.webp");
 });

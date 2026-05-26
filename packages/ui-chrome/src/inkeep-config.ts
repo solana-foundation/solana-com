@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import faviconPng from "./assets/favicon.png";
 import type {
   InkeepBaseSettings,
@@ -764,18 +765,39 @@ export function useInkeepConfig(): {
   baseSettings: InkeepBaseSettings;
   searchSettings: InkeepSearchSettings;
   aiChatSettings: InkeepAIChatSettings;
+  shouldForceSearchView: boolean;
   modalSettings: {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
   };
 } {
+  const searchParams = useSearchParams();
   const [syncTarget, setSyncTarget] = useState<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const searchFunctionsRef = useRef<{
+    updateQuery: (query: string) => void;
+    focusInput: () => void;
+  } | null>(null);
+  const searchQuery = searchParams.get("search")?.trim() ?? "";
+  const shouldForceSearchView = searchQuery.length > 0;
 
   // We do this because document is not available in the server
   useEffect(() => {
     setSyncTarget(document.documentElement);
   }, []);
+
+  useEffect(() => {
+    if (!shouldForceSearchView) return;
+
+    setIsOpen(true);
+  }, [shouldForceSearchView]);
+
+  useEffect(() => {
+    if (!shouldForceSearchView || !isOpen) return;
+
+    searchFunctionsRef.current?.updateQuery(searchQuery);
+    searchFunctionsRef.current?.focusInput();
+  }, [isOpen, searchQuery, shouldForceSearchView]);
 
   return {
     baseSettings: {
@@ -792,7 +814,12 @@ export function useInkeepConfig(): {
       isOpen,
       onOpenChange: setIsOpen,
     },
-    searchSettings,
+    shouldForceSearchView,
+    searchSettings: {
+      ...searchSettings,
+      defaultQuery: searchQuery,
+      searchFunctionsRef,
+    },
     aiChatSettings,
   };
 }

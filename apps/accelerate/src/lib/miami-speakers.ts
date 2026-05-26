@@ -1,14 +1,17 @@
 import { unstable_cache } from "next/cache";
-import fallbackMiamiSpeakersData from "@/data/miami/speakers.json";
 import type { Speaker } from "@/types/speakers";
+import {
+  AIRTABLE_API_BASE,
+  fetchAirtableJson,
+  type AirtableFetchOptions,
+} from "./airtable";
 
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 const AIRTABLE_CACHE_SECONDS = 60 * 30;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const DEFAULT_BASE_ID = "apph4y5MDXBxJ2uZy";
 const DEFAULT_TABLE_ID = "tbljHJh3sx1zrwMSD";
 const DEFAULT_VIEW_ID = "viwK6atCbxFZWGyvk";
-const FALLBACK_MIAMI_SPEAKERS = fallbackMiamiSpeakersData.speakers as Speaker[];
 
 type AirtableAttachment = {
   url?: string;
@@ -228,17 +231,17 @@ function normalizeSpeakerRecord(
   };
 }
 
-async function fetchAirtableSpeakers(): Promise<Speaker[]> {
+async function fetchAirtableSpeakers(): Promise<Speaker[] | null> {
   const token = process.env.AIRTABLE_PAT;
-  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS ?? DEFAULT_BASE_ID;
-  const tableId = process.env.AIRTABLE_TABLE_ID_SPEAKERS ?? DEFAULT_TABLE_ID;
-  const viewId = process.env.AIRTABLE_VIEW_ID_SPEAKERS ?? DEFAULT_VIEW_ID;
+  const baseId = process.env.AIRTABLE_BASE_ID_SPEAKERS || DEFAULT_BASE_ID;
+  const tableId = process.env.AIRTABLE_TABLE_ID_SPEAKERS || DEFAULT_TABLE_ID;
+  const viewId = process.env.AIRTABLE_VIEW_ID_SPEAKERS || DEFAULT_VIEW_ID;
 
   if (!token) {
     console.warn(
-      "Miami speakers Airtable PAT missing; using fallback snapshot",
+      "Miami speakers Airtable PAT missing; hiding speakers section",
     );
-    return FALLBACK_MIAMI_SPEAKERS;
+    return null;
   }
 
   try {
@@ -253,24 +256,21 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
 
       if (offset) params.set("offset", offset);
 
-      const response = await fetch(
+      const fetchOptions: AirtableFetchOptions = IS_PRODUCTION
+        ? {
+            next: {
+              revalidate: AIRTABLE_CACHE_SECONDS,
+              tags: ["miami-speakers"],
+            },
+          }
+        : { cache: "no-store" };
+
+      const payload = await fetchAirtableJson<AirtableListResponse>(
         `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          next: {
-            revalidate: AIRTABLE_CACHE_SECONDS,
-            tags: ["miami-speakers"],
-          },
-        },
+        token,
+        fetchOptions,
+        "Miami speakers Airtable request",
       );
-
-      if (!response.ok) {
-        throw new Error(`Airtable request failed (${response.status})`);
-      }
-
-      const payload = (await response.json()) as AirtableListResponse;
 
       for (const [index, record] of (payload.records ?? []).entries()) {
         const normalized = normalizeSpeakerRecord(
@@ -295,13 +295,12 @@ async function fetchAirtableSpeakers(): Promise<Speaker[]> {
       .map((entry) => entry.speaker);
   } catch (error) {
     console.error("Failed to load Miami speakers from Airtable", error);
-    return FALLBACK_MIAMI_SPEAKERS;
+    return null;
   }
 }
 
-export const getMiamiSpeakers =
-  process.env.NODE_ENV === "production"
-    ? unstable_cache(fetchAirtableSpeakers, ["miami-speakers-airtable"], {
-        revalidate: AIRTABLE_CACHE_SECONDS,
-      })
-    : fetchAirtableSpeakers;
+export const getMiamiSpeakers = IS_PRODUCTION
+  ? unstable_cache(fetchAirtableSpeakers, ["miami-speakers-airtable"], {
+      revalidate: AIRTABLE_CACHE_SECONDS,
+    })
+  : fetchAirtableSpeakers;

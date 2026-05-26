@@ -23,6 +23,7 @@ export async function Code(props: {
   flags?: string;
   storage?: string;
   className?: string;
+  handlers?: AnnotationHandler[];
 }) {
   const group = await toCodeGroup(props);
   return group.tabs.length === 1 ? (
@@ -115,10 +116,10 @@ export async function toCodeGroup(props: {
       }
       return {
         options,
-        title,
+        title: title || "",
         style: highlighted.style,
         code: highlighted.code,
-        icon: <CodeIcon title={title} lang={tab.lang} />,
+        icon: <CodeIcon title={title ?? ""} lang={tab.lang} />,
         lang: tab.lang,
         pre: (
           <Pre

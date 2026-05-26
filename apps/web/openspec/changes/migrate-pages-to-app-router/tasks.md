@@ -37,7 +37,8 @@ manual verification in the browser confirms the page works correctly.
 - [x] 1.30 Verify `/solanaramp` renders correctly
 - [x] 1.31 Migrate `/staking` — `pages/[locale]/staking.tsx`
 - [x] 1.32 Verify `/staking` renders correctly
-- [x] 1.33 Migrate `/tokenized-equities` — `pages/[locale]/tokenized-equities.tsx`
+- [x] 1.33 Migrate `/tokenized-equities` —
+      `pages/[locale]/tokenized-equities.tsx`
 - [x] 1.34 Verify `/tokenized-equities` renders correctly
 - [x] 1.35 Migrate `/tos` — `pages/[locale]/tos.tsx`
 - [x] 1.36 Verify `/tos` renders correctly
@@ -47,7 +48,8 @@ manual verification in the browser confirms the page works correctly.
 
 ## 2. Community Section
 
-- [x] 2.1 Migrate `/community/report-2024-newsletter-sign-up` — `pages/[locale]/community/report-2024-newsletter-sign-up.tsx`
+- [x] 2.1 Migrate `/community/report-2024-newsletter-sign-up` —
+      `pages/[locale]/community/report-2024-newsletter-sign-up.tsx`
 - [x] 2.2 Verify `/community/report-2024-newsletter-sign-up` renders correctly
 
 ## 3. Events Section
@@ -75,31 +77,44 @@ manual verification in the browser confirms the page works correctly.
 - [x] 5.6 Verify `/developers/gaming` renders correctly
 - [x] 5.7 Migrate `/developers/nfts` — `pages/[locale]/developers/nfts.tsx`
 - [x] 5.8 Verify `/developers/nfts` renders correctly
-- [x] 5.9 Migrate `/developers/payments` — `pages/[locale]/developers/payments.tsx`
+- [x] 5.9 Migrate `/developers/payments` —
+      `pages/[locale]/developers/payments.tsx`
 - [x] 5.10 Verify `/developers/payments` renders correctly
-- [x] 5.11 Migrate `/developers/evm-to-svm` (index) — `pages/[locale]/developers/evm-to-svm/index.tsx`
+- [x] 5.11 Migrate `/developers/evm-to-svm` (index) —
+      `pages/[locale]/developers/evm-to-svm/index.tsx`
 - [x] 5.12 Verify `/developers/evm-to-svm` renders correctly
-- [x] 5.13 Migrate `/developers/evm-to-svm/accounts` — `pages/[locale]/developers/evm-to-svm/accounts.tsx`
+- [x] 5.13 Migrate `/developers/evm-to-svm/accounts` —
+      `pages/[locale]/developers/evm-to-svm/accounts.tsx`
 - [x] 5.14 Verify `/developers/evm-to-svm/accounts` renders correctly
-- [x] 5.15 Migrate `/developers/evm-to-svm/client-differences` — `pages/[locale]/developers/evm-to-svm/client-differences.tsx`
+- [x] 5.15 Migrate `/developers/evm-to-svm/client-differences` —
+      `pages/[locale]/developers/evm-to-svm/client-differences.tsx`
 - [x] 5.16 Verify `/developers/evm-to-svm/client-differences` renders correctly
-- [x] 5.17 Migrate `/developers/evm-to-svm/complete-guide` — `pages/[locale]/developers/evm-to-svm/complete-guide.tsx`
+- [x] 5.17 Migrate `/developers/evm-to-svm/complete-guide` —
+      `pages/[locale]/developers/evm-to-svm/complete-guide.tsx`
 - [x] 5.18 Verify `/developers/evm-to-svm/complete-guide` renders correctly
-- [x] 5.19 Migrate `/developers/evm-to-svm/consensus` — `pages/[locale]/developers/evm-to-svm/consensus.tsx`
+- [x] 5.19 Migrate `/developers/evm-to-svm/consensus` —
+      `pages/[locale]/developers/evm-to-svm/consensus.tsx`
 - [x] 5.20 Verify `/developers/evm-to-svm/consensus` renders correctly
-- [x] 5.21 Migrate `/developers/evm-to-svm/eip2612` — `pages/[locale]/developers/evm-to-svm/eip2612.tsx`
+- [x] 5.21 Migrate `/developers/evm-to-svm/eip2612` —
+      `pages/[locale]/developers/evm-to-svm/eip2612.tsx`
 - [x] 5.22 Verify `/developers/evm-to-svm/eip2612` renders correctly
-- [x] 5.23 Migrate `/developers/evm-to-svm/erc20` — `pages/[locale]/developers/evm-to-svm/erc20.tsx`
+- [x] 5.23 Migrate `/developers/evm-to-svm/erc20` —
+      `pages/[locale]/developers/evm-to-svm/erc20.tsx`
 - [x] 5.24 Verify `/developers/evm-to-svm/erc20` renders correctly
-- [x] 5.25 Migrate `/developers/evm-to-svm/erc3643` — `pages/[locale]/developers/evm-to-svm/erc3643.tsx`
+- [x] 5.25 Migrate `/developers/evm-to-svm/erc3643` —
+      `pages/[locale]/developers/evm-to-svm/erc3643.tsx`
 - [x] 5.26 Verify `/developers/evm-to-svm/erc3643` renders correctly
-- [x] 5.27 Migrate `/developers/evm-to-svm/erc4337` — `pages/[locale]/developers/evm-to-svm/erc4337.tsx`
+- [x] 5.27 Migrate `/developers/evm-to-svm/erc4337` —
+      `pages/[locale]/developers/evm-to-svm/erc4337.tsx`
 - [x] 5.28 Verify `/developers/evm-to-svm/erc4337` renders correctly
-- [x] 5.29 Migrate `/developers/evm-to-svm/erc4626` — `pages/[locale]/developers/evm-to-svm/erc4626.tsx`
+- [x] 5.29 Migrate `/developers/evm-to-svm/erc4626` —
+      `pages/[locale]/developers/evm-to-svm/erc4626.tsx`
 - [x] 5.30 Verify `/developers/evm-to-svm/erc4626` renders correctly
-- [x] 5.31 Migrate `/developers/evm-to-svm/erc721` — `pages/[locale]/developers/evm-to-svm/erc721.tsx`
+- [x] 5.31 Migrate `/developers/evm-to-svm/erc721` —
+      `pages/[locale]/developers/evm-to-svm/erc721.tsx`
 - [x] 5.32 Verify `/developers/evm-to-svm/erc721` renders correctly
-- [x] 5.33 Migrate `/developers/evm-to-svm/smart-contracts` — `pages/[locale]/developers/evm-to-svm/smart-contracts.tsx`
+- [x] 5.33 Migrate `/developers/evm-to-svm/smart-contracts` —
+      `pages/[locale]/developers/evm-to-svm/smart-contracts.tsx`
 - [x] 5.34 Verify `/developers/evm-to-svm/smart-contracts` renders correctly
 - [x] 5.35 Run `pnpm build` — confirm no build errors after Phase 5
 
@@ -111,13 +126,16 @@ manual verification in the browser confirms the page works correctly.
 - [x] 6.4 Verify `/solutions/actions` renders correctly
 - [x] 6.5 Migrate `/solutions/ai` — `pages/[locale]/solutions/ai.tsx`
 - [x] 6.6 Verify `/solutions/ai` renders correctly
-- [x] 6.7 Migrate `/solutions/artists-creators` — `pages/[locale]/solutions/artists-creators.tsx`
+- [x] 6.7 Migrate `/solutions/artists-creators` —
+      `pages/[locale]/solutions/artists-creators.tsx`
 - [x] 6.8 Verify `/solutions/artists-creators` renders correctly
 - [x] 6.9 Migrate `/solutions/btcfi` — `pages/[locale]/solutions/btcfi.tsx`
 - [x] 6.10 Verify `/solutions/btcfi` renders correctly
-- [x] 6.11 Migrate `/solutions/commerce-tooling` — `pages/[locale]/solutions/commerce-tooling.tsx`
+- [x] 6.11 Migrate `/solutions/commerce-tooling` —
+      `pages/[locale]/solutions/commerce-tooling.tsx`
 - [x] 6.12 Verify `/solutions/commerce-tooling` renders correctly
-- [x] 6.13 Migrate `/solutions/consumer` — `pages/[locale]/solutions/consumer.tsx`
+- [x] 6.13 Migrate `/solutions/consumer` —
+      `pages/[locale]/solutions/consumer.tsx`
 - [x] 6.14 Verify `/solutions/consumer` renders correctly
 - [x] 6.15 Migrate `/solutions/defi` — `pages/[locale]/solutions/defi.tsx`
 - [x] 6.16 Verify `/solutions/defi` renders correctly
@@ -125,39 +143,55 @@ manual verification in the browser confirms the page works correctly.
 - [x] 6.18 Verify `/solutions/depin` renders correctly
 - [x] 6.19 Migrate `/solutions/desci` — `pages/[locale]/solutions/desci.tsx`
 - [x] 6.20 Verify `/solutions/desci` renders correctly
-- [x] 6.21 Migrate `/solutions/digital-assets` — `pages/[locale]/solutions/digital-assets.tsx`
+- [x] 6.21 Migrate `/solutions/digital-assets` —
+      `pages/[locale]/solutions/digital-assets.tsx`
 - [x] 6.22 Verify `/solutions/digital-assets` renders correctly
-- [x] 6.23 Migrate `/solutions/enterprise` — `pages/[locale]/solutions/enterprise.tsx`
+- [x] 6.23 Migrate `/solutions/enterprise` —
+      `pages/[locale]/solutions/enterprise.tsx`
 - [x] 6.24 Verify `/solutions/enterprise` renders correctly
-- [x] 6.25 Migrate `/solutions/financial-infrastructure` — `pages/[locale]/solutions/financial-infrastructure.tsx`
+- [x] 6.25 Migrate `/solutions/financial-infrastructure` —
+      `pages/[locale]/solutions/financial-infrastructure.tsx`
 - [x] 6.26 Verify `/solutions/financial-infrastructure` renders correctly
-- [x] 6.27 Migrate `/solutions/financial-institutions` — `pages/[locale]/solutions/financial-institutions.tsx`
+- [x] 6.27 Migrate `/solutions/financial-institutions` —
+      `pages/[locale]/solutions/financial-institutions.tsx`
 - [x] 6.28 Verify `/solutions/financial-institutions` renders correctly
-- [x] 6.29 Migrate `/solutions/games-tooling` — `pages/[locale]/solutions/games-tooling.tsx`
+- [x] 6.29 Migrate `/solutions/games-tooling` —
+      `pages/[locale]/solutions/games-tooling.tsx`
 - [x] 6.30 Verify `/solutions/games-tooling` renders correctly
-- [x] 6.31 Migrate `/solutions/gaming-and-entertainment` — `pages/[locale]/solutions/gaming-and-entertainment.tsx`
+- [x] 6.31 Migrate `/solutions/gaming-and-entertainment` —
+      `pages/[locale]/solutions/gaming-and-entertainment.tsx`
 - [x] 6.32 Verify `/solutions/gaming-and-entertainment` renders correctly
-- [x] 6.33 Migrate `/solutions/institutional-payments` — `pages/[locale]/solutions/institutional-payments.tsx`
+- [x] 6.33 Migrate `/solutions/institutional-payments` —
+      `pages/[locale]/solutions/institutional-payments.tsx`
 - [x] 6.34 Verify `/solutions/institutional-payments` renders correctly
-- [x] 6.35 Migrate `/solutions/payments-tooling` — `pages/[locale]/solutions/payments-tooling.tsx`
+- [x] 6.35 Migrate `/solutions/payments-tooling` —
+      `pages/[locale]/solutions/payments-tooling.tsx`
 - [x] 6.36 Verify `/solutions/payments-tooling` renders correctly
-- [x] 6.37 Migrate `/solutions/real-world-assets` — `pages/[locale]/solutions/real-world-assets.tsx`
+- [x] 6.37 Migrate `/solutions/real-world-assets` —
+      `pages/[locale]/solutions/real-world-assets.tsx`
 - [x] 6.38 Verify `/solutions/real-world-assets` renders correctly
-- [x] 6.39 Migrate `/solutions/request-for-startups` — `pages/[locale]/solutions/request-for-startups.tsx`
+- [x] 6.39 Migrate `/solutions/request-for-startups` —
+      `pages/[locale]/solutions/request-for-startups.tsx`
 - [x] 6.40 Verify `/solutions/request-for-startups` renders correctly
-- [x] 6.41 Migrate `/solutions/solana-permissioned-environments` — `pages/[locale]/solutions/solana-permissioned-environments.tsx`
-- [x] 6.42 Verify `/solutions/solana-permissioned-environments` renders correctly
-- [x] 6.43 Migrate `/solutions/stablecoins` — `pages/[locale]/solutions/stablecoins.tsx`
+- [x] 6.41 Migrate `/solutions/solana-permissioned-environments` —
+      `pages/[locale]/solutions/solana-permissioned-environments.tsx`
+- [x] 6.42 Verify `/solutions/solana-permissioned-environments` renders
+      correctly
+- [x] 6.43 Migrate `/solutions/stablecoins` —
+      `pages/[locale]/solutions/stablecoins.tsx`
 - [x] 6.44 Verify `/solutions/stablecoins` renders correctly
-- [x] 6.45 Migrate `/solutions/token-extensions` — `pages/[locale]/solutions/token-extensions.tsx`
+- [x] 6.45 Migrate `/solutions/token-extensions` —
+      `pages/[locale]/solutions/token-extensions.tsx`
 - [x] 6.46 Verify `/solutions/token-extensions` renders correctly
-- [x] 6.47 Migrate `/solutions/tokenization` — `pages/[locale]/solutions/tokenization.tsx`
+- [x] 6.47 Migrate `/solutions/tokenization` —
+      `pages/[locale]/solutions/tokenization.tsx`
 - [x] 6.48 Verify `/solutions/tokenization` renders correctly
 - [x] 6.49 Run `pnpm build` — confirm no build errors after Phase 6
 
 ## 7. Cleanup & 404
 
-- [x] 7.1 Remove `pages/[locale]/404.js` (already handled by `app/[locale]/not-found.tsx`)
+- [x] 7.1 Remove `pages/[locale]/404.js` (already handled by
+      `app/[locale]/not-found.tsx`)
 - [x] 7.2 Verify 404 page still works correctly
 - [x] 7.3 Remove all `_m_` backup files from `pages/[locale]/`
 

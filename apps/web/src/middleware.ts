@@ -18,6 +18,7 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/developers/templates") ||
     pathname.startsWith("/developers/cookbook") ||
     pathname.startsWith("/developers/guides") ||
+    pathname.startsWith("/developers/bootcamp") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
     (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
@@ -82,10 +83,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   const response = await handleI18nRouting(req);
-
-  if (pathname.includes("/playgg")) {
-    response.headers.set("x-custom-layout", "true");
-  }
 
   return response;
 }

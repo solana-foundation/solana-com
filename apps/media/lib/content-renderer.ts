@@ -30,7 +30,7 @@ export function extractPlainText(content: string | null | undefined): string {
  * Handles both string and document object types
  */
 export function contentDocumentToPlainText(
-  content: ContentDocument | string | null | undefined
+  content: ContentDocument | string | null | undefined,
 ): string {
   if (!content) return "";
 

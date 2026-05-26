@@ -34,7 +34,10 @@ function getPropertyByName(node, propertyName) {
 }
 
 function getStringLiteralValue(expression) {
-  if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) {
+  if (
+    ts.isStringLiteral(expression) ||
+    ts.isNoSubstitutionTemplateLiteral(expression)
+  ) {
     return expression.text;
   }
 
@@ -105,7 +108,10 @@ function getRecordObject(filePath) {
       const importName = statement.importClause?.name?.text;
       const moduleSpecifier = getStringLiteralValue(statement.moduleSpecifier);
 
-      if (importName && moduleSpecifier?.startsWith("../../../assets/companies/")) {
+      if (
+        importName &&
+        moduleSpecifier?.startsWith("../../../assets/companies/")
+      ) {
         importedAssetPaths.set(
           importName,
           moduleSpecifier.replace("../../../assets/companies/", ""),
@@ -162,7 +168,9 @@ for (const fileName of recordFiles) {
   const slug = getObjectPropertyString(recordNode, "slug");
   const defaultLogoId = getObjectPropertyString(recordNode, "defaultLogoId");
   const profileNode = getNestedProperty(recordNode, ["profile"]);
-  const profileObject = ts.isObjectLiteralExpression(profileNode) ? profileNode : null;
+  const profileObject = ts.isObjectLiteralExpression(profileNode)
+    ? profileNode
+    : null;
   const linksObject = getObjectPropertyObject(profileObject, "links");
   const socialsObject = getObjectPropertyObject(profileObject, "socials");
   const logosArray = getObjectPropertyArray(recordNode, "logos");
@@ -190,13 +198,15 @@ for (const fileName of recordFiles) {
         id: logoId,
         fileName: fileNameValue,
         importedAssetPath: sourceIdentifier
-          ? importedAssetPaths.get(sourceIdentifier) ?? null
+          ? (importedAssetPaths.get(sourceIdentifier) ?? null)
           : null,
       });
     }
   }
 
-  const hasWebsiteUrl = Boolean(getObjectPropertyString(linksObject, "website"));
+  const hasWebsiteUrl = Boolean(
+    getObjectPropertyString(linksObject, "website"),
+  );
 
   const socialCount = socialsObject
     ? socialsObject.properties.filter((property) => {
@@ -228,8 +238,12 @@ const assetFolders = fs
   .sort();
 
 const assetFolderSet = new Set(assetFolders);
-const companyIdSet = new Set(records.map((record) => record.id).filter(Boolean));
-const recordSlugSet = new Set(records.map((record) => record.slug).filter(Boolean));
+const companyIdSet = new Set(
+  records.map((record) => record.id).filter(Boolean),
+);
+const recordSlugSet = new Set(
+  records.map((record) => record.slug).filter(Boolean),
+);
 
 const issues = {
   filesWithMismatchedSlug: records
@@ -277,13 +291,20 @@ for (const record of records) {
   for (const logo of record.logos) {
     const diskPath = path.join(folderPath, logo.fileName);
     if (!fs.existsSync(diskPath)) {
-      issues.missingLogoFiles.push(`${record.id} -> ${record.slug}/${logo.fileName}`);
+      issues.missingLogoFiles.push(
+        `${record.id} -> ${record.slug}/${logo.fileName}`,
+      );
     }
 
     if (logo.importedAssetPath) {
-      const importedAssetAbsolutePath = path.join(assetsRoot, logo.importedAssetPath);
+      const importedAssetAbsolutePath = path.join(
+        assetsRoot,
+        logo.importedAssetPath,
+      );
       if (!fs.existsSync(importedAssetAbsolutePath)) {
-        issues.importedAssetsMissingOnDisk.push(`${record.id} -> ${logo.importedAssetPath}`);
+        issues.importedAssetsMissingOnDisk.push(
+          `${record.id} -> ${logo.importedAssetPath}`,
+        );
       }
     }
   }
@@ -300,7 +321,9 @@ for (const record of records) {
 
   for (const fileName of diskFiles) {
     if (!referencedFiles.has(fileName)) {
-      issues.unreferencedAssetFiles.push(`${record.id} -> ${record.slug}/${fileName}`);
+      issues.unreferencedAssetFiles.push(
+        `${record.id} -> ${record.slug}/${fileName}`,
+      );
     }
   }
 }

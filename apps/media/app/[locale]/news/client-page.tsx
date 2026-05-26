@@ -11,6 +11,10 @@ import { PostItem, PageInfo } from "@/lib/post-types";
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
 import uniqBy from "lodash/uniqBy";
+import {
+  filterPostsByNewsFilter,
+  getNewsFilterOptions,
+} from "@/lib/news-filters";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
   hasPreviousPage: false,
@@ -27,14 +31,14 @@ interface PostsClientPageProps {
 
 export default function PostsClientPage(props: PostsClientPageProps) {
   const { featuredPost, latestPosts, initialPageInfo } = props;
-  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
-    null
+  const [selectedFilter, setSelectedFilter] = React.useState<string | null>(
+    null,
   );
 
   const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
-    initialPageInfo ?? DEFAULT_PAGE_INFO
+    initialPageInfo ?? DEFAULT_PAGE_INFO,
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
@@ -81,7 +85,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     setPosts(
       featuredPost
         ? latestPosts?.filter((post) => post?.id !== featuredPost?.id) || []
-        : latestPosts || []
+        : latestPosts || [],
     );
 
     // Set the cursor from the last (oldest) post edge
@@ -91,24 +95,11 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     }
   }, [latestPosts, featuredPost]);
 
-  // Get unique categories from all posts
-  const allCategories = useMemo(() => {
-    const categorySet = new Set<string>();
-    posts.forEach((post) => {
-      post?.categories?.forEach(
-        (category: string) => category && categorySet.add(category)
-      );
-    });
-    return Array.from(categorySet).sort();
-  }, [posts]);
+  const filterOptions = useMemo(() => getNewsFilterOptions(posts), [posts]);
 
-  // Filter posts based on selected category
   const filteredPosts = useMemo(() => {
-    if (!selectedCategory) {
-      return posts;
-    }
-    return posts.filter((post) => post?.categories?.includes(selectedCategory));
-  }, [posts, selectedCategory]);
+    return filterPostsByNewsFilter(posts, selectedFilter);
+  }, [posts, selectedFilter]);
 
   // const handleCopyLink = useCallback(() => {
   //   if (
@@ -193,28 +184,28 @@ export default function PostsClientPage(props: PostsClientPageProps) {
             </div>
           )}
           <div className="px-4 md:px-6 lg:px-0">
-            {/* Category Filter Button Group */}
-            {allCategories.length > 0 && (
+            {/* Filter Button Group */}
+            {filterOptions.length > 0 && (
               <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full mb-6">
                 <span className="text-sm font-medium text-muted-foreground">
                   Filter by category:
                 </span>
                 <Button
-                  variant={selectedCategory === null ? "default" : "secondary"}
+                  variant={selectedFilter === null ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setSelectedCategory(null)}
+                  onClick={() => setSelectedFilter(null)}
                   className="capitalize"
                 >
                   All
                 </Button>
-                {allCategories.map((category) => (
+                {filterOptions.map((category) => (
                   <Button
                     key={category}
                     variant={
-                      selectedCategory === category ? "default" : "secondary"
+                      selectedFilter === category ? "default" : "secondary"
                     }
                     size="sm"
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setSelectedFilter(category)}
                     className="capitalize"
                   >
                     {category}
@@ -226,22 +217,22 @@ export default function PostsClientPage(props: PostsClientPageProps) {
             {filteredPosts.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
                 {filteredPosts.map(
-                  (post) => post && <PostCard key={post.id} post={post} />
+                  (post) => post && <PostCard key={post.id} post={post} />,
                 )}
               </div>
             )}
 
             {/* Show message when no posts match the filter */}
-            {filteredPosts.length === 0 && selectedCategory && (
+            {filteredPosts.length === 0 && selectedFilter && (
               <div className="text-center py-12 max-w-6xl mx-auto w-full">
                 <p className="text-muted-foreground">
-                  No posts found for &quot;{selectedCategory}&quot; category.
+                  No posts found for &quot;{selectedFilter}&quot;.
                 </p>
               </div>
             )}
 
-            {/* Only show LoadMoreStatus when there are posts and no category filter is active */}
-            {posts.length > 0 && !selectedCategory && (
+            {/* Only show LoadMoreStatus when there are posts and no filter is active */}
+            {posts.length > 0 && !selectedFilter && (
               <LoadMoreStatus
                 isLoading={isLoadingMore}
                 hasMore={pageInfo.hasNextPage}

@@ -1,7 +1,4 @@
-import {
-  getCompany,
-  type CompanyId,
-} from "./companies/registry";
+import { getCompany, type CompanyId } from "./companies/registry";
 import type {
   CompanyLogoAsset,
   CompanyRecord,
@@ -74,6 +71,9 @@ export function getCompanyLogo(
       return false;
     }
     if (options.format && logo.format !== options.format) {
+      return false;
+    }
+    if (options.treatment && logo.treatment !== options.treatment) {
       return false;
     }
     return true;

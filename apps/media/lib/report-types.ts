@@ -4,6 +4,7 @@ export type ReportItem = {
   id: string;
   title: string;
   published: string;
+  publishedAt: string | null;
   tags: string[];
   categories: string[];
   url: string;

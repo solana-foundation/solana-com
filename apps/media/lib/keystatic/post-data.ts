@@ -1,7 +1,7 @@
 import { reader } from "../reader";
 import { PostItem } from "../post-types";
-import { format } from "date-fns";
 import { isPublishedPost } from "./post-status";
+import { formatPublishedAt, parsePublishedAt } from "./publishing";
 
 export interface LatestPostsParams {
   limit?: number;
@@ -29,16 +29,13 @@ function dedupeStrings(values: string[]): string[] {
  */
 async function transformPost(
   slug: string,
-  post: Awaited<ReturnType<typeof reader.collections.posts.read>>
+  post: Awaited<ReturnType<typeof reader.collections.posts.read>>,
 ): Promise<PostItem | null> {
   if (!post) return null;
 
-  // Ensure date is a string before processing
-  const dateString =
-    typeof post.date === "string" ? post.date : String(post.date || "");
-  const date = dateString ? new Date(dateString) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  const publishedAt =
+    typeof post.publishedAt === "string" ? post.publishedAt : null;
+  const formattedDate = formatPublishedAt(publishedAt);
 
   // Resolve author reference
   let authorName = "Solana Foundation";
@@ -62,7 +59,7 @@ async function transformPost(
       if (catItem && typeof catItem === "object" && "category" in catItem) {
         if (catItem.category) {
           const catData = await reader.collections.categories.read(
-            catItem.category
+            catItem.category,
           );
           if (catData?.name) {
             categoryNames.push(String(catData.name));
@@ -96,7 +93,7 @@ async function transformPost(
   }
 
   // Serialize description to ensure it's JSON-serializable (removes any functions)
-  let serializedDescription: any = null;
+  let serializedDescription: object | null = null;
 
   try {
     let rawDescription = post.description;
@@ -106,9 +103,9 @@ async function transformPost(
       // Try to call the function to get the actual value
       try {
         rawDescription = rawDescription();
-      } catch (e) {
+      } catch {
         // If calling fails, try to access as a property or set to null
-        rawDescription = (post as any).description?.value || null;
+        rawDescription = post.description?.value || null;
       }
     }
 
@@ -140,6 +137,7 @@ async function transformPost(
   return {
     id: slug,
     published: formattedDate,
+    publishedAt,
     title: String(post.title),
     tags: dedupeStrings(tagNames),
     categories: dedupeStrings(categoryNames),
@@ -158,7 +156,7 @@ async function transformPost(
  * Fetch latest posts from Keystatic
  */
 export const fetchLatestPosts = async (
-  params: LatestPostsParams
+  params: LatestPostsParams,
 ): Promise<LatestPostsResponse> => {
   try {
     const allSlugs = await reader.collections.posts.list();
@@ -175,12 +173,9 @@ export const fetchLatestPosts = async (
       try {
         const post = await reader.collections.posts.read(slug);
         if (isPublishedPost(post)) {
-          // Ensure date is a string before creating Date object
-          const dateString =
-            typeof post.date === "string" ? post.date : String(post.date || "");
           postsWithDates.push({
             slug,
-            date: dateString ? new Date(dateString) : null,
+            date: parsePublishedAt(post.publishedAt),
             post,
           });
         }
@@ -271,7 +266,7 @@ export const fetchLatestPosts = async (
     let startIndex = 0;
     if (params.cursor) {
       const cursorIndex = filteredPosts.findIndex(
-        (p) => p.slug === params.cursor
+        (p) => p.slug === params.cursor,
       );
       if (cursorIndex >= 0) {
         startIndex = cursorIndex + 1;
@@ -306,6 +301,11 @@ export const fetchLatestPosts = async (
 
 export interface FeaturedPostResponse {
   post: PostItem | null;
+}
+
+export async function fetchPublishedPostBySlug(slug: string) {
+  const post = await reader.collections.posts.read(slug);
+  return isPublishedPost(post) ? post : null;
 }
 
 /**
@@ -347,13 +347,9 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
           }
 
           if (isFeatured) {
-            const dateString =
-              typeof post.date === "string"
-                ? post.date
-                : String(post.date || "");
             featuredCandidates.push({
               slug,
-              date: dateString ? new Date(dateString) : null,
+              date: parsePublishedAt(post.publishedAt),
               post,
             });
           }
@@ -361,7 +357,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
       } catch (error) {
         console.error(
           `Failed to read post "${slug}" in fetchFeaturedPost:`,
-          error
+          error,
         );
       }
     }
@@ -374,7 +370,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
       return b.date.getTime() - a.date.getTime();
     });
 
-    if (featuredCandidates.length > 0) {
+    if (featuredCandidates.length > 0 && featuredCandidates[0]) {
       const newest = featuredCandidates[0];
       const transformed = await transformPost(newest.slug, newest.post);
       return { post: transformed };

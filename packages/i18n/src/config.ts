@@ -6,7 +6,6 @@ export const locales = [
   "es",
   "fi",
   "fr",
-  "hi",
   "id",
   "it",
   "ja",
@@ -41,7 +40,6 @@ export const languages = {
   nl: "Nederlands",
   el: "Ελληνικά",
   fi: "suomi",
-  hi: "हिन्दी",
 };
 
 export const defaultLocale = "en";

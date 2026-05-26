@@ -22,6 +22,7 @@ function parseSkillMarkdown(
     title: data.title ?? slug,
     description: data.description ?? "",
     githubUrl: htmlUrl,
+    sourceType: "official",
   };
 }
 
@@ -54,7 +55,6 @@ export async function SkillsPage() {
               next: { revalidate: 3600 },
             });
             const content = await raw.text();
-            console.log("Markdown and url", file.name, file.html_url);
             return parseSkillMarkdown(file.name, content, file.html_url);
           },
         ),
@@ -102,7 +102,7 @@ export async function SkillsPage() {
   };
 
   return (
-    <div className="bg-black text-white overflow-hidden">
+    <div className="bg-black text-white">
       <section className="relative overflow-hidden">
         <SkillsHeroBackground />
         <div className="relative z-10 max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">

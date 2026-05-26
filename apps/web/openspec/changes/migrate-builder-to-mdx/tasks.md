@@ -5,12 +5,14 @@
 - [x] 1.1 Create `apps/web/scripts/export-builder.ts` export script
 - [x] 1.2 Configure Builder API client with existing API key
 - [x] 1.3 Implement route list for all 50+ Builder pages
-- [x] 1.4 Implement locale iteration (19 locales: en, ar, de, el, es, fi, fr, id,
-      it, ja, ko, nl, pl, pt, ru, tr, uk, vi, zh)
+- [x] 1.4 Implement locale iteration (19 locales: en, ar, de, el, es, fi, fr,
+      id, it, ja, ko, nl, pl, pt, ru, tr, uk, vi, zh)
 - [x] 1.5 Add retry logic with exponential backoff (match existing
       `lib/builder/api.js` pattern)
-- [x] 1.6 Save JSON files to `apps/web/builder/section-page/{locale}/{slug}.json`
-- [ ] 1.7 Skip file creation when locale content is empty or has the same id as the default (en) locale
+- [x] 1.6 Save JSON files to
+      `apps/web/builder/section-page/{locale}/{slug}.json`
+- [ ] 1.7 Skip file creation when locale content is empty or has the same id as
+      the default (en) locale
 - [x] 1.8 Log export progress and errors
 - [x] 1.9 Run export script and verify all routes exported
 - [x] 1.10 Commit `builder/` directory to git
@@ -53,9 +55,10 @@
 - [x] 4.13 Convert `/rpc` to `content/landings/en/rpc.mdx`
 - [x] 4.14 Convert `/tos` to `content/landings/en/tos.mdx`
 - [x] 4.15 Convert `/privacy-policy` to `content/landings/en/privacy-policy.mdx`
-- [ ] 4.16 Convert available localized versions for each page (check Builder JSON
-      for existing translations)
-- [x] 4.17 Replace the asset URLs according to the file `apps/web/builder/assets/manifest.json`
+- [ ] 4.16 Convert available localized versions for each page (check Builder
+      JSON for existing translations)
+- [x] 4.17 Replace the asset URLs according to the file
+      `apps/web/builder/assets/manifest.json`
 
 ## 5. Implement Route Handler (Phase 3)
 
@@ -98,10 +101,10 @@
 - [x] 7.5 Delete `apps/web/src/utils/customComponentGenerator.js`
 - [x] 7.6 Remove `cdn.builder.io` from `next.config.ts` image remotePatterns
 - [x] 7.7 Remove `*.builder.io` from CSP frame-ancestors in `next.config.ts`
-- [x] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js`
-      - Deleted `edit-symbol.js` (Builder symbol preview page)
-      - Moved `HTMLHead` component from `components/builder/` to `components/`
-      - Updated all imports referencing the old HTMLHead location
+- [x] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js` -
+      Deleted `edit-symbol.js` (Builder symbol preview page) - Moved `HTMLHead`
+      component from `components/builder/` to `components/` - Updated all
+      imports referencing the old HTMLHead location
 - [x] 7.9 Run `pnpm install` to update lockfile
 - [x] 7.10 Update any remaining imports that reference Builder modules
 
@@ -109,11 +112,10 @@
 
 - [x] 8.1 Run `pnpm lint` and fix any errors
 - [x] 8.2 Run `pnpm build` and verify successful build
-- [~] 8.3 Run `pnpm test` and verify tests pass
-      - Tests fail due to pre-existing snapshot issues unrelated to this migration:
-        - Copyright year snapshots outdated (2025 → 2026)
-        - Newsletter UI changed from link to button
-        - Dynamic Radix IDs in snapshots
+- [~] 8.3 Run `pnpm test` and verify tests pass - Tests fail due to pre-existing
+  snapshot issues unrelated to this migration: - Copyright year snapshots
+  outdated (2025 → 2026) - Newsletter UI changed from link to button - Dynamic
+  Radix IDs in snapshots
 - [ ] 8.4 Verify no runtime errors on page navigation
 - [ ] 8.5 Verify no console errors referencing Builder
 

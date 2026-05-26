@@ -16,7 +16,7 @@ information, events, news aggregation, and marketing content.
 - **Animation**: Framer Motion, GSAP
 - **CMS**: Builder.io for dynamic content and redirects
 - **UI Components**: Radix UI primitives, React Bootstrap
-- **Testing**: Jest + React Testing Library
+- **Testing**: Vitest + React Testing Library
 - **Icons**: Lucide React, React Feather
 
 ## Project Structure
@@ -50,7 +50,7 @@ apps/web/
 ├── assets/                    # Static assets by section
 ├── content/guides/            # MDX guide content
 ├── public/                    # Public static files
-└── __tests__/                 # Jest tests
+└── __tests__/                 # Vitest tests
 ```
 
 ## Local Development
@@ -127,7 +127,7 @@ pnpm test          # Run all tests
 pnpm test:watch    # Watch mode
 ```
 
-Tests located in `src/__tests__/` using Jest and React Testing Library.
+Tests located in `src/__tests__/` using Vitest and React Testing Library.
 
 <!-- OPENSPEC:START -->
 
@@ -135,14 +135,14 @@ Tests located in `src/__tests__/` using Jest and React Testing Library.
 
 These instructions are for AI assistants working in this project.
 
-Always open `@/openspec/AGENTS.md` when the request:
+Always open `@/apps/web/openspec/AGENTS.md` when the request:
 
 - Mentions planning or proposals (words like proposal, spec, change, plan)
 - Introduces new capabilities, breaking changes, architecture shifts, or big
   performance/security work
 - Sounds ambiguous and you need the authoritative spec before coding
 
-Use `@/openspec/AGENTS.md` to learn:
+Use `@/apps/web/openspec/AGENTS.md` to learn:
 
 - How to create and apply change proposals
 - Spec format and conventions

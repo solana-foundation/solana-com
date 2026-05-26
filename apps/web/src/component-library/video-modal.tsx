@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Video Modal System
  *
@@ -36,9 +38,9 @@ import { Video, VideoProps } from "./video";
 
 const OPEN_VIDEO_EVENT = "open-video-player" as const;
 
-export interface VideoSource extends VideoProps {}
+export type { VideoProps as VideoSource };
 
-export function openVideoPlayer(source: VideoSource) {
+export function openVideoPlayer(source: VideoProps) {
   window.dispatchEvent(
     new CustomEvent(OPEN_VIDEO_EVENT, {
       detail: { ...source, autoplay: source.autoplay ?? true },
@@ -47,7 +49,7 @@ export function openVideoPlayer(source: VideoSource) {
 }
 
 export interface VideoTriggerProps {
-  platform: "youtube" | "vimeo";
+  platform: "youtube" | "vimeo" | "local";
   id: string;
   title?: string;
   bgColorClass: string; // e.g. "bg-purple-600/90"
@@ -135,11 +137,11 @@ VideoTrigger.displayName = "VideoTrigger";
 
 export function VideoPlayerModal() {
   const [open, setOpen] = useState(false);
-  const [video, setVideo] = useState<VideoSource | null>(null);
+  const [video, setVideo] = useState<VideoProps | null>(null);
 
   useEffect(() => {
     function handleOpen(e: Event) {
-      const detail = (e as CustomEvent<VideoSource>).detail;
+      const detail = (e as CustomEvent<VideoProps>).detail;
       setVideo(detail);
       setOpen(true);
     }

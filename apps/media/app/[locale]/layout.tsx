@@ -4,7 +4,12 @@ import { VideoDialogProvider } from "@/components/ui/VideoDialogContext";
 import VideoDialog from "@/components/ui/VideoDialog";
 import { NextIntlClientProvider } from "next-intl";
 import { getLangDir } from "rtl-detect";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import {
+  Header,
+  Footer,
+  PersistentPodcastPlayer,
+  ThemeProvider,
+} from "@solana-com/ui-chrome";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import { reader } from "@/lib/reader";
@@ -12,7 +17,7 @@ import { staticLocales } from "@workspace/i18n/config";
 import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
 import { config } from "@/lib/config";
-import { loadMessages } from "@workspace/i18n/load-messages";
+import { loadMergedMessages } from "@workspace/i18n/messages";
 import { TailwindIndicator } from "@/components/ui/breakpoint-indicator";
 
 type Props = {
@@ -85,11 +90,7 @@ export default async function LocaleLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
 
-  // Load the requested locale with automatic fallback to English if it doesn't exist
-  const messages = await loadMessages(
-    (loc) => import(`../../public/locales/${loc}/common.json`),
-    locale
-  );
+  const messages = await loadMergedMessages({ app: "media", locale });
 
   // Fetch global data for LayoutProvider
   const globalSettings = await reader.singletons.global.read();
@@ -122,11 +123,15 @@ export default async function LocaleLayout({ children, params }: Props) {
         <ThemeProvider>
           <GTMTrackingSnippet />
           <CookieConsent />
-          <LayoutProvider globalSettings={globalData.global} pageData={null}>
+          <LayoutProvider
+            globalSettings={globalData.global ?? undefined}
+            pageData={undefined}
+          >
             <VideoDialogProvider>
               <Header />
               <main>{children}</main>
               <Footer />
+              <PersistentPodcastPlayer />
               <VideoDialog />
             </VideoDialogProvider>
           </LayoutProvider>

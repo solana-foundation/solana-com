@@ -111,7 +111,7 @@ const MOCK_POST = {
   title: "State of Solana February 2026",
   description: "A deep dive into the Solana ecosystem in February 2026.",
   heroImage: "/uploads/state-of-solana-feb-2026.jpg",
-  date: "2026-02-15",
+  publishedAt: "2026-02-15T00:00:00.000Z",
   author: "solana-team",
   category: "ecosystem",
   tags: ["defi", "nft"],
@@ -133,6 +133,7 @@ const MOCK_PODCAST = {
 
 const MOCK_EPISODE = {
   id: "ep-123",
+  slug: "the-future-of-defi-2026-02-15",
   title: "The Future of DeFi",
   description: "Exploring DeFi innovations on Solana.",
   thumbnailUrl: "/uploads/ep-123-thumb.jpg",
@@ -200,7 +201,7 @@ describe("newsPostMetadata", () => {
     mockReader.collections.authors.read.mockResolvedValue(MOCK_AUTHOR);
     mockReader.collections.categories.read.mockResolvedValue(MOCK_CATEGORY);
     mockReader.collections.tags.read.mockImplementation((ref: string) =>
-      Promise.resolve(MOCK_TAGS[ref] || null)
+      Promise.resolve(MOCK_TAGS[ref] || null),
     );
   });
 
@@ -220,7 +221,7 @@ describe("newsPostMetadata", () => {
     const og = meta.openGraph as any;
 
     expectOgFields(og);
-    expect(og.publishedTime).toBe(MOCK_POST.date);
+    expect(og.publishedTime).toBe(MOCK_POST.publishedAt);
     expect(og.authors).toEqual(["Solana Team"]);
   });
 
@@ -249,7 +250,7 @@ describe("newsPostMetadata", () => {
     });
     const meta = await newsPostMetadata(slug);
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 
@@ -267,6 +268,22 @@ describe("newsPostMetadata", () => {
     mockReader.collections.posts.read.mockResolvedValue(null);
     const meta = await newsPostMetadata(slug);
     expect(meta.title).toBe("Post Not Found");
+  });
+
+  it("returns noindex fallback when post publish date is in the future", async () => {
+    const futurePublishDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    mockReader.collections.posts.read.mockResolvedValue({
+      ...MOCK_POST,
+      publishedAt: futurePublishDate.toISOString(),
+    });
+    const meta = await newsPostMetadata(slug);
+
+    expect(meta.title).toBe("Post Not Found");
+    expect(meta.robots).toEqual({
+      index: false,
+      follow: false,
+    });
   });
 });
 
@@ -382,7 +399,7 @@ describe("podcastShowMetadata", () => {
     mockFetchPodcast.mockResolvedValue({ ...MOCK_PODCAST, coverImage: null });
     const meta = await podcastShowMetadata("validated");
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 
@@ -432,9 +449,12 @@ describe("podcastEpisodeMetadata", () => {
     expectTwitterFields(meta.twitter as any);
   });
 
-  it("sets canonical to /podcasts/{slug}/episodes/{id}", async () => {
+  it("sets canonical to /podcasts/{slug}/episodes/{episode-slug}", async () => {
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
-    expectCanonical(meta.alternates, "/podcasts/validated/episodes/ep-123");
+    expectCanonical(
+      meta.alternates,
+      "/podcasts/validated/episodes/the-future-of-defi-2026-02-15",
+    );
   });
 
   it("uses only public URLs", async () => {
@@ -459,7 +479,7 @@ describe("podcastEpisodeMetadata", () => {
     mockFetchPodcast.mockResolvedValue({ ...MOCK_PODCAST, coverImage: null });
     const meta = await podcastEpisodeMetadata("validated", "ep-123");
     expect((meta.openGraph as any).images[0].url).toBe(
-      config.siteMetadata.socialShare
+      config.siteMetadata.socialShare,
     );
   });
 

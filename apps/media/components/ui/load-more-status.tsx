@@ -35,7 +35,7 @@ export default function LoadMoreStatus({
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting && hasMore && !isLoading) {
+        if (entry?.isIntersecting && hasMore && !isLoading) {
           onLoadMore();
         }
       },
@@ -43,7 +43,7 @@ export default function LoadMoreStatus({
         root: null,
         rootMargin,
         threshold: 0.1,
-      }
+      },
     );
 
     observer.observe(sentinel);

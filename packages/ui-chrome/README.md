@@ -93,11 +93,10 @@ Apps often re-export these from their own `utils/Link` (e.g. `apps/web`,
 
 ### `@solana-com/ui-chrome/url-config`
 
-- **shouldUseNextLink(href)** – Returns whether `href` should use Next.js
-  `Link` (client navigation) or a plain `<a>` (full page load). All apps are
-  served under solana.com via rewrites; this keeps cross-app navigation as full
-  loads and in-app as client nav. Depends on `NEXT_PUBLIC_APP_NAME` in
-  non-web apps.
+- **shouldUseNextLink(href)** – Returns whether `href` should use Next.js `Link`
+  (client navigation) or a plain `<a>` (full page load). All apps are served
+  under solana.com via rewrites; this keeps cross-app navigation as full loads
+  and in-app as client nav. Depends on `NEXT_PUBLIC_APP_NAME` in non-web apps.
 
 ## Inkeep (AI search & chat)
 
@@ -134,14 +133,14 @@ export const sitewideTopAlertConfig: SitewideTopAlertConfig = {
 
 ### Configuration options
 
-| Option          | Type                  | Description                                                                 |
-| --------------- | --------------------- | --------------------------------------------------------------------------- |
-| `enabled`       | `boolean`             | Set to `true` to display the alert site-wide                                |
-| `text`          | `string`              | Main announcement message                                                   |
-| `cta.label`     | `string`              | Call-to-action button text                                                  |
-| `cta.url`       | `string`              | URL the CTA links to (pages matching this URL do not show the alert)       |
-| `color`         | `"green" \| "purple"` | Theme: green = Solana gradient, purple = alt gradient                       |
-| `excludedPaths` | `string[]`            | Extra paths where the alert is hidden                                       |
+| Option          | Type                  | Description                                                          |
+| --------------- | --------------------- | -------------------------------------------------------------------- |
+| `enabled`       | `boolean`             | Set to `true` to display the alert site-wide                         |
+| `text`          | `string`              | Main announcement message                                            |
+| `cta.label`     | `string`              | Call-to-action button text                                           |
+| `cta.url`       | `string`              | URL the CTA links to (pages matching this URL do not show the alert) |
+| `color`         | `"green" \| "purple"` | Theme: green = Solana gradient, purple = alt gradient                |
+| `excludedPaths` | `string[]`            | Extra paths where the alert is hidden                                |
 
 ### Color themes
 
