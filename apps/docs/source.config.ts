@@ -15,6 +15,7 @@ const schema = z.custom<{
   seoTitle?: string;
   description?: string;
   hideTableOfContents?: boolean;
+  hidePageNavigation?: boolean;
   full?: boolean;
   author?: string;
   tags?: string[];
