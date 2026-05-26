@@ -66,6 +66,7 @@ import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
 import { solflare } from "./records/solflare";
 import { solpay } from "./records/solpay";
+import { sourFinance } from "./records/sour-finance";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
 import { stateStreet } from "./records/state-street";
@@ -155,6 +156,7 @@ export const companies = [
   solayer,
   solflare,
   solpay,
+  sourFinance,
   spi,
   squads,
   stateStreet,
