@@ -1,15 +1,14 @@
-# Solana.com Navigation Migration Build Plan
+# Solana.com Navigation Build Plan
 
 ## Purpose
 
 This plan turns the Solana.com navigation restructure into staged, checkable
 implementation work for AI agents and human reviewers.
 
-The long-form strategic backup is preserved at:
+Use this file as the build source of truth. The companion functional strategy
+is:
 
 `plan/solana-com-navigation-functional-spec.md`
-
-Use this file as the build source of truth.
 
 ## Approved Direction
 
@@ -21,10 +20,10 @@ Final top-level navigation:
 4. Products
 5. Ecosystem
 
-`Network`, `Community`, `Learn`, and `Solutions` are no longer top-level header
-labels. Their content remains discoverable through the new IA.
+`Learn`, `Network`, `Community`, and `Solutions` are no longer top-level header
+labels. Their content remains discoverable through audience-led navigation.
 
-Required hub routes to create in this migration:
+Required hub routes to create in this delivery:
 
 - `/use-solana`
 - `/enterprise`
@@ -32,12 +31,38 @@ Required hub routes to create in this migration:
 - `/ecosystem`
 - `/network`
 
-This is now a fuller migration. The work should create real destination pages
-before redirecting legacy URLs. Redirects should not point to dead routes,
-placeholder pages, or routes that immediately redirect elsewhere.
+Important SEO decision:
 
-The `/solutions` namespace should be fully migrated. No `/solutions` route
-should remain canonical after this delivery.
+- Keep `/solutions` and `/solutions/*` canonical.
+- Do not redirect solution pages into `/enterprise/*`, `/products/*`, or
+  `/ecosystem/*` as part of this delivery.
+- Treat `Solutions` as a long-tail use-case route namespace and content type,
+  not as a top-level header label.
+- Header/footer menus may link directly to preserved `/solutions/*` pages when
+  those pages are the best current destination for the audience intent.
+
+## Hybrid IA Model
+
+The implementation should separate three concerns:
+
+1. **Navigation bucket**: where the link appears in the header or footer.
+2. **Route namespace**: where the canonical page lives.
+3. **Content type**: whether the page is a solution/use case, product, ecosystem
+   category, network proof page, guide, or hub.
+
+This allows the same subject to have multiple audience-specific pages later
+without forcing premature redirects now.
+
+Example:
+
+- `/solutions/depin`: broad DePIN solution/use-case page for long-tail SEO.
+- Future `/enterprise/depin`: enterprise evaluator page, only if it has a
+  materially different business-validation story.
+- Future `/ecosystem/depin`: ecosystem landscape page, only if it has a
+  materially different discovery/community story.
+
+Do not create audience-specific duplicate pages unless their H1, search intent,
+value proposition, proof points, and CTA path are meaningfully different.
 
 ## Legal Decision
 
@@ -157,55 +182,57 @@ Existing routes available now:
 - `/privacy`
 - `/research`
 - `/solutions`
-- all listed `/solutions/*` pages in the route matrix below
+- existing `/solutions/*` pages
 
-Routes that must be created in this migration:
+Routes that must be created in this delivery:
 
 - `/use-solana`
-- `/use-solana/apps`
 - `/enterprise`
-- `/enterprise/digital-assets`
-- `/enterprise/financial-infrastructure`
-- `/enterprise/financial-institutions`
-- `/enterprise/internet-capital-markets`
+- `/products`
+- `/ecosystem`
+- `/network`
+
+Do not create these audience-specific leaf routes in this delivery unless
+separate requirements prove they are materially distinct from existing solutions
+pages:
+
+- `/enterprise/depin`
 - `/enterprise/payments`
-- `/enterprise/real-world-assets`
 - `/enterprise/stablecoins`
 - `/enterprise/tokenization`
-- `/products`
+- `/enterprise/real-world-assets`
+- `/enterprise/digital-assets`
+- `/enterprise/internet-capital-markets`
+- `/enterprise/financial-infrastructure`
+- `/enterprise/financial-institutions`
 - `/products/actions`
 - `/products/agents`
 - `/products/agent-registry`
-- `/products/agent-registry/what-is-agent-registry`
 - `/products/skills`
 - `/products/solana-developer-platform`
 - `/products/x402`
-- `/products/x402/what-is-x402`
-- `/ecosystem`
-- `/ecosystem/btcfi`
-- `/ecosystem/creators`
 - `/ecosystem/depin`
 - `/ecosystem/desci`
-- `/ecosystem/founders`
+- `/ecosystem/btcfi`
 - `/ecosystem/gaming`
-- `/network`
+- `/ecosystem/creators`
+- `/ecosystem/founders`
 
 Known redirect blockers:
 
-- `/ecosystem(.*)` currently redirects to `/`; this must be removed or narrowed
-  before `/ecosystem` or `/ecosystem/*` can work.
-- `/enterprise` currently redirects to `/solutions/enterprise`; this must be
-  replaced after the new `/enterprise` page exists.
-- `/developers/ai` and `/ai` currently redirect toward `/solutions/ai`; these
-  should redirect to `/products/agents` once that destination exists.
+- `/ecosystem(.*)` currently redirects to `/`; remove or narrow this before
+  `/ecosystem` can be a real hub.
+- `/enterprise` currently redirects to `/solutions/enterprise`; remove this
+  before `/enterprise` can be a real hub.
 
 ## Canonical Routes To Preserve
 
-These routes should remain canonical in this migration. They may be linked from
-new hubs and menus, but they should not be moved unless a separate SEO decision
-overrides this plan.
+These routes should remain canonical in this delivery:
 
+- `/solutions`
+- `/solutions/*`
 - `/wallets`
+- `/solana-wallets`, pending separate SEO decision
 - `/learn`
 - `/learn/*`
 - `/staking`
@@ -228,131 +255,160 @@ overrides this plan.
 - `/podcasts`
 - `/privacy`
 - `/research`
+- `/x402`
+- `/x402/what-is-x402`
+- `/agent-registry`
+- `/agent-registry/what-is-agent-registry`
+- `/skills`
 
 Rationale:
 
-- These are already strong, operational, cross-app, or content-owned routes.
+- These routes are already strong, operational, cross-app, product-owned, or
+  long-tail SEO targets.
 - The new IA can link to them without requiring nested aliases.
-- Preserving them reduces unnecessary SEO and cross-app risk.
+- Preserving them avoids a large redirect migration and keeps search equity on.
 
-## Future-Only Routes
+## Solution Route Policy
 
-Do not create these routes during this migration unless product/content owners
-provide real page requirements and approved copy.
+`/solutions` remains the canonical long-tail use-case namespace.
 
-- `/use-solana/tokens`
-- `/use-solana/staking`
-- `/products/pay-sh`
-- `/products/data`
-- `/products/tokens`
-- `/enterprise/privacy`
-- `/enterprise/case-studies`
-- `/enterprise/contact`
-- `/network/data`
-- `/network/reports`
-- `/network/status`
+Requirements:
 
-Use existing destinations instead:
+- Keep `/solutions` and `/solutions/*` in sitemap output unless a specific page
+  has already been retired by an approved redirect.
+- Keep canonical metadata on `/solutions/*` pages pointing to `/solutions/*`.
+- Rework page copy, CTAs, related links, and shared components as needed to make
+  each solution useful from the new audience-led menus.
+- Do not remove `/solutions` route files as part of this delivery.
+- Do not add `/solutions/:path*` fallback redirects.
+- Do not redirect solution pages to broad hubs.
 
-- Tokens: `/learn/introduction-to-solana-tokens` or external Tokens surface
-- Staking: `/staking` or `/learn/what-is-staking`
-- Privacy: `/privacy`
-- Reports: `/reports`
-- Status: `https://status.solana.com/`
-- Data/research: `/research`, `/validators`, `/rpc`, `/reports`, or external
-  dashboards as appropriate
+Existing redirects that already mask solution page files should be audited, not
+expanded blindly. If the team wants every `/solutions/*` page file to remain
+servable, review current redirects for:
 
-## Route Migration Matrix
+- `/solutions/games-tooling`
+- `/solutions/solana-permissioned-environments`
 
-Create each destination before adding its redirect.
+## Audience Placement Matrix
 
-All known `/solutions` pages must receive explicit redirects. After explicit
-redirects are in place and verified, add a final legacy fallback for unknown
-`/solutions/:path*` requests if the team wants old uncatalogued links to resolve
-instead of 404.
+This matrix defines menu placement, not canonical route migration.
 
-| Current route                                 | Destination                                       | Action                                                                                     |
-| --------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `/solutions`                                  | `/enterprise`                                     | Redirect after `/enterprise` hub ships.                                                    |
-| `/solutions/enterprise`                       | `/enterprise`                                     | Redirect.                                                                                  |
-| `/enterprise`                                 | `/enterprise`                                     | Remove existing redirect to `/solutions/enterprise`.                                       |
-| `/solutions/tokenization`                     | `/enterprise/tokenization`                        | Create destination page, then redirect.                                                    |
-| `/solutions/institutional-payments`           | `/enterprise/payments`                            | Create destination page, then redirect.                                                    |
-| `/solutions/commerce-tooling`                 | `/enterprise/payments`                            | Redirect after payments page includes commerce/tooling path.                               |
-| `/solutions/stablecoins`                      | `/enterprise/stablecoins`                         | Create destination page, then redirect.                                                    |
-| `/solutions/real-world-assets`                | `/enterprise/real-world-assets`                   | Create destination page, then redirect.                                                    |
-| `/solutions/financial-infrastructure`         | `/enterprise/financial-infrastructure`            | Create destination page, then redirect.                                                    |
-| `/solutions/financial-institutions`           | `/enterprise/financial-institutions`              | Create destination page, then redirect.                                                    |
-| `/solutions/defi`                             | `/enterprise/internet-capital-markets`            | Create destination page, then redirect.                                                    |
-| `/solutions/digital-assets`                   | `/enterprise/digital-assets`                      | Create destination page, then redirect.                                                    |
-| `/solutions/sdp`                              | `/products/solana-developer-platform`             | Create destination page, then redirect.                                                    |
-| `/solutions/ai`                               | `/products/agents`                                | Create destination page, then redirect.                                                    |
-| `/ai`                                         | `/products/agents`                                | Change existing redirect.                                                                  |
-| `/developers/ai`                              | `/products/agents`                                | Change existing redirect.                                                                  |
-| `/solutions/actions`                          | `/products/actions`                               | Create destination page, then redirect.                                                    |
-| `/x402`                                       | `/products/x402`                                  | Create destination page, then redirect.                                                    |
-| `/x402/what-is-x402`                          | `/products/x402/what-is-x402`                     | Create destination page, then redirect.                                                    |
-| `/agent-registry`                             | `/products/agent-registry`                        | Create destination page, then redirect.                                                    |
-| `/agent-registry/what-is-agent-registry`      | `/products/agent-registry/what-is-agent-registry` | Create destination page, then redirect.                                                    |
-| `/skills`                                     | `/products/skills`                                | Create destination page, then redirect.                                                    |
-| `/solutions/payments-tooling`                 | `/developers/payments`                            | Redirect to preserved developer page.                                                      |
-| `/solutions/games-tooling`                    | `/developers/gaming`                              | Redirect to preserved developer page.                                                      |
-| `/solutions/token-extensions`                 | `/docs/tokens/extensions`                         | Redirect to preserved docs page.                                                           |
-| `/token22`                                    | `/docs/tokens/extensions`                         | Change existing redirect.                                                                  |
-| `/solutions/token22`                          | `/docs/tokens/extensions`                         | Change existing redirect.                                                                  |
-| `/tokenextensions`                            | `/docs/tokens/extensions`                         | Change existing redirect.                                                                  |
-| `/solutions/tokenextensions`                  | `/docs/tokens/extensions`                         | Change existing redirect.                                                                  |
-| `/token-extensions`                           | `/docs/tokens/extensions`                         | Change existing redirect.                                                                  |
-| `/solutions/consumer`                         | `/use-solana/apps`                                | Create destination page, then redirect.                                                    |
-| `/solutions/depin`                            | `/ecosystem/depin`                                | Create destination page, then redirect.                                                    |
-| `/solutions/desci`                            | `/ecosystem/desci`                                | Create destination page, then redirect.                                                    |
-| `/solutions/btcfi`                            | `/ecosystem/btcfi`                                | Create destination page, then redirect.                                                    |
-| `/solutions/gaming-and-entertainment`         | `/ecosystem/gaming`                               | Create destination page, then redirect.                                                    |
-| `/solutions/artists-creators`                 | `/ecosystem/creators`                             | Create destination page, then redirect.                                                    |
-| `/solutions/request-for-startups`             | `/ecosystem/founders`                             | Create destination page, then redirect.                                                    |
-| `/solutions/solana-permissioned-environments` | `https://launch.solana.com/products/contra`       | Keep existing external redirect unless a real Solana.com product page is approved.         |
-| `/solutions/:path*`                           | `/enterprise`                                     | Optional final fallback after all explicit redirects above. Keep below specific redirects. |
-| `/ecosystem(.*)`                              | mixed                                             | Remove broad redirect. Add narrower legacy redirects only for known dead paths.            |
+| Canonical route                       | Primary menu placement | Secondary placement  | Action                                                                     |
+| ------------------------------------- | ---------------------- | -------------------- | -------------------------------------------------------------------------- |
+| `/solutions`                          | Enterprise or footer   | Ecosystem            | Keep canonical as Solutions / Use Cases hub.                               |
+| `/solutions/enterprise`               | Enterprise             | Footer               | Keep canonical; `/enterprise` becomes separate audience hub.               |
+| `/solutions/tokenization`             | Enterprise             | Products             | Keep canonical.                                                            |
+| `/solutions/institutional-payments`   | Enterprise             | Build, Products      | Keep canonical.                                                            |
+| `/solutions/commerce-tooling`         | Enterprise             | Products, Build      | Keep canonical unless existing content owner chooses a stronger canonical. |
+| `/solutions/stablecoins`              | Enterprise             | Products             | Keep canonical.                                                            |
+| `/solutions/real-world-assets`        | Enterprise             | Ecosystem            | Keep canonical.                                                            |
+| `/solutions/financial-infrastructure` | Enterprise             | Products             | Keep canonical.                                                            |
+| `/solutions/financial-institutions`   | Enterprise             | Network proof        | Keep canonical.                                                            |
+| `/solutions/defi`                     | Enterprise             | Build, Ecosystem     | Keep canonical.                                                            |
+| `/solutions/digital-assets`           | Enterprise             | Products, Ecosystem  | Keep canonical.                                                            |
+| `/solutions/sdp`                      | Products               | Enterprise, Build    | Keep canonical.                                                            |
+| `/solutions/ai`                       | Products               | Build, Enterprise    | Keep canonical.                                                            |
+| `/solutions/actions`                  | Products               | Build                | Keep canonical.                                                            |
+| `/solutions/payments-tooling`         | Build                  | Enterprise, Products | Keep canonical unless DevRel chooses `/developers/payments`.               |
+| `/solutions/games-tooling`            | Build                  | Ecosystem            | Audit current redirect before deciding whether to restore canonical page.  |
+| `/solutions/token-extensions`         | Build                  | Enterprise           | Keep canonical unless DevRel/SEO chooses docs as canonical.                |
+| `/solutions/consumer`                 | Use Solana             | Products             | Keep canonical.                                                            |
+| `/solutions/depin`                    | Ecosystem              | Enterprise           | Keep canonical as broad DePIN solution page.                               |
+| `/solutions/desci`                    | Ecosystem              | Enterprise           | Keep canonical.                                                            |
+| `/solutions/btcfi`                    | Ecosystem              | Enterprise           | Keep canonical.                                                            |
+| `/solutions/gaming-and-entertainment` | Ecosystem              | Build                | Keep canonical.                                                            |
+| `/solutions/artists-creators`         | Ecosystem              | Use Solana           | Keep canonical.                                                            |
+| `/solutions/request-for-startups`     | Ecosystem              | Build                | Keep canonical.                                                            |
+| `/x402`                               | Products               | Build                | Keep canonical unless product/SEO approves move.                           |
+| `/agent-registry`                     | Products               | Build                | Keep canonical unless product/SEO approves move.                           |
+| `/skills`                             | Products               | Build                | Keep canonical unless product/SEO approves move.                           |
 
-## Navigation Link Targets
+Approved alias redirects may still exist for misspellings, legacy aliases, or
+dead paths. Examples:
 
-Header and footer links should use these targets at launch.
+- `/token22` -> approved token extensions canonical
+- `/solutions/token22` -> approved token extensions canonical
+- `/tokenextensions` -> approved token extensions canonical
+- `/solutions/tokenextensions` -> approved token extensions canonical
+- `/solutions/commerce-and-payments` -> `/solutions/institutional-payments`
+
+## Menu Listings
+
+These are the launch menu listings under each top-level heading. They are menu
+placement decisions, not route migrations. Links should point to the canonical
+route shown unless a separate owner/SEO decision changes that route.
+
+Do not ship links to placeholder pages, self-redirecting pages, or future-only
+routes. If a listed route is not live at implementation time, omit that menu
+item until it is live or link to the approved existing canonical route.
 
 ### Use Solana
 
-Primary targets:
+Primary CTA:
 
-- `/use-solana`
-- `/wallets`
-- `/learn`
-- `/learn/what-is-a-wallet`
-- `/learn/staying-safe-on-solana`
-- `/learn/introduction-to-solana-tokens`
-- `/staking`
-- `/use-solana/apps`
+- Use Solana hub: `/use-solana`
+
+Wallets and onboarding:
+
+- Wallets: `/wallets`
+- Wallet directory: `/solana-wallets`, if retained as canonical
+- Learn the basics: `/learn`
+- What is Solana?: `/learn/what-is-solana`
+- Getting started: `/learn/getting-started`
+- What is a wallet?: `/learn/what-is-a-wallet`
+- Sending and receiving SOL: `/learn/sending-and-receiving-sol`
+- Transaction fees: `/learn/understanding-solana-transaction-fees`
+
+Safety, tokens, and apps:
+
+- Staying safe: `/learn/staying-safe-on-solana`
+- Tokens: `/learn/introduction-to-solana-tokens`
+- Staking: `/staking`
+- What is staking?: `/learn/what-is-staking`
+- Consumer apps: `/solutions/consumer`
+
+Utility:
+
+- Search / Ask AI: existing Inkeep entrypoint
 
 Notes:
 
 - Link staking only by existing route and neutral label.
-- Do not create `/use-solana/staking` or `/use-solana/tokens` in this migration.
+- Do not create `/use-solana/staking` or `/use-solana/tokens` in this delivery.
 
 ### Build
 
-Primary targets:
+Primary CTA:
 
-- `/developers`
-- `/docs`
-- `/docs/intro/quick-start`
-- `/docs/intro/installation`
-- `/docs/rpc`
-- `/developers/templates`
-- `/developers/guides`
-- `/developers/cookbook`
-- `/developers/payments`
-- `/developers/defi`
-- `/developers/gaming`
-- `/products/actions`
-- `/products/agents`
+- Developer hub: `/developers`
+
+Start building:
+
+- Docs: `/docs`
+- Quickstart: `/docs/intro/quick-start`
+- Install and setup: `/docs/intro/installation`
+- Guides: `/developers/guides`
+- Cookbook: `/developers/cookbook`
+- Templates: `/developers/templates`
+
+Tools and references:
+
+- RPC docs: `/docs/rpc`
+- RPC providers: `/rpc`
+- Tokens docs: `/docs/tokens`
+- Token Extensions: `/solutions/token-extensions`
+- Actions and blinks: `/solutions/actions`
+- Payments tooling: `/solutions/payments-tooling`
+
+Build by use case:
+
+- Payments: `/developers/payments`
+- DeFi: `/developers/defi`
+- Gaming: `/developers/gaming`
+- Game tooling: `/solutions/games-tooling`, if restored as canonical; otherwise
+  use `/developers/gaming`
+- Agents and AI: `/solutions/ai`
 
 Notes:
 
@@ -362,65 +418,104 @@ Notes:
 
 ### Enterprise
 
-Primary targets:
+Primary CTA:
 
-- `/enterprise`
-- `/enterprise/payments`
-- `/enterprise/stablecoins`
-- `/enterprise/tokenization`
-- `/enterprise/real-world-assets`
-- `/enterprise/digital-assets`
-- `/enterprise/internet-capital-markets`
-- `/enterprise/financial-infrastructure`
-- `/enterprise/financial-institutions`
-- `/network`
-- `/reports`
-- `/research`
-- `/privacy`
+- Enterprise hub: `/enterprise`
+
+Business solutions:
+
+- Enterprise overview solution: `/solutions/enterprise`
+- Institutional payments: `/solutions/institutional-payments`
+- Commerce tooling: `/solutions/commerce-tooling`
+- Stablecoins: `/solutions/stablecoins`
+- Tokenization: `/solutions/tokenization`
+- Real-world assets: `/solutions/real-world-assets`
+- Digital assets: `/solutions/digital-assets`
+- Internet capital markets / DeFi: `/solutions/defi`
+- Financial infrastructure: `/solutions/financial-infrastructure`
+- Financial institutions: `/solutions/financial-institutions`
+- DePIN: `/solutions/depin`
+
+Validation and proof:
+
+- Network hub: `/network`
+- Validators: `/validators`
+- Reports: `/reports`
+- Research: `/research`
+- Privacy: `/privacy`
 
 Notes:
 
-- `Enterprise` replaces the old market-facing `Solutions` bucket.
-- The menu may link directly to `/network`, `/reports`, and `/research` for
-  validation paths.
+- `Enterprise` is the audience entry point.
+- Existing `/solutions/*` pages remain the canonical use-case pages unless a
+  separate audience-specific page is approved.
+- Do not create `/enterprise/*` leaf pages for these topics in this delivery
+  unless they are materially distinct from the solution page.
 
 ### Products
 
-Primary targets:
+Primary CTA:
 
-- `/products`
-- `/products/solana-developer-platform`
-- `/products/actions`
-- `/products/agents`
-- `/products/agent-registry`
-- `/products/skills`
-- `/products/x402`
-- external Tokens surface if approved for navigation
+- Products hub: `/products`
+
+Platforms and product surfaces:
+
+- Solana Developer Platform: `/solutions/sdp`
+- Actions and blinks: `/solutions/actions`
+- Agents and AI: `/solutions/ai`
+- x402: `/x402`
+- Agent Registry: `/agent-registry`
+- Skills: `/skills`
+
+Product-adjacent solution pages:
+
+- Token Extensions: `/solutions/token-extensions`
+- Digital assets: `/solutions/digital-assets`
+- Payments tooling: `/solutions/payments-tooling`
+
+External or future product surfaces:
+
+- Tokens surface: external Tokens destination if approved for navigation
 
 Notes:
 
 - Do not create `/products/pay-sh`, `/products/data`, or `/products/tokens` in
-  this migration unless real page requirements are added.
+  this delivery unless real page requirements are added.
+- Do not move `/x402`, `/agent-registry`, or `/skills` under `/products/*`
+  without product and SEO approval.
 
 ### Ecosystem
 
-Primary targets:
+Primary CTA:
 
-- `/ecosystem`
-- `/network`
-- `/events`
-- `/events/archive`
-- `/community`
-- `/news`
-- `/podcasts`
-- `/ecosystem/founders`
-- `/ecosystem/depin`
-- `/ecosystem/desci`
-- `/ecosystem/btcfi`
-- `/ecosystem/gaming`
-- `/ecosystem/creators`
-- `/validators`
-- `https://status.solana.com/`
+- Ecosystem hub: `/ecosystem`
+
+Network:
+
+- Network hub: `/network`
+- Validators: `/validators`
+- RPC providers: `/rpc`
+- Reports: `/reports`
+- Research: `/research`
+- Status: `https://status.solana.com/`
+
+Events and community:
+
+- Events: `/events`
+- Event archive: `/events/archive`
+- Breakpoint: `/breakpoint`
+- Community: `/community`
+- News: `/news`
+- Podcasts: `/podcasts`
+
+Ecosystem categories and programs:
+
+- DePIN: `/solutions/depin`
+- DeSci: `/solutions/desci`
+- BTCFi: `/solutions/btcfi`
+- Gaming and entertainment: `/solutions/gaming-and-entertainment`
+- Artists and creators: `/solutions/artists-creators`
+- Request for Startups / founders: `/solutions/request-for-startups`
 
 Notes:
 
@@ -430,8 +525,7 @@ Notes:
 
 ## Delivery Stages
 
-Each stage should be independently reviewable. Do not start redirects for a
-route group until that group's destination pages exist and pass QA.
+Each stage should be independently reviewable.
 
 ### Stage 0: Proposal Checkpoint
 
@@ -440,29 +534,28 @@ Goal: confirm scope before code changes.
 Tasks:
 
 - Confirm this plan is the active source of truth.
-- Confirm the long-form backup remains in
-  `plan/solana-com-navigation-functional-spec-future.md`.
+- Confirm the companion spec is `plan/solana-com-navigation-functional-spec.md`.
 - Confirm no OpenSpec implementation proposal is required before coding, or
   create one under `apps/web/openspec/changes/` if the team requires formal
   approval tracking.
 - Record route owners for `Use Solana`, `Enterprise`, `Products`, `Ecosystem`,
-  and `Network`.
+  `Network`, and `Solutions`.
 
 Acceptance checks:
 
 - The five top-level nav labels are approved.
 - The five hub routes are in scope for this delivery.
+- `/solutions` and `/solutions/*` remain canonical.
 - Dynamic menu content is explicitly out of scope.
 - Legal-sensitive content will use existing destinations and neutral labels.
 
 ### Stage 1: Route Foundation And Shared Page Components
 
-Goal: create reusable page scaffolding and enough structure for all destination
-routes.
+Goal: create reusable page scaffolding and all required top-level hub routes.
 
 Tasks:
 
-- Add a small shared IA page data model for hub and migration pages.
+- Add a small shared IA page data model for hub pages.
 - Build reusable hub/page sections using shadcn-style components:
   - hero section
   - link group section
@@ -488,7 +581,7 @@ Acceptance checks:
 - `/use-solana`, `/enterprise`, `/products`, `/ecosystem`, and `/network` render
   without redirects.
 - Pages are not empty link lists; each has a clear audience purpose and links to
-  existing canonical routes.
+  existing canonical routes, including `/solutions/*` where relevant.
 - No page introduces new legal-sensitive claims.
 - Pages use standard shadcn-style primitives rather than one-off interaction
   components.
@@ -500,56 +593,31 @@ pnpm --filter solana-com lint
 pnpm --filter solana-com test
 ```
 
-### Stage 2: Destination Pages For Redirected Content
+### Stage 2: Solution Page Reframing
 
-Goal: create every destination needed by the route migration matrix.
+Goal: keep solution canonicals while making them work from audience-led menus.
 
 Tasks:
 
-- Create enterprise destination pages:
-  - `/enterprise/payments`
-  - `/enterprise/stablecoins`
-  - `/enterprise/tokenization`
-  - `/enterprise/real-world-assets`
-  - `/enterprise/digital-assets`
-  - `/enterprise/internet-capital-markets`
-  - `/enterprise/financial-infrastructure`
-  - `/enterprise/financial-institutions`
-- Create product destination pages:
-  - `/products/actions`
-  - `/products/agents`
-  - `/products/agent-registry`
-  - `/products/agent-registry/what-is-agent-registry`
-  - `/products/skills`
-  - `/products/solana-developer-platform`
-  - `/products/x402`
-  - `/products/x402/what-is-x402`
-- Create use/ecosystem destination pages:
-  - `/use-solana/apps`
-  - `/ecosystem/depin`
-  - `/ecosystem/desci`
-  - `/ecosystem/btcfi`
-  - `/ecosystem/gaming`
-  - `/ecosystem/creators`
-  - `/ecosystem/founders`
-
-Implementation guidance:
-
-- Prefer moving or re-exporting existing page components first, then improving
-  page copy/design in later work.
-- Avoid duplicate canonical content. New pages should be canonical; old pages
-  should redirect once destinations are verified.
-- If a page reuses an existing component, update metadata and canonical path to
-  the new destination.
-- Do not preserve `/solutions/*` canonical metadata on the new page.
+- Audit each `/solutions/*` page for current audience fit.
+- Update page CTAs and related links so Enterprise, Products, Build, Ecosystem,
+  and Use Solana visitors land on useful next steps.
+- Preserve each solution page's canonical path unless a separate SEO decision
+  approves a different canonical.
+- Reuse existing solution components where they remain appropriate.
+- Extract shared proof-point, logo, stats, or project components only when the
+  same data will support future audience-specific pages.
+- Do not create duplicate audience-specific pages unless distinct requirements
+  are approved.
 
 Acceptance checks:
 
-- Every destination in the route migration matrix returns 200.
-- Destination pages have correct metadata and canonical paths.
-- Destination pages link back into the new IA, not to `/solutions/*`.
-- No destination page imports app-local UI primitives when a shared
-  `@workspace/ui` primitive exists.
+- `/solutions` and `/solutions/*` continue to return 200 unless an existing
+  approved redirect already retires a specific page.
+- Solution pages keep canonical metadata pointing to their `/solutions/*` route.
+- Solution pages no longer depend on `Solutions` being a top-level nav label.
+- Internal links from solution pages do not force users back into stale nav
+  groupings.
 
 Validation:
 
@@ -575,12 +643,8 @@ Tasks:
 - Replace old `Learn`, `Developers`, `Solutions`, `Network`, and `Community`
   visible labels with the approved labels.
 - Keep `Build` linked conceptually to `/developers`.
-- Move network, events, community, news, reports, podcasts, and status links
-  under `Ecosystem`.
-- Move productized surfaces under `Products`.
-- Move institutional use cases under `Enterprise`.
-- Move wallet, learn, safety, tokens, staking, and apps paths under
-  `Use Solana`.
+- Link audience menus to preserved canonical routes, including `/solutions/*`
+  pages where they are the best current destination.
 - Keep static links usable without dynamic content.
 - Ensure desktop mega menus support pointer and keyboard access.
 - Ensure mobile menu exposes the same practical hierarchy.
@@ -602,7 +666,7 @@ Acceptance checks:
 - Mobile menu shows the same five sections.
 - No visible top-level `Solutions`, `Network`, `Community`, or `Learn` label
   remains in shared primary navigation.
-- No menu item links to `/solutions/*` after Stage 3.
+- Header/mobile menu may link to `/solutions/*` where those pages are canonical.
 - Shared chrome still works in `web`, `docs`, `media`, and `templates`.
 
 Validation:
@@ -615,17 +679,20 @@ pnpm --filter @solana-com/ui-chrome test
 
 ### Stage 4: Active Route Rules And Footer
 
-Goal: make new IA state correct across existing and migrated paths.
+Goal: make new IA state correct across preserved canonical and new hub routes.
 
 Tasks:
 
 - Update active route mapping for:
-  - `/use-solana`, `/wallets`, `/learn`, `/staking`, `/solana-wallets`
+  - `/use-solana`, `/wallets`, `/learn`, `/staking`, `/solana-wallets`,
+    `/solutions/consumer`
   - `/developers`, `/docs`, `/rpc`, `/developers/templates`
-  - `/enterprise`, `/enterprise/*`, preserved enterprise validation routes
-  - `/products`, `/products/*`
-  - `/ecosystem`, `/ecosystem/*`, `/events`, `/community`, `/news`, `/reports`,
-    `/podcasts`, `/network`, `/validators`
+  - `/enterprise`, enterprise-placed `/solutions/*`, preserved enterprise
+    validation routes
+  - `/products`, product-placed `/solutions/*`, `/x402`, `/agent-registry`,
+    `/skills`
+  - `/ecosystem`, ecosystem-placed `/solutions/*`, `/events`, `/community`,
+    `/news`, `/reports`, `/podcasts`, `/network`, `/validators`
 - Rebuild footer with explicit columns:
   - Use Solana
   - Build
@@ -645,9 +712,8 @@ Suggested files:
 
 Acceptance checks:
 
-- Active state is correct on migrated destinations and preserved canonical
-  routes.
-- Footer does not link to `/solutions/*`.
+- Active state is correct on preserved `/solutions/*` routes and new hubs.
+- Footer may link to `/solutions/*` where those pages are canonical.
 - Footer has no dead, self-redirecting, or placeholder links.
 - Footer uses shared link behavior for cross-app routes.
 
@@ -658,30 +724,24 @@ pnpm --filter @solana-com/ui-chrome test
 pnpm --filter @solana-com/ui-chrome lint
 ```
 
-### Stage 5: Redirect Batch
+### Stage 5: Redirect Cleanup
 
-Goal: redirect legacy routes only after their destinations are real.
+Goal: unblock new hubs and clean up aliases without redirecting canonical
+solution pages.
 
 Tasks:
 
-- Sunset the `/solutions` namespace as canonical.
-- Remove the broad `/ecosystem(.*)` redirect.
-- Replace `/enterprise -> /solutions/enterprise` with the new canonical
-  `/enterprise` route.
-- Add redirects from the route migration matrix.
-- Add explicit redirects for every known `/solutions` route before any fallback
-  redirect.
-- Add optional `/solutions/:path* -> /enterprise` fallback only after explicit
-  redirects have been verified and only below the explicit `/solutions/*`
-  entries.
-- Keep locale-prefixed redirect behavior through `withLocaleRedirects`.
-- Keep external redirect for `/solutions/solana-permissioned-environments`
-  unless a real internal product page has been approved.
-- Update any existing redirect aliases that currently point to `/solutions/*`.
-- Remove, move, or clearly retire the old `apps/web/src/app/[locale]/solutions`
-  route files once their new destination pages are live and redirects are
-  active. Reused components may remain under a neutral shared component
-  directory.
+- Remove or narrow the broad `/ecosystem(.*)` redirect so `/ecosystem` works.
+- Remove the `/enterprise -> /solutions/enterprise` redirect so `/enterprise`
+  works as its own audience hub.
+- Keep `/solutions` and `/solutions/*` canonical.
+- Do not add `/solutions/:path*` fallback redirects.
+- Do not redirect `/solutions/*` into `/enterprise/*`, `/products/*`, or
+  `/ecosystem/*`.
+- Keep or update only true alias redirects, such as misspellings or legacy
+  shorthand paths.
+- Audit current redirects that point to `/solutions/*` and confirm they still
+  point to the intended canonical solution route.
 
 Suggested file:
 
@@ -689,15 +749,12 @@ Suggested file:
 
 Acceptance checks:
 
-- Every legacy route in the matrix redirects to the approved destination.
-- `/solutions` and every known `/solutions/*` page are no longer canonical.
-- No rendered page is served from `apps/web/src/app/[locale]/solutions`.
-- Every redirect destination returns 200 or an approved external destination.
+- `/enterprise`, `/ecosystem`, `/products`, `/use-solana`, and `/network` are
+  not blocked by redirects.
+- `/solutions` and preserved `/solutions/*` routes return 200.
+- Alias redirects have explicit, relevant destinations.
 - No redirect loops.
-- Locale-prefixed legacy routes redirect to locale-prefixed internal
-  destinations.
-- `/ecosystem`, `/ecosystem/*`, `/enterprise`, `/products`, `/use-solana`, and
-  `/network` are not blocked by redirects.
+- Locale-prefixed aliases keep expected locale behavior.
 
 Validation:
 
@@ -708,17 +765,22 @@ pnpm --filter solana-com build
 
 ### Stage 6: Internal Links, Sitemap, And Canonicals
 
-Goal: remove stale internal paths and expose the new IA to search engines.
+Goal: expose the new IA without losing long-tail solution SEO.
 
 Tasks:
 
-- Replace internal app links to `/solutions/*` with new destinations.
-- Update Builder/static JSON references where they affect rendered links.
-- Update sitemap generation to include new canonical routes and exclude
-  redirected legacy routes.
-- Update canonical metadata for migrated pages.
-- Check Open Graph metadata for new hub and destination pages.
-- Check localized alternate generation for new routes.
+- Replace only stale internal links that point to retired aliases or blocked
+  hubs.
+- Keep intentional internal links to canonical `/solutions/*` pages.
+- Update Builder/static JSON references only where they affect rendered stale
+  links.
+- Update sitemap generation to include the five new hubs.
+- Keep `/solutions` and preserved `/solutions/*` in sitemap output.
+- Update canonical metadata for new hub pages.
+- Preserve canonical metadata for `/solutions/*`.
+- Check Open Graph metadata for new hub pages.
+- Check localized alternate generation for new hub routes and preserved solution
+  routes.
 
 Suggested files:
 
@@ -730,14 +792,12 @@ Suggested files:
 
 Acceptance checks:
 
-- `rg "/solutions"` finds no active user-facing internal links except redirect
-  definitions, the optional final fallback, archived/builder source that is not
-  rendered, or explicit migration comments.
-- `rg "app/\\[locale\\]/solutions|/solutions/page"` confirms the old routed page
-  tree is removed or no longer route-serving.
-- Sitemap contains new canonical routes.
-- Sitemap does not list redirected `/solutions/*` routes.
-- Canonical metadata points to new routes.
+- `rg "/solutions"` may find intentional canonical solution links.
+- No active user-facing link points to a retired alias or redirecting hub.
+- Sitemap contains new hub routes.
+- Sitemap keeps canonical `/solutions` routes that remain live.
+- Canonical metadata on new hubs points to new hubs.
+- Canonical metadata on preserved solution pages points to `/solutions/*`.
 
 Validation:
 
@@ -781,8 +841,10 @@ Manual QA checklist:
 - Escape/outside click closes desktop menus.
 - Mobile menu opens, expands each section, and exposes the same practical links.
 - Footer links resolve.
-- Legacy migrated URLs redirect correctly.
-- Locale-prefixed migrated URLs redirect correctly.
+- `/enterprise`, `/ecosystem`, `/products`, `/use-solana`, and `/network`
+  resolve directly.
+- `/solutions` and preserved `/solutions/*` resolve directly.
+- Locale-prefixed routes behave as expected.
 - `docs`, `media`, and `templates` links do not break through client-side
   navigation.
 - Dynamic content absence does not remove static nav paths.
@@ -792,11 +854,13 @@ Manual QA checklist:
 - Dynamic menu cards from media/report/event APIs.
 - New CMS schema.
 - New legal-sensitive SOL, staking, token-market, yield, or investment copy.
-- New product pages for `/products/pay-sh`, `/products/data`, or
-  `/products/tokens` unless owners provide real requirements.
+- Redirecting the `/solutions` namespace.
+- Creating audience-specific duplicate pages for every solution.
+- Moving `/x402`, `/agent-registry`, or `/skills` under `/products/*` without
+  separate product and SEO approval.
 - Reworking preserved canonical routes such as `/wallets`, `/learn`, `/docs`,
   `/developers`, `/events`, `/community`, `/validators`, `/news`, `/reports`,
-  and `/podcasts`.
+  `/podcasts`, and `/solutions/*`.
 - Visual redesign beyond what is needed to make the new IA usable and polished.
 
 ## Dynamic Content Future Phase
@@ -841,13 +905,17 @@ Do not record raw search queries or AI prompts by default.
 The migration is ready to ship when:
 
 - All five hub routes return 200.
-- Every destination in the migration matrix returns 200.
-- Every migrated legacy route redirects to its approved destination.
-- `/solutions` and all known `/solutions/*` routes redirect.
-- No shipped header/footer/mobile menu link points to `/solutions/*`.
+- `/solutions` and preserved `/solutions/*` routes remain canonical and
+  return 200.
+- No new redirect points a canonical solution page to a broad audience hub.
+- Header/footer/mobile menu use the new five-section IA.
+- Header/footer/mobile menu may link to `/solutions/*` where those pages are the
+  canonical destination.
 - No redirect blocks `/use-solana`, `/enterprise`, `/products`, `/ecosystem`, or
   `/network`.
-- Active nav state is correct for preserved and migrated routes.
+- Active nav state is correct for preserved solution pages, preserved canonical
+  routes, and new hubs.
 - Shared chrome works across `web`, `docs`, `media`, and `templates`.
-- Sitemap and canonical metadata use the new canonical routes.
+- Sitemap and canonical metadata include the new hubs and preserve live solution
+  canonicals.
 - Targeted lint, typecheck, unit tests, and web build pass.

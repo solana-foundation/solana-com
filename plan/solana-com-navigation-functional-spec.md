@@ -3,13 +3,9 @@
 ## Overview
 
 This specification defines the proposed Solana.com header, mega menu, footer,
-URL migration, and supporting information architecture restructure.
+hub pages, and information architecture restructure.
 
-The revised structure is audience and product-led, with `Ecosystem` acting as
-the umbrella for network, community, events, founders, grants, and legacy
-ecosystem material.
-
-Final proposed primary navigation:
+The revised structure is audience and product-led:
 
 1. Use Solana
 2. Build
@@ -17,18 +13,63 @@ Final proposed primary navigation:
 4. Products
 5. Ecosystem
 
+`Solutions` is no longer a top-level header label, but `/solutions` remains a
+canonical long-tail SEO route namespace and content type. The restructure should
+make the header audience-targeted while preserving solution endpoints and search
+equity.
+
 `Network` is no longer a top-level header item. Network content remains
 important and should live prominently under `Ecosystem`, with selected network
 proof also linked from `Enterprise`.
 
-This is a functional implementation spec. Agents should use it as the source of
-truth for IA, sequencing, acceptance criteria, and instrumentation, while
-following normal repo process separately where required.
+This is the functional strategy. The implementation checklist is:
 
-Conceptual destinations in this document are intentional. Do not create
-placeholder pages or dead links just to satisfy the menu structure. If a
-destination does not have an approved page yet, use an existing canonical route
-where one clearly fits, or omit that shipped link until the page is ready.
+`plan/solana-com-navigation-build-plan.md`
+
+## Core IA Principle
+
+Separate three concerns:
+
+1. **Navigation bucket**: the user-facing top-level menu section.
+2. **Route namespace**: the canonical URL where the page lives.
+3. **Content type**: solution/use case, product, ecosystem category, network
+   proof, guide, event, report, or hub.
+
+The new nav does not require every page to move into a matching route namespace.
+For example, an Enterprise menu item may link to `/solutions/tokenization` if
+that is the strongest current canonical page for the user's intent.
+
+## Hybrid Solutions Policy
+
+Keep `/solutions` and `/solutions/*` canonical unless a separate SEO decision
+approves a specific redirect.
+
+The old plan to fully migrate `/solutions/*` into `/enterprise/*`,
+`/products/*`, or `/ecosystem/*` is no longer the recommended direction.
+
+Instead:
+
+- Preserve `/solutions` as a Solutions / Use Cases hub.
+- Preserve existing `/solutions/*` pages for long-tail search demand.
+- Rework solution page copy, CTAs, related links, and reusable components so the
+  pages work from audience-led menus.
+- Let Enterprise, Products, Build, Ecosystem, and Use Solana menus link directly
+  to preserved solution pages where those are the best current destinations.
+- Create audience-specific leaf pages only when the intent is materially
+  different from the broad solution page.
+- Do not redirect solution pages to broad hubs.
+- Do not add a `/solutions/:path*` fallback redirect.
+
+Example:
+
+- `/solutions/depin`: broad DePIN solution/use-case page.
+- Future `/enterprise/depin`: enterprise evaluator page, only if it has a
+  distinct business-validation story.
+- Future `/ecosystem/depin`: ecosystem landscape page, only if it has a distinct
+  ecosystem-discovery story.
+
+These pages may share data, logos, stats, and proof-point components, but they
+should not be thin duplicates.
 
 ## Repo Context
 
@@ -49,6 +90,7 @@ Important implementation areas:
 - `packages/i18n/messages/web/*/common.json`
 - `apps/web/rewrites-redirects.ts`
 - `apps/web/src/app/[locale]/*`
+- `apps/web/scripts/generate-sitemap.ts`
 - `apps/media/app/api/posts/latest/route.ts`
 - `apps/media/app/api/reports/latest/route.ts`
 
@@ -61,12 +103,6 @@ The shared `Header` and `Footer` are used by:
 
 This means navigation changes affect more than the marketing app. Delivery must
 include cross-app QA.
-
-Current shared chrome is keyed around the existing section IDs `learn`,
-`developers`, `solutions`, `network`, and `community`. Implementation must
-update typed section IDs, icon mappings, menu content mappings, active-route
-rules, desktop menu behavior, mobile menu behavior, and translations together.
-Do not only rename visible labels.
 
 ## Current-State Findings
 
@@ -88,8 +124,10 @@ This creates a mismatch:
 - Code namespace: `solutions`
 - Analytics/history: solutions pages
 
-The restructure should resolve this mismatch over time through staged URL
-migration.
+The restructure should resolve the public navigation mismatch without removing
+the `/solutions` route namespace. `Products` should become a real audience/menu
+bucket, while `/solutions/*` remains a route namespace for solution and use-case
+SEO.
 
 ## Goals
 
@@ -106,9 +144,11 @@ migration.
 7. Keep events visible because they are central to Solana.com promotional
    cycles.
 8. Preserve critical canonical routes where they have strong existing value.
-9. Use staged migration so the IA can move forward without forcing all content
-   and URL migrations into one release.
-10. Allow dynamic content inside mega menus without making critical paths
+9. Preserve `/solutions` long-tail SEO and use audience-led menu placement
+   rather than forced redirects.
+10. Allow future audience-specific pages only when they have distinct search
+    intent and value proposition.
+11. Allow dynamic content inside mega menus without making critical paths
     dependent on dynamic content.
 
 ## Non-Goals
@@ -122,6 +162,34 @@ This specification does not define:
 - Final CMS schema changes
 - Final redirect map for every route
 - Final product page ownership model
+- Full `/solutions/*` route migration
+
+## Required Hub Pages
+
+Create these real hub pages:
+
+- `/use-solana`
+- `/enterprise`
+- `/products`
+- `/ecosystem`
+- `/network`
+
+These hubs should be real audience entry points, not thin link lists. They
+should link to existing canonical pages, including `/solutions/*`, where those
+routes are the best current destination.
+
+Current redirect blockers:
+
+- `/ecosystem(.*)` currently redirects to `/`; remove or narrow this before
+  `/ecosystem` can work.
+- `/enterprise` currently redirects to `/solutions/enterprise`; remove this
+  before `/enterprise` can work.
+
+Do not redirect `/solutions/enterprise` to `/enterprise`. They serve different
+roles:
+
+- `/enterprise`: audience hub.
+- `/solutions/enterprise`: solution/use-case page.
 
 ## Primary Navigation
 
@@ -144,9 +212,6 @@ Persistent utilities:
 - Language selector
 - Optional contextual CTA
 
-`Use Solana` may receive stronger visual treatment because it is the first-path
-user entry point, but it still needs a mega menu.
-
 ## Header Behavior
 
 Each top-level navigation item should open a mega menu on desktop.
@@ -155,23 +220,21 @@ Mega menus should include:
 
 - Static high-intent links
 - Optional short descriptions
-- One dynamic content module where useful
 - A clear primary CTA where applicable
+- Optional dynamic module in a later phase
 
 On mobile, the navigation should collapse into an accessible menu with the same
-hierarchy.
+practical hierarchy.
 
 Functional acceptance criteria:
 
 1. Desktop header shows the five top-level items in the specified order.
 2. Each top-level item opens a menu and supports pointer and keyboard access.
-3. Mobile menu exposes the same five sections and the same practical hierarchy.
+3. Mobile menu exposes the same five sections and practical hierarchy.
 4. Active state rules map existing routes into the new IA, including preserved
    routes such as `/learn`, `/developers`, `/solutions/*`, `/wallets`,
    `/events`, `/community`, `/validators`, `/news`, `/reports`, and `/podcasts`.
-5. Cross-app links continue to use the shared chrome link behavior so docs,
-   media, templates, and web routes do not accidentally become broken client
-   transitions.
+5. Cross-app links continue to use shared chrome link behavior.
 6. No shipped menu item points to a route that is known to redirect away from
    the intended destination unless that redirect is the intended canonical
    behavior.
@@ -180,222 +243,229 @@ Functional acceptance criteria:
 
 ## Mega Menu Requirements
 
+The menu listings below are the concrete launch inventory under each top-level
+heading. They are menu placement decisions, not route migrations. Links should
+point to preserved canonical routes, including `/solutions/*`, when those pages
+are the best current destination.
+
+Do not ship links to placeholder pages, self-redirecting pages, or future-only
+routes. If a listed route is not live at implementation time, omit that menu
+item until it is live or link to the approved existing canonical route.
+
 ### Use Solana
 
 Purpose: serve users, wallet users, retail visitors, and crypto-curious visitors
 with fragmented but common intent.
 
-Primary links:
+Primary CTA:
 
-- Wallets (`/wallets`)
-- Learn the Basics (`/learn`)
-- Safety
-- Tokens
-- Help / Ask AI
+- `/use-solana`
 
-Conditional links, pending legal review:
+Wallets and onboarding:
 
-- Staking (`/staking`)
-- Issuance or token basics
+- Wallets: `/wallets`
+- Wallet directory: `/solana-wallets`, if retained as canonical
+- Learn the basics: `/learn`
+- What is Solana?: `/learn/what-is-solana`
+- Getting started: `/learn/getting-started`
+- What is a wallet?: `/learn/what-is-a-wallet`
+- Sending and receiving SOL: `/learn/sending-and-receiving-sol`
+- Transaction fees: `/learn/understanding-solana-transaction-fees`
+
+Safety, tokens, and apps:
+
+- Staying safe: `/learn/staying-safe-on-solana`
+- Tokens: `/learn/introduction-to-solana-tokens`
+- Staking: `/staking`
+- What is staking?: `/learn/what-is-staking`
+- Consumer apps: `/solutions/consumer`
+
+Utility:
+
+- Search / Ask AI: existing Inkeep entrypoint
 
 Notes:
 
 - `Use Solana` is acceptable as an action-based label because noun labels like
   `Users` are less clear.
-- Inkeep/Search should be especially visible here because user questions are
-  fragmented.
 - SOL and staking-related content must use legally approved factual language.
 - `Learn` should not be top-level; beginner education should be embedded here.
-- `Use Solana` should be broader than wallets, but wallets are likely the
-  highest-intent entry point.
-
-Dynamic module:
-
-- Popular help topic, wallet guide, safety guide, or user-facing explainer.
+- Link staking only with neutral labels and existing approved destinations.
 
 ### Build
 
 Purpose: help builders quickly start, build, debug, and scale on Solana.
 
-Recommended sections:
+Primary CTA:
 
-- Start Building: Quickstart (`/docs/intro/quick-start`), Docs (`/docs`),
-  Grants, Support
-- Tools: Docs (`/docs`), RPC (`/rpc` or `/docs/rpc` depending on user intent),
-  Templates (`/developers/templates`), SDKs, Token Extensions, Actions/Blinks,
-  payment tooling, game tooling
-- Build By Use Case: Tokens, Wallets, Payments (`/developers/payments`), DeFi
-  (`/developers/defi`), Gaming (`/developers/gaming`), Agents
+- `/developers`
+
+Start building:
+
+- Docs: `/docs`
+- Quickstart: `/docs/intro/quick-start`
+- Install and setup: `/docs/intro/installation`
+- Guides: `/developers/guides`
+- Cookbook: `/developers/cookbook`
+- Templates: `/developers/templates`
+
+Tools and references:
+
+- RPC docs: `/docs/rpc`
+- RPC providers: `/rpc`
+- Tokens docs: `/docs/tokens`
+- Token Extensions: `/solutions/token-extensions`
+- Actions and blinks: `/solutions/actions`
+- Payments tooling: `/solutions/payments-tooling`
+
+Build by use case:
+
+- Payments: `/developers/payments`
+- DeFi: `/developers/defi`
+- Gaming: `/developers/gaming`
+- Game tooling: `/solutions/games-tooling`, if restored as canonical; otherwise
+  use `/developers/gaming`
+- Agents and AI: `/solutions/ai`
 
 Notes:
 
 - `Build` navigation should be task-based.
 - `Tools` should be a subsection inside `Build`, not a top-level header item.
-- `DeFi` should remain visible for crypto-native developer discoverability.
-- `Internet Capital Markets` may appear in supporting copy, but developers still
-  expect concrete technical labels.
-- `Agents` should appear here because builders may arrive looking for agent
-  tooling or integration guidance.
-- `Support` should cover community and builder-journey assistance, not only
-  direct ticket-based support.
+- Developers still expect concrete technical labels.
 - The existing secondary developer nav should be audited after the primary nav
   change.
-
-Dynamic module:
-
-- Latest developer guide, release, template, or technical update.
 
 ### Enterprise
 
 Purpose: help organizations validate Solana as mature infrastructure for
-financial products, payments, tokenization, privacy, and capital markets.
+financial products, payments, tokenization, privacy, capital markets, and other
+business use cases.
 
-Primary links:
+Primary CTA:
 
-- Payments
-- Tokenization
-- Internet Capital Markets
-- Privacy
-- Real-World Assets
-- Network Facts
-- Data
-- Reports
-- Case Studies
-- Contact
+- `/enterprise`
+
+Business solutions:
+
+- Enterprise overview solution: `/solutions/enterprise`
+- Institutional payments: `/solutions/institutional-payments`
+- Commerce tooling: `/solutions/commerce-tooling`
+- Stablecoins: `/solutions/stablecoins`
+- Tokenization: `/solutions/tokenization`
+- Real-world assets: `/solutions/real-world-assets`
+- Digital assets: `/solutions/digital-assets`
+- Internet capital markets / DeFi: `/solutions/defi`
+- Financial infrastructure: `/solutions/financial-infrastructure`
+- Financial institutions: `/solutions/financial-institutions`
+- DePIN: `/solutions/depin`
+
+Validation and proof:
+
+- Network hub: `/network`
+- Validators: `/validators`
+- Reports: `/reports`
+- Research: `/research`
+- Privacy: `/privacy`
 
 Notes:
 
 - `Solutions` should not be used as the public top-level label.
-- Enterprise pages should be organized around business outcomes and
-  institutional validation.
-- `Payments` should absorb institutional payments, stablecoins, remittance,
-  settlement, and commerce tooling.
-- `Internet Capital Markets` should absorb DeFi, liquidity, trading, RWAs where
-  appropriate, and capital-market use cases.
-- `Tokenization` should remain market-facing and distinct from Token Extensions.
-- `Privacy` should be a named enterprise topic.
+- Enterprise is an audience lens, not necessarily a route namespace for every
+  use case.
+- Enterprise may link to preserved `/solutions/*` pages when those pages are the
+  best canonical destination.
+- Create `/enterprise/*` leaf pages only when the enterprise version is
+  materially different from the solution page.
 - Enterprise should retain direct paths to network proof, reports, data, and
   facts even though `Network` is no longer top-level.
-- SDP may appear here when framed as a platform for launching and scaling
-  financial products.
-
-Dynamic module:
-
-- Latest case study, report, enterprise launch, or institutional proof point.
 
 ### Products
 
-Purpose: provide a durable home for current and future
-product-team/Foundation-led product surfaces.
+Purpose: provide a durable home for current and future product-team/Foundation
+product surfaces.
 
-Recommended sections:
+Primary CTA:
 
-- Platforms & Tools: Solana Developer Platform, Pay.sh, Agents, Data, Tokens.xyz
-- Product updates driven by news engine
+- `/products`
+
+Platforms and product surfaces:
+
+- Solana Developer Platform: `/solutions/sdp`
+- Actions and blinks: `/solutions/actions`
+- Agents and AI: `/solutions/ai`
+- x402: `/x402`
+- Agent Registry: `/agent-registry`
+- Skills: `/skills`
+
+Product-adjacent solution pages:
+
+- Token Extensions: `/solutions/token-extensions`
+- Digital assets: `/solutions/digital-assets`
+- Payments tooling: `/solutions/payments-tooling`
+
+External or future product surfaces:
+
+- Tokens surface: external Tokens destination if approved for navigation
 
 Notes:
 
-- `Products` should be flexible enough to catch future Foundation/product-team
-  priorities.
-- `Products` should not be treated as a one-for-one replacement for all existing
-  `/solutions/*` pages.
-- `Platforms & Tools` should cover productized Foundation surfaces and durable
-  product-team priorities.
-- Product ordering may be driven by SEO, launch priority, or current strategic
-  importance.
-- x402 should be represented through Pay.sh unless x402 needs to remain a
-  standalone route during migration.
-- `Data` should be a product bucket for data-centric pages and tools.
-- `Tokens.xyz` should have a Solana.com landing page that explains the surface
-  and links out.
-- Token Extensions should be deemphasized because adoption has been limited. It
-  may still be referenced as protocol functionality where relevant.
-- Agents should have a product page.
+- `Products` should be flexible enough to catch future product-team priorities.
+- `Products` is not a one-for-one replacement for `/solutions/*`.
+- Do not move `/x402`, `/agent-registry`, or `/skills` under `/products/*`
+  without product and SEO approval.
 - Product pages should use factual language consistent with official releases.
-
-Dynamic module:
-
-- Latest product launch, changelog, release post, or integration update.
+- Tokens.xyz may need a Solana.com explanatory landing page later, but that is
+  not required for this delivery.
 
 ### Ecosystem
 
 Purpose: act as the broad umbrella for network, community, events, grants,
-founders, jobs, public engagement, and legacy/historical ecosystem material.
+founders, jobs, public engagement, and ecosystem categories.
 
-Recommended sections:
+Primary CTA:
 
-- Network
-- Events
-- Community
-- Founders
-- Grants and Funding
-- Hackathons
-- Jobs
-- Ecosystem Partners
-- Legacy and Historical Initiatives
+- `/ecosystem`
 
-Network links:
+Network:
 
-- Network overview
-- Live Metrics
-- Data
-- Validators
-- Fees
-- Decentralization
-- Explorers
-- Dashboards
-- Reports
-- Issuance and Inception
-- Status
+- Network hub: `/network`
+- Validators: `/validators`
+- RPC providers: `/rpc`
+- Reports: `/reports`
+- Research: `/research`
+- Status: `https://status.solana.com/`
 
-Events links:
+Events and community:
 
-- Events
-- Breakpoint
-- Submit an event
-- Host an event
+- Events: `/events`
+- Event archive: `/events/archive`
+- Breakpoint: `/breakpoint`
+- Community: `/community`
+- News: `/news`
+- Podcasts: `/podcasts`
 
-Community links:
+Ecosystem categories and programs:
 
-- Community
-- News
-- Podcasts
-- Social channels
-- Community resource hub
+- DePIN: `/solutions/depin`
+- DeSci: `/solutions/desci`
+- BTCFi: `/solutions/btcfi`
+- Gaming and entertainment: `/solutions/gaming-and-entertainment`
+- Artists and creators: `/solutions/artists-creators`
+- Request for Startups / founders: `/solutions/request-for-startups`
 
 Notes:
 
-- Breakpoint/event promo banner appears under Ecosystem but promo section will
-  be available for any menu section.
-- Events must remain easy to find because they are a major promotional cycle on
-  Solana.com.
-- Network must be prominent inside `Ecosystem`, because it still serves
-  validators, analysts, funds, enterprise diligence, and technically curious
-  users.
-- `Ecosystem Partners` should cover teams, brands, and products that have
-  supported Solana events, programs, and ecosystem initiatives, including
-  previous event sponsors.
-- Status should not be a top-level header item, but should be available from
-  Ecosystem/Network and footer.
-- `Ecosystem` may need a new landing page, but that should be staged.
-
-Dynamic module:
-
-- Breakpoint banner, upcoming event, ecosystem announcement, network report,
-  grant/hackathon announcement, or community update.
+- Events must remain easy to find.
+- Breakpoint/event promo banner appears under `Ecosystem`.
+- Network must be prominent inside `Ecosystem`.
+- Ecosystem may link to preserved `/solutions/*` category pages where those are
+  the canonical current destination.
+- Create `/ecosystem/*` category pages only when the ecosystem version is
+  materially different from the solution/use-case page.
 
 ## Event and Promotional Requirements
 
 Events are not just community content in the current repo.
-
-Current event-related behavior includes:
-
-- Homepage event carousel
-- `/events`
-- Multiple Luma calendars
-- Breakpoint promotional banner in the current Community mega menu
-- Campaign/event pages such as Breakpoint, hackathons, privacyhack, and
-  universities hackathon pages
 
 Requirements:
 
@@ -421,94 +491,16 @@ Recommended footer columns:
 - Ecosystem
 - Foundation
 
-### Use Solana
-
-- Wallets (`/wallets`)
-- Learn the Basics (`/learn`)
-- Safety
-- Tokens
-- Help / Ask AI
-- SOL or staking (`/staking`) links only if legally approved
-
-### Build
-
-- Start Building: Quickstart (`/docs/intro/quick-start`), Docs (`/docs`),
-  Grants, Support
-- Tools: Docs (`/docs`), RPC (`/rpc` or `/docs/rpc`), Templates
-  (`/developers/templates`), SDKs, Token Extensions, Actions/Blinks, payment
-  tooling, game tooling
-- Build By Use Case: Tokens, Wallets, Payments (`/developers/payments`), DeFi
-  (`/developers/defi`), Gaming (`/developers/gaming`), Agents
-
-### Enterprise
-
-- Payments
-- Tokenization
-- Internet Capital Markets
-- Privacy
-- Real-World Assets
-- Network Facts
-- Data
-- Reports
-- Case Studies
-- Contact
-
-### Products
-
-- Platforms & Tools: Solana Developer Platform, Pay.sh, Agents, Data, Tokens.xyz
-- Product Updates
-
-### Ecosystem
-
-- Network
-- Events
-- Community
-- Founders
-- Grants
-- Hackathons
-- Jobs
-- Ecosystem Partners
-- Legacy initiatives
-- Historical programs
+Footer columns may link to `/solutions/*` pages where those pages are the
+canonical route for the linked topic.
 
 Network should be a subsection inside `Ecosystem` rather than a separate footer
 column.
 
-- Live Metrics
-- Validators
-- Multiple Clients
-- Fees
-- Decentralization
-- Explorers
-- Dashboards
-- Reports
-- Issuance and Inception
-- Status
-
-### Foundation
-
-- About
-- Press
-- Brand
-- Careers
-- Contact
-- Legal
-- Privacy
-- Terms
-- Solana Policy Institute
-- Government engagement
-- Policy resources
-
 ## Canonical URL Strategy
 
-The final URL model should use the new information architecture where it creates
-clarity and SEO value.
-
 New IA labels do not require matching URL namespaces. Existing high-value or
-operational routes should remain canonical when they already match the user
-intent. New hubs should link to those routes instead of duplicating them, and
-optional nested aliases should redirect or canonicalize back to the established
-route unless SEO review approves a migration.
+operational routes should remain canonical when they already match user intent.
 
 Canonical top-level hubs:
 
@@ -518,90 +510,73 @@ Canonical top-level hubs:
 - `/products`
 - `/ecosystem`
 - `/network`
+- `/solutions`
 
-Known current route conflicts and implementation requirements:
+Canonical route families to preserve:
 
-- `/ecosystem(.*)` currently redirects to `/`. Before `/ecosystem` can become a
-  canonical hub, that redirect must be removed or replaced with narrower legacy
-  redirects that do not capture the new hub.
-- `/enterprise` currently redirects to `/solutions/enterprise`. Before
-  `/enterprise` can become a canonical hub, that redirect must be removed or
-  changed to the approved canonical destination.
-- `/use-solana`, `/products`, and `/network` require real app routes before they
-  are linked as landing-page destinations.
-- Top-level header triggers may ship before these hubs exist because they open
-  mega menus. Any menu CTA that points to a hub must wait until that hub exists
-  or use an existing canonical destination.
-
-Canonical routes that should remain because they are already strong or
-operationally important:
-
+- `/solutions`
+- `/solutions/*`
 - `/events`
 - `/community`
 - `/validators`
 - `/wallets`
+- `/solana-wallets`, pending separate SEO decision
 - `/docs`
+- `/docs/*`
 - `/learn`
+- `/learn/*`
 - `/news`
 - `/reports`
 - `/podcasts`
 - `/rpc`
+- `/developers`
 - `/developers/templates`
 - `/developers/guides`
 - `/developers/cookbook`
-
-`/network` should become a canonical hub, but important existing routes such as
-`/validators` should remain canonical unless a separate migration decision is
-made.
-
-Existing routes that should receive traffic, SEO, and ownership review before
-any consolidation:
-
-- `/solana-wallets`
-- `/staking`
 - `/x402`
 - `/agent-registry`
 - `/skills`
 
-## Staged Migration Plan
+Redirect policy:
 
-The migration should be gradual. We won't attempt all page consolidation,
-redirects, content rewrites, and dynamic menu work in one release.
+- Remove or narrow redirects that block approved hubs, specifically current
+  `/ecosystem(.*)` and `/enterprise` redirects.
+- Keep `/solutions/*` canonical. Do not redirect solution pages to broad hubs.
+- Keep or add redirects only for true aliases, misspellings, dead paths, or
+  explicit retired pages.
+- Do not add `/solutions/:path*` fallback redirects.
+- Do not redirect unknown legacy solution paths to a broad hub.
+
+## Audience-Specific Page Rules
+
+Create audience-specific leaf pages only when the page is meaningfully distinct
+from the existing solution page.
+
+Before creating `/enterprise/{topic}`, `/products/{topic}`, or
+`/ecosystem/{topic}`, confirm:
+
+- The H1 and core promise are different from the existing solution page.
+- The audience has a distinct evaluation path.
+- The CTA path is different.
+- The proof points or examples are different enough to avoid thin duplication.
+- The canonical relationship is clear.
+
+If those conditions are not met, link to the existing `/solutions/{topic}` page
+from the relevant menu instead.
+
+## Staged Plan
 
 ### Stage 0: Approval and Planning
 
 - Approve final top-level nav.
-- Approve route migration principles.
-- Identify page ownership by section.
+- Approve that `/solutions` and `/solutions/*` remain canonical.
+- Identify page ownership by section and solution topic.
 - Identify legal-sensitive content.
 - Identify event/promo ownership.
 
-### Stage 1: Header and Footer Restructure
+### Stage 1: Hub Pages
 
-- Update shared chrome to support:
-  - Use Solana
-  - Build
-  - Enterprise
-  - Products
-  - Ecosystem
-- Build new large footer.
-- Keep existing canonical pages live.
-- Link to existing routes where new pages do not exist yet.
-- Treat new IA labels as navigation groupings first; do not rename routes just
-  to match the header labels.
-- Update typed nav section IDs, section metadata, section component mappings,
-  mobile menu mappings, active-route rules, and translations as one unit.
-- Top-level header items may be menu triggers only; they do not need to navigate
-  to new hub pages during Stage 1.
-- Do not ship dead, placeholder, or self-redirecting CTA links for conceptual
-  pages that do not exist yet.
-- Add clear TODOs for routes that need future migration.
-- Move Breakpoint/event banner into `Ecosystem`.
-- Ensure header/footer work across `web`, `docs`, `media`, and `templates`.
-
-### Stage 2: New Hub Pages
-
-Create new hub pages:
+Create:
 
 - `/use-solana`
 - `/enterprise`
@@ -609,266 +584,160 @@ Create new hub pages:
 - `/ecosystem`
 - `/network`
 
-These should be real landing pages, not thin link lists. They should complement
-existing canonical routes such as `/wallets`, `/learn`, `/events`, `/community`,
-`/validators`, `/docs`, and `/developers`, not replace them by default.
+These should complement existing canonical routes and link to `/solutions/*`
+where appropriate.
 
-Before shipping `/ecosystem` and `/enterprise`, resolve the current redirects
-that send those routes away from the intended canonical hubs.
+### Stage 2: Header and Footer Restructure
 
-### Stage 3: Priority Route Migration
+- Update shared chrome to support the five top-level nav items.
+- Build the large footer.
+- Keep existing canonical pages live.
+- Link to existing routes where those routes are canonical.
+- Update typed nav section IDs, metadata, content mappings, mobile menu
+  mappings, active-route rules, and translations as one unit.
+- Move Breakpoint/event banner into `Ecosystem`.
+- Ensure header/footer work across `web`, `docs`, `media`, and `templates`.
 
-Migrate high-priority `/solutions/*` routes into the new structure.
+### Stage 3: Solution Page Reframing
 
-Do not treat `Products` as the default destination for all legacy `solutions`
-content. Route each page based on audience, ownership, and intent.
+- Audit `/solutions` and `/solutions/*` for audience fit.
+- Keep canonical paths.
+- Update copy, CTAs, and related links so pages work from new audience menus.
+- Extract shared components only when they support future distinct audience
+  pages.
+- Do not redirect solution pages as part of this stage.
 
-Likely mappings:
+### Stage 4: Redirect Cleanup
 
-- `/solutions/tokenization` -> `/enterprise/tokenization`
-- `/solutions/institutional-payments` -> `/enterprise/payments`
-- `/solutions/stablecoins` -> `/enterprise/payments` or
-  `/enterprise/stablecoins`
-- `/solutions/commerce-tooling` -> `/enterprise/payments`
-- `/solutions/real-world-assets` -> `/enterprise/real-world-assets`
-- `/solutions/financial-infrastructure` ->
-  `/enterprise/financial-infrastructure`
-- `/solutions/financial-institutions` -> `/enterprise/financial-institutions`
-- `/solutions/enterprise` -> `/enterprise`
-- `/solutions/sdp` -> `/products/solana-developer-platform`
-- `/solutions/ai` -> `/products/agents` or `/enterprise/agents`, depending on
-  final product framing
-- `/solutions/actions` -> `/developers/actions` or `/products/pay-sh`, depending
-  on final product framing
-- `/solutions/games-tooling` -> `/developers/gaming`
-- `/solutions/payments-tooling` -> `/developers/payments` or
-  `/enterprise/payments`
-- `/solutions/token-extensions` -> `/developers/tokens` or
-  `/enterprise/tokenization`, depending on final positioning
-- `/solutions/consumer` -> `/wallets`, `/use-solana/apps`, or another existing
-  user-facing route based on content fit and SEO review
-- `/solutions/depin`, `/solutions/desci`, `/solutions/btcfi`,
-  `/solutions/gaming-and-entertainment`, `/solutions/artists-creators`, and
-  `/solutions/request-for-startups` -> `Ecosystem` destinations or retained
-  until a clear replacement exists
+- Remove or narrow redirects that block `/ecosystem` and `/enterprise`.
+- Keep `/solutions` and `/solutions/*` canonical.
+- Preserve or update true alias redirects.
+- Do not add broad `/solutions/:path*` redirects.
 
-Do not redirect until replacement pages are ready and QA'd.
+### Stage 5: Sitemap, Metadata, And Links
 
-### Stage 4: Use Solana Consolidation
-
-Create and consolidate user paths while preserving strong existing URLs:
-
-- Wallets: keep `/wallets` canonical. Only create `/use-solana/wallets` as an
-  alias if needed, and redirect or canonicalize it to `/wallets`.
-- Existing wallet legacy path: review `/solana-wallets` traffic before deciding
-  whether it redirects to `/wallets`, remains live, or becomes a transitional
-  alias.
-- Apps: prefer an existing high-value destination if one exists before creating
-  `/use-solana/apps`.
-- Safety: create `/use-solana/safety` only if there is no existing high-value
-  safety route to preserve.
-- Tokens: create `/use-solana/tokens` only after legal and SEO review; link to
-  Tokens.xyz or product pages where that is the better user path.
-- Basics: keep `/learn` canonical for broad education unless SEO review approves
-  a narrower replacement. `/use-solana/basics` should not replace `/learn` by
-  default.
-
-Do not consolidate SOL or staking content until legal language is approved. If
-staking is linked, preserve the existing `/staking` path unless SEO and legal
-review approve a different destination.
-
-### Stage 5: Products Consolidation
-
-Create or consolidate product pages:
-
-- `/products/solana-developer-platform`
-- `/products/pay-sh`
-- `/products/agents`
-- `/products/data`
-- `/products/tokens`
-
-Existing routes such as `/x402`, `/agent-registry`, `/skills`, and
-`/solutions/sdp` should be consolidated where it makes sense, but not forced
-prematurely. Keep those existing routes live until replacement product pages are
-complete, stronger than the existing destination, and approved for
-redirect/canonical changes.
+- Add new hub routes to sitemap.
+- Keep live `/solutions` routes in sitemap.
+- Keep canonical metadata on `/solutions/*`.
+- Add canonical metadata for new hubs.
+- Replace stale internal links only where they point to retired aliases or
+  blocked routes.
+- Keep intentional links to canonical `/solutions/*` pages.
 
 ### Stage 6: Dynamic Content
 
-Add dynamic mega menu modules using tagged content from media/report APIs and
-event sources.
-
-Dynamic content should be tag-driven and scoped:
-
-- Use Solana: wallet/user guides, safety content, popular help topics
-- Build: technical guides, templates, docs updates
-- Enterprise: reports, case studies, institutional announcements
-- Products: launches, changelogs, product updates
-- Ecosystem: events, Breakpoint, grants, community, network reports
+Add dynamic mega menu modules later using tagged content from media/report APIs
+and event sources.
 
 Dynamic modules must fail silently. Static nav must remain usable.
-
-### Stage 7: Redirects and Cleanup
-
-- Add redirects only after destination pages are complete.
-- Remove or narrow legacy redirects that block approved new hubs, including the
-  current `/ecosystem(.*)` and `/enterprise` redirects.
-- Update sitemap generation.
-- Update canonical metadata.
-- Update internal links.
-- Remove stale nav labels.
-- Clean up deprecated `/solutions/*` pages only after analytics confirms
-  migration stability.
-
-## Route Migration Principles
-
-1. New URLs should be introduced before old URLs are removed.
-2. Old high-traffic routes should redirect only after replacement pages exist.
-3. Existing campaign/event URLs should remain stable unless there is a strong
-   reason to move them.
-4. Existing high-value routes such as `/wallets`, `/learn`, `/docs`,
-   `/developers`, `/developers/guides`, `/developers/cookbook`,
-   `/developers/templates`, `/rpc`, `/events`, `/community`, `/validators`,
-   `/news`, `/reports`, and `/podcasts` should remain canonical unless SEO
-   review approves a migration.
-5. `/network` should become a canonical hub.
-6. `/solutions/*` should gradually migrate into `/enterprise/*`, `/products/*`,
-   `/developers/*`, `/use-solana/*`, or `/ecosystem/*` based on audience and
-   intent.
-7. New IA buckets can link to existing canonical route targets; a bucket name
-   does not require a matching nested URL.
-8. Product pages can link to external surfaces such as Tokens.xyz.
-9. Internal nav labels should match user-facing IA even while route migration is
-   staged.
 
 ## Content Placement Rules
 
 ### Wallets and User Education
 
-Primary location:
-
-- Use Solana
+Primary menu: Use Solana.
 
 Canonical routes:
 
 - `/wallets`
+- `/solana-wallets`, pending separate SEO decision
 - `/learn`
-
-Routes requiring review before consolidation:
-
-- `/solana-wallets`
 - `/staking`
-
-Notes:
-
-- `Use Solana` should make wallets and beginner education easy to find without
-  forcing `/wallets` or `/learn` into nested `/use-solana/*` paths.
-- `/solana-wallets` should not be redirected until traffic and SEO impact are
-  reviewed.
-- `/staking` should remain separate unless legal-approved language and SEO
-  review support a different destination.
+- `/solutions/consumer`
 
 ### Payments
 
-Primary location: Enterprise.
+Primary menu: Enterprise.
 
-Should include:
+Canonical route candidates:
 
-- Institutional payments
-- Stablecoins
-- Remittance
-- Settlement
-- Commerce tooling
-- Relevant Pay.sh references
+- `/solutions/institutional-payments`
+- `/solutions/commerce-tooling`
+- `/developers/payments` for developer implementation content
 
 ### Tokenization
 
-Primary location: Enterprise.
+Primary menu: Enterprise.
 
-Should cover:
+Canonical route:
 
-- Asset tokenization
-- Real-world assets
-- Issuance use cases
-- Institutional validation
+- `/solutions/tokenization`
 
 Tokenization is separate from Token Extensions.
 
 ### Token Extensions
 
-Primary treatment: deemphasized.
+Primary menus:
 
-Should be referenced only where technically relevant, such as protocol or
-developer content.
+- Build
+- Enterprise, where technically relevant
 
-### Internet Capital Markets
+Canonical route should be confirmed by DevRel/SEO:
 
-Primary location: Enterprise.
+- `/solutions/token-extensions`
+- or `/docs/tokens/extensions`
+
+### Internet Capital Markets And DeFi
+
+Primary menu: Enterprise for business framing.
 
 Developer equivalent:
 
-- DeFi
+- `/developers/defi`
 
-Should cover:
+Canonical solution route:
 
-- Liquidity
-- Trading
-- DeFi
-- RWAs where relevant
-- Capital-market use cases
+- `/solutions/defi`
 
-### Agents
+### Agents And AI
 
-Primary location: Products.
+Primary menu: Products.
 
-Secondary locations:
+Secondary menus:
 
 - Build
-- Enterprise, if there is an institutional/product use case
+- Enterprise, if institutional/product use case is relevant
 
-Should be framed around productized agent workflows, Pay.sh, agent payments,
-APIs, and Solana as fast, neutral infrastructure.
+Canonical current routes:
+
+- `/solutions/ai`
+- `/agent-registry`
+- `/skills`
 
 ### Data
 
-Primary locations:
+Primary menus:
 
 - Products
 - Enterprise
 - Ecosystem / Network
 
-Products framing:
+Use existing destinations until a distinct data product page is approved:
 
-- Data-centric products, APIs, tools, and product surfaces.
+- `/research`
+- `/reports`
+- `/network`
+- `/validators`
+- `/rpc`
 
-Enterprise framing:
+### DePIN
 
-- Business validation, institutional diligence, case studies, reports, and
-  market proof.
+Primary menu: Ecosystem.
 
-Network framing:
+Secondary menu:
 
-- Live metrics, dashboards, network facts, reports, and technical proof.
+- Enterprise, if the enterprise proof path is clear
 
-### Tokens.xyz
+Canonical current route:
 
-Primary location:
+- `/solutions/depin`
 
-- Products
-
-Secondary possible location:
-
-- Use Solana
-
-Solana.com should provide an explanatory landing page, then link out to
-Tokens.xyz.
-
-This helps capture Solana.com SEO value while avoiding excessive token-price
-discussion on Solana.com.
+Future `/enterprise/depin` and `/ecosystem/depin` pages should exist only if
+they are distinct from `/solutions/depin`.
 
 ### Events
 
-Primary location:
+Primary menu:
 
 - Ecosystem
 
@@ -876,15 +745,9 @@ Canonical route:
 
 - `/events`
 
-Notes:
-
-- Events should not become hidden just because Community leaves the top-level
-  nav.
-- Breakpoint banner belongs only in the `Ecosystem` menu.
-
 ### Network
 
-Primary location:
+Primary menu:
 
 - Ecosystem
 
@@ -902,35 +765,19 @@ Enterprise should still link to network proof directly.
 
 ## Dynamic Content Requirements
 
-Mega menus should support dynamic content modules.
+Mega menus may support dynamic content modules in a later phase.
 
 Each dynamic module should be tag-driven and scoped to the current menu:
 
 - Use Solana: help articles, safety guides, wallet education
 - Build: technical guides, releases, templates, docs updates
-- Enterprise: case studies, reports, institutional announcements
+- Enterprise: reports, case studies, institutional announcements
 - Products: launches, changelogs, product updates
 - Ecosystem: events, Breakpoint, grants, community, network reports
 
 Dynamic modules should never be the only path to critical content.
 
 If dynamic content fails to load, the static menu must remain fully usable.
-
-Implementation requirements:
-
-- Normalize dynamic menu content before rendering. The menu should not depend on
-  raw API response shapes.
-- Minimum normalized fields: `id`, `title`, `href`, `contentType`, and `source`.
-- Optional normalized fields: `description`, `eyebrow`, `image`, `publishedAt`,
-  `tag`, and `campaignId`.
-- Posts and reports may use the existing latest-content APIs with `tag` and
-  `limit` query params.
-- Events may use existing event sources, but event content should be normalized
-  to the same card contract before entering shared chrome.
-- Dynamic fetch failures, empty responses, and malformed records must render no
-  dynamic module rather than breaking or delaying the static menu.
-- Dynamic modules must not create layout shift that changes the position of
-  static critical links after user interaction.
 
 ## Search / Ask AI Requirements
 
@@ -941,8 +788,8 @@ Expected role:
 - Capture long-tail user questions
 - Reduce pressure on navigation
 - Support fragmented retail/user intent
-- Help users find documentation, wallet guidance, network facts, and product
-  information
+- Help users find documentation, wallet guidance, network facts, product
+  information, and solution/use-case pages
 
 Search should be treated as complementary to IA, not a replacement for clear
 primary paths.
@@ -963,7 +810,7 @@ preserve discoverability for high-intent topics.
 
 ## Legal and Compliance Considerations
 
-Legal review is required before publishing or prominently linking content
+Legal review is required before publishing or prominently linking new content
 related to:
 
 - SOL
@@ -977,234 +824,63 @@ related to:
 Preferred language should be factual and consistent with official public
 releases.
 
-Tokens.xyz should be used as the primary destination for token-market surfaces
-where appropriate.
-
 ## Analytics Requirements
 
 Use lower snake case event names. Prefer one shared tracking helper in shared
 chrome so header, mobile menu, and footer events use the same schema.
 
-Common properties for all navigation analytics events:
+Recommended event schema version:
 
-- `event_schema_version`: `nav_ia_v1`
-- `app_name`: value from `NEXT_PUBLIC_APP_NAME` where available
+- `nav_ia_v1`
+
+Core events:
+
+- `nav_menu_opened`
+- `nav_menu_closed`
+- `nav_link_clicked`
+- `nav_cta_clicked`
+- `nav_dynamic_card_impression`
+- `nav_dynamic_card_clicked`
+- `nav_search_opened`
+- `nav_search_submitted`
+- `nav_ai_chat_opened`
+- `ia_hub_page_viewed`
+- `event_promo_clicked`
+- `developer_start_clicked`
+- `tokens_xyz_outbound_clicked`
+
+Common properties should include:
+
+- `app_name`
 - `locale`
 - `current_path`
-- `nav_surface`: `header`, `mobile_menu`, `footer`, `hub_page`, or
-  `developer_secondary_nav`
-- `nav_section`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`,
-  `network`, `foundation`, or `unknown`
-- `nav_group`: submenu/group label when available
-- `nav_item_id`: stable code/config ID when available
+- `nav_surface`
+- `nav_section`
+- `nav_group`
+- `nav_item_id`
 - `nav_item_label`
 - `href`
-- `destination_section`: best-known IA destination section
-- `destination_type`: `internal`, `cross_app`, `external`, `dynamic`, `search`,
-  or `cta`
+- `destination_section`
+- `destination_type`
 - `is_external`
-- `external_domain`: hostname for external links only
-- `link_role`: `primary`, `secondary`, `cta`, `utility`, `dynamic_card`, or
-  `promo`
-- `position`: zero-based position inside the current group where practical
-- `viewport`: `desktop`, `tablet`, or `mobile`
-
-Event catalog:
-
-### `nav_menu_opened`
-
-Capture when a top-level desktop mega menu or mobile section is opened.
-
-Additional properties:
-
-- `trigger_method`: `hover`, `click`, `keyboard`, or `touch`
-- `menu_variant`: `desktop_mega_menu` or `mobile_section`
-
-### `nav_menu_closed`
-
-Capture when practical, especially on mobile and keyboard flows.
-
-Additional properties:
-
-- `close_method`: `outside_click`, `escape`, `route_change`, `back`, or
-  `unknown`
-- `duration_ms`
-
-### `nav_link_clicked`
-
-Capture all static header, mobile menu, and footer link clicks.
-
-Additional properties:
-
-- `source_section`: same value as `nav_section`
-- `source_group`: same value as `nav_group`
-- `link_text`
-
-### `nav_cta_clicked`
-
-Capture primary CTAs inside menus and footer sections. This may be captured in
-addition to `nav_link_clicked` when the CTA is strategically important.
-
-Additional properties:
-
-- `cta_id`
-- `cta_label`
-- `cta_context`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`,
-  or `footer`
-
-### `nav_dynamic_card_impression`
-
-Capture when a dynamic module card becomes visible inside an open menu.
-
-Additional properties:
-
-- `content_id`
-- `content_type`: `post`, `report`, `event`, `guide`, `template`, `release`, or
-  `unknown`
-- `content_source`: `posts_api`, `reports_api`, `events_source`, or `manual`
-- `content_tag`
-- `campaign_id`
-
-### `nav_dynamic_card_clicked`
-
-Capture dynamic module card clicks.
-
-Additional properties:
-
-- `content_id`
-- `content_type`
-- `content_source`
-- `content_tag`
-- `campaign_id`
-
-### `nav_search_opened`
-
-Capture when Search / Ask AI opens from the header, mobile menu, menu link, or
-hub page.
-
-Additional properties:
-
-- `search_entrypoint`: `header_search`, `mobile_ask_ai`, `use_solana_help`,
-  `docs_hero`, `hub_page`, or `unknown`
-- `default_view`: `search` or `chat`
-- `has_prefilled_query`
-
-### `nav_search_submitted`
-
-Capture only if supported without storing sensitive user input. Do not record
-raw search query text by default.
-
-Additional properties:
-
-- `search_entrypoint`
-- `query_length`
-- `results_count`: when available
-- `results_source`: `inkeep`, `site_search`, or `unknown`
-
-### `nav_ai_chat_opened`
-
-Capture when Ask AI opens in chat mode.
-
-Additional properties:
-
-- `search_entrypoint`
-- `default_view`: `chat`
-
-### `nav_ai_question_submitted`
-
-Capture only if supported without storing sensitive user input. Do not record
-raw prompts by default.
-
-Additional properties:
-
-- `search_entrypoint`
-- `question_length`
-- `conversation_source`: `inkeep` or `unknown`
-
-### `ia_hub_page_viewed`
-
-Capture for new IA hub pages, or enrich the existing `$pageview` with these
-properties if that is cleaner in the current PostHog setup.
-
-Additional properties:
-
-- `ia_section`: `use_solana`, `build`, `enterprise`, `products`, `ecosystem`, or
-  `network`
-- `ia_landing_page`: `true`
-- `canonical_path`
-
-### `nav_product_outbound_clicked`
-
-Capture outbound clicks from Products links and product CTAs.
-
-Additional properties:
-
-- `product_name`
-- `outbound_category`: `product_surface`, `tool`, `docs`, `partner`, or
-  `unknown`
-
-### `tokens_xyz_outbound_clicked`
-
-Capture Tokens.xyz outbound clicks separately because token-market surfaces are
-business and compliance sensitive.
-
-Additional properties:
-
-- `origin_section`: `products`, `use_solana`, or `unknown`
-- `origin_context`: `menu`, `footer`, `hub_page`, or `content`
-
-### `event_promo_clicked`
-
-Capture event and Breakpoint promo clicks from menus, footer, homepage modules,
-and hub pages.
-
-Additional properties:
-
-- `promo_id`
-- `promo_location`: `menu`, `footer`, `homepage`, `hub_page`, or `content`
-- `promo_section`: source menu section when `promo_location` is `menu`
-- `event_name`
-- `event_route`
-- `event_start_date`
-- `campaign_id`
-
-### `developer_start_clicked`
-
-Capture high-intent builder starts such as Quickstart, Docs, Templates, and
-developer hub clicks from Build.
-
-Additional properties:
-
-- `developer_destination`: `quickstart`, `docs`, `templates`, `rpc`, `cookbook`,
-  `guides`, `support`, or `unknown`
-
-Important reporting segments:
-
-- Organic search
-- Direct
-- Referral
-- Organic social
-- Locale
-- New vs returning users
-- Build/developer page visitors
-- Enterprise page visitors
-- Use Solana/wallet visitors
-- Ecosystem/event visitors
-
-Cross-navigation between sections can be derived from `nav_link_clicked` where
-`source_section` and `destination_section` differ.
+- `link_role`
+- `position`
+- `viewport`
+
+Do not record raw search query text or raw AI prompts by default.
 
 ## Open Questions
 
 1. Exact visual treatment for `Use Solana` in the header.
-2. Exact legal-approved language for staking, and token content.
-3. Whether `Enterprise` should lead with Payments or Tokenization.
-4. Whether `Products > Data` and `/network` data views are one shared hub or
-   separate pages.
-5. Final list of dynamic content tags.
-6. Final redirect map for `/solutions/*`.
-7. Whether `/x402`, `/agent-registry`, and `/skills` consolidate under
-   `/products/*` or remain canonical product routes with product-nav placement.
-8. Whether `/solana-wallets` consolidates into `/wallets`, and whether
-   `/use-solana/wallets` should exist only as an alias to `/wallets`.
-9. Final scope and timing for the new `/ecosystem` landing page.
+2. Exact legal-approved language for staking and token content.
+3. Whether `Enterprise` should lead with Payments, Tokenization, or the hub
+   overview.
+4. Whether `/solana-wallets` remains canonical alongside `/wallets`.
+5. Whether `/solutions/games-tooling` and
+   `/solutions/solana-permissioned-environments` should be restored as canonical
+   pages or remain redirected.
+6. Whether `/x402`, `/agent-registry`, and `/skills` remain canonical product
+   routes or later receive product namespace aliases.
+7. Which topics deserve distinct future audience-specific pages, such as
+   `/enterprise/depin` or `/ecosystem/depin`.
+8. Final list of dynamic content tags.
