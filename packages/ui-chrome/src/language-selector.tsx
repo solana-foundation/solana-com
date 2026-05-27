@@ -44,8 +44,32 @@ const LanguageSelector = ({ className = "" }: { className?: string }) => {
           sideOffset={8}
           avoidCollisions
           collisionPadding={16}
-          className="z-[100] max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
+          className="language-selector-scroll z-[100] max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
         >
+          <style>{`
+            .language-selector-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(115, 115, 115, 0.5) transparent;
+            }
+            .language-selector-scroll::-webkit-scrollbar {
+              width: 8px;
+            }
+            .language-selector-scroll::-webkit-scrollbar-track {
+              background: transparent;
+              border-radius: 4px;
+            }
+            .language-selector-scroll::-webkit-scrollbar-thumb {
+              background: rgba(115, 115, 115, 0.5);
+              border-radius: 4px;
+              border: 1px solid rgba(64, 64, 64, 0.3);
+            }
+            .language-selector-scroll::-webkit-scrollbar-thumb:hover {
+              background: rgba(115, 115, 115, 0.7);
+            }
+            .language-selector-scroll::-webkit-scrollbar-thumb:active {
+              background: rgba(115, 115, 115, 0.9);
+            }
+          `}</style>
           {Object.keys(languages).map((language) => (
             <DropdownMenu.Item asChild key={language}>
               <Link
