@@ -37,24 +37,28 @@ const LanguageSelector = ({ className = "" }: { className?: string }) => {
           <ChevronGrabberVertical width="20" height="20" />
         </button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content
-        align="end"
-        side="bottom"
-        sideOffset={8}
-        className="max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
-      >
-        {Object.keys(languages).map((language) => (
-          <DropdownMenu.Item asChild key={language}>
-            <Link
-              href={asPath || "/"}
-              locale={language}
-              className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
-            >
-              {languages[language as keyof typeof languages]}
-            </Link>
-          </DropdownMenu.Item>
-        ))}
-      </DropdownMenu.Content>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          side="top"
+          sideOffset={8}
+          avoidCollisions
+          collisionPadding={16}
+          className="z-[100] max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
+        >
+          {Object.keys(languages).map((language) => (
+            <DropdownMenu.Item asChild key={language}>
+              <Link
+                href={asPath || "/"}
+                locale={language}
+                className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
+              >
+                {languages[language as keyof typeof languages]}
+              </Link>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
     </DropdownMenu.Root>
   );
 };

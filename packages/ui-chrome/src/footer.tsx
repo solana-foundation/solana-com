@@ -117,7 +117,7 @@ const CopyrightRow = () => {
   );
 
   return (
-    <span className="text-[#ababbc] text-sm md:text-base font-normal leading-[1.42] md:leading-[1.5]">
+    <span className="text-[#ababbc] text-xs font-normal leading-[1.42]">
       {textNodes}
     </span>
   );
@@ -152,8 +152,6 @@ const FooterColumn = ({
 };
 
 export const Footer = ({ className = "" }) => {
-  const t = useTranslations();
-
   return (
     <div
       className={classNames(
@@ -168,48 +166,41 @@ export const Footer = ({ className = "" }) => {
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
         <div className="relative grid grid-cols-2 xl:grid-cols-6 gap-[30px]">
-          <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-3 relative z-10">
-            <p className="text-base md:text-lg font-medium mb-0 leading-[1.33]">
-              {t("footer.foundation")}
-            </p>
-            <div className="mt-6 mb-5">
-              <Link
-                to="/"
-                aria-label="Solana Foundation"
-                className="!no-underline !text-white hover:!text-white"
-              >
-                <SolanaFoundationLogo
-                  className="max-w-full"
-                  width={234}
-                  height={40}
-                  viewBox="0 0 210 35"
-                />
-              </Link>
-            </div>
-            <div>
-              <CopyrightRow />
-            </div>
-            <div className="mt-5 flex flex-wrap justify-stretch xl:mt-auto xl:block [&_a+a:before]:content-[''] [&_a+a:before]:absolute [&_a+a:before]:top-0 [&_a+a:before]:left-[-8px] [&_a+a:before]:bottom-0 [&_a+a:before]:my-auto [&_a+a:before]:w-px [&_a+a:before]:h-3 [&_a+a:before]:bg-[rgba(240,228,255,0.12)]">
-              {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
-                <InlineLink
-                  key={name}
-                  to={url}
-                  aria-label={name}
-                  className="relative !no-underline !text-[#ababbc] hover:!text-white transition-colors inline-flex p-2.5 rounded-full mr-4 flex-1 md:flex-none [&_svg]:m-auto"
-                >
-                  <Icon width={size} height={size} />
-                </InlineLink>
-              ))}
-            </div>
-          </div>
-          <div className="col-span-1 absolute right-0 top-0 md:relative xl:order-8">
-            <div className="relative flex justify-end xl:justify-start">
-              <LanguageSelector className="!text-[#ababbc] hover:!text-white" />
-            </div>
-          </div>
           {FOOTER_COLUMNS.map((column) => (
             <FooterColumn key={column.headingKey} column={column} />
           ))}
+        </div>
+        <div className="relative z-10 mt-12 md:mt-16 xl:mt-20 flex justify-end">
+          <LanguageSelector className="!text-[#ababbc] hover:!text-white" />
+        </div>
+        <div className="relative z-10 mt-6 pt-8 border-t border-[rgba(240,228,255,0.12)] flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="flex flex-col gap-3">
+            <Link
+              to="/"
+              aria-label="Solana Foundation"
+              className="!no-underline !text-white hover:!text-white"
+            >
+              <SolanaFoundationLogo
+                className="max-w-full"
+                width={140}
+                height={24}
+                viewBox="0 0 210 35"
+              />
+            </Link>
+            <CopyrightRow />
+          </div>
+          <div className="flex flex-wrap items-center -mt-2.5 [&_a+a:before]:content-[''] [&_a+a:before]:absolute [&_a+a:before]:top-0 [&_a+a:before]:left-[-8px] [&_a+a:before]:bottom-0 [&_a+a:before]:my-auto [&_a+a:before]:w-px [&_a+a:before]:h-3 [&_a+a:before]:bg-[rgba(240,228,255,0.12)]">
+            {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
+              <InlineLink
+                key={name}
+                to={url}
+                aria-label={name}
+                className="relative !no-underline !text-[#ababbc] hover:!text-white transition-colors inline-flex p-2.5 rounded-full mr-4 [&_svg]:m-auto"
+              >
+                <Icon width={size} height={size} />
+              </InlineLink>
+            ))}
+          </div>
         </div>
       </div>
       <FooterMouseEffect className="absolute bottom-0 left-0 w-full h-[300px] hidden xl:block" />
