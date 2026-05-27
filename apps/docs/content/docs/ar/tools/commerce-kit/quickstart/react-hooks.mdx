@@ -1,0 +1,549 @@
+---
+title: خطافات React
+description: ابنِ واجهات دفع مخصصة باستخدام خطافات React من Solana Commerce
+---
+
+توفر حزمة `@solana-commerce/sdk` خطافات React لبناء تجارب دفع مخصصة عبر سولانا.
+توفر هذه الخطافات تحكمًا كاملاً في عمليات تحويل SOL ورموز SPL مع إدارة حالة
+مدمجة، ومنطق إعادة محاولة تلقائي، ومعالجة أخطاء، ومساعدات واجهة المستخدم.
+
+في الخلفية، يستخدم SDK مكتبة [TanStack Query](https://tanstack.com/query)
+للتخزين المؤقت وإدارة الحالة، و[@solana/kit](https://github.com/anza-xyz/kit)
+للعناصر الأساسية في سولانا، ويتكامل بسلاسة مع `@solana-commerce/connector`
+لاتصال المحفظة.
+
+## التثبيت
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## إعداد المزود
+
+### `ArcProvider`
+
+يعد `ArcProvider` المزود الجذري الذي يهيئ عميل RPC الخاص بسولانا، ويدير تكوين
+الشبكة، ويوفر اتصال البلوكشين لجميع الخطافات. يجب أن يحيط بأي مكونات تستخدم
+خطافات SDK.
+
+#### الخصائص
+
+- **`config`** (`ArcWebClientConfig`) - كائن تكوين لعميل Arc
+- **`children`** (`ReactNode`) - المكونات الفرعية التي ستتمكن من الوصول إلى
+  الخطافات
+- **`queryClient`** (`QueryClient`، اختياري) - عميل TanStack Query مخصص. إذا لم
+  يتم توفيره، يتم إنشاء نسخة افتراضية داخليًا.
+
+#### `ArcWebClientConfig`
+
+تكوين عميل Arc الذي يتحكم في اتصال RPC ومستويات الالتزام.
+
+##### الحقول المطلوبة
+
+يتكامل المزود تلقائيًا مع `@solana-commerce/connector` من خلال خطاف
+`useConnectorClient`، لذا لا حاجة لتكوين موصل صريح عند الاستخدام داخل
+`ConnectorProvider`.
+
+##### الحقول الاختيارية
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - شبكة سولانا المراد
+  الاتصال بها. الافتراضي: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - عنوان نقطة نهاية RPC مخصص. إذا لم يتم توفيره، يستخدم
+  نقاط النهاية العامة للشبكة المحددة.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - مستوى تأكيد
+  المعاملة. الافتراضي: `'confirmed'`.
+
+- **`debug`** (`boolean`) - تفعيل السجل التفصيلي في وحدة التحكم لأغراض التصحيح.
+  الافتراضي: `false`.
+
+- **`autoConnect`** (`boolean`) - الاتصال تلقائيًا بالمحفظة عند تحميل المكون.
+  الافتراضي: `true`.
+
+- **`storage`** (`Storage`) - محول تخزين مخصص لحفظ تفضيلات المحفظة. يجب أن ينفذ:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  الافتراضي: `window.localStorage` عند التوفر (المتصفح فقط). استخدم هذا لـ React
+  Native (`AsyncStorage`) أو التخزين المخصص الآمن لـ SSR.
+
+#### التكامل مع `ConnectorProvider`
+
+يتكامل المزود مع `ConnectorProvider` من `@solana-commerce/connector`. قم دائماً
+بتغليف تطبيقك بـ `ConnectorProvider` قبل `ArcProvider`:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## الخطافات الأساسية
+
+### `useTransferSOL`
+
+خطاف لتحويل SOL مع منطق إعادة المحاولة التلقائي وإدارة الحالة ودوال مساعدة
+لواجهة المستخدم. مبني على TanStack Query للتخزين المؤقت وإلغاء تكرار الطلبات.
+
+#### التوقيع
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### المعاملات
+
+- **`initialToInput`** (`string`، اختياري) - القيمة الأولية لإدخال عنوان
+  المستلم. مفيد لملء النماذج مسبقاً.
+- **`initialAmountInput`** (`string`، اختياري) - القيمة الأولية لإدخال المبلغ
+  بعملة SOL. مفيد لملء النماذج مسبقاً.
+
+#### القيمة المُرجعة
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### الدالة الأساسية
+
+- **`transferSOL`** - يبدأ تحويل SOL. يُرجع وعداً يتم حله عند تأكيد المعاملة على
+  السلسلة.
+
+##### خصائص الحالة
+
+- **`isLoading`** (`boolean`) - `true` أثناء معالجة المعاملة (التوقيع، الإرسال،
+  التأكيد). استخدم هذا لمؤشرات التحميل وحالات الأزرار.
+
+- **`error`** (`Error | null`) - كائن الخطأ إذا فشلت المعاملة في أي مرحلة.
+  `null` عندما لا يوجد خطأ. تتضمن الأخطاء رفض المحفظة، رصيد غير كافٍ، إخفاقات
+  الشبكة، إلخ.
+
+- **`data`** (`TransferSOLResult | null`) - كائن النتيجة عند نجاح المعاملة.
+  يحتوي على التوقيع والعناوين والمبالغ والبيانات الوصفية للبلوكشين. `null` قبل
+  أول تحويل ناجح.
+
+- **`reset`** (`() => void`) - يعيد تعيين حالة التحويل، مما يمسح `error` و
+  `data`. مفيد لتدفقات إعادة المحاولة أو إعادة تعيين النماذج بعد الاكتمال.
+
+##### خصائص وطرق مساعدة لواجهة المستخدم
+
+يوفر الخطاف إدارة حالة مدمجة لإدخالات النماذج:
+
+- **`toInput`** / **`setToInput`** - حالة متحكم بها لحقل إدخال عنوان المستلم
+
+- **`amountInput`** / **`setAmountInput`** - حالة متحكم بها لحقل إدخال المبلغ
+  (بعملة SOL، وليس lamport)
+
+- **`handleToInputChange`** - معالج onChange مُربط مسبقاً لحقل إدخال المستلم:
+  `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - معالج onChange مُربط مسبقاً لحقل إدخال المبلغ:
+  `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - طريقة ملائمة لتحويل SOL باستخدام قيم `toInput` و
+  `amountInput` الحالية. يقوم تلقائياً بتحويل المبلغ من SOL إلى lamport.
+
+- **`handleSubmit`** - معالج إرسال النموذج الذي يستدعي `transferFromInputs()`
+  ويمنع السلوك الافتراضي للنموذج. يُستخدم مع `<form onSubmit={handleSubmit}>`.
+
+#### الخيارات
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (مطلوب) - عنوان سولانا الخاص بالمستلم. يمكن أن يكون نصاً أو من نوع
+  `Address` من `@solana/kit`.
+
+- **`amount`** (مطلوب) - مبلغ التحويل بوحدة **lamport** (وليس SOL). يجب أن يكون
+  من نوع `bigint`. استخدم `BigInt()` أو التدوين الحرفي: `1_000_000_000n` = 1
+  SOL.
+
+- **`from`** (اختياري) - عنوان المرسل. إذا لم يتم توفيره، يستخدم العنوان من
+  المحفظة المتصلة. مطلوب فقط في حالات الاستخدام المتقدمة (مثل التوقيع لحساب
+  مختلف).
+
+#### النتيجة
+
+تتضمن النتيجة البيانات الوصفية للمعاملة بما في ذلك تفاصيل التحويل وتوقيع
+المعاملة:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### البنية الداخلية
+
+**منشئ المعاملات:** يستخدم الخطاف منشئ معاملات مشترك يقوم بـ:
+
+- جلب blockhashes جديدة لكل معاملة
+- بناء رسائل معاملات محسّنة برسوم منخفضة
+- توقيع المعاملات باستخدام المحفظة المتصلة
+- إرسال وتأكيد المعاملات في تدفق واحد
+
+**إبطال ذاكرة التخزين المؤقت:** عند نجاح التحويل، يقوم الخطاف تلقائياً بإبطال
+ذاكرة التخزين المؤقت لـ TanStack Query لـ:
+
+- رصيد المرسل (عنوان `from`)
+- رصيد المستلم (عنوان `to`)
+
+يضمن ذلك أن أي مكونات تعرض الأرصدة (مثل تلك التي تستخدم `useArcClient`) تقوم
+تلقائياً بإعادة الجلب والتحديث دون تدخل يدوي.
+
+**تحويل دقيق للمبلغ:** عند استخدام `transferFromInputs()`، يتم تحويل المبلغ من
+SOL إلى lamports باستخدام العمليات الحسابية النصية لتجنب أخطاء دقة الفاصلة
+العائمة. التحويل:
+
+- التحقق من صحة تنسيق الإدخال (رفض الأرقام السالبة أو غير الصالحة)
+- التعامل مع ما يصل إلى 9 منازل عشرية (1 lamport = 0.000000001 SOL)
+- اقتطاع أو إضافة القيم الكسرية حسب الحاجة
+- إظهار أخطاء وصفية للمدخلات غير الصالحة
+
+---
+
+### `useTransferToken`
+
+مثل `useTransferSOL`، يُستخدم هذا الخطاف لتحويل رموز SPL. بالإضافة إلى معالجة
+التحويلات، يتعامل الخطاف أيضاً مع الإنشاء التلقائي لحساب الرموز المرتبط (ATA)
+عند الحاجة.
+
+#### التوقيع
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### المعاملات
+
+- **`initialMintInput`** (`string`، اختياري) - عنوان إصدار الرمز الأولي. مفيد
+  لتحويلات الرموز الثابتة.
+- **`initialToInput`** (`string`، اختياري) - عنوان المستلم الأولي.
+- **`initialAmountInput`** (`string`، اختياري) - المبلغ الأولي بالوحدات الأساسية
+  للرمز (مع مراعاة المنازل العشرية).
+
+#### القيمة المُرجعة
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+القيمة المُرجعة مشابهة لـ `useTransferSOL` ولكنها تتضمن حالة `mintInput` إضافية
+لاختيار الرمز.
+
+#### الخيارات
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### الحقول المطلوبة
+
+- **`mint`** - عنوان إصدار رمز SPL. على سبيل المثال:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - عنوان محفظة المستلم (وليس حساب الرموز الخاص به). يشتق الخطاف
+  تلقائياً حساب الرموز المرتبط الصحيح.
+
+- **`amount`** - مبلغ التحويل بـ **أصغر وحدة** للرمز. يجب مراعاة المنازل العشرية
+  للرمز:
+  - USDC (6 منازل عشرية): `1_000_000n` = 1 USDC
+  - الرموز المغلفة بـ SOL (9 منازل عشرية): `1_000_000_000n` = 1 رمز
+
+##### الحقول الاختيارية
+
+- **`from`** - عنوان محفظة المُرسل. الافتراضي هو المحفظة المتصلة.
+
+- **`createAccountIfNeeded`** (الافتراضي: `true`) - إذا لم يكن لدى المستلم حساب
+  رموز لهذا الإصدار، يتم إنشاؤه تلقائياً كجزء من المعاملة. عندما يكون `false`،
+  سيفشل التحويل إذا لم يكن حساب المستلم موجوداً.
+
+  _ملاحظة:_ إنشاء حساب رمزي يكلف ~0.00203 SOL. يدفعها المرسل.
+
+- **`retryConfig`** - إعدادات إعادة المحاولة التلقائية عند انتهاء صلاحية
+  blockhash. راجع [إعدادات إعادة المحاولة](#retry-configuration).
+
+#### النتيجة
+
+تتضمن النتيجة البيانات الوصفية للمعاملة بما في ذلك تفاصيل التحويل وتوقيع
+المعاملة:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### إعدادات إعادة المحاولة
+
+يتضمن الـ hook منطق إعادة محاولة متقدم للتعامل مع انتهاء صلاحية blockhash، والذي
+يحدث عادةً أثناء ازدحام الشبكة.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - الحد الأقصى لعدد محاولات المعاملة. تقوم كل محاولة بجلب
+  blockhash جديد. الافتراضي: `3`.
+
+- **`baseDelay`** - التأخير بالميللي ثانية قبل إعادة المحاولة الأولى. الافتراضي:
+  `1000` (ثانية واحدة).
+
+- **`backoffMultiplier`** - معامل التراجع الأسي. تنتظر كل إعادة محاولة
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` ميللي ثانية.
+  - `1` = تراجع خطي (1ث، 1ث، 1ث)
+  - `1.5` = تراجع أسي (1ث، 1.5ث، 2.25ث)
+  - `2` = تراجع أسي عدواني (1ث، 2ث، 4ث)
+
+**كيفية عمل إعادة المحاولة:**
+
+1. **المحاولة الأولى:** يتم بناء المعاملة باستخدام blockhash الحالي وإرسالها
+2. **انتهاء صلاحية Blockhash:** إذا أصبح blockhash قديماً قبل التأكيد، ترفض
+   سولانا المعاملة
+3. **إعادة المحاولة التلقائية:** يكتشف الـ hook انتهاء الصلاحية، يجلب blockhash
+   جديد، يعيد بناء المعاملة، ويعيد الإرسال
+4. **التراجع الأسي:** تنتظر كل إعادة محاولة مدة أطول لتجنب ازدحام الشبكة
+5. **الفشل النهائي:** بعد `maxAttempts`، يرمي `BlockhashExpirationError` مع
+   السياق
+
+**متى لا يتم تفعيل إعادة المحاولة:**
+
+- الأخطاء غير المتعلقة بـ blockhash (رصيد غير كافٍ، حسابات غير صالحة، إلخ.) ترمي
+  فوراً دون إعادة المحاولة
+- فقط أخطاء انتهاء صلاحية blockhash تفعل آلية إعادة المحاولة
+
+#### البنية الداخلية
+
+**إدارة ATA:**
+
+- يشتق associated token accounts بشكل حتمي باستخدام `findAssociatedTokenPda`
+  (_ملاحظة: فقط Token Program مدعوم في هذا الوقت_)
+- يتحقق مما إذا كان لدى المرسل token account (يفشل بسرعة إذا لم يكن المرسل يمتلك
+  الرمز)
+- يتحقق مما إذا كان لدى المستلم token account (ينشئه إذا لزم الأمر و
+  `createAccountIfNeeded: true`)
+- عمليات التحقق من الحساب تعمل فقط في المحاولة الأولى لتجنب استدعاءات RPC
+  الزائدة أثناء إعادة المحاولة
+
+**إبطال ذاكرة التخزين المؤقت:** عند النجاح، يبطل ذاكرات التخزين المؤقت لـ
+TanStack Query الخاصة بـ:
+
+- رصيد الرموز للمرسل لهذا النوع
+- رصيد الرموز للمستقبِل لهذا النوع
+- بيانات الحساب ذات الصلة
+
+هذا يحافظ على تزامن جميع مكونات واجهة المستخدم التي تعرض الأرصدة تلقائيًا.
+
+### `useArcClient`
+
+خطاف للوصول إلى عميل RPC الأساسي لـ سولانا، وحالة المحفظة، وتكوين الشبكة. هذا
+خطاف منخفض المستوى لحالات الاستخدام المتقدمة التي تحتاج إلى وصول مباشر إلى RPC.
+
+#### التوقيع
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### القيمة المُرجعة
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### الحالة
+
+يمتد `ArcClientSnapshot` من `ArcWebClient` الذي يوفر الوصول إلى:
+
+- حالة المحفظة (العنوان، الموقِّع، المحافظ المتاحة، الميزات، وحالة المحفظة)
+- تكوين الشبكة (نقطة نهاية RPC، مجموعة سولانا)
+
+#### حالات الاستخدام
+
+**استعلامات RPC المباشرة:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**المكونات الواعية بالشبكة:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**العرض المشروط بناءً على المحفظة:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

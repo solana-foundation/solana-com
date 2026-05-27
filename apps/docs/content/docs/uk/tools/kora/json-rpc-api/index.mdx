@@ -1,0 +1,155 @@
+---
+title: Огляд JSON-RPC API
+description:
+  Kora реалізує інтерфейс JSON-RPC 2.0 для обробки транзакцій без комісій у
+  Solana.
+---
+
+> **Використовуєте Kora v2.2.0-beta?** Перегляньте
+> [документацію Beta](/docs/tools/kora/beta/bundle-methods) для нових методів
+> пакетів (`signBundle`, `signAndSendBundle`, `estimateBundleFee`) та
+> `getVersion`.
+
+## TypeScript SDK
+
+Пакет `@solana/kora` надає три варіанти клієнта для взаємодії з сервером Kora:
+
+### KoraClient (Автономний)
+
+Використовуйте `KoraClient` для автономного використання. Працює з `@solana/kit`
+v5.0+.
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin (Kit Composable)
+
+Використовуйте `koraPlugin()` для інтеграції методів Kora в існуючий клієнт Kit.
+Потребує `@solana/kit` v5.4+ для шаблону `createEmptyClient().use()`.
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+Плагін надає відповіді з типізацією Kit (`Address`, `Blockhash`,
+`Base64EncodedWireTransaction`) і експортує тип `KoraPlugin` для композиції з
+іншими плагінами.
+
+### createKitKoraClient (Клієнт Kit)
+
+Використовуйте `createKitKoraClient()` для повної інтеграції з Kit з
+автоматичним плануванням транзакцій, оцінкою комісій, впровадженням платежів та
+виконанням. Це рекомендований підхід для більшості застосунків. Потребує
+`@solana/kit` v6.1+.
+
+Клієнт Kit інтегрує Kora з архітектурою плагінів Kit (планувальник, виконавець,
+плагіни платника), тому ви можете використовувати програмні плагіни Kit, такі як
+`tokenProgram()` безпосередньо.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**Параметри конфігурації:**
+
+| Параметр           | Обов'язковий | Опис                                                                                                                 |
+| ------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Так          | URL кінцевої точки Kora RPC                                                                                          |
+| `rpcUrl`           | Так          | URL Solana RPC для оцінки обчислювальних одиниць і сумісності програмних плагінів                                    |
+| `feeToken`         | Так          | Адреса SPL mint для сплати комісії                                                                                   |
+| `feePayerWallet`   | Так          | `TransactionSigner`, який авторизує сплату комісії SPL                                                               |
+| `apiKey`           | Ні           | Ключ API для автентифікації                                                                                          |
+| `hmacSecret`       | Ні           | Секрет HMAC для автентифікації на основі підпису                                                                     |
+| `computeUnitLimit` | Ні           | Фіксований ліміт обчислювальних одиниць (використовує оцінку на основі симуляції, якщо не встановлено)               |
+| `computeUnitPrice` | Ні           | Пріоритетна комісія в мікролампортах                                                                                 |
+| `tokenProgramId`   | Ні           | ID program account токенів (за замовчуванням Token Program; використовуйте адресу Token-2022 для токенів Token-2022) |
+
+## Протокол
+
+- **Стандарт**: JSON-RPC 2.0
+- **Транспорт**: HTTP POST
+- **Content-Type**: application/json
+- **Кінцева точка**: `http://your-kora-instance/`
+
+## Доступні методи
+
+| Метод                                                                             | Опис                                                                                                                       |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | Оцінює комісію транзакції як у lamport, так і у вказаному токені.                                                          |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | Отримує останній blockhash від Solana RPC, до якого підключений сервер Kora.                                               |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | Отримує поточну конфігурацію сервера Kora.                                                                                 |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | Отримує підписувача платника та адресу призначення платежу від сервера Kora.                                               |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | Створює інструкцію платежу для додавання до транзакції для оплати комісії платіжному майстру Kora.                         |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | Отримує список токенів, підтримуваних для оплати комісії.                                                                  |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | Підписує транзакцію та негайно передає її в мережу Solana.                                                                 |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | Підписує транзакцію платником комісії Kora, якщо транзакція містить необхідний платіж платнику комісії, без її трансляції. |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | Створює транзакцію переказу токенів з Kora як платником комісії.                                                           |
+
+## Формат запиту
+
+Усі запити відповідають стандарту JSON-RPC 2.0:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## Формат відповіді
+
+Успішні відповіді:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+Відповіді з помилками:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

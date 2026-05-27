@@ -1,0 +1,363 @@
+---
+title: バンドルと新しいRPCメソッド
+description:
+  Kora v2.2.0-betaの新しいRPCメソッド —
+  Jitoバンドル、バージョン、バンドル手数料の見積もり。
+---
+
+これらのメソッドは`v2.2.0-beta.1`から利用可能です。`kora.toml`の`[kora.enabled_methods]`で有効にしてください。
+
+## getVersion
+
+Koraサーバーのバージョン情報を取得します。
+
+### JSON-RPCリクエスト
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### JSON-RPCレスポンス
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### cURLの例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### 設定
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+バンドル内の複数のトランザクションの合計手数料を計算します。バンドルに署名して送信する前に、総コストを把握するのに便利です。
+
+> **注意:**
+> トランザクションプラグイン（例：`gas_swap`）は、手数料見積もり時には**実行されません**。プラグインは署名フロー（`signBundle`、`signAndSendBundle`）でのみ実行されます。
+
+### JSON-RPCリクエスト
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### パラメータ
+
+| パラメータ     | 型       | 必須 | 説明                                                  |
+| -------------- | -------- | ---- | ----------------------------------------------------- |
+| `transactions` | string[] | はい | base64エンコードされたトランザクションの配列（最大5） |
+| `fee_token`    | string   | はい | 手数料計算用のトークンミント                          |
+
+### JSON-RPCレスポンス
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### cURL の例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### 設定
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+複数のトランザクションをバンドルとして署名しますが、ネットワークには送信しません。Jitoへのバンドル送信を自分で処理したい場合に使用します。
+
+このメソッドは、設定されている場合reCAPTCHAによって保護されます。サーバーでreCAPTCHAが有効になっている場合は、
+`x-recaptcha-token` ヘッダーを含めてください。
+
+[トランザクションプラグイン](/docs/tools/kora/beta/configuration#transaction-plugins)
+が有効になっている場合(例：`gas_swap`)、バンドル内の各トランザクションは署名前にプラグインルールに対して検証されます。
+
+### Lighthouse 手数料支払者保護
+
+[Lighthouse保護](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+が有効になっている場合、Koraはバンドル内の**最後のトランザクション**に残高アサーションinstructionsを追加します。これにより、すべてのバンドルトランザクションが完了した後、残高が予想レベルを下回らないことを保証し、手数料支払者を枯渇攻撃から保護します。
+
+**重要:**
+Lighthouseはトランザクションメッセージを変更するため、最後のトランザクションに対する既存のクライアント署名は無効になります。クライアントは、Koraから変更されたバンドルを受け取った後、**再署名**する必要があります。
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### JSON-RPC リクエスト
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### パラメータ
+
+| パラメータ             | 型       | 必須   | 説明                                                       |
+| ---------------------- | -------- | ------ | ---------------------------------------------------------- |
+| `transactions`         | string[] | はい   | base64エンコードされたトランザクションの配列(最大5)        |
+| `signer_key`           | string   | いいえ | 使用する特定の署名者(デフォルトはプール選択)               |
+| `transactions_to_sign` | number[] | いいえ | 署名するトランザクションのインデックス(デフォルトはすべて) |
+
+### JSON-RPC レスポンス
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL の例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### 部分的なバンドル署名
+
+`transactions_to_sign`を使用して、バンドル内の特定のトランザクションのみに署名します：
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### 設定
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+最大5つのトランザクションのバンドルに署名し、Jitoのブロックエンジンに送信します。バンドル内のすべてのトランザクションはアトミックかつ順次実行されます。すべて成功するか、すべて失敗するかのいずれかです。
+
+このメソッドは設定時にreCAPTCHAによって保護されます。サーバーでreCAPTCHAが有効になっている場合は、`x-recaptcha-token`ヘッダーを含めてください。
+
+[トランザクションプラグイン](/docs/tools/kora/beta/configuration#transaction-plugins)が有効な場合（例：`gas_swap`）、バンドル内の各トランザクションは署名前にプラグインルールに対して検証されます。
+
+> **注意：**
+> [Lighthouse手数料支払者保護](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)は、このメソッドには**適用されません**。バンドルは即座に送信されるため、Lighthouseアサーションを追加すると既存のクライアント署名が無効になります。Lighthouse保護が必要な場合は、[`signBundle`](#signbundle)を使用し、再署名後にJito送信をご自身で処理してください。
+
+### JSON-RPCリクエスト
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### パラメータ
+
+| パラメータ             | タイプ   | 必須   | 説明                                                         |
+| ---------------------- | -------- | ------ | ------------------------------------------------------------ |
+| `transactions`         | string[] | はい   | base64エンコードされたトランザクションの配列（最大5）        |
+| `signer_key`           | string   | いいえ | 使用する特定の署名者（デフォルトはプール選択）               |
+| `transactions_to_sign` | number[] | いいえ | 署名するトランザクションのインデックス（デフォルトはすべて） |
+
+### JSON-RPCレスポンス
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### 設定
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **注意：**
+> Jitoチップ付きのバンドルを使用する場合は、Kora署名者がチップを支払えるよう、`[validation.fee_payer_policy.system]`に`allow_transfer = true`を設定してください。

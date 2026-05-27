@@ -1,0 +1,407 @@
+---
+title: Solicitações de Transação
+description:
+  Construa fluxos de pagamento interativos com criação de transações no lado do
+  servidor
+---
+
+As solicitações de transação permitem fluxos de pagamento interativos ao
+possibilitar que carteiras se comuniquem com o seu servidor para compor qualquer
+transação Solana. Isso desbloqueia casos de uso avançados como cunhagem de NFT,
+precificação dinâmica, transações DeFi em múltiplas etapas e lógica de negócio
+personalizada.
+
+## Visão Geral
+
+As solicitações de transação seguem este formato de URL:
+
+```
+solana:<server-endpoint-url>
+```
+
+A carteira faz duas requisições HTTP para o seu endpoint:
+
+1. **Requisição GET** - Recuperar informações de pagamento (rótulo, ícone)
+2. **Requisição POST** - Obter a transação para assinar
+
+## Configuração Básica
+
+### 1. Instalar Dependências
+
+```bash
+pnpm add @solana/pay@beta @solana/kit @solana-program/system \
+  @solana/kit-plugin-rpc @solana/kit-plugin-payer @solana/kit-plugin-instruction-plan
+```
+
+### 2. Criar Endpoint da API
+
+Configure um endpoint de API que lida tanto com requisições GET quanto POST:
+
+```typescript
+// pages/api/pay.ts (Next.js) or similar endpoint
+import { address, createNoopSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createMerchantClient } from "@solana/pay";
+
+const MERCHANT_WALLET = address(process.env.MERCHANT_WALLET);
+
+export default async function handler(req, res) {
+  if (req.method === "GET") {
+    return handleGet(req, res);
+  }
+
+  if (req.method === "POST") {
+    return handlePost(req, res);
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
+}
+
+// GET request handler
+async function handleGet(req, res) {
+  const label = "My Store";
+  const icon = "https://mystore.com/icon.png";
+
+  res.status(200).json({
+    label,
+    icon
+  });
+}
+
+// POST request handler
+async function handlePost(req, res) {
+  try {
+    const { account } = req.body;
+
+    if (!account) {
+      return res.status(400).json({ error: "Missing account parameter" });
+    }
+
+    const buyerAddress = address(account);
+
+    // Create the merchant client for building the transaction
+    const merchant = createMerchantClient({
+      rpcUrl: process.env.SOLANA_RPC_URL
+    });
+
+    // Build transfer instruction (createNoopSigner because the wallet signs later)
+    const instruction = getTransferSolInstruction({
+      source: createNoopSigner(buyerAddress),
+      destination: MERCHANT_WALLET,
+      amount: lamports(100_000_000n) // 0.1 SOL
+    });
+
+    // Build a base64-encoded transaction
+    const transaction = merchant.pay.buildTransaction(buyerAddress, [
+      instruction
+    ]);
+
+    res.status(200).json({
+      transaction,
+      message: "Thanks for your purchase!"
+    });
+  } catch (error) {
+    console.error("Transaction creation error:", error);
+    res.status(500).json({ error: "Failed to create transaction" });
+  }
+}
+```
+
+### 3. Criar URL de Pagamento
+
+Gere a URL de solicitação de transação:
+
+```typescript
+import { encodeURL } from "@solana/pay";
+
+// Your API endpoint
+const apiUrl = "https://yoursite.com/api/pay";
+
+// Create transaction request URL
+const url = encodeURL({
+  link: new URL(apiUrl)
+});
+
+console.log(url.toString());
+// Output: solana:https://yoursite.com/api/pay
+```
+
+## Lado da Carteira: Buscando Solicitações de Transação
+
+No lado da carteira, use `fetchTransaction` para recuperar e assinar uma
+transação a partir de uma URL de solicitação de transação:
+
+```typescript
+import { createWalletClient } from "@solana/pay";
+
+const wallet = createWalletClient({
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  payer: myWalletSigner
+});
+
+// Parse the Solana Pay URL
+const parsed = wallet.pay.parseURL(url);
+
+if ("link" in parsed) {
+  // This is a transaction request — fetch the transaction from the server
+  const transaction = await wallet.pay.fetchTransaction(
+    myWalletSigner.address,
+    parsed.link
+  );
+  // Sign and send the transaction...
+}
+```
+
+## Exemplos Avançados
+
+### Pagamento com Token SPL
+
+Crie uma transação para pagamento em USDC:
+
+```typescript
+import { address } from "@solana/kit";
+import {
+  fetchMint,
+  findAssociatedTokenPda,
+  getTransferCheckedInstruction,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+async function createTokenPaymentInstruction(rpc, buyer, amount) {
+  const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+  // Get mint info for decimals
+  const mint = await fetchMint(rpc, USDC_MINT);
+
+  // Derive associated token accounts
+  const [buyerATA] = await findAssociatedTokenPda({
+    owner: buyer,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    mint: USDC_MINT
+  });
+  const [merchantATA] = await findAssociatedTokenPda({
+    owner: MERCHANT_WALLET,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    mint: USDC_MINT
+  });
+
+  // Calculate token amount with decimals
+  const tokenAmount = BigInt(Math.round(amount * 10 ** mint.data.decimals));
+
+  return getTransferCheckedInstruction({
+    source: buyerATA,
+    mint: USDC_MINT,
+    destination: merchantATA,
+    authority: buyer,
+    amount: tokenAmount,
+    decimals: mint.data.decimals
+  });
+}
+```
+
+### Precificação Dinâmica com Descontos
+
+Implemente precificação dinâmica baseada em dados do cliente:
+
+```typescript
+async function handlePost(req, res) {
+  const { account } = req.body;
+  const buyer = address(account);
+
+  // Check if customer holds discount NFT
+  const hasDiscountNFT = await checkForDiscountNFT(buyer);
+
+  // Calculate dynamic price
+  let price = 10; // $10 base price
+  if (hasDiscountNFT) {
+    price = price * 0.8; // 20% discount
+  }
+
+  const merchant = createMerchantClient({
+    rpcUrl: process.env.SOLANA_RPC_URL
+  });
+  const instruction = await createTokenPaymentInstruction(
+    merchant.rpc,
+    buyer,
+    price
+  );
+  const transaction = merchant.pay.buildTransaction(buyer, [instruction]);
+
+  const message = hasDiscountNFT
+    ? `20% discount applied! Total: $${price.toFixed(2)}`
+    : `Total: $${price.toFixed(2)}`;
+
+  res.status(200).json({ transaction, message });
+}
+```
+
+### Integração com Gestão de Pedidos
+
+Integre com seu sistema de pedidos existente:
+
+```typescript
+import { address, AccountRole, createNoopSigner, lamports } from "@solana/kit";
+
+// Enhanced POST handler with order management
+async function handlePost(req, res) {
+  const { account } = req.body;
+  const { orderId } = req.query;
+
+  if (!orderId) {
+    return res.status(400).json({ error: "Missing order ID" });
+  }
+
+  // Get order details
+  const order = await db.orders.findById(orderId);
+  if (!order || order.status !== "pending") {
+    return res.status(400).json({ error: "Invalid order" });
+  }
+
+  const buyer = address(account);
+
+  // Create payment instruction (createNoopSigner because the wallet signs later)
+  const instruction = getTransferSolInstruction({
+    source: createNoopSigner(buyer),
+    destination: MERCHANT_WALLET,
+    amount: lamports(BigInt(Math.round(order.total * 1e9)))
+  });
+
+  // Add reference for tracking (accounts is readonly, so spread into a new instruction)
+  const withRef = {
+    ...instruction,
+    accounts: [
+      ...(instruction.accounts ?? []),
+      {
+        address: address(order.referenceKey),
+        role: AccountRole.READONLY
+      }
+    ]
+  };
+
+  const merchant = createMerchantClient({ rpcUrl: process.env.SOLANA_RPC_URL });
+  const transaction = merchant.pay.buildTransaction(buyer, [withRef]);
+
+  // Update order status
+  await db.orders.update(orderId, {
+    status: "processing",
+    walletAddress: account
+  });
+
+  res.status(200).json({
+    transaction,
+    message: `Order ${order.id} - ${order.items.length} items`
+  });
+}
+```
+
+## Validação de Pagamento
+
+Valide transações concluídas:
+
+```typescript
+import { address } from "@solana/kit";
+import { createMerchantClient } from "@solana/pay";
+
+const merchant = createMerchantClient({
+  rpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+async function validatePayment(reference, recipient, amount) {
+  try {
+    const found = await merchant.pay.findReference(reference);
+
+    // findReference only locates a signature mentioning the reference address.
+    // validateTransfer checks recipient, amount, and token match.
+    await merchant.pay.validateTransfer(found.signature, {
+      recipient,
+      amount,
+      reference
+    });
+
+    return {
+      success: true,
+      signature: found.signature
+    };
+  } catch (error) {
+    console.error("Payment validation error:", error);
+  }
+
+  return { success: false };
+}
+```
+
+## Tratamento de Erros
+
+Implemente um tratamento de erros robusto:
+
+```typescript
+async function handlePost(req, res) {
+  try {
+    const { account } = req.body;
+
+    if (!account) {
+      return res.status(400).json({
+        error: "Missing account parameter",
+        code: "MISSING_ACCOUNT"
+      });
+    }
+
+    let buyer;
+    try {
+      buyer = address(account);
+    } catch {
+      return res.status(400).json({
+        error: "Invalid account address",
+        code: "INVALID_ACCOUNT"
+      });
+    }
+
+    const instruction = getTransferSolInstruction({
+      source: createNoopSigner(buyer),
+      destination: MERCHANT_WALLET,
+      amount: lamports(100_000_000n)
+    });
+
+    const merchant = createMerchantClient({
+      rpcUrl: process.env.SOLANA_RPC_URL
+    });
+    const transaction = merchant.pay.buildTransaction(buyer, [instruction]);
+
+    res.status(200).json({
+      transaction,
+      message: "Payment ready"
+    });
+  } catch (error) {
+    console.error("Transaction request error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+      code: "INTERNAL_ERROR"
+    });
+  }
+}
+```
+
+## Melhores Práticas
+
+### Segurança
+
+- Valide todos os parâmetros de entrada
+- Calcule valores apenas no lado do servidor
+- Use HTTPS para todos os endpoints
+- Implemente limitação de taxa
+- Armazene dados sensíveis com segurança
+
+### Desempenho
+
+- Faça cache de dados acessados com frequência
+- Use pooling de conexões
+- Implemente timeouts de requisição
+- Considere usar webhooks para confirmação de pagamento
+
+### Experiência do Usuário
+
+- Forneça mensagens de erro claras
+- Mostre o progresso da transação
+- Trate problemas de rede de forma elegante
+- Suporte tentativas de transação

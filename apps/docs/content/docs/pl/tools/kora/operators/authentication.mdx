@@ -1,0 +1,254 @@
+---
+title: Uwierzytelnianie
+description: Przewodnik operatora po uwierzytelnianiu
+---
+
+Kora obsługuje dwie opcjonalne metody uwierzytelniania do zabezpieczenia punktu
+końcowego RPC: uwierzytelnianie za pomocą klucza API oraz uwierzytelnianie HMAC.
+Niniejszy przewodnik obejmuje konfigurację, implementację oraz najlepsze
+praktyki bezpieczeństwa.
+
+Uwierzytelnianie jest opcjonalne, ale **zdecydowanie zalecane** w środowiskach
+produkcyjnych. Bez uwierzytelniania każdy, kto odkryje Twój punkt końcowy Kora,
+może przesyłać transakcje i zużywać saldo SOL.
+
+| Metoda        | Poziom bezpieczeństwa | Przypadek użycia                             | Złożoność |
+| ------------- | --------------------- | -------------------------------------------- | --------- |
+| **Brak**      | ⚠️ Brak               | Rozwój, testowanie, ceny z wysoką marżą      | Brak      |
+| **Klucz API** | Podstawowy            | Aplikacje wewnętrzne, zaufani klienci        | Niski     |
+| **HMAC**      | Wysoki                | Publiczne API, niezaufane sieci              | Średni    |
+| **Obie**      | Maksymalny            | Środowiska o wysokim poziomie bezpieczeństwa | Średni    |
+
+Uwierzytelnianie Kora jest konfigurowane w pliku `kora.toml` w sekcji
+`[kora.auth]`.
+
+W tym dokumencie:
+
+- [Uwierzytelnianie za pomocą klucza API](#api-key-authentication)
+- [Uwierzytelnianie HMAC](#hmac-authentication)
+- [Uwierzytelnianie łączone](#combined-authentication)
+- [Najlepsze praktyki bezpieczeństwa](#security-best-practices)
+- [Wyłączone punkty końcowe](#exempt-endpoints)
+- [Rozwiązywanie problemów](#troubleshooting)
+
+## Uwierzytelnianie za pomocą klucza API
+
+Proste uwierzytelnianie za pomocą wspólnego sekretu z użyciem nagłówków HTTP.
+Możesz wygenerować nowy klucz API za pomocą polecenia `openssl` (lub podobnego
+polecenia) w terminalu:
+
+```bash
+openssl rand -hex 32
+```
+
+### Konfiguracja serwera
+
+- Dodaj `KORA_API_KEY` do pliku .env (zmienne środowiskowe) (ma pierwszeństwo)
+  lub
+- Dodaj `api_key` do pliku `kora.toml`:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Ten klucz będzie globalnie wymagany dla wszystkich żądań do punktu końcowego
+Kora RPC.
+
+### Implementacja po stronie klienta
+
+Uwzględnij klucz API w nagłówku `x-api-key` w każdym żądaniu:
+
+**Przykład cURL:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**Przykład JavaScript z użyciem Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Przykład JavaScript z użyciem fetch:**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## Uwierzytelnianie HMAC
+
+Zamiast wysyłać klucz API z każdym żądaniem, HMAC tworzy unikalny podpis
+kryptograficzny, który potwierdza, że znasz sekret bez jego ujawniania. Każdy
+podpis zawiera znacznik czasu i wygasa po 5 minutach, dzięki czemu przechwycone
+żądania nie mogą być ponownie wykorzystane. Atakujący nie mogą tworzyć nowych
+żądań, ponieważ nie posiadają Twojego klucza tajnego.
+
+### Konfiguracja serwera
+
+- Dodaj `KORA_HMAC_SECRET` do swojego pliku .env (zmienne środowiskowe) (ma
+  priorytet) lub
+- Dodaj globalną zmienną `hmac_secret` do swojego pliku `kora.toml` (minimum 32
+  znaki--możesz wygenerować ją za pomocą `openssl rand -hex 32` lub podobnego
+  narzędzia):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### Jak działa HMAC
+
+1. Klient tworzy wiadomość łącząc: `{timestamp}{request_body}`
+2. Klient podpisuje wiadomość używając HMAC-SHA256 ze wspólnym sekretem
+3. Klient wysyła żądanie z nagłówkami zawierającymi znacznik czasu i podpis
+4. Serwer weryfikuje podpis i znacznik czasu (musi być w ciągu 5 minut)
+
+### Implementacja po stronie klienta
+
+Aby użyć HMAC po stronie klienta, możesz skorzystać z Kora SDK lub biblioteki
+`crypto` w JavaScripcie:
+
+1. Utwórz znacznik czasu
+2. Utwórz treść żądania
+3. Utwórz wiadomość łącząc znacznik czasu i treść (np.
+   `message = timestamp + body`)
+4. Utwórz podpis podpisując wiadomość za pomocą sekretu HMAC (używając metody
+   `crypto.createHmac`)
+5. Wyślij żądanie z nagłówkami zawierającymi znacznik czasu (`x-timestamp`) i
+   podpis (`x-hmac-signature`)
+
+**Przykład w JavaScript z użyciem Kora SDK:**
+
+Kora SDK abstrahuje proces uwierzytelniania HMAC, dzięki czemu możesz po prostu
+wywołać wybraną metodę, a SDK zajmie się uwierzytelnianiem za Ciebie.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Przykład w JavaScript z użyciem biblioteki `crypto`:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Uwierzytelnianie łączone
+
+Możesz włączyć obie metody uwierzytelniania jednocześnie, aby osiągnąć
+maksymalne bezpieczeństwo:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Gdy oba są skonfigurowane, klienci muszą wysłać nagłówki `x-api-key`,
+`x-timestamp` i `x-hmac-signature`.
+
+## Najlepsze praktyki bezpieczeństwa
+
+- **Używaj silnych, losowych kluczy**: Minimum 32 znaki o wysokiej entropii
+- **Rotuj regularnie**: Zmieniaj klucze okresowo (miesięcznie/kwartalnie)
+- **Bezpieczne przechowywanie**: Używaj zmiennych środowiskowych lub zarządzania
+  sekretami (Railway secrets, AWS Secrets Manager itp.)
+- **Nigdy nie koduj na stałe**: Trzymaj klucze z dala od kodu źródłowego i logów
+- **Używaj HTTPS**: Zawsze stosuj TLS w środowisku produkcyjnym, aby chronić
+  klucze podczas transmisji
+- **Monitoruj dostęp**: Obserwuj nietypowe wzorce uwierzytelniania lub
+  powtarzające się niepowodzenia
+
+## Punkty końcowe zwolnione z uwierzytelniania
+
+Punkt końcowy `/liveness` jest zawsze zwolniony z uwierzytelniania, aby
+umożliwić sprawdzanie stanu:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Rozwiązywanie problemów
+
+**401 Nieautoryzowany z kluczem API:**
+
+- Sprawdź, czy klucz API jest poprawny i pasuje do konfiguracji serwera
+- Upewnij się, że nagłówek `x-api-key` jest wysyłany
+- Sprawdź, czy w kluczu nie ma dodatkowych białych znaków
+
+**401 Nieautoryzowany z HMAC:**
+
+- Sprawdź, czy znacznik czasu jest aktualny (w ciągu 5 minut)
+- Upewnij się, że konstrukcja wiadomości jest zgodna z: `{timestamp}{body}`
+- Sprawdź, czy sekret HMAC pasuje do konfiguracji serwera
+- Zweryfikuj, czy sygnatura jest w postaci szesnastkowej pisanej małymi literami

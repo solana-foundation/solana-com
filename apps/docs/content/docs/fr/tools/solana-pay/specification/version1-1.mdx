@@ -1,0 +1,456 @@
+---
+title: Spécification Solana Pay v1.1
+description:
+  Dernière version du protocole standard pour encoder les demandes de
+  transaction Solana dans des URL
+---
+
+## Résumé
+
+Un protocole standard pour encoder les demandes de transaction Solana dans des
+URL afin de permettre les paiements et d'autres cas d'usage.
+
+Un consensus approximatif sur cette spécification a été atteint, et des
+implémentations existent dans Phantom, FTX et Slope.
+
+Cette norme s'inspire de
+[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) et
+[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md).
+
+## Motivation
+
+Un protocole d'URL standard pour demander des transferts natifs de SOL, des
+transferts de jetons SPL et des transactions Solana permet une meilleure
+expérience utilisateur à travers les applications et les portefeuilles de
+l'écosystème Solana.
+
+Ces URL peuvent être encodées dans des codes QR ou des étiquettes NFC, ou
+envoyées entre utilisateurs et applications pour demander un paiement et
+composer des transactions.
+
+Les applications doivent s'assurer qu'une transaction a été confirmée et est
+valide avant de livrer les biens ou services vendus, ou d'accorder l'accès à des
+objets ou événements.
+
+Les portefeuilles mobiles doivent s'enregistrer pour gérer le schéma d'URL afin
+de fournir une expérience fluide mais sécurisée lorsque des URL Solana Pay sont
+rencontrées dans l'environnement.
+
+En standardisant une approche simple pour résoudre ces problèmes, nous assurons
+une compatibilité de base des applications et des portefeuilles afin que les
+développeurs puissent se concentrer sur des abstractions de plus haut niveau.
+
+## Spécification : Demande de transfert
+
+Une URL de demande de transfert Solana Pay décrit une demande non interactive
+pour un transfert de SOL ou de jeton SPL.
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+La demande est non interactive car les paramètres dans l'URL sont utilisés par
+un portefeuille pour composer directement une transaction.
+
+### Destinataire
+
+Un seul champ `recipient` est requis comme chemin d'accès. La valeur doit être
+la clé publique encodée en base58 d'un compte SOL natif. Les comptes de jetons
+associés ne doivent pas être utilisés.
+
+Pour demander un transfert de jeton SPL, le champ `spl-token` doit être utilisé
+pour spécifier un mint de jeton SPL, à partir duquel l'adresse de compte de
+jetons associée du déstinataire doit être dérivée.
+
+### Montant
+
+Un seul champ `amount` est autorisé en tant que paramètre de requête optionnel.
+La valeur doit être un nombre entier non négatif ou un nombre décimal d'unités «
+utilisateur ». Pour SOL, cela correspond à SOL et non aux lamports. Pour les
+jetons, utilisez
+[`uiAmountString` et non `amount`](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure).
+
+`0` est une valeur valide. Si la valeur est un nombre décimal inférieur à `1`,
+elle doit comporter un `0` avant le `.`. La notation scientifique est interdite.
+
+Si aucune valeur n'est fournie, le portefeuille doit inviter l'utilisateur à
+saisir le montant. Si le nombre de décimales dépasse ce qui est pris en charge
+pour SOL (9) ou le jeton SPL (spécifique au mint), le portefeuille doit rejeter
+l'URL comme étant **mal formée**.
+
+### Jeton SPL
+
+Un seul champ `spl-token` est autorisé en tant que paramètre de requête
+optionnel. La valeur doit être la clé publique encodée en base58 d'un compte
+mint de jeton SPL.
+
+Si le champ est fourni, la convention du
+[compte de jetons associé](https://spl.solana.com/associated-token-account) doit
+être utilisée, et le portefeuille doit inclure une instruction
+`TokenProgram.Transfer` ou `TokenProgram.TransferChecked` comme dernière
+instruction de la transaction.
+
+Si le champ n'est pas fourni, l'URL décrit un transfert de SOL natif, et le
+portefeuille doit inclure une instruction `SystemProgram.Transfer` comme
+dernière instruction de la transaction à la place.
+
+Le portefeuille doit dériver l'adresse ATA à partir des champs `recipient` et
+`spl-token`. Les transferts vers des comptes de jetons auxiliaires ne sont pas
+pris en charge.
+
+### Référence
+
+Plusieurs champs `reference` sont autorisés en tant que paramètres de requête
+optionnels. Les valeurs doivent être des tableaux de 32 octets encodés en
+base58. Il peut s'agir ou non de clés publiques, sur ou hors courbe, et peuvent
+ou non correspondre à des comptes sur Solana.
+
+Si les valeurs sont fournies, le portefeuille doit les inclure dans l'ordre
+fourni en tant que clés en lecture seule, non signataires, à l'instruction
+`SystemProgram.Transfer` ou
+`TokenProgram.Transfer`/`TokenProgram.TransferChecked` dans la transaction de
+paiement. Les valeurs peuvent être uniques ou non à la demande de paiement, et
+peuvent correspondre ou non à un compte sur Solana.
+
+Étant donné que les validateurs Solana indexent les transactions par ces clés de
+compte, les valeurs `reference` peuvent être utilisées comme identifiants client
+(identifiants utilisables avant de connaître la transaction de paiement finale).
+La méthode RPC
+[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress)
+peut être utilisée pour localiser les transactions de cette manière.
+
+### Libellé
+
+Un seul champ `label` est autorisé en tant que paramètre de requête facultatif.
+La valeur doit être une chaîne UTF-8
+[encodée URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+qui décrit la source de la demande de transfert.
+
+Par exemple, il peut s'agir du nom d'une marque, d'un magasin, d'une application
+ou d'une personne effectuant la demande. Le portefeuille doit
+[décoder l'URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+de la valeur et afficher la valeur décodée à l'utilisateur.
+
+### Message
+
+Un seul champ `message` est autorisé en tant que paramètre de requête
+facultatif. La valeur doit être une chaîne UTF-8
+[encodée URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+qui décrit la nature de la demande de transfert.
+
+Par exemple, il peut s'agir du nom d'un article acheté, d'un numéro de commande
+ou d'un message de remerciement. Le portefeuille doit
+[décoder l'URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+de la valeur et afficher la valeur décodée à l'utilisateur.
+
+### Mémo
+
+Un seul champ `memo` est autorisé en tant que paramètre de requête facultatif.
+La valeur doit être une chaîne UTF-8
+[encodée URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+qui doit être incluse dans une instruction
+[SPL Memo](https://spl.solana.com/memo) dans la transaction de paiement.
+
+Le portefeuille doit
+[décoder l'URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+de la valeur et devrait afficher la valeur décodée à l'utilisateur. Le mémo sera
+enregistré par les validateurs et ne doit pas inclure d'informations privées ou
+sensibles.
+
+Si le champ est fourni, le portefeuille doit inclure une instruction
+`MemoProgram` en avant-dernière position de la transaction, immédiatement avant
+l'instruction de transfert SOL ou de jeton SPL, afin d'éviter toute ambiguïté
+avec d'autres instructions dans la transaction.
+
+### Exemples
+
+#### URL décrivant une demande de transfert de 1 SOL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### URL décrivant une demande de transfert de 0,01 USDC
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### URL décrivant une demande de transfert de SOL (montant demandé à l'utilisateur)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## Spécification : Demande de transaction
+
+Une URL de demande de transaction Solana Pay décrit une demande interactive pour
+toute transaction Solana.
+
+```
+solana:<link>
+```
+
+La demande est interactive car les paramètres de l'URL sont utilisés par un
+portefeuille pour effectuer une requête HTTP afin de composer une transaction.
+
+### Lien
+
+Un seul champ `link` est requis comme chemin d'accès. La valeur doit être une
+URL HTTPS absolue conditionnellement
+[encodée en URL](https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent).
+
+Si l'URL contient des paramètres de requête, elle doit être encodée en URL. Des
+paramètres de requête du protocole peuvent être ajoutés à cette spécification.
+L'encodage URL de la valeur empêche tout conflit avec les paramètres du
+protocole.
+
+Si l'URL ne contient pas de paramètres de requête, elle ne doit pas être encodée
+en URL. Cela produit une URL plus courte et un code QR moins dense.
+
+Dans tous les cas, le portefeuille doit
+[décoder l'URL](https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent).
+Cela n'a aucun effet si la valeur n'est pas encodée en URL. Si la valeur décodée
+n'est pas une URL HTTPS absolue, le portefeuille doit la rejeter comme **mal
+formée**.
+
+#### Requête GET
+
+Le portefeuille doit effectuer une requête JSON `GET` HTTP vers l'URL. La
+requête ne doit pas identifier le portefeuille ni l'utilisateur.
+
+Le portefeuille doit effectuer la requête avec un
+[en-tête Accept-Encoding](https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Accept-Encoding),
+et l'application doit répondre avec un
+[en-tête Content-Encoding](https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Content-Encoding)
+pour la compression HTTP.
+
+Le portefeuille doit afficher le domaine de l'URL pendant que la requête est en
+cours.
+
+#### Réponse GET
+
+Le portefeuille doit gérer les
+[erreurs client](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+HTTP, les
+[erreurs serveur](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+et les
+[réponses de redirection](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+L'application doit répondre avec celles-ci, ou avec une réponse JSON HTTP `OK`
+avec un corps de :
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+La valeur `<label>` doit être une chaîne UTF-8 qui décrit la source de la
+demande de transaction. Par exemple, il peut s'agir du nom d'une marque, d'un
+magasin, d'une application ou d'une personne effectuant la demande.
+
+La valeur `<icon>` doit être une URL HTTP ou HTTPS absolue d'une image d'icône.
+Le fichier doit être une image SVG, PNG ou WebP, sinon le portefeuille doit la
+rejeter comme **malformée**.
+
+Le portefeuille ne doit pas mettre en cache la réponse sauf indication contraire
+des
+[en-têtes de cache HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching).
+
+Le portefeuille doit afficher le libellé et rendre l'image de l'icône à
+l'utilisateur.
+
+#### Requête POST
+
+Le portefeuille doit effectuer une requête JSON HTTP `POST` vers l'URL avec un
+corps de :
+
+```json
+{ "account": "<account>" }
+```
+
+La valeur `<account>` doit être la clé publique encodée en base58 d'un compte
+qui peut signer la transaction.
+
+Le portefeuille devrait effectuer la requête avec un
+[en-tête Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+et l'application devrait répondre avec un
+[en-tête Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+pour la compression HTTP.
+
+Le portefeuille doit afficher le domaine de l'URL pendant que la requête est en
+cours. Si une requête `GET` a été effectuée, le portefeuille doit également
+afficher le libellé et rendre l'image de l'icône de la réponse.
+
+#### Réponse POST
+
+Le portefeuille doit gérer les
+[erreurs client](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+HTTP, les
+[erreurs serveur](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+et les
+[réponses de redirection](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+L'application doit répondre avec celles-ci, ou avec une réponse JSON HTTP `OK`
+avec un corps de :
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+La valeur `<transaction>` doit être une
+[transaction sérialisée](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)
+encodée en base64. Le portefeuille doit décoder la transaction en base64 et la
+[désérialiser](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+L'application peut répondre avec une transaction partiellement ou entièrement
+signée. Le portefeuille doit valider la transaction comme **non fiable**.
+
+#### Signatures vides
+
+Si les
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+de la transaction sont vides :
+
+- L'application doit définir le
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  sur le `account` dans la requête, ou la valeur zéro (`new PublicKey(0)` ou
+  `new PublicKey("11111111111111111111111111111111")`).
+- L'application doit définir le
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  sur le
+  [dernier hachage de bloc](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash),
+  ou la valeur zéro (`new PublicKey(0).toBase58()` ou
+  `"11111111111111111111111111111111"`).
+- Le portefeuille doit ignorer le
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  dans la transaction et définir le `feePayer` sur le `account` dans la requête.
+- Le portefeuille doit ignorer le
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  dans la transaction et définir le `recentBlockhash` sur le
+  [dernier hachage de bloc](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+
+Si les
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+de la transaction ne sont pas vides :
+
+- L'application doit définir le
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  sur la
+  [clé publique de la première signature](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair).
+- L'application doit définir le
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  sur le
+  [dernier hachage de bloc](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- L'application doit sérialiser et désérialiser la transaction avant de la
+  signer. Cela garantit un ordre cohérent des clés de compte, comme solution de
+  contournement pour
+  [ce problème](https://github.com/solana-labs/solana/issues/21722).
+- Le portefeuille ne doit pas définir le
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  et le
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash).
+- Le portefeuille doit vérifier les signatures, et si l'une d'entre elles est
+  invalide, le portefeuille doit rejeter la transaction comme **mal formée**.
+
+Le portefeuille doit uniquement signer la transaction avec le `account` dans la
+requête, et ne doit le faire que si une signature pour le `account` dans la
+requête est attendue.
+
+Si une signature autre qu'une signature pour le `account` dans la requête est
+attendue, le portefeuille doit rejeter la transaction comme **malveillante**.
+
+L'application peut également inclure un champ optionnel `message` dans le corps
+de la réponse :
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+La valeur `<message>` doit être une chaîne UTF-8 qui décrit la nature de la
+réponse de la transaction.
+
+Par exemple, il peut s'agir du nom d'un article acheté, d'une réduction
+appliquée à l'achat ou d'un message de remerciement. Le portefeuille devrait
+afficher cette valeur à l'utilisateur.
+
+Le portefeuille et l'application doivent autoriser des champs supplémentaires
+dans le corps de la requête et le corps de la réponse, qui pourront être ajoutés
+par de futures spécifications.
+
+### Exemple
+
+##### URL décrivant une demande de transaction.
+
+```
+solana:https://example.com/solana-pay
+```
+
+##### URL décrivant une demande de transaction avec des paramètres de requête.
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+##### Requête GET
+
+```
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+##### Réponse GET
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+##### Requête POST
+
+```
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+##### Réponse POST
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## Extensions
+
+Des formats et champs supplémentaires peuvent être incorporés dans cette
+spécification pour activer de nouveaux cas d'usage tout en garantissant la
+compatibilité avec les applications et les portefeuilles.
+
+Veuillez ouvrir un ticket Github pour proposer des modifications à la
+spécification afin de solliciter les retours des développeurs d'applications et
+de portefeuilles.
+
+[Un exemple concret d'une telle proposition.](https://github.com/solana-foundation/pay/issues/26)

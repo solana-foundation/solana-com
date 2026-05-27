@@ -1,0 +1,606 @@
+---
+title: Aggiunta di Nuovi Firmatari
+description:
+  Guida per i fornitori di servizi wallet per integrare nuove soluzioni di
+  gestione delle chiavi
+---
+
+Questa guida è destinata ai fornitori di servizi wallet e agli sviluppatori che
+desiderano integrare nuove soluzioni di gestione delle chiavi nella libreria
+`solana-keychain`. Aggiungendo la tua implementazione del firmatario,
+consentirai agli sviluppatori di utilizzare il tuo servizio per la firma sicura
+delle transazioni Solana attraverso un'interfaccia unificata.
+
+_Stai usando un LLM? Consulta la
+[Skill per l'Aggiunta di Firmatari](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)._
+
+## Panoramica dell'Architettura
+
+La libreria utilizza un'architettura basata su trait in cui tutti i firmatari
+implementano il trait `SolanaSigner` definito in `src/traits.rs`. La libreria
+fornisce anche un enum unificato `Signer` che racchiude tutte le
+implementazioni, consentendo la selezione runtime dei backend di firma
+mantenendo un'API coerente.
+
+## Lista di Controllo per l'Integrazione Rapida
+
+- Crea il tuo modulo firmatario con l'implementazione
+- Implementa il trait `SolanaSigner` (3 metodi async + `pubkey()`)
+- Aggiungi un flag di feature in `Cargo.toml`
+- Aggiorna l'enum `Signer` in `src/lib.rs` (4 match arm)
+- Aggiorna l'impl cfg gate di `src/error.rs` reqwest `From` (se il tuo
+  firmatario usa reqwest)
+- Applica HTTPS e configura i timeout sui client HTTP
+- Aggiungi test completi
+- Aggiorna la documentazione
+- Invia la PR
+
+## Passaggio 1: Crea il Tuo Modulo Firmatario
+
+Crea una nuova directory sotto `src/` per la tua implementazione:
+
+```
+src/
+├── your_service/
+│   ├── mod.rs      # Main implementation with SolanaSigner trait
+│   └── types.rs    # API request/response types (if needed)
+```
+
+## Passaggio 2: Definisci la Tua Struct Firmatario
+
+In `src/your_service/mod.rs`, definisci la tua struct firmatario:
+
+```rust
+//! YourService API signer integration
+
+use crate::{error::SignerError, traits::SolanaSigner};
+use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
+use std::str::FromStr;
+
+/// YourService-based signer using YourService's API
+#[derive(Clone)]
+pub struct YourServiceSigner {
+    api_key: String,
+    api_secret: String,
+    wallet_id: String,
+    api_base_url: String,
+    client: reqwest::Client,
+    public_key: Pubkey,
+}
+
+impl std::fmt::Debug for YourServiceSigner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("YourServiceSigner")
+            .field("public_key", &self.public_key)
+            .finish_non_exhaustive()
+    }
+}
+```
+
+## Passaggio 3: Implementa il Costruttore e i Metodi Helper
+
+I firmatari remoti **devono** applicare HTTPS e configurare i timeout HTTP. Usa
+la struct condivisa `HttpClientConfig` per le impostazioni dei timeout.
+
+```rust
+use crate::http_client_config::HttpClientConfig;
+
+impl YourServiceSigner {
+    pub fn new(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+        http_config: Option<HttpClientConfig>,
+    ) -> Result<Self, SignerError> {
+        let pubkey = Pubkey::from_str(&public_key)
+            .map_err(|e| SignerError::InvalidPublicKey(format!("Invalid public key: {e}")))?;
+
+        let http = http_config.unwrap_or_default();
+        let builder = reqwest::Client::builder()
+            .timeout(http.resolved_request_timeout())
+            .connect_timeout(http.resolved_connect_timeout());
+
+        // Enforce HTTPS in production; wiremock uses HTTP in tests
+        #[cfg(not(test))]
+        let builder = builder.https_only(true);
+
+        let client = builder.build().map_err(|e| {
+            SignerError::ConfigError(format!("Failed to build HTTP client: {e}"))
+        })?;
+
+        Ok(Self {
+            api_key,
+            api_secret,
+            wallet_id,
+            api_base_url: "https://api.yourservice.com/v1".to_string(),
+            client,
+            public_key: pubkey,
+        })
+    }
+
+    /// Sign raw bytes using your service's API
+    async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        let encoded_message = base64::engine::general_purpose::STANDARD.encode(message);
+
+        let url = format!("{}/sign", self.api_base_url);
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&serde_json::json!({
+                "wallet_id": self.wallet_id,
+                "message": encoded_message,
+            }))
+            .send()
+            .await?;
+
+        // Use generic error messages — never expose raw API response text
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            return Err(SignerError::RemoteApiError(format!(
+                "YourService API returned status {status}"
+            )));
+        }
+
+        // Parse response — always use map_err, never .expect() or .unwrap()
+        let response_data: SignResponse = response
+            .json()
+            .await
+            .map_err(|e| SignerError::SerializationError(format!("Failed to parse response: {e}")))?;
+        let sig_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&response_data.signature)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to decode signature: {e}")))?;
+
+        let sig_array: [u8; 64] = sig_bytes
+            .try_into()
+            .map_err(|_| SignerError::SigningFailed("Invalid signature length".to_string()))?;
+
+        Ok(Signature::from(sig_array))
+    }
+}
+```
+
+## Passaggio 4: Implementa il Trait SolanaSigner
+
+Il trait ha 3 metodi async (`sign_transaction`, `sign_message`, `is_available`)
+più `pubkey()`. Nota che `sign_transaction` restituisce `SignTransactionResult`
+— un enum con tag che indica se la transazione è firmata completamente o
+parzialmente.
+
+Utilizza gli helper condivisi `TransactionUtil` per la firma e la
+serializzazione.
+
+```rust
+use crate::transaction_util::TransactionUtil;
+use crate::traits::SignTransactionResult;
+
+#[async_trait::async_trait]
+impl SolanaSigner for YourServiceSigner {
+    fn pubkey(&self) -> Pubkey {
+        self.public_key
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let tx_bytes = bincode::serialize(tx)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
+
+        let signature = self.sign(&tx_bytes).await?;
+
+        // Add the signature at the correct position
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+
+        // Serialize and classify as Complete or Partial
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+
+    async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        self.sign(message).await
+    }
+
+    async fn is_available(&self) -> bool {
+        let url = format!("{}/health", self.api_base_url);
+        self.client
+            .get(&url)
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
+    }
+}
+```
+
+## Passaggio 5: Aggiungere Tipi API (Facoltativo)
+
+Se la tua API richiede tipi personalizzati, crea `src/your_service/types.rs`:
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize)]
+pub struct SignRequest {
+    pub wallet_id: String,
+    pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct SignResponse {
+    pub signature: String,
+}
+```
+
+## Passaggio 6: Aggiungere Flag di Funzionalità
+
+Aggiorna `Cargo.toml` per aggiungere il tuo signer come funzionalità opzionale:
+
+```toml
+[features]
+default = ["memory"]
+memory = []
+vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
+privy = ["dep:reqwest", "dep:base64"]
+turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
+your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
+all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+```
+
+## Passaggio 7: Aggiornare l'Enum del Signer
+
+Aggiungi il tuo signer a `src/lib.rs`. Sono necessari 4 match arm
+nell'implementazione di `SolanaSigner`: `pubkey`, `sign_transaction`,
+`sign_message` e `is_available`.
+
+```rust
+// Add feature-gated module
+#[cfg(feature = "your_service")]
+pub mod your_service;
+
+// Re-export your signer type
+#[cfg(feature = "your_service")]
+pub use your_service::YourServiceSigner;
+
+// Add to Signer enum
+#[derive(Debug)]
+pub enum Signer {
+    #[cfg(feature = "memory")]
+    Memory(MemorySigner),
+
+    // ... existing variants
+
+    #[cfg(feature = "your_service")]
+    YourService(YourServiceSigner),  // Add your variant
+}
+
+// Add constructor method
+impl Signer {
+    #[cfg(feature = "your_service")]
+    pub fn from_your_service(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+    ) -> Result<Self, SignerError> {
+        Ok(Self::YourService(YourServiceSigner::new(
+            api_key,
+            api_secret,
+            wallet_id,
+            public_key,
+            None, // uses default HttpClientConfig
+        )?))
+    }
+}
+
+// Update trait implementation — 4 match arms
+#[async_trait::async_trait]
+impl SolanaSigner for Signer {
+    fn pubkey(&self) -> sdk_adapter::Pubkey {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.pubkey(),
+        }
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut sdk_adapter::Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_transaction(tx).await,
+        }
+    }
+
+    async fn sign_message(
+        &self,
+        message: &[u8],
+    ) -> Result<sdk_adapter::Signature, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_message(message).await,
+        }
+    }
+
+    async fn is_available(&self) -> bool {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.is_available().await,
+        }
+    }
+}
+```
+
+Se il tuo signer utilizza `reqwest`, aggiungi la tua funzionalità al gate
+`#[cfg(any(...))]` sull'implementazione di `From<reqwest::Error>` in
+`src/error.rs`.
+
+## Passaggio 8: Aggiungere Test Completi
+
+Aggiungi test al tuo modulo (in fondo a `src/your_service/mod.rs`):
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::{signature::Keypair, signer::Signer};
+    use wiremock::{
+        matchers::{header, method, path},
+        Mock, MockServer, ResponseTemplate,
+    };
+
+    #[tokio::test]
+    async fn test_new() {
+        let keypair = Keypair::new();
+        let signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        );
+        assert!(signer.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_message() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+        let message = b"test message";
+        let signature = keypair.sign_message(message);
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "signature": base64::engine::general_purpose::STANDARD.encode(signature.as_ref())
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(message).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_unauthorized() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "bad-key".to_string(),
+            "bad-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(b"test").await;
+        assert!(result.is_err());
+    }
+}
+```
+
+## Passaggio 9: Aggiornare la Documentazione
+
+Aggiungi il tuo signer alla tabella dei backend supportati in README.md:
+
+| Backend         | Caso d'Uso                                     | Flag di Funzionalità |
+| --------------- | ---------------------------------------------- | -------------------- |
+| **Memory**      | Keypair locali, sviluppo, testing              | `memory`             |
+| **Vault**       | Gestione chiavi enterprise con HashiCorp Vault | `vault`              |
+| **Privy**       | Wallet integrati con infrastruttura Privy      | `privy`              |
+| **Turnkey**     | Gestione chiavi non custodial tramite Turnkey  | `turnkey`            |
+| **TuoServizio** | Breve descrizione del tuo servizio             | `your_service`       |
+
+Aggiungi esempio d'uso:
+
+```rust
+use solana_keychain::{Signer, SolanaSigner};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let signer = Signer::from_your_service(
+        "your-api-key".to_string(),
+        "your-api-secret".to_string(),
+        "your-wallet-id".to_string(),
+        "your-public-key".to_string(),
+    )?;
+
+    let pubkey = signer.pubkey();
+    println!("Public key: {}", pubkey);
+
+    Ok(())
+}
+```
+
+## Testare la Tua Integrazione
+
+Esegui i test per la tua funzionalità:
+
+```bash
+# Test only your signer
+cargo test --features your_service
+
+# Test with all features
+cargo test --all-features
+```
+
+## Signer TypeScript
+
+Se stai anche aggiungendo un package signer TypeScript, crealo in
+`typescript/packages/your-signer/`. Pattern chiave:
+
+- La funzione factory `createYourSigner()` restituisce `SolanaSigner<TAddress>`
+- Esportare l'interfaccia di configurazione (`YourSignerConfig`)
+- Applicare HTTPS sui campi di configurazione `apiBaseUrl`
+- Sanificare il testo di errore dell'API remota con
+  `sanitizeRemoteErrorResponse()` da `@solana/keychain-core`
+- Proteggersi da JSON malformati con optional chaining e try/catch
+- Usare `throwSignerError(SignerErrorCode.*, { cause, message })` da
+  `@solana/keychain-core`
+- Aggiungere JSDoc `@throws` alle funzioni factory elencando i codici di errore
+
+### Aggiornare il Pacchetto Ombrello
+
+Aggiornare `typescript/packages/keychain/` — 6 file da modificare:
+
+1. `src/types.ts` — Aggiungere `YourSignerConfig` all'unione discriminata
+   `KeychainSignerConfig`
+2. `src/create-keychain-signer.ts` — Importare la factory, aggiungere il case
+   switch
+3. `src/resolve-address.ts` — Aggiungere al case switch fast-path o fetch-path
+4. `src/index.ts` — Aggiungere il tipo di configurazione, namespace, funzione
+   factory ed esportazioni di classe
+5. `package.json` — Aggiungere la dipendenza
+   `@solana/keychain-your-signer: "workspace:*"`
+6. `tsconfig.json` — Aggiungere il riferimento `{ "path": "../your-signer" }`
+
+Le istruzioni switch hanno controlli esaustivi `never` — TypeScript genererà un
+errore se aggiungete all'unione ma mancate un case.
+
+## Checklist di Invio
+
+Prima di inviare la vostra PR:
+
+- Il codice compila senza avvisi (`just build`)
+- Tutti i test passano (`just test`)
+- Il codice è formattato/il linting passa (`just fmt`)
+- Nessun valore hardcoded o segreto nel codice
+- I messaggi di errore sono generici (nessun testo di risposta API grezzo)
+- HTTPS applicato sui client HTTP remoti
+- Timeout HTTP configurati tramite `HttpClientConfig`
+- Segue le convenzioni di denominazione Rust (snake_case)
+- Aggiunto alla tabella dei backend supportati in README.md
+
+## Suggerimenti per l'Implementazione
+
+### Gestione degli Errori
+
+Usare sempre le varianti `SignerError` esistenti. Non usare mai `.expect()` o
+`.unwrap()` su risposte API non attendibili:
+
+```rust
+// Good — uses existing error types with generic messages
+return Err(SignerError::RemoteApiError(
+    format!("YourService API returned status {}", status)
+));
+
+// Good — converts from standard errors
+let bytes = base64::decode(data)
+    .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
+```
+
+### Best Practice di Sicurezza
+
+- Non registrare mai dati sensibili (chiavi private, segreti API)
+- Usare l'impl `Debug` che nasconde i campi sensibili
+- Validare tutti gli input (chiavi pubbliche, firme)
+- Usare HTTPS per tutte le chiamate API remote (applicato tramite
+  `https_only(true)`)
+- Configurare i timeout di richiesta e connessione tramite `HttpClientConfig`
+- Non esporre mai il testo di errore dell'API remota grezzo nei messaggi di
+  errore
+- Usare `Option<Pubkey>` (non `Pubkey::default()`) per il campo della chiave
+  pubblica prima di `init()`
+
+### Test con Mock
+
+Usa `wiremock` per simulare le API HTTP. Verifica solo il tipo di errore, non il
+testo del messaggio di errore:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+
+    #[tokio::test]
+    async fn test_api_call() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
+        // Use mock_server.uri() as your api_base_url
+    }
+}
+```
+
+## Ottenere Aiuto
+
+- Esamina le implementazioni esistenti dei signer per individuare pattern:
+  - `src/memory/mod.rs` — Semplice, sincrono
+  - `src/para/mod.rs` — Richiede inizializzazione (usa come modello per nuovi
+    signer)
+  - `src/turnkey/mod.rs` — Gestione complessa delle firme
+  - `src/vault/mod.rs` — Libreria client esterna
+- File principali: `src/traits.rs` (definizione del trait),
+  `src/transaction_util.rs` (helper condivisi), `src/http_client_config.rs`
+  (configurazione timeout)
+- Apri una issue per discussioni di progettazione prima di iniziare il lavoro
+
+## Struttura di Esempio di una PR
+
+```
+feat(signer): add YourService signer integration
+
+Adds support for YourService as a signing backend.
+
+- [X] Code compiles without warnings (`just build`)
+- [X] Code is formatted/linting passes (`just fmt`)
+- [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
+- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Added feature flag 'your_service'
+- [X] HTTPS enforced, HTTP timeouts configured
+- [X] Added to README.md supported backends table
+
+Closes #1337
+```

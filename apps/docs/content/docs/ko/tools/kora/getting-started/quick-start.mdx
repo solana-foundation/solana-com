@@ -1,0 +1,284 @@
+---
+title: Kora 빠른 시작 가이드
+description: 5분 만에 첫 번째 수수료 없는 트랜잭션 생성하기
+---
+
+_최종 업데이트: 2025-10-31_
+
+## Kora 기본 사항
+
+Kora는 Solana 트랜잭션에 대한 수수료 지불 서비스를 제공하는 JSON-RPC 서버입니다.
+사용자가 SOL 대신 SPL 토큰으로 트랜잭션 수수료를 지불할 수 있도록 하여, SOL을
+보유하지 않은 사용자를 위한 애플리케이션의 사용자 경험을 개선합니다.
+
+Kora RPC는 허용 가능한 프로그램, 지갑, 토큰 등을 정의하는 구성(`kora.toml`)을
+기반으로 클라이언트 요청을 검증합니다. 검증이 완료되면 Kora 서버는 트랜잭션에
+서명하고 네트워크로 전송하거나(또는 직렬화된 서명된 트랜잭션을 클라이언트에
+반환합니다).
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Client App    │───▶│   Kora RPC      │───▶│   Solana RPC    │
+│                 │    │   Server        │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌──────────────────────┐
+                       │   Kora Private Key   │
+                       │ ( or Turnkey/Privy ) │
+                       └──────────────────────┘
+```
+
+이 빠른 시작 가이드는 로컬 Kora RPC 서버를 실행하고 수수료 지불 워크플로를
+테스트하기 위한 클라이언트 통합을 시연합니다.
+
+## 요구 사항
+
+- [Solana CLI](https://solana.com/docs/intro/installation) v2.2.x 이상
+- [Rust/Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+  (Kora RPC 설치용)
+- [Node.js v22+](https://nodejs.org/en/download) 및 패키지 매니저(예:
+  [pnpm](https://pnpm.io/), npm)
+
+## Kora RPC 설치
+
+Kora RPC 서버를 전역으로 설치합니다:
+
+```bash
+cargo install kora-cli
+```
+
+> **중요:** Kora의 `main` 브랜치는 통합 브랜치이며 미출시 또는 베타 변경 사항을
+> 포함할 수 있습니다. 프로덕션 및 튜토리얼 사용 시에는 항상 최신 안정 릴리스
+> 태그를 사용하세요. 최신 안정 릴리스는
+> [Kora 릴리스 페이지](https://github.com/solana-foundation/kora/releases)에서
+> 찾을 수 있습니다.
+
+## 프로젝트 생성
+
+리포지토리를 클론하고, 최신 안정 태그를 체크아웃한 후, 시작 가이드 데모
+디렉토리로 이동합니다:
+
+```bash
+git clone https://github.com/solana-foundation/kora
+cd kora
+git checkout v2.0.5
+cd examples/getting-started/demo
+```
+
+### 프로젝트 구조
+
+데모에는 세 가지 주요 구성 요소가 포함되어 있습니다:
+
+**클라이언트 디렉토리 (`client/src/`)**
+
+- `setup.ts` - 로컬 환경 설정 (keypair 생성 및 .env에 작성, SOL 에어드롭, 테스트
+  토큰 초기화)
+- `quick-start.ts` - Kora 연결 설정 및 Kora RPC 서버에 대한 간단한 호출을
+  보여주는 빠른 시작 데모 스크립트
+- `full-demo.ts` - 여러 Kora RPC 메서드를 시연하는 전체 데모 스크립트
+
+**서버 디렉토리 (`server/`)**
+
+- `kora.toml` - 검증 규칙, 허용된 토큰 및 수수료 매개변수를 정의하는 Kora RPC
+  구성
+- `signers.toml` - Kora 서버의 서명자를 정의하는 서명자 구성
+
+**공유 구성**
+
+- `.env` - keypair 및 주소를 위한 환경 변수 (루트에 `.env` 생성 - `demo/.env`).
+  환경 변수는 설정 스크립트에 의해 생성됩니다.
+
+## 환경 설정
+
+먼저 환경에 맞는 .env를 생성하세요:
+
+```bash
+# Create .env file (will be populated by setup script)
+touch .env
+```
+
+### 클라이언트 설정
+
+클라이언트 종속성을 설치하세요:
+
+```bash
+# From project root (kora/)
+cd examples/getting-started/demo/client
+pnpm install --ignore-workspace # use --ignore-workspace to avoid pnpm workspace conflicts
+```
+
+### Kora RPC 서버 설정
+
+Kora 서버는 수수료 지불에 사용할 수 있는 토큰을 지정하기 위한 구성이 필요합니다.
+`server/kora.toml`를 열고 검증 섹션을 확인하세요. 여기서 트랜잭션 서명 전에
+검증될 여러 매개변수를 지정할 수 있습니다:
+
+- `max_allowed_lamports`: 사용자를 대신하여 지불할 의향이 있는 최대 트랜잭션
+  수수료
+- `max_signatures`: 트랜잭션이 가질 수 있는 최대 서명 수
+- `price_source`: 토큰 가격 결정을 위한 오라클("Mock" 또는 "Jupiter")
+- `allowed_programs`: 실행 가능한 프로그램 ID의 화이트리스트(예: System Program,
+  Token Program)
+- `allowed_tokens`: 전송이 허용된 토큰의 화이트리스트
+- `allowed_spl_paid_tokens`: 귀하의 프로그램이 결제 수단으로 허용하는 민트 주소
+  배열
+- `disallowed_accounts`: kora RPC와의 상호작용이 허용되지 않는 계정의 블랙리스트
+
+지금은 기본값을 그대로 두겠습니다. 나중에 다시 돌아와서 이를 변경할 수
+있습니다(구성 옵션에 대한 자세한 내용은
+[Kora 구성](/docs/tools/kora/operators/configuration) 문서를 참조하세요).
+
+### 서명자 설정
+
+`server/signers.toml`를 열고 서명자 섹션을 확인하세요. 여기서 트랜잭션 서명에
+사용될 서명자를 지정하고 (여러 서명자를 사용하는 경우) 사용할 서명자를 선택하기
+위한 전략을 지정할 수 있습니다. 지금은 기본값을 사용하여 단일 서명자를
+사용하겠습니다. 나중에 다시 돌아와서 이를 변경할 수 있습니다(서명자 구성에 대한
+자세한 내용은 [서명자 가이드](/docs/tools/kora/operators/signers) 문서를
+참조하세요).
+
+## 테스트 서버
+
+세 개의 터미널을 열고 다음 명령을 실행하세요:
+
+### 터미널 1: 로컬 테스트 Validator 시작
+
+```bash
+# From project root or anywhere
+solana-test-validator -r
+```
+
+### 터미널 2: 환경 초기화
+
+```bash
+# From ./client directory
+pnpm init-env
+```
+
+이 스크립트는 다음을 수행합니다:
+
+- keypair를 생성하고 `.env`에 저장
+- 테스트 계정에 SOL 에어드롭
+- 로컬 USDC 토큰 생성 및 초기화
+- 테스트 계정에 토큰 충전
+
+**중요** .env에서 새로운 USDC 테스트 토큰의 pubkey를 복사한 후
+`./server/kora.toml`에 있는 `allowed_tokens`와 `allowed_spl_paid_tokens`를
+업데이트해야 합니다.
+
+```toml
+allowed_tokens = [
+    "YOUR_USDC_LOCAL_PUBLICK_KEY"    # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+]
+allowed_spl_paid_tokens = [
+    "YOUR_USDC_LOCAL_PUBLICK_KEY"    # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+]
+```
+
+### 터미널 3: 결제 ATA 초기화 (선택 사항)
+
+결제를 받으려면 결제 토큰에 대한 Associated Token Account(ATA)를 초기화해야
+합니다. 다음 명령을 실행하여 이를 수행할 수 있습니다:
+
+```bash
+# From ./server directory
+kora rpc initialize-atas --signers-config signers.toml
+```
+
+이 명령은 다음을 수행합니다:
+
+- `kora.toml`에서 결제 주소 읽기 (또는 결제 주소를 지정하지 않은 경우
+  `signers.toml`에 나열된 모든 서명자)
+- `allowed_spl_paid_tokens`에 나열된 모든 토큰에 대한 ATA 생성
+- 이미 존재하는 ATA는 건너뛰기
+- `fee_payer_key` 플래그를 사용하여 ATA 생성을 위한 사용자 지정 수수료 지불자를
+  선택적으로 지정 가능
+
+### 터미널 4: Kora RPC 서버 시작
+
+```bash
+# From ./server directory
+kora rpc start --signers-config signers.toml
+```
+
+> **참고:** `price_source = "Jupiter"`를 사용하는 프로덕션 배포의 경우
+> `JUPITER_API_KEY` 환경 변수를 설정해야 합니다. 이 변수 없이는 서버가 시작되지
+> 않습니다:
+>
+> ```bash
+> JUPITER_API_KEY=your_api_key kora rpc start --signers-config signers.toml
+> ```
+
+서버는 `kora.toml`와 `signers.toml`에서 구성을 읽고 공유 `.env` 파일의 환경
+변수를 사용합니다. 여기에 지정된 것과 다른 폴더 구조를 사용하는 경우
+`--config`를 사용하여 `kora.toml`의 위치를 지정하고 `--signers-config`를
+사용하여 서명자 구성 디렉터리를 지정해야 할 수 있습니다:
+
+```bash
+kora rpc --config path/to/kora.toml start --signers-config path/to/signers.toml
+```
+
+RPC 서버 옵션에 대한 도움말은 `kora rpc -h`에서 확인할 수 있습니다.
+
+### 터미널 5: 클라이언트 데모 실행
+
+```bash
+# From ./client directory
+pnpm start
+```
+
+다음과 유사한 출력이 표시됩니다:
+
+```bash
+Kora Config: {
+  fee_payer: 'Df2UmGQH86TBDsub7XZoSAo7KZa1ZJZr2w1PL1APUjjU',
+  validation_config: {
+    max_allowed_lamports: 1000000,
+    max_signatures: 10,
+    allowed_programs: [
+      '11111111111111111111111111111111',
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+      'AddressLookupTab1e1111111111111111111111111',
+      'ComputeBudget11111111111111111111111111111111'
+    ],
+    allowed_tokens: [
+      'usdCAEFbouFGxdkbHCRtMTcN7DJHd3aCmP9vqjLgmAp'
+    ],
+    allowed_spl_paid_tokens: [
+      'usdCAEFbouFGxdkbHCRtMTcN7DJHd3aCmP9vqjLgmAp'
+    ],
+    disallowed_accounts: [],
+    price_source: 'Mock',
+    fee_payer_policy: {...},
+    price: { type: 'margin', margin: 0 }
+  },
+  enabled_methods: { ... }
+ }
+}
+Blockhash:  C8W8d5w2H4jKXyFg5CEBoiaPvEpJ1am7xLxZ3fym4a2g
+```
+
+Kora 서버가 실행 중이며 올바르게 구성되었음을 확인했습니다!
+
+## 다음 단계
+
+기본 설정이 작동하면 전체 Kora 플로우 데모를 확인하세요:
+
+**[→ Kora 완전 무가스 트랜잭션 플로우](/docs/tools/kora/guides/full-demo)**
+
+추가 Kora RPC 메서드를 살펴보세요:
+
+- `estimateTransactionFee` - 트랜잭션 수수료 계산
+- `getPayerSigner` - 지불자 서명자 및 결제 대상 가져오기
+- `getSupportedTokens` - 지원되는 결제 토큰 배열 반환
+- `signTransaction` - 수수료가 충당될 때 트랜잭션에 조건부 서명
+- `transferTransaction` - SOL 또는 SPL 토큰 전송 트랜잭션 생성 (Kora 수수료
+  지불자가 서명)
+- `signAndSendTransaction` - Kora 수수료 지불자로 트랜잭션에 조건부 서명하고
+  구성된 Solana RPC로 전송
+- `getPaymentInstruction` - 트랜잭션에 대한 결제 명령 가져오기
+
+**궁금한 점이 있으신가요?** `Kora` 태그를 사용하여
+[Solana Stack Exchange](https://solana.stackexchange.com/)에 질문하세요.

@@ -1,0 +1,135 @@
+---
+title: Dokumentacja opłat
+description: Kompletna dokumentacja dotycząca obliczania opłat w Kora.
+---
+
+_Ostatnia aktualizacja: 2025-10-31_
+
+Kora szacuje opłaty transakcyjne podczas wykonywania metod RPC
+`estimate_transaction_fee` oraz `sign_transaction`. Aby oszacować opłaty, Kora
+oblicza całkowity koszt wykonania transakcji w sieci Solana, w tym opłaty
+sieciowe, koszty utworzenia konta oraz opcjonalne opłaty za przetwarzanie
+płatności. Niniejszy przewodnik opisuje każdy komponent obliczania opłat.
+
+## Formuła obliczania opłat
+
+Opłata jest określana przez model cenowy skonfigurowany w `kora.toml`:
+
+- `PriceModel::Free` - Sponsoruje wszystkie opłaty transakcyjne (całkowita
+  opłata = 0)
+- `PriceModel::Fixed` - Pobiera stałą kwotę w określonym tokenie (niezależnie od
+  opłat sieciowych)
+- `PriceModel::Margin` - Dodaje procentową marżę do całkowitych opłat.
+
+Głównym punktem wejścia do szacowania całkowitej opłaty używanym w
+`PriceModel::Margin` jest `FeeConfigUtil::estimate_kora_fee()` w pliku
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Wykorzystuje on następującą uogólnioną formułę:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Komponenty opłat
+
+| Komponent                          | Opis                                                                                            | Metoda obliczania                                                                                                                                      | Kiedy stosowany                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Opłata bazowa**                  | Podstawowa opłata transakcyjna Solana obejmująca weryfikację podpisu i przetwarzanie transakcji | `RpcClient.get_fee_for_message()` - Wykorzystuje obliczanie opłat Solana na podstawie jednostek obliczeniowych i opłat priorytetowych                  | Zawsze                                                             |
+| **Opłata za utworzenie konta**     | Minimalne saldo zwolnione z czynszu dla tworzenia nowych Associated Token Accounts (ATA)        | `Rent::default().minimum_balance(account_size)` - Oblicza czynsz na podstawie rozmiaru danych konta (165-355 bajtów w zależności od rozszerzeń tokena) | Gdy transakcja tworzy nowe ATA                                     |
+| **Opłata za podpis Kora**          | Dodatkowa opłata, gdy Kora podpisuje jako płatnik opłat niebędący uczestnikiem                  | Stała: 5 000 lamportów (`LAMPORTS_PER_SIGNATURE`)                                                                                                      | Gdy płatnik opłat nie jest już sygnatariuszem transakcji           |
+| **Wypływ płatnika opłat**          | Całkowita ilość SOL, którą płatnik opłat wysyła w transakcji (przelewy, tworzenie kont itp.)    | Suma: Transfery systemowe od płatnika opłat, CreateAccount finansowane przez płatnika opłat, Wypłaty nonce od płatnika opłat                           | Gdy płatnik opłat wykonuje operacje System Program                 |
+| **Opłata za instrukcję płatności** | Szacowany koszt opłat priorytetowych za dodanie instrukcji płatności dla transakcji bez opłat   | Stałe oszacowanie: 50 lamportów (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                         | Gdy płatność jest wymagana, ale nie jest uwzględniona w transakcji |
+| **Opłata za przelew**              | Opłaty transferowe Token2022 skonfigurowane na mincie (np. 1% kwoty przelewu)                   | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Na podstawie konfiguracji opłaty transferowej minta                                            | Tylko dla transferów Token2022 na adres płatności Kora             |
+| **Korekta marży**                  | Narzut/korekta modelu cenowego Kora                                                             | Skonfigurowana marża w `validation.price` - Może dodawać narzut jako % całkowitej opłaty                                                               | Gdy `[validation.price]` jest podany w kora.toml                   |
+
+## Modele Cenowe i Wypływ z Konta Płatnika Opłat
+
+Kora obsługuje trzy modele cenowe, które określają sposób naliczania opłat
+użytkownikom za transakcje:
+
+### Wycena z Marżą (Domyślna)
+
+- **Formuła:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Uwzględnia Wypływ z Konta Płatnika Opłat:** Tak
+- **Najlepsza Dla:** Wdrożeń produkcyjnych, gdzie opłaty powinny odzwierciedlać
+  rzeczywiste koszty z dodaną marżą operacyjną
+
+### Wycena Stała
+
+- **Formuła:** `Total Fee = Fixed Amount (in specified token)`
+- **Uwzględnia Wypływ z Konta Płatnika Opłat:** Nie
+- **Najlepsza Dla:** Uproszczonego UX z przewidywalnymi cenami w kontrolowanych
+  środowiskach
+
+### Wycena Darmowa
+
+- **Formuła:** `Total Fee = 0`
+- **Uwzględnia Wypływ z Konta Płatnika Opłat:** Nie (operator pokrywa wszystkie
+  koszty)
+- **Najlepsza Dla:** Kampanii promocyjnych, testowania lub w pełni
+  sponsorowanych aplikacji
+
+---
+
+## ⚠️ Ostrzeżenie Bezpieczeństwa: Modele Wyceny Stałej/Darmowej
+
+**KRYTYCZNE:** Modele wyceny stałej/darmowej **NIE** uwzględniają wypływu z
+konta płatnika opłat w naliczanej kwocie. Stwarza to znaczące ryzyko
+bezpieczeństwa, jeśli nie zostanie odpowiednio skonfigurowane. Jeśli Twoja
+polityka płatnika opłat zezwala na przelewy lub inne operacje wypływu, atakujący
+mogą to wykorzystać do opróżnienia konta płatnika opłat.
+
+### Wymagane Środki Zabezpieczające
+
+Podczas korzystania z wyceny stałej/darmowej **MUSISZ** skonfigurować
+restrykcyjne polityki płatnika opłat, aby zablokować WSZYSTKIE operacje
+pieniężne i zmieniające uprawnienia:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Dodatkowe Zabezpieczenia
+
+1. **Włącz Uwierzytelnianie:** Zawsze wymagaj uwierzytelniania kluczem API lub
+   HMAC przy wycenie stałej/darmowej
+2. **Ustaw Niskie Limity:** Używaj konserwatywnych wartości
+   `max_allowed_lamports`
+3. **Monitoruj Użycie:** Śledź nietypowe wzorce transakcji z dużym wypływem
+4. **Rozważ Wycenę z Marżą:** Wycena z marżą automatycznie uwzględnia koszty
+   wypływu w opłatach
+
+### Ostrzeżenia Walidacji
+
+Walidator konfiguracji Kora ostrzeże Cię o niebezpiecznych konfiguracjach:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Oczekiwane ostrzeżenia dla podatnych konfiguracji:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```
