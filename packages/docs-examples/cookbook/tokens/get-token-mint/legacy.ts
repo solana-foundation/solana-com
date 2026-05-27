@@ -1,28 +1,12 @@
 // #region fetch
-import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { fetchMint } from "@solana-program/token-2022";
+import { address, createSolanaRpc } from "@solana/kit";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const rpc = createSolanaRpc("http://localhost:8899");
 
-const mintAddress = new PublicKey(
-  "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
-);
+const mintAddress = address("2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo");
 
-let mintAccount = await getMint(
-  connection,
-  mintAddress,
-  undefined,
-  TOKEN_2022_PROGRAM_ID,
-);
+const mintAccount = await fetchMint(rpc, mintAddress);
 
-console.log(
-  JSON.stringify(
-    {
-      ...mintAccount,
-      supply: mintAccount.supply.toString(),
-    },
-    null,
-    2,
-  ),
-);
+console.log(mintAccount);
 // #endregion fetch

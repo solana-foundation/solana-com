@@ -1,18 +1,15 @@
 // #region fetch
-import { Connection, PublicKey } from "@solana/web3.js";
-import { getAccount, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { fetchToken } from "@solana-program/token-2022";
+import { address, createSolanaRpc } from "@solana/kit";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const rpc = createSolanaRpc("http://localhost:8899");
 
-const tokenAccountPubkey = new PublicKey(
+const tokenAccountAddress = address(
   "GfVPzUxMDvhFJ1Xs6C9i47XQRSapTd8LHw5grGuTquyQ",
 );
 
-const tokenAccount = await getAccount(
-  connection,
-  tokenAccountPubkey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID,
-);
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress, {
+  commitment: "confirmed",
+});
 console.log(tokenAccount);
 // #endregion fetch

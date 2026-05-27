@@ -1,143 +1,97 @@
 // #region sponsor
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import {
-  createMint,
-  createAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID,
-  transfer,
-  getAccount,
-} from "@solana/spl-token";
+  fetchToken,
+  findAssociatedTokenPda,
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
+// Generate keypairs for fee payer, sender, recipient, and mint
+const feePayer = await generateKeyPairSigner();
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
 
-const feePayer = Keypair.generate();
-const sender = Keypair.generate();
-const recipient = Keypair.generate();
+console.log("Fee Payer Address:", feePayer.address);
+console.log("Sender Address:", sender.address);
+console.log("Recipient Address:", recipient.address);
+console.log("Mint Address:", mint.address);
 
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature,
+// Build a Kit client: fee payer (funded with 1 SOL), local RPC, and the token program plugin
+const client = await createClient()
+  .use(payer(feePayer))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)))
+  .use(tokenProgram());
+
+// Create the mint and mint 1.00 tokens to sender's ATA (the plugin auto-creates the ATA)
+const createMintIx = client.token.instructions.createMint({
+  newMint: mint,
+  decimals: 2,
+  mintAuthority: sender.address,
+});
+const mintToSenderIx = await client.token.instructions.mintToATA({
+  mint: mint.address,
+  owner: sender.address,
+  mintAuthority: sender,
+  amount: 100n,
+  decimals: 2,
 });
 
-// Airdrop 1 SOL to sender so it can act as mint authority
-const senderAirdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: senderAirdropSignature,
-});
-
-// Airdrop 0.1 SOL to recipient for rent exemption
-const recipientAirdropSignature = await connection.requestAirdrop(
-  recipient.publicKey,
-  LAMPORTS_PER_SOL / 10,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: recipientAirdropSignature,
-});
-
-// Create mint with feePayer paying the SOL fees
-const mintPubkey = await createMint(
-  connection,
-  feePayer, // fee payer
-  sender.publicKey, // mint authority
-  sender.publicKey, // freeze authority
-  2, // decimals
-  Keypair.generate(),
-  { commitment: "confirmed" },
-  TOKEN_PROGRAM_ID,
-);
-console.log("Mint Address:", mintPubkey.toBase58());
-
-// Create sender's ATA (feePayer covers the fee)
-const senderATA = await createAssociatedTokenAccount(
-  connection,
-  feePayer,
-  mintPubkey,
-  sender.publicKey,
-  { commitment: "confirmed" },
-  TOKEN_PROGRAM_ID,
-);
-console.log("Sender ATA Address:", senderATA.toBase58());
-
-// Create recipient's ATA (feePayer covers the fee)
-const recipientATA = await createAssociatedTokenAccount(
-  connection,
-  feePayer,
-  mintPubkey,
-  recipient.publicKey,
-  { commitment: "confirmed" },
-  TOKEN_PROGRAM_ID,
-);
-console.log("Recipient ATA Address:", recipientATA.toBase58());
-
-// Mint 100 tokens (1.00 with 2 decimals) to the sender's ATA
-const mintAmount = 100;
-const mintSignature = await mintTo(
-  connection,
-  feePayer, // payer (covers SOL fee)
-  mintPubkey,
-  senderATA,
-  sender.publicKey, // mint authority
-  mintAmount,
-  [sender], // mint authority must sign
-  { commitment: "confirmed" },
-  TOKEN_PROGRAM_ID,
-);
+const setup = await client.sendTransaction([createMintIx, mintToSenderIx]);
+console.log("Transaction Signature:", setup.context.signature);
 console.log("Successfully minted 1.0 tokens");
-console.log("Transaction Signature:", mintSignature);
 
-// Transfer 50 tokens from sender to recipient (feePayer pays SOL fee)
-const transferAmount = 50;
-const transactionSignature2 = await transfer(
-  connection,
-  feePayer,
-  senderATA,
-  recipientATA,
-  sender.publicKey,
-  transferAmount,
-  [sender],
-  { commitment: "confirmed" },
-  TOKEN_PROGRAM_ID,
-);
+// Transfer 0.50 tokens from sender to recipient — fee paid by feePayer
+const transferToRecipientIx = await client.token.instructions.transferToATA({
+  mint: mint.address,
+  authority: sender,
+  recipient: recipient.address,
+  amount: 50n,
+  decimals: 2,
+});
+
+const transfer = await client.sendTransaction([transferToRecipientIx]);
+console.log("Transaction Signature:", transfer.context.signature);
 console.log("Successfully transferred 0.5 tokens");
-console.log("Transaction Signature:", transactionSignature2);
 
-const senderTokenAccount = await getAccount(
-  connection,
-  senderATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID,
-);
-const recipientTokenAccount = await getAccount(
-  connection,
-  recipientATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID,
-);
+// Verify final balances
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+
+const senderTokenAccount = await fetchToken(client.rpc, senderAta, {
+  commitment: "confirmed",
+});
+const recipientTokenAccount = await fetchToken(client.rpc, recipientAta, {
+  commitment: "confirmed",
+});
 
 console.log("=== Final Balances ===");
 console.log(
   "Sender balance:",
-  Number(senderTokenAccount.amount) / 100,
+  Number(senderTokenAccount.data.amount) / 100,
   "tokens",
 );
 console.log(
   "Recipient balance:",
-  Number(recipientTokenAccount.amount) / 100,
+  Number(recipientTokenAccount.data.amount) / 100,
   "tokens",
 );
 // #endregion sponsor

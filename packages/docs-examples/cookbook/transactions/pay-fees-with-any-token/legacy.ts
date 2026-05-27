@@ -1,248 +1,77 @@
 // #region pay-fees
-import {
-  Connection,
-  Keypair,
-  sendAndConfirmTransaction,
-  SystemProgram,
-  Transaction,
-  LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
-import {
-  createInitializeMintInstruction,
-  MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  createMintToInstruction,
-  createTransferInstruction,
-  getAccount,
-} from "@solana/spl-token";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
 
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
+// Generate keypairs for fee payer, sender, recipient, and mint
+const feePayer = await generateKeyPairSigner();
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
 
-// Generate keypairs
-const feePayer = Keypair.generate();
-const sender = Keypair.generate();
-const recipient = Keypair.generate();
+console.log("Fee Payer Address:", feePayer.address);
+console.log("Sender Address:", sender.address);
+console.log("Recipient Address:", recipient.address);
+console.log("Mint Address:", mint.address);
 
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature,
+// Build a Kit client: fee payer (funded with 1 SOL), local RPC, and the token program plugin
+const client = await createClient()
+  .use(payer(feePayer))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)))
+  .use(tokenProgram());
+
+// Create the mint and mint 1.00 tokens to sender's ATA
+const createMintIx = client.token.instructions.createMint({
+  newMint: mint,
+  decimals: 2,
+  mintAuthority: sender.address,
+});
+const mintToSenderIx = await client.token.instructions.mintToATA({
+  mint: mint.address,
+  owner: sender.address,
+  mintAuthority: sender,
+  amount: 100n,
+  decimals: 2,
 });
 
-// Airdrop 0.1 SOL to sender for rent exemption
-const senderAirdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL / 10,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: senderAirdropSignature,
+const setup = await client.sendTransaction([createMintIx, mintToSenderIx]);
+console.log("Transaction Signature:", setup.context.signature);
+console.log("Successfully minted 1.0 tokens");
+
+// Transfer tokens to recipient
+const transferToRecipientIx = await client.token.instructions.transferToATA({
+  mint: mint.address,
+  authority: sender,
+  recipient: recipient.address,
+  amount: 50n,
+  decimals: 2,
 });
 
-// Airdrop 0.1 SOL to recipient for rent exemption
-const recipientAirdropSignature = await connection.requestAirdrop(
-  recipient.publicKey,
-  LAMPORTS_PER_SOL / 10,
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: recipientAirdropSignature,
+// Pay the fee payer in tokens to cover the transaction fees.
+// For a real-world application, calculate this from the SOL fee.
+const reimburseFeePayerIx = await client.token.instructions.transferToATA({
+  mint: mint.address,
+  authority: sender,
+  recipient: feePayer.address,
+  amount: 50n,
+  decimals: 2,
 });
 
-// Generate keypair to use as address of mint
-const mint = Keypair.generate();
-
-// Get minimum balance for rent exemption
-const mintRent = await getMinimumBalanceForRentExemptMint(connection);
-
-// Get the associated token account addresses
-const feePayerATA = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  feePayer.publicKey,
-  false,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-const senderATA = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  sender.publicKey,
-  false,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-const recipientATA = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  recipient.publicKey,
-  false,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-// Create account instruction
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: sender.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: mintRent,
-  programId: TOKEN_PROGRAM_ID,
-});
-
-// Initialize mint instruction
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey,
-  2, // decimals
-  sender.publicKey, // mint authority
-  sender.publicKey, // freeze authority
-  TOKEN_PROGRAM_ID,
-);
-
-// Create associated token account instructions
-const createFeePayerATA = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey,
-  feePayerATA,
-  feePayer.publicKey,
-  mint.publicKey,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-const createSenderATA = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey,
-  senderATA,
-  sender.publicKey,
-  mint.publicKey,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-const createRecipientATA = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey,
-  recipientATA,
-  recipient.publicKey,
-  mint.publicKey,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-// Create mint to instruction (mint 100 tokens = 1.00 with 2 decimals)
-const mintAmount = 100;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey,
-  senderATA,
-  sender.publicKey,
-  mintAmount,
-  [],
-  TOKEN_PROGRAM_ID,
-);
-
-// Create and sign transaction with mint creation and ATAs
-const transaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-}).add(
-  createAccountInstruction,
-  initializeMintInstruction,
-  createFeePayerATA,
-  createSenderATA,
-  createRecipientATA,
-  mintToInstruction,
-);
-
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [feePayer, sender, mint],
-);
-console.log("Transaction Signature:", transactionSignature);
-
-// Transfer 50 tokens to recipient
-const transferAmount = 50;
-const transferInstruction = createTransferInstruction(
-  senderATA,
-  recipientATA,
-  sender.publicKey,
-  transferAmount,
-  [],
-  TOKEN_PROGRAM_ID,
-);
-
-// Transfer tokens to fee payer to cover the transaction fees
-const transferFeePayerInstruction = createTransferInstruction(
-  senderATA,
-  feePayerATA,
-  sender.publicKey,
-  transferAmount,
-  [],
-  TOKEN_PROGRAM_ID,
-);
-
-// Get a new blockhash for the transfer transaction
-const transferBlockhash = await connection.getLatestBlockhash();
-
-let transferTransaction = new Transaction({
-  feePayer: feePayer.publicKey,
-  blockhash: transferBlockhash.blockhash,
-  lastValidBlockHeight: transferBlockhash.lastValidBlockHeight,
-}).add(transferInstruction, transferFeePayerInstruction);
-
-const transactionSignature2 = await sendAndConfirmTransaction(
-  connection,
-  transferTransaction,
-  [feePayer, sender],
-);
-
-console.log("Successfully transferred 0.5 tokens");
-console.log("Transaction Signature:", transactionSignature2);
-
-const feePayerTokenAccount = await getAccount(
-  connection,
-  feePayerATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID,
-);
-const senderTokenAccount = await getAccount(
-  connection,
-  senderATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID,
-);
-const recipientTokenAccount = await getAccount(
-  connection,
-  recipientATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID,
-);
-
-console.log("=== Final Balances ===");
+const transfer = await client.sendTransaction([
+  transferToRecipientIx,
+  reimburseFeePayerIx,
+]);
+console.log("Transaction Signature:", transfer.context.signature);
 console.log(
-  "Fee Payer balance:",
-  Number(feePayerTokenAccount.amount) / 100,
-  "tokens",
+  "Successfully transferred 0.5 tokens to recipient + 0.5 to fee payer",
 );
-console.log(
-  "Sender balance:",
-  Number(senderTokenAccount.amount) / 100,
-  "tokens",
-);
-console.log(
-  "Recipient balance:",
-  Number(recipientTokenAccount.amount) / 100,
-  "tokens",
-);
+
 // #endregion pay-fees

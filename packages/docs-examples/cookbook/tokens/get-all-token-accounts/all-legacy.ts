@@ -1,17 +1,20 @@
 // #region all
-import { Connection, PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { address, createSolanaRpc } from "@solana/kit";
 
-// connection
-const connection = new Connection("http://localhost:8899", "confirmed");
+const rpc = createSolanaRpc("http://localhost:8899");
 
-const owner = new PublicKey("G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY");
-let response = await connection.getParsedTokenAccountsByOwner(owner, {
-  programId: TOKEN_PROGRAM_ID,
-});
+const owner = address("G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY");
+const response = await rpc
+  .getTokenAccountsByOwner(
+    owner,
+    { programId: TOKEN_PROGRAM_ADDRESS },
+    { encoding: "jsonParsed" },
+  )
+  .send();
 
 response.value.forEach((accountInfo) => {
-  console.log(`pubkey: ${accountInfo.pubkey.toBase58()}`);
+  console.log(`pubkey: ${accountInfo.pubkey}`);
   console.log(`mint: ${accountInfo.account.data["parsed"]["info"]["mint"]}`);
   console.log(`owner: ${accountInfo.account.data["parsed"]["info"]["owner"]}`);
   console.log(
