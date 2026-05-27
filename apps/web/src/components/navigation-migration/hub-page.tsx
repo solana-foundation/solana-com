@@ -2,6 +2,7 @@ import Image from "next/image";
 import { ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/utils";
+import { HubHeroBackground } from "@/components/navigation-migration/hub-hero-background";
 
 export interface HubLink {
   title: string;
@@ -61,6 +62,7 @@ export interface HubPageConfig {
   secondaryCta?: HubLink;
   accentColor?: string;
   heroImageSrc?: string;
+  bgJsonFilePath?: string;
   metrics?: HubMetric[];
   overview?: HubOverview;
   pathways?: HubPathway[];
@@ -152,7 +154,10 @@ function HubHero({ config }: { config: HubPageConfig }) {
       className="relative overflow-hidden bg-black text-white text-left"
       aria-labelledby="hub-title"
     >
-      <HubHeroBackground heroImageSrc={config.heroImageSrc} />
+      <HubHeroBackground
+        heroImageSrc={config.heroImageSrc}
+        bgJsonFilePath={config.bgJsonFilePath}
+      />
 
       <div className={cn(HUB_FRAME, "relative z-10")}>
         <div className="pt-[88px] md:pt-[112px] xl:pt-[165px] pb-[40px] md:pb-[64px] xl:pb-[80px] max-w-5xl">
@@ -201,42 +206,6 @@ function HubHero({ config }: { config: HubPageConfig }) {
         )}
       </div>
     </section>
-  );
-}
-
-function HubHeroBackground({ heroImageSrc }: { heroImageSrc?: string }) {
-  return (
-    <>
-      {heroImageSrc && (
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <Image
-            src={heroImageSrc}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover scale-[1.05]"
-          />
-        </div>
-      )}
-      <div
-        aria-hidden
-        className="absolute inset-0 z-[1] pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(70% 70% at 78% 22%, color-mix(in srgb, var(--hub-accent) 55%, transparent) 0%, transparent 60%), radial-gradient(90% 100% at 0% 100%, color-mix(in srgb, var(--hub-accent) 22%, transparent) 0%, transparent 55%), linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.42) 35%, #000 92%)",
-          mixBlendMode: "screen",
-        }}
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 z-[2] pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(180deg, transparent 0%, transparent 55%, rgba(0,0,0,0.55) 80%, #000 100%)",
-        }}
-      />
-    </>
   );
 }
 

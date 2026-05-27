@@ -27,6 +27,7 @@ export const navigationHubs = {
       "Choose a wallet, learn how SOL and fees work, build safer signing habits, and find apps and communities to try.",
     accentColor: "#14F195",
     heroImageSrc: indexHero,
+    bgJsonFilePath: "/src/img/navigation-hubs/use-solana-bg.json",
     primaryCta: {
       title: "Compare wallets",
       href: "/solana-wallets",
@@ -258,6 +259,7 @@ export const navigationHubs = {
       "Review payments, stablecoins, tokenized assets, financial infrastructure, privacy, network performance, and the docs teams need to build.",
     accentColor: "#CA9FF5",
     heroImageSrc: tokenizationImage,
+    bgJsonFilePath: "/src/img/navigation-hubs/enterprise-bg.json",
     primaryCta: {
       title: "Explore enterprise solutions",
       href: "/solutions/enterprise",
@@ -498,6 +500,7 @@ export const navigationHubs = {
       "Explore APIs, agent tools, payments, transaction links, commerce tools, and docs for building on Solana.",
     accentColor: "#00C2FF",
     heroImageSrc: sdpImage,
+    bgJsonFilePath: "/src/img/navigation-hubs/products-bg.json",
     primaryCta: {
       title: "Solana Developer Platform",
       href: "/solutions/sdp",
@@ -733,6 +736,7 @@ export const navigationHubs = {
       "Find network resources, events, media, research, and pages for areas like DePIN, DeSci, BTCFi, gaming, creators, and startup ideas.",
     accentColor: "#9945FF",
     heroImageSrc: communityHero,
+    bgJsonFilePath: "/src/img/navigation-hubs/ecosystem-bg.json",
     primaryCta: {
       title: "Explore events",
       href: "/events",
@@ -958,11 +962,6 @@ export const navigationHubs = {
             description:
               "Creator tools, digital art, communities, and ownership.",
           },
-          {
-            title: "Request for Startups",
-            href: "/solutions/request-for-startups",
-            description: "Startup ideas and ecosystem opportunities.",
-          },
         ],
       },
     ],
@@ -978,6 +977,7 @@ export const navigationHubs = {
       "Find validators, RPC providers, explorers, live status, reports, and research for operating or evaluating Solana.",
     accentColor: "#14F195",
     heroImageSrc: performanceBg,
+    bgJsonFilePath: "/src/img/navigation-hubs/network-bg.json",
     primaryCta: {
       title: "Become a validator",
       href: "/validators",
