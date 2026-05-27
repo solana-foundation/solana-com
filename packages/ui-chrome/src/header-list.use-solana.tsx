@@ -16,15 +16,15 @@ const HeaderListUseSolana = ({ isMobile = false }) => {
   const t = useTranslations();
 
   return (
-    <div className="xl:w-[840px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
+    <div className="xl:w-[960px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-3">
       <HeaderBanner
-        className="w-[400px] max-w-full"
+        className="xl:w-[300px] xl:shrink-0 w-full"
         title={t("nav.useSolana.banner.title")}
         description={t("nav.useSolana.banner.description")}
         cta={t("nav.useSolana.banner.cta")}
         ctaHref="/use-solana"
       />
-      <div className="px-3 grow">
+      <div className="px-2 xl:px-3 grow xl:min-w-0">
         <SectionHeading title={t("nav.useSolana.wallets.title")} />
         <NavItemsList items={useSolanaWalletItems} />
         <CollapsibleNavGroup

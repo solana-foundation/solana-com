@@ -22,17 +22,19 @@ export const HeaderItem: React.FC<HeaderItemProps> = ({
     return (
       <div
         className={
-          ACTIVE_CLASSNAME + " flex items-center gap-4 max-xl:py-4 xl:py-5"
+          ACTIVE_CLASSNAME + " flex items-start gap-3 max-xl:py-3.5 xl:py-3"
         }
       >
         {Icon && (
-          <div className="w-[50px] h-[50px] flex items-center justify-center bg-[rgba(255,255,255,0.06)] rounded-lg">
-            <Icon className="size-[24px] text-white" />
+          <div className="w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-white/[0.06] rounded-lg">
+            <Icon className="size-[20px] text-white" />
           </div>
         )}
-        <div>
-          <div className="font-medium text-white">{title}</div>
-          <div className="text-[rgba(255,255,255,0.64)] mt-1">
+        <div className="min-w-0">
+          <div className="font-medium text-white text-[14px] xl:text-[15px] leading-[1.35]">
+            {title}
+          </div>
+          <div className="text-white/55 mt-0.5 text-[13px] xl:text-[13px] leading-[1.4]">
             {description}
           </div>
         </div>
@@ -43,11 +45,11 @@ export const HeaderItem: React.FC<HeaderItemProps> = ({
   return (
     <div
       className={
-        ACTIVE_CLASSNAME + " flex items-center gap-2.5 max-xl:py-3 xl:py-2.5"
+        ACTIVE_CLASSNAME + " flex items-center gap-2.5 max-xl:py-3 xl:py-2"
       }
     >
-      {Icon && <Icon className="size-[20px] text-white" />}
-      <div className="font-medium text-white">{title}</div>
+      {Icon && <Icon className="size-[18px] text-white shrink-0" />}
+      <div className="font-medium text-white text-[14px]">{title}</div>
     </div>
   );
 };

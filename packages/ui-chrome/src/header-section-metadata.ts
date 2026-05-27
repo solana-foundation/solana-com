@@ -63,7 +63,7 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/skills" },
       { type: "equals", value: "/solutions/actions" },
     ],
-    contentAlign: "left",
+    contentAlign: "center",
   },
   {
     id: "ecosystem",

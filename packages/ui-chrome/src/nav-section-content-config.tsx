@@ -520,12 +520,6 @@ export const ecosystemCategoryItems: NavItemDefinition[] = [
     href: "/solutions/artists-creators",
     icon: EducationIcon,
   },
-  {
-    id: "ecosystem-founders",
-    titleKey: "nav.ecosystem.categories.items.founders.title",
-    href: "/solutions/request-for-startups",
-    icon: FistbumpIcon,
-  },
 ];
 
 export const navPromoConfigs = {
@@ -534,7 +528,7 @@ export const navPromoConfigs = {
     translationKey: "nav.ecosystem.promo",
     href: "/breakpoint",
     expiresAt: "2026-11-18",
-    className: "w-[350px] max-w-full",
+    className: "xl:w-[300px] xl:shrink-0 w-full",
     backgroundClassName:
       "xl:bg-[url(/src/img/nav/bp26-nav-banner-bg.webp)] bg-[url(/src/img/nav/bp26-nav-banner-bg-mobile.webp)]",
     Logo: BreakpointLogo,
