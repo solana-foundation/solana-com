@@ -236,14 +236,6 @@ function HubHeroBackground({ heroImageSrc }: { heroImageSrc?: string }) {
             "linear-gradient(180deg, transparent 0%, transparent 55%, rgba(0,0,0,0.55) 80%, #000 100%)",
         }}
       />
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 z-[2] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hub-accent) 60%, transparent) 35%, color-mix(in srgb, var(--hub-accent) 60%, transparent) 65%, transparent 100%)",
-        }}
-      />
     </>
   );
 }
@@ -329,42 +321,35 @@ function HubFeatureCard({
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}
         aria-label={`${feature.title} — ${feature.cta}`}
-        className="group flex flex-row items-stretch p-5 md:p-6 bg-white text-black rounded-xl no-underline h-full"
-        style={{
-          backgroundImage:
-            "radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--hub-accent) 22%, transparent), transparent 55%)",
-          backgroundBlendMode: "screen",
-        }}
+        className="group relative flex flex-row items-stretch p-5 md:p-6 bg-black text-white rounded-xl no-underline h-full border border-white/10 overflow-hidden transition-colors hover:border-white/25"
       >
-        <div className="grow flex flex-col justify-between gap-3 xl:gap-4">
+        <div className="relative grow flex flex-col justify-between gap-3 xl:gap-4">
           <div>
             <p
               className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] m-0"
-              style={{
-                color: "color-mix(in srgb, var(--hub-accent) 75%, #000)",
-              }}
+              style={{ color: "var(--hub-accent)" }}
             >
               {feature.eyebrow}
             </p>
             <p className="font-medium text-base md:text-lg mt-2 m-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.25]">
               {feature.title}
             </p>
-            <p className="text-[13px] md:text-[14px] opacity-70 mt-2 m-0 tracking-[-0.14px] md:tracking-[-0.16px] leading-[1.42] md:leading-[1.44]">
+            <p className="text-[13px] md:text-[14px] text-[#ABABBA] mt-2 m-0 tracking-[-0.14px] md:tracking-[-0.16px] leading-[1.42] md:leading-[1.44]">
               {feature.description}
             </p>
           </div>
           <div>
-            <span className="rounded-full text-base font-light px-4 h-8 bg-black text-white hover:!bg-black/90 tracking-[-0.16px] md:tracking-[-0.18px] inline-flex items-center gap-2">
+            <span className="rounded-full text-base font-light px-4 h-8 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px] inline-flex items-center gap-2">
               {external ? (
                 <ArrowUpRight
                   aria-hidden
-                  className="-ml-2 p-1 !size-5 bg-white text-black rounded-full"
+                  className="-ml-2 p-1 !size-5 bg-black text-white rounded-full"
                   strokeWidth={3}
                 />
               ) : (
                 <ArrowRight
                   aria-hidden
-                  className="-ml-2 p-1 !size-5 bg-white text-black rounded-full transition-transform group-hover:translate-x-0.5"
+                  className="-ml-2 p-1 !size-5 bg-black text-white rounded-full transition-transform group-hover:translate-x-0.5"
                   strokeWidth={3}
                 />
               )}
@@ -677,29 +662,55 @@ function HubDirectory({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-          {sections.map((section) => (
-            <div
-              key={section.title}
-              className="rounded-2xl border border-white/10 bg-black p-6 md:p-8"
-            >
-              <h3 className="font-brand font-medium text-lg md:text-2xl m-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
-                {section.title}
-              </h3>
-              {section.description && (
-                <p className="mt-3 text-[14px] md:text-base text-[#ABABBA] leading-[1.5] m-0">
-                  {section.description}
-                </p>
-              )}
-              <ul className="mt-6 flex flex-col p-0 m-0 list-none divide-y-[1px] divide-white/10">
-                {section.links.map((link) => (
-                  <li key={`${section.title}-${link.href}`} className="p-0">
-                    <ResourceLink link={link} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="rounded-2xl border border-white/10 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            {sections.map((section, idx) => (
+              <div
+                key={section.title}
+                className={cn(
+                  "relative flex flex-col p-6 md:p-8 xl:p-10",
+                  "border-white/10",
+                  idx > 0 && "border-t md:border-t-0",
+                  idx % 2 === 1 && "md:border-l",
+                  "xl:border-l xl:[&:nth-child(3n+1)]:border-l-0",
+                  "md:[&:nth-child(2)]:border-t-0 xl:[&:nth-child(3)]:border-t-0",
+                )}
+              >
+                <div className="flex items-center gap-3 mb-5">
+                  <span
+                    aria-hidden
+                    className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em]"
+                    style={{ color: "var(--hub-accent)" }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="h-px flex-1"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, color-mix(in srgb, var(--hub-accent) 50%, transparent), transparent)",
+                    }}
+                  />
+                </div>
+                <h3 className="font-brand font-medium text-xl md:text-2xl xl:text-[28px] m-0 tracking-[-0.4px] md:tracking-[-0.48px] xl:tracking-[-0.56px] leading-[1.2]">
+                  {section.title}
+                </h3>
+                {section.description && (
+                  <p className="mt-3 text-[14px] md:text-[15px] text-[#ABABBA] leading-[1.5] m-0">
+                    {section.description}
+                  </p>
+                )}
+                <ul className="mt-6 xl:mt-8 flex flex-col p-0 m-0 list-none divide-y-[1px] divide-white/10 -mx-2">
+                  {section.links.map((link) => (
+                    <li key={`${section.title}-${link.href}`} className="p-0">
+                      <ResourceLink link={link} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -771,16 +782,16 @@ function ResourceLink({ link }: { link: HubLink }) {
   return (
     <a
       href={link.href}
-      className="group flex items-start justify-between gap-4 py-4 text-white no-underline transition-colors"
+      className="group flex items-center justify-between gap-4 px-2 py-4 rounded-md text-white no-underline transition-colors hover:bg-white/[0.03]"
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
     >
-      <span className="flex-1">
-        <span className="block text-base md:text-lg font-medium leading-[1.4] tracking-[-0.18px] transition-colors">
+      <span className="flex-1 min-w-0">
+        <span className="block text-base md:text-lg font-medium leading-[1.35] tracking-[-0.18px] transition-colors group-hover:text-white">
           {link.title}
         </span>
         {link.description && (
-          <span className="mt-1 block text-[14px] md:text-[15px] text-[#ABABBA] leading-[1.5]">
+          <span className="mt-1 block text-[13px] md:text-[14px] text-[#ABABBA] leading-[1.5]">
             {link.description}
           </span>
         )}
@@ -788,12 +799,12 @@ function ResourceLink({ link }: { link: HubLink }) {
       {external ? (
         <ArrowUpRight
           aria-hidden
-          className="mt-1 size-4 shrink-0 text-[#ABABBA] transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white"
+          className="size-4 shrink-0 text-white/40 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white"
         />
       ) : (
         <ChevronRight
           aria-hidden
-          className="mt-1 size-5 shrink-0 text-[#ABABBA] transition-all group-hover:translate-x-1 group-hover:text-white"
+          className="size-5 shrink-0 text-white/40 transition-all group-hover:translate-x-1 group-hover:text-white"
         />
       )}
     </a>

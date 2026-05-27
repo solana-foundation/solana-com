@@ -20,11 +20,11 @@ export const navigationHubs = {
     path: "/use-solana",
     metaTitle: "Use Solana",
     metaDescription:
-      "Find wallets, beginner learning resources, safety guidance, transaction basics, and ways to explore apps on Solana.",
+      "Set up a wallet, learn Solana basics, stay safe, and find apps to try.",
     eyebrow: "Use Solana",
     title: "Start using Solana with confidence",
     description:
-      "Choose a wallet, learn how SOL, fees, tokens, and transfers work, build safer signing habits, and discover the apps and communities that make Solana useful day to day.",
+      "Choose a wallet, learn how SOL and fees work, build safer signing habits, and find apps and communities to try.",
     accentColor: "#14F195",
     heroImageSrc: indexHero,
     primaryCta: {
@@ -40,57 +40,57 @@ export const navigationHubs = {
         value: "01",
         label: "Choose a wallet",
         description:
-          "Compare wallets by platform, features, and security model so your first account fits how you plan to use Solana.",
+          "Compare wallets by platform, features, and security needs.",
       },
       {
         value: "02",
         label: "Learn the first actions",
         description:
-          "Work through no-code lessons on wallets, SOL transfers, transaction fees, tokens, staking, DeFi, NFTs, and app discovery.",
+          "Follow beginner lessons on wallets, transfers, fees, tokens, staking, DeFi, NFTs, and apps.",
       },
       {
         value: "03",
         label: "Build safe habits",
         description:
-          "Review safety guidance before connecting to apps, signing transactions, or moving assets across unfamiliar workflows.",
+          "Read the safety basics before you connect to apps, sign transactions, or move assets.",
       },
       {
         value: "04",
         label: "Explore apps",
         description:
-          "Move from fundamentals into consumer apps, staking education, ecosystem events, and the wider Solana community.",
+          "Use what you learned to explore apps, staking, events, and the Solana community.",
       },
     ],
     overview: {
       eyebrow: "User journey",
-      title: "A guided path from first wallet to first transaction.",
+      title: "Go from your first wallet to your first transaction.",
       description:
-        "The Learn path already covers Solana basics, wallets, fees, transfers, staking, tokens, applications, and safety. This hub puts those resources in the order most new users need them.",
+        "This hub puts beginner resources in a clear order: wallet setup, SOL and fees, transfers, staking, tokens, apps, and safety.",
       imageSrc: walletImage,
       points: [
         {
           title: "Wallet first",
           description:
-            "Your wallet is the account layer you use to hold assets, sign transactions, and connect to Solana applications.",
+            "Your wallet holds assets, signs transactions, and connects you to Solana apps.",
         },
         {
-          title: "Then mechanics",
+          title: "Then the basics",
           description:
-            "Learn what SOL is used for, why fees are low, how transfers work, and how tokens and staking fit into everyday usage.",
+            "Learn what SOL is for, how fees and transfers work, and where tokens and staking fit in.",
         },
         {
-          title: "Safety before scale",
+          title: "Safety before more activity",
           description:
-            "Review seed phrase, link, approval, and app-connection habits before wallet prompts become routine.",
+            "Review seed phrases, links, approvals, and app connections before signing often.",
         },
       ],
     },
     pathways: [
       {
         eyebrow: "First wallet",
-        title: "Choose a wallet you can use across Solana apps.",
+        title: "Pick a wallet for Solana apps.",
         description:
-          "Compare wallets by platform and features, then use the wallet basics guide to understand keys, accounts, and approvals.",
+          "Compare wallets, then learn how keys, accounts, and approvals work.",
         href: "/solana-wallets",
         cta: "Compare wallets",
         featured: true,
@@ -104,7 +104,7 @@ export const navigationHubs = {
         eyebrow: "Core concepts",
         title: "Learn how SOL, fees, tokens, and transfers work.",
         description:
-          "Read the introductory chapters on Solana, fees, token basics, and how transfers work before connecting to unfamiliar apps.",
+          "Start with Solana basics, fees, tokens, and transfers before using new apps.",
         href: "/learn",
         cta: "Open learn path",
         links: [
@@ -118,9 +118,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "App exploration",
-        title: "Discover apps, staking, and community events.",
+        title: "Find apps, staking, and events.",
         description:
-          "Explore consumer apps and staking education once you understand wallet basics, transaction fees, and signing safety.",
+          "Explore consumer apps and staking after you understand wallets, fees, and signing safety.",
         href: "/solutions/consumer",
         cta: "Explore consumer apps",
         links: [
@@ -134,36 +134,35 @@ export const navigationHubs = {
       eyebrow: "Safety first",
       title: "Review wallet safety before connecting to apps",
       description:
-        "Use the safety guide as a standing checkpoint for approvals, seed phrases, links, and common scam patterns.",
+        "Use the safety guide to check approvals, seed phrases, links, and common scams.",
       href: "/learn/staying-safe-on-solana",
       cta: "Read the guide",
     },
     resourceHeading: "Use Solana resources",
     resourceDescription:
-      "Wallet setup, no-code learning chapters, safety guidance, and discovery links for new Solana users.",
+      "Wallet setup, beginner lessons, safety guides, and links for new Solana users.",
     sections: [
       {
         title: "Wallets and onboarding",
         description:
-          "Start with account setup and the minimum concepts needed for first transactions.",
+          "Start with account setup and the basics for your first transactions.",
         links: [
           {
             title: "Wallets",
             href: "/wallets",
             description:
-              "Learn how Solana wallets power apps, payments, and key management.",
+              "Learn how Solana wallets work with apps, payments, and keys.",
           },
           {
             title: "Wallet directory",
             href: "/solana-wallets",
             description:
-              "Filter wallets by platform, supported features, and security preferences.",
+              "Filter wallets by platform, features, and security options.",
           },
           {
             title: "What is Solana?",
             href: "/learn/what-is-solana",
-            description:
-              "A beginner chapter on the network and what it enables.",
+            description: "A beginner guide to the network and what it enables.",
           },
           {
             title: "Getting started",
@@ -173,19 +172,18 @@ export const navigationHubs = {
           {
             title: "What is a wallet?",
             href: "/learn/what-is-a-wallet",
-            description: "How wallets hold keys and connect to applications.",
+            description: "How wallets hold keys and connect to apps.",
           },
           {
             title: "Sending and receiving SOL",
             href: "/learn/sending-and-receiving-sol",
-            description: "The mechanics of a basic transfer.",
+            description: "How a basic transfer works.",
           },
         ],
       },
       {
         title: "Safety, fees, and tokens",
-        description:
-          "The topics that matter once you start signing transactions and moving value.",
+        description: "Key topics for signing transactions and moving value.",
         links: [
           {
             title: "Staying safe",
@@ -196,52 +194,49 @@ export const navigationHubs = {
           {
             title: "Transaction fees",
             href: "/learn/understanding-solana-transaction-fees",
-            description: "How fees fit into regular network usage.",
+            description: "How fees work when you use the network.",
           },
           {
             title: "Introduction to Solana tokens",
             href: "/learn/introduction-to-solana-tokens",
-            description:
-              "A user-level explanation of token types and behavior.",
+            description: "A simple guide to token types and behavior.",
           },
           {
             title: "Staking",
             href: "/staking",
-            description:
-              "Entry point for staking information and validator context.",
+            description: "Start learning about staking and validators.",
           },
           {
             title: "What is staking?",
             href: "/learn/what-is-staking",
-            description: "Educational overview of staking concepts.",
+            description: "A beginner overview of staking.",
           },
           {
             title: "Consumer apps",
             href: "/solutions/consumer",
             description:
-              "Consumer apps, social experiences, games, and communities on Solana.",
+              "Apps, social experiences, games, and communities on Solana.",
           },
         ],
       },
       {
         title: "Keep learning",
-        description:
-          "Broader ecosystem links for users who want to understand what is happening around Solana.",
+        description: "More links for learning what is happening around Solana.",
         links: [
           {
             title: "Learn",
             href: "/learn",
-            description: "The full no-code education path.",
+            description: "The full beginner learning path.",
           },
           {
             title: "Exploring Solana applications",
             href: "/learn/exploring-solana-applications",
-            description: "How to browse app categories with more context.",
+            description: "How to browse app categories.",
           },
           {
             title: "Events",
             href: "/events",
-            description: "Meetups, conferences, and community programming.",
+            description: "Meetups, conferences, and community events.",
           },
           {
             title: "News",
@@ -256,11 +251,11 @@ export const navigationHubs = {
     path: "/enterprise",
     metaTitle: "Solana for Enterprise",
     metaDescription:
-      "Evaluate Solana for payments, tokenization, stablecoins, network proof, and enterprise use cases.",
+      "Explore Solana for payments, stablecoins, tokenization, network proof, and enterprise use cases.",
     eyebrow: "Enterprise",
-    title: "Evaluate Solana for business-critical use cases",
+    title: "Evaluate Solana for business use",
     description:
-      "Assess payments, stablecoin issuance, tokenized assets, financial infrastructure, privacy, network performance, and the implementation paths teams need before building on Solana.",
+      "Review payments, stablecoins, tokenized assets, financial infrastructure, privacy, network performance, and the docs teams need to build.",
     accentColor: "#CA9FF5",
     heroImageSrc: tokenizationImage,
     primaryCta: {
@@ -276,57 +271,57 @@ export const navigationHubs = {
         value: "Use cases",
         label: "Payments and settlement",
         description:
-          "Review institutional payments, stablecoins, commerce tooling, and the Solana Developer Platform from one business-focused entry point.",
+          "Review payments, stablecoins, commerce tools, and the Solana Developer Platform.",
       },
       {
         value: "Assets",
-        label: "Tokenization and RWAs",
+        label: "Tokenization and real-world assets",
         description:
-          "Explore internet capital markets, real-world assets, token extensions, and digital asset primitives.",
+          "Explore tokenized assets, real-world assets, token extensions, and digital asset tools.",
       },
       {
-        value: "Proof",
+        value: "Research",
         label: "Reports and research",
         description:
-          "Use reports and research to understand network health, performance, energy impact, privacy, and ecosystem activity.",
+          "Read reports on network health, performance, energy use, privacy, and ecosystem activity.",
       },
       {
-        value: "Build path",
-        label: "Docs and tooling",
+        value: "Build",
+        label: "Docs and tools",
         description:
-          "Connect technical teams to payment docs, token extensions, RPC resources, and partner infrastructure.",
+          "Find payment docs, token extensions, RPC resources, and partner tools.",
       },
     ],
     overview: {
       eyebrow: "Evaluation path",
-      title: "Move from business case to proof to implementation.",
+      title: "Go from business case to proof to build plan.",
       description:
-        "Start with the outcome you are evaluating, then go deeper into the reports, validator resources, privacy material, developer docs, and product tooling that support technical diligence.",
+        "Start with the use case, then review reports, validators, privacy, docs, and tools.",
       imageSrc: projectsBg,
       points: [
         {
           title: "Business cases",
           description:
-            "Payments, stablecoins, tokenized assets, and financial infrastructure each have dedicated solution pages with examples, use cases, and supporting tools.",
+            "Payments, stablecoins, tokenized assets, and financial infrastructure each have pages with examples and tools.",
         },
         {
-          title: "Technical proof",
+          title: "Technical evidence",
           description:
-            "Network, validator, report, research, privacy, and RPC resources give teams more context before committing to an architecture.",
+            "Network, validator, report, research, privacy, and RPC resources help teams assess fit.",
         },
         {
-          title: "Implementation path",
+          title: "Build plan",
           description:
-            "Docs for payments, token extensions, Solana Pay, Kora, Commerce Kit, and RPC providers connect strategy to actual integration work.",
+            "Docs for payments, tokens, Solana Pay, Kora, Commerce Kit, and RPC providers help teams start building.",
         },
       ],
     },
     pathways: [
       {
         eyebrow: "Move money",
-        title: "Assess payments, stablecoins, and settlement workflows.",
+        title: "Review payments, stablecoins, and settlement.",
         description:
-          "Start with institutional payments and stablecoin issuance, then continue into payment docs and platform tooling.",
+          "Start with institutional payments and stablecoins, then open the payment docs and tools.",
         href: "/solutions/institutional-payments",
         cta: "Open payment solutions",
         featured: true,
@@ -341,9 +336,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "Issue assets",
-        title: "Explore tokenization, RWAs, and digital asset primitives.",
+        title: "Explore tokenization and digital assets.",
         description:
-          "Use the tokenization and real-world asset pages for business context, then review token extensions for implementation details.",
+          "Use the tokenization and real-world asset pages for context, then review token extensions.",
         href: "/solutions/tokenization",
         cta: "Open tokenization",
         links: [
@@ -353,10 +348,10 @@ export const navigationHubs = {
         ],
       },
       {
-        eyebrow: "Validate readiness",
-        title: "Review network, privacy, and research material.",
+        eyebrow: "Check readiness",
+        title: "Review network, privacy, and research.",
         description:
-          "Give diligence teams fast access to reports, validator information, privacy material, and network operations context.",
+          "Find reports, validator information, privacy resources, and network resources.",
         href: "/reports",
         cta: "View reports",
         links: [
@@ -368,26 +363,26 @@ export const navigationHubs = {
     ],
     feature: {
       eyebrow: "Network proof",
-      title: "Use reports and research for diligence",
+      title: "Use reports and research to evaluate Solana",
       description:
-        "Published reports, research, and validator resources help technical and business teams evaluate Solana with more context.",
+        "Published reports, research, and validator resources help teams understand the network.",
       href: "/reports",
       cta: "View reports",
     },
     resourceHeading: "Enterprise resources",
     resourceDescription:
-      "Solution pages, technical docs, and research materials for teams evaluating Solana in production.",
+      "Solution pages, docs, and research for teams evaluating Solana.",
     sections: [
       {
         title: "Business solutions",
         description:
-          "Use-case pages for payments, stablecoins, commerce, tokenization, and real-world assets.",
+          "Pages for payments, stablecoins, commerce, tokenization, and real-world assets.",
         links: [
           {
             title: "Enterprise overview",
             href: "/solutions/enterprise",
             description:
-              "Partner and enterprise context for organizations evaluating Solana.",
+              "A starting point for organizations evaluating Solana.",
           },
           {
             title: "Institutional payments",
@@ -403,25 +398,25 @@ export const navigationHubs = {
           {
             title: "Stablecoins",
             href: "/solutions/stablecoins",
-            description: "Stablecoin issuance and distribution context.",
+            description: "Stablecoin issuance and distribution.",
           },
           {
             title: "Tokenization",
             href: "/solutions/tokenization",
             description:
-              "Internet capital markets, tokenized assets, and market access.",
+              "Tokenized assets, capital markets, and market access.",
           },
           {
             title: "Real-world assets",
             href: "/solutions/real-world-assets",
-            description: "Asset tokenization use cases and related examples.",
+            description: "Asset tokenization use cases and examples.",
           },
         ],
       },
       {
         title: "Financial infrastructure",
         description:
-          "Specialized paths for payments, capital markets, DeFi, institutions, and infrastructure teams.",
+          "Paths for payments, capital markets, DeFi, institutions, and infrastructure teams.",
         links: [
           {
             title: "Solana Developer Platform",
@@ -432,35 +427,35 @@ export const navigationHubs = {
             title: "Digital assets",
             href: "/solutions/digital-assets",
             description:
-              "Consumer and institutional digital asset building blocks.",
+              "Digital asset tools for consumer and business products.",
           },
           {
             title: "DeFi",
             href: "/solutions/defi",
-            description: "Open financial markets and liquidity context.",
+            description: "Open financial markets and liquidity.",
           },
           {
             title: "Financial infrastructure",
             href: "/solutions/financial-infrastructure",
-            description: "Infrastructure-oriented financial use cases.",
+            description: "Financial use cases for infrastructure teams.",
           },
           {
             title: "Financial institutions",
             href: "/solutions/financial-institutions",
-            description: "Institutional examples and ecosystem context.",
+            description: "Examples and resources for financial institutions.",
           },
           {
             title: "DePIN",
             href: "/solutions/depin",
             description:
-              "Networks coordinating physical infrastructure with onchain incentives.",
+              "Networks that connect physical infrastructure with token rewards.",
           },
         ],
       },
       {
-        title: "Validation and proof",
+        title: "Research and proof",
         description:
-          "Network, validator, report, research, and privacy resources for technical review.",
+          "Network, validator, report, research, and privacy resources for review.",
         links: [
           {
             title: "Network hub",
@@ -471,24 +466,22 @@ export const navigationHubs = {
           {
             title: "Validators",
             href: "/validators",
-            description:
-              "How validators participate in Solana network operations.",
+            description: "How validators help run the Solana network.",
           },
           {
             title: "Reports",
             href: "/reports",
-            description: "Network, ecosystem, and research report archive.",
+            description: "Network, ecosystem, and research reports.",
           },
           {
             title: "Research",
             href: "/research",
-            description:
-              "Research and analysis on network health and performance.",
+            description: "Research on network health and performance.",
           },
           {
             title: "Privacy",
             href: "/privacy",
-            description: "Privacy primitives and confidential token context.",
+            description: "Privacy tools and confidential token resources.",
           },
         ],
       },
@@ -498,11 +491,11 @@ export const navigationHubs = {
     path: "/products",
     metaTitle: "Solana Products",
     metaDescription:
-      "Find Solana Developer Platform, x402, Agent Registry, Skills, Actions and blinks, Solana Pay, Commerce Kit, Kora, RPC providers, and implementation docs.",
+      "Find Solana Developer Platform, x402, Agent Registry, Skills, Actions and blinks, Solana Pay, Commerce Kit, Kora, RPC providers, and docs.",
     eyebrow: "Products",
-    title: "Find the Solana products and tools that help teams ship",
+    title: "Find Solana products and tools for building",
     description:
-      "Explore platform APIs for issuance and payments, agent identity and x402 payments, Actions and blinks, commerce tooling, and the docs that connect product ideas to working integrations.",
+      "Explore APIs, agent tools, payments, transaction links, commerce tools, and docs for building on Solana.",
     accentColor: "#00C2FF",
     heroImageSrc: sdpImage,
     primaryCta: {
@@ -518,57 +511,57 @@ export const navigationHubs = {
         value: "Platform",
         label: "Financial product APIs",
         description:
-          "Solana Developer Platform brings issuance, payments, and trading APIs into one financial-product path.",
+          "Solana Developer Platform includes APIs for issuance, payments, and trading.",
       },
       {
         value: "Agents",
         label: "Identity and skills",
         description:
-          "Agent Registry and Skills help agent builders work with identity, trust, validation, and development context.",
+          "Agent Registry and Skills help builders add identity, trust, and context.",
       },
       {
         value: "Payments",
         label: "x402 and Solana Pay",
         description:
-          "x402, Solana Pay, Commerce Kit, and Kora support checkout, fee abstraction, and internet-native payment flows.",
+          "x402, Solana Pay, Commerce Kit, and Kora support checkout and web payments.",
       },
       {
         value: "Build",
         label: "Docs and templates",
         description:
-          "Developer docs, RPC providers, token docs, and guides turn product discovery into build steps.",
+          "Developer docs, RPC providers, token docs, and guides help teams start building.",
       },
     ],
     overview: {
       eyebrow: "Product map",
-      title: "A practical map for platform, agent, and payment products.",
+      title: "A simple map of platform, agent, and payment tools.",
       description:
-        "Start with Solana Developer Platform for financial-product APIs, agent tools for identity and trusted workflows, and payment products for checkout, monetization, and shareable transaction flows.",
+        "Start with platform APIs, agent tools, or payment products, then use the docs to build.",
       imageSrc: performanceBg,
       points: [
         {
           title: "Platform layer",
           description:
-            "Solana Developer Platform and RPC resources support teams building financial, payments, and data-heavy products.",
+            "Solana Developer Platform and RPC resources support financial, payment, and data-heavy products.",
         },
         {
           title: "Agent layer",
           description:
-            "x402, Agent Registry, Skills, and AI resources support autonomous agents that need identity, trust, context, and payments.",
+            "x402, Agent Registry, Skills, and AI resources help agents use identity, trust, context, and payments.",
         },
         {
           title: "Transaction layer",
           description:
-            "Actions, blinks, Solana Pay, Commerce Kit, Kora, and token docs help turn product concepts into user-facing transaction flows.",
+            "Actions, blinks, Solana Pay, Commerce Kit, Kora, and token docs help create user-facing transaction flows.",
         },
       ],
     },
     pathways: [
       {
         eyebrow: "Platform APIs",
-        title: "Build financial products with APIs for issuance and payments.",
+        title: "Build financial products with issuance and payment APIs.",
         description:
-          "Start with Solana Developer Platform, then use the payments, token, and RPC docs to shape implementation.",
+          "Start with Solana Developer Platform, then use the payment, token, and RPC docs.",
         href: "/solutions/sdp",
         cta: "Open platform",
         featured: true,
@@ -580,9 +573,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "Agent products",
-        title: "Build agents with identity, reputation, and payment access.",
+        title: "Build agents with identity, trust, and payments.",
         description:
-          "Use Agent Registry for verifiable identity and trust, Skills for development context, and x402 for paid APIs and resources.",
+          "Use Agent Registry for identity, Skills for context, and x402 for paid APIs and resources.",
         href: "/agent-registry",
         cta: "Open agent tools",
         links: [
@@ -593,10 +586,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "User actions",
-        title:
-          "Create transaction links, checkout flows, and sponsored-fee experiences.",
+        title: "Create transaction links and checkout flows.",
         description:
-          "Actions and blinks make transaction flows shareable, while Solana Pay, Commerce Kit, and Kora support checkout and smoother payment UX.",
+          "Actions and blinks make transactions shareable. Solana Pay, Commerce Kit, and Kora support checkout.",
         href: "/solutions/actions",
         cta: "Explore actions",
         links: [
@@ -610,59 +602,55 @@ export const navigationHubs = {
       eyebrow: "Featured product",
       title: "Launch x402 payments on Solana",
       description:
-        "x402 lets APIs and web services request payment before serving content, with Solana providing fast, low-cost settlement for agent and developer workflows.",
+        "x402 lets APIs and websites ask for payment before serving content. Solana handles fast, low-cost settlement.",
       href: "/x402",
       cta: "Open x402",
     },
     resourceHeading: "Product resources",
     resourceDescription:
-      "Platform APIs, agent tools, payment products, and docs for building Solana-powered products.",
+      "Platform APIs, agent tools, payment products, and docs for building on Solana.",
     sections: [
       {
         title: "Platforms and tools",
         description:
-          "Core products for financial APIs, agents, AI tooling, and transaction links.",
+          "Products for financial APIs, agents, AI tools, and transaction links.",
         links: [
           {
             title: "Solana Developer Platform",
             href: "/solutions/sdp",
-            description:
-              "Enterprise-ready APIs for financial product workflows.",
+            description: "APIs for financial products.",
           },
           {
             title: "x402",
             href: "/x402",
-            description:
-              "Internet-native payment resources and ecosystem tooling.",
+            description: "Payment resources and ecosystem tools for the web.",
           },
           {
             title: "Agent Registry",
             href: "/agent-registry",
-            description:
-              "Onchain identity and trust infrastructure for AI agents.",
+            description: "Onchain identity and trust tools for AI agents.",
           },
           {
             title: "Skills",
             href: "/skills",
             description:
-              "Pre-built AI-agent context for Solana development workflows.",
+              "Ready-to-use information for AI agents building on Solana.",
           },
           {
             title: "Actions and blinks",
             href: "/solutions/actions",
-            description: "Shareable transaction interfaces and app actions.",
+            description: "Shareable transactions and app actions.",
           },
           {
             title: "Agents and AI",
             href: "/solutions/ai",
-            description: "AI tooling, agent kits, and ecosystem examples.",
+            description: "AI tools, agent kits, and examples.",
           },
         ],
       },
       {
         title: "Developer and payment tools",
-        description:
-          "Implementation docs and payment tooling for moving from concept to shipped flows.",
+        description: "Docs and payment tools for building real product flows.",
         links: [
           {
             title: "Commerce Kit",
@@ -672,41 +660,38 @@ export const navigationHubs = {
           {
             title: "Kora",
             href: "/docs/tools/kora",
-            description: "Fee abstraction and payment-processing tooling.",
+            description: "Tools for fee support and payment processing.",
           },
           {
             title: "Solana Pay",
             href: "/docs/tools/solana-pay",
-            description: "Solana Pay documentation and payment flows.",
+            description: "Docs for Solana Pay and payment flows.",
           },
           {
             title: "RPC providers",
             href: "/rpc",
-            description:
-              "Provider and infrastructure options for application access.",
+            description: "RPC provider options for apps.",
           },
           {
             title: "Payments tooling",
             href: "/solutions/payments-tooling",
-            description:
-              "Payment implementation tools and ecosystem resources.",
+            description: "Payment tools and ecosystem resources.",
           },
           {
             title: "Token Extensions",
             href: "/solutions/token-extensions",
-            description: "Optional token features for mints and accounts.",
+            description: "Extra token features for mints and accounts.",
           },
           {
             title: "Digital assets",
             href: "/solutions/digital-assets",
-            description: "Digital asset product and tooling context.",
+            description: "Digital asset product and tool resources.",
           },
         ],
       },
       {
         title: "Build with products",
-        description:
-          "Implementation entry points for developers moving from product discovery into code.",
+        description: "Starting points for developers ready to write code.",
         links: [
           {
             title: "Docs",
@@ -716,24 +701,22 @@ export const navigationHubs = {
           {
             title: "Payments docs",
             href: "/docs/payments",
-            description:
-              "Payment system guides and production readiness material.",
+            description: "Payment guides and production guidance.",
           },
           {
             title: "Tokens docs",
             href: "/docs/tokens",
-            description:
-              "Token programs, extensions, and token account concepts.",
+            description: "Token programs, extensions, and account basics.",
           },
           {
             title: "RPC providers",
             href: "/rpc",
-            description: "Public and private RPC infrastructure overview.",
+            description: "Public and private RPC provider options.",
           },
           {
             title: "Developer guides",
             href: "/developers/guides",
-            description: "Guides for product and application implementation.",
+            description: "Guides for building products and apps.",
           },
         ],
       },
@@ -743,11 +726,11 @@ export const navigationHubs = {
     path: "/ecosystem",
     metaTitle: "Solana Ecosystem",
     metaDescription:
-      "Explore Solana network resources, events, community, ecosystem categories, news, podcasts, reports, and research.",
+      "Explore Solana network resources, events, community, news, podcasts, reports, research, and ecosystem categories.",
     eyebrow: "Ecosystem",
-    title: "Explore the builders, events, and categories shaping Solana",
+    title: "Explore Solana builders, events, and categories",
     description:
-      "Explore network resources, community events, media, research, and category pages for areas like DePIN, DeSci, BTCFi, gaming, creators, and startup ideas.",
+      "Find network resources, events, media, research, and pages for areas like DePIN, DeSci, BTCFi, gaming, creators, and startup ideas.",
     accentColor: "#9945FF",
     heroImageSrc: communityHero,
     primaryCta: {
@@ -763,7 +746,7 @@ export const navigationHubs = {
         value: "Network",
         label: "Validators, RPC, and status",
         description:
-          "Find validator, RPC, status, explorer, report, and research resources for understanding Solana operations.",
+          "Find validators, RPC providers, status pages, explorers, reports, and research.",
       },
       {
         value: "Community",
@@ -773,48 +756,47 @@ export const navigationHubs = {
       },
       {
         value: "Categories",
-        label: "Use-case landscapes",
+        label: "Use-case areas",
         description:
-          "Explore DePIN, DeSci, BTCFi, gaming, creators, and founder programs.",
+          "Explore DePIN, DeSci, BTCFi, gaming, creators, and startup programs.",
       },
       {
-        value: "Proof",
+        value: "Research",
         label: "Reports and research",
         description:
-          "Research and reports help users move from discovery into a deeper understanding of the ecosystem.",
+          "Use reports and research to better understand the ecosystem.",
       },
     ],
     overview: {
-      eyebrow: "Discovery model",
-      title:
-        "Ecosystem brings network, community, media, and categories together.",
+      eyebrow: "Discovery",
+      title: "Find the right ecosystem resource.",
       description:
-        "Solana ecosystem content spans network operations, community events, media, research, and use-case categories. This hub groups those paths so visitors can move from discovery into the right resource.",
+        "This hub groups network, events, media, research, and category pages so visitors can get to the right place faster.",
       imageSrc: depinImage,
       points: [
         {
           title: "Network context",
           description:
-            "Validators, RPC providers, explorers, status, reports, and research explain how the network is operated and observed.",
+            "Validators, RPC providers, explorers, status, reports, and research show how the network runs.",
         },
         {
-          title: "Community motion",
+          title: "Community activity",
           description:
-            "Events, Breakpoint, Accelerate, news, podcasts, and community pages capture the places people gather and publish.",
+            "Events, Breakpoint, Accelerate, news, podcasts, and community pages show where people gather and publish.",
         },
         {
           title: "Category discovery",
           description:
-            "Follow pages for DePIN, DeSci, BTCFi, gaming, creators, and founder ideas to see where builders are focusing.",
+            "Browse pages for DePIN, DeSci, BTCFi, gaming, creators, and startup ideas.",
         },
       ],
     },
     pathways: [
       {
         eyebrow: "Network resources",
-        title: "Inspect the network and find operational context.",
+        title: "Inspect the network.",
         description:
-          "Start with the Network hub, then continue into validators, RPC providers, status, reports, and research.",
+          "Start with the Network hub, then explore validators, RPC providers, status, reports, and research.",
         href: "/network",
         cta: "Open network hub",
         featured: true,
@@ -826,9 +808,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "Community programs",
-        title: "Find events, updates, and people in the ecosystem.",
+        title: "Find events, updates, and people.",
         description:
-          "Use events, news, and podcasts for current programming, recorded conversations, and ecosystem announcements.",
+          "Use events, news, and podcasts for programs, conversations, and announcements.",
         href: "/events",
         cta: "Open events",
         links: [
@@ -841,7 +823,7 @@ export const navigationHubs = {
         eyebrow: "Category discovery",
         title: "Browse ecosystem categories and startup ideas.",
         description:
-          "Explore use-case pages for physical infrastructure, science, Bitcoin, games, creators, and founder opportunities.",
+          "Explore pages for physical infrastructure, science, Bitcoin, games, creators, and founder opportunities.",
         href: "/solutions",
         cta: "Browse categories",
         links: [
@@ -855,18 +837,17 @@ export const navigationHubs = {
       eyebrow: "Event",
       title: "Breakpoint",
       description:
-        "Follow Solana's major ecosystem event and related community programming.",
+        "Follow Solana's major ecosystem event and related community programs.",
       href: "/breakpoint",
       cta: "Open Breakpoint",
     },
     resourceHeading: "Ecosystem resources",
     resourceDescription:
-      "Network operations, events, community channels, media, and category pages for exploring the Solana ecosystem.",
+      "Network resources, events, community channels, media, and category pages for exploring Solana.",
     sections: [
       {
         title: "Network",
-        description:
-          "Operational resources for understanding and inspecting Solana.",
+        description: "Resources for understanding and inspecting Solana.",
         links: [
           {
             title: "Network hub",
@@ -877,28 +858,27 @@ export const navigationHubs = {
           {
             title: "Validators",
             href: "/validators",
-            description:
-              "Validator resources and network participation context.",
+            description: "Validator resources and participation information.",
           },
           {
             title: "RPC providers",
             href: "/rpc",
-            description: "Public and private RPC infrastructure overview.",
+            description: "Public and private RPC provider options.",
           },
           {
             title: "Reports",
             href: "/reports",
-            description: "Research and report archive.",
+            description: "Research and reports.",
           },
           {
             title: "Research",
             href: "/research",
-            description: "Research-oriented analysis and network material.",
+            description: "Analysis and network research.",
           },
           {
             title: "Status",
             href: "https://status.solana.com/",
-            description: "Live network status information.",
+            description: "Live network status.",
             external: true,
           },
         ],
@@ -906,23 +886,23 @@ export const navigationHubs = {
       {
         title: "Events and community",
         description:
-          "Places to follow announcements, gather with builders, and discover ecosystem stories.",
+          "Places to follow announcements, meet builders, and find ecosystem stories.",
         links: [
           {
             title: "Events",
             href: "/events",
-            description: "Upcoming ecosystem events and community programming.",
+            description: "Upcoming ecosystem and community events.",
           },
           {
             title: "Event archive",
             href: "/events/archive",
-            description: "Past events and historical programming.",
+            description: "Past events and programs.",
           },
           {
             title: "Accelerate",
             href: "/accelerate",
             description:
-              "Conference and programming for founders, builders, and ecosystem teams.",
+              "Conference programs for founders, builders, and ecosystem teams.",
           },
           {
             title: "Breakpoint",
@@ -932,8 +912,7 @@ export const navigationHubs = {
           {
             title: "Community",
             href: "/community",
-            description:
-              "Community channels, resources, and participation paths.",
+            description: "Community channels, resources, and ways to join.",
           },
           {
             title: "News",
@@ -943,49 +922,46 @@ export const navigationHubs = {
           {
             title: "Podcasts",
             href: "/podcasts",
-            description:
-              "Conversations with builders and ecosystem contributors.",
+            description: "Conversations with builders and contributors.",
           },
         ],
       },
       {
         title: "Categories and programs",
         description:
-          "Use-case areas, founder ideas, and communities building on Solana.",
+          "Use cases, startup ideas, and communities building on Solana.",
         links: [
           {
             title: "DePIN",
             href: "/solutions/depin",
-            description: "Decentralized physical infrastructure networks.",
+            description: "Physical infrastructure networks on Solana.",
           },
           {
             title: "DeSci",
             href: "/solutions/desci",
             description:
-              "Science funding, coordination, and knowledge-sharing onchain.",
+              "Science funding, coordination, and knowledge sharing.",
           },
           {
             title: "BTCFi",
             href: "/solutions/btcfi",
-            description: "Bitcoin-related finance and wrapped BTC on Solana.",
+            description: "Bitcoin finance and wrapped BTC on Solana.",
           },
           {
             title: "Gaming and entertainment",
             href: "/solutions/gaming-and-entertainment",
-            description:
-              "Games, entertainment, and interactive consumer experiences.",
+            description: "Games, entertainment, and interactive experiences.",
           },
           {
             title: "Artists and creators",
             href: "/solutions/artists-creators",
             description:
-              "Creator tools, digital art, communities, and ownership models.",
+              "Creator tools, digital art, communities, and ownership.",
           },
           {
             title: "Request for Startups",
             href: "/solutions/request-for-startups",
-            description:
-              "Startup ideas and ecosystem opportunities for builders.",
+            description: "Startup ideas and ecosystem opportunities.",
           },
         ],
       },
@@ -995,11 +971,11 @@ export const navigationHubs = {
     path: "/network",
     metaTitle: "Solana Network",
     metaDescription:
-      "Find Solana network resources, validator information, RPC providers, status, reports, and research.",
+      "Find Solana validators, RPC providers, status pages, reports, and research.",
     eyebrow: "Network",
-    title: "Inspect, operate, and understand the Solana network",
+    title: "Understand the Solana network",
     description:
-      "Find validator resources, RPC infrastructure, explorers, live status, reports, and research for operating, connecting to, and evaluating Solana.",
+      "Find validators, RPC providers, explorers, live status, reports, and research for operating or evaluating Solana.",
     accentColor: "#14F195",
     heroImageSrc: performanceBg,
     primaryCta: {
@@ -1016,57 +992,57 @@ export const navigationHubs = {
         value: "Operate",
         label: "Validators",
         description:
-          "Learn how validators process transactions, participate in consensus, and help secure the network.",
+          "Learn how validators process transactions and help secure the network.",
       },
       {
         value: "Connect",
-        label: "RPC infrastructure",
+        label: "RPC providers",
         description:
-          "Understand public endpoints, private RPC services, and provider options for production apps.",
+          "Compare public endpoints, private services, and provider options for apps.",
       },
       {
         value: "Inspect",
         label: "Explorers and status",
         description:
-          "Use explorers and live status resources to observe network activity and availability.",
+          "Use explorers and status pages to watch activity and availability.",
       },
       {
         value: "Evaluate",
         label: "Reports and research",
         description:
-          "Read reports and research on network health, performance, energy, privacy, and ecosystem context.",
+          "Read about network health, performance, energy use, privacy, and ecosystem activity.",
       },
     ],
     overview: {
       eyebrow: "Network operations",
       title: "Find the right network resource for the job.",
       description:
-        "Use validator pages to understand participation, RPC resources to connect apps, status and explorers to inspect activity, and reports and research for broader network context.",
+        "Use validator pages to learn how to take part, RPC resources to connect apps, status pages to inspect activity, and reports for more background.",
       imageSrc: performanceBg,
       points: [
         {
           title: "Run or support",
           description:
-            "Validator pages and delegation resources explain how independent operators participate in securing and running Solana.",
+            "Validator and delegation resources explain how operators help run the network.",
         },
         {
           title: "Connect apps",
           description:
-            "RPC content explains why public-facing apps often need production-grade RPC infrastructure and provider choices.",
+            "RPC resources explain provider options for apps that need reliable access.",
         },
         {
           title: "Observe and evaluate",
           description:
-            "Status, explorers, reports, and research give users multiple levels of visibility into network behavior.",
+            "Status, explorers, reports, and research show what is happening on the network.",
         },
       ],
     },
     pathways: [
       {
         eyebrow: "Operators",
-        title: "Run or evaluate validator participation.",
+        title: "Run or review a validator.",
         description:
-          "Learn what validators do, what resources are available, and where to continue into docs and education material.",
+          "Learn what validators do, what resources are available, and where to find docs.",
         href: "/validators",
         cta: "Open validators",
         featured: true,
@@ -1078,9 +1054,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "Developers",
-        title: "Connect applications through the right RPC path.",
+        title: "Connect apps through the right RPC provider.",
         description:
-          "Use the RPC overview to understand public endpoints, provider options, private services, and app-level performance tradeoffs.",
+          "Use the RPC overview to compare public endpoints, provider options, private services, and performance tradeoffs.",
         href: "/rpc",
         cta: "Open RPC resources",
         links: [
@@ -1091,9 +1067,9 @@ export const navigationHubs = {
       },
       {
         eyebrow: "Evaluators",
-        title: "Review status, reports, and research before going deeper.",
+        title: "Review status, reports, and research.",
         description:
-          "Check current status and read published reports for a fuller view of network health and operational context.",
+          "Check current status and read reports for a clearer view of network health.",
         href: "/reports",
         cta: "View reports",
         links: [
@@ -1117,23 +1093,21 @@ export const navigationHubs = {
     },
     resourceHeading: "Network resources",
     resourceDescription:
-      "Validator, RPC, explorer, status, report, and research resources for operating and evaluating Solana.",
+      "Validator, RPC, explorer, status, report, and research links for Solana.",
     sections: [
       {
         title: "Operate and build",
-        description:
-          "Infrastructure and docs for validators and application teams.",
+        description: "Tools and docs for validators and app teams.",
         links: [
           {
             title: "Validators",
             href: "/validators",
-            description:
-              "Validator participation, education, and support resources.",
+            description: "Validator participation, education, and support.",
           },
           {
             title: "RPC providers",
             href: "/rpc",
-            description: "Public and private RPC provider overview.",
+            description: "Public and private RPC provider options.",
           },
           {
             title: "Docs",
@@ -1150,7 +1124,7 @@ export const navigationHubs = {
       {
         title: "Inspect",
         description:
-          "Explorers and status pages for watching cluster activity, transactions, accounts, and availability.",
+          "Explorers and status pages for watching activity, transactions, accounts, and availability.",
         links: [
           {
             title: "Solscan",
@@ -1168,7 +1142,7 @@ export const navigationHubs = {
           {
             title: "Status",
             href: "https://status.solana.com/",
-            description: "Current network status and incident information.",
+            description: "Current network status and incidents.",
             external: true,
           },
         ],
@@ -1176,7 +1150,7 @@ export const navigationHubs = {
       {
         title: "Learn and evaluate",
         description:
-          "Reports and research for network health, performance, privacy, and ecosystem context.",
+          "Reports and research on network health, performance, privacy, and the ecosystem.",
         links: [
           {
             title: "Reports",
@@ -1186,8 +1160,7 @@ export const navigationHubs = {
           {
             title: "Research",
             href: "/research",
-            description:
-              "Research-oriented material on performance and network context.",
+            description: "Research on performance and network background.",
           },
           {
             title: "Privacy",
@@ -1197,8 +1170,7 @@ export const navigationHubs = {
           {
             title: "Ecosystem",
             href: "/ecosystem",
-            description:
-              "Broader ecosystem context around network, media, and events.",
+            description: "Ecosystem links for network, media, and events.",
           },
         ],
       },
