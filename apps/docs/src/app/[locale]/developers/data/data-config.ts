@@ -38,7 +38,6 @@ export type MetricRow = {
 
 export type DataApiResponse = {
   generatedAt: string;
-  revisionCreatedAt?: string;
   rangeDays: number;
   truncated: boolean;
   rows: MetricRow[];

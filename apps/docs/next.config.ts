@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   trailingSlash: false,
   assetPrefix: prefix,
+  serverExternalPackages: ["@databricks/sql", "lz4"],
 
   env: {
     NEXT_PUBLIC_APP_NAME: "docs",

@@ -58,16 +58,24 @@ export function SolanaDataDashboard() {
     },
   );
   const rows = data?.rows ?? emptyRows;
-  const activeCharts = chartDefinitions.filter(
-    (chart) => chart.tab === activeTab,
+  const activeCharts = useMemo(
+    () => chartDefinitions.filter((chart) => chart.tab === activeTab),
+    [activeTab],
+  );
+  const visibleCharts = useMemo(
+    () =>
+      rows.length > 0
+        ? activeCharts.filter((chart) => hasChartSourceData(chart, rows))
+        : activeCharts,
+    [activeCharts, rows],
   );
   const kpis = useMemo(
     () =>
-      activeCharts.slice(0, 4).map((chart) => ({
+      visibleCharts.slice(0, 4).map((chart) => ({
         chart,
         ...getKpiValue(chart, rows, selectedProviders),
       })),
-    [activeCharts, rows, selectedProviders],
+    [visibleCharts, rows, selectedProviders],
   );
 
   const updateQuery = (updates: {
@@ -224,7 +232,7 @@ export function SolanaDataDashboard() {
                       title={chart.title}
                     />
                   ))
-                : activeCharts.map((chart, index) => (
+                : visibleCharts.map((chart, index) => (
                     <ChartCard
                       chart={chart}
                       index={index}
@@ -245,11 +253,11 @@ export function SolanaDataDashboard() {
             <span className="mx-3 text-nd-border-prominent">·</span>
             Last {rangeDays} days
           </span>
-          {data?.revisionCreatedAt ? (
+          {data?.generatedAt ? (
             <span>
-              Databricks rev{" "}
+              Updated{" "}
               <span className="text-nd-high-em-text">
-                {formatTimestamp(data.revisionCreatedAt)}
+                {formatTimestamp(data.generatedAt)}
               </span>
             </span>
           ) : null}
@@ -483,6 +491,14 @@ function ProviderToggle({
       ) : null}
       {label}
     </button>
+  );
+}
+
+function hasChartSourceData(chart: ChartDefinition, rows: MetricRow[]) {
+  const metricSet = new Set<string>(chart.metrics);
+
+  return rows.some(
+    (row) => metricSet.has(row.metricName) && isProviderName(row.providerName),
   );
 }
 

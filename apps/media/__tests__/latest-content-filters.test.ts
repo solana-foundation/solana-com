@@ -545,7 +545,7 @@ describe("latest content filters", () => {
 
       expect(unstableCacheMock).toHaveBeenCalledWith(
         expect.any(Function),
-        ["links-5-cursor-1-defi-nft-0"],
+        ["links-5-cursor-1-defi-nft-0-all"],
         expect.objectContaining({
           tags: ["links"],
         }),
