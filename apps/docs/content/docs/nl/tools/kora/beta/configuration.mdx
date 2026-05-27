@@ -1,0 +1,355 @@
+---
+title: Nieuwe Configuratieopties (Bèta)
+description:
+  Nieuwe kora.toml configuratiesecties geïntroduceerd in Kora v2.2.0-beta.
+---
+
+Deze configuratieopties zijn beschikbaar vanaf `v2.2.0-beta.1`. Voeg ze toe aan
+uw bestaande `kora.toml` naast de stabiele configuratie.
+
+## Transactie Plugins
+
+De `[kora.plugins]` sectie configureert transactie plugins die worden uitgevoerd
+tijdens ondertekeningsstromen. Plugins valideren de vorm en inhoud van
+transacties voordat Kora ze ondertekent. Ze worden uitgevoerd voor
+`signTransaction`, `signAndSendTransaction`, `signBundle`, en
+`signAndSendBundle` — maar **niet** voor `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Optie     | Beschrijving                               | Verplicht           | Type     |
+| --------- | ------------------------------------------ | ------------------- | -------- |
+| `enabled` | Lijst van ingeschakelde transactie plugins | Nee (standaard: []) | string[] |
+
+### `gas_swap` Plugin
+
+De `gas_swap` plugin handhaaft een strikte transactievorm voor gasloze
+token-voor-SOL swap-operaties. Wanneer ingeschakeld, moet elke transactie die
+wordt ingediend via ondertekeningsstromen exact bevatten:
+
+1. **Eén SPL Token overdracht** (SPL Token of Token-2022) — van een
+   niet-fee-payer eigenaar
+2. **Eén System SOL overdracht** (`Transfer` of `TransferWithSeed`) — van de fee
+   payer
+
+Compute Budget instructies (stel compute unit limiet/prijs in) zijn toegestaan
+naast de twee verplichte instructies. Eventuele aanvullende of niet-swap outer
+instructies worden afgewezen.
+
+#### Configuratievereisten
+
+De `gas_swap` plugin valideert uw configuratie bij het opstarten en geeft een
+foutmelding als de vereisten niet worden voldaan:
+
+- **System Program** moet in `allowed_programs` staan
+- **Ten minste één token program** (SPL Token of Token-2022) moet in
+  `allowed_programs` staan
+- **Ten minste één token** moet in `allowed_tokens` staan
+- **Prijsmodel** mag niet `Free` zijn — stel een marge of vaste prijs in
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Waarschuwing:** Bij gebruik van `gas_swap` met vaste prijzen, zorg ervoor
+> dat de vaste token fee ten minste `max_allowed_lamports` in SOL waard is om
+> een drain-situatie te voorkomen waarbij de verzonden SOL meer is dan de
+> ontvangen token.
+
+---
+
+## Bundelconfiguratie
+
+De sectie `[kora.bundle]` maakt Jito-bundelondersteuning mogelijk voor atomische
+multi-transactie-uitvoering:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Optie     | Beschrijving                      | Vereist                | Type    |
+| --------- | --------------------------------- | ---------------------- | ------- |
+| `enabled` | Bundelfunctionaliteit inschakelen | Nee (standaard: false) | boolean |
+
+### Jito-configuratie
+
+| Optie              | Beschrijving          | Vereist                           | Type   |
+| ------------------ | --------------------- | --------------------------------- | ------ |
+| `block_engine_url` | Jito block engine URL | Ja (wanneer bundels ingeschakeld) | string |
+
+Beschikbare Jito block engine URL's:
+
+- **Mainnet (openbaar):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (privé):** Neem contact op met Jito voor toegang
+
+> **Belangrijk:** Wanneer u bundels gebruikt met Jito-fooien die door Kora
+> worden betaald, stel `allow_transfer = true` in bij
+> `[validation.fee_payer_policy.system]` om de ondertekenaar toe te staan SOL
+> over te maken voor de fooi.
+
+Voor een complete handleiding over het implementeren van Jito-bundels met Kora,
+zie de [Jito Bundle Gids](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Lighthouse Fee Payer-bescherming
+
+De sectie `[kora.lighthouse]` maakt Lighthouse fee payer-bescherming mogelijk.
+Wanneer ingeschakeld, voegt Kora saldobevestigingsinstructies toe aan
+transacties, waardoor de fee payer wordt beschermd tegen ledigingsaanvallen door
+te verifiëren dat het saldo van de fee payer niet onder de verwachte niveaus
+daalt.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Optie                               | Beschrijving                                                                                                                          | Vereist                | Type    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------- |
+| `enabled`                           | Lighthouse-bevestigingen inschakelen voor fee payer-bescherming                                                                       | Nee (standaard: false) | boolean |
+| `fail_if_transaction_size_overflow` | Transactie afwijzen als het toevoegen van bevestiging de grootte overschrijdt. Bij false wordt bevestiging stilzwijgend overgeslagen. | Nee (standaard: true)  | boolean |
+
+### Hoe het werkt
+
+Wanneer Lighthouse is ingeschakeld, haalt Kora het huidige saldo van de fee
+payer op en voegt een Lighthouse-bevestigingsinstructie toe die verifieert dat
+het saldo niet onder `(current_balance - estimated_fee)` daalt bij voltooiing
+van de transactie. Dit voorkomt dat kwaadaardige transacties de fee payer
+leeghalen boven de verwachte kosten uit.
+
+### Methodecompatibiliteit
+
+Lighthouse-bescherming **werkt alleen met `signTransaction` en `signBundle`**.
+Het werkt **NIET** met `signAndSendTransaction` of `signAndSendBundle`.
+
+Wanneer Lighthouse een assertie-instructie toevoegt, wijzigt het het
+transactiebericht. Dit maakt alle eerder bestaande clienthandtekeningen
+ongeldig. De `signAndSend*`-flows zouden mislukken omdat:
+
+1. Client ondertekent transactie
+2. Kora voegt Lighthouse-assertie toe (wijzigt bericht)
+3. Oorspronkelijke handtekening van client wordt ongeldig
+4. Netwerk weigert met "handtekeningverificatiefout"
+
+**Aanbevolen patroon met Lighthouse:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Configuratievereisten
+
+Wanneer u Lighthouse inschakelt, voegt u het Lighthouse-programma toe aan uw
+`allowed_programs`:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora valideert dit bij het opstarten en geeft een foutmelding als Lighthouse is
+ingeschakeld maar het programma niet in `allowed_programs` staat.
+
+> **Opmerking:** Als `signAndSendTransaction` of `signAndSendBundle` zijn
+> ingeschakeld naast Lighthouse, zal Kora een waarschuwing loggen dat deze
+> methoden geen fee payer-bescherming hebben.
+
+## reCAPTCHA-botbescherming
+
+reCAPTCHA v3 biedt onzichtbare botbescherming voor gevoelige endpoints. In
+tegenstelling tot API Key en HMAC die alle verzoeken authenticeren, beschermt
+reCAPTCHA alleen specifieke hoogrisico-methoden (standaard
+ondertekeningmethoden).
+
+### Serverconfiguratie
+
+Voeg `KORA_RECAPTCHA_SECRET` toe aan uw omgevingsvariabelen (heeft prioriteit),
+of voeg een `recaptcha_secret` toe aan uw `kora.toml`:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Optie                       | Beschrijving                                                         | Standaard             |
+| --------------------------- | -------------------------------------------------------------------- | --------------------- |
+| `recaptcha_secret`          | Uw reCAPTCHA v3-geheime sleutel van Google                           | -                     |
+| `recaptcha_score_threshold` | Minimale score om te slagen (0.0 = alles slaagt, 1.0 = niets slaagt) | 0.5                   |
+| `protected_methods`         | RPC-methoden die verificatie vereisen                                | Ondertekeningmethoden |
+
+### Hoe het werkt
+
+1. Client verkrijgt een reCAPTCHA-token van Google's reCAPTCHA v3 API
+2. Client neemt het token op in de `x-recaptcha-token`-header
+3. Server verifieert het token bij Google en controleert de score
+4. Als score >= drempelwaarde, gaat het verzoek door; anders retourneert het 401
+   Unauthorized
+
+reCAPTCHA wordt uitgevoerd _nadat_ API Key/HMAC-authenticatie is geslaagd
+(indien geconfigureerd). Onbeschermde methoden omzeilen reCAPTCHA-verificatie
+volledig.
+
+### Client-implementatie
+
+**Met Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Met fetch:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### reCAPTCHA-sleutels verkrijgen
+
+1. Ga naar de
+   [Google reCAPTCHA-beheerconsole](https://www.google.com/recaptcha/admin)
+2. Maak een nieuwe site aan met **reCAPTCHA v3**
+3. Gebruik de **Site Key** in je frontend (client-side)
+4. Gebruik de **Secret Key** in je Kora-configuratie (server-side)
+
+## Gebruikslimieten
+
+De sectie `[kora.usage_limit]` configureert gebruikslimieten per wallet om
+misbruik te voorkomen en eerlijk gebruik te waarborgen. Dit kan ook worden
+gebruikt om beloningsprogramma's te creëren die de transactiekosten van
+gebruikers tot een bepaald limiet subsidiëren.
+
+**Opmerking**: Deze functie vereist Redis wanneer deze is ingeschakeld voor
+meerdere Kora-instanties.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Optie                     | Beschrijving                                         | Vereist                | Type    |
+| ------------------------- | ---------------------------------------------------- | ---------------------- | ------- |
+| `enabled`                 | Schakel gebruikslimieten per wallet in               | Nee (standaard: false) | boolean |
+| `cache_url`               | Redis-verbindings-URL voor gedeelde gebruikstracking | Nee                    | string  |
+| `fallback_if_unavailable` | Sta transacties toe als Redis niet beschikbaar is    | Nee (standaard: true)  | boolean |
+
+> _Wanneer `fallback_if_unavailable` true is, staat het systeem toe dat
+> transacties doorgaan als Redis tijdelijk niet beschikbaar is, waardoor
+> serviceonderbreking wordt voorkomen._
+
+### Gebruikslimietregels
+
+De bèta introduceert granulaire, op regels gebaseerde gebruikslimieten. In
+plaats van een enkel `max_transactions`-aantal kun je meerdere regels definiëren
+die specifieke transactietypen of individuele instructies targeten, met
+optionele tijdsvensters.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Regelveld        | Beschrijving                                                                                     | Vereist        |
+| ---------------- | ------------------------------------------------------------------------------------------------ | -------------- |
+| `type`           | `"transaction"` (telt alle transacties) of `"instruction"` (telt specifieke instructietypes)     | Ja             |
+| `max`            | Maximum aantal voordat de wallet wordt geblokkeerd                                               | Ja             |
+| `window_seconds` | Tijdsvenster in seconden. Indien weggelaten is de limiet permanent.                              | Nee            |
+| `program`        | Programma-adres om mee te matchen (vereist voor `instruction`-type)                              | Voorwaardelijk |
+| `instruction`    | Instructienaam om mee te matchen, bijv. `"Transfer"`, `"Burn"` (vereist voor `instruction`-type) | Voorwaardelijk |
+
+Wanneer `window_seconds` is ingesteld, wordt de teller gereset nadat het
+tijdvenster is verlopen. Zonder deze instelling is de limiet permanent — eenmaal
+bereikt, wordt de wallet geblokkeerd totdat handmatig wordt gewist uit Redis.
+
+## Nieuw Ingeschakelde Methoden
+
+De volgende methoden zijn toegevoegd aan `[kora.enabled_methods]`:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Methode                | Beschrijving                                        |
+| ---------------------- | --------------------------------------------------- |
+| `get_version`          | Retourneert de Kora-serverversie                    |
+| `estimate_bundle_fee`  | Schat de kosten voor een bundel transacties         |
+| `sign_bundle`          | Ondertekent een bundel transacties zonder verzenden |
+| `sign_and_send_bundle` | Ondertekent en verzendt een bundel naar Jito        |
+
+Zie [Bundelmethoden](/docs/tools/kora/beta/bundle-methods) voor de volledige
+API-documentatie.

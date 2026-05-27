@@ -1,0 +1,348 @@
+---
+title: Tùy Chọn Cấu Hình Mới (Beta)
+description:
+  Các phần cấu hình kora.toml mới được giới thiệu trong Kora v2.2.0-beta.
+---
+
+Các tùy chọn cấu hình này có sẵn bắt đầu từ `v2.2.0-beta.1`. Thêm chúng vào
+`kora.toml` hiện có của bạn cùng với cấu hình ổn định.
+
+## Plugin Giao Dịch
+
+Phần `[kora.plugins]` cấu hình các plugin giao dịch chạy trong quá trình ký.
+Plugin xác thực cấu trúc và nội dung của giao dịch trước khi Kora ký chúng.
+Chúng thực thi cho `signTransaction`, `signAndSendTransaction`, `signBundle`, và
+`signAndSendBundle` — nhưng **không** cho `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Tùy Chọn  | Mô Tả                                     | Bắt Buộc             | Loại     |
+| --------- | ----------------------------------------- | -------------------- | -------- |
+| `enabled` | Danh sách plugin giao dịch được kích hoạt | Không (mặc định: []) | string[] |
+
+### Plugin `gas_swap`
+
+Plugin `gas_swap` áp dụng cấu trúc giao dịch nghiêm ngặt cho các thao tác hoán
+đổi token lấy SOL không tốn phí gas. Khi được kích hoạt, mọi giao dịch được gửi
+qua quá trình ký phải chứa chính xác:
+
+1. **Một lần chuyển token SPL** (SPL Token hoặc Token-2022) — từ người sở hữu
+   không phải là người trả phí
+2. **Một lần chuyển SOL hệ thống** (`Transfer` hoặc `TransferWithSeed`) — từ
+   người trả phí
+
+Các lệnh Compute Budget (đặt giới hạn/giá đơn vị tính toán) được cho phép cùng
+với hai lệnh bắt buộc. Bất kỳ lệnh ngoài bổ sung hoặc không phải hoán đổi nào
+đều bị từ chối.
+
+#### Yêu Cầu Cấu Hình
+
+Plugin `gas_swap` xác thực cấu hình của bạn khi khởi động và sẽ báo lỗi nếu các
+yêu cầu không được đáp ứng:
+
+- **System Program** phải có trong `allowed_programs`
+- **Ít nhất một chương trình token** (SPL Token hoặc Token-2022) phải có trong
+  `allowed_programs`
+- **Ít nhất một token** phải có trong `allowed_tokens`
+- **Mô hình định giá** không được là `Free` — đặt biên lợi nhuận hoặc giá cố
+  định
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Cảnh báo:** Khi sử dụng `gas_swap` với định giá Cố định, hãy đảm bảo phí
+> token cố định có giá trị ít nhất `max_allowed_lamports` tính bằng SOL để tránh
+> tình trạng rút cạn khi SOL gửi đi vượt quá token nhận được.
+
+---
+
+## Cấu Hình Bundle
+
+Phần INLINE_CODE_PLACEHOLDER_78b835d294b52f52_END cho phép hỗ trợ bundle Jito để
+thực thi nhiều giao dịch một cách nguyên tử:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Tùy Chọn  | Mô Tả                      | Bắt Buộc                | Kiểu    |
+| --------- | -------------------------- | ----------------------- | ------- |
+| `enabled` | Kích hoạt chức năng bundle | Không (mặc định: false) | boolean |
+
+### Cấu Hình Jito
+
+| Tùy Chọn           | Mô Tả                 | Bắt Buộc                       | Kiểu   |
+| ------------------ | --------------------- | ------------------------------ | ------ |
+| `block_engine_url` | URL block engine Jito | Có (khi bundle được kích hoạt) | string |
+
+Các URL block engine Jito có sẵn:
+
+- **Mainnet (công khai):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (riêng tư):** Liên hệ Jito để được cấp quyền truy cập
+
+> **Quan trọng:** Khi sử dụng bundle với tiền tip Jito do Kora thanh toán, hãy
+> đặt `allow_transfer = true` trong `[validation.fee_payer_policy.system]` để
+> cho phép người ký chuyển SOL cho tiền tip.
+
+Để có hướng dẫn đầy đủ về triển khai bundle Jito với Kora, xem
+[Hướng Dẫn Bundle Jito](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Bảo Vệ Người Thanh Toán Phí Lighthouse
+
+Phần `[kora.lighthouse]` kích hoạt tính năng bảo vệ người thanh toán phí
+Lighthouse. Khi được kích hoạt, Kora thêm các lệnh xác nhận số dư vào giao dịch,
+bảo vệ người thanh toán phí khỏi các cuộc tấn công rút kiệt bằng cách xác minh
+số dư của người thanh toán phí không giảm xuống dưới mức dự kiến.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Tùy Chọn                            | Mô Tả                                                                                                                         | Bắt Buộc                | Kiểu    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------- |
+| `enabled`                           | Kích hoạt xác nhận Lighthouse để bảo vệ người thanh toán phí                                                                  | Không (mặc định: false) | boolean |
+| `fail_if_transaction_size_overflow` | Từ chối giao dịch nếu việc thêm xác nhận vượt quá giới hạn kích thước. Nếu false, bỏ qua việc thêm xác nhận một cách im lặng. | Không (mặc định: true)  | boolean |
+
+### Cách Hoạt Động
+
+Khi Lighthouse được kích hoạt, Kora lấy số dư hiện tại của người thanh toán phí
+và thêm một lệnh xác nhận Lighthouse để xác minh số dư không giảm xuống dưới
+`(current_balance - estimated_fee)` khi hoàn thành giao dịch. Điều này ngăn chặn
+các giao dịch độc hại rút kiệt người thanh toán phí vượt quá chi phí dự kiến.
+
+### Tương Thích Phương Thức
+
+Bảo vệ Lighthouse **chỉ hoạt động với `signTransaction` và `signBundle`**. Nó
+**KHÔNG** hoạt động với `signAndSendTransaction` hoặc `signAndSendBundle`.
+
+Khi Lighthouse thêm một chỉ thị xác nhận, nó sẽ sửa đổi thông điệp giao dịch.
+Điều này làm vô hiệu hóa mọi chữ ký client đã tồn tại trước đó. Các luồng
+`signAndSend*` sẽ thất bại vì:
+
+1. Client ký giao dịch
+2. Kora thêm xác nhận Lighthouse (sửa đổi thông điệp)
+3. Chữ ký ban đầu của client trở nên không hợp lệ
+4. Mạng từ chối với lỗi "xác minh chữ ký thất bại"
+
+**Mô hình được khuyến nghị với Lighthouse:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Yêu Cầu Cấu Hình
+
+Khi bật Lighthouse, hãy thêm chương trình Lighthouse vào `allowed_programs` của
+bạn:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora xác thực điều này khi khởi động và sẽ báo lỗi nếu Lighthouse được bật nhưng
+chương trình không có trong `allowed_programs`.
+
+> **Lưu ý:** Nếu `signAndSendTransaction` hoặc `signAndSendBundle` được bật cùng
+> với Lighthouse, Kora sẽ ghi nhận cảnh báo rằng các phương thức này sẽ không có
+> bảo vệ người thanh toán phí.
+
+## Bảo Vệ Bot reCAPTCHA
+
+reCAPTCHA v3 cung cấp bảo vệ bot vô hình cho các endpoint nhạy cảm. Không giống
+như API Key và HMAC xác thực tất cả các yêu cầu, reCAPTCHA chỉ bảo vệ các phương
+thức có rủi ro cao cụ thể (mặc định là các phương thức ký).
+
+### Cấu Hình Server
+
+Thêm `KORA_RECAPTCHA_SECRET` vào các biến môi trường của bạn (có độ ưu tiên cao
+hơn), hoặc thêm một `recaptcha_secret` vào `kora.toml` của bạn:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Tùy chọn                    | Mô tả                                                             | Mặc định       |
+| --------------------------- | ----------------------------------------------------------------- | -------------- |
+| `recaptcha_secret`          | Khóa bí mật reCAPTCHA v3 của bạn từ Google                        | -              |
+| `recaptcha_score_threshold` | Điểm tối thiểu để vượt qua (0.0 = tất cả đạt, 1.0 = không ai đạt) | 0.5            |
+| `protected_methods`         | Các phương thức RPC yêu cầu xác minh                              | Phương thức ký |
+
+### Cách Hoạt Động
+
+1. Client lấy token reCAPTCHA từ API reCAPTCHA v3 của Google
+2. Client đưa token vào header `x-recaptcha-token`
+3. Server xác minh token với Google và kiểm tra điểm số
+4. Nếu điểm số >= ngưỡng, yêu cầu tiếp tục; ngược lại trả về 401 Unauthorized
+
+reCAPTCHA chạy _sau khi_ xác thực API Key/HMAC thành công (nếu được cấu hình).
+Các phương thức không được bảo vệ sẽ bỏ qua hoàn toàn quá trình xác minh
+reCAPTCHA.
+
+### Triển khai phía Client
+
+**Sử dụng Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Sử dụng fetch:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### Lấy khóa reCAPTCHA
+
+1. Truy cập
+   [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
+2. Tạo một trang web mới với **reCAPTCHA v3**
+3. Sử dụng **Site Key** trong frontend của bạn (phía client)
+4. Sử dụng **Secret Key** trong cấu hình Kora của bạn (phía server)
+
+## Giới hạn sử dụng
+
+Phần `[kora.usage_limit]` cấu hình giới hạn sử dụng theo từng ví để ngăn chặn
+lạm dụng và đảm bảo sử dụng công bằng. Tính năng này cũng có thể được dùng để
+tạo chương trình phần thưởng nhằm trợ cấp phí giao dịch cho người dùng đến một
+mức giới hạn nhất định.
+
+**Lưu ý**: Tính năng này yêu cầu Redis khi được kích hoạt trên nhiều instance
+Kora.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Tùy chọn                  | Mô tả                                       | Bắt buộc                | Kiểu    |
+| ------------------------- | ------------------------------------------- | ----------------------- | ------- |
+| `enabled`                 | Kích hoạt giới hạn sử dụng theo từng ví     | Không (mặc định: false) | boolean |
+| `cache_url`               | URL kết nối Redis để theo dõi sử dụng chung | Không                   | string  |
+| `fallback_if_unavailable` | Cho phép giao dịch nếu Redis không khả dụng | Không (mặc định: true)  | boolean |
+
+> _Khi `fallback_if_unavailable` là true, hệ thống cho phép các giao dịch tiếp
+> tục nếu Redis tạm thời không khả dụng, ngăn chặn gián đoạn dịch vụ._
+
+### Quy tắc giới hạn sử dụng
+
+Phiên bản beta giới thiệu các giới hạn sử dụng chi tiết dựa trên quy tắc. Thay
+vì một `max_transactions` đơn lẻ, bạn có thể định nghĩa nhiều quy tắc nhắm đến
+các loại giao dịch cụ thể hoặc các instruction riêng lẻ, với cửa sổ thời gian
+tùy chọn.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Trường quy tắc   | Mô tả                                                                                         | Bắt buộc     |
+| ---------------- | --------------------------------------------------------------------------------------------- | ------------ |
+| `type`           | `"transaction"` (đếm tất cả giao dịch) hoặc `"instruction"` (đếm các loại instruction cụ thể) | Có           |
+| `max`            | Số lượng tối đa trước khi ví bị chặn                                                          | Có           |
+| `window_seconds` | Cửa sổ thời gian tính bằng giây. Nếu bỏ qua, giới hạn là vĩnh viễn.                           | Không        |
+| `program`        | Địa chỉ program account để khớp (bắt buộc cho kiểu `instruction`)                             | Có điều kiện |
+| `instruction`    | Tên instruction để khớp, ví dụ `"Transfer"`, `"Burn"` (bắt buộc cho kiểu `instruction`)       | Có điều kiện |
+
+Khi `window_seconds` được đặt, bộ đếm sẽ được đặt lại sau khi hết thời gian quy
+định. Nếu không đặt, giới hạn sẽ là vĩnh viễn — một khi đạt đến ngưỡng, ví sẽ bị
+chặn cho đến khi được xóa thủ công khỏi Redis.
+
+## Các Phương Thức Được Kích Hoạt Mới
+
+Các phương thức sau đã được thêm vào `[kora.enabled_methods]`:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Phương thức            | Mô tả                                |
+| ---------------------- | ------------------------------------ |
+| `get_version`          | Trả về phiên bản máy chủ Kora        |
+| `estimate_bundle_fee`  | Ước tính phí cho một gói giao dịch   |
+| `sign_bundle`          | Ký một gói giao dịch mà không gửi đi |
+| `sign_and_send_bundle` | Ký và gửi một gói giao dịch đến Jito |
+
+Xem [Các Phương Thức Gói Giao Dịch](/docs/tools/kora/beta/bundle-methods) để
+biết tài liệu API đầy đủ.

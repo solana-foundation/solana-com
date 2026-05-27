@@ -1,0 +1,140 @@
+---
+title: Référence des frais
+description: Référence complète pour le calcul des frais Kora.
+---
+
+_Dernière mise à jour : 31-10-2025_
+
+Kora estime les frais de transaction lors de l'exécution des méthodes RPC
+`estimate_transaction_fee` et `sign_transaction`. Pour estimer les frais, Kora
+calcule le coût total de l'exécution des transactions sur Solana, incluant les
+frais de réseau, les coûts de création de compte et les frais optionnels de
+traitement des paiements. Ce guide détaille chaque composante du calcul des
+frais.
+
+## Formule de calcul des frais
+
+Les frais sont déterminés par le modèle de tarification configuré dans
+`kora.toml` :
+
+- `PriceModel::Free` - Prend en charge tous les frais de transaction (frais
+  totaux = 0)
+- `PriceModel::Fixed` - Facture un montant fixe dans un token spécifique
+  (indépendamment des frais de réseau)
+- `PriceModel::Margin` - Ajoute une marge en pourcentage aux frais totaux.
+
+Le point d'entrée principal pour l'estimation des frais totaux utilisé dans
+`PriceModel::Margin` est `FeeConfigUtil::estimate_kora_fee()` dans
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Il utilise la formule généralisée suivante :
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Composantes des frais
+
+| Composante                          | Description                                                                                                  | Méthode de calcul                                                                                                                                                | Quand elle s'applique                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Frais de base**                   | Frais de transaction Solana couvrant la vérification de signature et le traitement de la transaction         | `RpcClient.get_fee_for_message()` - Utilise le calcul des frais de Solana basé sur les unités de calcul et les frais prioritaires                                | Toujours                                                                 |
+| **Frais de création de compte**     | Solde minimum exempt de loyer pour la création de nouveaux Associated Token Accounts (ATA)                   | `Rent::default().minimum_balance(account_size)` - Calcule le loyer en fonction de la taille des données du compte (165-355 octets selon les extensions de token) | Lorsque la transaction crée de nouveaux ATA                              |
+| **Frais de signature Kora**         | Frais supplémentaire lorsque Kora signe en tant que payeur de frais non-participant                          | Fixe : 5 000 lamports (`LAMPORTS_PER_SIGNATURE`)                                                                                                                 | Lorsque le payeur de frais n'est pas déjà signataire de la transaction   |
+| **Sortie du payeur de frais**       | Total de SOL que le payeur de frais envoie dans la transaction (transferts, créations de compte, etc.)       | Somme de : Transferts système depuis le payeur de frais, CreateAccount financé par le payeur de frais, Retraits de nonce depuis le payeur de frais               | Lorsque le payeur de frais effectue des opérations System Program        |
+| **Frais d'instruction de paiement** | Coût estimé des frais prioritaires pour ajouter une instruction de paiement pour les transactions sans frais | Estimation fixe : 50 lamports (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                                     | Lorsque le paiement est requis mais non inclus dans la transaction       |
+| **Frais de transfert**              | Frais de transfert Token2022 configurés sur le mint (par ex., 1 % du montant du transfert)                   | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Basé sur la configuration des frais de transfert du mint                                                 | Uniquement pour les transferts Token2022 vers l'adresse de paiement Kora |
+| **Ajustement de marge**             | Majoration/ajustement du modèle de tarification de Kora                                                      | Marge configurée dans `validation.price` - Peut ajouter une majoration en % des frais totaux                                                                     | Lorsque `[validation.price]` est fourni dans kora.toml                   |
+
+## Modèles de tarification et sortie du payeur de frais
+
+Kora prend en charge trois modèles de tarification qui déterminent comment les
+utilisateurs sont facturés pour les transactions :
+
+### Tarification avec marge (par défaut)
+
+- **Formule :** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Inclut la sortie du payeur de frais :** Oui
+- **Idéal pour :** Les déploiements en production où les frais doivent refléter
+  les coûts réels avec une marge opérationnelle ajoutée
+
+### Tarification fixe
+
+- **Formule :** `Total Fee = Fixed Amount (in specified token)`
+- **Inclut la sortie du payeur de frais :** Non
+- **Idéal pour :** Une expérience utilisateur simplifiée avec une tarification
+  prévisible dans des environnements contrôlés
+
+### Tarification gratuite
+
+- **Formule :** `Total Fee = 0`
+- **Inclut la sortie du payeur de frais :** Non (l'opérateur absorbe tous les
+  coûts)
+- **Idéal pour :** Les campagnes promotionnelles, les tests ou les applications
+  entièrement sponsorisées
+
+---
+
+## ⚠️ Avertissement de sécurité : Modèles de tarification fixe/gratuite
+
+**CRITIQUE :** Les modèles de tarification fixe/gratuite n'incluent **PAS** la
+sortie du payeur de frais dans le montant facturé. Cela crée un risque de
+sécurité important si la configuration n'est pas correctement effectuée. Si
+votre politique de payeur de frais autorise les transferts ou d'autres
+opérations de sortie, des attaquants peuvent exploiter cela pour vider votre
+compte de payeur de frais.
+
+### Contrôles de sécurité requis
+
+Lors de l'utilisation de la tarification fixe/gratuite, vous **DEVEZ**
+configurer des politiques de payeur de frais restrictives pour bloquer TOUTES
+les opérations monétaires et de changement d'autorité :
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Protections supplémentaires
+
+1. **Activer l'authentification :** Exigez toujours une clé API ou une
+   authentification HMAC avec la tarification fixe/gratuite
+2. **Définir des limites basses :** Utilisez des valeurs `max_allowed_lamports`
+   conservatrices
+3. **Surveiller l'utilisation :** Suivez les schémas inhabituels de transactions
+   à forte sortie
+4. **Envisager la tarification avec marge :** La tarification avec marge inclut
+   automatiquement les coûts de sortie dans les frais
+
+### Avertissements de validation
+
+Le validateur de configuration de Kora vous avertira des configurations
+dangereuses :
+
+```bash
+kora --config kora.toml config validate
+```
+
+Avertissements attendus pour les configurations vulnérables :
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

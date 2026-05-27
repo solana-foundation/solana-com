@@ -1,0 +1,458 @@
+---
+title: Добавление новых подписантов в Kora
+description:
+  Это руководство предназначено для поставщиков сервисов кошельков, которые
+  хотят интегрировать свое решение для управления ключами в Kora. Добавив своего
+  подписанта в Kora, вы позволите операторам узлов использовать ваш сервис для
+  безопасного подписания транзакций.
+---
+
+## Обзор архитектуры
+
+Kora использует внешний крейт
+[`solana-keychain`](https://github.com/solana-foundation/solana-keychain) для
+всех операций подписания. Эта архитектура обеспечивает единый интерфейс
+подписания для подписания транзакций Solana. Чтобы добавить нового подписанта в
+Kora, вам необходимо:
+
+1. **Сначала**: Добавить реализацию вашего подписанта в крейт `solana-keychain`
+2. **Затем**: Добавить поддержку конфигурации для вашего подписанта в Kora
+
+## Пошаговое руководство по интеграции
+
+### Краткий контрольный список интеграции
+
+**Часть 1: Добавление подписанта в крейт `solana-keychain`**
+
+- [ ] Реализуйте своего подписанта, следуя
+      [руководству по интеграции solana-keychain](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+- [ ] Дождитесь одобрения PR и публикации крейта
+
+**Часть 2: Добавление поддержки конфигурации Kora**
+
+- [ ] Обновите зависимость в Cargo.toml, чтобы крейт `solana-keychain`
+      использовал последнюю версию (включающую вашего подписанта)
+- [ ] Добавьте структуру конфигурации для переменных окружения вашего подписанта
+- [ ] Обновите перечисление `SignerTypeConfig` в
+      `crates/lib/src/signer/config.rs`
+- [ ] Добавьте логику валидации для конфигурации вашего подписанта
+- [ ] Добавьте логику сборки для создания вашего подписанта из конфигурации
+- [ ] Экспортируйте структуру конфигурации в `crates/lib/src/signer/mod.rs`
+- [ ] (Опционально) Добавьте сборщик тестовых моков в
+      `crates/lib/src/tests/config_mock.rs`
+- [ ] Обновите примеры конфигурационных файлов
+- [ ] Обновите тестовые скрипты, чтобы включить вашего подписанта (см. ниже)
+- [ ] Обновите документацию, чтобы включить вашего подписанта (см. ниже)
+- [ ] Отправьте PR в репозиторий Kora
+
+### Добавление поддержки подписанта в Kora
+
+Сначала убедитесь, что ваш подписант поддерживается в крейте `solana-keychain`.
+Если это не так, следуйте руководству по адресу:
+**[https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)**
+
+#### Шаг 1: Обновление Cargo.toml
+
+Обновите зависимость в Cargo.toml, чтобы крейт `solana-keychain` использовал
+последнюю версию (которая включает ваш подписант):
+
+```toml
+[dependencies]
+solana-keychain = { version = "X.Y.Z", default-features = false, features = [
+    "all",
+    "sdk-v3",
+] }
+```
+
+#### Шаг 2: Определение структуры конфигурации
+
+В `crates/lib/src/signer/config.rs` добавьте новую структуру конфигурации для
+вашего подписанта, которая определяет необходимые переменные окружения.
+Например:
+
+```rust
+/// YourService signer configuration
+#[derive(Clone, Serialize, Deserialize)]
+pub struct YourServiceSignerConfig {
+    pub api_key_env: String,
+    pub api_secret_env: String,
+    pub wallet_id_env: String,
+}
+```
+
+#### Шаг 2: Добавление подписанта в перечисление `SignerTypeConfig`
+
+Добавьте вариант вашего подписанта в перечисление `SignerTypeConfig` в
+`crates/lib/src/signer/config.rs`:
+
+```rust
+/// Signer type-specific configuration
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SignerTypeConfig {
+    // Existing signer variants
+    Memory { #[serde(flatten)] config: MemorySignerConfig },
+    // ... existing variants ...
+
+    // Add your signer here
+    YourService {
+        #[serde(flatten)]
+        config: YourServiceSignerConfig,
+    },
+}
+```
+
+#### Шаг 3: Добавление логики сборки
+
+В том же файле (`config.rs`) добавьте метод для сборки вашего подписанта из
+конфигурации в реализации `SignerConfig`:
+
+```rust
+impl SignerConfig {
+    pub async fn build_signer_from_config(config: &SignerConfig) -> Result<Signer, KoraError> {
+        match &config.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config: your_service_config } => {
+                Self::build_your_service_signer(your_service_config, &config.name).await
+            }
+        }
+    }
+
+    // Add this new method
+    async fn build_your_service_signer(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<Signer, KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let api_key = get_env_var_for_signer(&config.api_key_env, signer_name)?;
+        let api_secret = get_env_var_for_signer(&config.api_secret_env, signer_name)?;
+        let wallet_id = get_env_var_for_signer(&config.wallet_id_env, signer_name)?;
+
+        // Call the constructor from solana-keychain crate
+        Signer::from_your_service(api_key, api_secret, wallet_id)
+            .await
+            .map_err(|e| {
+                KoraError::SigningError(format!(
+                    "Failed to create YourService signer '{signer_name}': {}",
+                    sanitize_error!(e)
+                ))
+            })
+    }
+}
+```
+
+**Примечание**: Имя метода `Signer::from_your_service()` должно соответствовать
+тому, что вы реализовали в крейте `solana-keychain`.
+
+#### Шаг 4: Добавление логики валидации
+
+Добавьте валидацию для конфигурации вашего подписанта в метод
+`validate_individual_signer_config`:
+
+```rust
+impl SignerConfig {
+    pub fn validate_individual_signer_config(&self, index: usize) -> Result<(), KoraError> {
+        // ... existing validation
+
+        match &self.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config } => {
+                Self::validate_your_service_config(config, &self.name)
+            }
+        }
+    }
+
+    // Add this new validation method
+    fn validate_your_service_config(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<(), KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let env_vars = [
+            ("api_key_env", &config.api_key_env),
+            ("api_secret_env", &config.api_secret_env),
+            ("wallet_id_env", &config.wallet_id_env),
+        ];
+
+        for (field_name, env_var) in env_vars {
+            if env_var.is_empty() {
+                return Err(KoraError::ValidationError(format!(
+                    "YourService signer '{signer_name}' must specify non-empty {field_name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+#### Шаг 5: Экспорт вашей конфигурации
+
+Добавьте вашу новую структуру конфигурации в экспорты модуля в
+`crates/lib/src/signer/mod.rs` (или в начале файла, если она публичная):
+
+```rust
+pub use config::{
+    MemorySignerConfig,
+    PrivySignerConfig,
+    SignerTypeConfig,
+    TurnkeySignerConfig,
+    VaultSignerConfig,
+    YourServiceSignerConfig,  // Add this
+    // ... other exports
+};
+```
+
+## Тестирование вашей интеграции
+
+### Добавление мок-конструктора для тестов
+
+Чтобы упростить тестирование, добавьте метод-конструктор в
+`SignerPoolConfigBuilder` в `crates/lib/src/tests/config_mock.rs`:
+
+```rust
+impl SignerPoolConfigBuilder {
+    // ... existing methods
+
+    pub fn with_your_service_signer(
+        mut self,
+        name: String,
+        api_key_env: String,
+        api_secret_env: String,
+        wallet_id_env: String,
+        weight: Option<u32>,
+    ) -> Self {
+        let signer = SignerConfig {
+            name,
+            weight,
+            config: SignerTypeConfig::YourService {
+                config: YourServiceSignerConfig {
+                    api_key_env,
+                    api_secret_env,
+                    wallet_id_env,
+                },
+            },
+        };
+        self.config.signers.push(signer);
+        self
+    }
+}
+```
+
+Это позволяет другим тестам легко создавать mock-конфигурации, включающие ваш
+подписант:
+
+```rust
+use crate::tests::config_mock::SignerPoolConfigBuilder;
+
+let config = SignerPoolConfigBuilder::new()
+    .with_your_service_signer(
+        "yourservice_test".to_string(),
+        "YOUR_SERVICE_API_KEY".to_string(),
+        "YOUR_SERVICE_API_SECRET".to_string(),
+        "YOUR_SERVICE_WALLET_ID".to_string(),
+        Some(1)
+    )
+    .build();
+```
+
+### Переменные окружения
+
+Добавьте примеры переменных окружения в следующие файлы:
+
+- `.env.example` (корень проекта)
+- `.env` (корень проекта, для локального тестирования)
+- `./sdks/ts/.env.example`
+- `./sdks/ts/.env`
+
+```bash
+# YourService Signer Configuration
+YOUR_SERVICE_API_KEY=your_api_key_here
+YOUR_SERVICE_API_SECRET=your_api_secret_here
+YOUR_SERVICE_WALLET_ID=your_wallet_id_here
+```
+
+### Интеграционные тесты
+
+Kora использует унифицированный исполнитель тестов
+(`tests/src/bin/test_runner.rs`), который управляет всеми этапами
+интеграционного тестирования, включая тесты TypeScript. Чтобы добавить тесты для
+вашего нового подписанта:
+
+#### 1. Добавьте конфигурацию тестов
+
+Создайте новый файл конфигурации подписанта в `tests/src/common/fixtures/` для
+вашего сервиса:
+
+```toml
+# tests/src/common/fixtures/signers-your-service.toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "yourservice_main"
+type = "your_service"
+api_key_env = "YOUR_SERVICE_API_KEY"
+api_secret_env = "YOUR_SERVICE_API_SECRET"
+wallet_id_env = "YOUR_SERVICE_WALLET_ID"
+```
+
+#### 2. Добавьте этап тестирования в исполнитель тестов
+
+Обновите `tests/src/test_runner/test_cases.toml`, чтобы включить этап
+тестирования для вашего подписанта:
+
+```toml
+[test.your_service]
+name = "YourService Signer Tests"
+config = "tests/src/common/fixtures/kora-test.toml"
+signers = "tests/src/common/fixtures/signers-your-service.toml"
+port = "8090"  # Use a unique port
+tests = ["your_service"]
+```
+
+#### 3. Запуск тестов
+
+Убедитесь, что ваше окружение настроено:
+
+```bash
+# Install binaries and dependencies
+just install
+just install-ts-sdk
+just build-ts-sdk
+
+# Set environment variables for your service
+export YOUR_SERVICE_API_KEY="your_key"
+export YOUR_SERVICE_API_SECRET="your_secret"
+export YOUR_SERVICE_WALLET_ID="your_wallet"
+```
+
+Запустите тесты с помощью унифицированного исполнителя тестов:
+
+```bash
+# Run all integration tests (includes your new signer phase)
+just test-integration
+
+# Run tests with verbose output
+just test-integration-verbose
+
+# Run specific test phase with filter
+cargo run -p tests --bin test_runner -- --phases your_service
+```
+
+## Требования к документации
+
+При отправке вашего PR включите:
+
+### 1. Обновите руководство по подписантам
+
+Добавьте документацию по подписанту, следуя руководству
+[`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md),
+объясняющему предварительные требования, настройку и использование.
+
+````markdown
+## YourService Signer
+
+[YourService](https://yourservice.com) provides [brief description of your
+service].
+
+### Prerequisites
+
+- YourService account
+- API credentials
+- Funded wallet
+
+### Setup
+
+1. Get your API credentials from [dashboard link]
+2. Create a wallet...
+3. Configure environment variables:
+
+\```
+
+bash YOUR_SERVICE_API_KEY="your_api_key"
+YOUR_SERVICE_API_SECRET="your_api_secret"
+YOUR_SERVICE_WALLET_ID="your_wallet_id" \
+
+````
+
+### Configure signers.toml
+
+\```
+
+toml [signer_pool] strategy = "round_robin"
+
+[[signers]] name = "yourservice_main" type = "your_service" api_key_env =
+"YOUR_SERVICE_API_KEY" api_secret_env = "YOUR_SERVICE_API_SECRET" wallet_id_env
+= "YOUR_SERVICE_WALLET_ID" weight = 1 \
+
+````
+
+### Run Kora with YourService Signer
+
+\```
+
+bash kora rpc start --signers-config signers.toml \
+
+```
+
+```
+
+`
+
+### 2. Обновите README
+
+Добавьте свой сервис в список подписантов основного README.
+
+## Контрольный список для отправки
+
+- [ ] Ваш подписант поддерживается в крейте `solana-keychain`
+- [ ] Зависимость `solana-keychain` в Cargo.toml обновлена до последней версии
+- [ ] Добавлена структура конфигурации для вашего подписанта
+- [ ] Добавлен вариант `SignerTypeConfig`
+- [ ] Добавлена логика сборки в `build_signer_from_config`
+- [ ] Добавлена логика валидации в `validate_individual_signer_config`
+- [ ] Экспортирована структура конфигурации в `mod.rs`
+- [ ] (Опционально) Добавлен метод построения тестового мока в `config_mock.rs`
+- [ ] Код компилируется без предупреждений
+- [ ] Все тесты пройдены (`make test` и `make test-integration`)
+- [ ] Документация добавлена согласно
+      [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+- [ ] Созданы примеры конфигурационных файлов (`.toml` и `.env.example`)
+- [ ] Нет жёстко заданных значений или секретов
+- [ ] Сообщения об ошибках информативны
+- [ ] Соблюдаются соглашения об именовании Rust (snake_case)
+- [ ] Линтинг пройден (`make lint`)
+- [ ] Свяжитесь с командой Kora и предоставьте API-ключи для интеграционного
+      тестирования
+
+## Получение помощи
+
+- **По вопросам реализации подписанта**: Откройте тикет в репозитории
+  [`solana-keychain`](https://github.com/solana-foundation/solana-keychain)
+- **По вопросам интеграции с Kora**: Откройте тикет в репозитории Kora для
+  обсуждения дизайна
+- Присоединяйтесь к нашим каналам сообщества
+- Изучите существующие конфигурации подписантов в
+  [`crates/lib/src/signer/config.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/signer/config.rs)
+
+## Пример структуры PR
+
+**Для репозитория Kora:**
+
+```
+feat(signer): add YourService signer configuration support
+
+- Add YourServiceSignerConfig struct
+- Add YourService variant to SignerTypeConfig enum
+- Add build and validation logic for YourService
+- Add example configuration files
+- Add documentation to SIGNERS.md
+- Add integration tests
+```
+
+Добро пожаловать в экосистему Kora! Мы рады видеть ваше решение для управления
+ключами частью нашей платформы.
+````

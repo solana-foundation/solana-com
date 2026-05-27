@@ -1,0 +1,493 @@
+---
+title: Conexión de Billetera
+description: Conecta billeteras de Solana usando Wallet Standard
+---
+
+El paquete `@solana-commerce/connector` proporciona conexión de billetera sin
+interfaz construida sobre el
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard). Gestiona
+el descubrimiento de billeteras, el estado de conexión, la administración de
+cuentas y la reconexión automática. El paquete está diseñado para ser agnóstico
+al framework con vínculos de React incluidos. Está adaptado para un uso fluido
+en Solana Commerce Kit y es compatible con
+[@solana/kit](https://github.com/anza-xyz/kit) y
+[gill](https://www.gillsdk.com/).
+
+![Conexión de Billetera](/assets/docs/tools/commerce-kit/connector.png)
+
+## Instalación
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Configuración del Proveedor
+
+### `ConnectorProvider`
+
+El componente `ConnectorProvider` envuelve tu aplicación y proporciona el estado
+de conexión de billetera a todos los componentes hijos. Gestiona una instancia
+singleton de `ConnectorClient` que persiste a través de los ciclos de
+montaje/desmontaje de componentes.
+
+#### Propiedades
+
+Toda la configuración se pasa a través de la propiedad `config`:
+
+- **`config`** (`ConnectorConfig`, opcional) - Objeto de configuración para el
+  conector. Todos los campos son opcionales.
+
+#### `ConnectorConfig`
+
+Objeto de configuración para el comportamiento de conexión de billetera.
+
+##### Campos Opcionales
+
+- **`autoConnect`** (`boolean`) - Cuando es `true`, se reconecta automáticamente
+  a la última billetera utilizada al montarse. La preferencia de billetera se
+  almacena en el almacenamiento configurado (por defecto es `localStorage`). Por
+  defecto: `false`.
+
+- **`debug`** (`boolean`) - Habilita el registro detallado en consola para
+  depurar flujos de conexión, cambios de cuenta y errores. Los registros
+  incluyen prefijos como `[Connector]` y `[ConnectorProvider]`. Por defecto:
+  `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Intervalo de sondeo en
+  milisegundos para verificar cambios de cuenta cuando la billetera no soporta
+  la característica `standard:events`. La mayoría de las billeteras modernas
+  soportan eventos, por lo que el sondeo es un respaldo. Por defecto: `1500`
+  (1.5 segundos).
+
+- **`storage`** (`Storage`) - Adaptador de almacenamiento personalizado para
+  persistir las preferencias de billetera. Debe implementar:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Por defecto: `window.localStorage` cuando está disponible (solo navegador).
+  Usa esto para React Native (`AsyncStorage`) o almacenamiento personalizado
+  compatible con SSR.
+
+#### Arquitectura del Proveedor
+
+El proveedor utiliza un **patrón singleton** con conteo de referencias:
+
+- Múltiples instancias de `ConnectorProvider` comparten el mismo
+  `ConnectorClient`
+- El cliente se crea en el primer montaje y persiste a través de los desmontajes
+- Cuando todos los proveedores se desmontan, la limpieza se retrasa 5 segundos
+  para manejar remontajes rápidos
+- Durante la limpieza, la billetera se desconecta y se eliminan todos los
+  listeners de eventos
+
+Este diseño previene la desconexión de la billetera durante cambios de ruta o
+actualizaciones de componentes.
+
+---
+
+## Hooks
+
+### `useConnector()`
+
+El hook principal para acceder al estado y acciones de conexión de la billetera.
+Debe usarse dentro de un `ConnectorProvider`.
+
+Devuelve un objeto `ConnectorSnapshot` que contiene:
+
+#### Propiedades de Estado
+
+- **`wallets`** (`WalletInfo[]`) - Array de todas las billeteras compatibles con
+  Wallet Standard descubiertas. Se actualiza automáticamente cuando se instalan
+  o desinstalan billeteras. Cada billetera incluye metadatos como nombre, icono
+  y capacidades. Ver [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - El objeto de billetera Wallet
+  Standard actualmente conectado. `null` cuando está desconectado. Esta es la
+  instancia de billetera sin procesar de la API de Wallet Standard.
+
+- **`connected`** (`boolean`) - Estado de conexión. `true` cuando una billetera
+  está conectada y las cuentas están disponibles. Úsalo para renderizado
+  condicional de la interfaz.
+
+- **`connecting`** (`boolean`) - Estado de carga durante la conexión de la
+  billetera. `true` entre llamar a `select()` y recibir el resultado de la
+  conexión. Úsalo para mostrar indicadores de carga o deshabilitar botones.
+
+- **`accounts`** (`AccountInfo[]`) - Array de cuentas de la billetera conectada.
+  La mayoría de las billeteras proporcionan una cuenta, pero algunas admiten
+  múltiples. Se actualiza automáticamente mediante eventos de la billetera o
+  sondeo. Ver [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - La dirección de la cuenta
+  actualmente seleccionada (clave pública codificada en base58). Cuando una
+  billetera se conecta con una nueva cuenta, esa cuenta se selecciona
+  automáticamente. De lo contrario, se conserva la cuenta previamente
+  seleccionada.
+
+#### Métodos de Acción
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Se conecta a una
+  billetera por nombre (p. ej., `"Phantom"`, `"Solflare"`). El nombre de la
+  billetera debe coincidir exactamente con el campo `name` de una billetera
+  descubierta.
+
+  **Proceso:**
+  1. Establece `connecting: true`
+  2. Llama a la característica `standard:connect` de la billetera
+  3. Recupera las cuentas de la billetera
+  4. Se suscribe a los eventos de la billetera (o inicia el sondeo si los
+     eventos no están disponibles)
+  5. Almacena la preferencia de billetera en el almacenamiento configurado
+  6. Actualiza el estado con las cuentas y la cuenta seleccionada
+
+  **Lanza:** Error si la billetera no se encuentra, la billetera no admite
+  conexión o la conexión es rechazada por el usuario.
+
+- **`disconnect`** (`() => Promise<void>`) - Desconecta la billetera actual y
+  limpia todo el estado.
+
+  **Proceso:**
+  1. Se desuscribe de los eventos de la billetera
+  2. Detiene el sondeo de cuentas
+  3. Llama a la característica `standard:disconnect` de la billetera si está
+     disponible
+  4. Limpia la billetera seleccionada, las cuentas y la cuenta seleccionada
+  5. Elimina la preferencia de billetera del almacenamiento
+
+  Nunca lanza excepciones (los errores se registran si la depuración está
+  habilitada).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Cambia la cuenta
+  seleccionada a una dirección diferente de la billetera conectada. Si la
+  dirección no está en el arreglo de cuentas actual, activa una reconexión para
+  obtener las cuentas actualizadas.
+
+  **Lanza:** Error si no hay ninguna billetera conectada o la cuenta solicitada
+  no se encuentra después de la reconexión.
+
+### `useConnectorClient()`
+
+Proporciona acceso directo a la instancia subyacente de `ConnectorClient` para
+casos de uso avanzados.
+
+**Devuelve:** `ConnectorClient | null` - La instancia singleton del cliente, o
+`null` cuando se usa fuera de `ConnectorProvider`.
+
+**Casos de uso:**
+
+- Acceso directo a `getConnectorState()` para lecturas imperativas de estado
+- Suscripción manual con `subscribe(listener)` para escuchadores de estado
+  personalizados
+- Llamar a `destroy()` para limpieza forzada (no recomendado en uso normal)
+
+**Ejemplo:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Definiciones de Tipos
+
+### `WalletInfo`
+
+Metadatos sobre una billetera descubierta.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Requisitos:** Una billetera es conectable cuando soporta:
+
+- Característica `standard:connect`
+- Característica `standard:disconnect`
+- Cadenas de Solana (detectadas mediante `wallet.chains` que contiene
+  `"solana"`)
+
+Las billeteras no conectables aparecen en el array `wallets` pero no pueden ser
+seleccionadas.
+
+### `AccountInfo`
+
+Información sobre una cuenta de billetera.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+El campo `raw` proporciona acceso a propiedades adicionales de la cuenta:
+
+- `address: string` - Clave pública codificada en Base58
+- `publicKey: Uint8Array` - Bytes sin procesar de la clave pública
+- `label?: string` - Etiqueta de la cuenta (si la billetera la proporciona)
+- `icon?: string` - Icono específico de la cuenta (URL de datos)
+- `chains: string[]` - Cadenas soportadas para esta cuenta
+- `features: string[]` - Características soportadas para esta cuenta
+
+### `ConnectorSnapshot`
+
+El tipo de retorno de `useConnector()`, que combina estado y acciones.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Detección de Cambios de Cuenta
+
+El conector detecta automáticamente cuando las cuentas de la billetera cambian
+(el usuario agrega/elimina cuentas, cambia de cuenta en la billetera). Se
+utilizan dos estrategias:
+
+### Basada en Eventos (Preferida)
+
+Cuando la billetera soporta `standard:events`, el conector se suscribe a eventos
+`change`:
+
+- Recibe notificaciones en tiempo real cuando las cuentas cambian
+- Más eficiente (sin sondeo)
+- Agrega cuentas tanto del evento como de `wallet.accounts` para manejar
+  billeteras que solo incluyen la cuenta seleccionada en los eventos
+
+### Sondeo de Respaldo
+
+Cuando no se soportan eventos, el conector sondea `wallet.accounts`:
+
+- Verifica cada `accountPollingIntervalMs` (predeterminado: 1500ms)
+- Compara direcciones de cuenta para detectar cambios
+- Solo activa re-renderizado cuando las cuentas realmente cambian
+
+**Lógica de Selección de Cuenta:**
+
+- Cuando las cuentas cambian, conservar la cuenta seleccionada si todavía existe
+- Si la cuenta seleccionada fue eliminada, seleccionar la primera cuenta
+  disponible
+- Al conectar con una cuenta nueva (que no está en las cuentas previas),
+  preferir la cuenta nueva
+
+---
+
+## Almacenamiento y Conexión Automática
+
+### Persistencia del Almacenamiento
+
+El conector almacena una clave en el almacenamiento configurado:
+
+- **Clave:** `arc-connector:lastWallet`
+- **Valor:** Nombre de la billetera (por ejemplo, `"Phantom"`)
+
+Las operaciones de almacenamiento están envueltas en try-catch para manejar:
+
+- Iframes aislados donde `localStorage` lanza excepciones
+- Entornos SSR donde `window` es indefinido
+- React Native donde `localStorage` no existe
+
+Si el almacenamiento falla, el conector continúa sin persistencia (no se lanzan
+errores).
+
+### Comportamiento de Conexión Automática
+
+Cuando `autoConnect: true`:
+
+1. Al montar, lee el último nombre de billetera desde el almacenamiento
+2. Espera 100ms (permite que las billeteras se registren)
+3. Llama a `select(walletName)` si se descubre la billetera
+4. Si la conexión automática falla, elimina la preferencia inválida del
+   almacenamiento
+
+**Nota de Seguridad:** La preferencia almacenada es solo un nombre de billetera
+(cadena de texto), no datos sensibles. La billetera maneja la
+autenticación/autorización a través de su propia interfaz.
+
+---
+
+## Ejemplos de Uso
+
+### Botón Básico de Billetera
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Selector de Múltiples Cuentas
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Monitoreo de Conexión
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Billeteras Compatibles
+
+El conector es compatible con todas las billeteras que implementan el
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard),
+incluyendo:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Cualquier otra billetera compatible con Wallet Standard
+
+Las billeteras se descubren automáticamente cuando se registran con la API de
+Wallet Standard (no se necesita configuración).
+
+---
+
+## Uso sin interfaz (sin React)
+
+Para aplicaciones que no usan React o uso del lado del servidor, utiliza
+`ConnectorClient` directamente:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Nota:** `ConnectorClient` gestiona su propio estado y nunca desencadena
+re-renderizaciones de React. Debes suscribirte manualmente a los cambios de
+estado.

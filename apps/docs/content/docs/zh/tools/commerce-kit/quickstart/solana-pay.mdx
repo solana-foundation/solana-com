@@ -1,0 +1,398 @@
+---
+title: Solana Pay
+description: 生成 Solana Pay URL、二维码和支付交易
+---
+
+`@solana-commerce/solana-pay` 软件包提供完整的
+[Solana Pay](https://solanapay.com) 功能，用于构建支付体验，兼容
+[`gill`](https://www.gillsdk.com/) 和
+[`@solana/kit`](https://github.com/anza-xyz/kit)
+库。它处理 URL 编码/解析、带自定义样式的二维码生成，以及 SOL 和 SPL 代币转账的交易构建。
+
+## 安装
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URL 编码
+
+### `encodeURL(fields)`
+
+创建符合 [Solana Pay 规范](https://docs.solanapay.com/spec)的 Solana Pay
+URL。此函数生成 `solana:` 协议 URL，可作为链接分享或编码为二维码供移动钱包扫描。
+
+#### 参数
+
+- **`fields`**（`TransferRequestURLFields | TransactionRequestURLFields`）- 支付 URL 的配置
+
+#### `TransferRequestURLFields`
+
+用于简单的支付请求（直接转账）：
+
+- **`recipient`**（`Address`，必需）- 商家的钱包地址（base58 编码的公钥），用于接收付款。可以是字符串或
+  `gill` 的 `Address` 类型。
+
+- **`amount`**（`bigint`，可选）- 以 **lamport**
+  为单位的支付金额（原子单位）。对于 SOL，1 SOL = 1,000,000,000
+  lamport（9 位小数）。对于 SPL 代币，使用代币的小数精度（例如，USDC 使用 6 位小数，所以 1
+  USDC = 1,000,000）。
+
+- **`splToken`**（`Address`，可选）- 用于代币支付的 SPL 代币铸造地址。如果省略，则假定付款为 SOL。
+
+- **`reference`**（`Address | Address[]`，可选）- 用于跟踪付款的唯一引用地址。使用
+  `generateKeyPairSigner().address`
+  生成。引用作为只读账户添加到交易中，允许您使用此引用查询付款。
+
+- **`label`**（`string`，可选）- 在用户钱包中显示的可读商家或应用名称（例如"咖啡店"、"我的商店"）。
+
+- **`message`**（`string`，可选）- 在支付前向用户显示的消息（例如"感谢您的购买！"、"优质服务小费"）。
+
+- **`memo`**（`string`，可选）- 附加到交易的链上备注。永久存储在 Solana 上。适用于订单 ID、发票编号或其他支付元数据。
+
+#### `TransactionRequestURLFields`
+
+用于复杂的支付请求（包括指令）：
+
+- **`link`**（`URL`，必需）- 交易链接（[`Link`](/docs/tools/solana-pay/specification/version1-1#link)）。如果 URL 包含查询参数，则必须进行 URL 编码。
+
+- **`label`**（`string`，可选）- 在用户钱包中显示的人类可读的商家或应用名称（例如"咖啡店"、"我的商店"）。
+
+- **`message`**（`string`，可选）- 在支付前向用户显示的消息（例如"感谢您的购买！"、"优质服务小费"）。
+
+#### 工作原理
+
+该函数执行多项操作以构建有效的 Solana Pay URL：
+
+1. **协议前缀** - 使用 `solana:` 协议方案创建 URL（类似于 `mailto:` 或
+   `bitcoin:`）
+
+2. **接收方作为路径名** - 使用接收方的 base58 地址作为 URL 路径名（例如
+   `solana:merchantWalletAddress123...`）
+
+3. **金额转换** - 将 bigint
+   lamport 金额转换为十进制字符串表示，不会出现浮点精度问题。
+
+4. **查询参数** - 将所有可选字段和引用作为 URL 编码的查询参数附加
+
+#### 返回值
+
+带有 `solana:` 协议的 `URL` 对象，可以：
+
+- 使用 `.toString()` 转换为字符串以供分享
+- 传递给 `createQR()` 以生成二维码
+- 直接用于锚标签：`<a href={url.toString()}>Pay with Solana</a>`
+
+#### 示例：基本支付
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### 示例：SPL 代币支付
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### 示例：带追踪的支付
+
+使用引用标识特定的支付：
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL 解析
+
+### `parseURL(url)`
+
+解码并验证 Solana Pay
+URL，提取所有支付参数。此函数执行验证并将金额从十进制字符串转换回 bigint
+lamport。
+
+#### 参数
+
+- **`url`** (`string | URL`) - 要解析的 Solana Pay
+  URL。可以是字符串或 URL 对象。
+
+#### 返回值
+
+解析后的 `TransferRequestURLFields` 或 `TransactionRequestURLFields` 对象。
+
+#### 示例：解析和验证
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### 示例：URL 验证器函数
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## 二维码生成
+
+### `createQR(url, size, background, color)`
+
+生成为 Solana Pay
+URL 优化的 SVG 二维码。该函数生成带有圆角和可自定义颜色的高质量样式化二维码。
+
+#### 参数
+
+- **`url`** (`string | URL`) - 要编码到二维码中的 Solana Pay URL
+- **`size`** (`number`，默认值：`512`) - 宽度和高度（以像素为单位）
+- **`background`**
+  (`string`，默认值：`'white'`) - 背景色（十六进制或颜色名称）。应为浅色以确保钱包兼容性。
+- **`color`**
+  (`string`，默认值：`'black'`) - 前景色/点颜色（十六进制或颜色名称）。应为深色以确保对比度。
+
+_或者，您可以使用 `createStyledQRCode(url, options)`
+来更精细地控制二维码样式（宽度、边距、颜色、点样式、角样式、徽标、徽标大小、徽标背景色、徽标边距）。_
+
+#### 返回值
+
+`Promise<string>` - SVG 标记字符串，可以：
+
+- 设置为 `img` 元素的 src：`<img src={qrCode} />`
+- 保存到文件
+
+#### 示例
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### 示例：品牌二维码
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## 交易构建
+
+### `createTransfer(rpc, sender, fields)`
+
+构建用于支付转账的完整 Solana 交易消息。此函数根据 `splToken`
+参数自动检测是创建 SOL 还是 SPL 代币转账，并构建所有必要的指令。该函数使用来自 RPC 客户端的最新区块哈希为交易设置区块哈希生命周期，并返回一个完整的未签名交易，可供签名并提交到 RPC（类型为
+`TransactionMessageWithBlockhashLifetime`，与 Solana Kit/Gill 兼容）。
+
+#### 参数
+
+- **`rpc`**（`Rpc<SolanaRpcApi>`）- 来自 `gill` 的 Solana RPC 客户端。使用
+  `createSolanaClient(rpcUrl).rpc` 创建。
+
+- **`sender`**（`Address`）- 支付者的钱包地址。必须是已注资且将对交易进行签名的账户。
+
+- **`fields`**（`CreateTransferFields`）- 转账配置：
+  - `recipient`（`Address`，必需）- 目标钱包地址
+  - `amount`（`bigint`，必需）- lamport（SOL）或代币原子单位（SPL）的数量
+  - `splToken`（`Address`，可选）- SPL 代币铸造地址。如果省略，则创建 SOL 转账。
+  - `reference`（`Address | Address[]`，可选）- 用于跟踪的引用地址
+  - `memo`（`string`，可选）- 链上备注文本
+
+#### 返回值
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - 完整的交易消息，包含：
+
+- 版本 0 格式（支持地址查找表）
+- 区块哈希生命周期（交易在约 60 秒后过期）
+- 所有必要的指令（转账 + 可选备注）
+- 可使用钱包签名并提交到 RPC
+
+#### 错误处理
+
+抛出 `CreateTransferError` 并提供具体消息：
+
+- `"sender not found"` - 发送者账户不存在
+- `"recipient not found"` - 接收者账户不存在
+
+#### 示例：SOL 支付
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### 示例：USDC 支付
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

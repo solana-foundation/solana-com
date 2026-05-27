@@ -1,0 +1,353 @@
+---
+title: Opsi Konfigurasi Baru (Beta)
+description:
+  Bagian konfigurasi kora.toml baru yang diperkenalkan di Kora v2.2.0-beta.
+---
+
+Opsi konfigurasi ini tersedia mulai dari `v2.2.0-beta.1`. Tambahkan ke
+`kora.toml` yang sudah ada bersama konfigurasi stabil.
+
+## Plugin Transaksi
+
+Bagian `[kora.plugins]` mengonfigurasi plugin transaksi yang berjalan selama
+proses penandatanganan. Plugin memvalidasi bentuk dan isi transaksi sebelum Kora
+menandatanganinya. Plugin ini dijalankan untuk `signTransaction`,
+`signAndSendTransaction`, `signBundle`, dan `signAndSendBundle` — tetapi
+**tidak** untuk `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Opsi      | Deskripsi                               | Wajib               | Tipe     |
+| --------- | --------------------------------------- | ------------------- | -------- |
+| `enabled` | Daftar plugin transaksi yang diaktifkan | Tidak (default: []) | string[] |
+
+### Plugin `gas_swap`
+
+Plugin `gas_swap` memberlakukan bentuk transaksi yang ketat untuk operasi swap
+token-untuk-SOL tanpa biaya gas. Ketika diaktifkan, setiap transaksi yang
+dikirim melalui proses penandatanganan harus berisi tepat:
+
+1. **Satu transfer SPL Token** (SPL Token atau Token-2022) — dari pemilik yang
+   bukan pembayar biaya
+2. **Satu transfer SOL System** (`Transfer` atau `TransferWithSeed`) — dari
+   pembayar biaya
+
+Instruksi Compute Budget (set compute unit limit/price) diizinkan bersama kedua
+instruksi yang diperlukan. Instruksi luar tambahan atau non-swap akan ditolak.
+
+#### Persyaratan Konfigurasi
+
+Plugin `gas_swap` memvalidasi konfigurasi Anda saat startup dan akan error jika
+persyaratan tidak terpenuhi:
+
+- **System Program** harus ada di `allowed_programs`
+- **Setidaknya satu token program** (SPL Token atau Token-2022) harus ada di
+  `allowed_programs`
+- **Setidaknya satu token** harus ada di `allowed_tokens`
+- **Model harga** tidak boleh `Free` — tetapkan margin atau harga tetap
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Peringatan:** Saat menggunakan `gas_swap` dengan harga Tetap, pastikan biaya
+> token tetap bernilai setidaknya `max_allowed_lamports` dalam SOL untuk
+> menghindari kondisi drain di mana SOL yang dikirim melebihi token yang
+> diterima.
+
+---
+
+## Konfigurasi Bundle
+
+Bagian INLINE_CODE_PLACEHOLDER_78b835d294b52f52_END mengaktifkan dukungan bundle
+Jito untuk eksekusi multi-transaksi atomik:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Opsi      | Deskripsi                      | Wajib                  | Tipe    |
+| --------- | ------------------------------ | ---------------------- | ------- |
+| `enabled` | Aktifkan fungsionalitas bundle | Tidak (default: false) | boolean |
+
+### Konfigurasi Jito
+
+| Opsi               | Deskripsi           | Wajib                       | Tipe   |
+| ------------------ | ------------------- | --------------------------- | ------ |
+| `block_engine_url` | URL mesin blok Jito | Ya (saat bundle diaktifkan) | string |
+
+URL mesin blok Jito yang tersedia:
+
+- **Mainnet (publik):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (privat):** Hubungi Jito untuk akses
+
+> **Penting:** Saat menggunakan bundle dengan tip Jito yang dibayar oleh Kora,
+> atur `allow_transfer = true` di `[validation.fee_payer_policy.system]` untuk
+> mengizinkan penandatangan mentransfer SOL sebagai tip.
+
+Untuk panduan lengkap tentang implementasi bundle Jito dengan Kora, lihat
+[Panduan Bundle Jito](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Perlindungan Pembayar Biaya Lighthouse
+
+Bagian `[kora.lighthouse]` mengaktifkan perlindungan pembayar biaya Lighthouse.
+Saat diaktifkan, Kora menambahkan instruksi pernyataan saldo ke dalam transaksi,
+melindungi pembayar biaya dari serangan pengurasan dengan memverifikasi bahwa
+saldo pembayar biaya tidak turun di bawah level yang diharapkan.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Opsi                                | Deskripsi                                                                                                                     | Wajib                  | Tipe    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------- |
+| `enabled`                           | Aktifkan pernyataan Lighthouse untuk perlindungan pembayar biaya                                                              | Tidak (default: false) | boolean |
+| `fail_if_transaction_size_overflow` | Tolak transaksi jika menambahkan pernyataan melebihi batas ukuran. Jika false, lewati penambahan pernyataan secara diam-diam. | Tidak (default: true)  | boolean |
+
+### Cara Kerjanya
+
+Saat Lighthouse diaktifkan, Kora mengambil saldo pembayar biaya saat ini dan
+menambahkan instruksi pernyataan Lighthouse yang memverifikasi bahwa saldo tidak
+turun di bawah `(current_balance - estimated_fee)` pada saat penyelesaian
+transaksi. Ini mencegah transaksi berbahaya menguras pembayar biaya melebihi
+biaya yang diharapkan.
+
+### Kompatibilitas Metode
+
+Perlindungan Lighthouse **hanya berfungsi dengan `signTransaction` dan
+`signBundle`**. Ini **TIDAK** berfungsi dengan `signAndSendTransaction` atau
+`signAndSendBundle`.
+
+Ketika Lighthouse menambahkan instruksi assertion, ia memodifikasi pesan
+transaksi. Ini membuat tanda tangan klien yang sudah ada menjadi tidak valid.
+Alur `signAndSend*` akan gagal karena:
+
+1. Klien menandatangani transaksi
+2. Kora menambahkan assertion Lighthouse (memodifikasi pesan)
+3. Tanda tangan asli klien menjadi tidak valid
+4. Jaringan menolak dengan "kegagalan verifikasi tanda tangan"
+
+**Pola yang direkomendasikan dengan Lighthouse:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Persyaratan Konfigurasi
+
+Saat mengaktifkan Lighthouse, tambahkan program Lighthouse ke `allowed_programs`
+Anda:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora memvalidasi ini saat startup dan akan error jika Lighthouse diaktifkan
+tetapi program tidak ada di `allowed_programs`.
+
+> **Catatan:** Jika `signAndSendTransaction` atau `signAndSendBundle` diaktifkan
+> bersamaan dengan Lighthouse, Kora akan mencatat peringatan bahwa metode-metode
+> ini tidak akan memiliki perlindungan fee payer.
+
+## Perlindungan Bot reCAPTCHA
+
+reCAPTCHA v3 menyediakan perlindungan bot tidak terlihat untuk endpoint
+sensitif. Berbeda dengan API Key dan HMAC yang mengautentikasi semua permintaan,
+reCAPTCHA hanya melindungi metode berisiko tinggi tertentu (metode
+penandatanganan secara default).
+
+### Konfigurasi Server
+
+Tambahkan `KORA_RECAPTCHA_SECRET` ke variabel environment Anda (memiliki
+prioritas), atau tambahkan `recaptcha_secret` ke `kora.toml` Anda:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Opsi                        | Deskripsi                                                                | Default                |
+| --------------------------- | ------------------------------------------------------------------------ | ---------------------- |
+| `recaptcha_secret`          | Kunci rahasia reCAPTCHA v3 Anda dari Google                              | -                      |
+| `recaptcha_score_threshold` | Skor minimum untuk lolos (0.0 = semua lolos, 1.0 = tidak ada yang lolos) | 0.5                    |
+| `protected_methods`         | Metode RPC yang memerlukan verifikasi                                    | Metode penandatanganan |
+
+### Cara Kerjanya
+
+1. Klien memperoleh token reCAPTCHA dari API reCAPTCHA v3 Google
+2. Klien menyertakan token dalam header `x-recaptcha-token`
+3. Server memverifikasi token dengan Google dan memeriksa skor
+4. Jika skor >= ambang batas, permintaan dilanjutkan; jika tidak mengembalikan
+   401 Unauthorized
+
+reCAPTCHA berjalan _setelah_ autentikasi API Key/HMAC berhasil (jika
+dikonfigurasi). Metode yang tidak dilindungi melewati verifikasi reCAPTCHA
+sepenuhnya.
+
+### Implementasi Klien
+
+**Menggunakan Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Menggunakan fetch:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### Mendapatkan Kunci reCAPTCHA
+
+1. Kunjungi
+   [Konsol Admin Google reCAPTCHA](https://www.google.com/recaptcha/admin)
+2. Buat situs baru dengan **reCAPTCHA v3**
+3. Gunakan **Site Key** di frontend Anda (sisi klien)
+4. Gunakan **Secret Key** di konfigurasi Kora Anda (sisi server)
+
+## Batasan Penggunaan
+
+Bagian `[kora.usage_limit]` mengonfigurasi pembatasan penggunaan per-wallet
+untuk mencegah penyalahgunaan dan memastikan penggunaan yang adil. Ini juga
+dapat digunakan untuk membuat program hadiah guna mensubsidi biaya transaksi
+pengguna hingga batas tertentu.
+
+**Catatan**: Fitur ini memerlukan Redis ketika diaktifkan di beberapa instance
+Kora.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Opsi                      | Deskripsi                                            | Wajib                  | Tipe    |
+| ------------------------- | ---------------------------------------------------- | ---------------------- | ------- |
+| `enabled`                 | Mengaktifkan pembatasan penggunaan per-wallet        | Tidak (default: false) | boolean |
+| `cache_url`               | URL koneksi Redis untuk pelacakan penggunaan bersama | Tidak                  | string  |
+| `fallback_if_unavailable` | Izinkan transaksi jika Redis tidak tersedia          | Tidak (default: true)  | boolean |
+
+> _Ketika `fallback_if_unavailable` bernilai true, sistem mengizinkan transaksi
+> untuk dilanjutkan jika Redis sementara tidak tersedia, mencegah gangguan
+> layanan._
+
+### Aturan Batasan Penggunaan
+
+Beta ini memperkenalkan batasan penggunaan berbasis aturan yang lebih granular.
+Alih-alih hanya satu hitungan `max_transactions`, Anda dapat mendefinisikan
+beberapa aturan yang menargetkan jenis transaksi tertentu atau instruksi
+individual, dengan jendela waktu opsional.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Kolom Aturan     | Deskripsi                                                                                               | Wajib       |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | ----------- |
+| `type`           | `"transaction"` (menghitung semua transaksi) atau `"instruction"` (menghitung jenis instruksi tertentu) | Ya          |
+| `max`            | Jumlah maksimum sebelum wallet diblokir                                                                 | Ya          |
+| `window_seconds` | Jendela waktu dalam detik. Jika tidak disebutkan, batas bersifat permanen.                              | Tidak       |
+| `program`        | Alamat program yang cocok (diperlukan untuk tipe `instruction`)                                         | Kondisional |
+| `instruction`    | Nama instruksi yang cocok, misalnya `"Transfer"`, `"Burn"` (diperlukan untuk tipe `instruction`)        | Kondisional |
+
+Ketika `window_seconds` diatur, penghitung akan direset setelah jendela waktu
+berakhir. Tanpa pengaturan ini, batasan bersifat permanen — setelah tercapai,
+dompet akan diblokir hingga dihapus secara manual dari Redis.
+
+## Metode Baru yang Diaktifkan
+
+Metode-metode berikut telah ditambahkan ke `[kora.enabled_methods]`:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Metode                 | Deskripsi                                      |
+| ---------------------- | ---------------------------------------------- |
+| `get_version`          | Mengembalikan versi server Kora                |
+| `estimate_bundle_fee`  | Memperkirakan biaya untuk bundel transaksi     |
+| `sign_bundle`          | Menandatangani bundel transaksi tanpa mengirim |
+| `sign_and_send_bundle` | Menandatangani dan mengirimkan bundel ke Jito  |
+
+Lihat [Metode Bundle](/docs/tools/kora/beta/bundle-methods) untuk dokumentasi
+API lengkap.

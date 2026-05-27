@@ -1,0 +1,433 @@
+---
+title: Специфікація Solana Pay v1.1
+description:
+  Остання версія стандартного протоколу для кодування запитів транзакцій Solana
+  у URL-адресах
+---
+
+## Підсумок
+
+Стандартний протокол для кодування запитів транзакцій Solana у URL-адресах з
+метою забезпечення платежів та інших варіантів використання.
+
+Досягнуто широкого консенсусу щодо цієї специфікації, і реалізації існують у
+Phantom, FTX та Slope.
+
+Цей стандарт черпає натхнення з
+[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) та
+[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md).
+
+## Мотивація
+
+Стандартний протокол URL для запитів нативних переказів SOL, переказів токенів
+SPL та транзакцій Solana забезпечує кращий досвід користувачів у всіх додатках і
+гаманцях екосистеми Solana.
+
+Ці URL-адреси можуть бути закодовані в QR-кодах або NFC-мітках, або надіслані
+між користувачами та додатками для запиту оплати та складання транзакцій.
+
+Додатки повинні переконатися, що транзакція підтверджена й дійсна, перш ніж
+випускати товари чи послуги, що продаються, або надавати доступ до об'єктів чи
+подій.
+
+Мобільні гаманці повинні зареєструватися для обробки URL-схеми, щоб забезпечити
+безшовний, але безпечний досвід, коли в середовищі трапляються URL-адреси Solana
+Pay.
+
+Стандартизуючи простий підхід до вирішення цих проблем, ми забезпечуємо базову
+сумісність додатків і гаманців, щоб розробники могли зосередитися на абстракціях
+вищого рівня.
+
+## Специфікація: Запит на переказ
+
+URL-адреса запиту на переказ Solana Pay описує неінтерактивний запит на переказ
+SOL або токена SPL.
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+Запит є неінтерактивним, оскільки параметри в URL-адресі використовуються
+гаманцем для безпосереднього формування транзакції.
+
+### Одержувач
+
+Одне поле `recipient` є обов'язковим як шлях. Значення має бути закодованим у
+base58 публічним ключем нативного облікового запису SOL. Associated token
+accounts не повинні використовуватися.
+
+Натомість, для запиту переказу SPL Token необхідно використовувати поле
+`spl-token`, щоб вказати mint SPL Token, з якого має бути отримана адреса
+асоційованого токен-акаунта отримувача.
+
+### Сума
+
+Одне поле `amount` дозволяється як необов'язковий параметр запиту. Значення має
+бути невід'ємним цілим або десятковим числом «користувацьких» одиниць. Для SOL
+це SOL, а не lamport. Для токенів використовуйте
+[`uiAmountString`, а не `amount`](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure).
+
+`0` є дійсним значенням. Якщо значення є десятковим числом меншим за `1`, воно
+повинно мати провідний `0` перед `.`. Наукова нотація заборонена.
+
+Якщо значення не надано, гаманець має запитати у користувача суму. Якщо
+кількість десяткових знаків перевищує підтримувану для SOL (9) або для SPL Token
+(специфічну для mint), гаманець має відхилити URL як **невалідний**.
+
+### SPL Token
+
+Одне поле `spl-token` дозволяється як необов'язковий параметр запиту. Значення
+має бути публічним ключем mint-акаунта SPL Token у кодуванні base58.
+
+Якщо поле надано, має використовуватися конвенція
+[Associated Token Account](https://spl.solana.com/associated-token-account), і
+гаманець повинен включити інструкцію `TokenProgram.Transfer` або
+`TokenProgram.TransferChecked` як останню інструкцію транзакції.
+
+Якщо поле не надано, URL описує нативний переказ SOL, і гаманець повинен
+включити інструкцію `SystemProgram.Transfer` як останню інструкцію транзакції
+натомість.
+
+Гаманець повинен отримати адресу ATA з полів `recipient` і `spl-token`. Перекази
+на допоміжні токен-акаунти не підтримуються.
+
+### Референс
+
+Кілька полів `reference` дозволяються як необов'язкові параметри запиту.
+Значення мають бути 32-байтовими масивами у кодуванні base58. Вони можуть бути
+або не бути публічними ключами, на кривій чи поза нею, і можуть відповідати або
+не відповідати акаунтам на Solana.
+
+Якщо значення надано, гаманець повинен включити їх у вказаному порядку як ключі
+лише для читання без підпису до інструкції `SystemProgram.Transfer` або
+`TokenProgram.Transfer`/`TokenProgram.TransferChecked` у транзакції платежу.
+Значення можуть бути унікальними або неунікальними для запиту платежу і можуть
+відповідати або не відповідати обліковому запису в Solana.
+
+Оскільки валідатори Solana індексують транзакції за цими ключами облікових
+записів, значення `reference` можуть використовуватися як ідентифікатори
+клієнтів (ідентифікатори, які можна використовувати до того, як стане відомою
+фактична транзакція платежу). Для пошуку транзакцій таким способом можна
+використовувати RPC-метод
+[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress).
+
+### Мітка
+
+Одне поле `label` дозволено як необов'язковий параметр запиту. Значення повинно
+бути
+[URL-кодованим](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+UTF-8 рядком, що описує джерело запиту на переказ.
+
+Наприклад, це може бути назва бренду, магазину, додатка або особи, що робить
+запит. Гаманець повинен
+[декодувати URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+значення і відобразити декодоване значення користувачу.
+
+### Повідомлення
+
+Одне поле `message` дозволено як необов'язковий параметр запиту. Значення
+повинно бути
+[URL-кодованим](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+UTF-8 рядком, що описує характер запиту на переказ.
+
+Наприклад, це може бути назва товару, що купується, ідентифікатор замовлення або
+подяка. Гаманець повинен
+[декодувати URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+значення і відобразити декодоване значення користувачу.
+
+### Memo
+
+Одне поле `memo` дозволено як необов'язковий параметр запиту. Значення повинно
+бути
+[URL-кодованим](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+UTF-8 рядком, який має бути включений в інструкцію
+[SPL Memo](https://spl.solana.com/memo) у транзакції платежу.
+
+Гаманець повинен
+[декодувати URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+значення і має відобразити декодоване значення користувачу. Memo буде записано
+валідаторами і не повинно містити приватної або конфіденційної інформації.
+
+Якщо поле надано, гаманець повинен включити інструкцію `MemoProgram` як
+передостанню інструкцію транзакції, безпосередньо перед інструкцією переказу SOL
+або SPL Token, щоб уникнути неоднозначності з іншими інструкціями в транзакції.
+
+### Приклади
+
+#### URL, що описує запит на переказ 1 SOL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### URL, що описує запит на переказ 0.01 USDC
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### URL, що описує запит на переказ SOL (користувачу буде запропоновано вказати суму)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## Специфікація: Запит транзакції
+
+URL-адреса запиту транзакції Solana Pay описує інтерактивний запит для будь-якої
+транзакції Solana.
+
+```
+solana:<link>
+```
+
+Запит є інтерактивним, оскільки параметри в URL-адресі використовуються гаманцем
+для здійснення HTTP-запиту для формування транзакції.
+
+### Посилання
+
+Одне поле `link` є обов'язковим як pathname. Значення повинно бути умовно
+[URL-кодованою](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+абсолютною HTTPS URL-адресою.
+
+Якщо URL-адреса містить параметри запиту, вона повинна бути URL-кодованою. До
+цієї специфікації можуть бути додані параметри запиту протоколу. URL-кодування
+значення запобігає конфлікту з параметрами протоколу.
+
+Якщо URL-адреса не містить параметрів запиту, вона не повинна бути
+URL-кодованою. Це створює коротшу URL-адресу та менш щільний QR-код.
+
+У будь-якому випадку гаманець повинен
+[декодувати URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+значення. Це не має жодного ефекту, якщо значення не URL-кодоване. Якщо
+декодоване значення не є абсолютною HTTPS URL-адресою, гаманець повинен
+відхилити його як **неправильно сформоване**.
+
+#### GET-запит
+
+Гаманець повинен виконати HTTP `GET` JSON-запит до URL-адреси. Запит не повинен
+ідентифікувати гаманець або користувача.
+
+Гаманець повинен виконати запит з
+[заголовком Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+і застосунок повинен відповісти з
+[заголовком Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+для HTTP-стиснення.
+
+Гаманець повинен відображати домен URL-адреси під час виконання запиту.
+
+#### Відповідь GET
+
+Гаманець повинен обробляти HTTP
+[помилки клієнта](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+[помилки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+та
+[відповіді-перенаправлення](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+Застосунок повинен відповісти ними або HTTP `OK` JSON відповіддю з тілом:
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+Значення `<label>` має бути рядком UTF-8, що описує джерело запиту транзакції.
+Наприклад, це може бути назва бренду, магазину, застосунку або особи, яка робить
+запит.
+
+Значення `<icon>` має бути абсолютною HTTP або HTTPS URL-адресою зображення
+іконки. Файл повинен бути зображенням SVG, PNG або WebP, інакше гаманець повинен
+відхилити його як **неправильно сформований**.
+
+Гаманець не повинен кешувати відповідь, окрім випадків, вказаних у
+[заголовках HTTP-кешування](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching).
+
+Гаманець повинен відображати мітку та відтворювати зображення іконки для
+користувача.
+
+#### Запит POST
+
+Гаманець повинен зробити HTTP `POST` JSON запит до URL-адреси з тілом:
+
+```json
+{ "account": "<account>" }
+```
+
+Значення `<account>` має бути закодованим у base58 відкритим ключем облікового
+запису, який може підписати транзакцію.
+
+Гаманець повинен зробити запит із
+[заголовком Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+а застосунок повинен відповісти
+[заголовком Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+для HTTP-стиснення.
+
+Гаманець повинен відображати домен URL-адреси під час виконання запиту. Якщо
+було зроблено запит `GET`, гаманець також повинен відображати мітку та
+відтворювати зображення іконки з відповіді.
+
+#### Відповідь POST
+
+Гаманець повинен обробляти HTTP
+[помилки клієнта](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+[помилки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+та
+[відповіді-перенаправлення](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+Застосунок повинен відповісти ними або HTTP `OK` JSON відповіддю з тілом:
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+Значення `<transaction>` має бути закодованою у base64
+[серіалізованою транзакцією](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize).
+Гаманець повинен декодувати транзакцію з base64 та
+[десеріалізувати її](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+Додаток може відповісти частково або повністю підписаною транзакцією. Гаманець
+повинен перевіряти транзакцію як **ненадійну**.
+
+#### Порожні підписи
+
+Якщо
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+транзакції порожні:
+
+- Додаток повинен встановити
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  на `account` із запиту або нульове значення (`new PublicKey(0)` або
+  `new PublicKey("11111111111111111111111111111111")`).
+- Додаток повинен встановити
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  на
+  [останній хеш блоку](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)
+  або нульове значення (`new PublicKey(0).toBase58()` або
+  `"11111111111111111111111111111111"`).
+- Гаманець повинен ігнорувати
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  у транзакції та встановити `feePayer` на `account` із запиту.
+- Гаманець повинен ігнорувати
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  у транзакції та встановити `recentBlockhash` на
+  [останній хеш блоку](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+
+Якщо
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+транзакції не порожні:
+
+- Додаток повинен встановити
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  на
+  [публічний ключ першого підпису](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair).
+- Додаток повинен встановити
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  на
+  [останній хеш блоку](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- Додаток повинен серіалізувати та десеріалізувати транзакцію перед її
+  підписанням. Це забезпечує послідовний порядок ключів облікових записів як
+  обхідний шлях для
+  [цієї проблеми](https://github.com/solana-labs/solana/issues/21722).
+- Гаманець не повинен встановлювати
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  та
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash).
+- Гаманець повинен перевірити підписи, і якщо будь-який підпис недійсний,
+  гаманець повинен відхилити транзакцію як **некоректно сформовану**.
+
+Гаманець повинен підписувати транзакцію лише за допомогою `account` із запиту і
+повинен робити це лише якщо очікується підпис для `account` із запиту.
+
+Якщо очікується будь-який підпис, окрім підпису для `account` із запиту,
+гаманець повинен відхилити транзакцію як **шкідливу**.
+
+Додаток також може включати необов'язкове поле `message` у тілі відповіді:
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+Значення `<message>` має бути рядком UTF-8, що описує характер відповіді на
+транзакцію.
+
+Наприклад, це може бути назва товару, що купується, застосована знижка на
+покупку або подяка. Гаманець повинен відображати це значення користувачеві.
+
+Гаманець і додаток повинні дозволяти додаткові поля в тілі запиту та тілі
+відповіді, які можуть бути додані в майбутній специфікації.
+
+### Приклад
+
+##### URL, що описує запит транзакції.
+
+```
+solana:https://example.com/solana-pay
+```
+
+##### URL, що описує запит транзакції з параметрами запиту.
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+##### GET-запит
+
+```
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+##### GET-відповідь
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+##### POST-запит
+
+```
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+##### POST-відповідь
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## Розширення
+
+Додаткові формати та поля можуть бути включені в цю специфікацію для
+забезпечення нових сценаріїв використання, зберігаючи при цьому сумісність із
+додатками та гаманцями.
+
+Будь ласка, створіть issue на GitHub, щоб запропонувати зміни до специфікації та
+отримати відгуки від розробників додатків і гаманців.
+
+[Реальний приклад такої пропозиції.](https://github.com/solana-foundation/pay/issues/26)

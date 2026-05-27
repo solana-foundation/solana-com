@@ -1,0 +1,461 @@
+---
+title: Uusien Allekirjoittajien Lisääminen Koraan
+description:
+  Tämä opas on tarkoitettu lompakopalveluntarjoajille, jotka haluavat integroida
+  avaintenhallintatoteutuksensa Koraan. Lisäämällä allekirjoittajasi Koraan
+  mahdollistat solmuoperaattoreiden käyttää palveluasi turvalliseen tapahtumien
+  allekirjoittamiseen.
+---
+
+## Arkkitehtuurin Yleiskatsaus
+
+Kora käyttää ulkoista
+[`solana-keychain`](https://github.com/solana-foundation/solana-keychain)
+crate-pakettia kaikkiin allekirjoitusoperaatioihin. Tämä arkkitehtuuri tarjoaa
+yhtenäisen allekirjoitusrajapinnan Solana-tapahtumien allekirjoittamiseen. Uuden
+allekirjoittajan lisäämiseksi Koraan sinun täytyy:
+
+1. **Ensin**: Lisää allekirjoittajatoteutuksesi `solana-keychain`
+   crate-pakettiin
+2. **Toiseksi**: Lisää määritystuki allekirjoittajallesi Korassa
+
+## Vaiheittainen Integrointiopas
+
+### Pikaintegroinnin Tarkistuslista
+
+**Osa 1: Lisää Allekirjoittaja `solana-keychain` Crate-pakettiin**
+
+- [ ] Toteuta allekirjoittajasi noudattaen
+      [solana-keychain-integrointiopasta](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+- [ ] Odota PR-hyväksyntää ja crate-julkaisua
+
+**Osa 2: Lisää Koran Määritystuki**
+
+- [ ] Päivitä Cargo.toml-riippuvuus niin, että `solana-keychain` crate käyttää
+      uusinta versiota (joka sisältää allekirjoittajasi)
+- [ ] Lisää määritysrakenne allekirjoittajasi ympäristömuuttujille
+- [ ] Päivitä `SignerTypeConfig` enum tiedostossa
+      `crates/lib/src/signer/config.rs`
+- [ ] Lisää validointilogiikka allekirjoittajasi määritykselle
+- [ ] Lisää rakennuslogiikka allekirjoittajasi luomiseen määrityksestä
+- [ ] Vie määritysrakenne tiedostossa `crates/lib/src/signer/mod.rs`
+- [ ] (Valinnainen) Lisää testisimulaation rakentaja tiedostoon
+      `crates/lib/src/tests/config_mock.rs`
+- [ ] Päivitä esimerkkimääritysten tiedostot
+- [ ] Päivitä testiskriptit sisällyttämään allekirjoittajasi (katso alta)
+- [ ] Päivitä dokumentaatio sisällyttämään allekirjoittajasi (katso alta)
+- [ ] Lähetä PR Kora-repositorioon
+
+### Lisää allekirjoittajatuki Koraan
+
+Varmista ensin, että allekirjoittajasi on tuettu `solana-keychain`-crate:ssa.
+Jos sitä ei tueta, noudata ohjetta osoitteessa:
+**[https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)**
+
+#### Vaihe 1: Päivitä Cargo.toml
+
+Päivitä Cargo.toml:n riippuvuus siten, että `solana-keychain`-crate käyttää
+uusinta versiota (joka sisältää allekirjoittajasi):
+
+```toml
+[dependencies]
+solana-keychain = { version = "X.Y.Z", default-features = false, features = [
+    "all",
+    "sdk-v3",
+] }
+```
+
+#### Vaihe 2: Määrittele konfiguraatiorakenne
+
+Lisää `crates/lib/src/signer/config.rs`-tiedostoon uusi konfiguraatiorakenne
+allekirjoittajallesi, joka määrittelee tarvittavat ympäristömuuttujat.
+Esimerkiksi:
+
+```rust
+/// YourService signer configuration
+#[derive(Clone, Serialize, Deserialize)]
+pub struct YourServiceSignerConfig {
+    pub api_key_env: String,
+    pub api_secret_env: String,
+    pub wallet_id_env: String,
+}
+```
+
+#### Vaihe 2: Lisää allekirjoittajasi `SignerTypeConfig`-enumiin
+
+Lisää allekirjoittajavarianttisi `SignerTypeConfig`-enumiin
+`crates/lib/src/signer/config.rs`-tiedostossa:
+
+```rust
+/// Signer type-specific configuration
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SignerTypeConfig {
+    // Existing signer variants
+    Memory { #[serde(flatten)] config: MemorySignerConfig },
+    // ... existing variants ...
+
+    // Add your signer here
+    YourService {
+        #[serde(flatten)]
+        config: YourServiceSignerConfig,
+    },
+}
+```
+
+#### Vaihe 3: Lisää rakennuslogiikka
+
+Lisää samaan tiedostoon (`config.rs`) metodi, joka rakentaa allekirjoittajasi
+konfiguraatiosta `SignerConfig`-toteutuksessa:
+
+```rust
+impl SignerConfig {
+    pub async fn build_signer_from_config(config: &SignerConfig) -> Result<Signer, KoraError> {
+        match &config.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config: your_service_config } => {
+                Self::build_your_service_signer(your_service_config, &config.name).await
+            }
+        }
+    }
+
+    // Add this new method
+    async fn build_your_service_signer(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<Signer, KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let api_key = get_env_var_for_signer(&config.api_key_env, signer_name)?;
+        let api_secret = get_env_var_for_signer(&config.api_secret_env, signer_name)?;
+        let wallet_id = get_env_var_for_signer(&config.wallet_id_env, signer_name)?;
+
+        // Call the constructor from solana-keychain crate
+        Signer::from_your_service(api_key, api_secret, wallet_id)
+            .await
+            .map_err(|e| {
+                KoraError::SigningError(format!(
+                    "Failed to create YourService signer '{signer_name}': {}",
+                    sanitize_error!(e)
+                ))
+            })
+    }
+}
+```
+
+**Huomautus**: Metodin nimen `Signer::from_your_service()` tulisi vastata sitä,
+minkä toteutit `solana-keychain`-cratessa.
+
+#### Vaihe 4: Lisää validointilogiikka
+
+Lisää validointi allekirjoittajasi konfiguraatiolle
+`validate_individual_signer_config`-metodissa:
+
+```rust
+impl SignerConfig {
+    pub fn validate_individual_signer_config(&self, index: usize) -> Result<(), KoraError> {
+        // ... existing validation
+
+        match &self.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config } => {
+                Self::validate_your_service_config(config, &self.name)
+            }
+        }
+    }
+
+    // Add this new validation method
+    fn validate_your_service_config(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<(), KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let env_vars = [
+            ("api_key_env", &config.api_key_env),
+            ("api_secret_env", &config.api_secret_env),
+            ("wallet_id_env", &config.wallet_id_env),
+        ];
+
+        for (field_name, env_var) in env_vars {
+            if env_var.is_empty() {
+                return Err(KoraError::ValidationError(format!(
+                    "YourService signer '{signer_name}' must specify non-empty {field_name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+#### Vaihe 5: Vie konfiguraatiosi
+
+Lisää uusi config-rakenteesi moduulin vienteihin
+`crates/lib/src/signer/mod.rs`-tiedostossa (tai tiedoston alussa, jos se on
+julkinen):
+
+```rust
+pub use config::{
+    MemorySignerConfig,
+    PrivySignerConfig,
+    SignerTypeConfig,
+    TurnkeySignerConfig,
+    VaultSignerConfig,
+    YourServiceSignerConfig,  // Add this
+    // ... other exports
+};
+```
+
+## Integraation testaaminen
+
+### Lisää testimock-rakentaja
+
+Testauksen helpottamiseksi lisää rakentajametodi
+`SignerPoolConfigBuilder`-rakenteeseen
+`crates/lib/src/tests/config_mock.rs`-tiedostossa:
+
+```rust
+impl SignerPoolConfigBuilder {
+    // ... existing methods
+
+    pub fn with_your_service_signer(
+        mut self,
+        name: String,
+        api_key_env: String,
+        api_secret_env: String,
+        wallet_id_env: String,
+        weight: Option<u32>,
+    ) -> Self {
+        let signer = SignerConfig {
+            name,
+            weight,
+            config: SignerTypeConfig::YourService {
+                config: YourServiceSignerConfig {
+                    api_key_env,
+                    api_secret_env,
+                    wallet_id_env,
+                },
+            },
+        };
+        self.config.signers.push(signer);
+        self
+    }
+}
+```
+
+Tämä mahdollistaa muiden testien luoda helposti mock-konfiguraatioita, jotka
+sisältävät allekirjoittajasi:
+
+```rust
+use crate::tests::config_mock::SignerPoolConfigBuilder;
+
+let config = SignerPoolConfigBuilder::new()
+    .with_your_service_signer(
+        "yourservice_test".to_string(),
+        "YOUR_SERVICE_API_KEY".to_string(),
+        "YOUR_SERVICE_API_SECRET".to_string(),
+        "YOUR_SERVICE_WALLET_ID".to_string(),
+        Some(1)
+    )
+    .build();
+```
+
+### Ympäristömuuttujat
+
+Lisää esimerkin ympäristömuuttujat seuraaviin tiedostoihin:
+
+- `.env.example` (projektin juuressa)
+- `.env` (projektin juuressa, paikallista testausta varten)
+- `./sdks/ts/.env.example`
+- `./sdks/ts/.env`
+
+```bash
+# YourService Signer Configuration
+YOUR_SERVICE_API_KEY=your_api_key_here
+YOUR_SERVICE_API_SECRET=your_api_secret_here
+YOUR_SERVICE_WALLET_ID=your_wallet_id_here
+```
+
+### Integraatiotestit
+
+Kora käyttää yhtenäistä testiajuria (`tests/src/bin/test_runner.rs`), joka
+hallinnoi kaikkia integraatiotestauksen vaiheita, mukaan lukien
+TypeScript-testit. Lisätäksesi testit uudelle allekirjoittajallesi:
+
+#### 1. Lisää testikonfiguraatio
+
+Luo uusi allekirjoittajan konfiguraatiotiedosto palveluasi varten kohteeseen
+`tests/src/common/fixtures/`:
+
+```toml
+# tests/src/common/fixtures/signers-your-service.toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "yourservice_main"
+type = "your_service"
+api_key_env = "YOUR_SERVICE_API_KEY"
+api_secret_env = "YOUR_SERVICE_API_SECRET"
+wallet_id_env = "YOUR_SERVICE_WALLET_ID"
+```
+
+#### 2. Lisää testivaihe testiajuriin
+
+Päivitä `tests/src/test_runner/test_cases.toml` sisältämään testivaihe
+allekirjoittajallesi:
+
+```toml
+[test.your_service]
+name = "YourService Signer Tests"
+config = "tests/src/common/fixtures/kora-test.toml"
+signers = "tests/src/common/fixtures/signers-your-service.toml"
+port = "8090"  # Use a unique port
+tests = ["your_service"]
+```
+
+#### 3. Testien suorittaminen
+
+Varmista, että ympäristösi on määritetty:
+
+```bash
+# Install binaries and dependencies
+just install
+just install-ts-sdk
+just build-ts-sdk
+
+# Set environment variables for your service
+export YOUR_SERVICE_API_KEY="your_key"
+export YOUR_SERVICE_API_SECRET="your_secret"
+export YOUR_SERVICE_WALLET_ID="your_wallet"
+```
+
+Suorita testit yhtenäisellä testiajurilla:
+
+```bash
+# Run all integration tests (includes your new signer phase)
+just test-integration
+
+# Run tests with verbose output
+just test-integration-verbose
+
+# Run specific test phase with filter
+cargo run -p tests --bin test_runner -- --phases your_service
+```
+
+## Dokumentointivaatimukset
+
+Sisällytä PR:ääsi lähetettäessä:
+
+### 1. Päivitä allekirjoittajien opas
+
+Lisää allekirjoittajan dokumentaatio noudattaen
+[`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)-opasta,
+selittäen esivalmistelut, asennuksen ja käytön.
+
+````markdown
+## YourService Signer
+
+[YourService](https://yourservice.com) provides [brief description of your
+service].
+
+### Prerequisites
+
+- YourService account
+- API credentials
+- Funded wallet
+
+### Setup
+
+1. Get your API credentials from [dashboard link]
+2. Create a wallet...
+3. Configure environment variables:
+
+\```
+
+bash YOUR_SERVICE_API_KEY="your_api_key"
+YOUR_SERVICE_API_SECRET="your_api_secret"
+YOUR_SERVICE_WALLET_ID="your_wallet_id" \
+
+````
+
+### Configure signers.toml
+
+\```
+
+toml [signer_pool] strategy = "round_robin"
+
+[[signers]] name = "yourservice_main" type = "your_service" api_key_env =
+"YOUR_SERVICE_API_KEY" api_secret_env = "YOUR_SERVICE_API_SECRET" wallet_id_env
+= "YOUR_SERVICE_WALLET_ID" weight = 1 \
+
+````
+
+### Run Kora with YourService Signer
+
+\```
+
+bash kora rpc start --signers-config signers.toml \
+
+```
+
+```
+
+`
+
+### 2. Päivitä README
+
+Lisää palvelusi pääREADME:n allekirjoittajaluetteloon.
+
+## Lähetystarkistuslista
+
+- [ ] Allekirjoittajasi on tuettu `solana-keychain`-cratessa
+- [ ] Päivitetty `solana-keychain`-riippuvuus Cargo.toml-tiedostossa uusimpaan
+      versioon
+- [ ] Lisätty konfiguraatiorakenne allekirjoittajallesi
+- [ ] Lisätty `SignerTypeConfig`-variantti
+- [ ] Lisätty rakennuslogiikka `build_signer_from_config`-tiedostoon
+- [ ] Lisätty validointilogiikka `validate_individual_signer_config`-tiedostoon
+- [ ] Viety konfiguraatiorakenne `mod.rs`-tiedostossa
+- [ ] (Valinnainen) Lisätty testimock-rakentajametodi
+      `config_mock.rs`-tiedostoon
+- [ ] Koodi kääntyy ilman varoituksia
+- [ ] Kaikki testit läpäisevät (`make test` ja `make test-integration`)
+- [ ] Dokumentaatio lisätty seuraten
+      [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)-ohjetta
+- [ ] Esimerkkikonfiguraatiotiedostot luotu (`.toml` ja `.env.example`)
+- [ ] Ei kovakoodattuja arvoja tai salaisuuksia
+- [ ] Virheilmoitukset ovat hyödyllisiä
+- [ ] Noudattaa Rustin nimeämiskäytäntöjä (snake_case)
+- [ ] Linting läpäisee (`make lint`)
+- [ ] Ota yhteyttä Kora-tiimiin API-avaimilla integrointitestausta varten
+
+## Avun saaminen
+
+- **Allekirjoittajan toteutukseen**: Avaa issue
+  [`solana-keychain`](https://github.com/solana-foundation/solana-keychain)-repositoriossa
+- **Kora-integrointiin**: Avaa issue Kora-repositoriossa suunnittelukeskusteluja
+  varten
+- Liity yhteisökanaveillemme
+- Tutustu olemassa oleviin allekirjoittajakonfiguraatioihin
+  [`crates/lib/src/signer/config.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/signer/config.rs)-tiedostossa
+
+## Esimerkki PR-rakenteesta
+
+**Kora-repositoriolle:**
+
+```
+feat(signer): add YourService signer configuration support
+
+- Add YourServiceSignerConfig struct
+- Add YourService variant to SignerTypeConfig enum
+- Add build and validation logic for YourService
+- Add example configuration files
+- Add documentation to SIGNERS.md
+- Add integration tests
+```
+
+Tervetuloa Kora-ekosysteemiin! Olemme innoissamme, että
+avaintenhallintaluotoksesi on osa alustaa.
+````

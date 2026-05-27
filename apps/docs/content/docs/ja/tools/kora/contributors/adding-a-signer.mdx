@@ -1,0 +1,428 @@
+---
+title: Koraへの新しい署名者の追加
+description: このガイドは、鍵管理ソリューションをKoraに統合したいウォレットサービスプロバイダー向けです。Koraに署名者を追加することで、ノードオペレーターが安全なトランザクション署名にあなたのサービスを使用できるようになります。
+---
+
+## アーキテクチャ概要
+
+Koraは、すべての署名操作に外部の
+[`solana-keychain`](https://github.com/solana-foundation/solana-keychain)
+クレートを使用しています。このアーキテクチャは、Solanaトランザクションに署名するための統一された署名インターフェースを提供します。Koraに新しい署名者を追加するには、以下を行う必要があります：
+
+1. **最初に**：`solana-keychain` クレートに署名者の実装を追加
+2. **次に**：Koraで署名者の設定サポートを追加
+
+## ステップバイステップ統合ガイド
+
+### クイック統合チェックリスト
+
+**パート1：`solana-keychain` クレートへの署名者の追加**
+
+- [ ] [solana-keychain統合ガイド](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)に従って署名者を実装
+- [ ] PRの承認とクレートの公開を待機
+
+**パート2：Kora設定サポートの追加**
+
+- [ ] Cargo.tomlの依存関係を更新し、`solana-keychain`
+      クレートが最新バージョン（あなたの署名者を含む）を使用するようにする
+- [ ] 署名者の環境変数用の設定構造体を追加
+- [ ] `crates/lib/src/signer/config.rs` 内の `SignerTypeConfig` 列挙型を更新
+- [ ] 署名者の設定の検証ロジックを追加
+- [ ] 設定から署名者を構築するビルドロジックを追加
+- [ ] `crates/lib/src/signer/mod.rs` で設定構造体をエクスポート
+- [ ] （オプション）`crates/lib/src/tests/config_mock.rs`
+      にテストモックビルダーを追加
+- [ ] サンプル設定ファイルを更新
+- [ ] 署名者を含めるようにテストスクリプトを更新（下記参照）
+- [ ] 署名者を含めるようにドキュメントを更新（下記参照）
+- [ ] KoraリポジトリにPRを提出
+
+### Koraでの署名者サポートの追加
+
+まず、お使いの署名者が`solana-keychain`クレートでサポートされていることを確認してください。サポートされていない場合は、以下のガイドに従ってください：
+**[https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)**
+
+#### ステップ1：Cargo.tomlの更新
+
+Cargo.tomlの依存関係を更新し、`solana-keychain`クレートが最新バージョン（お使いの署名者を含むもの）を使用するようにします：
+
+```toml
+[dependencies]
+solana-keychain = { version = "X.Y.Z", default-features = false, features = [
+    "all",
+    "sdk-v3",
+] }
+```
+
+#### ステップ2：設定構造体の定義
+
+`crates/lib/src/signer/config.rs`に、必要な環境変数を定義する新しい署名者用の設定構造体を追加します。例えば：
+
+```rust
+/// YourService signer configuration
+#[derive(Clone, Serialize, Deserialize)]
+pub struct YourServiceSignerConfig {
+    pub api_key_env: String,
+    pub api_secret_env: String,
+    pub wallet_id_env: String,
+}
+```
+
+#### ステップ2：`SignerTypeConfig`列挙型への署名者の追加
+
+`crates/lib/src/signer/config.rs`の`SignerTypeConfig`列挙型に署名者のバリアントを追加します：
+
+```rust
+/// Signer type-specific configuration
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SignerTypeConfig {
+    // Existing signer variants
+    Memory { #[serde(flatten)] config: MemorySignerConfig },
+    // ... existing variants ...
+
+    // Add your signer here
+    YourService {
+        #[serde(flatten)]
+        config: YourServiceSignerConfig,
+    },
+}
+```
+
+#### ステップ3：ビルドロジックの追加
+
+同じファイル（`config.rs`）で、`SignerConfig`実装内に設定から署名者をビルドするメソッドを追加します：
+
+```rust
+impl SignerConfig {
+    pub async fn build_signer_from_config(config: &SignerConfig) -> Result<Signer, KoraError> {
+        match &config.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config: your_service_config } => {
+                Self::build_your_service_signer(your_service_config, &config.name).await
+            }
+        }
+    }
+
+    // Add this new method
+    async fn build_your_service_signer(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<Signer, KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let api_key = get_env_var_for_signer(&config.api_key_env, signer_name)?;
+        let api_secret = get_env_var_for_signer(&config.api_secret_env, signer_name)?;
+        let wallet_id = get_env_var_for_signer(&config.wallet_id_env, signer_name)?;
+
+        // Call the constructor from solana-keychain crate
+        Signer::from_your_service(api_key, api_secret, wallet_id)
+            .await
+            .map_err(|e| {
+                KoraError::SigningError(format!(
+                    "Failed to create YourService signer '{signer_name}': {}",
+                    sanitize_error!(e)
+                ))
+            })
+    }
+}
+```
+
+**注意**：メソッド名`Signer::from_your_service()`は、`solana-keychain`クレートで実装したものと一致する必要があります。
+
+#### ステップ4：検証ロジックの追加
+
+`validate_individual_signer_config`メソッドに署名者の設定に対する検証を追加します：
+
+```rust
+impl SignerConfig {
+    pub fn validate_individual_signer_config(&self, index: usize) -> Result<(), KoraError> {
+        // ... existing validation
+
+        match &self.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config } => {
+                Self::validate_your_service_config(config, &self.name)
+            }
+        }
+    }
+
+    // Add this new validation method
+    fn validate_your_service_config(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<(), KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let env_vars = [
+            ("api_key_env", &config.api_key_env),
+            ("api_secret_env", &config.api_secret_env),
+            ("wallet_id_env", &config.wallet_id_env),
+        ];
+
+        for (field_name, env_var) in env_vars {
+            if env_var.is_empty() {
+                return Err(KoraError::ValidationError(format!(
+                    "YourService signer '{signer_name}' must specify non-empty {field_name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+#### ステップ5：設定のエクスポート
+
+`crates/lib/src/signer/mod.rs`（またはファイルの先頭で公開している場合）のモジュールエクスポートに新しい設定構造体を追加します：
+
+```rust
+pub use config::{
+    MemorySignerConfig,
+    PrivySignerConfig,
+    SignerTypeConfig,
+    TurnkeySignerConfig,
+    VaultSignerConfig,
+    YourServiceSignerConfig,  // Add this
+    // ... other exports
+};
+```
+
+## 統合のテスト
+
+### テストモックビルダーの追加
+
+テストを容易にするために、`crates/lib/src/tests/config_mock.rs`の`SignerPoolConfigBuilder`にビルダーメソッドを追加します：
+
+```rust
+impl SignerPoolConfigBuilder {
+    // ... existing methods
+
+    pub fn with_your_service_signer(
+        mut self,
+        name: String,
+        api_key_env: String,
+        api_secret_env: String,
+        wallet_id_env: String,
+        weight: Option<u32>,
+    ) -> Self {
+        let signer = SignerConfig {
+            name,
+            weight,
+            config: SignerTypeConfig::YourService {
+                config: YourServiceSignerConfig {
+                    api_key_env,
+                    api_secret_env,
+                    wallet_id_env,
+                },
+            },
+        };
+        self.config.signers.push(signer);
+        self
+    }
+}
+```
+
+これにより、他のテストでは、あなたの署名者を含むモック設定を簡単に作成できます:
+
+```rust
+use crate::tests::config_mock::SignerPoolConfigBuilder;
+
+let config = SignerPoolConfigBuilder::new()
+    .with_your_service_signer(
+        "yourservice_test".to_string(),
+        "YOUR_SERVICE_API_KEY".to_string(),
+        "YOUR_SERVICE_API_SECRET".to_string(),
+        "YOUR_SERVICE_WALLET_ID".to_string(),
+        Some(1)
+    )
+    .build();
+```
+
+### 環境変数
+
+以下のファイルにサンプル環境変数を追加してください:
+
+- `.env.example`(プロジェクトのルート)
+- `.env`(プロジェクトのルート、ローカルテスト用)
+- `./sdks/ts/.env.example`
+- `./sdks/ts/.env`
+
+```bash
+# YourService Signer Configuration
+YOUR_SERVICE_API_KEY=your_api_key_here
+YOUR_SERVICE_API_SECRET=your_api_secret_here
+YOUR_SERVICE_WALLET_ID=your_wallet_id_here
+```
+
+### 統合テスト
+
+Koraは、TypeScriptテストを含むすべての統合テストフェーズを管理する統一テストランナー(`tests/src/bin/test_runner.rs`)を使用しています。新しい署名者のテストを追加するには:
+
+#### 1. テスト設定の追加
+
+サービス用の新しい署名者設定ファイルを`tests/src/common/fixtures/`に作成します:
+
+```toml
+# tests/src/common/fixtures/signers-your-service.toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "yourservice_main"
+type = "your_service"
+api_key_env = "YOUR_SERVICE_API_KEY"
+api_secret_env = "YOUR_SERVICE_API_SECRET"
+wallet_id_env = "YOUR_SERVICE_WALLET_ID"
+```
+
+#### 2. テストランナーへのテストフェーズの追加
+
+`tests/src/test_runner/test_cases.toml`を更新して、署名者のテストフェーズを含めます:
+
+```toml
+[test.your_service]
+name = "YourService Signer Tests"
+config = "tests/src/common/fixtures/kora-test.toml"
+signers = "tests/src/common/fixtures/signers-your-service.toml"
+port = "8090"  # Use a unique port
+tests = ["your_service"]
+```
+
+#### 3. テストの実行
+
+環境が設定されていることを確認してください:
+
+```bash
+# Install binaries and dependencies
+just install
+just install-ts-sdk
+just build-ts-sdk
+
+# Set environment variables for your service
+export YOUR_SERVICE_API_KEY="your_key"
+export YOUR_SERVICE_API_SECRET="your_secret"
+export YOUR_SERVICE_WALLET_ID="your_wallet"
+```
+
+統一テストランナーを使用してテストを実行します:
+
+```bash
+# Run all integration tests (includes your new signer phase)
+just test-integration
+
+# Run tests with verbose output
+just test-integration-verbose
+
+# Run specific test phase with filter
+cargo run -p tests --bin test_runner -- --phases your_service
+```
+
+## ドキュメント要件
+
+PRを提出する際には、以下を含めてください:
+
+### 1. 署名者ガイドの更新
+
+[`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+ガイドに従って、前提条件、セットアップ、使用方法を説明する署名者ドキュメントを追加してください。
+
+````markdown
+## YourService Signer
+
+[YourService](https://yourservice.com) provides [brief description of your
+service].
+
+### Prerequisites
+
+- YourService account
+- API credentials
+- Funded wallet
+
+### Setup
+
+1. Get your API credentials from [dashboard link]
+2. Create a wallet...
+3. Configure environment variables:
+
+\```
+
+bash YOUR_SERVICE_API_KEY="your_api_key"
+YOUR_SERVICE_API_SECRET="your_api_secret"
+YOUR_SERVICE_WALLET_ID="your_wallet_id" \
+
+````
+
+### Configure signers.toml
+
+\```
+
+toml [signer_pool] strategy = "round_robin"
+
+[[signers]] name = "yourservice_main" type = "your_service" api_key_env =
+"YOUR_SERVICE_API_KEY" api_secret_env = "YOUR_SERVICE_API_SECRET" wallet_id_env
+= "YOUR_SERVICE_WALLET_ID" weight = 1 \
+
+````
+
+### Run Kora with YourService Signer
+
+\```
+
+bash kora rpc start --signers-config signers.toml \
+
+```
+
+```
+
+`
+
+### 2. READMEを更新する
+
+メインREADMEの署名者リストにあなたのサービスを追加してください。
+
+## 提出チェックリスト
+
+- [ ] あなたの署名者が`solana-keychain`クレートでサポートされている
+- [ ] Cargo.tomlの`solana-keychain`依存関係を最新バージョンに更新済み
+- [ ] あなたの署名者用の設定構造体を追加済み
+- [ ] `SignerTypeConfig`バリアントを追加済み
+- [ ] `build_signer_from_config`にビルドロジックを追加済み
+- [ ] `validate_individual_signer_config`に検証ロジックを追加済み
+- [ ] `mod.rs`で設定構造体をエクスポート済み
+- [ ] (オプション) `config_mock.rs`にテストモックビルダーメソッドを追加済み
+- [ ] コードが警告なしでコンパイルされる
+- [ ] すべてのテストが合格する (INLINE_CODE_PLACEHOLDER_000751137d689b8bとINLINE_CODE_PLACEHOLDER_aa3f9f1e6532101a)
+- [ ] [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)に従ってドキュメントを追加済み
+- [ ] サンプル設定ファイルを作成済み (INLINE_CODE_PLACEHOLDER_f1f5ea8348e5bcbdとINLINE_CODE_PLACEHOLDER_aedcc3aa72156671)
+- [ ] ハードコードされた値やシークレットがない
+- [ ] エラーメッセージが分かりやすい
+- [ ] Rustの命名規則に従っている (snake_case)
+- [ ] リンティングが合格する (INLINE_CODE_PLACEHOLDER_ab6df9606e0334b9)
+- [ ] 統合テストのためにAPIキーをKoraチームに連絡済み
+
+## サポートを受ける
+
+- **署名者の実装について**:
+  [`solana-keychain`](https://github.com/solana-foundation/solana-keychain)リポジトリでissueを作成してください
+- **Kora統合について**: 設計に関する議論のためにKoraリポジトリでissueを作成してください
+- コミュニティチャンネルにご参加ください
+- [`crates/lib/src/signer/config.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/signer/config.rs)で既存の署名者設定をご確認ください
+
+## PRの構成例
+
+**Koraリポジトリ用:**
+
+```
+feat(signer): add YourService signer configuration support
+
+- Add YourServiceSignerConfig struct
+- Add YourService variant to SignerTypeConfig enum
+- Add build and validation logic for YourService
+- Add example configuration files
+- Add documentation to SIGNERS.md
+- Add integration tests
+```
+
+Koraエコシステムへようこそ!あなたの鍵管理ソリューションがプラットフォームの一部となることを嬉しく思います。
+````

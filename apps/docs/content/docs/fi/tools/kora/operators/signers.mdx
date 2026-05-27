@@ -1,0 +1,513 @@
+---
+title: Allekirjoittajat
+description: Määritä ja hallitse Kora-allekirjoittajia
+---
+
+_Viimeksi päivitetty: 2025-08-22_
+
+## Mikä on allekirjoittaja?
+
+**Allekirjoittaja** on kryptografinen keypair, jota Kora-solmusi käyttää
+Solana-transaktioiden allekirjoittamiseen maksajana. Kun käyttäjät lähettävät
+transaktioita Kora-solmullesi, se validoi ne ja allekirjoittaa ne
+allekirjoittajasi yksityisellä avaimella kattaakseen SOL-transaktiomaksut.
+
+**Huomautus**: Oletuksena token-maksumaksut lähetetään allekirjoittajan
+osoitteeseen. Voit kuitenkin määrittää erillisen `payment_address`:n
+`kora.toml`:ssasi vastaanottaaksesi maksut eri osoitteeseen pitäen
+allekirjoittajasi erillään. Katso lisätietoja
+[Konfiguraatio-oppaasta](/docs/tools/kora/operators/configuration).
+
+Allekirjoittaja-keypairilläsi on suora pääsy SOL-varoihisi, joita käytetään
+transaktiomaksujen maksamiseen. Jos se vaarantuu, hyökkääjä voisi:
+
+- Tyhjentää SOL-saldosi
+- Allekirjoittaa luvattomia transaktioita
+- Häiritä paymaster-palveluasi
+
+## Allekirjoittajan konfiguraatio
+
+Kora RPC CLI vaatii `signer.toml`:n, joka määritetään
+`--signers-config`-lipulla. `singer.toml`-tiedoston avulla voit konfiguroida
+solmusi allekirjoittajat ja allekirjoittaja-asetukset. `signer.toml`:ssä on
+kaksi osiota:
+
+1. `[signer_pool]` - Allekirjoittajapoolin konfiguraatio
+2. `[[signers]]` - Kunkin allekirjoittajan konfiguraatio (vähintään yksi
+   allekirjoittaja vaaditaan, ellei käytetä `--no-load-signer`-lippua, jolla on
+   rajoitettu toiminnallisuus)
+
+#### `[signer_pool]`
+
+Allekirjoittajapoolin konfiguraatio määrittää koko allekirjoittajapoolille
+ominaiset attribuutit:
+
+- `strategy` - Valintastrategia allekirjoittajien valitsemiseen. Saatavilla
+  olevat strategiat ovat:
+  - `round_robin` (oletus) - Kierrä allekirjoittajia järjestyksessä.
+  - `random` - Valitse allekirjoittajat satunnaisesti.
+  - `weighted` - Valitse allekirjoittajat painotuksen perusteella.
+
+#### `[[signers]]`
+
+Jokainen allekirjoittaja konfiguroidaan seuraavilla:
+
+- `name`: ihmisluettava tunniste allekirjoittajalle, jonka on oltava
+  yksilöllinen allekirjoittajapoolissa
+- valinnainen `weight`: numero, joka määrittää allekirjoittajan painoarvon, jos
+  `strategy` on `weighted`
+- `type` ja tyyppispesifi konfiguraatio (katso
+  [Allekirjoittajatyypit](#signer-types))
+
+Yksi allekirjoittaja vaaditaan, ellei käytetä `--no-load-signer`-lippua, jolla
+on rajoitettu toiminnallisuus. Tuotantokäyttöönotoissa suositellaan useiden
+allekirjoittajien konfigurointia luotettavuuden ja suorituskyvyn parantamiseksi.
+
+### Esimerkki
+
+Tässä on esimerkki `signers.toml`-tiedostosta, joka määrittää
+round-robin-allekirjoittajapoolin kolmella allekirjoittajalla (_huom:
+käsittelemme eri allekirjoittajatyyppejä/-konfiguraatioita seuraavassa
+osiossa_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Ympäristömuuttujat
+
+Aseta ympäristömuuttujat kaikille konfiguroiduille allekirjoittajille:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Käynnistä Kora allekirjoittajakonfiguraatiolla
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Allekirjoittajatyypit
+
+Kora tukee neljää pääasiallista allekirjoittajatyyppiä, joilla kullakin on
+erilaiset turvallisuus- ja toiminnalliset ominaisuudet (sekä ilman
+allekirjoittajaa -vaihtoehto rajoitettuun testaukseen):
+
+- [Yksityinen avain](#private-key-signer) - yksinkertainen, itse hallinnoitu
+- [Turnkey](#turnkey-signer) - avainten hallintapalvelu
+- [Privy](#privy-signer) - avainten hallintapalvelu
+- Vault - HashiCorp Vault -integraatio
+- [Ei allekirjoittajaa](#no-signer) - ei allekirjoittajaa (rajoitettuun
+  testaukseen)
+
+## Yksityisen avaimen allekirjoittaja
+
+Yksinkertaisin lähestymistapa - tallenna yksityinen avaimesi suoraan
+ympäristömuuttujiin tai välitä CLI-lippujen kautta. Kora hyväksyy yksityiset
+avaimet kolmessa muodossa:
+
+#### 1. Base58-muoto (oletus)
+
+Solanan vakio base58-koodattu yksityinen avain:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. U8Array-muoto
+
+64 tavun taulukko JSON-muodossa:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. JSON-tiedostopolku
+
+Polku JSON-tiedostoon, joka sisältää keypair-avaimen:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Missä `keypair.json` sisältää:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Luo uusi avainpari
+
+Voit luoda uuden avainparin Kora-solmulle käyttämällä Solana CLI:tä:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Signer.toml-konfiguraatio
+
+Vaaditut muuttujat:
+
+- `name` - Allekirjoittajan nimi
+- `type` - Allekirjoittajan tyyppi (on oltava `memory`)
+- `private_key_env` - Ympäristömuuttuja, joka sisältää yksityisen avaimen
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey-allekirjoittaja
+
+[Turnkey](https://www.turnkey.com/) tarjoaa yritystason avainhallintaa
+laitteistoturvamoduulien (HSM) ja käytäntöhallinnon avulla.
+
+### Esivalmistelut
+
+Tarvitset **Turnkey-tilin** käyttääksesi Turnkey-allekirjoittajaa. Rekisteröidy
+osoitteessa [turnkey.com](https://www.turnkey.com/)
+
+### Asennus
+
+Tarvitset viisi avainta käyttääksesi Turnkey-allekirjoittajaa:
+
+- Turnkey-organisaatio-ID
+- Turnkey API:n julkinen avain
+- Turnkey API:n yksityinen avain
+- Turnkey-yksityisen avaimen ID
+- Turnkey-julkinen avain
+
+Haetaan ne Turnkeysta:
+
+#### 1. Turnkey-organisaatio
+
+Napsauta käyttäjävalikkoa Turnkey-hallintapaneelin oikeassa yläkulmassa ja
+kopioi organisaatio-ID:
+
+![Turnkey-organisaatio-ID](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Tallenna organisaatio-ID ympäristömuuttujaan:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Turnkey API-avaimet
+
+- Napsauta käyttäjävalikkoa Turnkey-hallintapaneelin oikeassa yläkulmassa ja
+  valitse "Tilin asetukset".
+- Kohdassa "API-avaimet" napsauta "+ Luo API-avain".
+- Valitse "Luo API-avaimet selaimessa"
+- Anna API-avaimelle nimi ja napsauta "Jatka"
+- Tallenna julkinen ja yksityinen avain ja napsauta "Hyväksy"
+
+![Turnkey API-avaimet](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Tallenna API:n julkinen ja yksityinen avain ympäristömuuttujiin:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Turnkey-lompakon avaimet
+
+Siirry päävalikosta ["Wallets"](https://app.turnkey.com/dashboard/wallets)
+-kohtaan ja klikkaa "Create Private Key".
+
+Luodaan uusi ED25519-yksityisavain, jonka osoitetyyppi on "Solana":
+
+![Turnkey Wallets](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Klikkaa "Continue" ja sitten "Approve".
+
+Lompakkosivultasi pitäisi näkyä uusi yksityisavaimesi. Klikkaa sitä nähdäksesi
+tarkemmat tiedot. Sinun tulee kopioida "Private key ID" ja lompakon "Address".
+Tallenna ne ympäristömuuttujiin:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey Wallet Details](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Sinun tulee rahoittaa lompakko SOL-tokeneilla transaktiokulujen maksamiseksi.
+
+### Ympäristömuuttujien määrittäminen
+
+Sinulla pitäisi nyt olla seuraavat ympäristömuuttujat:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Katso täydellinen `.env.example`-tiedosto
+[Kora-repositoriosta](https://github.com/solana-foundation/kora).
+
+Turnkey-tukea varten katso
+[Turnkey-dokumentaatio](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Signer.toml-määritykset
+
+Vaaditut muuttujat:
+
+- `name` - Allekirjoittajan nimi
+- `type` - Allekirjoittajan tyyppi (täytyy olla `turnkey`)
+- `api_public_key_env` - Ympäristömuuttuja, joka sisältää Turnkey API:n julkisen
+  avaimen
+- `api_private_key_env` - Ympäristömuuttuja, joka sisältää Turnkey API:n
+  yksityisen avaimen
+- `organization_id_env` - Ympäristömuuttuja, joka sisältää Turnkey-
+  organisaatio-ID:n
+- `private_key_id_env` - Ympäristömuuttuja, joka sisältää Turnkey-yksityisen
+  avaimen ID:n
+- `public_key_env` - Ympäristömuuttuja, joka sisältää Turnkey-julkisen avaimen
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Privy-allekirjoittaja
+
+[Privy](https://www.privy.io/) tarjoaa sulautetun lompakkoinfrastruktuurin ja
+turvallisen avaintenhallinnan Web3-sovelluksille.
+
+### Edellytykset
+
+Tarvitset **Privy-tilin** käyttääksesi Privy-allekirjoittajaa. Rekisteröidy
+osoitteessa [privy.io](https://www.privy.io/)
+
+### Asennus
+
+Tarvitset kolme avainta käyttääksesi Privy-allekirjoittajaa:
+
+- Privy-sovelluksen tunnus
+- Privy-sovelluksen salaisuus
+- Privy-lompakon tunnus
+
+Haetaan ne Privystä:
+
+#### 1. Privy-sovelluksen tunnus
+
+Valitse hallintapaneelista sovellus, jota haluat käyttää Korassa (tai napsauta
+"+ Uusi sovellus", jos sinulla ei ole sitä).
+
+Valitse "Hae API-avaimet" ja napsauta "+ Uusi salaisuus":
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Kopioi "Sovelluksen tunnus" ja "Sovelluksen salaisuus" ja tallenna ne
+ympäristömuuttujiin:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy-lompakko
+
+Seuraavaksi meidän on luotava uusi lompakko Koralle. Napsauta hallintapaneelin
+sivupalkista "Lompakot" kohdassa "Lompakon infrastruktuuri" ja valitse "Uusi
+lompakko".
+
+Valitse lohkoketjuksi "Solana" ja napsauta "Tallenna".
+
+Napsauta lompakkoa nähdäksesi tiedot:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Kopioi "Lompakon tunnus" ja tallenna se ympäristömuuttujiin:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Sinun on rahoitettava lompakko SOL-tokeneilla transaktiomaksujen maksamiseksi.
+
+### Ympäristömuuttujien määrittäminen
+
+Sinulla pitäisi nyt olla seuraavat ympäristömuuttujat:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Katso täydellinen `.env.example`-tiedosto
+[Koran repositoriosta](https://github.com/solana-foundation/kora).
+
+Privy-tukea varten katso
+[Privyn dokumentaatio](https://docs.privy.io/wallets/overview).
+
+### Signer.toml-määritykset
+
+Pakolliset muuttujat:
+
+- `name` - Allekirjoittajan nimi
+- `type` - Allekirjoittajan tyyppi (on oltava `privy`)
+- `app_id_env` - Ympäristömuuttuja, joka sisältää Privy-sovelluksen tunnuksen
+- `app_secret_env` - Ympäristömuuttuja, joka sisältää Privy-sovelluksen
+  salaisuuden
+- `wallet_id_env` - Ympäristömuuttuja, joka sisältää Privy-lompakon tunnuksen
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Ei allekirjoittajaa
+
+Jos allekirjoittajaa ei ole määritetty, Kora heittää virheen. Jos haluat ajaa
+Koraa ilman allekirjoittajaa, voit ajaa sen `--no-signer` -lipulla:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Huomaa, että tämä rajoittaa solmuasi käsittelemään vain pyyntöjä, jotka eivät
+vaadi allekirjoittajaa.
+
+## Vianmääritys
+
+### Pikaviite
+
+| Virheviesti                                                       | Allekirjoittajatyyppi | Pikakorjaus                                                                        |
+| ----------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Mikä tahansa          | Lisää vähintään yksi allekirjoittaja konfiguraatioon                               |
+| "Failed to read config file"                                      | Mikä tahansa          | Tarkista tiedostopolku ja sisältö                                                  |
+| "Failed to parse signers config TOML"                             | Mikä tahansa          | Tarkista tiedostomuoto ja allekirjoittajien sisältö                                |
+| "Duplicate signer name"                                           | Mikä tahansa          | Varmista, että jokaisella allekirjoittajalla on yksilöllinen nimi konfiguraatiossa |
+| "Invalid base58 string"                                           | Yksityinen avain      | Tarkista avaimen muoto, ei ylimääräisiä välilyöntejä                               |
+| "Invalid private key length"                                      | Yksityinen avain      | Käytä täydellistä 64-tavuista Solana-avainta                                       |
+| "Turnkey \{key\} required"                                        | Turnkey               | Aseta `TURNKEY_{key}`                                                              |
+| "Privy \{key\} required"                                          | Privy                 | Aseta `PRIVY_{key}`                                                                |
+| "Vault \{key\} required"                                          | Vault                 | Aseta `VAULT_{key}`                                                                |
+| "Failed to create Vault client"                                   | Vault                 | Vahvista Vault-tunnistetiedot                                                      |
+| "Failed to sign with \[service\]"                                 | Mikä tahansa          | Tarkista palvelun tila, tunnistetiedot ja nopeusrajoitukset                        |
+| "Signer pool not initialized"                                     | Moni-allekirjoittaja  | Tarkista `signers.toml`-polku ja muoto                                             |
+| "Cannot create empty signer pool"                                 | Moni-allekirjoittaja  | Lisää vähintään yksi allekirjoittaja konfiguraatioon                               |
+| "Signer with pubkey ... not found"                                | Moni-allekirjoittaja  | Tarkista, että allekirjoittajavihje vastaa määritettyjä allekirjoittajia           |
+| "Signers configuration is required unless using --no-load-signer" | Mikä tahansa          | Lisää allekirjoittajien konfiguraatiotiedosto                                      |
+
+### Yleiset vianmääritysvinkit
+
+#### Ota käyttöön yksityiskohtainen lokitus
+
+Lisää yksityiskohtainen lokitus ongelmien diagnosointiin:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Tietoturva ja parhaat käytännöt
+
+### Yleinen tietoturva
+
+- Käytä Koralle omistettuja keypair-avainpareja (älä käytä uudelleen
+  henkilökohtaisia lompakoita)
+- Rahoita vain sellaisella SOL:lla, jonka olet valmis käyttämään maksuihin
+- Pidyllä minimaalinen toiminnallinen saldo automaattisella seurannalla ja
+  täydennykillä
+- Ota käyttöön seuranta ja hälytykset epätavallista toimintaa varten
+- Kaikki yksityiset avaimet ja API-avaimet tulee tallentaa ympäristömuuttujiin
+  tai salaisuuksien hallintajärjestelmiin (Railway secrets, AWS Secrets Manager
+  jne.)
+
+## Allekirjoittajan määrittäminen (asiakaspuoli)
+
+Asiakkaat voivat määrittää ensisijaisen allekirjoittajan yhtenäisyyden
+takaamiseksi toisiinsa liittyvissä operaatioissa:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Ilman allekirjoittaja-avaimia määritetty strategia määrittää allekirjoittajan
+valinnan. On tärkeää huomata, että avainten on oltava yhtenäisiä samaan
+transaktioon liittyvien kutsujen välillä (esim. jos luot transaktion
+määritetyllä allekirjoittaja-avaimella, sinun on käytettävä samaa
+allekirjoittaja-avainta kaikissa liittyvissä kutsuissa).
