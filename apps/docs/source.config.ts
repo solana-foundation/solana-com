@@ -15,12 +15,15 @@ const schema = z.custom<{
   seoTitle?: string;
   description?: string;
   hideTableOfContents?: boolean;
+  hidePageNavigation?: boolean;
   full?: boolean;
   author?: string;
   tags?: string[];
   date?: string;
   difficulty?: string;
   index?: boolean;
+  featured?: boolean;
+  href?: string;
 }>();
 
 const docsData = defineDocs({

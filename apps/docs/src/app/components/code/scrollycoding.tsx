@@ -21,11 +21,15 @@ const Schema = Block.extend({
   ),
 });
 
-type Steps = z.infer<typeof Schema>["steps"];
+type Step = {
+  title?: string;
+  children?: React.ReactNode;
+  code: RawCode[];
+};
+type Steps = Step[];
 
-export function ScrollyCoding(props: unknown) {
-  // @ts-expect-error props are not typed
-  const { steps } = parseProps(props, Schema);
+export function ScrollyCoding(props: { steps: unknown[] }) {
+  const { steps } = parseProps(props, Schema) as { steps: Steps };
   return (
     <div>
       <OneColumnLayout steps={steps} className="lg:hidden" />
@@ -38,7 +42,7 @@ function OneColumnLayout(props: { steps: Steps; className?: string }) {
   const { steps, className } = props;
   return (
     <div className={className}>
-      {steps.map((step, i) => (
+      {steps.map((step: Steps[number], i: number) => (
         <OneColumnStep key={i} step={step} />
       ))}
     </div>
@@ -50,7 +54,7 @@ function OneColumnStep(props: { step: Steps[number] }) {
   const codeblocks = {} as Record<string, React.ReactNode>;
   step.code.forEach((code) => {
     const { title } = extractFlags(code);
-    codeblocks[title] = <Code codeblocks={[code]} />;
+    codeblocks[title ?? ""] = <Code codeblocks={[code]} />;
   });
   return (
     <CodePlaceholderProvider codeblocks={codeblocks}>
@@ -123,8 +127,9 @@ function getStickers(steps: Steps) {
 
     step.code.forEach((code, i) => {
       const { title } = extractFlags(code);
-      codeMap[title] = code;
-      if (i === 0) selected = title;
+      const key = title ?? "";
+      codeMap[key] = code;
+      if (i === 0) selected = key;
     });
 
     return { codes: codeMap, selected };

@@ -179,9 +179,13 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/[locale]/developers/cookbook/**/*": [
       "../../packages/docs-examples/cookbook/**/*.ts",
+      "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
     "/[locale]/developers/cookbook/[...slug]": [
       "../../packages/docs-examples/cookbook/**/*.ts",
+      "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
   },
 
@@ -189,7 +193,7 @@ const nextConfig: NextConfig = {
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")

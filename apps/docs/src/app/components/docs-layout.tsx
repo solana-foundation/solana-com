@@ -15,7 +15,7 @@ export async function DocsLayout({
   children,
   tree,
   sidebarEnabled = true,
-  locale,
+  locale = "en",
 }: {
   children: ReactNode;
   tree: any; // TODO: fix after updating to fumadocs-ui@15

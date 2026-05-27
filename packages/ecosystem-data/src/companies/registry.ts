@@ -42,6 +42,7 @@ import { listingHelp } from "./records/listing-help";
 import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
+import { meta } from "./records/meta";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
@@ -130,6 +131,7 @@ export const companies = [
   matcha,
   mantle,
   mantleByreal,
+  meta,
   monkeDao,
   morganStanley,
   openmined,

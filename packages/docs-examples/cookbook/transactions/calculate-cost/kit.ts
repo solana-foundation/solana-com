@@ -1,11 +1,9 @@
 // #region cost
 import {
-  airdropFactory,
   appendTransactionMessageInstructions,
   assertIsTransactionWithBlockhashLifetime,
   compileTransactionMessage,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
+  createClient,
   createTransactionMessage,
   estimateComputeUnitLimitFactory,
   generateKeyPairSigner,
@@ -21,36 +19,34 @@ import {
   signTransactionMessageWithSigners,
   type TransactionMessageBytesBase64,
 } from "@solana/kit";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import {
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
 } from "@solana-program/compute-budget";
 import { getAddMemoInstruction } from "@solana-program/memo";
 
-// 1. Setup RPC connections
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// 2. Create utility functions
-const getComputeUnitEstimate = estimateComputeUnitLimitFactory({ rpc });
-const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
-  rpc,
-  rpcSubscriptions,
-});
-const airdrop = airdropFactory({ rpc, rpcSubscriptions });
-
-// 3. Create and fund an account
+// 1. Spin up a client with localhost RPC, fund the payer.
 const signer = await generateKeyPairSigner();
-await airdrop({
-  commitment: "confirmed",
-  lamports: lamports(1_000_000n),
-  recipientAddress: signer.address,
-});
+const client = await createClient()
+  .use(payer(signer))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 console.log("Create and fund account with address", signer.address);
 
-// 4. Create a memo transaction
-console.log("Creating a memo transaction");
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+// 2. Build a memo transaction manually so we can inspect its fee before sending.
+const getComputeUnitEstimate = estimateComputeUnitLimitFactory({
+  rpc: client.rpc,
+});
+
+const { value: latestBlockhash } = await client.rpc.getLatestBlockhash().send();
 const transactionMessage = pipe(
   createTransactionMessage({ version: "legacy" }),
   (m) => setTransactionMessageFeePayerSigner(signer, m),
@@ -65,19 +61,18 @@ const transactionMessage = pipe(
     ),
 );
 
-// 5. Estimate compute units
+// 3. Estimate compute units and add a SetComputeUnitLimit instruction.
 const estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
 console.log(
   `Transaction is estimated to consume ${estimatedComputeUnits} compute units`,
 );
 
-// 6. Add compute unit limit instruction to the transaction
 const budgetedTransactionMessage = prependTransactionMessageInstructions(
   [getSetComputeUnitLimitInstruction({ units: estimatedComputeUnits })],
   transactionMessage,
 );
 
-// 7. Calculate transaction fee
+// 4. Calculate the transaction fee with getFeeForMessage.
 const base64EncodedMessage = pipe(
   budgetedTransactionMessage,
   compileTransactionMessage,
@@ -85,12 +80,14 @@ const base64EncodedMessage = pipe(
   getBase64Decoder().decode,
 ) as TransactionMessageBytesBase64;
 
-const transactionCost = await rpc.getFeeForMessage(base64EncodedMessage).send();
+const transactionCost = await client.rpc
+  .getFeeForMessage(base64EncodedMessage)
+  .send();
 console.log(
   "Transaction is estimated to cost " + transactionCost.value + " lamports",
 );
 
-// 8. Sign and send the transaction
+// 5. Sign and send.
 const signedTx = await signTransactionMessageWithSigners(
   budgetedTransactionMessage,
 );
@@ -98,5 +95,8 @@ assertIsTransactionWithBlockhashLifetime(signedTx);
 const transactionSignature = getSignatureFromTransaction(signedTx);
 console.log("Transaction Signature:", transactionSignature);
 
-await sendAndConfirmTransaction(signedTx, { commitment: "confirmed" });
+await sendAndConfirmTransactionFactory({
+  rpc: client.rpc,
+  rpcSubscriptions: client.rpcSubscriptions,
+})(signedTx, { commitment: "confirmed" });
 // #endregion cost

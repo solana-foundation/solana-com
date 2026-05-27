@@ -415,6 +415,11 @@ export default config({
               description:
                 "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the UUID `formId` value from the embed code (eg: 7aef2b29-c63f-4427-bc18-a8c15fbff49b)",
             }),
+            formUrl: fields.text({
+              label: "Form URL",
+              description:
+                "Optional. Use the HubSpot share URL when the form needs query parameters, such as `bd_vertical=Institutional`.",
+            }),
           },
           { label: "HubSpot Form CTA" },
         ),
