@@ -507,56 +507,25 @@ function PathwayCard({
       link={{ title: pathway.title, href: pathway.href }}
       ariaLabel={`${pathway.title} — ${pathway.cta}`}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-2xl",
-        "border border-white/10 bg-black p-6 md:p-8 text-white no-underline transition-colors",
+        "group relative flex flex-col justify-between rounded-2xl",
+        "border border-white/10 bg-black p-6 md:p-8 text-white no-underline",
         "min-h-[320px] xl:min-h-[380px]",
-        "hover:border-white/25",
+        "transition-colors duration-200 hover:border-white/25",
       )}
     >
-      {pathway.featured && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--hub-accent) 32%, transparent), transparent 55%), radial-gradient(100% 100% at 0% 100%, color-mix(in srgb, var(--hub-accent) 12%, transparent), transparent 55%)",
-            }}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-[2px] pointer-events-none"
-            style={{
-              background:
-                "linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hub-accent) 95%, transparent) 25%, color-mix(in srgb, var(--hub-accent) 95%, transparent) 75%, transparent 100%)",
-            }}
-          />
-        </>
-      )}
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="block size-1.5 rounded-full"
-            style={{ background: "var(--hub-accent)" }}
-          />
-          <span
-            className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em]"
-            style={{ color: "var(--hub-accent)" }}
-          >
-            {pathway.eyebrow}
-          </span>
-        </div>
+      <div className="flex items-start justify-between gap-4">
+        <span className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] text-white/60">
+          {pathway.eyebrow}
+        </span>
         <span
           aria-hidden
-          className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] text-white/40"
+          className="font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] text-white/30"
         >
           {numeric}
         </span>
       </div>
 
-      <div className="relative mt-8 xl:mt-12 flex flex-col">
+      <div className="mt-8 xl:mt-12 flex flex-col">
         <h3 className="font-brand font-medium m-0 text-[24px] md:text-[28px] xl:text-[32px] leading-[1.15] tracking-[-0.72px] md:tracking-[-0.84px] xl:tracking-[-0.96px]">
           {pathway.title}
         </h3>
@@ -565,14 +534,16 @@ function PathwayCard({
         </p>
       </div>
 
-      <div className="relative mt-8">
+      <div className="mt-8">
         {pathway.links && pathway.links.length > 0 && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            {pathway.links.slice(0, 3).map((link) => (
-              <span
-                key={link.href}
-                className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[12px] text-[#ABABBA]"
-              >
+          <div className="mb-6 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-white/50">
+            {pathway.links.slice(0, 3).map((link, i) => (
+              <span key={link.href} className="inline-flex items-center gap-4">
+                {i > 0 && (
+                  <span aria-hidden className="text-white/20">
+                    /
+                  </span>
+                )}
                 {link.title}
               </span>
             ))}
@@ -580,13 +551,11 @@ function PathwayCard({
         )}
         <span className="inline-flex items-center gap-2 text-[15px] md:text-base font-medium">
           {pathway.cta}
-          <span className="inline-flex size-7 items-center justify-center rounded-full border border-white/20 transition-all group-hover:border-white group-hover:bg-white">
-            <ArrowRight
-              aria-hidden
-              className="size-3.5 transition-colors group-hover:text-black"
-              strokeWidth={2}
-            />
-          </span>
+          <ArrowRight
+            aria-hidden
+            className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            strokeWidth={2}
+          />
         </span>
       </div>
     </LinkAnchor>
