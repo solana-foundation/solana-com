@@ -28,7 +28,18 @@ const SOCIAL_LINKS = [
   { name: "GitHub", url: "/github", Icon: GithubIcon, size: 20 },
 ];
 
-const FOOTER_COLUMNS = [
+type FooterLink = {
+  labelKey: string;
+  href: string;
+  preserveHref?: boolean;
+};
+
+type FooterColumnConfig = {
+  headingKey: string;
+  links: FooterLink[];
+};
+
+const FOOTER_COLUMNS: FooterColumnConfig[] = [
   {
     headingKey: "footer.useSolana.heading",
     links: [
@@ -45,6 +56,23 @@ const FOOTER_COLUMNS = [
       { labelKey: "footer.build.docs", href: "/docs" },
       { labelKey: "footer.build.guides", href: "/developers/guides" },
       { labelKey: "footer.build.templates", href: "/developers/templates" },
+    ],
+  },
+  {
+    headingKey: "footer.agents.heading",
+    links: [
+      { labelKey: "footer.agents.llms", href: "/llms.txt", preserveHref: true },
+      {
+        labelKey: "footer.agents.fullDocs",
+        href: "/llms-full.txt",
+        preserveHref: true,
+      },
+      {
+        labelKey: "footer.agents.skill",
+        href: "/SKILL.md",
+        preserveHref: true,
+      },
+      { labelKey: "footer.agents.skills", href: "/skills" },
     ],
   },
   {
@@ -83,16 +111,14 @@ const FOOTER_COLUMNS = [
       { labelKey: "footer.ecosystem.newsletter", href: "/newsletter" },
     ],
   },
-  {
-    headingKey: "footer.solana.heading",
-    links: [
-      { labelKey: "footer.solana.grants", href: "https://solana.org/grants" },
-      { labelKey: "footer.solana.media", href: "/branding" },
-      { labelKey: "footer.solana.careers", href: "https://jobs.solana.com/" },
-      { labelKey: "footer.solana.disclaimer", href: "/tos" },
-      { labelKey: "footer.solana.privacy-policy", href: "/privacy-policy" },
-    ],
-  },
+];
+
+const META_LINKS: FooterLink[] = [
+  { labelKey: "footer.solana.grants", href: "https://solana.org/grants" },
+  { labelKey: "footer.solana.media", href: "/branding" },
+  { labelKey: "footer.solana.careers", href: "https://jobs.solana.com/" },
+  { labelKey: "footer.solana.disclaimer", href: "/tos" },
+  { labelKey: "footer.solana.privacy-policy", href: "/privacy-policy" },
 ];
 
 const Copyright = () => {
@@ -104,12 +130,10 @@ const Copyright = () => {
   );
 };
 
-const FooterColumn = ({
-  column,
-}: {
-  column: (typeof FOOTER_COLUMNS)[number];
-}) => {
+const FooterColumn = ({ column }: { column: FooterColumnConfig }) => {
   const t = useTranslations();
+  const linkClassName =
+    "!no-underline !text-white/70 hover:!text-white transition-colors duration-200";
 
   return (
     <div className="col-span-1">
@@ -119,16 +143,34 @@ const FooterColumn = ({
       <ul className="list-unstyled m-0">
         {column.links.map((link) => (
           <li key={`${column.headingKey}-${link.href}`}>
-            <Link
-              to={link.href}
-              className="!no-underline !text-white/70 hover:!text-white transition-colors duration-200"
-            >
-              {t(link.labelKey)}
-            </Link>
+            {link.preserveHref ? (
+              <a href={link.href} className={linkClassName}>
+                {t(link.labelKey)}
+              </a>
+            ) : (
+              <Link to={link.href} className={linkClassName}>
+                {t(link.labelKey)}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
     </div>
+  );
+};
+
+const MetaLink = ({ link }: { link: FooterLink }) => {
+  const t = useTranslations();
+  const cls =
+    "!no-underline !text-white/55 hover:!text-white transition-colors duration-200 whitespace-nowrap";
+  return link.preserveHref ? (
+    <a href={link.href} className={cls}>
+      {t(link.labelKey)}
+    </a>
+  ) : (
+    <Link to={link.href} className={cls}>
+      {t(link.labelKey)}
+    </Link>
   );
 };
 
@@ -146,15 +188,16 @@ export const Footer = ({ className = "" }) => {
         className="w-full max-w-[1440px] px-5 md:px-8 xl:px-[72px] pt-16 md:pt-20 xl:pt-24 pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat"
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
-        <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-8 pb-10 md:pb-14 xl:pb-16 border-b border-white/[0.08]">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-10 md:pb-14 xl:pb-16 border-b border-white/[0.08]">
           <Link
             to="/"
             aria-label="Solana Foundation"
-            className="!no-underline !text-white hover:!text-white inline-flex"
+            className="!no-underline !text-white hover:!text-white inline-block"
           >
             <SolanaFoundationLogo
-              className="max-w-full w-[180px] md:w-[220px] xl:w-[260px] h-auto"
+              className="block w-[140px] xl:w-[170px] h-auto"
               viewBox="0 0 210 35"
+              preserveAspectRatio="xMinYMid meet"
             />
           </Link>
           <LanguageSelector className="!text-white/55 hover:!text-white" />
@@ -166,19 +209,30 @@ export const Footer = ({ className = "" }) => {
           ))}
         </div>
 
-        <div className="relative z-10 mt-14 md:mt-20 xl:mt-24 pt-6 border-t border-white/[0.08] flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-5">
-          <Copyright />
-          <div className="flex flex-wrap items-center -ml-2.5">
-            {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
-              <InlineLink
-                key={name}
-                to={url}
-                aria-label={name}
-                className="!no-underline !text-white/55 hover:!text-white transition-colors duration-200 inline-flex p-2.5 [&_svg]:m-auto"
-              >
-                <Icon width={size} height={size} />
-              </InlineLink>
-            ))}
+        <div className="relative z-10 mt-14 md:mt-20 xl:mt-24 pt-6 border-t border-white/[0.08]">
+          <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-x-8 gap-y-5">
+            <ul className="list-unstyled m-0 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs [&_li+li]:!mt-0 [&_a]:!text-xs">
+              {META_LINKS.map((link) => (
+                <li key={link.href}>
+                  <MetaLink link={link} />
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center -ml-2.5">
+              {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
+                <InlineLink
+                  key={name}
+                  to={url}
+                  aria-label={name}
+                  className="!no-underline !text-white/55 hover:!text-white transition-colors duration-200 inline-flex p-2.5 [&_svg]:m-auto"
+                >
+                  <Icon width={size} height={size} />
+                </InlineLink>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5">
+            <Copyright />
           </div>
         </div>
       </div>
