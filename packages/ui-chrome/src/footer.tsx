@@ -21,11 +21,36 @@ const FooterMouseEffect = dynamic(
 );
 
 const SOCIAL_LINKS = [
-  { name: "YouTube", url: "/youtube", Icon: YoutubeIcon, size: 20 },
-  { name: "Twitter", url: "/twitter", Icon: TwitterIcon, size: 16 },
-  { name: "Discord", url: "/discord", Icon: DiscordIcon, size: 20 },
-  { name: "Reddit", url: "/reddit", Icon: RedditIcon, size: 20 },
-  { name: "GitHub", url: "/github", Icon: GithubIcon, size: 20 },
+  {
+    labelKey: "community.socials.youtube",
+    url: "/youtube",
+    Icon: YoutubeIcon,
+    size: 20,
+  },
+  {
+    labelKey: "community.socials.twitter",
+    url: "/twitter",
+    Icon: TwitterIcon,
+    size: 16,
+  },
+  {
+    labelKey: "community.socials.discord",
+    url: "/discord",
+    Icon: DiscordIcon,
+    size: 20,
+  },
+  {
+    labelKey: "community.socials.reddit",
+    url: "/reddit",
+    Icon: RedditIcon,
+    size: 20,
+  },
+  {
+    labelKey: "community.socials.github",
+    url: "/github",
+    Icon: GithubIcon,
+    size: 20,
+  },
 ];
 
 type FooterLink = {
@@ -175,6 +200,8 @@ const MetaLink = ({ link }: { link: FooterLink }) => {
 };
 
 export const Footer = ({ className = "" }) => {
+  const t = useTranslations();
+
   return (
     <div
       className={classNames(
@@ -191,7 +218,7 @@ export const Footer = ({ className = "" }) => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-10 md:pb-14 xl:pb-16 border-b border-white/[0.08]">
           <Link
             to="/"
-            aria-label="Solana Foundation"
+            aria-label={t("footer.logoAriaLabel")}
             className="!no-underline !text-white hover:!text-white inline-block"
           >
             <SolanaFoundationLogo
@@ -219,11 +246,11 @@ export const Footer = ({ className = "" }) => {
               ))}
             </ul>
             <div className="flex flex-wrap items-center -ml-2.5">
-              {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
+              {SOCIAL_LINKS.map(({ labelKey, url, Icon, size }) => (
                 <InlineLink
-                  key={name}
+                  key={labelKey}
                   to={url}
-                  aria-label={name}
+                  aria-label={t(labelKey)}
                   className="!no-underline !text-white/55 hover:!text-white transition-colors duration-200 inline-flex p-2.5 [&_svg]:m-auto"
                 >
                   <Icon width={size} height={size} />
