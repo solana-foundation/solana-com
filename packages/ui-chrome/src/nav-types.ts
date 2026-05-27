@@ -25,6 +25,7 @@ export interface NavItemDefinition {
 export interface NavMatchRule {
   type: "includes" | "equals";
   value: string;
+  exclude?: string[];
 }
 
 export interface NavTopLevelSectionMetadata {

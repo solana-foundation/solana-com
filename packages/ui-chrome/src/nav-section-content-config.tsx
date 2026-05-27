@@ -233,7 +233,7 @@ export const buildUseCaseItems: NavItemDefinition[] = [
     id: "build-ai",
     titleKey: "nav.build.useCases.items.ai.title",
     href: "/solutions/ai",
-    icon: SparklesIcon,
+    icon: RootingIcon,
   },
 ];
 
@@ -392,7 +392,7 @@ export const productSurfaceItems: NavItemDefinition[] = [
     titleKey: "nav.products.surfaces.items.ai.title",
     descriptionKey: "nav.products.surfaces.items.ai.description",
     href: "/solutions/ai",
-    icon: SparklesIcon,
+    icon: RootingIcon,
     variant: "large",
   },
 ];

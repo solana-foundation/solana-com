@@ -86,6 +86,9 @@ export const navigationHubs = {
         },
       ],
     },
+    pathwaysEyebrow: "Start here",
+    pathwaysHeading: "Choose your first step on Solana.",
+    directoryEyebrow: "Resources",
     pathways: [
       {
         eyebrow: "First wallet",
@@ -318,6 +321,9 @@ export const navigationHubs = {
         },
       ],
     },
+    pathwaysEyebrow: "Evaluation paths",
+    pathwaysHeading: "Choose the business path to evaluate first.",
+    directoryEyebrow: "Resource directory",
     pathways: [
       {
         eyebrow: "Move money",
@@ -559,6 +565,9 @@ export const navigationHubs = {
         },
       ],
     },
+    pathwaysEyebrow: "Product paths",
+    pathwaysHeading: "Choose the toolset your team needs.",
+    directoryEyebrow: "Product directory",
     pathways: [
       {
         eyebrow: "Platform APIs",
@@ -795,6 +804,9 @@ export const navigationHubs = {
         },
       ],
     },
+    pathwaysEyebrow: "Explore",
+    pathwaysHeading: "Choose how you want to explore the ecosystem.",
+    directoryEyebrow: "Ecosystem directory",
     pathways: [
       {
         eyebrow: "Network resources",
@@ -1037,6 +1049,9 @@ export const navigationHubs = {
         },
       ],
     },
+    pathwaysEyebrow: "Network paths",
+    pathwaysHeading: "Choose the network resource you need.",
+    directoryEyebrow: "Network directory",
     pathways: [
       {
         eyebrow: "Operators",

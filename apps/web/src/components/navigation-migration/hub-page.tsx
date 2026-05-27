@@ -66,6 +66,9 @@ export interface HubPageConfig {
   metrics?: HubMetric[];
   overview?: HubOverview;
   pathways?: HubPathway[];
+  pathwaysEyebrow?: string;
+  pathwaysHeading?: string;
+  directoryEyebrow?: string;
   resourceHeading?: string;
   resourceDescription?: string;
   feature?: HubFeature;
@@ -124,13 +127,18 @@ export function NavigationHubPage({ config }: { config: HubPageConfig }) {
       )}
 
       {config.pathways && config.pathways.length > 0 && (
-        <HubPathways pathways={config.pathways} />
+        <HubPathways
+          pathways={config.pathways}
+          eyebrow={config.pathwaysEyebrow}
+          heading={config.pathwaysHeading}
+        />
       )}
 
       <HubDecor />
 
       <HubDirectory
         sections={config.sections}
+        eyebrow={config.directoryEyebrow}
         heading={config.resourceHeading}
         description={config.resourceDescription}
         primaryCta={config.primaryCta}
@@ -434,7 +442,15 @@ function HubOverviewSection({
   );
 }
 
-function HubPathways({ pathways }: { pathways: HubPathway[] }) {
+function HubPathways({
+  pathways,
+  eyebrow,
+  heading,
+}: {
+  pathways: HubPathway[];
+  eyebrow?: string;
+  heading?: string;
+}) {
   return (
     <section className="relative bg-black text-white text-left overflow-hidden">
       <div className={cn(HUB_FRAME, SECTION_PAD)}>
@@ -445,10 +461,10 @@ function HubPathways({ pathways }: { pathways: HubPathway[] }) {
               className="block size-1.5 rounded-full"
               style={{ background: "var(--hub-accent)" }}
             />
-            Start here
+            {eyebrow ?? "Start here"}
           </p>
           <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] m-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
-            Choose the path that matches your intent.
+            {heading ?? "Choose the path that matches your intent."}
           </h2>
         </div>
 
@@ -559,12 +575,14 @@ function HubDecor() {
 
 function HubDirectory({
   sections,
+  eyebrow,
   heading,
   description,
   primaryCta,
   secondaryCta,
 }: {
   sections: HubSection[];
+  eyebrow?: string;
   heading?: string;
   description?: string;
   primaryCta: HubLink;
@@ -581,7 +599,7 @@ function HubDirectory({
                 className="block size-1.5 rounded-full"
                 style={{ background: "var(--hub-accent)" }}
               />
-              Directory
+              {eyebrow ?? "Directory"}
             </p>
             <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] m-0 max-w-2xl tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
               {heading ?? "Explore related resources"}

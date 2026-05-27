@@ -10,6 +10,7 @@ describe("shared header route matching", () => {
   const enterpriseSection = HEADER_SECTION_METADATA.find(
     ({ id }) => id === "enterprise",
   );
+  const buildSection = HEADER_SECTION_METADATA.find(({ id }) => id === "build");
   const productsSection = HEADER_SECTION_METADATA.find(
     ({ id }) => id === "products",
   );
@@ -91,5 +92,39 @@ describe("shared header route matching", () => {
     expect(
       isNavSectionActive("/solutions/ai", enterpriseSection?.matchRules ?? []),
     ).toBe(false);
+  });
+
+  it("keeps Product tool routes active under Products instead of Build", () => {
+    expect(buildSection).toBeDefined();
+    expect(productsSection).toBeDefined();
+
+    const productToolRoutes = [
+      "/docs/tools/commerce-kit",
+      "/docs/tools/kora",
+      "/docs/tools/solana-pay",
+      "/rpc",
+      "/solutions/payments-tooling",
+      "/solutions/token-extensions",
+      "/solutions/digital-assets",
+    ];
+
+    for (const route of productToolRoutes) {
+      expect(isNavSectionActive(route, productsSection?.matchRules ?? [])).toBe(
+        true,
+      );
+      expect(isNavSectionActive(route, buildSection?.matchRules ?? [])).toBe(
+        false,
+      );
+    }
+
+    expect(isNavSectionActive("/docs", buildSection?.matchRules ?? [])).toBe(
+      true,
+    );
+    expect(
+      isNavSectionActive(
+        "/docs/intro/quick-start",
+        buildSection?.matchRules ?? [],
+      ),
+    ).toBe(true);
   });
 });
