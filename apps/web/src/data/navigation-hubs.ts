@@ -153,7 +153,7 @@ export const navigationHubs = {
     path: "/products",
     metaTitle: "Solana Products",
     metaDescription:
-      "Find Solana product surfaces, developer platform resources, AI tools, x402, Agent Registry, Skills, and product-adjacent solutions.",
+      "Find Solana product surfaces, developer platform resources, AI tools, x402, Agent Registry, Skills, Commerce Kit, Kora, Solana Pay, RPC providers, and product tooling.",
     eyebrow: "Products",
     title: "Find Solana product surfaces",
     description:
@@ -179,19 +179,23 @@ export const navigationHubs = {
         title: "Platforms and product surfaces",
         links: [
           { title: "Solana Developer Platform", href: "/solutions/sdp" },
-          { title: "Actions and blinks", href: "/solutions/actions" },
-          { title: "Agents and AI", href: "/solutions/ai" },
           { title: "x402", href: "/x402" },
           { title: "Agent Registry", href: "/agent-registry" },
           { title: "Skills", href: "/skills" },
+          { title: "Actions and blinks", href: "/solutions/actions" },
+          { title: "Agents and AI", href: "/solutions/ai" },
         ],
       },
       {
-        title: "Product-adjacent solutions",
+        title: "Developer and payment tools",
         links: [
+          { title: "Commerce Kit", href: "/docs/tools/commerce-kit" },
+          { title: "Kora", href: "/docs/tools/kora" },
+          { title: "Solana Pay", href: "/docs/tools/solana-pay" },
+          { title: "RPC providers", href: "/rpc" },
+          { title: "Payments tooling", href: "/solutions/payments-tooling" },
           { title: "Token Extensions", href: "/solutions/token-extensions" },
           { title: "Digital assets", href: "/solutions/digital-assets" },
-          { title: "Payments tooling", href: "/solutions/payments-tooling" },
         ],
       },
       {
@@ -251,6 +255,7 @@ export const navigationHubs = {
         links: [
           { title: "Events", href: "/events" },
           { title: "Event archive", href: "/events/archive" },
+          { title: "Accelerate", href: "/accelerate" },
           { title: "Breakpoint", href: "/breakpoint" },
           { title: "Community", href: "/community" },
           { title: "News", href: "/news" },

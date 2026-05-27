@@ -130,7 +130,7 @@ function NavigationMenuContent({
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",
         // Visual styling
-        "min-w-[320px] bg-[rgba(25,24,27,0.92)] p-2 xl:p-3 rounded-2xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[15px] leading-[1.5] backdrop-blur-[20px] xl:border xl:border-white/[0.06] xl:shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
+        "min-w-[320px] bg-[rgba(25,24,27,0.92)] p-2 xl:p-4 rounded-2xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[15px] leading-[1.5] backdrop-blur-[20px] xl:border xl:border-white/[0.06] xl:shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
         className,
       )}
       {...props}

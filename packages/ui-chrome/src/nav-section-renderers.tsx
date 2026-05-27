@@ -7,7 +7,7 @@ import type { NavItemDefinition, NavPromoDefinition } from "./nav-types";
 
 export function SectionHeading({ title }: { title: string }) {
   return (
-    <div className="pt-2 pb-3 xl:pt-1 xl:pb-2 font-brand-mono font-medium text-white/45 text-[11px] xl:text-[12px] tracking-[0.14em] uppercase">
+    <div className="pt-2 pb-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-white/45 text-[11px] tracking-[0.12em] uppercase">
       {title}
     </div>
   );
@@ -78,7 +78,7 @@ export function CollapsibleNavGroup({
     <CollapseMenu
       className={`text-[rgba(255,255,255,0.64)] data-[state=open]:text-white ${className}`.trim()}
       title={
-        <div className="py-3 xl:pt-1 xl:pb-2 font-brand-mono font-medium text-[11px] xl:text-[12px] tracking-[0.14em] uppercase">
+        <div className="py-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-[11px] tracking-[0.12em] uppercase">
           {title}
         </div>
       }

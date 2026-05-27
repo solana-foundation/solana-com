@@ -28,7 +28,7 @@ import ExplorerIcon from "./assets/nav/network/explorer.inline.svg";
 import PulseIcon from "./assets/nav/network/pulse.inline.svg";
 import NewspaperCommunityIcon from "./assets/nav/community/newspaper.inline.svg";
 import CalendarIcon from "./assets/nav/community/calendar.inline.svg";
-import FistbumpIcon from "./assets/nav/community/fistbump.inline.svg";
+import AccelerateEventIcon from "./assets/nav/community/accelerate-event.inline.svg";
 import GlobusIcon from "./assets/nav/community/globus.inline.svg";
 import ApiConnectionCommunityIcon from "./assets/nav/community/api-connection.inline.svg";
 import BreakpointLogo from "./assets/nav/community/bp26-footer-logo-mobile.inline.svg";
@@ -340,11 +340,43 @@ export const enterpriseProofItems: NavItemDefinition[] = [
 
 export const productSurfaceItems: NavItemDefinition[] = [
   {
+    id: "products-overview",
+    titleKey: "nav.products.surfaces.items.overview.title",
+    descriptionKey: "nav.products.surfaces.items.overview.description",
+    href: "/products",
+    icon: BezierIcon,
+    variant: "large",
+  },
+  {
     id: "products-sdp",
     titleKey: "nav.products.surfaces.items.sdp.title",
     descriptionKey: "nav.products.surfaces.items.sdp.description",
     href: "/solutions/sdp",
     icon: MaintenanceIcon,
+    variant: "large",
+  },
+  {
+    id: "products-x402",
+    titleKey: "nav.products.surfaces.items.x402.title",
+    descriptionKey: "nav.products.surfaces.items.x402.description",
+    href: "/x402",
+    icon: MoneyIcon,
+    variant: "large",
+  },
+  {
+    id: "products-agent-registry",
+    titleKey: "nav.products.surfaces.items.agentRegistry.title",
+    descriptionKey: "nav.products.surfaces.items.agentRegistry.description",
+    href: "/agent-registry",
+    icon: ApiConnectionCommunityIcon,
+    variant: "large",
+  },
+  {
+    id: "products-skills",
+    titleKey: "nav.products.surfaces.items.skills.title",
+    descriptionKey: "nav.products.surfaces.items.skills.description",
+    href: "/skills",
+    icon: DocumentsIcon,
     variant: "large",
   },
   {
@@ -363,48 +395,54 @@ export const productSurfaceItems: NavItemDefinition[] = [
     icon: SparklesIcon,
     variant: "large",
   },
-  {
-    id: "products-x402",
-    titleKey: "nav.products.surfaces.items.x402.title",
-    descriptionKey: "nav.products.surfaces.items.x402.description",
-    href: "/x402",
-    icon: MoneyIcon,
-    variant: "large",
-  },
 ];
 
-export const productAdjacentItems: NavItemDefinition[] = [
+export const productToolItems: NavItemDefinition[] = [
   {
-    id: "products-agent-registry",
-    titleKey: "nav.products.adjacent.items.agentRegistry.title",
-    href: "/agent-registry",
-    icon: ApiConnectionCommunityIcon,
+    id: "products-commerce-kit",
+    titleKey: "nav.products.tools.items.commerceKit.title",
+    href: "/docs/tools/commerce-kit",
+    icon: StoreIcon,
   },
   {
-    id: "products-skills",
-    titleKey: "nav.products.adjacent.items.skills.title",
-    href: "/skills",
-    icon: DocumentsIcon,
+    id: "products-kora",
+    titleKey: "nav.products.tools.items.kora.title",
+    href: "/docs/tools/kora",
+    icon: ApiConnectionBuildIcon,
+  },
+  {
+    id: "products-solana-pay",
+    titleKey: "nav.products.tools.items.solanaPay.title",
+    href: "/docs/tools/solana-pay",
+    icon: MoneyIcon,
+  },
+  {
+    id: "products-rpc-providers",
+    titleKey: "nav.products.tools.items.rpcProviders.title",
+    href: "/rpc",
+    icon: ApiConnectionNetworkIcon,
+  },
+  {
+    id: "products-payments-tooling",
+    titleKey: "nav.products.tools.items.paymentsTooling.title",
+    href: "/solutions/payments-tooling",
+    icon: MoneyIcon,
   },
   {
     id: "products-token-extensions",
-    titleKey: "nav.products.adjacent.items.tokenExtensions.title",
+    titleKey: "nav.products.tools.items.tokenExtensions.title",
     href: "/solutions/token-extensions",
     icon: CoinsIcon,
   },
   {
     id: "products-digital-assets",
-    titleKey: "nav.products.adjacent.items.digitalAssets.title",
+    titleKey: "nav.products.tools.items.digitalAssets.title",
     href: "/solutions/digital-assets",
     icon: ContrastIcon,
   },
-  {
-    id: "products-payments-tooling",
-    titleKey: "nav.products.adjacent.items.paymentsTooling.title",
-    href: "/solutions/payments-tooling",
-    icon: MoneyIcon,
-  },
 ];
+
+export const productAdjacentItems = productToolItems;
 
 export const ecosystemNetworkItems: NavItemDefinition[] = [
   {
@@ -462,10 +500,16 @@ export const ecosystemCommunityItems: NavItemDefinition[] = [
     icon: CalendarIcon,
   },
   {
+    id: "ecosystem-accelerate",
+    titleKey: "nav.ecosystem.community.items.accelerate.title",
+    href: "/accelerate",
+    icon: AccelerateEventIcon,
+  },
+  {
     id: "ecosystem-breakpoint",
     titleKey: "nav.ecosystem.community.items.breakpoint.title",
     href: "/breakpoint",
-    icon: FistbumpIcon,
+    icon: CalendarIcon,
   },
   {
     id: "ecosystem-community",

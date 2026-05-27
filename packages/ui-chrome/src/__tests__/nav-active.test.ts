@@ -70,6 +70,12 @@ describe("shared header route matching", () => {
     ).toBe(true);
     expect(
       isNavSectionActive(
+        "/accelerate/hong-kong",
+        ecosystemSection?.matchRules ?? [],
+      ),
+    ).toBe(true);
+    expect(
+      isNavSectionActive(
         "/solutions/payments-tooling",
         ecosystemSection?.matchRules ?? [],
       ),

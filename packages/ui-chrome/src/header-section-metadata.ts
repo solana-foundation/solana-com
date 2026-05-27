@@ -74,6 +74,8 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/validators" },
       { type: "equals", value: "/community" },
       { type: "includes", value: "/events" },
+      { type: "equals", value: "/accelerate" },
+      { type: "includes", value: "/accelerate/" },
       { type: "equals", value: "/breakpoint" },
       { type: "equals", value: "/news" },
       { type: "includes", value: "/podcasts" },

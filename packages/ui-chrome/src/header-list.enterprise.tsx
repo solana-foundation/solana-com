@@ -24,7 +24,7 @@ const HeaderListEnterprise = ({ isMobile = false }) => {
           <NavColumns columns={enterpriseBusinessColumns} />
         </CollapsibleNavGroup>
       </div>
-      <div className="px-2 xl:px-3 xl:pt-3 xl:border-t xl:border-white/[0.06]">
+      <div className="px-2 xl:px-3 xl:pt-4 xl:mt-1 xl:border-t xl:border-white/[0.06]">
         <CollapsibleNavGroup
           title={t("nav.enterprise.proof.title")}
           isMobile={isMobile}

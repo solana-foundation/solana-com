@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import { NavItemsList, SectionHeading } from "./nav-section-renderers";
 import {
-  productAdjacentItems,
+  productToolItems,
   productSurfaceItems,
 } from "./nav-section-content-config";
 
@@ -15,8 +15,8 @@ const HeaderListProducts = () => {
         <NavItemsList items={productSurfaceItems} />
       </div>
       <div className="px-2 xl:px-3 grow xl:min-w-0 xl:border-l xl:border-white/[0.06] xl:pl-6">
-        <SectionHeading title={t("nav.products.adjacent.title")} />
-        <NavItemsList items={productAdjacentItems} />
+        <SectionHeading title={t("nav.products.tools.title")} />
+        <NavItemsList items={productToolItems} />
       </div>
     </div>
   );

@@ -28,7 +28,7 @@ const HeaderListUseSolana = ({ isMobile = false }) => {
         <SectionHeading title={t("nav.useSolana.wallets.title")} />
         <NavItemsList items={useSolanaWalletItems} />
         <CollapsibleNavGroup
-          className="mt-2"
+          className="mt-2 xl:mt-4 xl:pt-2 xl:border-t xl:border-white/[0.06]"
           title={t("nav.useSolana.safety.title")}
           isMobile={isMobile}
         >
