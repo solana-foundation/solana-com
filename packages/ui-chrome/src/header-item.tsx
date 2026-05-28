@@ -22,7 +22,7 @@ export const HeaderItem: React.FC<HeaderItemProps> = ({
     return (
       <div
         className={
-          ACTIVE_CLASSNAME + " flex items-start gap-3 max-xl:py-3.5 xl:py-3"
+          ACTIVE_CLASSNAME + " flex items-start gap-3 max-xl:py-4 xl:py-4"
         }
       >
         {Icon && (
@@ -45,7 +45,7 @@ export const HeaderItem: React.FC<HeaderItemProps> = ({
   return (
     <div
       className={
-        ACTIVE_CLASSNAME + " flex items-center gap-2.5 max-xl:py-3 xl:py-2"
+        ACTIVE_CLASSNAME + " flex items-center gap-2.5 max-xl:py-3.5 xl:py-3"
       }
     >
       {Icon && <Icon className="size-[18px] text-white shrink-0" />}

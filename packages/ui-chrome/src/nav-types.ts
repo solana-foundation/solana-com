@@ -50,10 +50,13 @@ export interface NavTopLevelSection extends Omit<
   Content: React.ComponentType<{ isMobile?: boolean }>;
 }
 
-export interface NavPromoDefinition {
+export type NavBannerPosition = "left" | "right";
+
+export interface NavBannerDefinition {
   id: string;
   translationKey: string;
   href: string;
+  position: NavBannerPosition;
   expiresAt?: string;
   className?: string;
   backgroundClassName?: string;
@@ -65,3 +68,5 @@ export interface NavPromoDefinition {
   logoWidth?: number;
   logoHeight?: number;
 }
+
+export type NavPromoDefinition = NavBannerDefinition;

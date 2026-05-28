@@ -566,13 +566,19 @@ export const ecosystemCategoryItems: NavItemDefinition[] = [
   },
 ];
 
-export const navPromoConfigs = {
+export const navBannerConfigs = {
+  use_solana: {
+    id: "use-solana-banner",
+    translationKey: "nav.useSolana.banner",
+    href: "/use-solana",
+    position: "left",
+  },
   ecosystem: {
     id: "ecosystem-breakpoint-2026",
     translationKey: "nav.ecosystem.promo",
     href: "/breakpoint",
+    position: "right",
     expiresAt: "2026-11-18",
-    className: "xl:w-[300px] xl:shrink-0 w-full",
     backgroundClassName:
       "xl:bg-[url(/src/img/nav/bp26-nav-banner-bg.webp)] bg-[url(/src/img/nav/bp26-nav-banner-bg-mobile.webp)]",
     Logo: BreakpointLogo,
@@ -580,6 +586,8 @@ export const navPromoConfigs = {
     logoHeight: 32,
   },
 } satisfies Partial<Record<NavTopLevelSectionId, NavPromoDefinition>>;
+
+export const navPromoConfigs = navBannerConfigs;
 
 // Legacy header-list files are no longer wired into HEADER_SECTIONS, but they
 // still compile as part of the package. Keep these aliases until the old files

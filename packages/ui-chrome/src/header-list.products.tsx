@@ -1,24 +1,38 @@
+"use client";
+
 import { useTranslations } from "next-intl";
-import { NavItemsList, SectionHeading } from "./nav-section-renderers";
+import {
+  HeaderDropdownLayout,
+  NavDropdownColumn,
+} from "./header-dropdown-layout";
+import {
+  CollapsibleNavGroup,
+  NavItemsList,
+  SectionHeading,
+} from "./nav-section-renderers";
 import {
   productToolItems,
   productSurfaceItems,
 } from "./nav-section-content-config";
 
-const HeaderListProducts = () => {
+const HeaderListProducts = ({ isMobile = false }) => {
   const t = useTranslations();
 
   return (
-    <div className="xl:w-[960px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-3">
-      <div className="px-2 xl:px-3 xl:w-[560px] xl:shrink-0">
+    <HeaderDropdownLayout>
+      <NavDropdownColumn width="primary">
         <SectionHeading title={t("nav.products.surfaces.title")} />
         <NavItemsList items={productSurfaceItems} />
-      </div>
-      <div className="px-2 xl:px-3 grow xl:min-w-0 xl:border-l xl:border-white/[0.06] xl:pl-6">
-        <SectionHeading title={t("nav.products.tools.title")} />
-        <NavItemsList items={productToolItems} />
-      </div>
-    </div>
+      </NavDropdownColumn>
+      <NavDropdownColumn>
+        <CollapsibleNavGroup
+          title={t("nav.products.tools.title")}
+          isMobile={isMobile}
+        >
+          <NavItemsList items={productToolItems} />
+        </CollapsibleNavGroup>
+      </NavDropdownColumn>
+    </HeaderDropdownLayout>
   );
 };
 
