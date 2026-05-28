@@ -25,6 +25,7 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/reports") ||
     pathname.startsWith("/podcasts") ||
     pathname.startsWith("/media-assets") ||
+    pathname.startsWith("/templates-assets") ||
     pathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
@@ -93,7 +94,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };
