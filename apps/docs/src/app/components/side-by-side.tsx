@@ -22,8 +22,8 @@ export function SideBySide(props: unknown) {
       >
         <div
           className={cn(
-            "[&:has(>[ch-container=true]:only-child)]:flex [&:has(>[ch-container=true]:only-child)]:flex-col",
-            "[&>[ch-container=true]:only-child]:flex-1 [&>[ch-container=true]:only-child]:min-h-0 [&>[ch-container=true]:only-child]:shrink-0",
+            "[&:has(>[data-ch-container=true]:only-child)]:flex [&:has(>[data-ch-container=true]:only-child)]:flex-col",
+            "[&>[data-ch-container=true]:only-child]:flex-1 [&>[data-ch-container=true]:only-child]:min-h-0 [&>[data-ch-container=true]:only-child]:shrink-0",
             "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
           )}
         >
@@ -31,8 +31,8 @@ export function SideBySide(props: unknown) {
         </div>
         <div
           className={cn(
-            "[&:has(>[ch-container=true]:only-child)]:flex [&:has(>[ch-container=true]:only-child)]:flex-col",
-            "[&>[ch-container=true]:only-child]:flex-1 [&>[ch-container=true]:only-child]:min-h-0 [&>[ch-container=true]:only-child]:shrink-0",
+            "[&:has(>[data-ch-container=true]:only-child)]:flex [&:has(>[data-ch-container=true]:only-child)]:flex-col",
+            "[&>[data-ch-container=true]:only-child]:flex-1 [&>[data-ch-container=true]:only-child]:min-h-0 [&>[data-ch-container=true]:only-child]:shrink-0",
             "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
           )}
         >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useNotesContext } from "./notes.client";
+import type { CSSProperties } from "react";
 
 export function CalloutContent({ query }: { query: string }) {
   const note = useNotesContext(query);
@@ -20,7 +21,7 @@ export function CalloutContent({ query }: { query: string }) {
         {
           // editorBackground
           "--ch-16": "transparent",
-        } as any
+        } as CSSProperties
       }
     >
       {note.children}

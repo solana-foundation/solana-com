@@ -45,7 +45,7 @@ export function SingleCode({
 
   const content = (
     <div
-      ch-container="true"
+      data-ch-container="true"
       className={cn(
         "tw-border rounded overflow-hidden relative border-ch-border flex flex-col selection:bg-ch-selection !bg-ch-background",
         isRunnable ? "h-full" : "my-4",
