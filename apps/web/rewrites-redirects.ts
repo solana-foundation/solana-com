@@ -489,6 +489,7 @@ export default {
         "https://github.com/solana-foundation/solana-improvement-documents",
     },
     { source: "/disclaimer", destination: "/tos" },
+    { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
     { source: "/solana-pay", destination: "https://solanapay.com/" },
     { source: "/solanapay", destination: "https://solanapay.com/" },
