@@ -66,12 +66,12 @@ additional details on how files are structured, see the
 
 ## Cookbook code examples
 
-The Kit and Legacy snippets shown on cookbook pages live in
+The Kit, Legacy, and Rust snippets shown on cookbook pages live in
 `packages/docs-examples`, not inline in the MDX. Tests in that package run
 against a local surfpool on every PR, so an SDK rename or signature change shows
 up as a red CI run rather than rotted documentation.
 
-To add or change a snippet:
+### TypeScript (Kit / Legacy)
 
 1. Put the runnable file under
    `packages/docs-examples/cookbook/<section>/<page>/` (e.g. `kit.ts`).
@@ -88,6 +88,24 @@ To add or change a snippet:
 Run `pnpm --filter @workspace/docs-examples test` locally — needs the `surfpool`
 CLI installed via
 `cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli`.
+
+### Rust
+
+Each Rust example is a member crate of the Cargo workspace at
+`packages/docs-examples/Cargo.toml`. The pattern mirrors the TS one:
+
+1. Add `packages/docs-examples/cookbook/<section>/<page>/rust/Cargo.toml` with
+   `name = "cookbook-<section>-<page>"` and `[[bin]]` pointing at `src/main.rs`.
+   Pages with two distinct Rust snippets use `src/bin/<variant>.rs` with
+   multiple `[[bin]]` entries.
+2. Wrap the rendered region of `main.rs` in `// #region <name>` /
+   `// #endregion <name>` — same syntax as TS, the include plugin handles both.
+3. In the MDX page, point the directive at the source file:
+   ` ```rust !! title="Rust" file=packages/docs-examples/cookbook/<section>/<page>/rust/src/main.rs#region=<name> `
+
+Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
+spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
+in the workspace.
 
 ## Builder API
 

@@ -1,0 +1,119 @@
+---
+title: 手数料リファレンス
+description: Kora手数料計算の完全なリファレンス。
+---
+
+_最終更新日: 2025-10-31_
+
+Koraは`estimate_transaction_fee`および`sign_transaction`
+RPCメソッドを実行する際にトランザクション手数料を見積もります。手数料を見積もるため、Koraはネットワーク手数料、アカウント作成コスト、オプションの決済処理手数料を含む、Solana上でトランザクションを実行するための総コストを計算します。このガイドでは、手数料計算の各構成要素について詳しく説明します。
+
+## 手数料計算式
+
+手数料は`kora.toml`で設定された価格モデルによって決定されます:
+
+- `PriceModel::Free` - すべてのトランザクション手数料をスポンサーが負担(総手数料 = 0)
+- `PriceModel::Fixed` - 特定のトークンで固定金額を請求(ネットワーク手数料に関係なく)
+- `PriceModel::Margin` - 総手数料にパーセンテージのマージンを追加します。
+
+`PriceModel::Margin`で使用される総手数料見積もりのメインエントリーポイントは、[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs)内の`FeeConfigUtil::estimate_kora_fee()`です。これは以下の一般化された式を使用します:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## 手数料の構成要素
+
+| 構成要素                  | 説明                                                                                | 計算方法                                                                                                                             | 適用条件                                            |
+| ------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| **基本手数料**            | 署名検証とトランザクション処理をカバーする、Solanaのコアトランザクション手数料      | `RpcClient.get_fee_for_message()` - コンピュートユニットと優先手数料に基づくSolanaの手数料計算を使用                                 | 常時                                                |
+| **アカウント作成手数料**  | 新しいAssociated Token Account(ATA)を作成するためのrent免除最低残高                 | `Rent::default().minimum_balance(account_size)` - アカウントデータサイズ(Token Extensionsに応じて165〜355バイト)に基づいてrentを計算 | トランザクションが新しいATAを作成する場合           |
+| **Kora署名手数料**        | Koraが非参加者の手数料支払者として署名する際の追加手数料                            | 固定: 5,000 lamport(`LAMPORTS_PER_SIGNATURE`)                                                                                        | 手数料支払者がトランザクションの署名者でない場合    |
+| **手数料支払者の送金額**  | トランザクションで手数料支払者が送信する総SOL(転送、アカウント作成など)             | 合計: 手数料支払者からのシステム転送、手数料支払者が資金提供するCreateAccount、手数料支払者からのNonce引き出し                       | 手数料支払者がSystem Programの操作を実行する場合    |
+| **決済instruction手数料** | ガスレストランザクションに決済instructionを追加するための優先手数料の見積もりコスト | 固定見積もり: 50 lamport(`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                               | 決済が必要だがトランザクションに含まれていない場合  |
+| **転送手数料**            | ミントに設定されたToken2022の転送手数料(例: 転送額の1%)                             | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - ミントの転送手数料設定に基づく                                               | Kora決済アドレスへのToken2022転送のみ               |
+| **マージン調整**          | Koraの価格モデルのマークアップ/調整                                                 | `validation.price`で設定されたマージン - 総手数料の%としてマークアップを追加可能                                                     | kora.tomlで`[validation.price]`が提供されている場合 |
+
+## 価格モデルと手数料支払者の流出
+
+Koraは、ユーザーがトランザクションに対してどのように課金されるかを決定する3つの価格モデルをサポートしています：
+
+### マージン価格設定（デフォルト）
+
+- **計算式：** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **手数料支払者の流出を含む：** はい
+- **最適な用途：**
+  実際のコストに運営マージンを加えた手数料を反映すべき本番環境のデプロイメント
+
+### 固定価格設定
+
+- **計算式：** `Total Fee = Fixed Amount (in specified token)`
+- **手数料支払者の流出を含む：** いいえ
+- **最適な用途：**
+  管理された環境での予測可能な価格設定によるシンプルなユーザー体験
+
+### 無料価格設定
+
+- **計算式：** `Total Fee = 0`
+- **手数料支払者の流出を含む：** いいえ（運営者がすべてのコストを負担）
+- **最適な用途：**
+  プロモーションキャンペーン、テスト、または完全にスポンサー付きのアプリケーション
+
+---
+
+## ⚠️ セキュリティ警告：固定/無料価格モデル
+
+**重要：**
+固定/無料価格モデルは、課金額に手数料支払者の流出を**含みません**。これにより、適切に設定されていない場合、重大なセキュリティリスクが生じます。手数料支払者ポリシーで転送やその他の流出操作が許可されている場合、攻撃者はこれを悪用して手数料支払者アカウントを枯渇させることができます。
+
+### 必須のセキュリティ管理
+
+固定/無料価格設定を使用する場合は、すべての金銭的操作および権限変更操作をブロックする制限的な手数料支払者ポリシーを設定する**必要があります**：
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### 追加の保護対策
+
+1. **認証を有効にする：**
+   固定/無料価格設定では常にAPIキーまたはHMAC認証を要求する
+2. **低い制限を設定する：** 控えめな`max_allowed_lamports`値を使用する
+3. **使用状況を監視する：** 高流出トランザクションの異常なパターンを追跡する
+4. **マージン価格設定を検討する：**
+   マージン価格設定は流出コストを手数料に自動的に含める
+
+### バリデーション警告
+
+Koraの設定validatorは、危険な設定について警告を発します：
+
+```bash
+kora --config kora.toml config validate
+```
+
+脆弱な設定に対する予想される警告：
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

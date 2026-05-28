@@ -1,0 +1,253 @@
+---
+title: Autentikasi
+description: Panduan referensi operator untuk autentikasi
+---
+
+Kora mendukung dua metode autentikasi opsional untuk mengamankan endpoint RPC
+Anda: Kunci API dan autentikasi HMAC. Panduan ini mencakup pengaturan,
+implementasi, dan praktik terbaik keamanan.
+
+Autentikasi bersifat opsional tetapi **sangat direkomendasikan** untuk
+deployment produksi. Tanpa autentikasi, siapa pun yang menemukan endpoint Kora
+Anda dapat mengirim transaksi dan menghabiskan saldo SOL Anda.
+
+| Metode        | Tingkat Keamanan | Kasus Penggunaan                             | Kompleksitas |
+| ------------- | ---------------- | -------------------------------------------- | ------------ |
+| **Tidak Ada** | ⚠️ Tidak Ada     | Pengembangan, pengujian, harga margin tinggi | Tidak Ada    |
+| **Kunci API** | Dasar            | Aplikasi internal, klien terpercaya          | Rendah       |
+| **HMAC**      | Tinggi           | API publik, jaringan tidak terpercaya        | Menengah     |
+| **Keduanya**  | Maksimum         | Lingkungan keamanan tinggi                   | Menengah     |
+
+Autentikasi Kora dikonfigurasi dalam file `kora.toml` di bagian `[kora.auth]`.
+
+Dalam dokumen ini:
+
+- [Autentikasi Kunci API](#api-key-authentication)
+- [Autentikasi HMAC](#hmac-authentication)
+- [Autentikasi Gabungan](#combined-authentication)
+- [Praktik Terbaik Keamanan](#security-best-practices)
+- [Endpoint yang Dikecualikan](#exempt-endpoints)
+- [Pemecahan Masalah](#troubleshooting)
+
+## Autentikasi Kunci API
+
+Autentikasi rahasia bersama sederhana menggunakan header HTTP. Anda dapat
+menghasilkan kunci API baru menggunakan perintah `openssl` (atau perintah
+serupa) di terminal Anda:
+
+```bash
+openssl rand -hex 32
+```
+
+### Konfigurasi Server
+
+- Tambahkan `KORA_API_KEY` ke .env (variabel lingkungan) Anda (memiliki
+  prioritas) atau
+- Tambahkan `api_key` ke `kora.toml` Anda:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Kunci ini akan diperlukan secara global untuk semua permintaan ke endpoint RPC
+Kora.
+
+### Implementasi Klien
+
+Sertakan kunci API di header `x-api-key` pada setiap permintaan:
+
+**Contoh cURL:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**Contoh JavaScript menggunakan Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Contoh JavaScript menggunakan fetch:**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## Autentikasi HMAC
+
+Alih-alih mengirim kunci API dengan setiap permintaan, HMAC membuat tanda tangan
+kriptografis unik yang membuktikan Anda mengetahui rahasia tanpa
+mengungkapkannya. Setiap tanda tangan menyertakan stempel waktu dan kedaluwarsa
+setelah 5 menit, sehingga permintaan yang dicegat tidak dapat diputar ulang.
+Penyerang tidak dapat membuat permintaan baru karena mereka tidak memiliki kunci
+rahasia Anda.
+
+### Konfigurasi Server
+
+- Tambahkan `KORA_HMAC_SECRET` ke .env Anda (variabel lingkungan) (memiliki
+  prioritas) atau
+- Tambahkan `hmac_secret` global ke `kora.toml` Anda (minimal 32 karakter--Anda
+  dapat membuatnya dengan `openssl rand -hex 32` atau sejenisnya):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### Cara Kerja HMAC
+
+1. Klien membuat pesan dengan menggabungkan: `{timestamp}{request_body}`
+2. Klien menandatangani pesan menggunakan HMAC-SHA256 dengan rahasia bersama
+3. Klien mengirim permintaan dengan header stempel waktu dan tanda tangan
+4. Server memvalidasi tanda tangan dan stempel waktu (harus dalam waktu 5 menit)
+
+### Implementasi Klien
+
+Untuk menggunakan HMAC di sisi klien, Anda dapat menggunakan Kora SDK atau
+pustaka `crypto` di JavaScript:
+
+1. Buat stempel waktu
+2. Buat badan permintaan
+3. Buat pesan dengan menggabungkan stempel waktu dan badan (misalnya,
+   `message = timestamp + body`)
+4. Buat tanda tangan dengan menandatangani pesan menggunakan rahasia HMAC
+   (menggunakan metode `crypto.createHmac`)
+5. Kirim permintaan dengan header stempel waktu (`x-timestamp`) dan tanda tangan
+   (`x-hmac-signature`)
+
+**Contoh JavaScript menggunakan Kora SDK:**
+
+Kora SDK mengabstraksi proses autentikasi HMAC, sehingga Anda cukup memanggil
+metode yang ingin Anda panggil dan SDK akan menangani autentikasi untuk Anda.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Contoh JavaScript menggunakan pustaka `crypto`:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Autentikasi Gabungan
+
+Anda dapat mengaktifkan kedua metode autentikasi secara bersamaan untuk keamanan
+maksimal:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Ketika keduanya dikonfigurasi, klien harus mengirimkan header `x-api-key`,
+`x-timestamp`, dan `x-hmac-signature`.
+
+## Praktik Keamanan Terbaik
+
+- **Gunakan kunci yang kuat dan acak**: Minimal 32 karakter dengan entropi
+  tinggi
+- **Rotasi secara berkala**: Ubah kunci secara periodik (bulanan/kuartalan)
+- **Penyimpanan aman**: Gunakan variabel lingkungan atau manajemen rahasia
+  (Railway secrets, AWS Secrets Manager, dll.)
+- **Jangan pernah hardcode**: Jauhkan kunci dari kode sumber dan log
+- **Gunakan HTTPS**: Selalu gunakan TLS di produksi untuk melindungi kunci saat
+  transit
+- **Pantau akses**: Perhatikan pola autentikasi yang tidak biasa atau kegagalan
+  berulang
+
+## Endpoint yang Dikecualikan
+
+Endpoint `/liveness` selalu dikecualikan dari autentikasi untuk memungkinkan
+pemeriksaan kesehatan:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Pemecahan Masalah
+
+**401 Unauthorized dengan API Key:**
+
+- Verifikasi bahwa API key benar dan sesuai dengan konfigurasi server
+- Periksa bahwa header `x-api-key` sedang dikirim
+- Pastikan tidak ada spasi ekstra dalam kunci
+
+**401 Unauthorized dengan HMAC:**
+
+- Verifikasi bahwa timestamp adalah saat ini (dalam 5 menit)
+- Periksa bahwa konstruksi pesan sesuai: `{timestamp}{body}`
+- Pastikan rahasia HMAC sesuai dengan konfigurasi server
+- Verifikasi bahwa tanda tangan adalah hex huruf kecil

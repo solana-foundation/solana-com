@@ -1,0 +1,220 @@
+---
+title: 监控与指标
+description: 使用 Prometheus 和 Grafana 监控您的 Kora 节点
+---
+
+_最后更新：2025-08-22_
+
+[Kora 指标 Crate](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+为 Kora RPC 服务器提供全面的指标收集和监控功能。
+
+Kora 公开了一个 `/metrics` 端点，以 Prometheus 格式提供实时性能数据。
+
+## 配置
+
+指标在您的 `kora.toml` 的 `[metrics]` 部分中配置。`[metrics]`
+部分用于配置指标收集和监控。此部分为可选项，默认情况下指标处于禁用状态。
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| 选项              | 描述                      | 必需 | 类型   |
+| ----------------- | ------------------------- | ---- | ------ |
+| `enabled`         | 启用指标收集              | ✅   | 布尔值 |
+| `endpoint`        | 自定义指标端点路径        | ✅   | 字符串 |
+| `port`            | 指标端点端口              | ✅   | 数字   |
+| `scrape_interval` | Prometheus 抓取频率（秒） | ✅   | 数字   |
+
+### 手续费支付方余额跟踪
+
+`[metrics.fee_payer_balance]` 部分配置手续费支付方 SOL 余额的自动监控：
+
+| 选项             | 描述                     | 必需                | 类型   |
+| ---------------- | ------------------------ | ------------------- | ------ |
+| `enabled`        | 启用手续费支付方余额跟踪 | ❌（默认值：false） | 布尔值 |
+| `expiry_seconds` | 后台跟踪间隔（秒）       | ❌（默认值：30）    | 数字   |
+
+启用后，Kora 会自动跟踪您的手续费支付方的 SOL 余额，并通过
+`fee_payer_balance_lamports` Prometheus 指标公开。这有助于容量规划和低余额告警。
+
+## 快速开始
+
+**访问指标：**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## 您将看到的内容
+
+这些指标显示您的 RPC 服务器的运行状况：
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+如果您尚未调用 RPC 服务器，将不会看到任何指标。您可以通过调用 `getConfig`
+方法进行简单测试：
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+然后检查指标：
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## 关键指标说明
+
+1. **`kora_http_requests_total`** - 您已处理的请求数量
+   - `method`：调用的 RPC 方法
+   - `status`：HTTP 状态码（200=成功，400=错误等）
+   - 用于跟踪使用模式和错误率
+
+2. **`kora_http_request_duration_seconds`** - 请求的响应速度
+   - 显示响应时间的百分位数（p50、p95、p99）
+   - 用于识别响应缓慢的端点
+
+3. **`signer_balance_lamports`** - 每个签名者的当前 SOL 余额
+   - 以 lamport 为单位显示每个签名者的余额（1 SOL = 1,000,000,000 lamport）
+   - 标签：`signer_name`（易读名称）和 `signer_pubkey`（公钥）
+   - 启用后在后台自动更新
+   - 用于容量规划和所有签名者的低余额警报
+
+## 使用数据
+
+### 方式 1：快速健康检查
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### 方式 2：Prometheus + Grafana（推荐）
+
+要使用图表和警报，请运行完整的监控堆栈：
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+然后访问：
+
+- Prometheus：http://localhost:9090（查询指标）
+- Grafana 预构建的 Kora 仪表板：http://localhost:3000
+  - 默认登录凭据：admin/admin（或使用 `.env` 文件中的
+    `GF_SECURITY_ADMIN_PASSWORD` 和 `GF_SECURITY_ADMIN_USER` 凭据）
+
+### 方式 3：使用您自己的监控工具
+
+将任何兼容 Prometheus 的工具指向 `http://your-server:8080/metrics`：
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## 示例查询（Prometheus）
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## 多签名者监控
+
+使用多个签名者时，您可以单独监控每个签名者或跟踪汇总指标：
+
+### 单个签名者指标
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### 多签名者设置的 Prometheus 查询
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## 安全注意事项
+
+`/metrics` 端点默认为公开访问。在生产环境中，建议考虑：
+
+- 将其置于防火墙后
+- 使用独立的指标端口
+- 通过反向代理添加身份验证
+
+## 指标收集的工作原理
+
+1. **HTTP 中间件层** - 拦截所有请求并收集：
+   - 按 JSON-RPC 方法和状态分类的请求计数
+   - 按方法分类的请求持续时间
+
+2. **指标端点** - 启用该功能时会自动暴露 `/metrics` 端点
+   - 由 `MetricsHandlerLayer` 处理
+   - 返回 Prometheus 格式的指标数据
+
+3. **Prometheus 抓取** - 配置为每 60 秒抓取一次 Kora（参见
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml)）

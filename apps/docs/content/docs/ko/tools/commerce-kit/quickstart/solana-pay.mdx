@@ -1,0 +1,419 @@
+---
+title: Solana Pay
+description: Solana Pay URL, QR 코드 및 결제 트랜잭션 생성
+---
+
+`@solana-commerce/solana-pay` 패키지는 결제 경험을 구축하기 위한 완전한
+[Solana Pay](https://solanapay.com) 기능을 제공하며,
+[`gill`](https://www.gillsdk.com/) 및
+[`@solana/kit`](https://github.com/anza-xyz/kit) 라이브러리와 호환됩니다. URL
+인코딩/파싱, 맞춤형 스타일의 QR 코드 생성, 그리고 SOL 및 SPL 토큰 전송을 위한
+트랜잭션 구성을 처리합니다.
+
+## 설치
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URL 인코딩
+
+### `encodeURL(fields)`
+
+[Solana Pay 사양](https://docs.solanapay.com/spec)을 준수하는 Solana Pay URL을
+생성합니다. 이 함수는 링크로 공유하거나 모바일 지갑이 스캔할 수 있도록 QR 코드로
+인코딩할 수 있는 `solana:` 프로토콜 URL을 생성합니다.
+
+#### 매개변수
+
+- **`fields`** (`TransferRequestURLFields | TransactionRequestURLFields`) - 결제
+  URL 구성
+
+#### `TransferRequestURLFields`
+
+간단한 결제 요청(직접 전송)에 사용됩니다:
+
+- **`recipient`** (`Address`, 필수) - 결제를 받을 판매자의 지갑 주소 (base58로
+  인코딩된 공개 키)입니다. 문자열 또는 `gill`의 `Address` 타입일 수 있습니다.
+
+- **`amount`** (`bigint`, 선택 사항) - **lamport** 단위의 결제 금액(원자
+  단위)입니다. SOL의 경우, 1 SOL = 1,000,000,000 lamport(소수점 9자리)입니다.
+  SPL 토큰의 경우, 토큰의 소수점 정밀도를 사용합니다(예: USDC는 소수점 6자리를
+  사용하므로 1 USDC = 1,000,000).
+
+- **`splToken`** (`Address`, 선택 사항) - 토큰 결제를 위한 SPL 토큰 민트
+  주소입니다. 생략하면 결제는 SOL로 간주됩니다.
+
+- **`reference`** (`Address | Address[]`, 선택 사항) - 결제 추적에 사용되는
+  고유한 참조 주소입니다. `generateKeyPairSigner().address`를 사용하여
+  생성합니다. 참조는 트랜잭션에 읽기 전용 계정으로 추가되어, 이 참조를 사용하여
+  결제를 조회할 수 있습니다.
+
+- **`label`** (`string`, 선택 사항) - 사용자의 지갑에 표시되는 사람이 읽을 수
+  있는 판매자 또는 앱 이름입니다(예: "Coffee Shop", "My Store").
+
+- **`message`** (`string`, 선택 사항) - 결제 전에 사용자에게 표시되는
+  메시지입니다 (예: "구매해 주셔서 감사합니다!", "훌륭한 서비스에 대한 팁").
+
+- **`memo`** (`string`, 선택 사항) - 트랜잭션에 첨부되는 온체인 메모입니다.
+  솔라나에 영구적으로 저장됩니다. 주문 ID, 송장 번호 또는 기타 결제 메타데이터에
+  유용합니다.
+
+#### `TransactionRequestURLFields`
+
+복잡한 결제 요청(지침 포함)에 사용됩니다:
+
+- **`link`** (`URL`, 필수) - 트랜잭션으로의 링크입니다
+  ([`Link`](/docs/tools/solana-pay/specification/version1-1#link)). URL에 쿼리
+  매개변수가 포함되어 있는 경우 URL 인코딩되어야 합니다.
+
+- **`label`** (`string`, 선택 사항) - 사용자의 지갑에 표시되는 사람이 읽을 수
+  있는 판매자 또는 앱 이름입니다(예: "커피숍", "내 상점").
+
+- **`message`** (`string`, 선택 사항) - 결제 전에 사용자에게 표시되는
+  메시지입니다 (예: "구매해 주셔서 감사합니다!", "훌륭한 서비스에 대한 팁").
+
+#### 작동 방식
+
+이 함수는 유효한 솔라나 페이 URL을 구성하기 위해 여러 작업을 수행합니다:
+
+1. **프로토콜 접두사** - `solana:` 프로토콜 스킴을 사용하여 URL을 생성합니다
+   (`mailto:` 또는 `bitcoin:`와 유사)
+
+2. **경로명으로서의 수신자** - 수신자의 base58 주소를 URL 경로명으로
+   사용합니다(예: `solana:merchantWalletAddress123...`)
+
+3. **금액 변환** - 부동소수점 정밀도 문제 없이 bigint lamport 금액을 소수점
+   문자열 표현으로 변환합니다.
+
+4. **쿼리 매개변수** - 모든 선택적 필드와 참조를 URL 인코딩된 쿼리 매개변수로
+   추가합니다
+
+#### 반환값
+
+다음과 같이 사용할 수 있는 `solana:` 프로토콜을 가진 `URL` 객체:
+
+- 공유를 위해 `.toString()`로 문자열로 변환
+- QR 코드 생성을 위해 `createQR()`에 전달
+- 앵커 태그에서 직접 사용: `<a href={url.toString()}>Pay with Solana</a>`
+
+#### 예시: 기본 결제
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### 예시: SPL 토큰 결제
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### 예시: 추적이 포함된 결제
+
+참조를 사용하여 특정 결제를 식별하세요:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL 파싱
+
+### `parseURL(url)`
+
+Solana Pay URL을 디코딩하고 검증하여 모든 결제 매개변수를 추출합니다. 이 함수는
+검증을 수행하고 금액을 십진수 문자열에서 bigint lamport로 변환합니다.
+
+#### 매개변수
+
+- **`url`** (`string | URL`) - 파싱할 Solana Pay URL입니다. 문자열 또는 URL
+  객체일 수 있습니다.
+
+#### 반환값
+
+파싱된 `TransferRequestURLFields` 또는 `TransactionRequestURLFields` 객체입니다.
+
+#### 예제: 파싱 및 검증
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### 예제: URL Validator 함수
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## QR 코드 생성
+
+### `createQR(url, size, background, color)`
+
+Solana Pay URL에 최적화된 SVG QR 코드를 생성합니다. 이 함수는 둥근 모서리와
+사용자 정의 가능한 색상을 가진 스타일이 적용된 고품질 QR 코드를 생성합니다.
+
+#### 매개변수
+
+- **`url`** (`string | URL`) - QR 코드로 인코딩할 Solana Pay URL
+- **`size`** (`number`, 기본값: `512`) - 픽셀 단위의 너비와 높이
+- **`background`** (`string`, 기본값: `'white'`) - 배경 색상(16진수 또는 이름
+  색상). 지갑 호환성을 위해 밝은 색상이어야 합니다.
+- **`color`** (`string`, 기본값: `'black'`) - 전경/점 색상(16진수 또는 이름
+  색상). 대비를 위해 어두운 색상이어야 합니다.
+
+_또는 QR 코드 스타일링(너비, 여백, 색상, 점 스타일, 모서리 스타일, 로고, 로고
+크기, 로고 배경 색상, 로고 여백)을 더 세밀하게 제어하려면
+`createStyledQRCode(url, options)`를 사용할 수 있습니다._
+
+#### 반환값
+
+`Promise<string>` - 다음과 같이 사용할 수 있는 문자열 형태의 SVG 마크업:
+
+- `img` 요소의 src로 설정: `<img src={qrCode} />`
+- 파일로 저장
+
+#### 예제
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### 예시: 브랜드 QR 코드
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## 트랜잭션 생성
+
+### `createTransfer(rpc, sender, fields)`
+
+결제 전송을 위한 완전한 Solana 트랜잭션 메시지를 생성합니다. 이 함수는
+`splToken` 매개변수를 기반으로 SOL 또는 SPL 토큰 전송을 자동으로 감지하고 필요한
+모든 명령어를 구성합니다. 이 함수는 RPC 클라이언트에서 가져온 최신 블록해시를
+사용하여 트랜잭션의 블록해시 유효 기간을 설정하고, 서명 및 RPC 제출 준비가
+완료된 완전한 미서명 트랜잭션(`TransactionMessageWithBlockhashLifetime` 타입,
+Solana Kit/Gill과 호환)을 반환합니다.
+
+#### 매개변수
+
+- **`rpc`** (`Rpc<SolanaRpcApi>`) - `gill`의 Solana RPC 클라이언트입니다.
+  `createSolanaClient(rpcUrl).rpc`로 생성합니다.
+
+- **`sender`** (`Address`) - 지불자의 지갑 주소입니다. 트랜잭션에 서명할 자금이
+  있는 계정이어야 합니다.
+
+- **`fields`** (`CreateTransferFields`) - 전송 구성:
+  - `recipient` (`Address`, 필수) - 대상 지갑 주소
+  - `amount` (`bigint`, 필수) - lamport(SOL) 또는 토큰 원자 단위(SPL)로 표시된
+    금액
+  - `splToken` (`Address`, 선택) - SPL 토큰 민트 주소입니다. 생략하면 SOL 전송을
+    생성합니다.
+  - `reference` (`Address | Address[]`, 선택) - 추적을 위한 참조 주소
+  - `memo` (`string`, 선택) - 온체인 메모 텍스트
+
+#### 반환값
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - 다음을 포함하는 완전한
+트랜잭션 메시지:
+
+- 버전 0 형식(주소 조회 테이블 지원)
+- 블록해시 유효 기간(트랜잭션은 약 60초 후 만료됨)
+- 필요한 모든 명령어(전송 + 선택적 메모)
+- 지갑으로 서명하고 RPC에 제출할 준비 완료
+
+#### 오류 처리
+
+다음과 같은 특정 메시지와 함께 `CreateTransferError`를 발생시킵니다:
+
+- `"sender not found"` - 발신자 계정이 존재하지 않음
+- `"recipient not found"` - 수신자 계정이 존재하지 않음
+
+#### 예시: SOL 결제
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### 예시: USDC 결제
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

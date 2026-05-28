@@ -19,6 +19,7 @@ export function DocsPage(props: {
   filePath: string;
   toc: DocsPageProps["toc"];
   hideTableOfContents?: boolean;
+  hidePageNavigation?: boolean;
   full?: boolean;
   title: string;
   description?: string;
@@ -56,9 +57,10 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       footer={{
-        component: props.pageTree ? (
-          <Footer pageUrl={props.href} pageTree={props.pageTree} />
-        ) : undefined,
+        component:
+          props.pageTree && !props.hidePageNavigation ? (
+            <Footer pageUrl={props.href} pageTree={props.pageTree} />
+          ) : undefined,
       }}
     >
       {props.hideHeader ? null : props.isRoot ? (

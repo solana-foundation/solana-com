@@ -1,0 +1,482 @@
+---
+title: Połączenie portfela
+description: Połącz portfele Solana używając Wallet Standard
+---
+
+Pakiet `@solana-commerce/connector` zapewnia bezkontrolne połączenie portfela
+oparte na [Wallet Standard](https://github.com/wallet-standard/wallet-standard).
+Zarządza odkrywaniem portfeli, stanem połączenia, zarządzaniem kontami oraz
+automatycznym ponownym połączeniem. Pakiet jest zaprojektowany jako niezależny
+od frameworka, z dołączonymi wiązaniami dla React. Jest dostosowany do
+bezproblemowego użycia w Solana Commerce Kit i jest kompatybilny z
+[@solana/kit](https://github.com/anza-xyz/kit) oraz
+[gill](https://www.gillsdk.com/).
+
+![Połączenie portfela](/assets/docs/tools/commerce-kit/connector.png)
+
+## Instalacja
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Konfiguracja providera
+
+### `ConnectorProvider`
+
+Komponent `ConnectorProvider` opakowuje aplikację i udostępnia stan połączenia
+portfela wszystkim komponentom potomnym. Zarządza singletonową instancją
+`ConnectorClient`, która utrzymuje się przez cykle montowania/odmontowywania
+komponentów.
+
+#### Właściwości
+
+Cała konfiguracja jest przekazywana przez właściwość `config`:
+
+- **`config`** (`ConnectorConfig`, opcjonalna) - Obiekt konfiguracyjny dla
+  konektora. Wszystkie pola są opcjonalne.
+
+#### `ConnectorConfig`
+
+Obiekt konfiguracyjny zachowania połączenia portfela.
+
+##### Pola opcjonalne
+
+- **`autoConnect`** (`boolean`) - Gdy ustawione na `true`, automatycznie łączy
+  ponownie z ostatnio używanym portfelem przy montowaniu. Preferencja portfela
+  jest przechowywana w skonfigurowanym magazynie (domyślnie `localStorage`).
+  Domyślnie: `false`.
+
+- **`debug`** (`boolean`) - Włącza szczegółowe logowanie w konsoli do
+  debugowania przepływów połączeń, zmian kont i błędów. Logi zawierają prefiksy
+  takie jak `[Connector]` i `[ConnectorProvider]`. Domyślnie: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Interwał odpytywania w
+  milisekundach do sprawdzania zmian konta, gdy portfel nie obsługuje funkcji
+  `standard:events`. Większość nowoczesnych portfeli obsługuje zdarzenia, więc
+  odpytywanie jest rozwiązaniem awaryjnym. Domyślnie: `1500` (1,5 sekundy).
+
+- **`storage`** (`Storage`) - Niestandardowy adapter magazynu do utrzymywania
+  preferencji portfela. Musi implementować:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Domyślnie: `window.localStorage` gdy dostępny (tylko przeglądarka). Użyj tego
+  dla React Native (`AsyncStorage`) lub niestandardowego magazynu bezpiecznego
+  dla SSR.
+
+#### Architektura providera
+
+Provider wykorzystuje **wzorzec singletonu** z liczeniem referencji:
+
+- Wiele instancji `ConnectorProvider` współdzieli ten sam `ConnectorClient`
+- Klient jest tworzony przy pierwszym montowaniu i utrzymuje się przez
+  odmontowania
+- Gdy wszystkie providery zostaną odmontowane, czyszczenie jest opóźnione o 5
+  sekund, aby obsłużyć szybkie ponowne montowania
+- Podczas czyszczenia portfel jest rozłączany i wszystkie nasłuchiwacze zdarzeń
+  są usuwane
+
+Ten projekt zapobiega rozłączaniu portfela podczas zmiany tras lub aktualizacji
+komponentów.
+
+---
+
+## Hooki
+
+### `useConnector()`
+
+Podstawowy hook do dostępu do stanu połączenia z portfelem i akcji. Musi być
+używany wewnątrz `ConnectorProvider`.
+
+Zwraca obiekt `ConnectorSnapshot` zawierający:
+
+#### Właściwości stanu
+
+- **`wallets`** (`WalletInfo[]`) - Tablica wszystkich wykrytych portfeli
+  kompatybilnych ze standardem Wallet Standard. Automatycznie aktualizowana, gdy
+  portfele są instalowane lub odinstalowywane. Każdy portfel zawiera metadane,
+  takie jak nazwa, ikona i możliwości. Zobacz [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Aktualnie połączony obiekt portfela
+  Wallet Standard. `null`, gdy rozłączony. Jest to surowa instancja portfela z
+  API Wallet Standard.
+
+- **`connected`** (`boolean`) - Status połączenia. `true`, gdy portfel jest
+  połączony i konta są dostępne. Użyj tego do warunkowego renderowania UI.
+
+- **`connecting`** (`boolean`) - Stan ładowania podczas łączenia portfela.
+  `true` między wywołaniem `select()` a otrzymaniem wyniku połączenia. Użyj tego
+  do wyświetlania wskaźników ładowania lub wyłączania przycisków.
+
+- **`accounts`** (`AccountInfo[]`) - Tablica kont z połączonego portfela.
+  Większość portfeli udostępnia jedno konto, ale niektóre obsługują wiele.
+  Aktualizowane automatycznie poprzez zdarzenia portfela lub odpytywanie. Zobacz
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Adres aktualnie wybranego konta
+  (klucz publiczny zakodowany w base58). Gdy portfel łączy się z nowym kontem,
+  to konto jest automatycznie wybierane. W przeciwnym razie poprzednio wybrane
+  konto jest zachowywane.
+
+#### Metody akcji
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Łączy się z portfelem
+  po nazwie (np. `"Phantom"`, `"Solflare"`). Nazwa portfela musi dokładnie
+  odpowiadać polu `name` odkrytego portfela.
+
+  **Proces:**
+  1. Ustawia `connecting: true`
+  2. Wywołuje funkcję `standard:connect` portfela
+  3. Pobiera konta z portfela
+  4. Subskrybuje zdarzenia portfela (lub rozpoczyna odpytywanie, jeśli zdarzenia
+     są niedostępne)
+  5. Zapisuje preferencje portfela w skonfigurowanej pamięci
+  6. Aktualizuje stan o konta i wybrane konto
+
+  **Rzuca błąd:** Jeśli portfel nie został znaleziony, portfel nie obsługuje
+  połączenia lub połączenie zostało odrzucone przez użytkownika.
+
+- **`disconnect`** (`() => Promise<void>`) - Rozłącza bieżący portfel i czyści
+  cały stan.
+
+  **Proces:**
+  1. Anuluje subskrypcję zdarzeń portfela
+  2. Zatrzymuje odpytywanie kont
+  3. Wywołuje funkcję `standard:disconnect` portfela, jeśli jest dostępna
+  4. Czyści wybrany portfel, konta i wybrane konto
+  5. Usuwa preferencje portfela z pamięci
+
+  Nigdy nie rzuca błędu (błędy są logowane, jeśli włączono debugowanie).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Przełącza wybrane
+  konto na inny adres z podłączonego portfela. Jeśli adres nie znajduje się w
+  bieżącej tablicy kont, wyzwala ponowne połączenie w celu pobrania
+  zaktualizowanych kont.
+
+  **Rzuca błąd:** Jeśli żaden portfel nie jest podłączony lub żądane konto nie
+  zostało znalezione po ponownym połączeniu.
+
+### `useConnectorClient()`
+
+Zapewnia bezpośredni dostęp do podstawowej instancji `ConnectorClient` dla
+zaawansowanych przypadków użycia.
+
+**Zwraca:** `ConnectorClient | null` - Instancja singletona klienta lub `null`
+podczas użycia poza `ConnectorProvider`.
+
+**Przypadki użycia:**
+
+- Bezpośredni dostęp do `getConnectorState()` w celu imperatywnego odczytu stanu
+- Ręczna subskrypcja za pomocą `subscribe(listener)` dla niestandardowych
+  detektorów stanu
+- Wywołanie `destroy()` w celu wymuszonego czyszczenia (niezalecane w normalnym
+  użytkowaniu)
+
+**Przykład:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Definicje typów
+
+### `WalletInfo`
+
+Metadane dotyczące odkrytego portfela.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Wymagania:** Portfel jest możliwy do podłączenia, gdy obsługuje:
+
+- funkcję `standard:connect`
+- funkcję `standard:disconnect`
+- łańcuchy Solana (wykrywane przez `wallet.chains` zawierający `"solana"`)
+
+Portfele niemożliwe do podłączenia pojawiają się w tablicy `wallets`, ale nie
+można ich wybrać.
+
+### `AccountInfo`
+
+Informacje o koncie portfela.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Pole `raw` zapewnia dostęp do dodatkowych właściwości konta:
+
+- `address: string` - klucz publiczny zakodowany w Base58
+- `publicKey: Uint8Array` - surowe bajty klucza publicznego
+- `label?: string` - etykieta konta (jeśli portfel ją udostępnia)
+- `icon?: string` - ikona specyficzna dla konta (URL danych)
+- `chains: string[]` - obsługiwane łańcuchy dla tego konta
+- `features: string[]` - obsługiwane funkcje dla tego konta
+
+### `ConnectorSnapshot`
+
+Typ zwracany przez `useConnector()`, łączący stan i akcje.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Wykrywanie zmiany konta
+
+Konektor automatycznie wykrywa, gdy konta portfela ulegają zmianie (użytkownik
+dodaje/usuwa konta, przełącza konta w portfelu). Wykorzystywane są dwie
+strategie:
+
+### Oparte na zdarzeniach (preferowane)
+
+Gdy portfel obsługuje `standard:events`, konektor subskrybuje zdarzenia
+`change`:
+
+- Otrzymuje powiadomienia w czasie rzeczywistym, gdy konta ulegają zmianie
+- Bardziej wydajne (bez odpytywania)
+- Agreguje konta zarówno ze zdarzenia, jak i `wallet.accounts`, aby obsłużyć
+  portfele, które uwzględniają tylko wybrane konto w zdarzeniach
+
+### Zapasowe odpytywanie
+
+Gdy zdarzenia nie są obsługiwane, konektor odpytuje `wallet.accounts`:
+
+- Sprawdza co `accountPollingIntervalMs` (domyślnie: 1500 ms)
+- Porównuje adresy kont w celu wykrycia zmian
+- Wyzwala ponowne renderowanie tylko wtedy, gdy konta faktycznie się zmieniły
+
+**Logika wyboru konta:**
+
+- Gdy konta ulegają zmianie, zachowaj wybrane konto, jeśli nadal istnieje
+- Jeśli wybrane konto zostało usunięte, wybierz pierwsze dostępne konto
+- Podczas łączenia z nowym kontem (nieobecnym w poprzednich kontach), preferuj
+  nowe konto
+
+---
+
+## Przechowywanie i automatyczne łączenie
+
+### Trwałość przechowywania
+
+Konektor przechowuje jeden klucz w skonfigurowanym magazynie:
+
+- **Klucz:** `arc-connector:lastWallet`
+- **Wartość:** Nazwa portfela (np. `"Phantom"`)
+
+Operacje przechowywania są opakowane w try-catch, aby obsłużyć:
+
+- Piaskownice iframe, gdzie `localStorage` rzuca wyjątek
+- Środowiska SSR, gdzie `window` jest niezdefiniowane
+- React Native, gdzie `localStorage` nie istnieje
+
+Jeśli przechowywanie się nie powiedzie, konektor kontynuuje działanie bez
+trwałości (nie są rzucane błędy).
+
+### Zachowanie automatycznego łączenia
+
+Gdy `autoConnect: true`:
+
+1. Przy montowaniu odczytuje ostatnią nazwę portfela z magazynu
+2. Czeka 100 ms (pozwala portfelom się zarejestrować)
+3. Wywołuje `select(walletName)`, jeśli portfel zostanie wykryty
+4. Jeśli automatyczne łączenie się nie powiedzie, usuwa nieprawidłową
+   preferencję z magazynu
+
+**Uwaga dotycząca bezpieczeństwa:** Przechowywana preferencja to tylko nazwa
+portfela (ciąg znaków), a nie dane wrażliwe. Portfel obsługuje
+uwierzytelnianie/autoryzację poprzez własny interfejs użytkownika.
+
+---
+
+## Przykłady użycia
+
+### Podstawowy przycisk portfela
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Selektor wielu kont
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Monitorowanie połączenia
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Obsługiwane portfele
+
+Konektor obsługuje wszystkie portfele implementujące
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), w tym:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Każdy inny portfel zgodny ze standardem Wallet Standard
+
+Portfele są automatycznie wykrywane, gdy rejestrują się w API Wallet Standard
+(nie jest potrzebna konfiguracja).
+
+---
+
+## Użycie bez interfejsu (bez React)
+
+W przypadku aplikacji innych niż React lub użycia po stronie serwera, użyj
+bezpośrednio `ConnectorClient`:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Uwaga:** `ConnectorClient` zarządza własnym stanem i nigdy nie wywołuje
+ponownego renderowania React. Musisz ręcznie subskrybować zmiany stanu.

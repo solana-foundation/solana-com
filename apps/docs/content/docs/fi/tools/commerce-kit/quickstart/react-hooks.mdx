@@ -1,0 +1,571 @@
+---
+title: React Hooks
+description:
+  Rakenna mukautettuja maksukäyttöliittymiä Solana Commerce React hookeilla
+---
+
+`@solana-commerce/sdk`-paketti tarjoaa React hookit mukautettujen
+Solana-maksutoimintojen rakentamiseen. Nämä hookit tarjoavat täyden hallinnan
+SOL- ja SPL- tokien siirtoihin sisäänrakennetun tilanhallinnan, automaattisen
+uudelleenyrityslogiikan, virheenkäsittelyn ja käyttöliittymäapuohjelmien kanssa.
+
+Konepellin alla SDK käyttää [TanStack Queryä](https://tanstack.com/query)
+välimuistiin ja tilanhallintaan,
+[@solana/kitiä](https://github.com/anza-xyz/kit) Solana-primitiiveille ja
+integroituu saumattomasti `@solana-commerce/connector`-palvelun kanssa lompakon
+yhdistämiseksi.
+
+## Asennus
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Provider-asetukset
+
+### `ArcProvider`
+
+`ArcProvider` on juuriprovider, joka alustaa Solana RPC-asiakkaan, hallitsee
+verkon konfiguraatiota ja tarjoaa lohkoketjuyhteyksiä kaikille houkeille. Sen on
+kääritävä kaikki komponentit, jotka käyttävät SDK-houkkeja.
+
+#### Propsit
+
+- **`config`** (`ArcWebClientConfig`) - Arc-asiakkaan konfiguraatio-objekti
+- **`children`** (`ReactNode`) - Lapsikomponentit, joilla on pääsy houkkeihin
+- **`queryClient`** (`QueryClient`, valinnainen) - Mukautettu TanStack Query
+  -asiakas. Jos ei anneta, oletusinstanssi luodaan sisäisesti.
+
+#### `ArcWebClientConfig`
+
+Arc-asiakkaan konfiguraatio, joka ohjaa RPC-yhteyksiä ja sitoutumistasoja.
+
+##### Pakolliset kentät
+
+Provider integroituu automaattisesti `@solana-commerce/connector`-palvelun
+kanssa `useConnectorClient`-hookin kautta, joten erillisiä liittimen
+konfiguraatioita ei tarvita, kun sitä käytetään `ConnectorProvider`-komponentin
+sisällä.
+
+##### Valinnaiset kentät
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Solana-verkko, johon
+  yhdistetään. Oletus: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - Mukautettu RPC-päätepiste URL. Jos ei anneta,
+  käyttää valitun verkon julkisia päätepisteitä.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - Tapahtuman
+  vahvistustaso. Oletus: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Ottaa käyttöön yksityiskohtaisen konsolilokin
+  vianetsintää varten. Oletus: `false`.
+
+- **`autoConnect`** (`boolean`) - Yhdistää automaattisesti lompakkoon, kun
+  komponentti liitetään. Oletus: `true`.
+
+- **`storage`** (`Storage`) - Mukautettu tallennussovitin lompakon asetusten
+  säilyttämiseen. Täytyy toteuttaa:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Oletus: `window.localStorage` kun saatavilla (vain selain). Käytä tätä React
+  Nativessa (`AsyncStorage`) tai mukautetussa SSR-turvallisessa tallennuksessa.
+
+#### Integraatio `ConnectorProvider`-komponentin kanssa
+
+Palveluntarjoaja integroituu `ConnectorProvider`-komponentin kanssa
+`@solana-commerce/connector`:stä. Kääri aina sovelluksesi
+`ConnectorProvider`-komponentilla ennen `ArcProvider`-komponenttia:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Ydinkoukut
+
+### `useTransferSOL`
+
+Koukku SOL:n siirtämiseen automaattisella uudelleenyrityslogiikalla,
+tilanhallinalla ja käyttöliittymän apufunktioilla. Rakennettu TanStack Queryn
+päälle välimuistitusta ja pyyntöjen deduplikointia varten.
+
+#### Allekirjoitus
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Parametrit
+
+- **`initialToInput`** (`string`, valinnainen) - Alkuarvo vastaanottajan
+  osoitesyötteelle. Hyödyllinen lomakkeiden esitäyttöön.
+- **`initialAmountInput`** (`string`, valinnainen) - Alkuarvo määrän syötteelle
+  SOL:issa. Hyödyllinen lomakkeiden esitäyttöön.
+
+#### Palautusarvo
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Ydinfunktio
+
+- **`transferSOL`** - Aloittaa SOL-siirron. Palauttaa promisen, joka ratkaistaan
+  kun transaktio on vahvistettu lohkoketjussa.
+
+##### Tila-ominaisuudet
+
+- **`isLoading`** (`boolean`) - `true` kun transaktiota käsitellään
+  (allekirjoitus, lähetys, vahvistus). Käytä tätä latauksen ilmaisimille ja
+  painikkeen tiloille.
+
+- **`error`** (`Error | null`) - Virheobjekti, jos transaktio epäonnistui missä
+  tahansa vaiheessa. `null` kun ei virhettä. Virheet sisältävät lompakon
+  hylkäykset, riittämättömän saldon, verkkovirheet jne.
+
+- **`data`** (`TransferSOLResult | null`) - Tulosobjekti kun transaktio
+  onnistuu. Sisältää allekirjoituksen, osoitteet, määrät ja lohkoketjun
+  metatiedot. `null` ennen ensimmäistä onnistunutta siirtoa.
+
+- **`reset`** (`() => void`) - Nollaa mutaatiotilan, tyhjentäen `error`:n ja
+  `data`:n. Hyödyllinen uudelleenyritysvirtauksille tai lomakkeiden nollaukselle
+  valmistumisen jälkeen.
+
+##### Käyttöliittymän apu-ominaisuudet ja -metodit
+
+Koukku tarjoaa sisäänrakennetun tilanhallinnon lomakesyötteille:
+
+- **`toInput`** / **`setToInput`** - Ohjattu tila vastaanottajan osoitteen
+  syöttökentälle
+
+- **`amountInput`** / **`setAmountInput`** - Ohjattu tila määrän syöttökentälle
+  (SOL-muodossa, ei lamporteina)
+
+- **`handleToInputChange`** - Esisidottu onChange-käsittelijä vastaanottajan
+  syöttöä varten: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Esisidottu onChange-käsittelijä määrän syöttöä
+  varten: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Apumetodi, joka siirtää SOL:ia käyttäen nykyisiä
+  `toInput`- ja `amountInput`-arvoja. Muuntaa määrän automaattisesti SOL:ista
+  lamporteiksi.
+
+- **`handleSubmit`** - Lomakkeen lähetyskäsittelijä, joka kutsuu
+  `transferFromInputs()`-funktiota ja estää lomakkeen oletustoiminnan. Käytä
+  yhdessä `<form onSubmit={handleSubmit}>`-tapahtuman kanssa.
+
+#### Asetukset
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (pakollinen) - Vastaanottajan Solana-osoite. Voi olla merkkijono tai
+  `Address`-tyyppi `@solana/kit`-kirjastosta.
+
+- **`amount`** (pakollinen) - Siirrettävä määrä **lamporteina** (ei SOL:ina).
+  Täytyy olla `bigint`-tyyppiä. Käytä `BigInt()`-funktiota tai
+  literaalinotaatiota: `1_000_000_000n` = 1 SOL.
+
+- **`from`** (valinnainen) - Lähettäjän osoite. Jos ei määritetä, käytetään
+  yhdistetyn lompakon osoitetta. Vaaditaan vain erikoistapauksissa (esim.
+  allekirjoitettaessa toisen tilin puolesta).
+
+#### Tulos
+
+Tulos sisältää transaktion metatiedot mukaan lukien siirron yksityiskohdat ja
+transaktion allekirjoituksen:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### Sisäinen arkkitehtuuri
+
+**Transaktiorakentaja:** Hook käyttää jaettua transaktiorakentajaa, joka:
+
+- Hakee tuoreet lohkotiivisteet jokaiselle transaktiolle
+- Rakentaa optimoituja transaktioviestejä minimaalisilla maksuilla
+- Allekirjoittaa transaktiot käyttäen yhdistettyä lompakkoa
+- Lähettää ja vahvistaa transaktiot yhdessä kulkussa
+
+**Välimuistin mitätöinti:** Onnistuneen siirron jälkeen hook mitätöi
+automaattisesti TanStack Query -välimuistit seuraaville:
+
+- Lähettäjän saldo (`from`-osoite)
+- Vastaanottajan saldo (`to`-osoite)
+
+Tämä varmistaa, että kaikki saldoja näyttävät komponentit (esim.
+`useArcClient`-hookin kautta) hakevat ja päivittävät tiedot automaattisesti
+ilman manuaalista toimenpidettä.
+
+**Tarkka määrän muunnos:** Kun käytetään `transferFromInputs()`, määrä
+muunnetaan SOL:sta lamporteiksi käyttäen merkkijonopohjaista aritmetiikkaa
+liukulukujen tarkkuusvirheiden välttämiseksi. Muunnos:
+
+- Validoi syötteen muodon (hylkää negatiiviset, virheelliset luvut)
+- Käsittelee jopa 9 desimaalin tarkkuudella (1 lamport = 0,000000001 SOL)
+- Katkaisee tai täyttää desimaaliosat tarpeen mukaan
+- Palauttaa kuvaavat virheilmoitukset virheellisille syötteille
+
+---
+
+### `useTransferToken`
+
+Kuten `useTransferSOL`, tätä hookia käytetään SPL-tokenien siirtämiseen.
+Siirtojen käsittelyn lisäksi hook hoitaa myös automaattisen Associated Token
+Accountin (ATA) luomisen tarvittaessa.
+
+#### Allekirjoitus
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Parametrit
+
+- **`initialMintInput`** (`string`, valinnainen) - Alkuperäinen token mint
+  -osoite. Hyödyllinen kiinteille token-siirroille.
+- **`initialToInput`** (`string`, valinnainen) - Alkuperäinen vastaanottajan
+  osoite.
+- **`initialAmountInput`** (`string`, valinnainen) - Alkuperäinen määrä tokenin
+  perusyksiköissä (desimaalit huomioiden).
+
+#### Palautusarvo
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Palautusarvo on samankaltainen kuin `useTransferSOL`, mutta sisältää lisäksi
+`mintInput`-tilan token-valintaa varten.
+
+#### Asetukset
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Pakolliset kentät
+
+- **`mint`** - SPL-tokenin mint-osoite. Esimerkiksi:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Vastaanottajan lompakko-osoite (ei hänen token accountinsa). Hook
+  johtaa automaattisesti oikean Associated Token Accountin.
+
+- **`amount`** - Siirtomäärä tokenin **pienimmässä yksikössä**. Täytyy ottaa
+  huomioon tokenin desimaalit:
+  - USDC (6 desimaalia): `1_000_000n` = 1 USDC
+  - SOL-käärityt tokenit (9 desimaalia): `1_000_000_000n` = 1 token
+
+##### Valinnaiset kentät
+
+- **`from`** - Lähettäjän lompakko-osoite. Oletusarvo on yhdistetty lompakko.
+
+- **`createAccountIfNeeded`** (oletus: `true`) - Jos vastaanottajalla ei ole
+  token accountia tälle mintille, luo se automaattisesti osana transaktiota. Kun
+  `false`, siirto epäonnistuu, jos vastaanottajan tiliä ei ole olemassa.
+
+  _Huomautus:_ Token-tilin luominen maksaa ~0,00203 SOL. Tämän maksaa lähettäjä.
+
+- **`retryConfig`** - Konfiguraatio automaattiselle uudelleenyritykselle
+  blockhash-vanhentumisen sattuessa. Katso
+  [Uudelleenyrityksen konfiguraatio](#retry-configuration).
+
+#### Tulos
+
+Tulos sisältää transaktion metatiedot mukaan lukien siirtotiedot ja transaktion
+allekirjoituksen:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Uudelleenyrityksen konfiguraatio
+
+Koukku sisältää kehittyneen uudelleenyrityslogiikan blockhash-vanhentumisen
+käsittelyyn, mikä esiintyy yleisesti verkon ruuhkautumisen aikana.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Transaktioyrityksen enimmäismäärä. Jokainen yritys hakee
+  tuoreen blockhash-arvon. Oletusarvo: `3`.
+
+- **`baseDelay`** - Viive millisekunneissa ennen ensimmäistä uudelleenyritystä.
+  Oletusarvo: `1000` (1 sekunti).
+
+- **`backoffMultiplier`** - Eksponentiaalisen takaiskun kerroin. Jokainen
+  uudelleenyritys odottaa `baseDelay * (backoffMultiplier ^ attemptNumber)`
+  millisekuntia.
+  - `1` = lineaarinen takaisku (1s, 1s, 1s)
+  - `1.5` = eksponentiaalinen takaisku (1s, 1,5s, 2,25s)
+  - `2` = aggressiivinen eksponentiaalinen (1s, 2s, 4s)
+
+**Kuinka uudelleenyritys toimii:**
+
+1. **Ensimmäinen yritys:** Transaktio rakennetaan nykyisellä blockhash-arvolla
+   ja lähetetään
+2. **Blockhash vanhenee:** Jos blockhash vanhenee ennen vahvistusta, Solana
+   hylkää transaktion
+3. **Automaattinen uudelleenyritys:** Koukku havaitsee vanhentumisen, hakee
+   tuoreen blockhash-arvon, rakentaa transaktion uudelleen ja lähettää sen
+   uudestaan
+4. **Eksponentiaalinen takaisku:** Jokainen uudelleenyritys odottaa pidempään
+   verkon ruuhkautumisen välttämiseksi
+5. **Lopullinen virhe:** `maxAttempts`:n jälkeen heittää
+   `BlockhashExpirationError` kontekstilla
+
+**Milloin uudelleenyrityksiä ei käynnistetä:**
+
+- Muut kuin blockhash-virheet (riittämättömät varat, virheelliset tilit jne.)
+  heittävät välittömästi ilman uudelleenyritystä
+- Vain blockhash-vanhentumisvirheet käynnistävät uudelleenyritysmekanismin
+
+#### Sisäinen arkkitehtuuri
+
+**ATA-hallinta:**
+
+- Johtaa Associated Token Accountit deterministisesti käyttäen
+  `findAssociatedTokenPda` (_Huomautus: tällä hetkellä tuetaan vain Token
+  Program -ohjelmaa_)
+- Tarkistaa, onko lähettäjällä token-tili (epäonnistuu nopeasti, jos
+  lähettäjällä ei ole tokenia)
+- Tarkistaa, onko vastaanottajalla token-tili (luo tarvittaessa ja
+  `createAccountIfNeeded: true`)
+- Tilitarkistukset suoritetaan vain ensimmäisellä yrityksellä tarpeettomien
+  RPC-kutsujen välttämiseksi uudelleenyritysten aikana
+
+**Välimuistin mitätöinti:** Onnistuessa mitätöi TanStack Query -välimuistit
+seuraaville:
+
+- Lähettäjän token-saldo tälle mintille
+- Vastaanottajan token-saldo tälle mintille
+- Liittyvät tilitiedot
+
+Tämä pitää kaikki saldoja näyttävät käyttöliittymäkomponentit automaattisesti
+synkronoituina.
+
+### `useArcClient`
+
+Houkku taustalla olevan Solana RPC -asiakkaan, lompakon tilan ja
+verkkokonfiguraation käyttämiseen. Tämä on matalan tason houkku edistyneisiin
+käyttötapauksiin, jotka tarvitsevat suoraa RPC-yhteyttä.
+
+#### Allekirjoitus
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Palautusarvo
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### Tila
+
+`ArcClientSnapshot` laajentaa `ArcWebClient`-rajapintaa, joka tarjoaa pääsyn:
+
+- lompakon tilaan (osoite, allekirjoittaja, saatavilla olevat lompakot,
+  ominaisuudet ja lompakon tila)
+- verkkokonfiguraatioon (RPC-päätepiste, Solana-klusteri)
+
+#### Käyttötapaukset
+
+**Suorat RPC-kyselyt:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Verkkotietoiset komponentit:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Ehdollinen renderöinti lompakon perusteella:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```
