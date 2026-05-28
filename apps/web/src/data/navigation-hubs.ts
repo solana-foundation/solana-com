@@ -622,6 +622,14 @@ const navigationHubStaticConfigs = {
             external: true,
           },
           {
+            href: "https://orb.helius.dev/",
+            external: true,
+          },
+          {
+            href: "https://web3.okx.com/explorer/solana",
+            external: true,
+          },
+          {
             href: "https://status.solana.com/",
             external: true,
           },
