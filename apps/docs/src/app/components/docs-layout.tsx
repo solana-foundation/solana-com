@@ -10,6 +10,7 @@ import { RootProvider } from "fumadocs-ui/provider";
 import { I18nProvider } from "fumadocs-ui/i18n";
 import { getTranslations } from "next-intl/server";
 import { DocsSidebarTogglePortal } from "./docs-sidebar-toggle-portal";
+import type { PageTree } from "fumadocs-core/server";
 
 export async function DocsLayout({
   children,
@@ -18,7 +19,7 @@ export async function DocsLayout({
   locale = "en",
 }: {
   children: ReactNode;
-  tree: any; // TODO: fix after updating to fumadocs-ui@15
+  tree: PageTree.Root;
   sidebarEnabled?: boolean;
   locale?: string;
 }) {
