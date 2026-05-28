@@ -36,13 +36,21 @@ LINKS_DIR = REPO_ROOT / "apps" / "media" / "content" / "links"
 MEDIA_ENV = REPO_ROOT / "apps" / "media" / ".env.local"
 
 SOLANA_CHANNEL_ID = "UC9AdQPUe4BdVJ8M9X7wxHUA"  # @SolanaFndn
-SOLANA_CHANNEL_TITLES = {"Solana"}
+
+VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+
+
+def assert_video_id(vid: str) -> str:
+    if not VIDEO_ID_RE.match(vid):
+        sys.stderr.write(f"Refusing unexpected YouTube video id: {vid!r}\n")
+        sys.exit(1)
+    return vid
 
 
 def load_env_file(path: Path) -> None:
     if not path.exists():
         return
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -75,6 +83,9 @@ def api_get(path: str, **params: str) -> dict:
     except urllib.error.HTTPError as e:
         sys.stderr.write(f"YouTube API error: {e.code} {e.reason}\n{e.read().decode()}\n")
         sys.exit(1)
+    except (urllib.error.URLError, TimeoutError) as e:
+        sys.stderr.write(f"YouTube API request failed: {e}\n")
+        sys.exit(1)
 
 
 def parse_url(url: str) -> tuple[str, str]:
@@ -86,17 +97,18 @@ def parse_url(url: str) -> tuple[str, str]:
     if host.endswith("youtu.be"):
         vid = parsed.path.lstrip("/")
         if vid:
-            return ("video", vid)
+            return ("video", assert_video_id(vid))
 
     if "youtube.com" in host or "youtube-nocookie.com" in host:
         if parsed.path == "/playlist" and "list" in qs:
             return ("playlist", qs["list"][0])
         if "v" in qs:
-            return ("video", qs["v"][0])
-        if parsed.path.startswith("/shorts/"):
-            return ("video", parsed.path.split("/")[2])
-        if parsed.path.startswith("/embed/"):
-            return ("video", parsed.path.split("/")[2])
+            return ("video", assert_video_id(qs["v"][0]))
+        for prefix in ("/shorts/", "/embed/"):
+            if parsed.path.startswith(prefix):
+                vid = parsed.path[len(prefix):].split("/", 1)[0]
+                if vid:
+                    return ("video", assert_video_id(vid))
 
     sys.stderr.write(f"Could not extract video or playlist id from URL: {url}\n")
     sys.exit(1)
@@ -113,7 +125,7 @@ def fetch_playlist_video_ids(playlist_id: str) -> list[str]:
         for item in data.get("items", []):
             vid = item.get("contentDetails", {}).get("videoId")
             if vid:
-                ids.append(vid)
+                ids.append(assert_video_id(vid))
         page_token = data.get("nextPageToken") or ""
         if not page_token:
             break
@@ -129,7 +141,7 @@ def fetch_videos(video_ids: list[str]) -> list[dict]:
     return out
 
 
-def slugify(title: str, max_len: int = 80) -> str:
+def slugify(title: str, max_len: int = 80, fallback: str = "") -> str:
     """Slug matching the Keystatic style used elsewhere in content/links/."""
     s = unicodedata.normalize("NFKD", title)
     s = s.encode("ascii", "ignore").decode("ascii")
@@ -138,20 +150,18 @@ def slugify(title: str, max_len: int = 80) -> str:
     s = s.strip("-")
     if len(s) > max_len:
         s = s[:max_len].rstrip("-")
-    return s
+    return s or fallback
 
 
 def is_solana_foundation(snippet: dict) -> bool:
-    return (
-        snippet.get("channelId") == SOLANA_CHANNEL_ID
-        or snippet.get("channelTitle") in SOLANA_CHANNEL_TITLES
-    )
+    return snippet.get("channelId") == SOLANA_CHANNEL_ID
 
 
 def render_mdx(video: dict) -> str:
     snippet = video["snippet"]
-    video_id = video["id"]
-    title = snippet["title"]
+    video_id = assert_video_id(video["id"])
+    # Collapse whitespace so embedded newlines/tabs in titles can't break YAML.
+    title = re.sub(r"\s+", " ", snippet["title"]).strip()
     url = f"https://www.youtube.com/watch?v={video_id}"
     published = snippet.get("publishedAt", "")  # e.g. 2026-05-11T10:59:33Z
     # Keystatic stores datetimes with millisecond precision.
@@ -165,7 +175,8 @@ def render_mdx(video: dict) -> str:
     lines.append("description: >")
     lines.append(f"  {title}")
     lines.append('source: "YouTube"')
-    lines.append(f"publishedAt: {published}")
+    if published:
+        lines.append(f"publishedAt: {published}")
     if is_solana_foundation(snippet):
         lines.append("tags:")
         lines.append("  - tag: solana-foundation")
@@ -182,12 +193,21 @@ def escape_yaml_dq(value: str) -> str:
 
 
 def write_video(video: dict) -> tuple[Path, str]:
+    video_id = assert_video_id(video["id"])
     title = video["snippet"]["title"]
-    slug = slugify(title)
+    slug = slugify(title, fallback=video_id)
     target = LINKS_DIR / f"{slug}.mdx"
     if target.exists():
-        return target, "skipped"
-    target.write_text(render_mdx(video))
+        # Slug collision is safe only if the existing file points at this video.
+        existing_url = extract_url(target.read_text(encoding="utf-8")) or ""
+        existing_id = YT_ID_RE.search(existing_url)
+        if existing_id and existing_id.group(1) == video_id:
+            return target, "skipped"
+        # Different video, same slug — disambiguate with the video id.
+        target = LINKS_DIR / f"{slug}-{video_id}.mdx"
+        if target.exists():
+            return target, "skipped"
+    target.write_text(render_mdx(video), encoding="utf-8")
     return target, "written"
 
 
@@ -220,7 +240,7 @@ def find_duplicates() -> list[tuple[str, list[Path]]]:
     else raw url). Return (key, paths) for each group with >1 path."""
     by_key: dict[str, list[Path]] = {}
     for path in sorted(LINKS_DIR.glob("*.mdx")):
-        url = extract_url(path.read_text())
+        url = extract_url(path.read_text(encoding="utf-8"))
         if not url:
             continue
         yt = YT_ID_RE.search(url)
@@ -245,11 +265,16 @@ def main() -> None:
             video_ids.extend(fetch_playlist_video_ids(ident))
 
     # de-dupe while preserving order
-    seen: set[str] = set()
-    deduped = [v for v in video_ids if not (v in seen or seen.add(v))]
+    deduped = list(dict.fromkeys(video_ids))
 
     videos = fetch_videos(deduped)
-    print(f"Fetched {len(videos)} video(s)")
+    print(f"Fetched {len(videos)} of {len(deduped)} requested video(s)")
+    missing = set(deduped) - {v["id"] for v in videos}
+    if missing:
+        sys.stderr.write(
+            f"Warning: {len(missing)} video id(s) not returned by the API "
+            f"(private, deleted, or region-blocked): {sorted(missing)}\n"
+        )
     written = skipped = 0
     for v in videos:
         path, status = write_video(v)
