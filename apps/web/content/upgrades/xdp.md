@@ -47,8 +47,7 @@ block sizes.
 
 While XDP is not a protocol change and does not require a network upgrade,
 widespread validator adoption is critical. The 100M CU feature cannot be
-activated until enginners see the bloock propagation improvements in the
-newtork.
+activated until engineers see the block propagation improvements in the network.
 
 ## Agave: How to Enable XDP
 
@@ -78,8 +77,8 @@ If you are running Firedancer, no action is needed. XDP is already active.
 
 The Solana protocol is rapidly pushing the boundaries of bandwidth and
 performance. The current Solana block size limit is 60M CUs. At current block
-sizes, the block propegation layer of the protocol is not constrained. The
-Solana protocol is quickly moving to enabled 100M CU blocks, a 66% increase in
+sizes, the block propagation layer of the protocol is not constrained. The
+Solana protocol is quickly moving to enable 100M CU blocks, a 66% increase in
 block capacity.
 
 At 100M CUs, Turbine, the block propagation layer of the protocol, will become
@@ -94,7 +93,7 @@ cases like trading and payments.
 ## Summary
 
 XDP is a linux kernel networking technology. Solana validator clients will
-leverage XDP to enable much high performance networking and allow for a 66%
+leverage XDP to enable much higher performance networking and allow for a 66%
 increase in block capacity.
 
 | Client       | XDP Status         | Action Required               |
