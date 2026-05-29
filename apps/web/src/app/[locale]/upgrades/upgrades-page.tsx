@@ -29,6 +29,16 @@ const UPGRADES = [
     gradient: "from-[#9945FF] to-purple-500",
   },
   {
+    id: "reduced-slot-times",
+    title: "Reduced Slot Times",
+    description:
+      "Shortening slot timing to reduce latency and make network interactions feel faster for applications and users.",
+    slug: "reduced-slot-times",
+    date: "TBD",
+    status: "Under Development",
+    gradient: "from-sky-400 via-[#14F195] to-cyan-500",
+  },
+  {
     id: "alpenglow",
     title: "Alpenglow",
     description:
