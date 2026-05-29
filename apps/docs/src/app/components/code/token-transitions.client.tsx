@@ -9,6 +9,12 @@ import {
 import React from "react";
 
 const MAX_TRANSITION_DURATION = 900; // milliseconds
+
+type TokenTransitionKeyframes = PropertyIndexedKeyframes & {
+  translateX?: [number, number];
+  translateY?: [number, number];
+};
+
 export class PreWithRef extends React.Component<CustomPreProps> {
   ref: React.RefObject<HTMLPreElement>;
   constructor(props: CustomPreProps) {
@@ -31,7 +37,8 @@ export class PreWithRef extends React.Component<CustomPreProps> {
   ) {
     const transitions = calculateTransitions(this.ref.current!, snapshot);
     transitions.forEach(({ element, keyframes, options }) => {
-      const { translateX, translateY, ...kf } = keyframes as any;
+      const { translateX, translateY, ...kf } =
+        keyframes as TokenTransitionKeyframes;
       if (translateX && translateY) {
         kf.translate = [
           `${translateX[0]}px ${translateY[0]}px`,
