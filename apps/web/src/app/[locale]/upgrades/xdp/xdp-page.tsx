@@ -3,13 +3,16 @@ import Link from "next/link";
 import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { config } from "@/config";
 
-function SocialShare({ title }: { title: string }) {
+function SocialShare({ title, path }: { title: string; path: string }) {
+  const url = encodeURIComponent(`${config.siteUrl}${path}`);
+  const text = encodeURIComponent(title);
   return (
     <div className="flex items-center gap-3 mb-6">
       <span className="text-sm text-gray-400">Share:</span>
       <a
-        href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}`}
+        href={`https://twitter.com/intent/tweet?text=${text}&url=${url}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
@@ -18,7 +21,7 @@ function SocialShare({ title }: { title: string }) {
         <Twitter className="size-5" />
       </a>
       <a
-        href="https://www.facebook.com/sharer/sharer.php"
+        href={`https://www.facebook.com/sharer/sharer.php?u=${url}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
@@ -27,7 +30,7 @@ function SocialShare({ title }: { title: string }) {
         <Facebook className="size-5" />
       </a>
       <a
-        href="https://www.linkedin.com/sharing/share-offsite/"
+        href={`https://www.linkedin.com/sharing/share-offsite/?url=${url}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
@@ -36,7 +39,7 @@ function SocialShare({ title }: { title: string }) {
         <Linkedin className="size-5" />
       </a>
       <a
-        href="https://t.me/share/url"
+        href={`https://t.me/share/url?url=${url}&text=${text}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
@@ -176,7 +179,10 @@ export function XdpPage({ markdownContent }: XdpPageProps) {
             Kernel-bypass networking for faster block propagation on Solana
           </p>
 
-          <SocialShare title="XDP: Kernel-bypass networking for Solana validators" />
+          <SocialShare
+            title="XDP: Kernel-bypass networking for Solana validators"
+            path="/upgrades/xdp"
+          />
 
           <p className="text-base text-gray-400 mb-8">
             <span>May 2026</span>
