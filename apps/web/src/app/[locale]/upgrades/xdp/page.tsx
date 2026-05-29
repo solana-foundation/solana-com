@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title:
       "XDP Networking | Solana Upgrades - High-Performance Validator Networking",
     description:
-      "XDP (eXpress Data Path) reduces validator packet processing latency by up to 200x, enabling 100M CU blocks on Solana. Available in Agave 2.x+, enabled by default in Firedancer.",
+      "XDP (eXpress Data Path) reduces validator packet processing latency by up to 200x, enabling 100M CU blocks on Solana. Available in Agave 4.0.0, enabled by default in Firedancer.",
     alternates: {
       canonical: "/upgrades/xdp",
       languages: {
