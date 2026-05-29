@@ -4,9 +4,11 @@ import fs from "fs";
 import path from "path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { getAlternates } from "@workspace/i18n/routing";
+import { config } from "@@/src/config";
 
 export const revalidate = 3600;
 
@@ -116,6 +118,87 @@ function getTitle(markdownContent: string) {
   return markdownContent.match(/^#\s+(.+)$/m)?.[1] ?? "Solana Upgrade";
 }
 
+const FALLBACK_DESCRIPTION =
+  "Core protocol work being done to improve security, increase bandwidth, and reduce latency on Solana.";
+
+// Pull the first prose paragraph out of the markdown for the meta description,
+// skipping the H1 heading and the "**date** • Solana Foundation" byline.
+function getDescription(markdownContent: string) {
+  const paragraph: string[] = [];
+  let started = false;
+
+  for (const raw of markdownContent.split("\n")) {
+    const line = raw.trim();
+    if (!started) {
+      if (!line || line.startsWith("#") || /^\*\*.+\*\*/.test(line)) continue;
+      started = true;
+      paragraph.push(line);
+    } else {
+      if (!line) break;
+      paragraph.push(line);
+    }
+  }
+
+  let text = paragraph
+    .join(" ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // markdown links -> link text
+    .replace(/[*_`>#]/g, "") // strip leftover markdown formatting
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return FALLBACK_DESCRIPTION;
+  if (text.length > 155) {
+    text = text.slice(0, 155).replace(/\s+\S*$/, "") + "…";
+  }
+  return text;
+}
+
+function SocialShare({ title, url }: { title: string; url: string }) {
+  const encodedTitle = encodeURIComponent(title);
+  const encodedUrl = encodeURIComponent(url);
+
+  const links = [
+    {
+      label: "Share on X",
+      href: `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+      Icon: Twitter,
+    },
+    {
+      label: "Share on Facebook",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      Icon: Facebook,
+    },
+    {
+      label: "Share on LinkedIn",
+      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      Icon: Linkedin,
+    },
+    {
+      label: "Share on Telegram",
+      href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+      Icon: Send,
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-3 mb-10">
+      <span className="text-sm text-gray-400">Share:</span>
+      {links.map(({ label, href, Icon }) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          className="text-gray-400 hover:text-[#14F195] transition-colors"
+        >
+          <Icon className="size-5" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function generateStaticParams() {
   return fs
     .readdirSync(UPGRADES_CONTENT_DIR)
@@ -131,6 +214,9 @@ export default async function Page({ params }: Props) {
     notFound();
   }
 
+  const title = getTitle(markdownContent);
+  const shareUrl = `${config.siteUrl}/upgrades/${slug}`;
+
   return (
     <article className="bg-black text-white min-h-screen">
       <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16">
@@ -141,6 +227,8 @@ export default async function Page({ params }: Props) {
           <ArrowLeft className="size-4" />
           <span>Back to Upgrades</span>
         </Link>
+
+        <SocialShare title={title} url={shareUrl} />
 
         <MDXRemote
           source={markdownContent}
@@ -153,7 +241,7 @@ export default async function Page({ params }: Props) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const markdownContent = getMarkdownContent(slug);
 
   if (!markdownContent) {
@@ -161,19 +249,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = getTitle(markdownContent);
+  const description = getDescription(markdownContent);
+  const fullTitle = `${title} | Solana Upgrades`;
 
   return {
-    title: `${title} | Solana Upgrades`,
-    description:
-      "Core protocol work being done to improve security, increase bandwidth, and reduce latency on Solana.",
-    alternates: {
-      canonical: `/upgrades/${slug}`,
-    },
+    title: fullTitle,
+    description,
+    alternates: getAlternates(`/upgrades/${slug}`, locale),
     openGraph: {
-      title: `${title} | Solana Upgrades`,
-      description:
-        "Core protocol work being done to improve security, increase bandwidth, and reduce latency on Solana.",
+      title: fullTitle,
+      description,
       type: "article",
+      url: `/upgrades/${slug}`,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: fullTitle,
+      description,
     },
   };
 }
