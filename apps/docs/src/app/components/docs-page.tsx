@@ -8,6 +8,7 @@ import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
 import { DocsFooter, DocsLink } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
+import type { PageTree } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
@@ -118,6 +119,22 @@ function getEditUrl(path: string, editPathPrefix = "content/docs") {
   return `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/${editPathPrefix}/${path.startsWith("/") ? path.slice(1) : path}`;
 }
 
+function getFirstPage(
+  node: PageTree.Root | PageTree.Node,
+): PageTree.Item | null {
+  if ("type" in node && node.type === "page") {
+    return node;
+  }
+
+  if ("children" in node) {
+    const firstChild =
+      "index" in node && node.index ? node.index : node.children[0];
+    return firstChild ? getFirstPage(firstChild) : null;
+  }
+
+  return null;
+}
+
 function Footer({
   pageUrl,
   pageTree,
@@ -129,10 +146,7 @@ function Footer({
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)
-    let firstPage = pageTree as any;
-    while (firstPage && firstPage.children) {
-      firstPage = firstPage.index || firstPage.children[0];
-    }
+    const firstPage = getFirstPage(pageTree);
     if (!firstPage) return null;
     return <DocsFooter next={firstPage as DocsLink} previous={undefined} />;
   }
