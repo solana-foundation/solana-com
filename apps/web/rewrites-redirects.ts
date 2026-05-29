@@ -424,6 +424,10 @@ export default {
     { source: "/press", destination: "/branding" },
     // /upgrades now has its own dedicated page
     { source: "/upgrade", destination: "/upgrades" },
+    {
+      source: "/upgrades/larger-transaction-size",
+      destination: "/upgrades/larger-transaction-sizes",
+    },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },

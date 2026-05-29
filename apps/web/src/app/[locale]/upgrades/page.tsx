@@ -1,16 +1,22 @@
 import { UpgradesPage } from "./upgrades-page";
+import fs from "fs";
+import path from "path";
 
 export const revalidate = 3600; // Revalidate every hour
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function Page(_props: Props) {
-  return <UpgradesPage />;
+  const contentDir = path.join(process.cwd(), "content", "upgrades");
+  const availableSlugs = fs
+    .readdirSync(contentDir)
+    .filter((fileName) => fileName.endsWith(".md"))
+    .map((fileName) => fileName.replace(/\.md$/, ""));
+
+  return <UpgradesPage availableSlugs={availableSlugs} />;
 }
 
-export async function generateMetadata({ params }: Props) {
-  const { locale } = await params;
-
+export async function generateMetadata(_props: Props) {
   return {
     title: "Solana Upgrades | Core Protocol Improvements, SIMDs & Proposals",
     description:

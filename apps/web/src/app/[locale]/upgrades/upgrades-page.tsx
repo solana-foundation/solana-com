@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@workspace/ui";
 import { ArrowUpRight } from "lucide-react";
 import UnicornScene from "unicornstudio-react";
@@ -24,7 +23,7 @@ const UPGRADES = [
     title: "Enabling Larger Transactions",
     description:
       "Expanding maximum transaction size to support more complex operations and batch processing in a single transaction.",
-    slug: "larger-transaction-size",
+    slug: "larger-transaction-sizes",
     date: "Q2 2026",
     status: "Under Development",
     gradient: "from-[#9945FF] to-purple-500",
@@ -74,16 +73,13 @@ const UPGRADES = [
 
 interface UpgradeCardProps {
   upgrade: (typeof UPGRADES)[0];
+  hasContent: boolean;
 }
 
-function UpgradeCard({ upgrade }: UpgradeCardProps) {
+function UpgradeCard({ upgrade, hasContent }: UpgradeCardProps) {
   const href = `/upgrades/${upgrade.slug}`;
-
-  return (
-    <Link
-      href={href}
-      className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-white/10"
-    >
+  const content = (
+    <>
       {/* Placeholder gradient image */}
       <div className="relative aspect-video w-full overflow-hidden rounded-lg">
         <div
@@ -109,9 +105,28 @@ function UpgradeCard({ upgrade }: UpgradeCardProps) {
         <p>{upgrade.description}</p>
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit text-[#14F195]">
-        Learn more
-        <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        {hasContent ? "Learn more" : "Content coming soon"}
+        {hasContent && (
+          <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        )}
       </span>
+    </>
+  );
+
+  if (!hasContent) {
+    return (
+      <div className="flex flex-col gap-4 pb-6 border-b border-white/10 opacity-70">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-white/10"
+    >
+      {content}
     </Link>
   );
 }
@@ -133,7 +148,7 @@ function HeroBackground() {
   );
 }
 
-export function UpgradesPage() {
+export function UpgradesPage({ availableSlugs }: { availableSlugs: string[] }) {
   return (
     <div className="bg-black text-white overflow-hidden">
       {/* Hero Section - matching /skills style */}
@@ -189,7 +204,11 @@ export function UpgradesPage() {
           {/* Grid matching news layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
             {UPGRADES.map((upgrade) => (
-              <UpgradeCard key={upgrade.id} upgrade={upgrade} />
+              <UpgradeCard
+                key={upgrade.id}
+                upgrade={upgrade}
+                hasContent={availableSlugs.includes(upgrade.slug)}
+              />
             ))}
           </div>
         </div>
