@@ -164,7 +164,7 @@ export function XdpPage({ markdownContent }: XdpPageProps) {
               🟢 Agave 4.x + Opt in
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 font-medium">
-              🟢 Frankendancer: Default on
+              🟢 Firedancer: Default on
             </span>
           </div>
 
