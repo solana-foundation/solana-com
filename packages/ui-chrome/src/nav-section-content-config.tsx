@@ -224,12 +224,6 @@ export const buildUseCaseItems: NavItemDefinition[] = [
     icon: CoinsAddIcon,
   },
   {
-    id: "build-actions",
-    titleKey: "nav.build.useCases.items.actions.title",
-    href: "/solutions/actions",
-    icon: SparklesIcon,
-  },
-  {
     id: "build-ai",
     titleKey: "nav.build.useCases.items.ai.title",
     href: "/solutions/ai",
