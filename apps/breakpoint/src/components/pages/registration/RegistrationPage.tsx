@@ -21,7 +21,7 @@ const tickets = [
   {
     title: "General Admission",
     description: "Price available until May 31, 2026",
-    price: "$350",
+    price: "$450",
     ctaLabel: "Get tickets",
     href: GENERAL_ADMISSION_HREF,
     tone: "featured",

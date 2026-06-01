@@ -1,24 +1,47 @@
+"use client";
+
 import { useTranslations } from "next-intl";
-import { NavItemsList, SectionHeading } from "./nav-section-renderers";
 import {
-  buildPrimaryItems,
-  buildTutorialItems,
+  HeaderDropdownLayout,
+  NavDropdownColumn,
+} from "./header-dropdown-layout";
+import {
+  CollapsibleNavGroup,
+  NavItemsList,
+  SectionHeading,
+} from "./nav-section-renderers";
+import {
+  buildResourceItems,
+  buildStartItems,
+  buildUseCaseItems,
 } from "./nav-section-content-config";
 
-const HeaderListBuild = () => {
+const HeaderListBuild = ({ isMobile = false }) => {
   const t = useTranslations();
 
   return (
-    <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
-      <div className="xl:w-[480px] px-3">
-        <SectionHeading title={t("nav.developers.items.title")} />
-        <NavItemsList items={buildPrimaryItems} />
-      </div>
-      <div className="px-3 grow">
-        <SectionHeading title={t("nav.developers.tutorials.title")} />
-        <NavItemsList items={buildTutorialItems} />
-      </div>
-    </div>
+    <HeaderDropdownLayout>
+      <NavDropdownColumn width="primary">
+        <SectionHeading title={t("nav.build.start.title")} />
+        <NavItemsList items={buildStartItems} />
+      </NavDropdownColumn>
+      <NavDropdownColumn>
+        <CollapsibleNavGroup
+          title={t("nav.build.resources.title")}
+          isMobile={isMobile}
+        >
+          <NavItemsList items={buildResourceItems} />
+        </CollapsibleNavGroup>
+      </NavDropdownColumn>
+      <NavDropdownColumn>
+        <CollapsibleNavGroup
+          title={t("nav.build.useCases.title")}
+          isMobile={isMobile}
+        >
+          <NavItemsList items={buildUseCaseItems} />
+        </CollapsibleNavGroup>
+      </NavDropdownColumn>
+    </HeaderDropdownLayout>
   );
 };
 

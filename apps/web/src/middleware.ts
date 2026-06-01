@@ -33,6 +33,7 @@ export default async function middleware(req: NextRequest) {
     normalizedPathname === "/upgrade" ||
     normalizedPathname.startsWith("/upgrades") ||
     normalizedPathname.startsWith("/media-assets") ||
+    normalizedPathname.startsWith("/templates-assets") ||
     normalizedPathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
@@ -100,7 +101,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

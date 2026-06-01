@@ -516,7 +516,7 @@ export default {
         "https://github.com/solana-foundation/solana-improvement-documents",
     },
     { source: "/disclaimer", destination: "/tos" },
-    { source: "/ecosystem(.*)", destination: "/" },
+    { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
     { source: "/solana-pay", destination: "https://solanapay.com/" },
     { source: "/solanapay", destination: "https://solanapay.com/" },
@@ -585,10 +585,6 @@ export default {
     {
       source: "/solutions/solana-permissioned-environments",
       destination: "https://launch.solana.com/products/contra",
-    },
-    {
-      source: "/enterprise",
-      destination: "/solutions/enterprise",
     },
     {
       source: "/2024-outlook",
