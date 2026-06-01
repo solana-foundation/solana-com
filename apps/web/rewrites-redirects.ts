@@ -157,8 +157,28 @@ export default {
         locale: false,
       },
       {
+        source: "/upgrade",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
         source: "/upgrades/:path+",
         destination: `${MEDIA_APP_URL}/upgrades/:path+`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrade",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
         locale: false,
       },
       {
@@ -432,9 +452,6 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    // TODO: set to newws/upgrades when we have articles
-    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
-    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
