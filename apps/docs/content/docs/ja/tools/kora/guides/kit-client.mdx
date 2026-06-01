@@ -1,0 +1,171 @@
+---
+title: Kitクライアント統合
+description: Kitのプラグインアーキテクチャを使用したcreateKitKoraClientでガスレストランザクションを構築し、自動料金処理を実現します。
+date: 2026-03-09
+---
+
+_最終更新日: 2026年3月9日_
+
+## 構築内容
+
+Kitクライアント（`createKitKoraClient`）は、KoraをSolanaアプリケーションに統合するための推奨方法です。Koraの手数料抽象化をKitのプラグインアーキテクチャにラップし、以下を自動的に処理するクライアントを提供します：
+
+- ブロックハッシュ管理
+- 手数料見積もりと支払いinstructionsの挿入
+- Koraによるトランザクション署名
+- トランザクション送信と確認
+- 計算バジェット最適化（シミュレーションベースのCU見積もり）
+
+これにより、`tokenProgram()`などのKitプログラムプラグインを使用でき、Koraがすべてのガス手数料の複雑さをバックグラウンドで処理します。
+
+## 前提条件
+
+- [Koraクイックスタートガイド](/docs/tools/kora/getting-started/quick-start)の完了 —
+  Koraサーバーとローカルvalidatorの実行
+- [Solana Kit](https://www.solanakit.com/)とそのプラグインシステムに関する知識
+
+## インストール
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+ピア依存関係（`@solana-program/token`、`@solana-program/compute-budget`、`@solana/kit-plugin-*`）は、ほとんどのパッケージマネージャーによって自動的にインストールされます。手動でインストールする必要がある場合は、[インストール](/docs/tools/kora/getting-started/installation)を参照してください。
+
+## クライアントの作成
+
+`createKitKoraClient`は、複数のKitプラグインを単一のクライアントに構成し、`ClientWithPayer`、`ClientWithTransactionPlanning`、および`ClientWithTransactionSending`を満たします。
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet`は、`TransactionSigner`である必要があります。これは、KoraオペレーターへのSPLトークン手数料支払いを承認するウォレットです。KoraオペレーターはSOLネットワーク手数料を処理します。
+
+### 設定オプション
+
+| オプション         | 必須   | 説明                                                                                                            |
+| ------------------ | ------ | --------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | はい   | Kora RPCエンドポイントURL                                                                                       |
+| `rpcUrl`           | はい   | Solana RPC URL（Koraエンドポイントではない） — 計算ユニットシミュレーションとプログラムプラグインの互換性に使用 |
+| `feeToken`         | はい   | 手数料支払い用のSPLミントアドレス（例：USDC）                                                                   |
+| `feePayerWallet`   | はい   | SPL手数料支払いを承認する`TransactionSigner`                                                                    |
+| `apiKey`           | いいえ | Kora認証用のAPIキー                                                                                             |
+| `hmacSecret`       | いいえ | 署名ベース認証用のHMACシークレット                                                                              |
+| `computeUnitLimit` | いいえ | 固定CU制限。省略された場合、Koraはトランザクションをシミュレートして最適なCUを見積もります（推奨）              |
+| `computeUnitPrice` | いいえ | マイクロラムポート単位の優先手数料                                                                              |
+| `tokenProgramId`   | いいえ | デフォルトはToken Program。Token-2022手数料トークンの場合は`TOKEN_2022_PROGRAM_ADDRESS`に設定                   |
+
+## Kitプログラムプラグインとの使用
+
+KitクライアントはKitプログラムプラグインと組み合わせて使用できます。例えば、`tokenProgram()`を使用する場合：
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+内部的に、Kitクライアントは以下を実行します：
+
+1. Koraが管理するブロックハッシュと計算予算instructionsを使用してトランザクションを計画します
+2. 手数料を見積もり、KoraオペレーターへのSPL支払いinstructionsを注入（または更新）します
+3. ユーザーのウォレットでトランザクションに部分署名を行います
+4. トランザクションをKoraに送信し、共同署名とSolanaへの送信を行います
+
+## Kora RPCメソッドへのアクセス
+
+Kitクライアントは、`.kora`名前空間（`koraPlugin`から）を介して完全なKora
+APIも公開しています：
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+すべての`.kora`メソッドのレスポンスは、生の文字列ではなく、Kit型の値（`Address`、`Blockhash`、`Signature`）を使用します。
+
+## Token-2022サポート
+
+Token-2022トークンで手数料を支払うには、`tokenProgramId`オプションを渡します：
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## 計算予算
+
+デフォルトでは、KitクライアントはSolana
+RPCに対してトランザクションをシミュレートし、最適な計算ユニット制限を決定します。これにより、より厳密なCU割り当てと低い手数料が実現されます。
+
+固定値で上書きするには：
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## 各クライアントの使い分け
+
+| クライアント          | 使用例                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **推奨。** 自動手数料処理を備えた完全なKit統合。Kitプログラムプラグインを使用するアプリケーションに最適です。 |
+| `KoraClient`          | トランザクションの構築、署名、送信を完全に制御する必要がある場合の直接RPCアクセス。                           |
+| `koraPlugin`          | 他のプラグインと既に組み合わせている既存のKitクライアントにKoraメソッドを追加する場合。                       |
+
+## 次のステップ
+
+- [完全なトランザクションフロー](/docs/tools/kora/guides/full-demo) —
+  `KoraClient`を直接使用した低レベルのウォークスルー
+- [APIリファレンス](/docs/tools/kora/json-rpc-api)
+  — 利用可能なすべてのRPCメソッド
+- [Kora設定](/docs/tools/kora/operators/configuration)
+  — サーバーサイドの設定オプション

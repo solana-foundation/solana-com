@@ -83,6 +83,12 @@ export const LOGOS = [
     alt: "Fireblocks",
     height: "24px",
   },
+  { src: "/src/img/logos-eco/utila.png", alt: "Utila", height: "24px" },
+  {
+    src: "/src/img/logos-eco/cactus-custody.svg",
+    alt: "Cactus Custody",
+    height: "22px",
+  },
   {
     src: "/src/img/logos-eco/quicknode.svg",
     alt: "QuickNode",
@@ -198,6 +204,18 @@ export const INST_LOGOS = [
     alt: "Fireblocks",
     height: "24px",
     href: "https://fireblocks.com",
+  },
+  {
+    src: "/src/img/logos-eco/utila.png",
+    alt: "Utila",
+    height: "24px",
+    href: "https://utila.io",
+  },
+  {
+    src: "/src/img/logos-eco/cactus-custody.svg",
+    alt: "Cactus Custody",
+    height: "22px",
+    href: "https://www.mycactus.com",
   },
 ];
 

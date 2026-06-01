@@ -1,0 +1,461 @@
+---
+title: اتصال المحفظة
+description: ربط محافظ سولانا باستخدام معيار المحفظة
+---
+
+توفر حزمة `@solana-commerce/connector` اتصال محفظة بدون واجهة مرئية مبني على
+[معيار المحفظة](https://github.com/wallet-standard/wallet-standard). تدير اكتشاف
+المحفظة، وحالة الاتصال، وإدارة الحسابات، وإعادة الاتصال التلقائي. الحزمة مصممة
+لتكون مستقلة عن إطار العمل مع روابط React مضمنة. وهي مُصممة خصيصاً للاستخدام
+السلس في Solana Commerce Kit ومتوافقة مع
+[@solana/kit](https://github.com/anza-xyz/kit) و
+[gill](https://www.gillsdk.com/).
+
+![اتصال المحفظة](/assets/docs/tools/commerce-kit/connector.png)
+
+## التثبيت
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## تكوين المزود
+
+### `ConnectorProvider`
+
+يقوم مكون `ConnectorProvider` بتغليف تطبيقك ويوفر حالة اتصال المحفظة لجميع
+المكونات الفرعية. يدير نسخة واحدة من `ConnectorClient` تستمر عبر دورات
+تركيب/إلغاء تركيب المكونات.
+
+#### الخصائص
+
+يتم تمرير جميع التكوينات عبر خاصية `config`:
+
+- **`config`** (`ConnectorConfig`، اختيارية) - كائن التكوين للموصل. جميع الحقول
+  اختيارية.
+
+#### `ConnectorConfig`
+
+كائن التكوين لسلوك اتصال المحفظة.
+
+##### الحقول الاختيارية
+
+- **`autoConnect`** (`boolean`) - عندما تكون `true`، يعيد الاتصال تلقائياً بآخر
+  محفظة مستخدمة عند التركيب. يتم تخزين تفضيل المحفظة في وحدة التخزين المكونة
+  (الافتراضي هو `localStorage`). الافتراضي: `false`.
+
+- **`debug`** (`boolean`) - يتيح تسجيل وحدة التحكم المفصل لتصحيح أخطاء تدفقات
+  الاتصال وتغييرات الحساب والأخطاء. تتضمن السجلات بادئات مثل `[Connector]` و
+  `[ConnectorProvider]`. الافتراضي: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - الفاصل الزمني للاستقصاء بالميلي
+  ثانية للتحقق من تغييرات الحساب عندما لا تدعم المحفظة ميزة `standard:events`.
+  معظم المحافظ الحديثة تدعم الأحداث، لذا فإن الاستقصاء هو حل احتياطي. الافتراضي:
+  `1500` (1.5 ثانية).
+
+- **`storage`** (`Storage`) - محول تخزين مخصص للحفاظ على تفضيلات المحفظة. يجب أن
+  ينفذ:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  الافتراضي: `window.localStorage` عند توفره (المتصفح فقط). استخدم هذا لـ React
+  Native (`AsyncStorage`) أو التخزين المخصص الآمن لـ SSR.
+
+#### بنية المزود
+
+يستخدم المزود **نمط المثيل الوحيد** مع عد المراجع:
+
+- تشترك عدة نسخ من `ConnectorProvider` في نفس `ConnectorClient`
+- يتم إنشاء العميل عند أول تركيب ويستمر عبر حالات إلغاء التركيب
+- عندما يتم إلغاء تركيب جميع المزودات، يتأخر التنظيف لمدة 5 ثوانٍ للتعامل مع
+  عمليات إعادة التركيب السريعة
+- أثناء التنظيف، يتم قطع اتصال المحفظة وإزالة جميع مستمعي الأحداث
+
+يمنع هذا التصميم قطع اتصال المحفظة أثناء تغييرات المسار أو تحديثات المكونات.
+
+---
+
+## الخطافات
+
+### `useConnector()`
+
+الخطاف الأساسي للوصول إلى حالة اتصال المحفظة والإجراءات. يجب استخدامه داخل
+`ConnectorProvider`.
+
+يُرجع كائن `ConnectorSnapshot` يحتوي على:
+
+#### خصائص الحالة
+
+- **`wallets`** (`WalletInfo[]`) - مصفوفة لجميع محافظ Wallet Standard المتوافقة
+  المكتشفة. يتم التحديث تلقائياً عند تثبيت المحافظ أو إلغاء تثبيتها. تتضمن كل
+  محفظة بيانات وصفية مثل الاسم والأيقونة والقدرات. راجع
+  [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - كائن محفظة Wallet Standard المتصلة
+  حالياً. `null` عند قطع الاتصال. هذا هو نسخة المحفظة الخام من واجهة برمجة
+  تطبيقات Wallet Standard.
+
+- **`connected`** (`boolean`) - حالة الاتصال. `true` عندما تكون المحفظة متصلة
+  والحسابات متاحة. استخدم هذا للعرض الشرطي لواجهة المستخدم.
+
+- **`connecting`** (`boolean`) - حالة التحميل أثناء اتصال المحفظة. `true` بين
+  استدعاء `select()` واستلام نتيجة الاتصال. استخدم هذا لإظهار مؤشرات التحميل أو
+  تعطيل الأزرار.
+
+- **`accounts`** (`AccountInfo[]`) - مصفوفة الحسابات من المحفظة المتصلة. توفر
+  معظم المحافظ حساباً واحداً، لكن بعضها يدعم حسابات متعددة. يتم التحديث تلقائياً
+  عبر أحداث المحفظة أو الاستطلاع. راجع [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - عنوان الحساب المحدد حالياً (المفتاح
+  العام المشفر بنظام base58). عندما تتصل محفظة بحساب جديد، يتم تحديد ذلك الحساب
+  تلقائياً. وإلا، يتم الاحتفاظ بالحساب المحدد مسبقاً.
+
+#### طرق الإجراءات
+
+- **`select`** (`(walletName: string) => Promise<void>`) - يتصل بمحفظة بالاسم
+  (على سبيل المثال، `"Phantom"`، `"Solflare"`). يجب أن يطابق اسم المحفظة حقل
+  `name` للمحفظة المكتشفة تمامًا.
+
+  **العملية:**
+  1. تعيين `connecting: true`
+  2. استدعاء ميزة `standard:connect` الخاصة بالمحفظة
+  3. استرجاع الحسابات من المحفظة
+  4. الاشتراك في أحداث المحفظة (أو بدء الاستطلاع إذا لم تكن الأحداث متاحة)
+  5. حفظ تفضيل المحفظة في التخزين المهيأ
+  6. تحديث الحالة بالحسابات والحساب المحدد
+
+  **يطرح خطأ:** إذا لم يتم العثور على المحفظة، أو لا تدعم المحفظة الاتصال، أو
+  رفض المستخدم الاتصال.
+
+- **`disconnect`** (`() => Promise<void>`) - يقطع الاتصال بالمحفظة الحالية وينظف
+  جميع الحالات.
+
+  **العملية:**
+  1. إلغاء الاشتراك في أحداث المحفظة
+  2. إيقاف استطلاع الحسابات
+  3. استدعاء ميزة `standard:disconnect` الخاصة بالمحفظة إن كانت متاحة
+  4. مسح المحفظة المحددة والحسابات والحساب المحدد
+  5. إزالة تفضيل المحفظة من التخزين
+
+  لا يطرح أخطاء أبدًا (يتم تسجيل الأخطاء إذا كان التصحيح مفعلاً).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - يبدل الحساب
+  المحدد إلى عنوان مختلف من المحفظة المتصلة. إذا لم يكن العنوان موجودًا في
+  مصفوفة الحسابات الحالية، يطلق إعادة اتصال لجلب الحسابات المحدثة.
+
+  **يطرح خطأ:** إذا لم تكن هناك محفظة متصلة أو لم يتم العثور على الحساب المطلوب
+  بعد إعادة الاتصال.
+
+### `useConnectorClient()`
+
+يوفر وصولاً مباشرًا إلى مثيل `ConnectorClient` الأساسي لحالات الاستخدام
+المتقدمة.
+
+**يُرجع:** `ConnectorClient | null` - مثيل العميل الفردي، أو `null` عند
+الاستخدام خارج `ConnectorProvider`.
+
+**حالات الاستخدام:**
+
+- الوصول المباشر إلى `getConnectorState()` لقراءات الحالة الحتمية
+- الاشتراك اليدوي باستخدام `subscribe(listener)` لمستمعي الحالة المخصصين
+- استدعاء `destroy()` للتنظيف القسري (غير موصى به في الاستخدام العادي)
+
+**مثال:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## تعريفات الأنواع
+
+### `WalletInfo`
+
+بيانات تعريفية حول محفظة مكتشفة.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**متطلبات `connectable`:** تكون المحفظة قابلة للاتصال عندما تدعم:
+
+- ميزة `standard:connect`
+- ميزة `standard:disconnect`
+- سلاسل سولانا (يتم اكتشافها عبر `wallet.chains` التي تحتوي على `"solana"`)
+
+تظهر المحافظ غير القابلة للاتصال في مصفوفة `wallets` لكن لا يمكن تحديدها.
+
+### `AccountInfo`
+
+معلومات حول حساب المحفظة.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+يوفر حقل `raw` الوصول إلى خصائص إضافية للحساب:
+
+- `address: string` - المفتاح العام المشفر بنظام Base58
+- `publicKey: Uint8Array` - بايتات المفتاح العام الأولية
+- `label?: string` - تسمية الحساب (إذا وفرتها المحفظة)
+- `icon?: string` - أيقونة خاصة بالحساب (رابط بيانات)
+- `chains: string[]` - السلاسل المدعومة لهذا الحساب
+- `features: string[]` - الميزات المدعومة لهذا الحساب
+
+### `ConnectorSnapshot`
+
+نوع الإرجاع لـ `useConnector()`، يجمع بين الحالة والإجراءات.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## كشف تغيير الحساب
+
+يكتشف الموصل تلقائياً عندما تتغير حسابات المحفظة (يضيف المستخدم حسابات أو
+يحذفها، أو يبدل بين الحسابات في المحفظة). يتم استخدام استراتيجيتين:
+
+### على أساس الأحداث (مفضل)
+
+عندما تدعم المحفظة `standard:events`، يشترك الموصل في أحداث `change`:
+
+- يستقبل إشعارات فورية عندما تتغير الحسابات
+- أكثر كفاءة (بدون استطلاع دوري)
+- يجمع الحسابات من كل من الحدث و`wallet.accounts` للتعامل مع المحافظ التي تتضمن
+  فقط الحساب المحدد في الأحداث
+
+### الاستطلاع الاحتياطي
+
+عندما لا تكون الأحداث مدعومة، يستطلع الموصل `wallet.accounts`:
+
+- يتحقق كل `accountPollingIntervalMs` (افتراضياً: 1500 ميلي ثانية)
+- يقارن عناوين الحسابات لاكتشاف التغييرات
+- يطلق إعادة العرض فقط عندما تتغير الحسابات فعلياً
+
+**منطق تحديد الحساب:**
+
+- عندما تتغير الحسابات، احتفظ بالحساب المحدد إذا كان لا يزال موجوداً
+- إذا تمت إزالة الحساب المحدد، حدد أول حساب متاح
+- عند الاتصال بحساب جديد (غير موجود في الحسابات السابقة)، فضل الحساب الجديد
+
+---
+
+## التخزين والاتصال التلقائي
+
+### استمرارية التخزين
+
+يقوم الموصل بتخزين مفتاح واحد في وحدة التخزين المُكوَّنة:
+
+- **المفتاح:** `arc-connector:lastWallet`
+- **القيمة:** اسم المحفظة (مثل `"Phantom"`)
+
+عمليات التخزين محاطة بكتلة try-catch للتعامل مع:
+
+- إطارات iframe المعزولة حيث يطرح `localStorage` استثناءً
+- بيئات SSR حيث يكون `window` غير معرّف
+- React Native حيث لا يوجد `localStorage`
+
+إذا فشل التخزين، يستمر الموصل بدون استمرارية (دون طرح أخطاء).
+
+### سلوك الاتصال التلقائي
+
+عندما يكون `autoConnect: true`:
+
+1. عند التحميل، يقرأ اسم المحفظة الأخير من وحدة التخزين
+2. ينتظر 100 ميلي ثانية (للسماح للمحافظ بالتسجيل)
+3. يستدعي `select(walletName)` إذا تم اكتشاف المحفظة
+4. إذا فشل الاتصال التلقائي، يزيل التفضيل غير الصالح من وحدة التخزين
+
+**ملاحظة أمنية:** التفضيل المُخزَّن هو مجرد اسم محفظة (نص)، وليس بيانات حساسة.
+تتعامل المحفظة مع المصادقة/الترخيص من خلال واجهتها الخاصة.
+
+---
+
+## أمثلة الاستخدام
+
+### زر المحفظة الأساسي
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### محدد الحسابات المتعددة
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### مراقبة الاتصال
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## المحافظ المدعومة
+
+يدعم الموصل جميع المحافظ التي تطبق
+[معيار المحفظة](https://github.com/wallet-standard/wallet-standard)، بما في ذلك:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- أي محفظة أخرى متوافقة مع معيار المحفظة
+
+يتم اكتشاف المحافظ تلقائياً عندما تسجل نفسها في واجهة برمجة تطبيقات معيار
+المحفظة (لا حاجة لإعداد).
+
+---
+
+## الاستخدام بدون واجهة (بدون React)
+
+لتطبيقات غير React أو الاستخدام من جانب الخادم، استخدم `ConnectorClient` مباشرة:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**ملاحظة:** يدير `ConnectorClient` حالته الخاصة ولا يؤدي أبدًا إلى إعادة عرض
+React. يجب عليك الاشتراك يدويًا في تغييرات الحالة.

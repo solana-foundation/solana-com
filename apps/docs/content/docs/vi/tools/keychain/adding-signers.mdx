@@ -1,0 +1,598 @@
+---
+title: Thêm Người Ký Mới
+description:
+  Hướng dẫn cho các nhà cung cấp dịch vụ ví tích hợp các giải pháp quản lý khóa
+  mới
+---
+
+Hướng dẫn này dành cho các nhà cung cấp dịch vụ ví và nhà phát triển muốn tích
+hợp các giải pháp quản lý khóa mới vào thư viện `solana-keychain`. Bằng cách
+thêm triển khai người ký của bạn, bạn sẽ cho phép các nhà phát triển sử dụng
+dịch vụ của bạn để ký giao dịch Solana một cách an toàn thông qua giao diện
+thống nhất.
+
+_Đang sử dụng LLM? Hãy xem
+[Kỹ Năng Thêm Người Ký](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)._
+
+## Tổng Quan Kiến Trúc
+
+Thư viện sử dụng kiến trúc dựa trên trait trong đó tất cả người ký đều triển
+khai trait `SolanaSigner` được định nghĩa trong `src/traits.rs`. Thư viện cũng
+cung cấp enum `Signer` thống nhất bao bọc tất cả các triển khai, cho phép lựa
+chọn backend ký ngay trong runtime trong khi vẫn duy trì API nhất quán.
+
+## Danh Sách Kiểm Tra Tích Hợp Nhanh
+
+- Tạo module người ký của bạn với triển khai
+- Triển khai trait `SolanaSigner` (3 phương thức async + `pubkey()`)
+- Thêm feature flag trong `Cargo.toml`
+- Cập nhật enum `Signer` trong `src/lib.rs` (4 nhánh match)
+- Cập nhật triển khai `src/error.rs` reqwest `From` cfg gate (nếu người ký của
+  bạn sử dụng reqwest)
+- Bắt buộc HTTPS và cấu hình timeout trên các HTTP client
+- Thêm kiểm thử toàn diện
+- Cập nhật tài liệu
+- Gửi PR
+
+## Bước 1: Tạo Module Người Ký Của Bạn
+
+Tạo một thư mục mới trong `src/` cho triển khai của bạn:
+
+```
+src/
+├── your_service/
+│   ├── mod.rs      # Main implementation with SolanaSigner trait
+│   └── types.rs    # API request/response types (if needed)
+```
+
+## Bước 2: Định Nghĩa Struct Người Ký Của Bạn
+
+Trong `src/your_service/mod.rs`, định nghĩa struct người ký của bạn:
+
+```rust
+//! YourService API signer integration
+
+use crate::{error::SignerError, traits::SolanaSigner};
+use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
+use std::str::FromStr;
+
+/// YourService-based signer using YourService's API
+#[derive(Clone)]
+pub struct YourServiceSigner {
+    api_key: String,
+    api_secret: String,
+    wallet_id: String,
+    api_base_url: String,
+    client: reqwest::Client,
+    public_key: Pubkey,
+}
+
+impl std::fmt::Debug for YourServiceSigner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("YourServiceSigner")
+            .field("public_key", &self.public_key)
+            .finish_non_exhaustive()
+    }
+}
+```
+
+## Bước 3: Triển Khai Constructor và Các Phương Thức Helper
+
+Người ký từ xa **bắt buộc** phải thực thi HTTPS và cấu hình HTTP timeout. Sử
+dụng struct `HttpClientConfig` được chia sẻ cho các thiết lập timeout.
+
+```rust
+use crate::http_client_config::HttpClientConfig;
+
+impl YourServiceSigner {
+    pub fn new(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+        http_config: Option<HttpClientConfig>,
+    ) -> Result<Self, SignerError> {
+        let pubkey = Pubkey::from_str(&public_key)
+            .map_err(|e| SignerError::InvalidPublicKey(format!("Invalid public key: {e}")))?;
+
+        let http = http_config.unwrap_or_default();
+        let builder = reqwest::Client::builder()
+            .timeout(http.resolved_request_timeout())
+            .connect_timeout(http.resolved_connect_timeout());
+
+        // Enforce HTTPS in production; wiremock uses HTTP in tests
+        #[cfg(not(test))]
+        let builder = builder.https_only(true);
+
+        let client = builder.build().map_err(|e| {
+            SignerError::ConfigError(format!("Failed to build HTTP client: {e}"))
+        })?;
+
+        Ok(Self {
+            api_key,
+            api_secret,
+            wallet_id,
+            api_base_url: "https://api.yourservice.com/v1".to_string(),
+            client,
+            public_key: pubkey,
+        })
+    }
+
+    /// Sign raw bytes using your service's API
+    async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        let encoded_message = base64::engine::general_purpose::STANDARD.encode(message);
+
+        let url = format!("{}/sign", self.api_base_url);
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&serde_json::json!({
+                "wallet_id": self.wallet_id,
+                "message": encoded_message,
+            }))
+            .send()
+            .await?;
+
+        // Use generic error messages — never expose raw API response text
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            return Err(SignerError::RemoteApiError(format!(
+                "YourService API returned status {status}"
+            )));
+        }
+
+        // Parse response — always use map_err, never .expect() or .unwrap()
+        let response_data: SignResponse = response
+            .json()
+            .await
+            .map_err(|e| SignerError::SerializationError(format!("Failed to parse response: {e}")))?;
+        let sig_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&response_data.signature)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to decode signature: {e}")))?;
+
+        let sig_array: [u8; 64] = sig_bytes
+            .try_into()
+            .map_err(|_| SignerError::SigningFailed("Invalid signature length".to_string()))?;
+
+        Ok(Signature::from(sig_array))
+    }
+}
+```
+
+## Bước 4: Triển Khai Trait SolanaSigner
+
+Trait có 3 phương thức async (`sign_transaction`, `sign_message`,
+`is_available`) cộng với `pubkey()`. Lưu ý rằng `sign_transaction` trả về
+`SignTransactionResult` — một enum được gắn thẻ cho biết giao dịch đã được ký
+đầy đủ hay chỉ ký một phần.
+
+Sử dụng các hàm trợ giúp `TransactionUtil` chia sẻ để ký và tuần tự hóa.
+
+```rust
+use crate::transaction_util::TransactionUtil;
+use crate::traits::SignTransactionResult;
+
+#[async_trait::async_trait]
+impl SolanaSigner for YourServiceSigner {
+    fn pubkey(&self) -> Pubkey {
+        self.public_key
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let tx_bytes = bincode::serialize(tx)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
+
+        let signature = self.sign(&tx_bytes).await?;
+
+        // Add the signature at the correct position
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+
+        // Serialize and classify as Complete or Partial
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+
+    async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        self.sign(message).await
+    }
+
+    async fn is_available(&self) -> bool {
+        let url = format!("{}/health", self.api_base_url);
+        self.client
+            .get(&url)
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
+    }
+}
+```
+
+## Bước 5: Thêm Các Kiểu API (Tùy Chọn)
+
+Nếu API của bạn cần các kiểu tùy chỉnh, hãy tạo `src/your_service/types.rs`:
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize)]
+pub struct SignRequest {
+    pub wallet_id: String,
+    pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct SignResponse {
+    pub signature: String,
+}
+```
+
+## Bước 6: Thêm Feature Flag
+
+Cập nhật `Cargo.toml` để thêm bộ ký của bạn như một tính năng tùy chọn:
+
+```toml
+[features]
+default = ["memory"]
+memory = []
+vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
+privy = ["dep:reqwest", "dep:base64"]
+turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
+your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
+all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+```
+
+## Bước 7: Cập Nhật Enum Signer
+
+Thêm bộ ký của bạn vào `src/lib.rs`. Bạn cần 4 nhánh khớp trong impl
+`SolanaSigner`: `pubkey`, `sign_transaction`, `sign_message`, và `is_available`.
+
+```rust
+// Add feature-gated module
+#[cfg(feature = "your_service")]
+pub mod your_service;
+
+// Re-export your signer type
+#[cfg(feature = "your_service")]
+pub use your_service::YourServiceSigner;
+
+// Add to Signer enum
+#[derive(Debug)]
+pub enum Signer {
+    #[cfg(feature = "memory")]
+    Memory(MemorySigner),
+
+    // ... existing variants
+
+    #[cfg(feature = "your_service")]
+    YourService(YourServiceSigner),  // Add your variant
+}
+
+// Add constructor method
+impl Signer {
+    #[cfg(feature = "your_service")]
+    pub fn from_your_service(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+    ) -> Result<Self, SignerError> {
+        Ok(Self::YourService(YourServiceSigner::new(
+            api_key,
+            api_secret,
+            wallet_id,
+            public_key,
+            None, // uses default HttpClientConfig
+        )?))
+    }
+}
+
+// Update trait implementation — 4 match arms
+#[async_trait::async_trait]
+impl SolanaSigner for Signer {
+    fn pubkey(&self) -> sdk_adapter::Pubkey {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.pubkey(),
+        }
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut sdk_adapter::Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_transaction(tx).await,
+        }
+    }
+
+    async fn sign_message(
+        &self,
+        message: &[u8],
+    ) -> Result<sdk_adapter::Signature, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_message(message).await,
+        }
+    }
+
+    async fn is_available(&self) -> bool {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.is_available().await,
+        }
+    }
+}
+```
+
+Nếu bộ ký của bạn sử dụng `reqwest`, hãy thêm tính năng của bạn vào cổng
+`#[cfg(any(...))]` trên impl `From<reqwest::Error>` trong `src/error.rs`.
+
+## Bước 8: Thêm Kiểm Thử Toàn Diện
+
+Thêm các bài kiểm thử vào module của bạn (ở cuối `src/your_service/mod.rs`):
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::{signature::Keypair, signer::Signer};
+    use wiremock::{
+        matchers::{header, method, path},
+        Mock, MockServer, ResponseTemplate,
+    };
+
+    #[tokio::test]
+    async fn test_new() {
+        let keypair = Keypair::new();
+        let signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        );
+        assert!(signer.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_message() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+        let message = b"test message";
+        let signature = keypair.sign_message(message);
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "signature": base64::engine::general_purpose::STANDARD.encode(signature.as_ref())
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(message).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_unauthorized() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "bad-key".to_string(),
+            "bad-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(b"test").await;
+        assert!(result.is_err());
+    }
+}
+```
+
+## Bước 9: Cập Nhật Tài Liệu
+
+Thêm bộ ký của bạn vào bảng các backend được hỗ trợ trong README.md:
+
+| Backend         | Trường Hợp Sử Dụng                            | Feature Flag   |
+| --------------- | --------------------------------------------- | -------------- |
+| **Memory**      | Cặp khóa cục bộ, phát triển, kiểm thử         | `memory`       |
+| **Vault**       | Quản lý khóa doanh nghiệp với HashiCorp Vault | `vault`        |
+| **Privy**       | Ví nhúng với cơ sở hạ tầng Privy              | `privy`        |
+| **Turnkey**     | Quản lý khóa phi tập trung qua Turnkey        | `turnkey`      |
+| **YourService** | Mô tả ngắn gọn về dịch vụ của bạn             | `your_service` |
+
+Thêm ví dụ sử dụng:
+
+```rust
+use solana_keychain::{Signer, SolanaSigner};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let signer = Signer::from_your_service(
+        "your-api-key".to_string(),
+        "your-api-secret".to_string(),
+        "your-wallet-id".to_string(),
+        "your-public-key".to_string(),
+    )?;
+
+    let pubkey = signer.pubkey();
+    println!("Public key: {}", pubkey);
+
+    Ok(())
+}
+```
+
+## Kiểm Thử Tích Hợp Của Bạn
+
+Chạy các bài kiểm thử cho tính năng của bạn:
+
+```bash
+# Test only your signer
+cargo test --features your_service
+
+# Test with all features
+cargo test --all-features
+```
+
+## Bộ Ký TypeScript
+
+Nếu bạn cũng đang thêm một gói bộ ký TypeScript, hãy tạo nó tại
+`typescript/packages/your-signer/`. Các mẫu chính:
+
+- Hàm factory `createYourSigner()` trả về `SolanaSigner<TAddress>`
+- Export interface config (`YourSignerConfig`)
+- Áp dụng HTTPS trên các trường config `apiBaseUrl`
+- Làm sạch văn bản lỗi API từ xa bằng `sanitizeRemoteErrorResponse()` từ
+  `@solana/keychain-core`
+- Bảo vệ khỏi JSON sai định dạng bằng optional chaining và try/catch
+- Sử dụng `throwSignerError(SignerErrorCode.*, { cause, message })` từ
+  `@solana/keychain-core`
+- Thêm JSDoc `@throws` vào các hàm factory liệt kê mã lỗi
+
+### Cập Nhật Package Tổng Hợp
+
+Cập nhật `typescript/packages/keychain/` — 6 file cần chỉnh sửa:
+
+1. `src/types.ts` — Thêm `YourSignerConfig` vào discriminated union
+   `KeychainSignerConfig`
+2. `src/create-keychain-signer.ts` — Import factory, thêm switch case
+3. `src/resolve-address.ts` — Thêm vào switch case fast-path hoặc fetch-path
+4. `src/index.ts` — Thêm export kiểu config, namespace, hàm factory và class
+5. `package.json` — Thêm dependency
+   `@solana/keychain-your-signer: "workspace:*"`
+6. `tsconfig.json` — Thêm tham chiếu `{ "path": "../your-signer" }`
+
+Các câu lệnh switch có kiểm tra `never` đầy đủ — TypeScript sẽ báo lỗi nếu bạn
+thêm vào union nhưng bỏ sót một case.
+
+## Danh Sách Kiểm Tra Trước Khi Gửi
+
+Trước khi gửi PR của bạn:
+
+- Code biên dịch không có cảnh báo (`just build`)
+- Tất cả các test đều pass (`just test`)
+- Code được format/linting pass (`just fmt`)
+- Không có giá trị hardcode hoặc secret trong code
+- Thông báo lỗi là chung chung (không có văn bản phản hồi API thô)
+- HTTPS được áp dụng trên các HTTP client từ xa
+- Timeout HTTP được cấu hình qua `HttpClientConfig`
+- Tuân theo quy ước đặt tên Rust (snake_case)
+- Đã thêm vào bảng backend được hỗ trợ trong README.md
+
+## Gợi Ý Triển Khai
+
+### Xử Lý Lỗi
+
+Luôn sử dụng các variant `SignerError` hiện có. Không bao giờ sử dụng
+`.expect()` hoặc `.unwrap()` trên các phản hồi API không đáng tin cậy:
+
+```rust
+// Good — uses existing error types with generic messages
+return Err(SignerError::RemoteApiError(
+    format!("YourService API returned status {}", status)
+));
+
+// Good — converts from standard errors
+let bytes = base64::decode(data)
+    .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
+```
+
+### Thực Hành Tốt Nhất Về Bảo Mật
+
+- Không bao giờ ghi log dữ liệu nhạy cảm (private key, API secret)
+- Sử dụng impl `Debug` để ẩn các trường nhạy cảm
+- Xác thực tất cả đầu vào (public key, chữ ký)
+- Sử dụng HTTPS cho tất cả các lời gọi API từ xa (được áp dụng qua
+  `https_only(true)`)
+- Cấu hình timeout request và connect qua `HttpClientConfig`
+- Không bao giờ expose văn bản lỗi API từ xa thô trong thông báo lỗi
+- Sử dụng `Option<Pubkey>` (không phải `Pubkey::default()`) cho trường public
+  key trước `init()`
+
+### Kiểm thử với Mock
+
+Sử dụng `wiremock` để mock các API HTTP. Chỉ kiểm tra loại lỗi, không kiểm tra
+nội dung thông báo lỗi:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+
+    #[tokio::test]
+    async fn test_api_call() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
+        // Use mock_server.uri() as your api_base_url
+    }
+}
+```
+
+## Nhận trợ giúp
+
+- Xem lại các triển khai signer hiện có để tham khảo mẫu:
+  - `src/memory/mod.rs` — Đơn giản, đồng bộ
+  - `src/para/mod.rs` — Yêu cầu khởi tạo (sử dụng làm mẫu cho signer mới)
+  - `src/turnkey/mod.rs` — Xử lý chữ ký phức tạp
+  - `src/vault/mod.rs` — Thư viện client bên ngoài
+- Các file quan trọng: `src/traits.rs` (định nghĩa trait),
+  `src/transaction_util.rs` (helper dùng chung), `src/http_client_config.rs`
+  (cấu hình timeout)
+- Mở một issue để thảo luận về thiết kế trước khi bắt đầu làm việc
+
+## Cấu trúc PR mẫu
+
+```
+feat(signer): add YourService signer integration
+
+Adds support for YourService as a signing backend.
+
+- [X] Code compiles without warnings (`just build`)
+- [X] Code is formatted/linting passes (`just fmt`)
+- [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
+- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Added feature flag 'your_service'
+- [X] HTTPS enforced, HTTP timeouts configured
+- [X] Added to README.md supported backends table
+
+Closes #1337
+```

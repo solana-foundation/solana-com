@@ -1,0 +1,157 @@
+---
+title: Επισκόπηση JSON-RPC API
+description:
+  Το Kora υλοποιεί μια διεπαφή JSON-RPC 2.0 για επεξεργασία συναλλαγών χωρίς
+  κόστος gas στο Solana.
+---
+
+> **Χρησιμοποιείτε το Kora v2.2.0-beta;** Δείτε την
+> [τεκμηρίωση Beta](/docs/tools/kora/beta/bundle-methods) για νέες μεθόδους
+> δέσμης (`signBundle`, `signAndSendBundle`, `estimateBundleFee`) και
+> `getVersion`.
+
+## TypeScript SDK
+
+Το πακέτο `@solana/kora` παρέχει τρεις επιλογές client για αλληλεπίδραση με έναν
+διακομιστή Kora:
+
+### KoraClient (Αυτόνομο)
+
+Χρησιμοποιήστε το `KoraClient` για αυτόνομη χρήση. Λειτουργεί με `@solana/kit`
+v5.0+.
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin (Kit Composable)
+
+Χρησιμοποιήστε το `koraPlugin()` για να συνθέσετε μεθόδους Kora σε έναν
+υπάρχοντα Kit client. Απαιτεί `@solana/kit` v5.4+ για το μοτίβο
+`createEmptyClient().use()`.
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+Το plugin παρέχει απαντήσεις με τύπους Kit (`Address`, `Blockhash`,
+`Base64EncodedWireTransaction`) και εξάγει τον τύπο `KoraPlugin` για σύνθεση με
+άλλα plugins.
+
+### createKitKoraClient (Kit Client)
+
+Χρησιμοποιήστε το `createKitKoraClient()` για πλήρη ενσωμάτωση Kit με αυτόματο
+σχεδιασμό συναλλαγών, εκτίμηση χρεώσεων, ένεση πληρωμής και εκτέλεση. Αυτή είναι
+η προτεινόμενη προσέγγιση για τις περισσότερες εφαρμογές. Απαιτεί `@solana/kit`
+v6.1+.
+
+Ο Kit client συνθέτει το Kora με την αρχιτεκτονική plugin του Kit (planner,
+executor, payer plugins) ώστε να μπορείτε να χρησιμοποιήσετε Kit program plugins
+όπως το `tokenProgram()` άμεσα.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**Επιλογές διαμόρφωσης:**
+
+| Επιλογή            | Απαιτείται | Περιγραφή                                                                                              |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `endpoint`         | Ναι        | URL τελικού σημείου Kora RPC                                                                           |
+| `rpcUrl`           | Ναι        | URL Solana RPC για εκτίμηση μονάδων υπολογισμού και συμβατότητα program plugin                         |
+| `feeToken`         | Ναι        | Διεύθυνση SPL mint για πληρωμή χρεώσεων                                                                |
+| `feePayerWallet`   | Ναι        | `TransactionSigner` που εξουσιοδοτεί την πληρωμή χρέωσης SPL                                           |
+| `apiKey`           | Όχι        | Κλειδί API για έλεγχο ταυτότητας                                                                       |
+| `hmacSecret`       | Όχι        | HMAC secret για έλεγχο ταυτότητας βάσει υπογραφής                                                      |
+| `computeUnitLimit` | Όχι        | Σταθερό όριο μονάδων υπολογισμού (χρησιμοποιεί εκτίμηση βάσει προσομοίωσης αν δεν οριστεί)             |
+| `computeUnitPrice` | Όχι        | Χρέωση προτεραιότητας σε micro-lamports                                                                |
+| `tokenProgramId`   | Όχι        | ID Token program (προεπιλογή Token Program· χρησιμοποιήστε διεύθυνση Token-2022 για tokens Token-2022) |
+
+## Πρωτόκολλο
+
+- **Πρότυπο**: JSON-RPC 2.0
+- **Μεταφορά**: HTTP POST
+- **Content-Type**: application/json
+- **Τελικό σημείο**: `http://your-kora-instance/`
+
+## Διαθέσιμες Μέθοδοι
+
+| Μέθοδος                                                                           | Περιγραφή                                                                                                                                     |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | Υπολογίζει το κόστος συναλλαγής τόσο σε lamports όσο και στο καθορισμένο token.                                                               |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | Ανακτά το πιο πρόσφατο blockhash από το Solana RPC στο οποίο είναι συνδεδεμένος ο διακομιστής Kora.                                           |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | Ανακτά την τρέχουσα διαμόρφωση του διακομιστή Kora.                                                                                           |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | Ανακτά τον υπογράφοντα πληρωτή και τον προορισμό πληρωμής από τον διακομιστή Kora.                                                            |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | Δημιουργεί μια εντολή πληρωμής για προσάρτηση σε μια συναλλαγή για την πληρωμή του κόστους στον paymaster του Kora.                           |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | Ανακτά τη λίστα των tokens που υποστηρίζονται για πληρωμή κόστους.                                                                            |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | Υπογράφει μια συναλλαγή και την αποστέλλει αμέσως στο δίκτυο Solana.                                                                          |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | Υπογράφει μια συναλλαγή με τον fee payer του Kora εάν η συναλλαγή περιλαμβάνει την απαραίτητη πληρωμή στον fee payer χωρίς να την αποστείλει. |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | Δημιουργεί μια συναλλαγή μεταφοράς token με το Kora ως fee payer.                                                                             |
+
+## Μορφή Αιτήματος
+
+Όλα τα αιτήματα ακολουθούν το πρότυπο JSON-RPC 2.0:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## Μορφή Απόκρισης
+
+Επιτυχημένες αποκρίσεις:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+Αποκρίσεις σφάλματος:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

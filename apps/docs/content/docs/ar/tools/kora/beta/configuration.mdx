@@ -1,0 +1,337 @@
+---
+title: خيارات التكوين الجديدة (تجريبي)
+description: أقسام تكوين kora.toml الجديدة المقدمة في Kora v2.2.0-beta.
+---
+
+خيارات التكوين هذه متاحة ابتداءً من `v2.2.0-beta.1`. أضفها إلى `kora.toml`
+الحالي بجانب التكوين المستقر.
+
+## إضافات المعاملات
+
+يقوم قسم `[kora.plugins]` بتكوين إضافات المعاملات التي تعمل أثناء عمليات
+التوقيع. تتحقق الإضافات من شكل ومحتويات المعاملات قبل أن يوقعها Kora. تُنفذ لـ
+`signTransaction`، و`signAndSendTransaction`، و`signBundle`،
+و`signAndSendBundle` — ولكن **ليس** لـ `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| الخيار    | الوصف                          | مطلوب              | النوع    |
+| --------- | ------------------------------ | ------------------ | -------- |
+| `enabled` | قائمة إضافات المعاملات المفعلة | لا (افتراضياً: []) | string[] |
+
+### إضافة `gas_swap`
+
+تفرض إضافة `gas_swap` شكلاً صارماً للمعاملات لعمليات تبادل الرمز مقابل SOL بدون
+رسوم غاز. عند التفعيل، يجب أن تحتوي كل معاملة مقدمة عبر عمليات التوقيع على
+التالي بالضبط:
+
+1. **تحويل واحد لرمز SPL** (SPL Token أو Token-2022) — من مالك غير دافع الرسوم
+2. **تحويل واحد لـ SOL من System** (`Transfer` أو `TransferWithSeed`) — من دافع
+   الرسوم
+
+تعليمات Compute Budget (تعيين حد/سعر وحدة الحساب) مسموحة بجانب التعليمتين
+المطلوبتين. أي تعليمات خارجية إضافية أو غير متعلقة بالتبادل يتم رفضها.
+
+#### متطلبات التكوين
+
+تتحقق إضافة `gas_swap` من تكوينك عند بدء التشغيل وستعرض خطأ إذا لم تتحقق
+المتطلبات:
+
+- يجب أن يكون **System Program** في `allowed_programs`
+- يجب أن يكون **برنامج رمز واحد على الأقل** (SPL Token أو Token-2022) في
+  `allowed_programs`
+- يجب أن يكون **رمز واحد على الأقل** في `allowed_tokens`
+- يجب ألا يكون **نموذج التسعير** `Free` — حدد هامش ربح أو سعر ثابت
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **تحذير:** عند استخدام `gas_swap` مع التسعير الثابت، تأكد من أن رسوم الرمز
+> الثابتة تساوي على الأقل `max_allowed_lamports` بـ SOL لتجنب حالة الاستنزاف حيث
+> يتجاوز SOL المرسل الرمز المستلم.
+
+---
+
+## إعدادات الحزمة
+
+يُمكّن قسم INLINE_CODE_PLACEHOLDER_78b835d294b52f52_END دعم حزمة Jito للتنفيذ
+الذري للمعاملات المتعددة:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| الخيار    | الوصف              | مطلوب               | النوع   |
+| --------- | ------------------ | ------------------- | ------- |
+| `enabled` | تفعيل وظيفة الحزمة | لا (افتراضي: false) | boolean |
+
+### إعدادات Jito
+
+| الخيار             | الوصف               | مطلوب                 | النوع  |
+| ------------------ | ------------------- | --------------------- | ------ |
+| `block_engine_url` | رابط محرك كتلة Jito | نعم (عند تفعيل الحزم) | string |
+
+روابط محرك كتلة Jito المتاحة:
+
+- **الشبكة الرئيسية (عامة):** `https://mainnet.block-engine.jito.wtf`
+- **الشبكة الرئيسية (خاصة):** تواصل مع Jito للحصول على الوصول
+
+> **مهم:** عند استخدام الحزم مع إكراميات Jito المدفوعة من قبل Kora، قم بتعيين
+> `allow_transfer = true` في `[validation.fee_payer_policy.system]` للسماح
+> للموقّع بتحويل SOL للإكرامية.
+
+للحصول على دليل شامل حول تنفيذ حزم Jito مع Kora، راجع
+[دليل حزمة Jito](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## حماية دافع الرسوم في Lighthouse
+
+يُمكّن قسم `[kora.lighthouse]` حماية دافع الرسوم في Lighthouse. عند تفعيله، يضيف
+Kora تعليمات تأكيد الرصيد إلى المعاملات، مما يحمي دافع الرسوم من هجمات الاستنزاف
+عن طريق التحقق من أن رصيد دافع الرسوم لا ينخفض إلى ما دون المستويات المتوقعة.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| الخيار                              | الوصف                                                                                     | مطلوب               | النوع   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- | ------- |
+| `enabled`                           | تفعيل تأكيدات Lighthouse لحماية دافع الرسوم                                               | لا (افتراضي: false) | boolean |
+| `fail_if_transaction_size_overflow` | رفض المعاملة إذا تجاوزت إضافة التأكيد حد الحجم. إذا كان false، يتجاوز إضافة التأكيد بصمت. | لا (افتراضي: true)  | boolean |
+
+### كيف يعمل
+
+عند تفعيل Lighthouse، يقوم Kora بجلب الرصيد الحالي لدافع الرسوم و يضيف تعليمة
+تأكيد Lighthouse التي تتحقق من أن الرصيد لا ينخفض إلى ما دون
+`(current_balance - estimated_fee)` عند إتمام المعاملة. هذا يمنع المعاملات
+الضارة من استنزاف دافع الرسوم بما يتجاوز التكاليف المتوقعة.
+
+### توافق الطرق
+
+حماية Lighthouse **تعمل فقط مع `signTransaction` و `signBundle`**. وهي **لا
+تعمل** مع `signAndSendTransaction` أو `signAndSendBundle`.
+
+عندما يضيف Lighthouse تعليمة تأكيد، فإنه يعدل رسالة المعاملة. هذا يبطل أي
+توقيعات عميل موجودة مسبقًا. ستفشل تدفقات `signAndSend*` لأن:
+
+1. العميل يوقع المعاملة
+2. Kora تضيف تأكيد Lighthouse (يعدل الرسالة)
+3. التوقيع الأصلي للعميل يصبح غير صالح
+4. الشبكة ترفض بـ "فشل التحقق من التوقيع"
+
+**النمط الموصى به مع Lighthouse:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### متطلبات الإعدادات
+
+عند تفعيل Lighthouse، أضف برنامج Lighthouse إلى `allowed_programs` الخاص بك:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+يتحقق Kora من هذا عند بدء التشغيل وسيعطي خطأ إذا كان Lighthouse مفعلاً ولكن
+البرنامج غير موجود في `allowed_programs`.
+
+> **ملاحظة:** إذا كان `signAndSendTransaction` أو `signAndSendBundle` مفعلين إلى
+> جانب Lighthouse، فسيسجل Kora تحذيرًا بأن هذه الطرق لن تحصل على حماية دافع
+> الرسوم.
+
+## حماية reCAPTCHA ضد الروبوتات
+
+يوفر reCAPTCHA v3 حماية غير مرئية ضد الروبوتات للنقاط الحساسة. على عكس مفتاح API
+و HMAC اللذان يصادقان على جميع الطلبات، يحمي reCAPTCHA فقط الطرق عالية المخاطر
+المحددة (طرق التوقيع افتراضيًا).
+
+### إعدادات الخادم
+
+أضف `KORA_RECAPTCHA_SECRET` إلى متغيرات البيئة الخاصة بك (له الأولوية)، أو أضف
+`recaptcha_secret` إلى `kora.toml` الخاص بك:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| الخيار                      | الوصف                                                          | الافتراضي   |
+| --------------------------- | -------------------------------------------------------------- | ----------- |
+| `recaptcha_secret`          | مفتاح reCAPTCHA v3 السري الخاص بك من Google                    | -           |
+| `recaptcha_score_threshold` | الحد الأدنى للنقاط للنجاح (0.0 = الكل ينجح، 1.0 = لا أحد ينجح) | 0.5         |
+| `protected_methods`         | طرق RPC التي تتطلب التحقق                                      | طرق التوقيع |
+
+### كيف يعمل
+
+1. العميل يحصل على رمز reCAPTCHA من واجهة برمجة التطبيقات reCAPTCHA v3 من Google
+2. العميل يضمّن الرمز في رأس `x-recaptcha-token`
+3. الخادم يتحقق من الرمز مع Google ويفحص النقاط
+4. إذا كانت النقاط >= الحد الأدنى، يستمر الطلب؛ وإلا يعيد 401 غير مصرح به
+
+يتم تشغيل reCAPTCHA _بعد_ نجاح مصادقة API Key/HMAC (في حالة التكوين). تتجاوز
+الطرق غير المحمية التحقق من reCAPTCHA بالكامل.
+
+### التطبيق من جانب العميل
+
+**باستخدام Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**باستخدام fetch:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### الحصول على مفاتيح reCAPTCHA
+
+1. انتقل إلى
+   [وحدة تحكم إدارة Google reCAPTCHA](https://www.google.com/recaptcha/admin)
+2. أنشئ موقعاً جديداً باستخدام **reCAPTCHA v3**
+3. استخدم **مفتاح الموقع** في الواجهة الأمامية (جانب العميل)
+4. استخدم **المفتاح السري** في تكوين Kora الخاص بك (جانب الخادم)
+
+## حدود الاستخدام
+
+يقوم قسم `[kora.usage_limit]` بتكوين حدود الاستخدام لكل محفظة لمنع إساءة
+الاستخدام وضمان الاستخدام العادل. يمكن أيضاً استخدام هذا لإنشاء برامج مكافآت
+لدعم رسوم معاملات المستخدمين حتى حد معين.
+
+**ملاحظة**: تتطلب هذه الميزة Redis عند تمكينها عبر عدة نسخ من Kora.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| الخيار                    | الوصف                                     | مطلوب               | النوع   |
+| ------------------------- | ----------------------------------------- | ------------------- | ------- |
+| `enabled`                 | تمكين حدود الاستخدام لكل محفظة            | لا (افتراضي: false) | boolean |
+| `cache_url`               | عنوان اتصال Redis لتتبع الاستخدام المشترك | لا                  | string  |
+| `fallback_if_unavailable` | السماح بالمعاملات في حالة عدم توفر Redis  | لا (افتراضي: true)  | boolean |
+
+> _عندما يكون `fallback_if_unavailable` صحيحاً، يسمح النظام بمتابعة المعاملات في
+> حالة عدم توفر Redis مؤقتاً، مما يمنع انقطاع الخدمة._
+
+### قواعد حدود الاستخدام
+
+تقدم النسخة التجريبية حدود استخدام تفصيلية قائمة على القواعد. بدلاً من عدد واحد
+لـ `max_transactions`، يمكنك تحديد قواعد متعددة تستهدف أنواع معاملات محددة أو
+تعليمات فردية، مع نوافذ زمنية اختيارية.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| حقل القاعدة      | الوصف                                                                               | مطلوب |
+| ---------------- | ----------------------------------------------------------------------------------- | ----- |
+| `type`           | `"transaction"` (يحسب جميع المعاملات) أو `"instruction"` (يحسب أنواع تعليمات محددة) | نعم   |
+| `max`            | العدد الأقصى قبل حظر المحفظة                                                        | نعم   |
+| `window_seconds` | النافذة الزمنية بالثواني. في حالة الحذف، يكون الحد دائماً.                          | لا    |
+| `program`        | عنوان البرنامج للمطابقة (مطلوب لنوع `instruction`)                                  | مشروط |
+| `instruction`    | اسم التعليمة للمطابقة، مثل `"Transfer"`، `"Burn"` (مطلوب لنوع `instruction`)        | مشروط |
+
+عند تعيين `window_seconds`، يتم إعادة تعيين العداد بعد انتهاء الفترة الزمنية.
+بدون ذلك، يكون الحد دائمًا — بمجرد الوصول إليه، يتم حظر المحفظة حتى يتم إزالتها
+يدويًا من Redis.
+
+## الطرق الجديدة المُفعّلة
+
+تمت إضافة الطرق التالية إلى `[kora.enabled_methods]`:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| الطريقة                | الوصف                               |
+| ---------------------- | ----------------------------------- |
+| `get_version`          | إرجاع إصدار خادم Kora               |
+| `estimate_bundle_fee`  | تقدير الرسوم لحزمة من المعاملات     |
+| `sign_bundle`          | توقيع حزمة من المعاملات دون إرسالها |
+| `sign_and_send_bundle` | توقيع وإرسال حزمة إلى Jito          |
+
+راجع [طرق الحزم](/docs/tools/kora/beta/bundle-methods) للاطلاع على التوثيق
+الكامل لواجهة برمجة التطبيقات.

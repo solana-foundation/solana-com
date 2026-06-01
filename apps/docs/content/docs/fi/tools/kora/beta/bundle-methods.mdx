@@ -1,0 +1,390 @@
+---
+title: Bundle ja uudet RPC-metodit
+description:
+  Uudet RPC-metodit Kora v2.2.0-betassa — Jito-bundlet, versio ja bundle-maksun
+  estimointi.
+---
+
+Nämä metodit ovat saatavilla alkaen versiosta `v2.2.0-beta.1`. Ota ne käyttöön
+`kora.toml`-tiedostossa kohdan `[kora.enabled_methods]` alla.
+
+## getVersion
+
+Hakee Kora-palvelimen versiotiedot.
+
+### JSON-RPC-pyyntö
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### JSON-RPC-vastaus
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### cURL-esimerkki
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### Konfiguraatio
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+Laskee yhdistetyn maksun useille tapahtumille bundlessa. Hyödyllinen
+kokonaiskustannusten määrittämiseen ennen bundlen allekirjoittamista ja
+lähettämistä.
+
+> **Huomio:** Tapahtumaliitännäisiä (esim. `gas_swap`) **ei** suoriteta
+> maksuarvioinnin aikana. Liitännäiset suoritetaan vain allekirjoitusvaiheissa
+> (`signBundle`, `signAndSendBundle`).
+
+### JSON-RPC-pyyntö
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### Parametrit
+
+| Parametri      | Tyyppi   | Vaaditaan | Kuvaus                                          |
+| -------------- | -------- | --------- | ----------------------------------------------- |
+| `transactions` | string[] | Kyllä     | Taulukko base64-koodattuja tapahtumia (maks. 5) |
+| `fee_token`    | string   | Kyllä     | Token mint maksulaskentaa varten                |
+
+### JSON-RPC-vastaus
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### cURL-esimerkki
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### Konfiguraatio
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+Allekirjoittaa useita transaktioita bundlena lähettämättä niitä verkkoon. Käytä
+tätä, kun haluat hoitaa bundlen lähetyksen Jitoon itse.
+
+Tämä metodi on suojattu reCAPTCHA:lla, kun se on konfiguroitu. Sisällytä
+`x-recaptcha-token`-otsikko, jos palvelimellasi on reCAPTCHA käytössä.
+
+Kun
+[transaktioliitännäiset](/docs/tools/kora/beta/configuration#transaction-plugins)
+ovat käytössä (esim. `gas_swap`), jokainen bundlen transaktio validoidaan
+liitännäisen sääntöjä vasten ennen allekirjoittamista.
+
+### Lighthouse-maksujen maksajan suojaus
+
+Kun
+[Lighthouse-suojaus](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+on käytössä, Kora lisää saldovahvistuskäskyn **viimeiseen transaktioon**
+bundlessa. Tämä suojaa maksujen maksajaa tyhjennysiskuilta varmistamalla, että
+saldo ei laske alle odotettujen tasojen kaikkien bundle- transaktioiden
+valmistumisen jälkeen.
+
+**Tärkeää:** Koska Lighthouse muokkaa transaktioviestiä, kaikki viimeisen
+transaktion olemassa olevat asiakasallekirjoitukset muuttuvat virheellisiksi.
+Asiakkaiden täytyy **allekirjoittaa uudelleen** saatuaan muokatun bundlen
+takaisin Koralta.
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### JSON-RPC-pyyntö
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parametrit
+
+| Parametri              | Tyyppi   | Pakollinen | Kuvaus                                                       |
+| ---------------------- | -------- | ---------- | ------------------------------------------------------------ |
+| `transactions`         | string[] | Kyllä      | Taulukko base64-koodattuja transaktioita (maks. 5)           |
+| `signer_key`           | string   | Ei         | Tietty allekirjoittaja (oletus: poolin valinta)              |
+| `transactions_to_sign` | number[] | Ei         | Allekirjoitettavien transaktioiden indeksit (oletus: kaikki) |
+
+### JSON-RPC-vastaus
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL-esimerkki
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### Osittainen bundle-allekirjoitus
+
+Käytä `transactions_to_sign` -parametria allekirjoittaaksesi vain tietyt
+transaktiot bundlessa:
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### Konfiguraatio
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+Allekirjoittaa ja lähettää bundlen, joka sisältää enintään 5 transaktiota Jiton
+block enginelle. Kaikki bundlen transaktiot suoritetaan atomisesti ja peräkkäin
+— joko kaikki onnistuvat tai mikään ei onnistu.
+
+Tämä metodi on suojattu reCAPTCHAlla, kun se on konfiguroitu. Sisällytä
+`x-recaptcha-token`-otsikko, jos palvelimellasi on reCAPTCHA käytössä.
+
+Kun
+[transaktioliitännäiset](/docs/tools/kora/beta/configuration#transaction-plugins)
+on otettu käyttöön (esim. `gas_swap`), jokainen bundlen transaktio validoidaan
+liitännäisen sääntöjä vasten ennen allekirjoitusta.
+
+> **Huomio:**
+> [Lighthouse fee payer -suojaus](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+> **ei** koske tätä metodia. Koska bundlet lähetetään välittömästi,
+> Lighthouse-vahvistuksen lisääminen mitätöisi olemassa olevat
+> asiakasallekirjoitukset. Jos tarvitset Lighthouse-suojausta, käytä
+> [`signBundle`](#signbundle)-metodia ja käsittele Jito-lähetys itse
+> uudelleenallekirjoituksen jälkeen.
+
+### JSON-RPC-pyyntö
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parametrit
+
+| Parametri              | Tyyppi   | Pakollinen | Kuvaus                                                          |
+| ---------------------- | -------- | ---------- | --------------------------------------------------------------- |
+| `transactions`         | string[] | Kyllä      | Taulukko base64-koodattuja transaktioita (max 5)                |
+| `signer_key`           | string   | Ei         | Tietty allekirjoittaja (oletuksena poolivalinta)                |
+| `transactions_to_sign` | number[] | Ei         | Allekirjoitettavien transaktioiden indeksit (oletuksena kaikki) |
+
+### JSON-RPC-vastaus
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL-esimerkki
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### Konfiguraatio
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **Huomio:** Kun käytät bundleja Jito-tippien kanssa, varmista että
+> `allow_transfer = true` on asetettu
+> `[validation.fee_payer_policy.system]`-tiedostossa, jotta Kora-allekirjoittaja
+> voi maksaa tipin.

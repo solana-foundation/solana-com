@@ -1,0 +1,135 @@
+---
+title: Tài liệu tham khảo phí
+description: Tài liệu tham khảo đầy đủ về cách tính phí Kora.
+---
+
+_Cập nhật lần cuối: 2025-10-31_
+
+Kora ước tính phí giao dịch khi thực hiện các phương thức RPC
+`estimate_transaction_fee` và `sign_transaction`. Để ước tính phí, Kora tính
+tổng chi phí để thực hiện giao dịch trên Solana, bao gồm phí mạng, chi phí tạo
+tài khoản và phí xử lý thanh toán tùy chọn. Hướng dẫn này phân tích chi tiết
+từng thành phần của cách tính phí.
+
+## Công thức tính phí
+
+Phí được xác định bởi mô hình định giá được cấu hình trong `kora.toml`:
+
+- `PriceModel::Free` - Tài trợ toàn bộ phí giao dịch (tổng phí = 0)
+- `PriceModel::Fixed` - Tính một số tiền cố định bằng một loại token cụ thể (bất
+  kể phí mạng)
+- `PriceModel::Margin` - Thêm một tỷ lệ phần trăm biên lợi nhuận vào tổng phí.
+
+Điểm bắt đầu chính để ước tính tổng phí được sử dụng trong `PriceModel::Margin`
+là `FeeConfigUtil::estimate_kora_fee()` trong
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Nó sử dụng công thức tổng quát sau:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Các thành phần phí
+
+| Thành phần                    | Mô tả                                                                                | Phương pháp tính toán                                                                                                                           | Khi nào áp dụng                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Phí cơ bản**                | Phí giao dịch Solana cốt lõi bao gồm xác minh chữ ký và xử lý giao dịch              | `RpcClient.get_fee_for_message()` - Sử dụng tính toán phí của Solana dựa trên đơn vị tính toán và phí ưu tiên                                   | Luôn luôn                                                  |
+| **Phí tạo tài khoản**         | Số dư tối thiểu miễn rent để tạo Associated Token Accounts (ATAs) mới                | `Rent::default().minimum_balance(account_size)` - Tính rent dựa trên kích thước dữ liệu tài khoản (165-355 byte tùy thuộc vào token extensions) | Khi giao dịch tạo ATAs mới                                 |
+| **Phí chữ ký Kora**           | Phí bổ sung khi Kora ký với vai trò là fee payer không tham gia                      | Cố định: 5.000 lamport (`LAMPORTS_PER_SIGNATURE`)                                                                                               | Khi fee payer chưa là người ký giao dịch                   |
+| **Luồng ra của fee payer**    | Tổng SOL mà fee payer gửi đi trong giao dịch (chuyển khoản, tạo tài khoản, v.v.)     | Tổng của: Chuyển System từ fee payer, CreateAccount được tài trợ bởi fee payer, Rút tiền Nonce từ fee payer                                     | Khi fee payer thực hiện các thao tác System Program        |
+| **Phí lệnh thanh toán**       | Chi phí ước tính của phí ưu tiên để thêm lệnh thanh toán cho giao dịch không tốn gas | Ước tính cố định: 50 lamport (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                     | Khi thanh toán bắt buộc nhưng không có trong giao dịch     |
+| **Phí chuyển khoản**          | Phí chuyển khoản Token2022 được cấu hình trên mint (ví dụ: 1% số tiền chuyển khoản)  | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Dựa trên cấu hình phí chuyển khoản của mint                                             | Chỉ cho chuyển khoản Token2022 đến địa chỉ thanh toán Kora |
+| **Điều chỉnh biên lợi nhuận** | Phụ phí/điều chỉnh theo mô hình định giá của Kora                                    | Biên lợi nhuận được cấu hình trong `validation.price` - Có thể thêm phụ phí dưới dạng % của tổng phí                                            | Khi `[validation.price]` được cung cấp trong kora.toml     |
+
+## Mô Hình Định Giá & Dòng Tiền Ra Của Người Trả Phí
+
+Kora hỗ trợ ba mô hình định giá quyết định cách người dùng bị tính phí cho các
+giao dịch:
+
+### Định Giá Theo Biên Lợi Nhuận (Mặc Định)
+
+- **Công thức:**
+  `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Bao Gồm Dòng Tiền Ra Của Người Trả Phí:** Có
+- **Phù Hợp Nhất Cho:** Triển khai sản xuất khi phí cần phản ánh chi phí thực tế
+  với biên lợi nhuận hoạt động được cộng thêm
+
+### Định Giá Cố Định
+
+- **Công thức:** `Total Fee = Fixed Amount (in specified token)`
+- **Bao Gồm Dòng Tiền Ra Của Người Trả Phí:** Không
+- **Phù Hợp Nhất Cho:** Trải nghiệm người dùng đơn giản với giá dễ dự đoán trong
+  môi trường được kiểm soát
+
+### Định Giá Miễn Phí
+
+- **Công thức:** `Total Fee = 0`
+- **Bao Gồm Dòng Tiền Ra Của Người Trả Phí:** Không (nhà vận hành gánh chịu toàn
+  bộ chi phí)
+- **Phù Hợp Nhất Cho:** Chiến dịch khuyến mãi, thử nghiệm, hoặc ứng dụng được
+  tài trợ hoàn toàn
+
+---
+
+## ⚠️ Cảnh Báo Bảo Mật: Mô Hình Định Giá Cố Định/Miễn Phí
+
+**QUAN TRỌNG:** Các mô hình định giá cố định/miễn phí **KHÔNG** bao gồm dòng
+tiền ra của người trả phí trong số tiền tính phí. Điều này tạo ra rủi ro bảo mật
+đáng kể nếu không được cấu hình đúng cách. Nếu chính sách người trả phí của bạn
+cho phép chuyển khoản hoặc các hoạt động dòng tiền ra khác, kẻ tấn công có thể
+khai thác điều này để rút cạn tài khoản người trả phí của bạn.
+
+### Các Biện Pháp Kiểm Soát Bảo Mật Bắt Buộc
+
+Khi sử dụng định giá cố định/miễn phí, bạn **PHẢI** cấu hình các chính sách
+người trả phí hạn chế để chặn TẤT CẢ các hoạt động tiền tệ và thay đổi quyền
+hạn:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Các Biện Pháp Bảo Vệ Bổ Sung
+
+1. **Bật Xác Thực:** Luôn yêu cầu khóa API hoặc xác thực HMAC với định giá cố
+   định/miễn phí
+2. **Đặt Giới Hạn Thấp:** Sử dụng các giá trị `max_allowed_lamports` bảo thủ
+3. **Giám Sát Sử Dụng:** Theo dõi các mẫu bất thường của giao dịch có dòng tiền
+   ra cao
+4. **Xem Xét Định Giá Theo Biên:** Định giá theo biên tự động bao gồm chi phí
+   dòng tiền ra trong phí
+
+### Cảnh Báo Từ Bộ Kiểm Tra
+
+Bộ kiểm tra cấu hình của Kora sẽ cảnh báo bạn về các cấu hình nguy hiểm:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Các cảnh báo mong đợi cho cấu hình dễ bị tấn công:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

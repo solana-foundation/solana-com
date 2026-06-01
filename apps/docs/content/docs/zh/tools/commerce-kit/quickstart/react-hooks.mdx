@@ -1,0 +1,512 @@
+---
+title: React Hooks
+description: 使用 Solana Commerce React hooks 构建自定义支付界面
+---
+
+`@solana-commerce/sdk` 包提供了用于构建自定义 Solana 支付体验的 React
+hooks。这些 hooks 提供对 SOL 和 SPL 代币转账的完全控制，内置状态管理、自动重试逻辑、错误处理和 UI 辅助功能。
+
+在底层，SDK 使用 [TanStack Query](https://tanstack.com/query)
+进行缓存和状态管理，使用 [@solana/kit](https://github.com/anza-xyz/kit)
+处理 Solana 原语，并与 `@solana-commerce/connector` 无缝集成以实现钱包连接。
+
+## 安装
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Provider 设置
+
+### `ArcProvider`
+
+`ArcProvider` 是根 provider，用于初始化 Solana
+RPC 客户端、管理网络配置，并为所有 hooks 提供区块链连接。它必须包裹任何使用 SDK
+hooks 的组件。
+
+#### 属性
+
+- **`config`**（`ArcWebClientConfig`）- Arc 客户端的配置对象
+- **`children`**（`ReactNode`）- 可以访问 hooks 的子组件
+- **`queryClient`**（`QueryClient`，可选）- 自定义 TanStack
+  Query 客户端。如果未提供，将在内部创建默认实例。
+
+#### `ArcWebClientConfig`
+
+Arc 客户端的配置，用于控制 RPC 连接和确认级别。
+
+##### 必填字段
+
+该 provider 通过 `useConnectorClient` hook 自动与 `@solana-commerce/connector`
+集成，因此在 `ConnectorProvider` 内使用时无需显式配置连接器。
+
+##### 可选字段
+
+- **`network`**（`'mainnet' | 'devnet' | 'testnet'`）- 要连接的 Solana 网络。默认值：`'mainnet'`。
+
+- **`rpcUrl`**（`string`）- 自定义 RPC 端点 URL。如果未提供，将使用所选网络的公共端点。
+
+- **`commitment`**（`'processed' | 'confirmed' | 'finalized'`）- 交易确认级别。默认值：`'confirmed'`。
+
+- **`debug`**（`boolean`）- 启用详细的控制台日志记录以进行调试。默认值：`false`。
+
+- **`autoConnect`**（`boolean`）- 当组件挂载时自动连接到钱包。默认值：`true`。
+
+- **`storage`**（`Storage`）- 用于持久化钱包偏好设置的自定义存储适配器。必须实现：
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  默认值：在可用时使用 `window.localStorage`（仅限浏览器）。适用于 React
+  Native（`AsyncStorage`）或自定义的 SSR 安全存储。
+
+#### 与 `ConnectorProvider` 集成
+
+该提供器与 `@solana-commerce/connector` 中的 `ConnectorProvider` 集成。始终在
+`ArcProvider` 之前使用 `ConnectorProvider` 包装您的应用：
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## 核心钩子
+
+### `useTransferSOL`
+
+用于转账 SOL 的钩子，具备自动重试逻辑、状态管理和 UI 辅助功能。基于 TanStack
+Query 构建，支持缓存和请求去重。
+
+#### 签名
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### 参数
+
+- **`initialToInput`**（`string`，可选）- 接收地址输入的初始值。用于预填充表单。
+- **`initialAmountInput`**（`string`，可选）- 以 SOL 为单位的金额输入的初始值。用于预填充表单。
+
+#### 返回值
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### 核心函数
+
+- **`transferSOL`** - 发起 SOL 转账。返回一个 Promise，在链上确认交易后解析。
+
+##### 状态属性
+
+- **`isLoading`**（`boolean`）- 当交易正在处理时（签名、提交、确认）为
+  `true`。用于加载指示器和按钮状态。
+
+- **`error`**（`Error | null`）- 如果交易在任何阶段失败，则为错误对象。无错误时为
+  `null`。错误包括钱包拒绝、余额不足、网络故障等。
+
+- **`data`**（`TransferSOLResult | null`）- 交易成功时的结果对象。包含签名、地址、金额和区块链元数据。首次成功转账之前为
+  `null`。
+
+- **`reset`**（`() => void`）- 重置变更状态，清除 `error` 和
+  `data`。适用于重试流程或完成后重置表单。
+
+##### UI 辅助属性和方法
+
+该钩子提供表单输入的内置状态管理：
+
+- **`toInput`** / **`setToInput`** - 接收地址输入字段的受控状态
+
+- **`amountInput`** /
+  **`setAmountInput`** - 金额输入字段的受控状态（以 SOL 为单位，而非 lamport）
+
+- **`handleToInputChange`** - 接收地址输入的预绑定 onChange 处理器：
+  `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - 金额输入的预绑定 onChange 处理器：
+  `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - 便捷方法，使用当前的 `toInput` 和 `amountInput`
+  值转账 SOL。自动将金额从 SOL 转换为 lamport。
+
+- **`handleSubmit`** - 表单提交处理器，调用 `transferFromInputs()`
+  并阻止默认表单行为。与 `<form onSubmit={handleSubmit}>` 配合使用。
+
+#### 选项
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`**（必需）- 接收方的 Solana 地址。可以是字符串或来自 `@solana/kit` 的
+  `Address` 类型。
+
+- **`amount`**（必需）- 转账金额，以 **lamport** 为单位（而非 SOL）。必须是
+  `bigint`。使用 `BigInt()` 或字面量表示法：`1_000_000_000n` = 1 SOL。
+
+- **`from`**（可选）- 发送方地址。如果未提供，则使用已连接钱包的地址。仅在高级用例中需要（例如，为不同账户签名）。
+
+#### 结果
+
+结果包含交易元数据，包括转账详情和交易签名：
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### 内部架构
+
+**交易构建器：** 该 hook 使用共享的交易构建器，具备以下功能：
+
+- 为每笔交易获取最新的区块哈希
+- 构建费用最小化的优化交易消息
+- 使用已连接的钱包对交易进行签名
+- 在单一流程中提交并确认交易
+
+**缓存失效：** 转账成功后，该 hook 会自动使以下 TanStack Query 缓存失效：
+
+- 发送方余额（`from` 地址）
+- 接收方余额（`to` 地址）
+
+这确保了任何显示余额的组件（例如，通过
+`useArcClient`）无需手动干预即可自动重新获取并更新。
+
+**精确金额转换：** 使用 `transferFromInputs()`
+时，金额会通过基于字符串的算术运算从 SOL 转换为 lamport，以避免浮点精度错误。转换过程：
+
+- 验证输入格式（拒绝负数和无效数字）
+- 处理最多 9 位小数（1 lamport = 0.000000001 SOL）
+- 根据需要截断或填充小数值
+- 对无效输入抛出描述性错误
+
+---
+
+### `useTransferToken`
+
+与 `useTransferSOL`
+类似，此 Hook 用于转账 SPL 代币。除了处理转账外，该 Hook 还会在需要时自动创建关联代币账户（ATA）。
+
+#### 签名
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### 参数
+
+- **`initialMintInput`**（`string`，可选）- 初始代币铸造地址。适用于固定代币转账。
+- **`initialToInput`**（`string`，可选）- 初始接收方地址。
+- **`initialAmountInput`**（`string`，可选）- 代币基础单位的初始金额（考虑小数位数）。
+
+#### 返回值
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+返回值与 `useTransferSOL` 类似，但包含一个额外的 `mintInput` 状态用于代币选择。
+
+#### 选项
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### 必填字段
+
+- **`mint`** - SPL 代币铸造地址。例如：
+  - USDC：`'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT：`'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - 接收方的钱包地址（而非其 token
+  account）。Hook 会自动派生正确的关联代币账户。
+
+- **`amount`** - 代币**最小单位**的转账金额。必须考虑代币小数位数：
+  - USDC（6 位小数）：`1_000_000n` = 1 USDC
+  - SOL 封装代币（9 位小数）：`1_000_000_000n` = 1 代币
+
+##### 可选字段
+
+- **`from`** - 发送方的钱包地址。默认为已连接的钱包。
+
+- **`createAccountIfNeeded`**（默认：`true`）- 如果接收方没有该铸造代币的 token
+  account，则作为交易的一部分自动创建。当设为 `false`
+  时，如果接收方账户不存在，转账将失败。
+
+  _注意：_ 创建代币账户需要约 0.00203 SOL。该费用由发送方支付。
+
+- **`retryConfig`** - 区块哈希过期时自动重试的配置。参见[重试配置](#retry-configuration)。
+
+#### 结果
+
+结果包含交易元数据，其中包括转账详情和交易签名：
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### 重试配置
+
+该钩子包含复杂的重试逻辑，用于处理区块哈希过期问题，这在网络拥堵期间很常见。
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - 最大交易尝试次数。每次尝试都会获取新的区块哈希。默认值：`3`。
+
+- **`baseDelay`** - 首次重试前的延迟时间（毫秒）。默认值： `1000`（1 秒）。
+
+- **`backoffMultiplier`** - 指数退避乘数。每次重试等待
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` 毫秒。
+  - `1` = 线性退避（1秒，1秒，1秒）
+  - `1.5` = 指数退避（1秒，1.5秒，2.25秒）
+  - `2` = 激进指数退避（1秒，2秒，4秒）
+
+**重试工作原理：**
+
+1. **首次尝试：** 使用当前区块哈希构建交易并提交
+2. **区块哈希过期：** 如果区块哈希在确认前失效，Solana 会拒绝该交易
+3. **自动重试：** 钩子检测到过期，获取新的区块哈希，重建交易并重新提交
+4. **指数退避：** 每次重试等待更长时间以避免网络拥堵
+5. **最终失败：** 在 `maxAttempts` 次尝试后，抛出 `BlockhashExpirationError`
+   异常并提供上下文信息
+
+**不触发重试的情况：**
+
+- 非区块哈希错误（资金不足、账户无效等）会立即抛出异常而不重试
+- 只有区块哈希过期错误才会触发重试机制
+
+#### 内部架构
+
+**ATA 管理：**
+
+- 使用 `findAssociatedTokenPda` 确定性地派生 Associated Token
+  Accounts（_注意：目前仅支持 Token Program_）
+- 检查发送方是否有代币账户（如果发送方不持有该代币则快速失败）
+- 检查接收方是否有代币账户（如需要且 `createAccountIfNeeded: true` 则创建）
+- 账户检查仅在首次尝试时运行，以避免在重试期间进行冗余的 RPC 调用
+
+**缓存失效：** 成功时，会使以下 TanStack Query 缓存失效：
+
+- 发送方此铸币的代币余额
+- 接收方此铸币的代币余额
+- 相关账户数据
+
+这可以自动保持所有显示余额的 UI 组件同步。
+
+### `useArcClient`
+
+用于访问底层 Solana
+RPC 客户端、钱包状态和网络配置的 Hook。这是一个较低级别的 Hook，适用于需要直接访问 RPC 的高级用例。
+
+#### 签名
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### 返回值
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### 状态
+
+`ArcClientSnapshot` 扩展了 `ArcWebClient`，提供对以下内容的访问：
+
+- 钱包状态（地址、签名者、可用钱包、功能和钱包状态）
+- 网络配置（RPC 端点、Solana 集群）
+
+#### 使用场景
+
+**直接 RPC 查询：**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**网络感知组件：**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**基于钱包的条件渲染：**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

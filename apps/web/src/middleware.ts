@@ -8,25 +8,33 @@ const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const hasLocalePrefix = locales.includes(pathSegments[0] ?? "");
+  const normalizedPathname = hasLocalePrefix
+    ? `/${pathSegments.slice(1).join("/")}`
+    : pathname;
 
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
-    pathname.startsWith("/accelerate") ||
-    pathname.startsWith("/breakpoint") ||
-    pathname === "/developers" ||
-    pathname.startsWith("/developers/templates") ||
-    pathname.startsWith("/developers/cookbook") ||
-    pathname.startsWith("/developers/guides") ||
-    pathname.startsWith("/developers/bootcamp") ||
-    pathname.startsWith("/docs") ||
-    pathname.startsWith("/learn") ||
-    (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
-    pathname.startsWith("/reports") ||
-    pathname.startsWith("/podcasts") ||
-    pathname.startsWith("/media-assets") ||
-    pathname.startsWith("/templates-assets") ||
-    pathname.startsWith("/opengraph")
+    normalizedPathname.startsWith("/accelerate") ||
+    normalizedPathname.startsWith("/breakpoint") ||
+    normalizedPathname === "/developers" ||
+    normalizedPathname.startsWith("/developers/templates") ||
+    normalizedPathname.startsWith("/developers/cookbook") ||
+    normalizedPathname.startsWith("/developers/guides") ||
+    normalizedPathname.startsWith("/developers/bootcamp") ||
+    normalizedPathname.startsWith("/docs") ||
+    normalizedPathname.startsWith("/learn") ||
+    (normalizedPathname.startsWith("/news") &&
+      !normalizedPathname.startsWith("/newsletter")) ||
+    normalizedPathname.startsWith("/reports") ||
+    normalizedPathname.startsWith("/podcasts") ||
+    normalizedPathname === "/upgrade" ||
+    normalizedPathname.startsWith("/upgrades") ||
+    normalizedPathname.startsWith("/media-assets") ||
+    normalizedPathname.startsWith("/templates-assets") ||
+    normalizedPathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
   }
@@ -53,7 +61,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   // Remove duplicate locale segments from path
-  const pathSegments = pathname.split("/").filter(Boolean);
   const localeSegments = pathSegments.filter((segment) =>
     locales.includes(segment),
   );
@@ -94,7 +101,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|media-assets|templates-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

@@ -1,0 +1,485 @@
+---
+title: Подключение кошелька
+description: Подключайте кошельки Solana с помощью Wallet Standard
+---
+
+Пакет `@solana-commerce/connector` предоставляет подключение кошелька без
+графического интерфейса, построенное на основе
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard). Он
+управляет обнаружением кошельков, состоянием подключения, управлением аккаунтами
+и автоматическим повторным подключением. Пакет разработан как независимый от
+фреймворка с включёнными привязками для React. Он адаптирован для бесшовного
+использования в Solana Commerce Kit и совместим с
+[@solana/kit](https://github.com/anza-xyz/kit) и
+[gill](https://www.gillsdk.com/).
+
+![Подключение кошелька](/assets/docs/tools/commerce-kit/connector.png)
+
+## Установка
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Настройка провайдера
+
+### `ConnectorProvider`
+
+Компонент `ConnectorProvider` оборачивает ваше приложение и предоставляет
+состояние подключения кошелька всем дочерним компонентам. Он управляет
+единственным экземпляром `ConnectorClient`, который сохраняется в течение циклов
+монтирования/размонтирования компонентов.
+
+#### Свойства
+
+Вся конфигурация передаётся через свойство `config`:
+
+- **`config`** (`ConnectorConfig`, необязательно) - Объект конфигурации для
+  коннектора. Все поля необязательны.
+
+#### `ConnectorConfig`
+
+Объект конфигурации для поведения подключения кошелька.
+
+##### Необязательные поля
+
+- **`autoConnect`** (`boolean`) - Если установлено значение `true`,
+  автоматически переподключается к последнему использованному кошельку при
+  монтировании. Предпочтение кошелька сохраняется в настроенном хранилище (по
+  умолчанию `localStorage`). По умолчанию: `false`.
+
+- **`debug`** (`boolean`) - Включает подробное логирование в консоль для отладки
+  потоков подключения, изменений аккаунтов и ошибок. Логи включают префиксы,
+  такие как `[Connector]` и `[ConnectorProvider]`. По умолчанию: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Интервал опроса в миллисекундах
+  для проверки изменений аккаунта, когда кошелёк не поддерживает функцию
+  `standard:events`. Большинство современных кошельков поддерживают события,
+  поэтому опрос является запасным вариантом. По умолчанию: `1500` (1,5 секунды).
+
+- **`storage`** (`Storage`) - Пользовательский адаптер хранилища для сохранения
+  предпочтений кошелька. Должен реализовывать:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  По умолчанию: `window.localStorage`, когда доступно (только браузер).
+  Используйте это для React Native (`AsyncStorage`) или пользовательского
+  SSR-безопасного хранилища.
+
+#### Архитектура провайдера
+
+Провайдер использует **паттерн одиночки** с подсчетом ссылок:
+
+- Несколько экземпляров `ConnectorProvider` используют один и тот же
+  `ConnectorClient`
+- Клиент создается при первом монтировании и сохраняется между размонтированиями
+- Когда все провайдеры размонтируются, очистка откладывается на 5 секунд для
+  обработки быстрых повторных монтирований
+- Во время очистки кошелек отключается и все обработчики событий удаляются
+
+Эта архитектура предотвращает отключение кошелька при смене маршрутов или
+обновлении компонентов.
+
+---
+
+## Хуки
+
+### `useConnector()`
+
+Основной хук для доступа к состоянию и действиям подключения кошелька. Должен
+использоваться внутри `ConnectorProvider`.
+
+Возвращает объект `ConnectorSnapshot`, содержащий:
+
+#### Свойства состояния
+
+- **`wallets`** (`WalletInfo[]`) - Массив всех обнаруженных кошельков,
+  совместимых со стандартом Wallet Standard. Автоматически обновляется при
+  установке или удалении кошельков. Каждый кошелек включает метаданные, такие
+  как название, иконка и возможности. См. [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Текущий подключенный объект кошелька
+  Wallet Standard. `null` при отключении. Это необработанный экземпляр кошелька
+  из API Wallet Standard.
+
+- **`connected`** (`boolean`) - Статус подключения. `true`, когда кошелек
+  подключен и аккаунты доступны. Используйте это для условного рендеринга UI.
+
+- **`connecting`** (`boolean`) - Состояние загрузки во время подключения
+  кошелька. `true` между вызовом `select()` и получением результата подключения.
+  Используйте это для отображения индикаторов загрузки или деактивации кнопок.
+
+- **`accounts`** (`AccountInfo[]`) - Массив аккаунтов из подключенного кошелька.
+  Большинство кошельков предоставляют один аккаунт, но некоторые поддерживают
+  несколько. Обновляется автоматически через события кошелька или опрос. См.
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Адрес текущего выбранного аккаунта
+  (публичный ключ в кодировке base58). Когда кошелек подключается с новым
+  аккаунтом, этот аккаунт автоматически выбирается. В противном случае
+  сохраняется ранее выбранный аккаунт.
+
+#### Методы действий
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Подключается к
+  кошельку по имени (например, `"Phantom"`, `"Solflare"`). Имя кошелька должно
+  точно совпадать с полем `name` обнаруженного кошелька.
+
+  **Процесс:**
+  1. Устанавливает `connecting: true`
+  2. Вызывает функцию `standard:connect` кошелька
+  3. Получает аккаунты из кошелька
+  4. Подписывается на события кошелька (или запускает опрос, если события
+     недоступны)
+  5. Сохраняет предпочтение кошелька в настроенном хранилище
+  6. Обновляет состояние с аккаунтами и выбранным аккаунтом
+
+  **Генерирует ошибку:** Если кошелек не найден, кошелек не поддерживает
+  подключение или подключение отклонено пользователем.
+
+- **`disconnect`** (`() => Promise<void>`) - Отключает текущий кошелек и очищает
+  все состояние.
+
+  **Процесс:**
+  1. Отменяет подписку на события кошелька
+  2. Останавливает опрос аккаунтов
+  3. Вызывает функцию `standard:disconnect` кошелька, если доступна
+  4. Очищает выбранный кошелек, аккаунты и выбранный аккаунт
+  5. Удаляет предпочтение кошелька из хранилища
+
+  Никогда не генерирует ошибок (ошибки записываются в журнал, если включена
+  отладка).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Переключает
+  выбранный аккаунт на другой адрес из подключенного кошелька. Если адреса нет в
+  текущем массиве аккаунтов, запускает повторное подключение для получения
+  обновленных аккаунтов.
+
+  **Генерирует ошибку:** Если кошелек не подключен или запрошенный аккаунт не
+  найден после повторного подключения.
+
+### `useConnectorClient()`
+
+Предоставляет прямой доступ к базовому экземпляру `ConnectorClient` для
+продвинутых сценариев использования.
+
+**Возвращает:** `ConnectorClient | null` - Экземпляр синглтон-клиента или `null`
+при использовании вне `ConnectorProvider`.
+
+**Сценарии использования:**
+
+- Прямой доступ к `getConnectorState()` для императивного чтения состояния
+- Ручная подписка с `subscribe(listener)` для пользовательских обработчиков
+  состояния
+- Вызов `destroy()` для принудительной очистки (не рекомендуется при обычном
+  использовании)
+
+**Пример:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Определения типов
+
+### `WalletInfo`
+
+Метаданные об обнаруженном кошельке.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Требования:** Кошелек считается подключаемым, если он
+поддерживает:
+
+- функцию `standard:connect`
+- функцию `standard:disconnect`
+- блокчейны Solana (определяются через `wallet.chains`, содержащий `"solana"`)
+
+Неподключаемые кошельки отображаются в массиве `wallets`, но не могут быть
+выбраны.
+
+### `AccountInfo`
+
+Информация об аккаунте кошелька.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Поле `raw` предоставляет доступ к дополнительным свойствам аккаунта:
+
+- `address: string` - публичный ключ в кодировке Base58
+- `publicKey: Uint8Array` - байты публичного ключа в необработанном виде
+- `label?: string` - метка аккаунта (если кошелек предоставляет её)
+- `icon?: string` - иконка, специфичная для аккаунта (data URL)
+- `chains: string[]` - поддерживаемые блокчейны для этого аккаунта
+- `features: string[]` - поддерживаемые функции для этого аккаунта
+
+### `ConnectorSnapshot`
+
+Возвращаемый тип `useConnector()`, объединяющий состояние и действия.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Обнаружение изменений аккаунта
+
+Коннектор автоматически обнаруживает изменения аккаунтов кошелька (пользователь
+добавляет/удаляет аккаунты, переключается между аккаунтами в кошельке).
+Используются две стратегии:
+
+### На основе событий (предпочтительно)
+
+Когда кошелек поддерживает `standard:events`, коннектор подписывается на события
+`change`:
+
+- Получает уведомления в реальном времени при изменении аккаунтов
+- Более эффективно (без опроса)
+- Агрегирует аккаунты как из события, так и из `wallet.accounts` для обработки
+  кошельков, которые включают в события только выбранный аккаунт
+
+### Резервный опрос
+
+Когда события не поддерживаются, коннектор опрашивает `wallet.accounts`:
+
+- Проверяет каждые `accountPollingIntervalMs` (по умолчанию: 1500 мс)
+- Сравнивает адреса аккаунтов для обнаружения изменений
+- Запускает повторный рендеринг только при фактическом изменении аккаунтов
+
+**Логика выбора аккаунта:**
+
+- При изменении аккаунтов сохранять выбранный аккаунт, если он все еще
+  существует
+- Если выбранный аккаунт был удален, выбрать первый доступный аккаунт
+- При подключении с новым аккаунтом (отсутствующим в предыдущих аккаунтах)
+  отдавать предпочтение новому аккаунту
+
+---
+
+## Хранилище и автоподключение
+
+### Постоянство хранилища
+
+Коннектор сохраняет один ключ в настроенном хранилище:
+
+- **Ключ:** `arc-connector:lastWallet`
+- **Значение:** Имя кошелька (например, `"Phantom"`)
+
+Операции с хранилищем обёрнуты в try-catch для обработки:
+
+- Изолированных iframe, где `localStorage` вызывает исключение
+- SSR-окружений, где `window` не определён
+- React Native, где `localStorage` не существует
+
+Если работа с хранилищем не удаётся, коннектор продолжает работу без постоянства
+(ошибки не выбрасываются).
+
+### Поведение автоподключения
+
+Когда `autoConnect: true`:
+
+1. При монтировании читает имя последнего кошелька из хранилища
+2. Ожидает 100 мс (позволяет кошелькам зарегистрироваться)
+3. Вызывает `select(walletName)`, если кошелёк обнаружен
+4. Если автоподключение не удалось, удаляет некорректные настройки из хранилища
+
+**Примечание по безопасности:** Сохранённая настройка — это всего лишь имя
+кошелька (строка), а не конфиденциальные данные. Кошелёк обрабатывает
+аутентификацию/авторизацию через собственный интерфейс.
+
+---
+
+## Примеры использования
+
+### Базовая кнопка кошелька
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Селектор нескольких аккаунтов
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Мониторинг подключения
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Поддерживаемые кошельки
+
+Коннектор поддерживает все кошельки, реализующие
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), включая:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Любой другой совместимый с Wallet Standard кошелёк
+
+Кошельки автоматически обнаруживаются при регистрации в API Wallet Standard
+(настройка не требуется).
+
+---
+
+## Использование без UI (Без React)
+
+Для приложений, не использующих React, или для серверного использования
+применяйте `ConnectorClient` напрямую:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Примечание:** `ConnectorClient` управляет собственным состоянием и никогда не
+вызывает повторный рендеринг React. Вы должны вручную подписываться на изменения
+состояния.

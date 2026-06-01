@@ -1,0 +1,189 @@
+---
+title: Kit İstemci Entegrasyonu
+description:
+  Kit'in eklenti mimarisi ile otomatik ücret yönetimi için createKitKoraClient
+  kullanarak gaz ücretsiz işlemler oluşturun.
+date: 2026-03-09
+---
+
+_Son Güncelleme: 2026-03-09_
+
+## Ne Oluşturacaksınız
+
+Kit istemcisi (`createKitKoraClient`), Kora'yı Solana uygulamalarına entegre
+etmenin önerilen yoludur. Kora'nın ücret soyutlamasını Kit'in eklenti mimarisine
+sararak, otomatik olarak şunları yöneten bir istemci sağlar:
+
+- Blockhash yönetimi
+- Ücret tahmini ve ödeme talimatı enjeksiyonu
+- Kora aracılığıyla işlem imzalama
+- İşlem gönderimi ve onayı
+- Hesaplama bütçesi optimizasyonu (simülasyon tabanlı CU tahmini)
+
+Bu, `tokenProgram()` gibi Kit program eklentilerini kullanabileceğiniz ve
+Kora'nın arka planda tüm gaz ücreti karmaşıklığını yöneteceği anlamına gelir.
+
+## Ön Koşullar
+
+- [Kora Hızlı Başlangıç Kılavuzu](/docs/tools/kora/getting-started/quick-start)'nu
+  tamamlamış olmak — çalışan Kora sunucusu ve yerel validator
+- [Solana Kit](https://www.solanakit.com/) ve eklenti sistemi hakkında bilgi
+  sahibi olmak
+
+## Kurulum
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Eş bağımlılıklar (`@solana-program/token`, `@solana-program/compute-budget`,
+`@solana/kit-plugin-*`) çoğu paket yöneticisi tarafından otomatik olarak
+yüklenir. Manuel olarak yüklemeniz gerekiyorsa
+[Kurulum](/docs/tools/kora/getting-started/installation) bölümüne bakın.
+
+## İstemciyi Oluşturma
+
+`createKitKoraClient`, `ClientWithPayer`, `ClientWithTransactionPlanning` ve
+`ClientWithTransactionSending`'i karşılayan tek bir istemcide birden fazla Kit
+eklentisini bir araya getirir.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet` bir `TransactionSigner` olmalıdır — bu, Kora operatörüne SPL
+token ücreti ödemesini yetkilendiren cüzdandır. Kora operatörü SOL ağ
+ücretlerini yönetir.
+
+### Yapılandırma Seçenekleri
+
+| Seçenek            | Gerekli | Açıklama                                                                                                                 |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `endpoint`         | Evet    | Kora RPC uç nokta URL'si                                                                                                 |
+| `rpcUrl`           | Evet    | Solana RPC URL'si (Kora uç noktası değil) — hesaplama birimi simülasyonu ve program eklentisi uyumluluğu için kullanılır |
+| `feeToken`         | Evet    | Ücret ödemesi için SPL mint adresi (örn. USDC)                                                                           |
+| `feePayerWallet`   | Evet    | SPL ücret ödemesini yetkilendiren `TransactionSigner`                                                                    |
+| `apiKey`           | Hayır   | Kora kimlik doğrulaması için API anahtarı                                                                                |
+| `hmacSecret`       | Hayır   | İmza tabanlı kimlik doğrulama için HMAC gizli anahtarı                                                                   |
+| `computeUnitLimit` | Hayır   | Sabit CU limiti. Belirtilmezse, Kora optimal CU'yu tahmin etmek için işlemi simüle eder (önerilir)                       |
+| `computeUnitPrice` | Hayır   | Mikro-lamport cinsinden öncelik ücreti                                                                                   |
+| `tokenProgramId`   | Hayır   | Varsayılan olarak Token Program. Token-2022 ücret tokenları için `TOKEN_2022_PROGRAM_ADDRESS` olarak ayarlayın           |
+
+## Kit Program Eklentileri ile Kullanım
+
+Kit istemcisi, Kit program eklentileri ile birleştirilebilir. Örneğin,
+`tokenProgram()` ile:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Arka planda Kit istemcisi:
+
+1. İşlemi Kora tarafından yönetilen bir blockhash ve hesaplama bütçesi
+   talimatları ile planlar
+2. Ücreti tahmin eder ve SPL ödeme talimatını Kora operatörüne enjekte eder
+   (veya günceller)
+3. İşlemi kullanıcının cüzdanı ile kısmen imzalar
+4. İşlemi ortak imzalama ve Solana'ya gönderim için Kora'ya iletir
+
+## Kora RPC Metodlarına Erişim
+
+Kit istemcisi ayrıca `.kora` ad alanı aracılığıyla tam Kora API'sini sunar
+(`koraPlugin`'den):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Tüm `.kora` metot yanıtları, ham dizeler yerine Kit tipli değerler (`Address`,
+`Blockhash`, `Signature`) kullanır.
+
+## Token-2022 Desteği
+
+Ücretleri bir Token-2022 token'ı ile ödemek için `tokenProgramId` seçeneğini
+iletin:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Hesaplama Bütçesi
+
+Varsayılan olarak Kit istemcisi, optimal hesaplama birimi limitini belirlemek
+için işlemi Solana RPC'ye karşı simüle eder. Bu, daha sıkı CU tahsisi ve daha
+düşük ücretlerle sonuçlanır.
+
+Sabit bir değerle geçersiz kılmak için:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Her İstemci Ne Zaman Kullanılmalı
+
+| İstemci               | Kullanım Alanı                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Önerilir.** Otomatik ücret yönetimi ile tam Kit entegrasyonu. Kit program eklentileri kullanan uygulamalar için en iyisi. |
+| `KoraClient`          | İşlem oluşturma, imzalama ve gönderim üzerinde tam kontrol gerektiğinde doğrudan RPC erişimi.                               |
+| `koraPlugin`          | Diğer eklentilerle zaten birleştirdiğiniz mevcut bir Kit istemcisine Kora metodlarını eklemek için.                         |
+
+## Sonraki Adımlar
+
+- [Tam İşlem Akışı](/docs/tools/kora/guides/full-demo) — `KoraClient`'i doğrudan
+  kullanarak daha düşük seviyeli bir kılavuz
+- [API Referansı](/docs/tools/kora/json-rpc-api) — Mevcut tüm RPC metodları
+- [Kora Yapılandırması](/docs/tools/kora/operators/configuration) — Sunucu
+  tarafı yapılandırma seçenekleri
