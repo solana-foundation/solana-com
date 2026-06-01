@@ -121,6 +121,21 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/upgrades",
+        destination: "/news/solana-network-upgrades",
+        permanent: true,
+      },
+      {
+        source: "/:locale/upgrades",
+        destination: "/:locale/news/solana-network-upgrades",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
