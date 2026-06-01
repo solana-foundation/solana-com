@@ -24,7 +24,6 @@ import EducationIcon from "./assets/nav/learn/education.inline.svg";
 import TradingViewIcon from "./assets/nav/learn/trading-view.inline.svg";
 import ApiConnectionNetworkIcon from "./assets/nav/network/api-connection.inline.svg";
 import BezierIcon from "./assets/nav/network/bezier.inline.svg";
-import ExplorerIcon from "./assets/nav/network/explorer.inline.svg";
 import PulseIcon from "./assets/nav/network/pulse.inline.svg";
 import NewspaperCommunityIcon from "./assets/nav/community/newspaper.inline.svg";
 import CalendarIcon from "./assets/nav/community/calendar.inline.svg";
@@ -436,8 +435,6 @@ export const productToolItems: NavItemDefinition[] = [
   },
 ];
 
-export const productAdjacentItems = productToolItems;
-
 export const ecosystemNetworkItems: NavItemDefinition[] = [
   {
     id: "ecosystem-network",
@@ -580,24 +577,3 @@ export const navBannerConfigs = {
     logoHeight: 32,
   },
 } satisfies Partial<Record<NavTopLevelSectionId, NavPromoDefinition>>;
-
-export const navPromoConfigs = navBannerConfigs;
-
-// Legacy header-list files are no longer wired into HEADER_SECTIONS, but they
-// still compile as part of the package. Keep these aliases until the old files
-// are removed in a cleanup-only change.
-export const learnPrimaryItems = useSolanaWalletItems;
-export const solutionsToolsColumns = [productAdjacentItems];
-export const solutionsCasesColumns = enterpriseBusinessColumns;
-export const solutionsResourceItems = productAdjacentItems;
-export const networkResourceItems = ecosystemNetworkItems;
-export const networkInspectItems = [
-  {
-    id: "network-solana-explorer",
-    titleKey: "nav.ecosystem.network.items.explorer.title",
-    href: "https://explorer.solana.com/",
-    icon: ExplorerIcon,
-    external: true,
-  },
-];
-export const communityInvolvedItems = ecosystemCommunityItems;
