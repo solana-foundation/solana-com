@@ -150,6 +150,83 @@ export default config({
       },
     }),
 
+    upgrades: collection({
+      label: "Upgrades",
+      slugField: "title",
+      path: "content/upgrades/*",
+      format: { contentField: "body" },
+      entryLayout: "content",
+      schema: {
+        title: fields.slug({
+          name: { label: "Title", validation: { isRequired: true } },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: [
+            { label: "Draft", value: "draft" },
+            { label: "Published", value: "published" },
+          ],
+          defaultValue: "draft",
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Used as meta description for SEO",
+          multiline: true,
+        }),
+        heroImage: fields.image({
+          label: "Hero Image",
+          description: "Used as og:image",
+          directory: "public/uploads/upgrades",
+          publicPath: "/uploads/upgrades",
+        }),
+        author: fields.relationship({
+          label: "Author",
+          collection: "authors",
+        }),
+        publishedAt: fields.datetime({
+          label: "Publish Date",
+          description:
+            "Date and time in UTC when the upgrade becomes visible on the site.",
+          validation: { isRequired: true },
+        }),
+        categories: fields.array(
+          fields.object({
+            category: fields.relationship({
+              label: "Category",
+              collection: "categories",
+            }),
+          }),
+          {
+            label: "Categories",
+            itemLabel: (props) => props.fields.category.value || "Category",
+          },
+        ),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          },
+        ),
+        body: fields.mdx({
+          label: "Body",
+          options: {
+            table: true,
+            image: {
+              directory: "public/uploads/upgrades",
+              publicPath: "/uploads/upgrades",
+            },
+          },
+          components: componentBlocks,
+        }),
+      },
+    }),
+
     podcasts: collection({
       label: "Podcasts",
       slugField: "title",

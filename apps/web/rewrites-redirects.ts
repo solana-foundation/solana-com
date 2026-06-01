@@ -157,6 +157,16 @@ export default {
         locale: false,
       },
       {
+        source: "/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/upgrades/:path+`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades/:path+`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
