@@ -84,23 +84,6 @@ const FOOTER_COLUMNS: FooterColumnConfig[] = [
     ],
   },
   {
-    headingKey: "footer.agents.heading",
-    links: [
-      { labelKey: "footer.agents.llms", href: "/llms.txt", preserveHref: true },
-      {
-        labelKey: "footer.agents.fullDocs",
-        href: "/llms-full.txt",
-        preserveHref: true,
-      },
-      {
-        labelKey: "footer.agents.skill",
-        href: "/SKILL.md",
-        preserveHref: true,
-      },
-      { labelKey: "footer.agents.skills", href: "/skills" },
-    ],
-  },
-  {
     headingKey: "footer.enterprise.heading",
     links: [
       { labelKey: "footer.enterprise.hub", href: "/enterprise" },
@@ -134,6 +117,23 @@ const FOOTER_COLUMNS: FooterColumnConfig[] = [
       { labelKey: "footer.ecosystem.community", href: "/community" },
       { labelKey: "footer.ecosystem.news", href: "/news" },
       { labelKey: "footer.ecosystem.newsletter", href: "/newsletter" },
+    ],
+  },
+  {
+    headingKey: "footer.agents.heading",
+    links: [
+      { labelKey: "footer.agents.llms", href: "/llms.txt", preserveHref: true },
+      {
+        labelKey: "footer.agents.fullDocs",
+        href: "/llms-full.txt",
+        preserveHref: true,
+      },
+      {
+        labelKey: "footer.agents.skill",
+        href: "/SKILL.md",
+        preserveHref: true,
+      },
+      { labelKey: "footer.agents.skills", href: "/skills" },
     ],
   },
 ];
