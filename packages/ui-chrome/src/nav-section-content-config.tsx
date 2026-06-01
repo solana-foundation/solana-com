@@ -485,12 +485,6 @@ export const ecosystemCommunityItems: NavItemDefinition[] = [
     partiallyActive: true,
   },
   {
-    id: "ecosystem-event-archive",
-    titleKey: "nav.ecosystem.community.items.archive.title",
-    href: "/events/archive",
-    icon: CalendarIcon,
-  },
-  {
     id: "ecosystem-accelerate",
     titleKey: "nav.ecosystem.community.items.accelerate.title",
     href: "/accelerate",
