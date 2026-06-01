@@ -391,6 +391,10 @@ function HubOverviewSection({
                     mixBlendMode: "screen",
                   }}
                 />
+                <div
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none bg-gradient-to-b from-transparent via-black/80 to-black"
+                />
               </div>
             </div>
           )}
