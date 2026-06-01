@@ -173,6 +173,56 @@ export default config({
           description: "Used as meta description for SEO",
           multiline: true,
         }),
+        subtitle: fields.text({
+          label: "Subtitle",
+          description: "Displayed below the title in the hero section",
+        }),
+        badges: fields.array(
+          fields.object({
+            text: fields.text({
+              label: "Text",
+              validation: { isRequired: true },
+            }),
+            color: fields.select({
+              label: "Color",
+              options: [
+                { label: "Green", value: "green" },
+                { label: "Yellow", value: "yellow" },
+                { label: "Red", value: "red" },
+                { label: "Purple", value: "purple" },
+              ],
+              defaultValue: "green",
+            }),
+            variant: fields.select({
+              label: "Variant",
+              options: [
+                { label: "Badge (pill style)", value: "badge" },
+                { label: "Text (plain)", value: "text" },
+              ],
+              defaultValue: "badge",
+            }),
+          }),
+          {
+            label: "Status Badges",
+            itemLabel: (props) => props.fields.text.value || "Badge",
+          },
+        ),
+        metrics: fields.array(
+          fields.object({
+            value: fields.text({
+              label: "Value",
+              validation: { isRequired: true },
+            }),
+            label: fields.text({
+              label: "Label",
+              validation: { isRequired: true },
+            }),
+          }),
+          {
+            label: "Key Metrics",
+            itemLabel: (props) => props.fields.value.value || "Metric",
+          },
+        ),
         heroImage: fields.image({
           label: "Hero Image",
           description: "Used as og:image",

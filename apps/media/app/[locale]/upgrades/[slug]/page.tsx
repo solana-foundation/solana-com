@@ -11,6 +11,13 @@ export const revalidate = 300;
 
 type Props = { params: Promise<{ slug: string; locale: string }> };
 
+const badgeColorMap: Record<string, string> = {
+  green: "bg-[#14F195]/10 border-[#14F195]/30 text-[#14F195]",
+  yellow: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
+  red: "bg-red-500/10 border-red-500/30 text-red-400",
+  purple: "bg-purple-500/10 border-purple-500/30 text-purple-400",
+};
+
 const LOCALES = [
   "en",
   "ar",
@@ -87,10 +94,11 @@ export default async function Page({ params }: Props) {
   if (!entry || entry.status !== "published") notFound();
 
   const rawBody = await entry.body();
+  const titleDisplay = String(entry.title);
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
     : null;
-  const authorName = authorEntry?.name?.name ?? "Solana Foundation";
+  const authorName = String(authorEntry?.name ?? "Solana Foundation");
   const publishedDate = entry.publishedAt
     ? new Date(entry.publishedAt).toLocaleDateString("en-US", {
         month: "long",
@@ -112,21 +120,60 @@ export default async function Page({ params }: Props) {
               <span>Back to Upgrades</span>
             </Link>
           </div>
+          {entry.badges && entry.badges.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              {entry.badges.map(
+                (
+                  badge: { text: string; color: string; variant: string },
+                  i: number,
+                ) =>
+                  badge.variant === "text" ? (
+                    <span key={i} className="text-xs text-gray-500">
+                      {badge.text}
+                    </span>
+                  ) : (
+                    <span
+                      key={i}
+                      className={`text-xs px-3 py-1 rounded-full border font-medium ${badgeColorMap[badge.color] ?? badgeColorMap.green}`}
+                    >
+                      {badge.text}
+                    </span>
+                  ),
+              )}
+            </div>
+          )}
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
-            {entry.title.name}
+            {titleDisplay}
           </h1>
-          {entry.description && (
+          {entry.subtitle && (
             <p className="text-xl md:text-2xl text-gray-300 mb-6 max-w-3xl">
-              {entry.description}
+              {entry.subtitle}
             </p>
           )}
-          <SocialShare title={entry.title.name} slug={slug} />
+          <SocialShare title={titleDisplay} slug={slug} />
           {(publishedDate || authorName) && (
             <p className="text-base text-gray-400 mb-8">
               {publishedDate && <span>{publishedDate}</span>}
               {publishedDate && authorName && <span>, by </span>}
               {authorName && <span>{authorName}</span>}
             </p>
+          )}
+          {entry.metrics && entry.metrics.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              {entry.metrics.map(
+                (metric: { value: string; label: string }, i: number) => (
+                  <div
+                    key={i}
+                    className="relative bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg p-6 border border-white/10"
+                  >
+                    <div className="text-4xl font-bold bg-gradient-to-r from-[#14F195] to-[#9945FF] bg-clip-text text-transparent mb-2">
+                      {metric.value}
+                    </div>
+                    <div className="text-sm text-gray-400">{metric.label}</div>
+                  </div>
+                ),
+              )}
+            </div>
           )}
         </div>
       </section>
@@ -165,7 +212,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const entry = await reader.collections.upgrades.read(slug);
   if (!entry) return {};
 
-  const title = entry.title.name;
+  const title = String(entry.title);
   const description = entry.description ?? undefined;
   const languages: Record<string, string> = {
     "x-default": `/upgrades/${slug}`,
