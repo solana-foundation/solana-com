@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
 import { Link } from "@solana-com/ui-chrome/link";
 import { buttonVariants } from "@/app/components/ui/button";
@@ -41,7 +41,7 @@ export interface HubOverview {
   eyebrow: string;
   title: string;
   description: string;
-  imageSrc?: string;
+  imageSrc?: string | StaticImageData;
   points: HubPoint[];
 }
 
@@ -348,7 +348,7 @@ function HubOverviewSection({
   heroImageSrc?: string;
 }) {
   const imageSrc = overview.imageSrc;
-  const showImage = Boolean(imageSrc && imageSrc !== heroImageSrc);
+  const overviewImage = imageSrc && imageSrc !== heroImageSrc ? imageSrc : null;
 
   return (
     <section className="relative bg-black text-white text-left">
@@ -371,12 +371,12 @@ function HubOverviewSection({
         </h2>
 
         <div className="flex flex-col xl:items-start xl:flex-row gap-8 xl:gap-16">
-          {showImage && (
+          {overviewImage && (
             <div className="w-[35%] max-xl:hidden">
               <div className="relative overflow-hidden rounded-xl">
                 <Image
                   className="w-full h-auto object-cover block"
-                  src={imageSrc as string}
+                  src={overviewImage}
                   alt=""
                   width={600}
                   height={420}
@@ -395,7 +395,10 @@ function HubOverviewSection({
             </div>
           )}
           <div
-            className={cn("relative w-full max-w-2xl", showImage && "xl:w-3/5")}
+            className={cn(
+              "relative w-full max-w-2xl",
+              overviewImage && "xl:w-3/5",
+            )}
           >
             <p className="text-xl md:text-[32px] mb-0 font-medium tracking-[-0.6px] md:tracking-[-0.96px] leading-[1.4] md:leading-[1.25] text-white">
               {overview.description}

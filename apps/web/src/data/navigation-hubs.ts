@@ -1,4 +1,5 @@
 import type { HubPageConfig } from "@/components/navigation-migration/hub-page";
+import creatingYourFirstWalletImage from "@@/public/images/learn/creating_your_first_wallet.webp";
 
 interface NavigationHubConfig extends HubPageConfig {
   path: string;
@@ -26,7 +27,7 @@ const navigationHubStaticConfigs = {
       href: "/learn",
     },
     overview: {
-      imageSrc: "/images/learn/creating_your_first_wallet.webp",
+      imageSrc: creatingYourFirstWalletImage,
     },
     pathways: [
       {
