@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { parsePublishedAt } from "@/lib/keystatic/publishing";
 
 const BASE_URL = "https://solana.com";
@@ -35,8 +35,8 @@ async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
   const posts: RecentPublishedPost[] = [];
 
   for (const slug of allSlugs) {
-    const post = await reader.collections.posts.read(slug);
-    if (!isPublishedPost(post, now)) {
+    const post = await fetchPublishedPostBySlug(slug, now);
+    if (!post) {
       continue;
     }
 
