@@ -67,6 +67,15 @@ CURATED_SECTIONS = {
         ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
     ],
+    "Tools": [
+        ("Tools", "docs/tools", "Developer tool documentation"),
+        ("Kora", "docs/tools/kora", "Solana signing infrastructure"),
+        ("Keychain", "docs/tools/keychain", "Unified Solana signing across key management backends"),
+        ("Commerce Kit", "docs/tools/commerce-kit", "Commerce primitives for Solana payment experiences"),
+        ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
+        ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
+        ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
+    ],
 }
 
 # Additional English-only sections
@@ -77,6 +86,12 @@ ENGLISH_EXTRAS = {
         ("Getting Started", "learn/getting-started", "First steps with Solana"),
         ("Introduction to DeFi", "learn/introduction-to-defi-on-solana", "Decentralized finance on Solana"),
         ("Introduction to Tokens", "learn/introduction-to-solana-tokens", "Understanding SPL tokens"),
+        ("Transaction Fees", "learn/understanding-solana-transaction-fees", "How transaction fees work on Solana"),
+        ("Sending and Receiving SOL", "learn/sending-and-receiving-sol", "Transfer SOL using a wallet"),
+        ("What is Staking", "learn/what-is-staking", "Earn rewards by helping secure the network"),
+        ("What are NFTs", "learn/what-are-nfts", "Unique digital assets on Solana"),
+        ("Solana Applications", "learn/exploring-solana-applications", "Discover applications built on Solana"),
+        ("Staying Safe", "learn/staying-safe-on-solana", "Security practices for using Solana"),
     ],
     "Cookbook": [
         ("Send SOL", "developers/cookbook/transactions/send-sol", "Transfer SOL between accounts"),
@@ -114,6 +129,15 @@ ENGLISH_EXTRAS = {
         ("ERC4626", "developers/evm-to-svm/erc4626", "Learn how to build ERC4626 on Solana"),
         ("ERC721", "developers/evm-to-svm/erc721", "Learn how to build ERC721 on Solana using Metaplex"),
         ("Smart Contracts", "developers/evm-to-svm/smart-contracts", "Explore programs and how they work on Solana"),
+    ],
+    "Bootcamp": [
+        ("Bootcamp", "developers/bootcamp", "Structured Solana developer learning path"),
+        ("Solana Crashcourse", "developers/bootcamp/solana-crashcourse", "Fast path to building and deploying on Solana"),
+        ("Foundations", "developers/bootcamp/foundations", "Core blockchain and Solana development lessons"),
+        ("Program Patterns", "developers/bootcamp/program-patterns", "Common onchain program patterns"),
+        ("Fullstack Applications", "developers/bootcamp/fullstack-apps", "Build fullstack applications on Solana"),
+        ("Shipping & Production", "developers/bootcamp/shipping-production", "Prepare Solana applications for production"),
+        ("DePIN", "developers/bootcamp/depin", "Build decentralized physical infrastructure applications"),
     ],
 }
 
