@@ -24,6 +24,8 @@ export default async function middleware(req: NextRequest) {
     normalizedPathname.startsWith("/developers/cookbook") ||
     normalizedPathname.startsWith("/developers/guides") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
+    normalizedPathname === "/data" ||
+    normalizedPathname.startsWith("/data/") ||
     normalizedPathname.startsWith("/docs") ||
     normalizedPathname.startsWith("/learn") ||
     (normalizedPathname.startsWith("/news") &&

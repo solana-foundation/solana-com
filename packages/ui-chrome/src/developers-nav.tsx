@@ -6,6 +6,7 @@ import CoursesIcon from "./assets/developers/courses.inline.svg";
 import ToolsIcon from "./assets/developers/templates.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import SkillsIcon from "./assets/developers/skills.inline.svg";
+import StatisticsIcon from "./assets/developers/statistics.inline.svg";
 import StackExchangeIcon from "./assets/developers/stackexchange.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
@@ -138,6 +139,18 @@ export function DevelopersNav({
                 <span className="align-middle">
                   {t("developers.nav.tools")}
                 </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/data"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <StatisticsIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.data")}</span>
               </NavLink>
               <NavLink
                 partiallyActive
