@@ -8,9 +8,6 @@ const ENV_KEYS = {
   token: "DATABRICKS_TOKEN",
 } as const;
 
-const DEFAULT_SERVER_HOSTNAME = "dbc-8f4a920c-45cb.cloud.databricks.com";
-const DEFAULT_HTTP_PATH = "/sql/1.0/warehouses/fc8c36713e35f7c1";
-
 type DatabricksConfigError = {
   invalidEnv: string[];
   missingEnv: string[];
@@ -34,26 +31,42 @@ export type DatabricksMetricRow = {
 export function getDatabricksConfig():
   | { ok: true; config: DatabricksConfig }
   | ({ ok: false } & DatabricksConfigError) {
-  const serverHostname = normalizeServerHostname(
-    readEnv(ENV_KEYS.serverHostname) ?? DEFAULT_SERVER_HOSTNAME,
-  );
-  const httpPath = normalizeHttpPath(
-    readEnv(ENV_KEYS.httpPath) ?? DEFAULT_HTTP_PATH,
-  );
+  const serverHostnameRaw = readEnv(ENV_KEYS.serverHostname);
+  const httpPathRaw = readEnv(ENV_KEYS.httpPath);
+  const serverHostname = serverHostnameRaw
+    ? normalizeServerHostname(serverHostnameRaw)
+    : undefined;
+  const httpPath = httpPathRaw ? normalizeHttpPath(httpPathRaw) : undefined;
   const token = readEnv(ENV_KEYS.token);
   const warehouseId = httpPath && getWarehouseIdFromHttpPath(httpPath);
-  const missingEnv = token ? [] : [ENV_KEYS.token];
-  const invalidEnv = getInvalidConfigEnv({ serverHostname, httpPath });
+  const missingEnv = getMissingConfigEnv({
+    httpPathRaw,
+    serverHostnameRaw,
+    token,
+  });
+  const invalidEnv = getInvalidConfigEnv({
+    httpPath,
+    httpPathRaw,
+    serverHostname,
+    serverHostnameRaw,
+  });
 
-  if (!token || invalidEnv.length > 0 || !warehouseId) {
+  if (
+    missingEnv.length > 0 ||
+    invalidEnv.length > 0 ||
+    !serverHostname ||
+    !httpPath ||
+    !token ||
+    !warehouseId
+  ) {
     return { ok: false, invalidEnv, missingEnv };
   }
 
   return {
     ok: true,
     config: {
-      serverHostname: serverHostname as string,
-      httpPath: httpPath as string,
+      serverHostname,
+      httpPath,
       warehouseId,
       token,
     },
@@ -230,22 +243,52 @@ function getWarehouseIdFromHttpPath(httpPath: string) {
 
 function getInvalidConfigEnv({
   httpPath,
+  httpPathRaw,
   serverHostname,
+  serverHostnameRaw,
 }: {
   httpPath?: string;
+  httpPathRaw?: string;
   serverHostname?: string;
+  serverHostnameRaw?: string;
 }) {
   const invalidEnv: string[] = [];
 
-  if (!serverHostname) {
+  if (serverHostnameRaw && !serverHostname) {
     invalidEnv.push(ENV_KEYS.serverHostname);
   }
 
-  if (!httpPath) {
+  if (httpPathRaw && !httpPath) {
     invalidEnv.push(ENV_KEYS.httpPath);
   }
 
   return invalidEnv;
+}
+
+function getMissingConfigEnv({
+  httpPathRaw,
+  serverHostnameRaw,
+  token,
+}: {
+  httpPathRaw?: string;
+  serverHostnameRaw?: string;
+  token?: string;
+}) {
+  const missingEnv: string[] = [];
+
+  if (!serverHostnameRaw) {
+    missingEnv.push(ENV_KEYS.serverHostname);
+  }
+
+  if (!httpPathRaw) {
+    missingEnv.push(ENV_KEYS.httpPath);
+  }
+
+  if (!token) {
+    missingEnv.push(ENV_KEYS.token);
+  }
+
+  return missingEnv;
 }
 
 function readEnv(key: string) {

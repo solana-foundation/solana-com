@@ -626,10 +626,7 @@ function aggregate(sum: number, count: number, aggregation: Aggregation) {
 
 async function fetchData(url: string) {
   const response = await fetch(url, { cache: "no-store" });
-  const payload = (await response.json().catch(() => null)) as
-    | { detail?: string; error?: string }
-    | DataApiResponse
-    | null;
+  const payload = await readDataPayload(response);
 
   if (!response.ok) {
     throw new Error(
@@ -641,7 +638,35 @@ async function fetchData(url: string) {
     );
   }
 
-  return payload as DataApiResponse;
+  if (!isDataApiResponse(payload)) {
+    throw new Error("Solana data returned an invalid response.");
+  }
+
+  return payload;
+}
+
+async function readDataPayload(response: Response) {
+  try {
+    return (await response.json()) as
+      | { detail?: string; error?: string }
+      | DataApiResponse
+      | null;
+  } catch {
+    if (response.ok) {
+      throw new Error("Solana data returned an invalid response.");
+    }
+
+    return null;
+  }
+}
+
+function isDataApiResponse(value: unknown): value is DataApiResponse {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "rows" in value &&
+    Array.isArray(value.rows)
+  );
 }
 
 function useMinWidth(query: string) {

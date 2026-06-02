@@ -46,17 +46,6 @@ type ErrorResponse = {
 const metricNameSet = new Set<string>(metricNames);
 const rangeValues = new Set<number>(rangeOptions.map((option) => option.value));
 
-const getCachedDatabricksData = unstable_cache(
-  async (_cacheKey: string, lookbackDays: number) => {
-    return fetchDatabricksData(getRequiredDatabricksConfig(), lookbackDays);
-  },
-  ["solana-data-databricks-metric-rows-v2"],
-  {
-    revalidate: DATABRICKS_CACHE_SECONDS,
-    tags: ["solana-data-databricks"],
-  },
-);
-
 export async function GET(request: NextRequest) {
   const configResult = getDatabricksConfig();
 
@@ -102,24 +91,37 @@ function buildDataResponse(
 }
 
 function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
-  const cutoffTime = Date.now() - rangeDays * DAY_IN_MS;
+  const cutoffDate = new Date(Date.now() - rangeDays * DAY_IN_MS)
+    .toISOString()
+    .slice(0, 10);
 
   return rows.filter((row) => {
     if (!metricNameSet.has(row.metricName)) {
       return false;
     }
 
-    return new Date(`${row.date}T00:00:00.000Z`).getTime() >= cutoffTime;
+    return row.date >= cutoffDate;
   });
 }
 
 function getDatabricksData(config: DatabricksConfig, rangeDays: number) {
   return IS_PRODUCTION
-    ? getCachedDatabricksData(
-        getDatabricksCacheKey(config, rangeDays),
-        rangeDays,
-      )
+    ? getCachedDatabricksData(config, rangeDays)
     : fetchDatabricksData(config, rangeDays);
+}
+
+function getCachedDatabricksData(config: DatabricksConfig, rangeDays: number) {
+  return unstable_cache(
+    () => fetchDatabricksData(config, rangeDays),
+    [
+      "solana-data-databricks-metric-rows-v2",
+      getDatabricksCacheKey(config, rangeDays),
+    ],
+    {
+      revalidate: DATABRICKS_CACHE_SECONDS,
+      tags: ["solana-data-databricks"],
+    },
+  )();
 }
 
 async function fetchDatabricksData(
@@ -145,16 +147,6 @@ function getDatabricksCacheKey(config: DatabricksConfig, rangeDays: number) {
     rangeDays,
     metricNames.join(","),
   ].join("|");
-}
-
-function getRequiredDatabricksConfig() {
-  const configResult = getDatabricksConfig();
-
-  if (!configResult.ok) {
-    throw new Error("Databricks data source is not configured.");
-  }
-
-  return configResult.config;
 }
 
 function getConfigErrorResponse(
