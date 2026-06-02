@@ -1,5 +1,6 @@
 import {
   createMiddleware,
+  getEffectiveOrigin,
   routingWithoutDetection,
 } from "@workspace/i18n/middleware";
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
@@ -59,6 +60,18 @@ function rewriteToMarkdownApi(req: NextRequest, segments: string[]) {
   return NextResponse.rewrite(url);
 }
 
+function redirectWithEffectiveOrigin(
+  req: NextRequest,
+  pathname: string,
+  status?: number,
+  search = "",
+) {
+  const url = getEffectiveOrigin(req);
+  url.pathname = pathname;
+  url.search = search;
+  return NextResponse.redirect(url, status);
+}
+
 // routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
 // preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
 // when requests come through the web app's rewrite (fixes "random language" bug)
@@ -85,9 +98,7 @@ export default async function middleware(
   }
 
   if (pathname !== pathname.toLowerCase()) {
-    return NextResponse.redirect(
-      `${req.nextUrl.origin + pathname.toLowerCase()}`,
-    );
+    return redirectWithEffectiveOrigin(req, pathname.toLowerCase());
   }
 
   // Remove duplicate locale segments from path
@@ -106,8 +117,11 @@ export default async function middleware(
     );
 
     const cleanedPath = `/${cleanedSegments.join("/")}`;
-    return NextResponse.redirect(
-      `${req.nextUrl.origin}${cleanedPath}${req.nextUrl.search}`,
+    return redirectWithEffectiveOrigin(
+      req,
+      cleanedPath,
+      undefined,
+      req.nextUrl.search,
     );
   }
 
@@ -137,7 +151,7 @@ export default async function middleware(
     url.pathname = hasLocalePrefix
       ? `/${[pathSegments[0], ...redirectedSegments].join("/")}`
       : `/${redirectedSegments.join("/")}`;
-    return NextResponse.redirect(url, 308);
+    return redirectWithEffectiveOrigin(req, url.pathname, 308, url.search);
   }
 
   // Accept header content negotiation for markdown
