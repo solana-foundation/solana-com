@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import {
   Header,
@@ -14,7 +15,8 @@ import { CookieConsent } from "@/components/cookie-consent";
 import "../scss/index.scss";
 import "./globals.css";
 
-export const metadata = {
+export const metadata: Metadata = {
+  metadataBase: new URL("https://solana.com"),
   title: "Solana Developer Templates",
   description:
     "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",

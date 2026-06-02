@@ -3,7 +3,19 @@ import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-export const PageNav = ({ nav }) => {
+type NavLink = {
+  href: string;
+  label: string;
+};
+
+type PageNavProps = {
+  nav: {
+    prev?: NavLink | null;
+    next?: NavLink | null;
+  };
+};
+
+export const PageNav = ({ nav }: PageNavProps) => {
   const t = useTranslations();
 
   return (

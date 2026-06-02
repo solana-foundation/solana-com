@@ -213,6 +213,9 @@ export default async function PostPage({
                       "Get the full report",
                     portalId: String(switchback.hubspotForm.portalId),
                     formId: String(switchback.hubspotForm.formId),
+                    formUrl: switchback.hubspotForm.formUrl
+                      ? String(switchback.hubspotForm.formUrl)
+                      : undefined,
                   }
                 : undefined
             }

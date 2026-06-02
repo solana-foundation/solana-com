@@ -1,0 +1,262 @@
+---
+title: Фіксоване делегування
+description: Посібник з налаштування транзакцій фіксованого делегування.
+---
+
+Фіксоване делегування дозволяє користувачеві схвалити інший гаманець або сервіс
+для виведення до визначеної фіксованої суми токенів. Кожна успішна передача
+зменшує залишковий ліміт. Використовуйте `expiryTs = 0` для відсутності терміну
+дії.
+
+Цей посібник зберігає прозорість процесу. Кожен фрагмент використовує функції
+SDK безпосередньо, тож ви можете бачити, який обліковий запис виводиться, яка
+інструкція надсилається і який підписувач оплачує або авторизує кожен крок.
+
+## Встановлення
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```bash
+    pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```toml
+    [dependencies]
+    subscriptions = "^0.1"
+    solana-instruction = "^2"
+    solana-address = { version = "^2", features = ["curve25519"] }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Створення делегування
+
+Налаштування складається з чотирьох частин:
+
+1. Створити клієнт з підписувачем користувача та плагіном підписок.
+2. Вивести token account користувача та PDA Subscription Authority.
+3. Ініціалізувати Subscription Authority, якщо він ще не існує.
+4. Створити фіксоване делегування та вивести його PDA для подальших передач.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { address, createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findFixedDelegationPda,
+      findSubscriptionAuthorityPda,
+      subscriptionsProgram,
+    } from '@solana/subscriptions';
+
+    const client = createClient()
+      .use(signer(userSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const delegatee = address('DELEGATEE_WALLET_ADDRESS_HERE');
+    const nonce = 0n;
+    const amount = 1_000_000n;
+    const expiryTs = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30);
+
+    const [userAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: userSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: userSigner.address,
+      tokenMint,
+    });
+
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      client.rpc,
+      subscriptionAuthorityPda,
+    );
+
+    if (!subscriptionAuthority.exists) {
+      await client.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta,
+        })
+        .sendTransaction();
+    }
+
+    await client.subscriptions.instructions
+      .createFixedDelegation({
+        tokenMint,
+        delegatee,
+        nonce,
+        amount,
+        expiryTs,
+      })
+      .sendTransaction();
+
+    const [delegationPda] = await findFixedDelegationPda({
+      subscriptionAuthority: subscriptionAuthorityPda,
+      delegator: userSigner.address,
+      delegatee,
+      nonce,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
+
+    const SYSTEM_PROGRAM_ID: Address = address!("11111111111111111111111111111111");
+    const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let user: Address = address!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Address = address!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Address = address!("TOKEN_MINT_ADDRESS_HERE");
+    let delegatee: Address = address!("DELEGATEE_WALLET_ADDRESS_HERE");
+    let nonce = 0u64;
+    let amount = 1_000_000u64;
+    let expiry_ts = 1_734_249_600i64;
+
+    let (subscription_authority, _) = Address::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let (delegation_pda, _) = Address::find_program_address(
+        &[
+            b"delegation",
+            subscription_authority.as_ref(),
+            user.as_ref(),
+            delegatee.as_ref(),
+            &nonce.to_le_bytes(),
+        ],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(user)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(user_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+
+    let create_ix = CreateFixedDelegationBuilder::new()
+        .delegator(user)
+        .subscription_authority(subscription_authority)
+        .delegation_account(delegation_pda)
+        .delegatee(delegatee)
+        .fixed_delegation(CreateFixedDelegationData { nonce, amount, expiry_ts })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Передача з делегування
+
+Делегат підписує передачу. SDK потребує той самий PDA делегування, token account
+користувача та token account отримувача.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    const receiverAta = address('RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE');
+
+    await client.subscriptions.instructions
+      .transferFixed({
+        delegatee: delegateeSigner,
+        delegator: userSigner.address,
+        delegatorAta: userAta,
+        tokenMint,
+        delegationPda,
+        amount: 100_000n,
+        receiverAta,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::{TransferData, TransferFixedBuilder};
+
+    let receiver_ata: Address = address!("RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE");
+
+    let transfer_ix = TransferFixedBuilder::new()
+        .delegation_pda(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .delegator_ata(user_ata)
+        .receiver_ata(receiver_ata)
+        .token_program(TOKEN_PROGRAM_ID)
+        .delegatee(delegatee)
+        .transfer_data(TransferData { amount: 100_000, delegator: user, mint: token_mint })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Відкликання делегування
+
+Делегатор може відкликати делегування в будь-який момент. Відкликання закриває
+PDA делегування та повертає його rent підписанту.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await client.subscriptions.instructions
+      .revokeDelegation({
+        authority: userSigner,
+        delegationAccount: delegationPda,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let revoke_ix = RevokeDelegationBuilder::new()
+        .authority(user)
+        .delegation_account(delegation_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Примітки
+
+- Token account користувача має існувати перед ініціалізацією.
+- Суми вказані в базових одиницях. Для токена з 6 десятковими знаками,
+  `1_000_000` означає `1` токен.
+- Виконуйте `initSubscriptionAuthority` лише тоді, коли акаунт Subscription
+  Authority ще не існує.
+- Користувач підписує транзакції налаштування та відкликання. Делегат підписує
+  перекази.

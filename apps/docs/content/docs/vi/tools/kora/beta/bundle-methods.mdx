@@ -1,0 +1,384 @@
+---
+title: Bundle & Phương thức RPC Mới
+description:
+  Các phương thức RPC mới trong Kora v2.2.0-beta — Jito bundles, phiên bản và
+  ước tính phí bundle.
+---
+
+Các phương thức này có sẵn bắt đầu từ `v2.2.0-beta.1`. Kích hoạt chúng trong
+`kora.toml` của bạn dưới `[kora.enabled_methods]`.
+
+## getVersion
+
+Lấy thông tin phiên bản máy chủ Kora.
+
+### Yêu cầu JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### Phản hồi JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### Ví dụ cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### Cấu hình
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+Tính toán tổng phí cho nhiều giao dịch trong một bundle. Hữu ích để xác định
+tổng chi phí trước khi ký và gửi bundle.
+
+> **Lưu ý:** Các plugin giao dịch (ví dụ: `gas_swap`) **không** được thực thi
+> trong quá trình ước tính phí. Các plugin chỉ chạy trong quy trình ký
+> (`signBundle`, `signAndSendBundle`).
+
+### Yêu cầu JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### Tham số
+
+| Tham số        | Kiểu     | Bắt buộc | Mô tả                                            |
+| -------------- | -------- | -------- | ------------------------------------------------ |
+| `transactions` | string[] | Có       | Mảng các giao dịch được mã hóa base64 (tối đa 5) |
+| `fee_token`    | string   | Có       | Token mint để tính phí                           |
+
+### Phản hồi JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### Ví dụ cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### Cấu hình
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+Ký nhiều giao dịch dưới dạng một bundle mà không gửi chúng lên mạng. Sử dụng
+phương thức này khi bạn muốn tự xử lý việc gửi bundle đến Jito.
+
+Phương thức này được bảo vệ bởi reCAPTCHA khi được cấu hình. Bao gồm header
+`x-recaptcha-token` nếu máy chủ của bạn đã bật reCAPTCHA.
+
+Khi
+[transaction plugins](/docs/tools/kora/beta/configuration#transaction-plugins)
+được kích hoạt (ví dụ: `gas_swap`), mỗi giao dịch trong bundle sẽ được xác thực
+theo các quy tắc của plugin trước khi ký.
+
+### Bảo vệ Lighthouse Fee Payer
+
+Khi
+[bảo vệ Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+được kích hoạt, Kora sẽ thêm một chỉ thị xác nhận số dư vào **giao dịch cuối
+cùng** trong bundle. Điều này bảo vệ người trả phí khỏi các cuộc tấn công rút
+cạn bằng cách đảm bảo số dư không giảm xuống dưới mức dự kiến sau khi tất cả các
+giao dịch trong bundle hoàn tất.
+
+**Quan trọng:** Vì Lighthouse chỉnh sửa thông điệp giao dịch, bất kỳ chữ ký của
+client có sẵn trên giao dịch cuối cùng sẽ trở nên không hợp lệ. Client phải **ký
+lại** sau khi nhận bundle đã được chỉnh sửa từ Kora.
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### JSON-RPC Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Tham số
+
+| Tham số                | Kiểu     | Bắt buộc | Mô tả                                                |
+| ---------------------- | -------- | -------- | ---------------------------------------------------- |
+| `transactions`         | string[] | Có       | Mảng các giao dịch được mã hóa base64 (tối đa 5)     |
+| `signer_key`           | string   | Không    | Signer cụ thể để sử dụng (mặc định là chọn từ pool)  |
+| `transactions_to_sign` | number[] | Không    | Chỉ số của các giao dịch cần ký (mặc định là tất cả) |
+
+### JSON-RPC Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Ví dụ cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### Ký Bundle Một Phần
+
+Sử dụng `transactions_to_sign` để chỉ ký các giao dịch cụ thể trong bundle:
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### Cấu Hình
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+Ký và gửi một bundle gồm tối đa 5 giao dịch đến block engine của Jito. Tất cả
+các giao dịch trong bundle được thực thi theo cách nguyên tử và tuần tự — hoặc
+tất cả đều thành công hoặc không có giao dịch nào thành công.
+
+Phương thức này được bảo vệ bởi reCAPTCHA khi được cấu hình. Bao gồm header
+`x-recaptcha-token` nếu máy chủ của bạn đã bật reCAPTCHA.
+
+Khi [plugin giao dịch](/docs/tools/kora/beta/configuration#transaction-plugins)
+được kích hoạt (ví dụ: `gas_swap`), mỗi giao dịch trong bundle sẽ được xác thực
+theo các quy tắc của plugin trước khi ký.
+
+> **Lưu ý:**
+> [Bảo vệ người trả phí Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+> **không** áp dụng cho phương thức này. Vì các bundle được gửi ngay lập tức nên
+> việc thêm xác nhận Lighthouse sẽ làm vô hiệu hóa các chữ ký hiện có của
+> client. Nếu bạn cần bảo vệ Lighthouse, hãy sử dụng [`signBundle`](#signbundle)
+> và tự xử lý việc gửi Jito sau khi ký lại.
+
+### Yêu Cầu JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Tham Số
+
+| Tham Số                | Kiểu     | Bắt Buộc | Mô Tả                                              |
+| ---------------------- | -------- | -------- | -------------------------------------------------- |
+| `transactions`         | string[] | Có       | Mảng các giao dịch được mã hóa base64 (tối đa 5)   |
+| `signer_key`           | string   | Không    | Người ký cụ thể để sử dụng (mặc định là chọn pool) |
+| `transactions_to_sign` | number[] | Không    | Chỉ số các giao dịch cần ký (mặc định là tất cả)   |
+
+### Phản Hồi JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Ví Dụ cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### Cấu Hình
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **Lưu ý:** Khi sử dụng bundle với tip Jito, hãy đảm bảo
+> `allow_transfer = true` được đặt trong `[validation.fee_payer_policy.system]`
+> để người ký Kora có thể trả tip.

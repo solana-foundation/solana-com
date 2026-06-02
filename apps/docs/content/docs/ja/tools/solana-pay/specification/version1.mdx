@@ -1,0 +1,366 @@
+---
+title: Solana Pay仕様 v1
+description: URL内でSolanaトランザクションリクエストをエンコードするための標準プロトコル
+---
+
+## 概要
+
+URL内でSolanaトランザクションリクエストをエンコードし、支払いやその他のユースケースを可能にするための標準プロトコルです。
+
+この標準は、[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki)および[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md)から着想を得ています。
+
+## 動機
+
+ネイティブSOL転送、SPLトークン転送、およびSolanaトランザクションをリクエストするための標準URLプロトコルにより、Solanaエコシステム内のアプリとウォレット間でより良いユーザーエクスペリエンスが実現されます。
+
+これらのURLは、QRコードやNFCタグにエンコードされたり、ユーザーとアプリケーション間で送信されて、支払いをリクエストしたりトランザクションを構成したりすることができます。
+
+アプリケーションは、販売する商品やサービスを提供したり、オブジェクトやイベントへのアクセスを許可したりする前に、トランザクションが確認され有効であることを確認する必要があります。
+
+モバイルウォレットは、環境内でSolana Pay
+URLに遭遇したときにシームレスかつ安全なエクスペリエンスを提供するために、URLスキームを処理するよう登録する必要があります。
+
+これらの問題を解決するためのシンプルなアプローチを標準化することで、アプリケーションとウォレットの基本的な互換性を確保し、開発者がより高レベルの抽象化に集中できるようにします。
+
+## 仕様：転送リクエスト
+
+Solana
+Pay転送リクエストURLは、SOLまたはSPLトークン転送の非対話型リクエストを記述します。
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+このリクエストが非対話型である理由は、URL内のパラメータがウォレットによって直接トランザクションを構成するために使用されるためです。
+
+### 受取人
+
+パス名として単一の`recipient`フィールドが必須です。値は、ネイティブSOLアカウントのbase58エンコードされた公開鍵である必要があります。associated
+token accountを使用してはいけません。
+
+代わりに、SPLトークン転送をリクエストするには、`spl-token`フィールドを使用してSPLトークンミントを指定し、そこから受取人のassociated
+token accountのアドレスを導出する必要があります。
+
+### 金額
+
+単一の `amount`
+フィールドは、オプションのクエリパラメータとして使用できます。値は、「ユーザー」単位の非負の整数または小数でなければなりません。SOLの場合、lamportではなくSOLを使用します。トークンの場合は、[`uiAmountString` を使用し、`amount` は使用しません](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure)。
+
+`0` は有効な値です。値が `1` 未満の小数の場合、`.` の前に先頭の `0`
+を付ける必要があります。科学的記数法は禁止されています。
+
+値が指定されていない場合、ウォレットはユーザーに金額の入力を求める必要があります。小数点以下の桁数がSOL（9桁）またはSPLトークン（mint固有）でサポートされている桁数を超える場合、ウォレットはURLを**不正な形式**として拒否する必要があります。
+
+### SPLトークン
+
+単一の `spl-token`
+フィールドは、オプションのクエリパラメータとして使用できます。値は、SPLトークンのmint
+accountのbase58エンコードされた公開鍵でなければなりません。
+
+このフィールドが指定されている場合、[Associated Token Account](https://spl.solana.com/associated-token-account)規約を使用する必要があり、ウォレットはトランザクションの最後のinstructionとして
+`TokenProgram.Transfer` または `TokenProgram.TransferChecked`
+instructionを含める必要があります。
+
+このフィールドが指定されていない場合、URLはネイティブSOL転送を示し、ウォレットは代わりにトランザクションの最後のinstructionとして
+`SystemProgram.Transfer` instructionを含める必要があります。
+
+ウォレットは `recipient` および `spl-token`
+フィールドからATAアドレスを導出する必要があります。補助token
+accountへの転送はサポートされていません。
+
+### リファレンス
+
+複数の `reference`
+フィールドは、オプションのクエリパラメータとして使用できます。値は、base58エンコードされた32バイト配列でなければなりません。これらは公開鍵である場合もそうでない場合もあり、曲線上または曲線外にある場合もあり、Solana上のアカウントに対応する場合もしない場合もあります。
+
+値が提供された場合、ウォレットは支払いトランザクション内の`SystemProgram.Transfer`または`TokenProgram.Transfer`/`TokenProgram.TransferChecked`インストラクションに、提供された順序で読み取り専用の非署名者キーとしてそれらを含める必要があります。これらの値は、支払いリクエストに固有である場合とそうでない場合があり、Solana上のアカウントに対応している場合とそうでない場合があります。
+
+Solanaバリデーターはこれらのアカウントキーによってトランザクションをインデックス化するため、`reference`の値はクライアントID(最終的な支払いトランザクションを知る前に使用可能なID)として使用できます。[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress)のRPCメソッドを使用して、この方法でトランザクションを特定できます。
+
+### ラベル
+
+単一の`label`フィールドは、オプションのクエリパラメータとして許可されます。値は、送金リクエストの発信元を説明する[URL エンコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)されたUTF-8文字列である必要があります。
+
+たとえば、これはリクエストを行うブランド、店舗、アプリケーション、または人物の名前である可能性があります。ウォレットは値を[URLデコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)し、デコードされた値をユーザーに表示する必要があります。
+
+### メッセージ
+
+単一の`message`フィールドは、オプションのクエリパラメータとして許可されます。値は、送金リクエストの性質を説明する[URL エンコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)されたUTF-8文字列である必要があります。
+
+たとえば、これは購入される商品の名前、注文ID、または感謝のメモである可能性があります。ウォレットは値を[URLデコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)し、デコードされた値をユーザーに表示する必要があります。
+
+### メモ
+
+単一の`memo`フィールドは、オプションのクエリパラメータとして許可されます。値は、支払いトランザクション内の[SPL Memo](https://spl.solana.com/memo)インストラクションに含める必要がある[URL エンコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)されたUTF-8文字列である必要があります。
+
+ウォレットは値を[URLデコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)し、デコードされた値をユーザーに表示する必要があります。メモはバリデーターによって記録されるため、プライベートまたは機密情報を含めるべきではありません。
+
+このフィールドが指定されている場合、ウォレットはトランザクション内の他の命令との曖昧さを避けるため、SOLまたはSPLトークン転送命令の直前、トランザクションの最後から2番目の命令として`MemoProgram`命令を含める必要があります。
+
+### 例
+
+#### 1 SOLの転送リクエストを記述するURL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### 0.01 USDCの転送リクエストを記述するURL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### SOLの転送リクエストを記述するURL(ユーザーに金額の入力を促す)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## 仕様: トランザクションリクエスト
+
+Solana
+PayのトランザクションリクエストURLは、あらゆるSolanaトランザクションに対するインタラクティブなリクエストを記述します。
+
+```
+solana:<link>
+```
+
+このリクエストがインタラクティブである理由は、URL内のパラメータがウォレットによってHTTPリクエストを行い、トランザクションを構成するために使用されるためです。
+
+### リンク
+
+パス名として単一の`link`フィールドが必須です。この値は、条件付きで[URLエンコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)された絶対HTTPS
+URLである必要があります。
+
+URLにクエリパラメータが含まれている場合は、URLエンコードする必要があります。このプロトコル仕様には、プロトコルクエリパラメータが追加される可能性があります。値をURLエンコードすることで、プロトコルパラメータとの競合を防ぎます。
+
+URLにクエリパラメータが含まれていない場合は、URLエンコードすべきではありません。これにより、より短いURLと密度の低いQRコードが生成されます。
+
+いずれの場合も、ウォレットは値を[URLデコード](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)する必要があります。値がURLエンコードされていない場合、これは効果がありません。デコードされた値が絶対HTTPS
+URLでない場合、ウォレットはそれを**不正な形式**として拒否する必要があります。
+
+### GETリクエスト
+
+ウォレットは、このURLに対してHTTP `GET`
+JSONリクエストを行う必要があります。このリクエストは、ウォレットやユーザーを特定すべきではありません。
+
+ウォレットは[Accept-Encodingヘッダー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)を付けてリクエストを行う必要があり、アプリケーションはHTTP圧縮のために[Content-Encodingヘッダー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)を付けてレスポンスを返す必要があります。
+
+ウォレットは、リクエストが行われている間、URLのドメインを表示する必要があります。
+
+### GETレスポンス
+
+ウォレットは、HTTP
+[クライアントエラー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+[サーバーエラー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)、および
+[リダイレクトレスポンス](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)
+を処理する必要があります。アプリケーションは、これらで応答するか、次の本文を含むHTTP
+`OK` JSONレスポンスで応答する必要があります:
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+`<label>`
+の値は、トランザクションリクエストの送信元を説明するUTF-8文字列である必要があります。例えば、これはリクエストを行っているブランド、店舗、アプリケーション、または個人の名前である可能性があります。
+
+`<icon>` の値は、アイコン画像の絶対HTTPまたはHTTPS
+URLである必要があります。ファイルはSVG、PNG、またはWebP画像である必要があり、そうでない場合、ウォレットは**不正な形式**として拒否する必要があります。
+
+ウォレットは、
+[HTTPキャッシング](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching)
+レスポンスヘッダーで指示されている場合を除き、レスポンスをキャッシュすべきではありません。
+
+ウォレットは、ラベルを表示し、アイコン画像をユーザーに表示する必要があります。
+
+### POSTリクエスト
+
+ウォレットは、次の本文を含むHTTP `POST`
+JSONリクエストをURLに送信する必要があります:
+
+```json
+{ "account": "<account>" }
+```
+
+`<account>`
+の値は、トランザクションに署名する可能性のあるアカウントのbase58エンコードされた公開鍵である必要があります。
+
+ウォレットは、
+[Accept-Encodingヘッダー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)
+を使用してリクエストを行うべきであり、アプリケーションは、HTTP圧縮のために
+[Content-Encodingヘッダー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+で応答する必要があります。
+
+ウォレットは、リクエストが行われている間、URLのドメインを表示する必要があります。`GET`
+リクエストが行われた場合、ウォレットはレスポンスのラベルを表示し、アイコン画像も表示する必要があります。
+
+### POSTレスポンス
+
+ウォレットは、HTTP
+[クライアントエラー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+[サーバーエラー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)、および
+[リダイレクトレスポンス](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)
+を処理する必要があります。アプリケーションは、これらで応答するか、次の本文を含むHTTP
+`OK` JSONレスポンスで応答する必要があります:
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+`<transaction>` 値は、base64エンコードされた
+[シリアライズされたトランザクション](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)である必要があります。ウォレットは、トランザクションをbase64デコードし、
+[デシリアライズ](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from)する必要があります。
+
+アプリケーションは、部分的または完全に署名されたトランザクションで応答する場合があります。ウォレットは、トランザクションを**信頼できないもの**として検証する必要があります。
+
+#### 空の署名
+
+トランザクションの
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+が空の場合:
+
+- アプリケーションは、
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  をリクエスト内の `account`、またはゼロ値（`new PublicKey(0)` または
+  `new PublicKey("11111111111111111111111111111111")`）に設定する必要があります。
+- アプリケーションは、
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  を
+  [最新のブロックハッシュ](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)、またはゼロ値（`new PublicKey(0).toBase58()`
+  または `"11111111111111111111111111111111"`）に設定する必要があります。
+- ウォレットは、トランザクション内の
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  を無視し、`feePayer` をリクエスト内の `account` に設定する必要があります。
+- ウォレットは、トランザクション内の
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  を無視し、`recentBlockhash` を
+  [最新のブロックハッシュ](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)に設定する必要があります。
+
+#### 空でない署名
+
+トランザクションの
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+が空でない場合:
+
+- アプリケーションは、
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  を
+  [最初の署名の公開鍵](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair)に設定する必要があります。
+- アプリケーションは、
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  を
+  [最新のブロックハッシュ](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)に設定する必要があります。
+- アプリケーションは、署名する前にトランザクションをシリアライズおよびデシリアライズする必要があります。これにより、アカウントキーの一貫した順序が保証され、
+  [この問題](https://github.com/solana-labs/solana/issues/21722)の回避策となります。
+- ウォレットは、
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  および
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)を設定してはなりません。
+- ウォレットは署名を検証する必要があり、無効な署名がある場合、ウォレットはトランザクションを**不正な形式**として拒否する必要があります。
+
+ウォレットは、リクエスト内の `account`
+でのみトランザクションに署名する必要があり、リクエスト内の `account`
+の署名が必要な場合にのみ署名する必要があります。
+
+リクエスト内の `account`
+の署名以外の署名が必要な場合、ウォレットはトランザクションを**悪意のあるもの**として拒否する必要があります。
+
+### オプションのメッセージフィールド
+
+アプリケーションは、レスポンスボディにオプションの `message`
+フィールドを含めることもできます：
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+`<message>`
+の値は、トランザクションレスポンスの性質を説明するUTF-8文字列である必要があります。
+
+たとえば、購入するアイテムの名前、購入に適用される割引、または感謝のメッセージなどが考えられます。ウォレットはこの値をユーザーに表示する必要があります。
+
+ウォレットとアプリケーションは、リクエストボディとレスポンスボディに追加のフィールドを許可する必要があります。これらは将来の仕様によって追加される可能性があります。
+
+### 例
+
+#### トランザクションリクエストを記述するURL
+
+```
+solana:https://example.com/solana-pay
+```
+
+#### クエリパラメータを含むトランザクションリクエストを記述するURL
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+#### GETリクエストの例
+
+```http
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+#### GETレスポンスの例
+
+```http
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+#### POSTリクエストの例
+
+```http
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+#### POSTレスポンスの例
+
+```http
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## 拡張機能
+
+この仕様には、アプリとウォレットとの互換性を確保しながら、新しいユースケースを可能にするために、追加のフォーマットとフィールドが組み込まれる場合があります。
+
+アプリケーションとウォレット開発者からのフィードバックを得るために、仕様の変更を提案するGitHub
+issueを開いてください。
+
+[このような提案の実際の例。](https://github.com/solana-foundation/pay/issues/26)
+
+## 関連項目
+
+- **[Solana Pay仕様 v1.1](/docs/tools/solana-pay/specification/version1-1)** - 改善を含む最新バージョン
+- **[クイックスタートガイド](/docs/tools/solana-pay/quickstart)** - 実装ガイド
+- **[GitHubリポジトリ](https://github.com/solana-foundation/solana-pay)** - リファレンス実装

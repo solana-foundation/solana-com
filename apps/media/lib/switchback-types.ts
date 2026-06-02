@@ -15,6 +15,7 @@ export type SwitchbackItem = {
     buttonLabel?: string | null;
     portalId?: string | null;
     formId?: string | null;
+    formUrl?: string | null;
   } | null;
   categories?: Array<{ category?: string | null } | null> | null;
   tags?: Array<{ tag?: string | null } | null> | null;

@@ -31,14 +31,21 @@ export async function generateMetadata({
   }
 
   const displayName = template.displayName || template.name;
+  const canonicalPath = `/developers/templates/${encodeURIComponent(
+    template.name,
+  )}`;
 
   return {
     title: `${displayName} - Solana Template`,
     description: template.description,
+    alternates: {
+      canonical: canonicalPath,
+    },
     openGraph: {
       title: `${displayName} - Solana Template`,
       description: template.description,
       type: "website",
+      url: canonicalPath,
     },
     twitter: {
       card: "summary_large_image",

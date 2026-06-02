@@ -1,0 +1,153 @@
+---
+title: Tổng quan API JSON-RPC
+description:
+  Kora triển khai giao diện JSON-RPC 2.0 để xử lý giao dịch không tốn gas trên
+  Solana.
+---
+
+> **Đang sử dụng Kora v2.2.0-beta?** Xem
+> [Tài liệu Beta](/docs/tools/kora/beta/bundle-methods) để biết các phương thức
+> gói mới (`signBundle`, `signAndSendBundle`, `estimateBundleFee`) và
+> `getVersion`.
+
+## SDK TypeScript
+
+Gói `@solana/kora` cung cấp ba tùy chọn client để tương tác với máy chủ Kora:
+
+### KoraClient (Độc lập)
+
+Sử dụng `KoraClient` để sử dụng độc lập. Hoạt động với `@solana/kit` v5.0+.
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin (Có thể kết hợp với Kit)
+
+Sử dụng `koraPlugin()` để kết hợp các phương thức Kora vào client Kit hiện có.
+Yêu cầu `@solana/kit` v5.4+ cho mẫu `createEmptyClient().use()`.
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+Plugin cung cấp các phản hồi kiểu Kit (`Address`, `Blockhash`,
+`Base64EncodedWireTransaction`) và xuất kiểu `KoraPlugin` để kết hợp với các
+plugin khác.
+
+### createKitKoraClient (Kit Client)
+
+Sử dụng `createKitKoraClient()` để tích hợp đầy đủ với Kit có lập kế hoạch giao
+dịch tự động, ước tính phí, chèn thanh toán và thực thi. Đây là phương pháp được
+khuyến nghị cho hầu hết các ứng dụng. Yêu cầu `@solana/kit` v6.1+.
+
+Kit client kết hợp Kora với kiến trúc plugin của Kit (planner, executor, payer
+plugins) để bạn có thể sử dụng trực tiếp các plugin chương trình Kit như
+`tokenProgram()`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**Các tùy chọn cấu hình:**
+
+| Tùy chọn           | Bắt buộc | Mô tả                                                                                         |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------- |
+| `endpoint`         | Có       | URL điểm cuối Kora RPC                                                                        |
+| `rpcUrl`           | Có       | URL Solana RPC để ước tính đơn vị tính toán và khả năng tương thích plugin chương trình       |
+| `feeToken`         | Có       | Địa chỉ mint SPL để thanh toán phí                                                            |
+| `feePayerWallet`   | Có       | `TransactionSigner` ủy quyền thanh toán phí SPL                                               |
+| `apiKey`           | Không    | Khóa API để xác thực                                                                          |
+| `hmacSecret`       | Không    | Khóa bí mật HMAC để xác thực dựa trên chữ ký                                                  |
+| `computeUnitLimit` | Không    | Giới hạn đơn vị tính toán cố định (sử dụng ước tính dựa trên mô phỏng nếu không đặt)          |
+| `computeUnitPrice` | Không    | Phí ưu tiên tính bằng micro-lamports                                                          |
+| `tokenProgramId`   | Không    | ID Token program (mặc định là Token Program; sử dụng địa chỉ Token-2022 cho token Token-2022) |
+
+## Giao thức
+
+- **Tiêu chuẩn**: JSON-RPC 2.0
+- **Vận chuyển**: HTTP POST
+- **Content-Type**: application/json
+- **Điểm cuối**: `http://your-kora-instance/`
+
+## Các phương thức khả dụng
+
+| Phương thức                                                                       | Mô tả                                                                                                                     |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | Ước tính phí giao dịch theo cả lamport và token được chỉ định.                                                            |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | Lấy blockhash mới nhất từ Solana RPC mà máy chủ Kora đang kết nối.                                                        |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | Truy xuất cấu hình hiện tại của máy chủ Kora.                                                                             |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | Truy xuất người ký trả phí và điểm đến thanh toán từ máy chủ Kora.                                                        |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | Tạo lệnh thanh toán để thêm vào giao dịch nhằm thanh toán phí cho paymaster Kora.                                         |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | Truy xuất danh sách các token được hỗ trợ để thanh toán phí.                                                              |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | Ký giao dịch và ngay lập tức phát nó lên mạng Solana.                                                                     |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | Ký giao dịch bằng người trả phí Kora nếu giao dịch bao gồm khoản thanh toán cần thiết cho người trả phí mà không phát nó. |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | Tạo giao dịch chuyển token với Kora làm người trả phí.                                                                    |
+
+## Định dạng yêu cầu
+
+Tất cả yêu cầu tuân theo tiêu chuẩn JSON-RPC 2.0:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## Định dạng phản hồi
+
+Phản hồi thành công:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+Phản hồi lỗi:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

@@ -23,6 +23,7 @@ export async function CookbookPage({
       title={page.data.h1 || page.data.title}
       filePath={page.data.info.path}
       hideTableOfContents={true}
+      hidePageNavigation={page.data.hidePageNavigation}
       pageTree={cookbookSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}

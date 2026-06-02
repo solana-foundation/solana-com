@@ -66,12 +66,12 @@ additional details on how files are structured, see the
 
 ## Cookbook code examples
 
-The Kit and Legacy snippets shown on cookbook pages live in
+The Kit, Legacy, and Rust snippets shown on cookbook pages live in
 `packages/docs-examples`, not inline in the MDX. Tests in that package run
 against a local surfpool on every PR, so an SDK rename or signature change shows
 up as a red CI run rather than rotted documentation.
 
-To add or change a snippet:
+### TypeScript (Kit / Legacy)
 
 1. Put the runnable file under
    `packages/docs-examples/cookbook/<section>/<page>/` (e.g. `kit.ts`).
@@ -89,20 +89,23 @@ Run `pnpm --filter @workspace/docs-examples test` locally — needs the `surfpoo
 CLI installed via
 `cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli`.
 
-## Builder API
+### Rust
 
-The blog content located at `/news` and most of the landing pages under
-`/solutions` utilize Builder.io, a headless CMS integrated with our current
-Next.js project.
+Each Rust example is a member crate of the Cargo workspace at
+`packages/docs-examples/Cargo.toml`. The pattern mirrors the TS one:
 
-```conf
-NEXT_PUBLIC_BUILDER_API_KEY=""
-NEXT_PUBLIC_BUILDER_NEWS_SETTINGS_ID=""
-```
+1. Add `packages/docs-examples/cookbook/<section>/<page>/rust/Cargo.toml` with
+   `name = "cookbook-<section>-<page>"` and `[[bin]]` pointing at `src/main.rs`.
+   Pages with two distinct Rust snippets use `src/bin/<variant>.rs` with
+   multiple `[[bin]]` entries.
+2. Wrap the rendered region of `main.rs` in `// #region <name>` /
+   `// #endregion <name>` — same syntax as TS, the include plugin handles both.
+3. In the MDX page, point the directive at the source file:
+   ` ```rust !! title="Rust" file=packages/docs-examples/cookbook/<section>/<page>/rust/src/main.rs#region=<name> `
 
-> Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key):
-> The Builder Public API Key is public, meaning that you don't have to keep it
-> private.
+Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
+spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
+in the workspace.
 
 ## RPC providers
 

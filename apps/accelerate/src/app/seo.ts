@@ -13,10 +13,10 @@ type EventConfig = {
 
 function getAbsoluteUrl(path: string = "/") {
   if (!path || path === "/") {
-    return config.siteUrl;
+    return config.publicUrl;
   }
 
-  return `${config.siteUrl}${path}`;
+  return `${config.publicUrl}${path}`;
 }
 
 export function buildEventStructuredData(event: EventConfig, path: string) {
@@ -54,7 +54,7 @@ export function buildEventSeriesStructuredData() {
     "@type": "EventSeries",
     name: config.siteMetadata.title,
     description: config.siteMetadata.description,
-    url: config.siteUrl,
+    url: config.publicUrl,
     image: [config.siteMetadata.socialShare],
     organizer: {
       "@type": "Organization",

@@ -13,8 +13,8 @@ import { MobileMenu } from "./mobile-menu";
 import { InkeepChatButton } from "./inkeep-chat-button";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
-import Moon from "./assets/moon.inline.svg";
-import Sun from "./assets/sun.inline.svg";
+import Moon from "./assets/icons/moon.inline.svg";
+import Sun from "./assets/icons/sun.inline.svg";
 
 function Header({
   className = "",

@@ -1,0 +1,392 @@
+---
+title: QR Kod Entegrasyonu
+description: Mobil cüzdan ödemeleri için QR kodları oluşturun ve özelleştirin
+---
+
+QR kodlar, web uygulamaları ile mobil cüzdanlar arasındaki boşluğu kapatmanın en
+yaygın yoludur. Solana Pay, `@solana/qr-code-styling` tarafından desteklenen
+yerleşik bir `createQR` fonksiyonu içerir — ek QR kod paketlerine gerek yoktur.
+
+## Temel QR Kod Oluşturma
+
+### QR Kod Oluşturma ve Görüntüleme
+
+```typescript
+import { address } from "@solana/kit";
+import { encodeURL, createQR } from "@solana/pay";
+
+// Create payment URL
+const url = encodeURL({
+  recipient: address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB"),
+  amount: 0.05,
+  label: "Coffee Shop",
+  message: "Grande Americano"
+});
+
+// Generate QR code and append to DOM
+const qr = createQR(url);
+qr.append(document.getElementById("payment-qr"));
+```
+
+### QR Kodlarını Özelleştirme
+
+`createQR` fonksiyonu, boyut, arka plan rengi ve ön plan rengi için isteğe bağlı
+parametreler kabul eder:
+
+```typescript
+// createQR(url, size?, background?, color?)
+const qr = createQR(url, 400, "#F5F5F5", "#512DA8");
+qr.append(document.getElementById("payment-qr"));
+```
+
+### Gelişmiş Kullanım için QR Seçeneklerini Alma
+
+Daha fazla kontrol için ham yapılandırma nesnesini almak üzere `createQROptions`
+kullanın:
+
+```typescript
+import { createQROptions } from "@solana/pay";
+
+const options = createQROptions(url, 300, "#ffffff", "#000000");
+// Pass to @solana/qr-code-styling or customize further
+```
+
+## Merchant Client Kullanımı
+
+Merchant client ayrıca QR kod yöntemlerini de sunar:
+
+```typescript
+import { address } from "@solana/kit";
+import { createMerchantClient } from "@solana/pay";
+
+const merchant = createMerchantClient({
+  rpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+const recipient = address("FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB");
+const url = merchant.pay.encodeURL({ recipient, amount: 1.5 });
+
+// Generate QR code
+const qr = merchant.pay.createQR(url);
+qr.append(document.getElementById("qr-code"));
+```
+
+## React Entegrasyonu
+
+### Temel React Bileşeni
+
+```tsx
+import { useEffect, useRef } from "react";
+import { address } from "@solana/kit";
+import { encodeURL, createQR } from "@solana/pay";
+
+function PaymentQR({ recipient, amount, label, message }) {
+  const qrRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const url = encodeURL({
+      recipient: address(recipient),
+      amount,
+      label,
+      message
+    });
+
+    const qr = createQR(url, 300);
+
+    // Clear previous QR code and append new one
+    if (qrRef.current) {
+      qrRef.current.innerHTML = "";
+      qr.append(qrRef.current);
+    }
+  }, [recipient, amount, label, message]);
+
+  return (
+    <div>
+      <div ref={qrRef} />
+      <p className="text-center mt-2 text-sm text-gray-600">
+        Scan with your Solana wallet
+      </p>
+    </div>
+  );
+}
+
+// Usage
+<PaymentQR
+  recipient="FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB"
+  amount={1.5}
+  label="Online Store"
+  message="Order #12345"
+/>;
+```
+
+### Durum Güncellemeleriyle Ödeme QR Kodu
+
+```tsx
+import { useEffect, useRef, useState } from "react";
+import type { Address } from "@solana/kit";
+import { address, generateKeyPair, getAddressFromPublicKey } from "@solana/kit";
+import { encodeURL, createQR, createMerchantClient } from "@solana/pay";
+
+function PaymentQRWithStatus({ recipient, amount, label }) {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"pending" | "confirmed" | "timeout">(
+    "pending"
+  );
+  const [reference, setReference] = useState<Address | null>(null);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    let timeout: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    async function setup() {
+      // Generate unique reference
+      const keypair = await generateKeyPair();
+      const ref = await getAddressFromPublicKey(keypair.publicKey);
+      setReference(ref);
+
+      const url = encodeURL({
+        recipient: address(recipient),
+        amount,
+        reference: ref,
+        label
+      });
+
+      const qr = createQR(url, 300);
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        qr.append(qrRef.current);
+      }
+
+      // Start monitoring
+      const merchant = createMerchantClient({
+        rpcUrl: "https://api.mainnet-beta.solana.com"
+      });
+
+      interval = setInterval(async () => {
+        try {
+          const found = await merchant.pay.findReference(ref);
+          await merchant.pay.validateTransfer(found.signature, {
+            recipient: address(recipient),
+            amount,
+            reference: ref
+          });
+          if (!cancelled) {
+            setStatus("confirmed");
+            clearInterval(interval);
+            clearTimeout(timeout);
+          }
+        } catch {
+          // Not found yet
+        }
+      }, 2000);
+
+      // Timeout after 5 minutes
+      timeout = setTimeout(
+        () => {
+          clearInterval(interval);
+          if (!cancelled) setStatus("timeout");
+        },
+        5 * 60 * 1000
+      );
+    }
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [recipient, amount, label]);
+
+  return (
+    <div className="relative">
+      <div ref={qrRef} />
+
+      {status === "confirmed" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-green-500 bg-opacity-90 rounded-lg">
+          <div className="text-white text-center">
+            <p className="font-semibold">Payment Confirmed!</p>
+          </div>
+        </div>
+      )}
+
+      {status === "timeout" && (
+        <p className="text-center mt-2 text-sm text-red-600">
+          Payment timed out. Please try again.
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+## Satış Noktası Entegrasyonu
+
+### POS Terminal QR Görüntüleme
+
+```typescript
+import { address, generateKeyPair, getAddressFromPublicKey } from "@solana/kit";
+import { encodeURL, createQR, createMerchantClient } from "@solana/pay";
+
+class POSTerminal {
+  private merchantWallet;
+  private merchant;
+
+  constructor(merchantWallet, rpcUrl) {
+    this.merchantWallet = address(merchantWallet);
+    this.merchant = createMerchantClient({ rpcUrl });
+  }
+
+  async createOrder(items, customLabel) {
+    const total = items.reduce((sum, item) => sum + item.price, 0);
+    const keypair = await generateKeyPair();
+    const reference = await getAddressFromPublicKey(keypair.publicKey);
+
+    const orderId = Date.now().toString();
+
+    const url = this.merchant.pay.encodeURL({
+      recipient: this.merchantWallet,
+      amount: total,
+      reference,
+      label: customLabel || "Point of Sale",
+      message: `Receipt #${orderId}`,
+      memo: `POS-${orderId}`
+    });
+
+    const qr = this.merchant.pay.createQR(url, 400);
+
+    return { orderId, total, reference, qr, url };
+  }
+
+  async monitorPayment(reference, amount, callback) {
+    const checkPayment = async () => {
+      try {
+        const found = await this.merchant.pay.findReference(reference);
+        await this.merchant.pay.validateTransfer(found.signature, {
+          recipient: this.merchantWallet,
+          amount,
+          reference
+        });
+        callback({ success: true, signature: found.signature });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const interval = setInterval(async () => {
+      const found = await checkPayment();
+      if (found) clearInterval(interval);
+    }, 1000);
+
+    // Timeout after 5 minutes
+    setTimeout(
+      () => {
+        clearInterval(interval);
+        callback({ success: false, error: "Payment timeout" });
+      },
+      5 * 60 * 1000
+    );
+  }
+}
+
+// Usage
+const pos = new POSTerminal(
+  "FvJ8k8HhXp4a3zQyFMZd4FvEqcYdYE7gSZWxrEBRfBsB",
+  "https://api.mainnet-beta.solana.com"
+);
+
+const { qr, reference, total } = await pos.createOrder(
+  [
+    { name: "Coffee", price: 3.5 },
+    { name: "Muffin", price: 2.25 }
+  ],
+  "Local Coffee Shop"
+);
+
+// Display QR code
+qr.append(document.getElementById("pos-display"));
+
+// Monitor for payment
+pos.monitorPayment(reference, total, (result) => {
+  if (result.success) {
+    console.log("Payment received!", result.signature);
+  } else {
+    console.log("Payment failed or timed out");
+  }
+});
+```
+
+### Mobil Cihazlar İçin Optimize Edilmiş Görüntüleme
+
+Mobil cihazlarda, QR kodunun yanında doğrudan bir bağlantı sağlamayı düşünün:
+
+```tsx
+function MobilePayment({ paymentUrl }) {
+  const qrRef = useRef(null);
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    const qr = createQR(paymentUrl, isMobile ? 250 : 300);
+    if (qrRef.current) {
+      qrRef.current.innerHTML = "";
+      qr.append(qrRef.current);
+    }
+  }, [paymentUrl, isMobile]);
+
+  return (
+    <div>
+      <div ref={qrRef} />
+      {isMobile && (
+        <button
+          onClick={() => window.open(paymentUrl.toString())}
+          className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg w-full"
+        >
+          Open in Wallet
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+## Erişilebilirlik
+
+```tsx
+function AccessiblePaymentQR({ paymentUrl, amount, label }) {
+  const qrRef = useRef(null);
+
+  useEffect(() => {
+    const qr = createQR(paymentUrl);
+    if (qrRef.current) {
+      qrRef.current.innerHTML = "";
+      qr.append(qrRef.current);
+    }
+  }, [paymentUrl]);
+
+  return (
+    <div
+      role="img"
+      aria-label={`Payment QR code for ${amount} SOL to ${label}`}
+    >
+      <div ref={qrRef} />
+
+      {/* Manual URL copy option */}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-sm text-gray-600">
+          Copy payment URL manually
+        </summary>
+        <input
+          type="text"
+          value={paymentUrl.toString()}
+          readOnly
+          className="w-full mt-1 p-2 border rounded text-xs"
+          onClick={(e) => e.target.select()}
+        />
+      </details>
+    </div>
+  );
+}
+```

@@ -13,7 +13,6 @@ import {
   useScroll,
 } from "framer-motion";
 import { getImagePath } from "@/config";
-import { LumaModal } from "@/components/LumaModal";
 
 export function HomepageHero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -174,9 +173,9 @@ export function HomepageHero() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="absolute left-[37px] top-[501px] z-10 w-[316px] md:left-auto md:right-[60px] md:top-[400px] md:w-[420px] lg:right-[220px] lg:top-[520px] lg:w-[500px]"
         >
-          {/* "NEXT EVENT" label */}
+          {/* Event label */}
           <p className="mb-5 text-right text-[16px] font-normal uppercase tracking-[0.8px] text-white">
-            Next Event
+            Latest Event
           </p>
 
           {/* Card container */}
@@ -195,23 +194,23 @@ export function HomepageHero() {
                 </p>
               </div>
 
-              {/* GET TICKETS CTA */}
-              <LumaModal lumaId="accelerate-miami">
-                <button className="btn-cta h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]">
-                  <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
-                    Request to Join
-                  </span>
-                  <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
-                    <path
-                      d="M2 9L9 2M9 2H4M9 2V7"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              </LumaModal>
+              <Link
+                href="/accelerate/miami"
+                className="btn-outline-gradient h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]"
+              >
+                <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
+                  Catch Up
+                </span>
+                <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
+                  <path
+                    d="M2 9L9 2M9 2H4M9 2V7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
             </div>
           </div>
 

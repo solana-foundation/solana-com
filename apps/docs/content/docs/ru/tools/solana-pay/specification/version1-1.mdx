@@ -1,0 +1,439 @@
+---
+title: Спецификация Solana Pay v1.1
+description:
+  Последняя версия стандартного протокола для кодирования запросов транзакций
+  Solana в URL-адресах
+---
+
+## Резюме
+
+Стандартный протокол для кодирования запросов транзакций Solana в URL-адресах
+для обеспечения платежей и других сценариев использования.
+
+По данной спецификации достигнуто общее согласие, и реализации существуют в
+Phantom, FTX и Slope.
+
+Этот стандарт вдохновлён
+[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) и
+[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md).
+
+## Мотивация
+
+Стандартный протокол URL для запроса нативных переводов SOL, переводов токенов
+SPL и транзакций Solana обеспечивает лучший пользовательский опыт в приложениях
+и кошельках экосистемы Solana.
+
+Эти URL-адреса могут быть закодированы в QR-кодах или NFC-метках, либо
+передаваться между пользователями и приложениями для запроса платежа и
+формирования транзакций.
+
+Приложения должны убедиться, что транзакция подтверждена и действительна, прежде
+чем выпускать продаваемые товары или услуги, либо предоставлять доступ к
+объектам или событиям.
+
+Мобильные кошельки должны регистрироваться для обработки URL-схемы, чтобы
+обеспечить бесшовный и безопасный опыт при обнаружении URL-адресов Solana Pay в
+окружении.
+
+Стандартизируя простой подход к решению этих проблем, мы обеспечиваем базовую
+совместимость приложений и кошельков, чтобы разработчики могли сосредоточиться
+на абстракциях более высокого уровня.
+
+## Спецификация: Запрос на перевод
+
+URL-адрес запроса на перевод Solana Pay описывает неинтерактивный запрос на
+перевод SOL или токена SPL.
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+Запрос является неинтерактивным, поскольку параметры в URL-адресе используются
+кошельком для непосредственного формирования транзакции.
+
+### Получатель
+
+В качестве пути требуется одно поле `recipient`. Значение должно быть публичным
+ключом нативного аккаунта SOL в кодировке base58. Associated token accounts не
+должны использоваться.
+
+Вместо этого для запроса перевода SPL Token необходимо использовать поле
+`spl-token` для указания SPL Token mint, из которого должен быть получен адрес
+ассоциированного токен-аккаунта получателя.
+
+### Сумма
+
+Одно поле `amount` разрешено в качестве необязательного параметра запроса.
+Значение должно быть неотрицательным целым числом или десятичным числом в
+«пользовательских» единицах. Для SOL это SOL, а не lamport. Для токенов
+используйте
+[`uiAmountString`, а не `amount`](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure).
+
+`0` является допустимым значением. Если значение является десятичным числом
+меньше `1`, оно должно иметь ведущий `0` перед `.`. Научная нотация запрещена.
+
+Если значение не указано, кошелёк должен запросить у пользователя сумму. Если
+количество знаков после запятой превышает поддерживаемое для SOL (9) или SPL
+Token (специфично для mint), кошелёк должен отклонить URL как **некорректный**.
+
+### SPL Token
+
+Одно поле `spl-token` разрешено в качестве необязательного параметра запроса.
+Значение должно быть публичным ключом в кодировке base58 аккаунта SPL Token
+mint.
+
+Если поле указано, должно использоваться соглашение
+[Associated Token Account](https://spl.solana.com/associated-token-account), и
+кошелёк должен включить инструкцию `TokenProgram.Transfer` или
+`TokenProgram.TransferChecked` в качестве последней инструкции транзакции.
+
+Если поле не указано, URL описывает нативный перевод SOL, и кошелёк должен
+включить инструкцию `SystemProgram.Transfer` в качестве последней инструкции
+транзакции.
+
+Кошелёк должен получить адрес ATA из полей `recipient` и `spl-token`. Переводы
+на вспомогательные токен-аккаунты не поддерживаются.
+
+### Ссылка
+
+Несколько полей `reference` разрешены в качестве необязательных параметров
+запроса. Значения должны быть 32-байтовыми массивами в кодировке base58. Это
+могут быть или не быть публичные ключи, на кривой или вне её, и могут
+соответствовать или не соответствовать аккаунтам в Solana.
+
+Если значения предоставлены, кошелек должен включить их в указанном порядке в
+качестве доступных только для чтения ключей без права подписи в инструкцию
+`SystemProgram.Transfer` или
+`TokenProgram.Transfer`/`TokenProgram.TransferChecked` в транзакции платежа.
+Значения могут быть как уникальными для запроса платежа, так и нет, и могут как
+соответствовать аккаунту в Solana, так и не соответствовать.
+
+Поскольку validator Solana индексируют транзакции по этим ключам аккаунтов,
+значения `reference` могут использоваться в качестве идентификаторов клиентов
+(ID, которые можно использовать до определения итоговой платежной транзакции).
+Метод RPC
+[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress)
+может использоваться для поиска транзакций таким способом.
+
+### Метка
+
+Одно поле `label` допускается в качестве необязательного параметра запроса.
+Значение должно быть
+[URL-кодированной](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+строкой UTF-8, которая описывает источник запроса на перевод.
+
+Например, это может быть название бренда, магазина, приложения или имя человека,
+делающего запрос. Кошелек должен
+[декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+и отобразить декодированное значение пользователю.
+
+### Сообщение
+
+Одно поле `message` допускается в качестве необязательного параметра запроса.
+Значение должно быть
+[URL-кодированной](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+строкой UTF-8, которая описывает характер запроса на перевод.
+
+Например, это может быть название приобретаемого товара, ID заказа или слова
+благодарности. Кошелек должен
+[декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+и отобразить декодированное значение пользователю.
+
+### Заметка
+
+Одно поле `memo` допускается в качестве необязательного параметра запроса.
+Значение должно быть
+[URL-кодированной](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+строкой UTF-8, которая должна быть включена в инструкцию
+[SPL Memo](https://spl.solana.com/memo) в транзакции платежа.
+
+Кошелек должен
+[декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+и отобразить декодированное значение пользователю. Заметка будет записана
+validator и не должна содержать конфиденциальную или чувствительную информацию.
+
+Если поле предоставлено, кошелёк должен включить инструкцию `MemoProgram` в
+качестве предпоследней инструкции транзакции, непосредственно перед инструкцией
+передачи SOL или SPL-токена, чтобы избежать неоднозначности с другими
+инструкциями в транзакции.
+
+### Примеры
+
+#### URL, описывающий запрос на передачу 1 SOL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### URL, описывающий запрос на передачу 0,01 USDC
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### URL, описывающий запрос на передачу SOL (пользователю будет предложено ввести сумму)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## Спецификация: Запрос транзакции
+
+URL-адрес запроса транзакции Solana Pay описывает интерактивный запрос для любой
+транзакции в сети Solana.
+
+```
+solana:<link>
+```
+
+Запрос является интерактивным, поскольку параметры в URL-адресе используются
+кошельком для выполнения HTTP-запроса с целью формирования транзакции.
+
+### Ссылка
+
+Одно поле `link` обязательно в качестве пути. Значение должно быть условно
+[закодированным URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+абсолютным HTTPS URL-адресом.
+
+Если URL-адрес содержит параметры запроса, он должен быть закодирован. Параметры
+запроса протокола могут быть добавлены в эту спецификацию. Кодирование
+URL-адреса предотвращает конфликты с параметрами протокола.
+
+Если URL-адрес не содержит параметров запроса, его не следует кодировать. Это
+создаёт более короткий URL-адрес и менее плотный QR-код.
+
+В любом случае кошелёк должен
+[декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent).
+Это не имеет эффекта, если значение не закодировано. Если декодированное
+значение не является абсолютным HTTPS URL-адресом, кошелёк должен отклонить его
+как **некорректный**.
+
+#### GET-запрос
+
+Кошелёк должен выполнить HTTP `GET` JSON-запрос к URL-адресу. Запрос не должен
+идентифицировать кошелёк или пользователя.
+
+Кошелёк должен выполнить запрос с заголовком
+[Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+а приложение должно ответить с заголовком
+[Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+для HTTP-сжатия.
+
+Кошелек должен отображать домен URL-адреса во время выполнения запроса.
+
+#### Ответ GET
+
+Кошелек должен обрабатывать HTTP
+[ошибки клиента](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+[ошибки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+и
+[ответы с перенаправлением](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+Приложение должно отвечать этими ответами или HTTP `OK` JSON ответом с телом:
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+Значение `<label>` должно быть UTF-8 строкой, описывающей источник запроса
+транзакции. Например, это может быть название бренда, магазина, приложения или
+имя лица, выполняющего запрос.
+
+Значение `<icon>` должно быть абсолютным HTTP или HTTPS URL-адресом изображения
+иконки. Файл должен быть изображением SVG, PNG или WebP, иначе кошелек должен
+отклонить его как **некорректный**.
+
+Кошелек не должен кэшировать ответ, за исключением случаев, указанных
+заголовками ответа
+[HTTP-кэширования](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching).
+
+Кошелек должен отображать метку и рендерить изображение иконки для пользователя.
+
+#### Запрос POST
+
+Кошелек должен выполнить HTTP `POST` JSON запрос к URL-адресу с телом:
+
+```json
+{ "account": "<account>" }
+```
+
+Значение `<account>` должно быть публичным ключом аккаунта в кодировке base58,
+который может подписать транзакцию.
+
+Кошелек должен выполнить запрос с заголовком
+[Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+а приложение должно ответить с заголовком
+[Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+для HTTP-сжатия.
+
+Кошелек должен отображать домен URL-адреса во время выполнения запроса. Если был
+выполнен `GET` запрос, кошелек также должен отображать метку и рендерить
+изображение иконки из ответа.
+
+#### Ответ POST
+
+Кошелек должен обрабатывать HTTP
+[ошибки клиента](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+[ошибки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+и
+[ответы с перенаправлением](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+Приложение должно отвечать этими ответами или HTTP `OK` JSON ответом с телом:
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+Значение `<transaction>` должно быть закодированной в base64
+[сериализованной транзакцией](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize).
+Кошелек должен декодировать транзакцию из base64 и
+[десериализовать её](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+Приложение может ответить частично или полностью подписанной транзакцией.
+Кошелек должен проверить транзакцию как **ненадежную**.
+
+#### Пустые подписи
+
+Если
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+транзакции пусты:
+
+- Приложение должно установить
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  на `account` из запроса или нулевое значение (`new PublicKey(0)` или
+  `new PublicKey("11111111111111111111111111111111")`).
+- Приложение должно установить
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  на
+  [последний хеш блока](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)
+  или нулевое значение (`new PublicKey(0).toBase58()` или
+  `"11111111111111111111111111111111"`).
+- Кошелек должен игнорировать
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  в транзакции и установить `feePayer` на `account` из запроса.
+- Кошелек должен игнорировать
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  в транзакции и установить `recentBlockhash` на
+  [последний хеш блока](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+
+Если
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+транзакции не пусты:
+
+- Приложение должно установить
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  на
+  [публичный ключ первой подписи](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair).
+- Приложение должно установить
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  на
+  [последний хеш блока](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- Приложение должно сериализовать и десериализовать транзакцию перед её
+  подписанием. Это обеспечивает согласованный порядок ключей аккаунтов в
+  качестве обходного решения для
+  [этой проблемы](https://github.com/solana-labs/solana/issues/21722).
+- Кошелек не должен устанавливать
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  и
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash).
+- Кошелек должен проверить подписи, и если какая-либо из них недействительна,
+  кошелек должен отклонить транзакцию как **некорректную**.
+
+Кошелек должен подписывать транзакцию только с помощью `account` из запроса и
+только в том случае, если ожидается подпись для `account` из запроса.
+
+Если ожидается любая подпись, кроме подписи для `account` из запроса, кошелек
+должен отклонить транзакцию как **вредоносную**.
+
+Приложение также может включать необязательное поле `message` в теле ответа:
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+Значение `<message>` должно быть строкой UTF-8, описывающей характер ответа
+транзакции.
+
+Например, это может быть название покупаемого товара, применяемая к покупке
+скидка или благодарственная записка. Кошелёк должен отображать это значение
+пользователю.
+
+Кошелёк и приложение должны допускать дополнительные поля в теле запроса и теле
+ответа, которые могут быть добавлены будущей спецификацией.
+
+### Пример
+
+##### URL, описывающий запрос транзакции.
+
+```
+solana:https://example.com/solana-pay
+```
+
+##### URL, описывающий запрос транзакции с параметрами запроса.
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+##### GET-запрос
+
+```
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+##### GET-ответ
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+##### POST-запрос
+
+```
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+##### POST-ответ
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## Расширения
+
+В эту спецификацию могут быть включены дополнительные форматы и поля для
+реализации новых сценариев использования с сохранением совместимости с
+приложениями и кошельками.
+
+Пожалуйста, откройте issue на Github, чтобы предложить изменения в спецификацию
+и получить отзывы от разработчиков приложений и кошельков.
+
+[Реальный пример такого предложения.](https://github.com/solana-foundation/pay/issues/26)

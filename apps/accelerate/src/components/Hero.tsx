@@ -22,6 +22,10 @@ interface HeroProps {
   agendaPath?: string | null;
   showSpeakersNav?: boolean;
   showVideo?: boolean;
+  showCta?: boolean;
+  videoId?: string;
+  videoPlatform?: "youtube" | "vimeo";
+  vimeoHash?: string;
   ctaLabel?: string;
   backgroundContent?: React.ReactNode;
 }
@@ -34,6 +38,10 @@ export function Hero({
   agendaPath = "/accelerate/hong-kong/agenda",
   showSpeakersNav = true,
   showVideo = true,
+  showCta = true,
+  videoId = "LsfnC62q8oE",
+  videoPlatform = "youtube",
+  vimeoHash,
   ctaLabel,
   backgroundContent,
 }: HeroProps = {}) {
@@ -170,20 +178,22 @@ export function Hero({
             {t("nav.faq")}
           </a>
           <LanguageSelector className="!text-white/60 hover:!text-white" />
-          <LumaModal lumaId="accelerate-miami">
-            <button className="btn-outline-gradient px-7 py-4 text-button">
-              <span>{ctaLabel || t("nav.requestToJoin")}</span>
-              <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
-                <path
-                  d="M2 9L9 2M9 2H4M9 2V7"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </LumaModal>
+          {showCta && (
+            <LumaModal lumaId="accelerate-miami">
+              <button className="btn-outline-gradient px-7 py-4 text-button">
+                <span>{ctaLabel || t("nav.requestToJoin")}</span>
+                <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
+                  <path
+                    d="M2 9L9 2M9 2H4M9 2V7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </LumaModal>
+          )}
         </nav>
 
         {/* Mobile menu button */}
@@ -285,23 +295,25 @@ export function Hero({
                 <div className="mt-2">
                   <LanguageSelector className="!text-white/60 hover:!text-white" />
                 </div>
-                <LumaModal lumaId="accelerate-miami">
-                  <button
-                    type="button"
-                    className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
-                  >
-                    <span>{ctaLabel || t("nav.requestToJoin")}</span>
-                    <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
-                      <path
-                        d="M2 9L9 2M9 2H4M9 2V7"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </LumaModal>
+                {showCta && (
+                  <LumaModal lumaId="accelerate-miami">
+                    <button
+                      type="button"
+                      className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
+                    >
+                      <span>{ctaLabel || t("nav.requestToJoin")}</span>
+                      <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
+                        <path
+                          d="M2 9L9 2M9 2H4M9 2V7"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </LumaModal>
+                )}
               </nav>
             </motion.div>
           </div>
@@ -332,9 +344,14 @@ export function Hero({
                 </h1>
               </motion.div>
 
-              {/* YouTube embed */}
+              {/* Event video */}
               <motion.div variants={fadeInUp} className="w-full">
-                <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
+                <YoutubeEmbed
+                  id={videoId}
+                  platform={videoPlatform}
+                  vimeoHash={vimeoHash}
+                  title={t("hero.title")}
+                />
               </motion.div>
             </>
           ) : (
@@ -353,22 +370,24 @@ export function Hero({
               </motion.div>
 
               {/* CTA Button */}
-              <motion.div variants={fadeInUp}>
-                <LumaModal lumaId="accelerate-miami">
-                  <button className="btn-cta group h-[56px] w-[320px] justify-between px-[28px] py-[24px] sm:h-[66px] sm:w-[480px]">
-                    <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
-                      {ctaLabel || t("nav.requestToJoin")}
-                    </span>
-                    <Image
-                      src={getImagePath("/images/ticket-icon.svg")}
-                      alt=""
-                      width={18}
-                      height={12}
-                      className="flex-shrink-0"
-                    />
-                  </button>
-                </LumaModal>
-              </motion.div>
+              {showCta && (
+                <motion.div variants={fadeInUp}>
+                  <LumaModal lumaId="accelerate-miami">
+                    <button className="btn-cta group h-[56px] w-[320px] justify-between px-[28px] py-[24px] sm:h-[66px] sm:w-[480px]">
+                      <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
+                        {ctaLabel || t("nav.requestToJoin")}
+                      </span>
+                      <Image
+                        src={getImagePath("/images/ticket-icon.svg")}
+                        alt=""
+                        width={18}
+                        height={12}
+                        className="flex-shrink-0"
+                      />
+                    </button>
+                  </LumaModal>
+                </motion.div>
+              )}
             </>
           )}
         </motion.div>

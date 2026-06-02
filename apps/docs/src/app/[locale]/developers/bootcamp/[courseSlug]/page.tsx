@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { ComponentProps } from "react";
 import { mdxComponents } from "@@/src/app/mdx-components";
 import { getMdxMetadata } from "@@/src/app/metadata";
 import { developersLearnSource } from "@@/src/app/sources/developers-learn";
@@ -37,6 +38,7 @@ export default async function Page(props: Props) {
       description={page.data.description}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
+      hidePageNavigation={page.data.hidePageNavigation}
       pageTree={developersLearnSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}
@@ -46,7 +48,14 @@ export default async function Page(props: Props) {
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
-        <DocsCategory page={page} from={developersLearnSource as any} />
+        <DocsCategory
+          page={page}
+          from={
+            developersLearnSource as unknown as ComponentProps<
+              typeof DocsCategory
+            >["from"]
+          }
+        />
       ) : null}
     </DocsPage>
   );

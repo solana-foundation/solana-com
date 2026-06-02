@@ -1,0 +1,701 @@
+---
+title: Kora 完整交易流程
+description:
+  本指南教您如何使用 Kora RPC 实现完整的无 Gas
+  交易流程，包括支付指令和交易签名。
+date: 2025-08-26
+---
+
+_最后更新：2025-10-31_
+
+## 您将构建什么
+
+在快速入门指南中，您学习了如何设置 Kora
+RPC 并进行基本调用。现在我们将构建一个完整的无 Gas 交易系统，展示 Kora 的全部功能。完成本指南后，您将实现一个交易流程，该流程可以：
+
+- 创建多个转账指令（SPL 代币和 SOL）
+- 从 Kora 获取支付指令以覆盖费用
+- 使用用户密钥签名交易，同时由 Kora 处理 Gas 费用
+- 将完全签名的交易提交到 Solana 网络
+
+最终结果将是一个可运行的无 Gas 交易系统：
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KORA GASLESS TRANSACTION DEMO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/6] Initializing clients
+  → Kora RPC: http://localhost:8080/
+  → Solana RPC: http://127.0.0.1:8899
+
+[2/6] Setting up keypairs
+  → Sender: BYJVBqQ2xV9GECc84FeoPQy2DpgoonZQFQu97MMWTbBc
+  → Destination: C8MC9E6nf9Am1rVqdDedDavm53uCJMiSwarEko1aXmny
+  → Kora signer address: 3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE
+
+[3/6] Creating demonstration instructions
+  → Payment token: 9BgeTKqmFsPVnfYscfM6NvsgmZxei7XfdciShQ6D3bxJ
+  ✓ Token transfer instruction created
+  ✓ SOL transfer instruction created
+  ✓ Memo instruction created
+  → Total: 3 instructions
+
+[4/6] Estimating Kora fee and assembling payment instruction
+  → Fee payer: 3Z1Ef7Ya...
+  → Blockhash: 7HZUaMqV...
+  ✓ Estimate transaction built
+  ✓ Payment instruction received from Kora
+
+[5/6] Creating and signing final transaction (with payment)
+  ✓ Final transaction built with payment
+  ✓ Transaction signed by user
+
+[6/6] Signing transaction with Kora and sending to Solana cluster
+  ✓ Transaction co-signed by Kora
+  ✓ Transaction submitted to network
+  ⏳ Awaiting confirmation...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Transaction confirmed on Solana
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Transaction signature:
+41hmwmkMfHR5mmhG9sNkjiakwHxpmr1H3Gi3bBL8v5PbsRrH7FhpUT8acHaf2mrPKNVD894dSYXfjp6LfAbVpcCE
+
+View on explorer:
+https://explorer.solana.com/tx/41hmwmkMfHR5mmhG9sNkjiakwHxpmr1H3Gi3bBL8v5PbsRrH7FhpUT8acHaf2mrPKNVD894dSYXfjp6LfAbVpcCE?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899
+```
+
+让我们一步步构建它！
+
+## 前置要求
+
+在开始本教程之前，请确保您具备：
+
+- 已完成
+  [Kora 快速入门指南](/docs/tools/kora/getting-started/quick-start) - 我们将使用与快速入门指南相同的测试环境。
+- [**Node.js**](https://nodejs.org/en/download)（LTS 或更高版本）
+- [**Solana CLI**](https://solana.com/docs/intro/installation) v2.2.x 或更高版本
+- **熟悉** [Solana 交易](https://solana.com/docs/core/transactions)和
+  [SPL 代币](https://solana.com/docs/tokens/basics)
+- 已配置签名者的正在运行的 Kora
+  RPC 服务器（有关说明，请参阅[快速入门指南](/docs/tools/kora/getting-started/quick-start)）
+
+## Kora 交易流程
+
+Kora 通过充当用户交易的费用支付者来实现无 Gas 交易。无 Gas 交易流程包括以下主要步骤：
+
+1. **创建交易** - 构建用户意图的交易（转账、程序调用等）
+2. **费用估算** - 创建估算交易以计算所需费用
+3. **支付指令** - 从 Kora 获取指定费用金额的支付指令
+4. **用户签名** - 用户对包含支付指令的交易进行签名
+5. **Kora 联合签名** - Kora 验证支付并作为费用支付者联合签名
+6. **提交** - 将完全签名的交易提交到 Solana
+
+_\*注意：Kora 可以配置为不需要支付，但我们将使用它来演示完整流程。_
+
+## 项目设置
+
+### Kora 服务器注意事项
+
+- **代币允许列表** - 只有在 `kora.toml` 中配置的代币才能用于支付 - 请确保您在
+  `.env` 中定义的代币已包含在您的
+  [kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)
+  允许列表中。
+- **程序限制** - 交易只能与白名单程序交互。我们已在
+  [kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)
+  中预设为允许与 System Program、Token Program、计算单元程序和 Memo 程序交互。
+
+### 客户端设置
+
+_本指南假设您已完成[快速入门](/docs/tools/kora/getting-started/quick-start)并已设置好演示项目。如果尚未完成，请先完成该步骤。_
+
+导航到您的演示客户端目录：
+
+```shell
+cd kora/examples/getting-started/demo/client
+```
+
+> **注意**：演示文件位于
+> [GitHub 仓库](https://github.com/solana-foundation/kora/tree/v2.0.5/examples/getting-started/demo)中，因为它们需要完整的开发环境设置。
+
+## 实现
+
+在开始运行演示之前，让我们逐步了解[完整演示](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/client/src/full-demo.ts)的实现：
+
+### 导入和配置
+
+我们的演示从必要的导入和配置开始：
+
+```ts
+import { KoraClient } from "@solana/kora";
+import {
+  createKeyPairSignerFromBytes,
+  getBase58Encoder,
+  createNoopSigner,
+  address,
+  getBase64EncodedWireTransaction,
+  partiallySignTransactionMessageWithSigners,
+  Blockhash,
+  Base64EncodedWireTransaction,
+  partiallySignTransaction,
+  TransactionVersion,
+  Instruction,
+  KeyPairSigner,
+  Rpc,
+  SolanaRpcApi,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  MicroLamports,
+  appendTransactionMessageInstructions
+} from "@solana/kit";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { createRecentSignatureConfirmationPromiseFactory } from "@solana/transaction-confirmation";
+import {
+  updateOrAppendSetComputeUnitLimitInstruction,
+  updateOrAppendSetComputeUnitPriceInstruction
+} from "@solana-program/compute-budget";
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.join(process.cwd(), "..", ".env") });
+
+const CONFIG = {
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n as MicroLamports,
+  solanaRpcUrl: "http://127.0.0.1:8899",
+  solanaWsUrl: "ws://127.0.0.1:8900",
+  koraRpcUrl: "http://localhost:8080/"
+};
+```
+
+我们从 [Kora SDK](https://www.npmjs.com/package/@solana/kora)
+导入 Kora 客户端，以及从 Solana Kit 库导入一些用于构建交易的类型/辅助工具。
+
+我们还创建了一个全局配置对象，其中定义了：
+
+- **计算预算** - 用于交易优先级排序的单位和价格
+- **交易版本** - 使用 V0 以支持地址查找表
+- **RPC 端点** - 本地 Solana 和 Kora RPC 服务器
+
+暂时保留这些默认值——演示完成后，您可以尝试不同的值，以了解它们如何影响交易流程。
+
+### 实用函数
+
+演示包含一个辅助函数，用于从环境变量加载密钥对：
+
+```ts
+async function getEnvKeyPair(envKey: string) {
+  if (!process.env[envKey]) {
+    throw new Error(`Environment variable ${envKey} is not set`);
+  }
+  const base58Encoder = getBase58Encoder();
+  const b58SecretEncoded = base58Encoder.encode(process.env[envKey]);
+  return await createKeyPairSignerFromBytes(b58SecretEncoded);
+}
+```
+
+此函数功能：
+
+- 从环境变量读取 base58 编码的私钥
+- 将私钥字符串编码为 U8 字节数组
+- 将其转换为密钥对签名者对象
+
+### 步骤 1：初始化客户端
+
+首先，我们建立与 Kora 和 Solana 的连接：
+
+```ts
+async function initializeClients() {
+  console.log("\n[1/6] Initializing clients");
+  console.log("  → Kora RPC:", CONFIG.koraRpcUrl);
+  console.log("  → Solana RPC:", CONFIG.solanaRpcUrl);
+
+  const client = new KoraClient({
+    rpcUrl: CONFIG.koraRpcUrl
+    // apiKey: process.env.KORA_API_KEY, // Uncomment if authentication is enabled
+    // hmacSecret: process.env.KORA_HMAC_SECRET, // Uncomment if HMAC is enabled
+  });
+
+  const rpc = createSolanaRpc(CONFIG.solanaRpcUrl);
+  const rpcSubscriptions = createSolanaRpcSubscriptions(CONFIG.solanaWsUrl);
+
+  const confirmTransaction = createRecentSignatureConfirmationPromiseFactory({
+    rpc,
+    rpcSubscriptions
+  });
+
+  return { client, rpc, confirmTransaction };
+}
+```
+
+此函数功能：
+
+- 通过传入我们的 Kora RPC URL 创建 Kora 客户端实例。
+- 建立支持订阅的 Solana RPC 连接（我们将使用它向 Solana 集群发送和确认交易）
+- 设置交易确认实用工具
+
+_注意：我们的
+[kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)
+文件不包含任何身份验证，因此我们无需传入 API 密钥或 HMAC 密钥，但我们保留了注释代码以供参考。_
+
+### 步骤 2：设置密钥
+
+从环境变量加载所需的密钥对并获取 Kora 签名者地址：
+
+```ts
+async function setupKeys(client: KoraClient) {
+  console.log("\n[2/6] Setting up keypairs");
+
+  const testSenderKeypair = await getEnvKeyPair("TEST_SENDER_KEYPAIR");
+  const destinationKeypair = await getEnvKeyPair("DESTINATION_KEYPAIR");
+  const { signer_address } = await client.getPayerSigner();
+
+  console.log("  → Sender:", testSenderKeypair.address);
+  console.log("  → Destination:", destinationKeypair.address);
+  console.log("  → Kora signer address:", signer_address);
+
+  return { testSenderKeypair, destinationKeypair, signer_address };
+}
+```
+
+在这里，我们使用 `getEnvKeyPair` 函数从环境变量加载密钥对。密钥对代表：
+
+- **发送者** - 发起交易的用户，负责以支付代币向 Kora 节点付费。
+- **目标地址** - 转账的接收者。
+
+我们还使用 `getPayerSigner`
+方法获取 Kora 签名者地址。这是将用于通过 Kora 的签名对交易进行签名的地址。重要的是，我们从 Kora 节点获取有效的签名者，并在整个交易流程中始终如一地使用它。
+
+### 步骤 3：创建演示指令
+
+接下来，我们构建一组`testSender`想要发送到网络的指令。我们将使用 Kora 客户端来构建其中一些指令，并使用 @solana/programs 库来构建其他指令，以演示如何同时使用这两者。
+
+```ts
+async function createInstructions(
+  client: KoraClient,
+  testSenderKeypair: KeyPairSigner,
+  destinationKeypair: KeyPairSigner
+) {
+  console.log("\n[3/6] Creating demonstration instructions");
+
+  const paymentToken = await client
+    .getConfig()
+    .then((config) => config.validation_config.allowed_spl_paid_tokens[0]);
+  console.log("  → Payment token:", paymentToken);
+
+  // Create token transfer (will initialize ATA if needed)
+  const transferTokens = await client.transferTransaction({
+    amount: 10_000_000, // 10 USDC (6 decimals)
+    token: paymentToken,
+    source: testSenderKeypair.address,
+    destination: destinationKeypair.address
+  });
+  console.log("  ✓ Token transfer instruction created");
+
+  // Create SOL transfer
+  const transferSol = await client.transferTransaction({
+    amount: 10_000_000, // 0.01 SOL (9 decimals)
+    token: "11111111111111111111111111111111", // SOL mint address
+    source: testSenderKeypair.address,
+    destination: destinationKeypair.address
+  });
+  console.log("  ✓ SOL transfer instruction created");
+
+  // Add memo instruction
+  const memoInstruction = getAddMemoInstruction({
+    memo: "Hello, Kora!"
+  });
+  console.log("  ✓ Memo instruction created");
+
+  const instructions = [
+    ...transferTokens.instructions,
+    ...transferSol.instructions,
+    memoInstruction
+  ];
+
+  console.log(`  → Total: ${instructions.length} instructions`);
+  return { instructions, paymentToken };
+}
+```
+
+这里发生了很多事情，让我们逐步分析：
+
+1. 我们使用`getConfig`从 Kora 的配置中获取支付代币。因为我们已经设置好服务器，所以我们知道白名单中只有一个代币，因此可以直接访问第一个位置（`config.validation_config.allowed_spl_paid_tokens[0]`）。
+2. 我们使用 Kora 客户端的`transferTransaction`方法创建代币转账指令。这是一个辅助方法，可以轻松创建代币转账指令。
+3. 我们使用 Kora 客户端的`transferTransaction`方法创建 SOL 转账指令。我们在这里包含此示例以展示如何使用 Kora 客户端构建 SOL 转账——请注意，我们使用原生 SOL 铸币地址`11111111111111111111111111111111`来表示我们想要转账 SOL 而不是 SPL 代币转账。
+4. 我们使用 @solana/programs 库的`getAddMemoInstruction`函数添加备注指令。
+5. 我们将所有指令组合成一个数组。在下一步中，我们将使用此数组来构建估算交易。
+
+### 步骤 4：从 Kora 获取支付指令
+
+创建一个交易，该交易将向 Kora 生成支付指令，以换取执行交易所需的费用。
+
+```ts
+async function getPaymentInstruction(
+  client: KoraClient,
+  instructions: Instruction[],
+  testSenderKeypair: KeyPairSigner,
+  paymentToken: string
+): Promise<{ paymentInstruction: Instruction }> {
+  console.log("\n[4/6] Estimating Kora fee and assembling payment instruction");
+
+  const { signer_address } = await client.getPayerSigner();
+  const noopSigner = createNoopSigner(address(signer_address));
+  const latestBlockhash = await client.getBlockhash();
+
+  console.log("  → Fee payer:", signer_address.slice(0, 8) + "...");
+  console.log("  → Blockhash:", latestBlockhash.blockhash.slice(0, 8) + "...");
+
+  // Create estimate transaction to get payment instruction
+  const estimateTransaction = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+    (tx) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: latestBlockhash.blockhash as Blockhash,
+          lastValidBlockHeight: 0n
+        },
+        tx
+      ),
+    (tx) => appendTransactionMessageInstructions(instructions, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitPriceInstruction(CONFIG.computeUnitPrice, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitLimitInstruction(CONFIG.computeUnitLimit, tx)
+  );
+
+  const signedEstimateTransaction =
+    await partiallySignTransactionMessageWithSigners(estimateTransaction);
+  const base64EncodedWireTransaction = getBase64EncodedWireTransaction(
+    signedEstimateTransaction
+  );
+  console.log("  ✓ Estimate transaction built");
+
+  // Get payment instruction from Kora
+  const paymentInstruction = await client.getPaymentInstruction({
+    transaction: base64EncodedWireTransaction,
+    fee_token: paymentToken,
+    source_wallet: testSenderKeypair.address
+  });
+  console.log("  ✓ Payment instruction received from Kora");
+
+  return { paymentInstruction: paymentInstruction.payment_instruction };
+}
+```
+
+Kora
+SDK 有一个辅助方法`getPaymentInstruction`，可以计算交易所需的确切费用并创建支付转账指令。以下是我们的使用方式：
+
+1. 首先，我们创建一个包含所需指令的
+   `estimateTransaction`——该交易将在 Kora 服务器上模拟以估算交易所需的费用。
+2. 然后，我们对交易进行部分签名以获得 base64 编码的线格式字符串。
+3. 我们将 base64 编码的线格式交易传递给 `getPaymentInstruction`
+   方法，并提供支付代币和支付来源。这将返回一个 `Instruction`
+   对象，我们可以将其添加到交易中。
+
+这里的关键概念：
+
+- **有效区块哈希** - 我们使用 `getBlockhash`
+  方法为交易获取有效的区块哈希。这对于估算交易是必需的，因为它将在服务器上模拟交易。
+- **空操作签名者** - 在 Kora 签名之前构建交易时使用的占位符签名者。这允许我们在获得 Kora 签名之前在交易中指定费用支付者。有关空操作签名者的更多信息，请参阅
+  [Solana Kit 文档](https://www.solanakit.com/docs/concepts/signers#no-op-signers)。
+- **部分签名** - 为了将交易转换为 base64 编码的线格式字符串(我们需要通过 Kora
+  RPC 发送交易)，我们需要对交易进行部分签名。有关部分签名者的更多信息，请参阅
+  [Solana Kit 文档](https://www.solanakit.com/docs/concepts/signers#partial-signers)。
+
+### 步骤 5：创建并签署最终交易
+
+现在我们有了支付指令，可以创建包含原始指令和支付指令的最终交易。
+
+```ts
+async function getFinalTransaction(
+  client: KoraClient,
+  paymentInstruction: Instruction,
+  testSenderKeypair: KeyPairSigner,
+  instructions: Instruction[],
+  signer_address: string
+): Promise<Base64EncodedWireTransaction> {
+  console.log("\n[5/6] Creating and signing final transaction (with payment)");
+  const noopSigner = createNoopSigner(address(signer_address));
+
+  // Build final transaction with payment instruction
+  const newBlockhash = await client.getBlockhash();
+  const fullTransaction = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+    (tx) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: newBlockhash.blockhash as Blockhash,
+          lastValidBlockHeight: 0n
+        },
+        tx
+      ),
+    (tx) =>
+      appendTransactionMessageInstructions(
+        [...instructions, paymentInstruction],
+        tx
+      ),
+    (tx) =>
+      updateOrAppendSetComputeUnitPriceInstruction(CONFIG.computeUnitPrice, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitLimitInstruction(CONFIG.computeUnitLimit, tx)
+  );
+  console.log("  ✓ Final transaction built with payment");
+
+  // Sign with user keypair
+  const signedFullTransaction =
+    await partiallySignTransactionMessageWithSigners(fullTransaction);
+  const userSignedTransaction = await partiallySignTransaction(
+    [testSenderKeypair.keyPair],
+    signedFullTransaction
+  );
+  const base64EncodedWireFullTransaction = getBase64EncodedWireTransaction(
+    userSignedTransaction
+  );
+  console.log("  ✓ Transaction signed by user");
+
+  return base64EncodedWireFullTransaction;
+}
+```
+
+我们使用相同的 `pipe` 函数来组装交易。我们的最终交易包括：
+
+- 原始指令
+- 支付指令
+- 新的区块哈希
+- 与之前用于构建估算交易的相同空操作签名者
+
+然后我们调用相同的 `partiallySignTransactionMessageWithSigners`
+函数来获取交易的 base64 编码线格式字符串。但这一次,我们还运行
+`partiallySignTransaction` 来使用我们的 `testSenderKeypair`
+对交易进行签名。尽管我们的 Kora 节点支付网络费用,但我们的 `testSender`
+仍然需要签名以授权代币支付和我们创建的其他转账指令。对于不需要支付的 Kora 节点,某些指令可能不需要此签名步骤。最后,我们返回交易的 base64 编码线格式字符串。
+
+### 步骤 6:提交交易
+
+最后,我们需要让 Kora 节点对交易进行签名,以便我们可以将完全签名的交易发送到网络。我们通过在 Kora 客户端上调用
+`signTransaction` 方法来实现这一点。
+
+```ts
+async function submitTransaction(
+  client: KoraClient,
+  rpc: Rpc<SolanaRpcApi>,
+  confirmTransaction: ReturnType<
+    typeof createRecentSignatureConfirmationPromiseFactory
+  >,
+  signedTransaction: Base64EncodedWireTransaction,
+  signer_address: string
+) {
+  console.log(
+    "\n[6/6] Signing transaction with Kora and sending to Solana cluster"
+  );
+
+  // Get Kora's signature
+  const { signed_transaction } = await client.signTransaction({
+    transaction: signedTransaction,
+    signer_key: signer_address
+  });
+  console.log("  ✓ Transaction co-signed by Kora");
+
+  // Submit to Solana network
+  const signature = await rpc
+    .sendTransaction(signed_transaction as Base64EncodedWireTransaction, {
+      encoding: "base64"
+    })
+    .send();
+  console.log("  ✓ Transaction submitted to network");
+
+  console.log("  ⏳ Awaiting confirmation...");
+  await confirmTransaction({
+    commitment: "confirmed",
+    signature,
+    abortSignal: new AbortController().signal
+  });
+
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("SUCCESS: Transaction confirmed on Solana");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("\nTransaction signature:");
+  console.log(signature);
+
+  return signature;
+}
+```
+
+在这里我们做三件事:
+
+1. 我们在 Kora 客户端上调用 `signTransaction`
+   方法,让 Kora 节点对交易进行签名。节点将检查交易以确保支付充足,然后对交易进行签名。_注意:某些 Kora 节点可能启用了不需要支付的
+   `signTransaction`。您可以通过运行 `getConfig()`
+   来检查您的节点配置是否启用了此功能。_
+2. 我们使用 Solana RPC 客户端将完全签名的交易发送到 Solana 网络。
+3. 我们等待交易在网络上得到确认。
+
+### 主编排函数
+
+主函数将所有内容整合在一起,并按顺序调用我们的每个函数:
+
+```ts
+async function main() {
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("KORA GASLESS TRANSACTION DEMO");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  try {
+    // Step 1: Initialize clients
+    const { client, rpc, confirmTransaction } = await initializeClients();
+
+    // Step 2: Setup keys
+    const { testSenderKeypair, destinationKeypair, signer_address } =
+      await setupKeys(client);
+
+    // Step 3: Create demo instructions
+    const { instructions, paymentToken } = await createInstructions(
+      client,
+      testSenderKeypair,
+      destinationKeypair
+    );
+
+    // Step 4: Get payment instruction from Kora
+    const { paymentInstruction } = await getPaymentInstruction(
+      client,
+      instructions,
+      testSenderKeypair,
+      paymentToken
+    );
+
+    // Step 5: Create and partially sign final transaction
+    const finalSignedTransaction = await getFinalTransaction(
+      client,
+      paymentInstruction,
+      testSenderKeypair,
+      instructions,
+      signer_address
+    );
+
+    // Step 6: Get Kora's signature and submit to Solana cluster
+    await submitTransaction(
+      client,
+      rpc,
+      confirmTransaction,
+      finalSignedTransaction,
+      signer_address
+    );
+  } catch (error) {
+    console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("ERROR: Demo failed");
+    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("\nDetails:", error);
+    process.exit(1);
+  }
+}
+```
+
+## 运行完整演示
+
+运行完整的无 gas 交易演示:
+
+### 1. 确保满足前提条件
+
+设置三个终端窗口：
+
+1. 启动本地测试 validator：
+
+```bash
+solana-test-validator -r
+```
+
+2. 启动 Kora RPC 服务器（从 examples/getting-started/demo/server 目录）：
+
+```bash
+kora rpc start --signers-config signers.toml
+```
+
+3. 初始化环境（从 examples/getting-started/demo/client 目录）：
+
+```bash
+pnpm init-env
+```
+
+### 2. 运行演示
+
+```bash
+# From the client directory
+pnpm full-demo
+```
+
+### 3. 预期输出
+
+您应该会看到分步执行过程，最后会有一个成功的交易。该交易将：
+
+- 将代币从发送者转移到目标地址
+- 将 SOL 从发送者转移到目标地址
+- 包含一条"Hello, Kora！"备忘消息
+- 以您配置的 SPL 代币向 Kora 节点运营商支付费用
+- 由 Kora 节点运营商支付交易 gas 费用
+
+## 回顾：理解流程
+
+让我们回顾一下此演示中发生的事情：
+
+1. **用户意图** - 用户组装了一个交易，其中包含他们想要执行的各种指令。
+2. **费用估算** - Kora 以用户首选代币计算交易成本，并创建支付指令。
+3. **交易组装** - 用户组装最终交易，其中包含用户的预期指令和 Kora 支付指令。
+4. **交易签名** - 用户使用其 keypair 对交易进行部分签名，并在验证支付充足后发送到 Kora 节点进行签名。
+5. **原子执行** - 用户将交易发送到 Solana，所有操作在单个交易中完成：
+   - 执行用户预期的转账
+   - 将费用支付转给 Kora
+   - Kora 支付 Solana 网络费用并签署交易
+
+就这样，用户无需持有 SOL 来支付 gas 费用——他们可以使用自己已经持有的代币支付所有费用！
+
+## 故障排除
+
+### 常见问题
+
+**交易验证失败**
+
+- 验证所有程序是否已列入 `kora.toml` 白名单
+- 检查代币铸造地址是否在 `allowed_spl_paid_tokens` 中
+- 确保交易未超过 `max_allowed_lamports`
+
+**生成支付指令失败**
+
+- 确认估算交易具有用于模拟的最新区块哈希
+- 验证 Kora 的支付地址已初始化 ATA
+- 检查支付代币是否正确配置
+
+**签名验证失败**
+
+- 确保包含所有必需的签名者（Kora 以及代币支付或交易中包含的其他指令所需的任何签名者）
+- 验证交易在签名后未被修改
+- 检查密钥对是否正确加载
+
+## 总结
+
+恭喜！您已成功实现了完整的 Kora 免 Gas 交易流程。
+
+Kora 使您能够为用户提供无缝的 Web3 体验，让他们无需担心 Gas 费用或持有 SOL。无论您是在构建新银行、游戏平台还是流动性质押平台，Kora 的免 Gas 交易都消除了用户采用的主要障碍。
+
+> **提示：** 如需更简单的集成，请查看
+> [Kit 客户端指南](/docs/tools/kora/guides/kit-client)。`createKitKoraClient()`
+> API 会自动处理区块哈希管理、费用估算、支付指令注入和交易提交——将本指南中展示的手动步骤简化为几行代码。
+
+## 其他资源
+
+- **需要帮助？** 在 [Solana Stack Exchange](https://solana.stackexchange.com/)
+  上使用 `Kora` 标签提问
+- [**Kora 配置指南**](/docs/tools/kora/operators/configuration) - 详细的配置选项
+- [**签名者指南**](/docs/tools/kora/operators/signers) - 管理不同的签名者类型
+- [**API 参考**](/docs/tools/kora/json-rpc-api) - 完整的 RPC 方法文档
+- [**GitHub 仓库**](https://github.com/solana-foundation/kora) - 源代码和示例
+- [**Kora SDK**](https://www.npmjs.com/package/@solana/kora) - 用于与 Kora
+  RPC 端点交互的 SDK

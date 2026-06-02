@@ -1,12 +1,11 @@
 // #region dontfront
 import {
   address,
-  airdropFactory,
+  AccountRole,
+  createClient,
+  createTransactionMessage,
   appendTransactionMessageInstructions,
   assertIsTransactionWithBlockhashLifetime,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
   generateKeyPairSigner,
   getBase64EncodedWireTransaction,
   lamports,
@@ -14,10 +13,11 @@ import {
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
-  AccountRole,
-  type Instruction,
   type Address,
+  type Instruction,
 } from "@solana/kit";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
 
 // Jito block engine endpoint (mainnet)
@@ -59,20 +59,20 @@ function randomTipAccount(): Address {
   return TIP_ACCOUNTS[Math.floor(Math.random() * TIP_ACCOUNTS.length)]!;
 }
 
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
+// Set up a kit client against the local validator and fund the signer
+// so it can pay fees + tip.
 const signer = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
-
-// Fund signer so it can pay fees + tip
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: signer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed",
-});
-
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const client = await createClient()
+  .use(payer(signer))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
 // Build a transfer with dontfront protection
 const transferIx = withDontFront(
@@ -90,6 +90,8 @@ const tipIx = getTransferSolInstruction({
   amount: lamports(1_000n),
 });
 
+// Build + sign manually because we submit via Jito's block engine, not RPC.
+const { value: latestBlockhash } = await client.rpc.getLatestBlockhash().send();
 const transactionMessage = pipe(
   createTransactionMessage({ version: 0 }),
   (m) => setTransactionMessageFeePayerSigner(signer, m),

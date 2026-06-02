@@ -30,13 +30,13 @@ type RecentPublishedPost = {
   publishedAt: Date;
 };
 
-async function getPublishedPosts(): Promise<RecentPublishedPost[]> {
+async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
   const allSlugs = await reader.collections.posts.list();
   const posts: RecentPublishedPost[] = [];
 
   for (const slug of allSlugs) {
     const post = await reader.collections.posts.read(slug);
-    if (!isPublishedPost(post)) {
+    if (!isPublishedPost(post, now)) {
       continue;
     }
 
@@ -65,7 +65,7 @@ async function buildGoogleNewsSitemapXml(
   const minNewsPublishedAt = new Date(
     now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
   );
-  const posts = await getPublishedPosts();
+  const posts = await getPublishedPosts(now);
   const urls = posts.map((post) => {
     const loc = `${NEWS_URL}/${post.slug}`;
     const isGoogleNewsEligible =

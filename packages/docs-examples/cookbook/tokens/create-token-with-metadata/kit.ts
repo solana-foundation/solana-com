@@ -1,40 +1,26 @@
 // #region create
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  assertIsTransactionWithBlockhashLifetime,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners,
-} from "@solana/kit";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropPayer, payer as kitPayer } from "@solana/kit-plugin-signer";
 import {
   getCreateV1InstructionAsync,
   fetchMetadataFromSeeds,
   TokenStandard,
 } from "@metaplex-foundation/mpl-token-metadata-kit";
 
-// Create connection to local validator
-const rpc = createSolanaRpc("http://127.0.0.1:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
-
-// Generate keypairs
 const payer = await generateKeyPairSigner();
 const mint = await generateKeyPairSigner();
 
-// Airdrop SOL to payer
-const airdrop = airdropFactory({ rpc, rpcSubscriptions });
-await airdrop({
-  recipientAddress: payer.address,
-  lamports: lamports(1_000_000_000n),
-  commitment: "confirmed",
-});
+const client = await createClient()
+  .use(kitPayer(payer))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
 // Create token with metadata
 const createInstruction = await getCreateV1InstructionAsync({
@@ -48,27 +34,13 @@ const createInstruction = await getCreateV1InstructionAsync({
   tokenStandard: TokenStandard.Fungible,
 });
 
-// Build and send transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([createInstruction], tx),
-);
-
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-assertIsTransactionWithBlockhashLifetime(signedTransaction);
-
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" },
-);
+const { context } = await client.sendTransaction([createInstruction]);
+console.log("Transaction Signature:", context.signature);
 
 // Verify metadata was created
-const metadata = await fetchMetadataFromSeeds(rpc, { mint: mint.address });
+const metadata = await fetchMetadataFromSeeds(client.rpc, {
+  mint: mint.address,
+});
 
 console.log("Mint Address:", mint.address);
 console.log("Token Name:", metadata.data.name);

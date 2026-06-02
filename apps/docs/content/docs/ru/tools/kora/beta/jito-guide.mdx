@@ -1,0 +1,527 @@
+---
+title: Как реализовать пакеты транзакций без комиссии с Jito и Kora
+description:
+  Это руководство научит вас реализовывать пакеты Jito без комиссии с помощью
+  Kora.
+date: 2025-01-09
+---
+
+_Последнее обновление: 2025-01-09_
+
+## Что вы создадите
+
+В [руководстве по полному циклу транзакций](/docs/tools/kora/guides/full-demo)
+вы узнали, как создавать транзакции без комиссии с помощью Kora. Однако
+существует множество сценариев, где одной транзакции недостаточно или в одной
+транзакции не хватает места для включения инструкции платежа Kora. В этом
+руководстве мы создадим демонстрацию, показывающую, как использовать Kora для
+подписи и отправки пакета транзакций в блок-движок Jito для атомарного
+выполнения в Solana Mainnet. Сервер Kora оплатит чаевые Jito и все комиссии за
+транзакции.
+
+Конечным результатом будет рабочая система пакетов Jito:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KORA JITO BUNDLE DEMO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing clients
+  → Kora RPC: http://localhost:8080/
+  → Solana RPC: https://api.mainnet-beta.solana.com
+
+[2/4] Setting up keypairs
+  → Sender: BYJVBqQ2xV9GECc84FeoPQy2DpgoonZQFQu97MMWTbBc
+  → Kora signer address: 3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE
+
+[3/4] Creating bundle transactions
+  → Blockhash: 7HZUaMqV...
+  → Tip account: 96gYZGLn...
+  → Transaction 1: Kora Memo "Bundle tx #1"
+  → Transaction 2: Kora Memo "Bundle tx #2"
+  → Transaction 3: Kora Memo "Bundle tx #3"
+  → Transaction 4: Kora Memo "Bundle tx #4" + Jito tip
+  ✓ 4 transactions created for bundle
+
+[4/4] Signing and sending bundle
+  ✓ Bundle submitted to Jito block engine
+  → Bundle UUID: 8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Bundle confirmed on Solana
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bundle UUID:
+8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+```
+
+Вот как мы это создаем.
+
+## Предварительные требования
+
+Перед началом этого руководства убедитесь, что у вас есть:
+
+- Завершено
+  [руководство по полному циклу транзакций Kora](/docs/tools/kora/guides/full-demo)
+  — мы опираемся на эти концепции
+- [**Node.js**](https://nodejs.org/en/download) (LTS или новее)
+- **Знакомство** с
+  [транзакциями Solana](https://solana.com/docs/core/transactions)
+- **Знакомство** с
+  [пакетами Jito](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)
+
+### Kora v2.2.0 Beta
+
+**Важно**: Для этого руководства требуется бета-версия Kora v2.2.0. Вы можете
+найти релиз
+[здесь](https://github.com/solana-foundation/kora/releases/tag/v2.2.0-beta.7).
+Это предварительная версия и может содержать ошибки.
+
+```bash
+cargo install kora-cli@2.2.0-beta.7
+```
+
+## Основы пакетов Jito
+
+В Solana каждая инструкция в транзакции является атомарной — если одна
+инструкция проваливается, вся транзакция проваливается. Пакеты — это инструмент,
+который позволяет выполнять до 5 транзакций атомарно и последовательно. Пакеты
+стимулируются чаевыми: чем выше чаевые, тем выше приоритет.
+
+Это руководство предполагает, что у вас есть базовое понимание и опыт работы с
+[пакетами Jito](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles/).
+
+## Структура проекта
+
+Пример кода для этой демонстрации можно найти в
+[примерах Kora](https://github.com/solana-foundation/kora/tree/v2.2.0-beta.7/examples/jito-bundles):
+
+```
+jito-bundles/
+├── client/
+│   ├── src/
+│   │   └── index.ts       # Bundle demo implementation
+│   └── package.json
+├── server/
+│   ├── kora.toml          # Kora configuration with bundles enabled
+│   └── signers.toml       # Signer configuration
+└── scripts/
+    └── start-kora.sh      # Server startup script
+```
+
+Клонируйте репозиторий kora и перейдите в директорию jito-bundles:
+
+```bash
+git clone https://github.com/solana-foundation/kora.git
+cd kora/examples/jito-bundles
+```
+
+## Настройка сервера Kora
+
+### kora.toml
+
+Ключевая конфигурация для поддержки пакетов:
+
+```toml
+[kora]
+rate_limit = 100
+
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+
+[kora.enabled_methods]
+sign_bundle = true
+sign_and_send_bundle = true
+estimate_bundle_fee = true
+get_blockhash = true
+get_config = true
+get_payer_signer = true
+
+[validation]
+max_allowed_lamports = 1000000
+max_signatures = 10
+price_source = "Mock"
+allowed_programs = [
+    "11111111111111111111111111111111",            # System Program
+    "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", # Memo Program
+]
+
+[validation.fee_payer_policy.system]
+allow_transfer = true  # Required for Jito tip transfers
+
+[validation.price]
+type = "free"  # No payment required for this demo
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+**Важные** настройки для поддержки пакетов:
+
+- **sign_bundle / sign_and_send_bundle** — включают RPC-методы для работы с
+  пакетами
+- **allow_transfer = true** — подписант Kora оплачивает чаевые Jito, поэтому ему
+  требуется разрешение на перевод
+- **bundle.enabled = true** — главный переключатель функциональности пакетов
+- Мы используем публичный URL block engine mainnet для этой демонстрации. В
+  production-среде следует использовать приватный URL block engine.
+
+### signers.toml
+
+```toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY"
+```
+
+Обязательно переименуйте `.env.example` в `.env` и установите переменную
+окружения `KORA_PRIVATE_KEY` равной вашему приватному ключу mainnet. Кошельку
+подписанта необходим SOL в mainnet для оплаты:
+
+1. Комиссий за транзакции для всех транзакций пакета
+2. Чаевых Jito (минимум 1 000 lamport)
+
+**Важно**: Данное руководство демонстрирует использование чаевых Jito в Solana
+Mainnet. Чаевые не подлежат возврату.
+
+### Запуск сервера
+
+Из директории `server/`:
+
+```bash
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+Или используйте предоставленный скрипт. Из директории `server/`:
+
+```bash
+../scripts/start-kora.sh
+```
+
+## Реализация клиента
+
+Мы пошагово рассмотрим реализацию клиента, начиная с импортов.
+
+### Импорты и конфигурация
+
+```ts
+import { KoraClient } from "@solana/kora";
+import {
+  createNoopSigner,
+  address,
+  getBase64EncodedWireTransaction,
+  partiallySignTransactionMessageWithSigners,
+  Blockhash,
+  KeyPairSigner,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  generateKeyPairSigner
+} from "@solana/kit";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const MINIMUM_JITO_TIP = 1_000n; // lamports
+
+const CONFIG = {
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
+  koraRpcUrl: "http://localhost:8080/",
+  jitoTipLamports: MINIMUM_JITO_TIP,
+  bundleSize: 4, // We'll create 4 transactions for this demo
+  pollIntervalMs: 6000,
+  pollTimeoutMs: 60000
+};
+```
+
+Мы настраиваем:
+
+- Импорты **Solana Kit** для построения транзакций
+- **Программу Memo** для наших демонстрационных транзакций (в реальных условиях
+  вы бы использовали настоящие операции)
+- **System Program** для перевода чаевых Jito
+- **Конфигурацию** для RPC эндпоинтов и параметров бандла
+
+### Аккаунты чаевых Jito
+
+У Jito есть
+[8 аккаунтов для чаевых](https://docs.jito.wtf/lowlatencytxnsend/#response-example-tips),
+на которые можно отправить SOL. Мы случайным образом выбираем один из них для
+этой демонстрации.
+
+```ts
+// Jito tip accounts - one is randomly selected by the block engine
+const JITO_TIP_ACCOUNTS = [
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"
+];
+
+function getRandomTipAccount(): string {
+  return JITO_TIP_ACCOUNTS[
+    Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)
+  ];
+}
+```
+
+Аккаунты для чаевых — это адреса, управляемые Jito. Отправка SOL на любой из них
+сигнализирует валидаторам о размере ваших чаевых.
+
+### Шаг 1: Инициализация клиентов
+
+Мы инициализируем клиент Kora с нашим API-ключом, который соответствует тому,
+что настроено в `kora.toml`. В продакшене вы бы загружали его из переменной
+окружения.
+
+```ts
+async function initializeClients() {
+  console.log("\n[1/4] Initializing clients");
+  console.log("  → Kora RPC:", CONFIG.koraRpcUrl);
+  console.log("  → Solana RPC:", CONFIG.solanaRpcUrl);
+
+  const client = new KoraClient({
+    rpcUrl: CONFIG.koraRpcUrl,
+    apiKey: "kora_facilitator_api_key_example"
+  });
+
+  return { client };
+}
+```
+
+### Шаг 2: Настройка ключей
+
+```ts
+async function setupKeys(client: KoraClient) {
+  console.log("\n[2/4] Setting up keypairs");
+
+  const senderKeypair = await generateKeyPairSigner();
+  console.log("  → Sender:", senderKeypair.address);
+
+  const { signer_address } = await client.getPayerSigner();
+  console.log("  → Kora signer address:", signer_address);
+
+  return { senderKeypair, signer_address };
+}
+```
+
+Мы используем `generateKeyPairSigner()` для создания новой пары ключей для
+демонстрации. Поскольку keypair только подписывает инструкции memo и не должен
+оплачивать никакие комиссии Kora (согласно нашей конфигурации), SOL или другие
+токены не требуются. Подписант Kora (получаемый через `getPayerSigner`)
+оплачивает все комиссии и чаевые Jito.
+
+### Шаг 3: Создание транзакций бандла
+
+Теперь давайте создадим бандл транзакций. Мы создаем несколько транзакций,
+каждая со своими уникальными инструкциями. Мы используем уникальные инструкции
+memo здесь, чтобы легко проверить наши транзакции после их попадания в Solana
+Mainnet.
+
+```ts
+async function createBundleTransactions(
+  client: KoraClient,
+  senderKeypair: KeyPairSigner,
+  signer_address: string
+) {
+  console.log("\n[3/4] Creating bundle transactions");
+
+  const noopSigner = createNoopSigner(address(signer_address));
+  const latestBlockhash = await client.getBlockhash();
+  const tipAccount = getRandomTipAccount();
+
+  console.log("  → Blockhash:", latestBlockhash.blockhash.slice(0, 8) + "...");
+  console.log("  → Tip account:", tipAccount.slice(0, 8) + "...");
+
+  const transactions: string[] = [];
+
+  for (let i = 0; i < CONFIG.bundleSize; i++) {
+    const isLastTransaction = i === CONFIG.bundleSize - 1;
+    console.log(
+      `  → Transaction ${i + 1}: Kora Memo "Bundle tx #${i + 1}"${
+        isLastTransaction ? " + Jito tip" : ""
+      }`
+    );
+
+    // Build transaction with memo
+    let transactionMessage = pipe(
+      createTransactionMessage({
+        version: 0
+      }),
+      (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+      (tx) =>
+        setTransactionMessageLifetimeUsingBlockhash(
+          {
+            blockhash: latestBlockhash.blockhash as Blockhash,
+            lastValidBlockHeight: 0n
+          },
+          tx
+        ),
+      (tx) =>
+        appendTransactionMessageInstruction(
+          getAddMemoInstruction({
+            memo: `Kora Bundle tx #${i + 1} of ${CONFIG.bundleSize}`,
+            signers: [senderKeypair]
+          }),
+          tx
+        ),
+      // Add Jito tip to the LAST transaction only
+      (tx) =>
+        isLastTransaction
+          ? appendTransactionMessageInstruction(
+              getTransferSolInstruction({
+                source: noopSigner,
+                destination: address(tipAccount),
+                amount: CONFIG.jitoTipLamports
+              }),
+              tx
+            )
+          : tx
+    );
+
+    // Sign with sender keypair (required for memo instruction)
+    const signedTransaction =
+      await partiallySignTransactionMessageWithSigners(transactionMessage);
+    const base64Transaction =
+      getBase64EncodedWireTransaction(signedTransaction);
+    transactions.push(base64Transaction);
+  }
+
+  console.log(`  ✓ ${transactions.length} transactions created for bundle`);
+  return transactions;
+}
+```
+
+**Важно: Чаевые оплачиваются подписантом Kora**: Поскольку мы хотим, чтобы узел
+Kora оплатил наши чаевые Jito, мы используем "холостого" подписанта
+(`noopSigner`), где адрес Kora является источником перевода чаевых. Kora
+подпишет это при обработке бандла.
+
+### Шаг 4: Подписание и отправка бандла
+
+Теперь мы можем объединить всё вместе и отправить пакет в Kora для подписания и
+отправки в блок-движок Jito.
+
+```ts
+async function main() {
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("KORA JITO BUNDLE DEMO");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  try {
+    // Step 1: Initialize clients
+    const { client } = await initializeClients();
+
+    // Step 2: Setup keys
+    const { senderKeypair, signer_address } = await setupKeys(client);
+
+    // Step 3: Create bundle transactions
+    const transactions = await createBundleTransactions(
+      client,
+      senderKeypair,
+      signer_address
+    );
+
+    // Step 4: Sign and send bundle
+    console.log("\n[4/4] Signing and sending bundle");
+    const { bundle_uuid } = await client.signAndSendBundle({
+      transactions,
+      signer_key: signer_address
+    });
+
+    console.log("\nBundle UUID:");
+    console.log(bundle_uuid);
+  } catch (error) {
+    console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("ERROR: Demo failed");
+    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("\nDetails:", error);
+    process.exit(1);
+  }
+}
+
+main().catch((e) => console.error("Error:", e));
+```
+
+## Запуск демо
+
+### 1. Запустите сервер Kora
+
+```bash
+cd examples/jito-bundles/server
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+### 2. Запустите клиент
+
+В новом терминале перейдите в каталог `client/` и запустите демо:
+
+```bash
+cd examples/jito-bundles/client
+
+# Install dependencies
+pnpm install
+
+# Run the demo
+pnpm start
+```
+
+### Ожидаемый результат
+
+Вы должны увидеть пошаговое выполнение с успешным пакетом в конце. Пакет:
+
+- Создаст 4 транзакции с заметками
+- Добавит чаевые Jito (1 000 lamport) к последней транзакции
+- Все транзакции будут подписаны Kora в качестве плательщика комиссии
+- Атомарно отправится в блок-движок Jito
+
+_Примечание:_
+
+- Стандартный маршрутизатор Jito может достичь лимитов частоты запросов. Если вы
+  получите ошибку 429, можете повторить попытку позже или запросить более
+  высокие лимиты. Ознакомьтесь с
+  [документацией по ограничению частоты запросов](https://docs.jito.wtf/lowlatencytxnsend/#exceeding-limits)
+  Jito для получения дополнительной информации.
+- Поскольку наше демо использует очень маленькие чаевые, пакет может не попасть
+  в Solana Mainnet. Если вы не видите пакет в
+  [обозревателе пакетов Jito](https://explorer.jito.wtf/), вы можете повторить
+  попытку позже с более высокими чаевыми.
+
+## Понимание произошедшего
+
+Вот что произошло иначе по сравнению с одиночными транзакциями:
+
+1. **Множественные транзакции** — Вместо одной транзакции мы создали 4, которые
+   должны выполняться вместе
+2. **Чаевые Jito** — Мы добавили перевод чаевых (оплачивается подписантом Kora)
+   для стимулирования валидаторов
+3. **Проверка пакета** — Kora проверила, что все транзакции соответствуют
+   требованиям, указанным в `kora.toml`
+4. **Атомарная отправка** — Все транзакции отправлены как единое целое в Jito
+   нашим сервером Kora, при этом все комиссии и чаевые оплачены подписантом Kora
+
+Результат: либо все 4 транзакции выполняются последовательно, либо ни одна.
+Никаких промежуточных состояний.
+
+## Дополнительные ресурсы
+
+- **Нужна помощь?** Задавайте вопросы на
+  [Solana Stack Exchange](https://solana.stackexchange.com/) с тегом `Kora`
+- [**Документация Jito**](https://docs.jito.wtf/) — Официальная документация
+  Jito MEV
+- [**Методы Bundle RPC**](/docs/tools/kora/beta/bundle-methods) — signBundle,
+  signAndSendBundle, estimateBundleFee
+- [**Репозиторий GitHub**](https://github.com/solana-foundation/kora) — Исходный
+  код и примеры
