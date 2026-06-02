@@ -436,17 +436,17 @@ function InlineControl<T extends string | number>({
   return (
     <div
       aria-label={ariaLabel}
-      className="inline-flex shrink-0 items-center gap-1"
+      className="inline-flex shrink-0 items-center gap-1.5"
       role="group"
     >
       {options.map((option) => (
         <button
           aria-pressed={option.value === value}
           className={cn(
-            "px-2 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
+            "border px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
             option.value === value
-              ? "bg-nd-primary text-nd-on-primary"
-              : "text-nd-mid-em-text hover:text-nd-high-em-text",
+              ? "border-nd-primary bg-nd-primary text-nd-on-primary"
+              : "border-nd-border-prominent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
           )}
           key={option.value}
           onClick={() => onChange(option.value)}
