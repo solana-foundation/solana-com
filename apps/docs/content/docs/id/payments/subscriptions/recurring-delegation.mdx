@@ -1,0 +1,275 @@
+---
+title: Delegasi Berulang
+description: Panduan untuk mengatur transaksi delegasi berulang.
+---
+
+Delegasi berulang memungkinkan pengguna menyetujui dompet atau layanan lain
+untuk menarik hingga batas tertentu yang disetel ulang setiap periode.
+
+Panduan ini menjaga agar semua komponen tetap terlihat. Anda menurunkan akun
+terlebih dahulu, menginisialisasi Subscription Authority jika diperlukan,
+membuat delegasi berulang, lalu menggunakan PDA delegasi tersebut untuk
+transfer.
+
+## Instalasi
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```bash
+    pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```toml
+    [dependencies]
+    subscriptions = "^0.1"
+    solana-instruction = "^2"
+    solana-address = { version = "^2", features = ["curve25519"] }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Membuat Delegasi
+
+Pengaturan memiliki empat bagian:
+
+1. Buat klien dengan penandatangan pengguna dan plugin subscriptions.
+2. Turunkan token account pengguna, PDA Subscription Authority, dan PDA delegasi
+   berulang.
+3. Inisialisasi Subscription Authority jika belum ada.
+4. Buat delegasi berulang dengan jumlah periode, panjang periode, waktu mulai,
+   dan kedaluwarsa.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { address, createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findRecurringDelegationPda,
+      findSubscriptionAuthorityPda,
+      subscriptionsProgram,
+    } from '@solana/subscriptions';
+
+    const client = createClient()
+      .use(signer(userSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const delegatee = address('DELEGATEE_WALLET_ADDRESS_HERE');
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const nonce = 0n;
+    const amountPerPeriod = 1_000_000n;
+    const periodLengthS = 86_400n;
+    const startTs = now;
+    const expiryTs = now + periodLengthS * 30n;
+
+    const [userAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: userSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: userSigner.address,
+      tokenMint,
+    });
+
+    const [delegationPda] = await findRecurringDelegationPda({
+      subscriptionAuthority: subscriptionAuthorityPda,
+      delegator: userSigner.address,
+      delegatee,
+      nonce,
+    });
+
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      client.rpc,
+      subscriptionAuthorityPda,
+    );
+
+    if (!subscriptionAuthority.exists) {
+      await client.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta,
+        })
+        .sendTransaction();
+    }
+
+    await client.subscriptions.instructions
+      .createRecurringDelegation({
+        tokenMint,
+        delegatee,
+        nonce,
+        amountPerPeriod,
+        periodLengthS,
+        startTs,
+        expiryTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
+
+    const SYSTEM_PROGRAM_ID: Address = address!("11111111111111111111111111111111");
+    const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let user: Address = address!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Address = address!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Address = address!("TOKEN_MINT_ADDRESS_HERE");
+    let delegatee: Address = address!("DELEGATEE_WALLET_ADDRESS_HERE");
+    let nonce = 0u64;
+    let amount_per_period = 1_000_000u64;
+    let period_length_s = 86_400u64;
+    let start_ts = 1_731_657_600i64;
+    let expiry_ts = start_ts + 86_400 * 30;
+
+    let (subscription_authority, _) = Address::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let (delegation_pda, _) = Address::find_program_address(
+        &[
+            b"delegation",
+            subscription_authority.as_ref(),
+            user.as_ref(),
+            delegatee.as_ref(),
+            &nonce.to_le_bytes(),
+        ],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(user)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(user_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+
+    let create_ix = CreateRecurringDelegationBuilder::new()
+        .delegator(user)
+        .subscription_authority(subscription_authority)
+        .delegation_account(delegation_pda)
+        .delegatee(delegatee)
+        .recurring_delegation(CreateRecurringDelegationData {
+            nonce,
+            amount_per_period,
+            period_length_s,
+            start_ts,
+            expiry_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Transfer Dari Delegasi
+
+Delegatee menandatangani setiap transfer. Program memeriksa periode saat ini dan
+menolak transfer yang akan melebihi sisa kuota periode tersebut.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    const receiverAta = address('RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE');
+
+    await client.subscriptions.instructions
+      .transferRecurring({
+        delegatee: delegateeSigner,
+        delegator: userSigner.address,
+        delegatorAta: userAta,
+        tokenMint,
+        delegationPda,
+        amount: 100_000n,
+        receiverAta,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::{TransferData, TransferRecurringBuilder};
+
+    let receiver_ata: Address = address!("RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE");
+
+    let transfer_ix = TransferRecurringBuilder::new()
+        .delegation_pda(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .delegator_ata(user_ata)
+        .receiver_ata(receiver_ata)
+        .token_program(TOKEN_PROGRAM_ID)
+        .delegatee(delegatee)
+        .transfer_data(TransferData { amount: 100_000, delegator: user, mint: token_mint })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Mencabut Delegasi
+
+Delegator dapat mencabut delegasi berulang kapan saja. Pencabutan akan menutup
+PDA delegasi dan mengembalikan biaya sewa ke penandatangan.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await client.subscriptions.instructions
+      .revokeDelegation({
+        authority: userSigner,
+        delegationAccount: delegationPda,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let revoke_ix = RevokeDelegationBuilder::new()
+        .authority(user)
+        .delegation_account(delegation_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Catatan
+
+- `amountPerPeriod` dalam unit dasar. Untuk token dengan 6 desimal, `1_000_000`
+  berarti `1` token.
+- Program menolak transfer yang melebihi sisa kuota periode saat ini.
+- Setelah periode berikutnya dimulai, jumlah yang ditarik akan direset.
+- Pengguna menandatangani transaksi pengaturan dan pencabutan. Delegatee
+  menandatangani transfer.

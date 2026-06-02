@@ -1,0 +1,515 @@
+---
+title: Jito와 Kora를 사용하여 가스리스 트랜잭션 번들 구현하는 방법
+description:
+  이 가이드는 Kora를 사용하여 가스리스 Jito 번들을 구현하는 방법을 알려드립니다.
+date: 2025-01-09
+---
+
+_최종 업데이트: 2025-01-09_
+
+## 만들게 될 것
+
+[전체 트랜잭션 플로우 가이드](/docs/tools/kora/guides/full-demo)에서 Kora를
+사용하여 가스리스 트랜잭션을 생성하는 방법을 배웠습니다. 하지만 단일
+트랜잭션으로는 충분하지 않거나 하나의 트랜잭션에 Kora 결제 인스트럭션을 포함할
+공간이 부족한 시나리오가 많이 있습니다. 이 가이드에서는 Kora를 사용하여 Solana
+메인넷에서 원자적 실행을 위해 Jito의 블록 엔진으로 트랜잭션 번들을 서명하고
+전송하는 방법을 보여주는 데모를 구축하겠습니다. Kora 서버는 Jito 팁과 모든
+트랜잭션 수수료를 지불합니다.
+
+최종 결과물은 작동하는 Jito 번들 시스템이 될 것입니다:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KORA JITO BUNDLE DEMO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing clients
+  → Kora RPC: http://localhost:8080/
+  → Solana RPC: https://api.mainnet-beta.solana.com
+
+[2/4] Setting up keypairs
+  → Sender: BYJVBqQ2xV9GECc84FeoPQy2DpgoonZQFQu97MMWTbBc
+  → Kora signer address: 3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE
+
+[3/4] Creating bundle transactions
+  → Blockhash: 7HZUaMqV...
+  → Tip account: 96gYZGLn...
+  → Transaction 1: Kora Memo "Bundle tx #1"
+  → Transaction 2: Kora Memo "Bundle tx #2"
+  → Transaction 3: Kora Memo "Bundle tx #3"
+  → Transaction 4: Kora Memo "Bundle tx #4" + Jito tip
+  ✓ 4 transactions created for bundle
+
+[4/4] Signing and sending bundle
+  ✓ Bundle submitted to Jito block engine
+  → Bundle UUID: 8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Bundle confirmed on Solana
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bundle UUID:
+8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+```
+
+다음은 구축 방법입니다.
+
+## 사전 요구사항
+
+이 튜토리얼을 시작하기 전에 다음 사항을 확인하세요:
+
+- [Kora 전체 트랜잭션 플로우 가이드](/docs/tools/kora/guides/full-demo) 완료 —
+  해당 개념을 기반으로 진행합니다
+- [**Node.js**](https://nodejs.org/en/download) (LTS 이상)
+- [Solana 트랜잭션](https://solana.com/docs/core/transactions)에 대한 **친숙함**
+- [Jito 번들](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)에 대한
+  **친숙함**
+
+### Kora v2.2.0 베타
+
+**중요**: 이 가이드는 Kora v2.2.0 베타 버전이 필요합니다. 릴리스는
+[여기](https://github.com/solana-foundation/kora/releases/tag/v2.2.0-beta.7)에서
+찾을 수 있습니다. 이는 프리릴리스이며 버그가 포함되어 있을 수 있습니다.
+
+```bash
+cargo install kora-cli@2.2.0-beta.7
+```
+
+## Jito 번들 기초
+
+Solana에서는 트랜잭션의 모든 인스트럭션이 원자적입니다. 하나의 인스트럭션이
+실패하면 전체 트랜잭션이 실패합니다. 번들은 최대 5개의 트랜잭션을 원자적이고
+순차적으로 실행할 수 있게 해주는 도구입니다. 번들은 팁으로 인센티브를 받으며,
+팁이 높을수록 우선순위가 높아집니다.
+
+이 가이드는
+[Jito 번들](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles/)에 대한
+기본적인 이해와 경험이 있다고 가정합니다.
+
+## 프로젝트 구조
+
+이 데모의 샘플 코드는
+[Kora 예제](https://github.com/solana-foundation/kora/tree/v2.2.0-beta.7/examples/jito-bundles)에서
+확인할 수 있습니다:
+
+```
+jito-bundles/
+├── client/
+│   ├── src/
+│   │   └── index.ts       # Bundle demo implementation
+│   └── package.json
+├── server/
+│   ├── kora.toml          # Kora configuration with bundles enabled
+│   └── signers.toml       # Signer configuration
+└── scripts/
+    └── start-kora.sh      # Server startup script
+```
+
+kora 저장소를 클론하고 jito-bundles 디렉토리로 이동하세요:
+
+```bash
+git clone https://github.com/solana-foundation/kora.git
+cd kora/examples/jito-bundles
+```
+
+## Kora 서버 구성
+
+### kora.toml
+
+번들 지원을 위한 핵심 구성:
+
+```toml
+[kora]
+rate_limit = 100
+
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+
+[kora.enabled_methods]
+sign_bundle = true
+sign_and_send_bundle = true
+estimate_bundle_fee = true
+get_blockhash = true
+get_config = true
+get_payer_signer = true
+
+[validation]
+max_allowed_lamports = 1000000
+max_signatures = 10
+price_source = "Mock"
+allowed_programs = [
+    "11111111111111111111111111111111",            # System Program
+    "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", # Memo Program
+]
+
+[validation.fee_payer_policy.system]
+allow_transfer = true  # Required for Jito tip transfers
+
+[validation.price]
+type = "free"  # No payment required for this demo
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+번들 지원을 위한 **중요한** 설정:
+
+- **sign_bundle / sign_and_send_bundle** — 번들 RPC 메서드를 활성화합니다
+- **allow_transfer = true** — Kora의 서명자가 Jito 팁을 지불하므로 전송 권한이
+  필요합니다
+- **bundle.enabled = true** — 번들 기능의 마스터 스위치
+- 이 데모에서는 공개 메인넷 블록 엔진 URL을 사용합니다. 프로덕션 환경에서는
+  프라이빗 블록 엔진 URL을 사용하셔야 합니다.
+
+### signers.toml
+
+```toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY"
+```
+
+`.env.example`를 `.env`로 이름을 변경하고 `KORA_PRIVATE_KEY` 환경 변수를 메인넷
+개인 키로 설정하세요. 서명자 지갑은 다음 항목을 지불하기 위해 메인넷에 SOL이
+필요합니다:
+
+1. 모든 번들 트랜잭션의 트랜잭션 수수료
+2. Jito 팁 (최소 1,000 lamport)
+
+**중요**: 이 가이드는 Solana 메인넷에서 Jito 팁 사용을 시연합니다. 팁은 환불되지
+않습니다.
+
+### 서버 시작하기
+
+`server/` 디렉토리에서:
+
+```bash
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+또는 제공된 스크립트를 사용하세요. `server/` 디렉토리에서:
+
+```bash
+../scripts/start-kora.sh
+```
+
+## 클라이언트 구현
+
+import부터 시작하여 클라이언트 구현을 단계별로 살펴보겠습니다.
+
+### Import 및 구성
+
+```ts
+import { KoraClient } from "@solana/kora";
+import {
+  createNoopSigner,
+  address,
+  getBase64EncodedWireTransaction,
+  partiallySignTransactionMessageWithSigners,
+  Blockhash,
+  KeyPairSigner,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  generateKeyPairSigner
+} from "@solana/kit";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const MINIMUM_JITO_TIP = 1_000n; // lamports
+
+const CONFIG = {
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
+  koraRpcUrl: "http://localhost:8080/",
+  jitoTipLamports: MINIMUM_JITO_TIP,
+  bundleSize: 4, // We'll create 4 transactions for this demo
+  pollIntervalMs: 6000,
+  pollTimeoutMs: 60000
+};
+```
+
+설정 중인 항목:
+
+- 트랜잭션 구축을 위한 **Solana Kit** 임포트
+- 데모 트랜잭션을 위한 **Memo 프로그램** (실제 운영에서는 실제 작업으로 대체)
+- Jito 팁 전송을 위한 **System Program**
+- RPC 엔드포인트 및 번들 매개변수를 위한 **구성**
+
+### Jito 팁 계정
+
+Jito에는 SOL을 보낼 수 있는
+[8개의 팁 계정](https://docs.jito.wtf/lowlatencytxnsend/#response-example-tips)이
+있습니다. 이 데모에서는 그 중 하나를 무작위로 선택합니다.
+
+```ts
+// Jito tip accounts - one is randomly selected by the block engine
+const JITO_TIP_ACCOUNTS = [
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"
+];
+
+function getRandomTipAccount(): string {
+  return JITO_TIP_ACCOUNTS[
+    Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)
+  ];
+}
+```
+
+팁 계정은 Jito가 운영하는 주소입니다. 이 중 하나에 SOL을 전송하면 validator에게
+팁 금액을 신호로 전달합니다.
+
+### 1단계: 클라이언트 초기화
+
+`kora.toml`에 구성된 것과 일치하는 API 키로 Kora 클라이언트를 초기화합니다.
+프로덕션 환경에서는 환경 변수에서 이를 로드합니다.
+
+```ts
+async function initializeClients() {
+  console.log("\n[1/4] Initializing clients");
+  console.log("  → Kora RPC:", CONFIG.koraRpcUrl);
+  console.log("  → Solana RPC:", CONFIG.solanaRpcUrl);
+
+  const client = new KoraClient({
+    rpcUrl: CONFIG.koraRpcUrl,
+    apiKey: "kora_facilitator_api_key_example"
+  });
+
+  return { client };
+}
+```
+
+### 2단계: 키 설정
+
+```ts
+async function setupKeys(client: KoraClient) {
+  console.log("\n[2/4] Setting up keypairs");
+
+  const senderKeypair = await generateKeyPairSigner();
+  console.log("  → Sender:", senderKeypair.address);
+
+  const { signer_address } = await client.getPayerSigner();
+  console.log("  → Kora signer address:", signer_address);
+
+  return { senderKeypair, signer_address };
+}
+```
+
+`generateKeyPairSigner()`를 사용하여 데모용 새 keypair를 생성합니다. keypair는
+메모 명령어에만 서명하고 (구성에 따라) Kora 수수료를 지불할 필요가 없기 때문에
+SOL이나 다른 토큰이 필요하지 않습니다. Kora의 서명자(`getPayerSigner`를 통해
+가져옴)가 모든 수수료와 Jito 팁을 지불합니다.
+
+### 3단계: 번들 트랜잭션 생성
+
+이제 트랜잭션 번들을 생성해 보겠습니다. 각각 고유한 명령어를 가진 여러
+트랜잭션을 생성합니다. 여기서는 고유한 메모 명령어를 사용하여 Solana 메인넷에
+도착한 후 트랜잭션을 쉽게 확인할 수 있도록 합니다.
+
+```ts
+async function createBundleTransactions(
+  client: KoraClient,
+  senderKeypair: KeyPairSigner,
+  signer_address: string
+) {
+  console.log("\n[3/4] Creating bundle transactions");
+
+  const noopSigner = createNoopSigner(address(signer_address));
+  const latestBlockhash = await client.getBlockhash();
+  const tipAccount = getRandomTipAccount();
+
+  console.log("  → Blockhash:", latestBlockhash.blockhash.slice(0, 8) + "...");
+  console.log("  → Tip account:", tipAccount.slice(0, 8) + "...");
+
+  const transactions: string[] = [];
+
+  for (let i = 0; i < CONFIG.bundleSize; i++) {
+    const isLastTransaction = i === CONFIG.bundleSize - 1;
+    console.log(
+      `  → Transaction ${i + 1}: Kora Memo "Bundle tx #${i + 1}"${
+        isLastTransaction ? " + Jito tip" : ""
+      }`
+    );
+
+    // Build transaction with memo
+    let transactionMessage = pipe(
+      createTransactionMessage({
+        version: 0
+      }),
+      (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+      (tx) =>
+        setTransactionMessageLifetimeUsingBlockhash(
+          {
+            blockhash: latestBlockhash.blockhash as Blockhash,
+            lastValidBlockHeight: 0n
+          },
+          tx
+        ),
+      (tx) =>
+        appendTransactionMessageInstruction(
+          getAddMemoInstruction({
+            memo: `Kora Bundle tx #${i + 1} of ${CONFIG.bundleSize}`,
+            signers: [senderKeypair]
+          }),
+          tx
+        ),
+      // Add Jito tip to the LAST transaction only
+      (tx) =>
+        isLastTransaction
+          ? appendTransactionMessageInstruction(
+              getTransferSolInstruction({
+                source: noopSigner,
+                destination: address(tipAccount),
+                amount: CONFIG.jitoTipLamports
+              }),
+              tx
+            )
+          : tx
+    );
+
+    // Sign with sender keypair (required for memo instruction)
+    const signedTransaction =
+      await partiallySignTransactionMessageWithSigners(transactionMessage);
+    const base64Transaction =
+      getBase64EncodedWireTransaction(signedTransaction);
+    transactions.push(base64Transaction);
+  }
+
+  console.log(`  ✓ ${transactions.length} transactions created for bundle`);
+  return transactions;
+}
+```
+
+**중요: Kora 서명자가 팁 지불**: Kora 노드가 Jito 팁을 지불하도록 하려면 "no-op"
+서명자(`noopSigner`)를 사용합니다. 여기서 Kora의 주소가 팁 전송의 소스입니다.
+Kora는 번들을 처리할 때 이에 서명합니다.
+
+### 4단계: 번들 서명 및 제출
+
+이제 모든 것을 통합하여 Kora로 번들을 전송해 서명하고 Jito의 블록 엔진에 제출할
+수 있습니다.
+
+```ts
+async function main() {
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("KORA JITO BUNDLE DEMO");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  try {
+    // Step 1: Initialize clients
+    const { client } = await initializeClients();
+
+    // Step 2: Setup keys
+    const { senderKeypair, signer_address } = await setupKeys(client);
+
+    // Step 3: Create bundle transactions
+    const transactions = await createBundleTransactions(
+      client,
+      senderKeypair,
+      signer_address
+    );
+
+    // Step 4: Sign and send bundle
+    console.log("\n[4/4] Signing and sending bundle");
+    const { bundle_uuid } = await client.signAndSendBundle({
+      transactions,
+      signer_key: signer_address
+    });
+
+    console.log("\nBundle UUID:");
+    console.log(bundle_uuid);
+  } catch (error) {
+    console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("ERROR: Demo failed");
+    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("\nDetails:", error);
+    process.exit(1);
+  }
+}
+
+main().catch((e) => console.error("Error:", e));
+```
+
+## 데모 실행하기
+
+### 1. Kora 서버 시작하기
+
+```bash
+cd examples/jito-bundles/server
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+### 2. 클라이언트 실행하기
+
+새 터미널에서 `client/` 디렉토리로 이동한 후 데모를 실행합니다:
+
+```bash
+cd examples/jito-bundles/client
+
+# Install dependencies
+pnpm install
+
+# Run the demo
+pnpm start
+```
+
+### 예상 출력
+
+단계별 실행 과정을 확인할 수 있으며, 마지막에는 성공적으로 번들이 생성됩니다.
+번들은 다음과 같이 처리됩니다:
+
+- 4개의 메모 트랜잭션 생성
+- 마지막 트랜잭션에 Jito 팁(1,000 lamport) 추가
+- 모든 트랜잭션이 수수료 지불자로서 Kora에 의해 서명됨
+- Jito의 블록 엔진에 원자적으로 제출됨
+
+_참고:_
+
+- Jito의 기본 라우터는 속도 제한에 도달할 수 있습니다. 429 오류가 발생하면
+  나중에 다시 시도하거나 더 높은 제한을 요청할 수 있습니다. 자세한 내용은 Jito의
+  [속도 제한 문서](https://docs.jito.wtf/lowlatencytxnsend/#exceeding-limits)를
+  참조하세요.
+- 데모에서 매우 적은 팁을 사용하므로 번들이 Solana 메인넷에 착륙하지 않을 수
+  있습니다. [Jito의 번들 탐색기](https://explorer.jito.wtf/)에서 번들을 확인할
+  수 없다면, 나중에 더 높은 팁으로 다시 시도해 보세요.
+
+## 무슨 일이 일어났는지 이해하기
+
+단일 트랜잭션과 달리 다음과 같은 일이 발생했습니다:
+
+1. **다중 트랜잭션** — 하나의 트랜잭션 대신 함께 실행되어야 하는 4개의
+   트랜잭션을 생성했습니다
+2. **Jito 팁** — 검증자에게 인센티브를 제공하기 위해 팁 전송(Kora의 서명자가
+   지불)을 추가했습니다
+3. **번들 검증** — Kora가 `kora.toml`에 명시된 요구사항을 모든 트랜잭션이
+   충족하는지 검증했습니다
+4. **원자적 제출** — 모든 트랜잭션이 단일 단위로 Jito에 제출되었으며, Kora
+   서버가 Kora의 서명자를 통해 모든 수수료와 팁을 지불했습니다
+
+결과: 4개의 트랜잭션이 모두 순차적으로 실행되거나, 아무것도 실행되지 않습니다.
+부분적인 상태는 없습니다.
+
+## 추가 자료
+
+- **도움이 필요하신가요?** `Kora` 태그와 함께
+  [Solana Stack Exchange](https://solana.stackexchange.com/)에서 질문하세요
+- [**Jito 문서**](https://docs.jito.wtf/) — 공식 Jito MEV 문서
+- [**번들 RPC 메서드**](/docs/tools/kora/beta/bundle-methods) — signBundle,
+  signAndSendBundle, estimateBundleFee
+- [**GitHub 저장소**](https://github.com/solana-foundation/kora) — 소스 코드 및
+  예제

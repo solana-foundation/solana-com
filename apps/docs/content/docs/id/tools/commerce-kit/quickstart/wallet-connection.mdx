@@ -1,0 +1,476 @@
+---
+title: Koneksi Wallet
+description: Hubungkan wallet Solana menggunakan Wallet Standard
+---
+
+Paket `@solana-commerce/connector` menyediakan koneksi wallet headless yang
+dibangun di atas
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard). Paket ini
+mengelola penemuan wallet, status koneksi, manajemen akun, dan koneksi ulang
+otomatis. Paket ini dirancang agar agnostik terhadap framework dengan binding
+React yang disertakan. Paket ini disesuaikan untuk penggunaan yang mulus dalam
+Solana Commerce Kit dan kompatibel dengan
+[@solana/kit](https://github.com/anza-xyz/kit) dan
+[gill](https://www.gillsdk.com/).
+
+![Koneksi Wallet](/assets/docs/tools/commerce-kit/connector.png)
+
+## Instalasi
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Konfigurasi Provider
+
+### `ConnectorProvider`
+
+Komponen `ConnectorProvider` membungkus aplikasi Anda dan menyediakan status
+koneksi wallet ke semua komponen turunan. Komponen ini mengelola instance
+`ConnectorClient` singleton yang persisten selama siklus mount/unmount komponen.
+
+#### Props
+
+Semua konfigurasi diberikan melalui prop `config`:
+
+- **`config`** (`ConnectorConfig`, opsional) - Objek konfigurasi untuk konektor.
+  Semua field bersifat opsional.
+
+#### `ConnectorConfig`
+
+Objek konfigurasi untuk perilaku koneksi wallet.
+
+##### Field Opsional
+
+- **`autoConnect`** (`boolean`) - Ketika `true`, secara otomatis terhubung
+  kembali ke wallet yang terakhir digunakan saat mount. Preferensi wallet
+  disimpan dalam storage yang dikonfigurasi (default ke `localStorage`).
+  Default: `false`.
+
+- **`debug`** (`boolean`) - Mengaktifkan logging konsol verbose untuk debugging
+  alur koneksi, perubahan akun, dan error. Log mencakup prefix seperti
+  `[Connector]` dan `[ConnectorProvider]`. Default: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Interval polling dalam milidetik
+  untuk memeriksa perubahan akun ketika wallet tidak mendukung fitur
+  `standard:events`. Sebagian besar wallet modern mendukung event, jadi polling
+  adalah fallback. Default: `1500` (1,5 detik).
+
+- **`storage`** (`Storage`) - Adapter storage kustom untuk menyimpan preferensi
+  wallet. Harus mengimplementasikan:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Default: `window.localStorage` ketika tersedia (browser saja). Gunakan ini
+  untuk React Native (`AsyncStorage`) atau storage kustom yang aman untuk SSR.
+
+#### Arsitektur Provider
+
+Provider menggunakan **pola singleton** dengan penghitungan referensi:
+
+- Beberapa instance `ConnectorProvider` berbagi `ConnectorClient` yang sama
+- Client dibuat saat mount pertama dan bertahan meskipun di-unmount
+- Ketika semua provider di-unmount, pembersihan ditunda selama 5 detik untuk
+  menangani remount cepat
+- Selama pembersihan, dompet diputuskan dan semua event listener dihapus
+
+Desain ini mencegah pemutusan dompet selama perpindahan rute atau pembaruan
+komponen.
+
+---
+
+## Hook
+
+### `useConnector()`
+
+Hook utama untuk mengakses status dan aksi koneksi dompet. Harus digunakan di
+dalam `ConnectorProvider`.
+
+Mengembalikan objek `ConnectorSnapshot` yang berisi:
+
+#### Properti State
+
+- **`wallets`** (`WalletInfo[]`) - Array dari semua dompet yang kompatibel
+  dengan Wallet Standard yang ditemukan. Diperbarui secara otomatis ketika
+  dompet dipasang atau dihapus. Setiap dompet menyertakan metadata seperti nama,
+  ikon, dan kapabilitas. Lihat [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Objek dompet Wallet Standard yang
+  sedang terhubung. `null` ketika terputus. Ini adalah instance dompet mentah
+  dari API Wallet Standard.
+
+- **`connected`** (`boolean`) - Status koneksi. `true` ketika dompet terhubung
+  dan akun tersedia. Gunakan ini untuk rendering UI kondisional.
+
+- **`connecting`** (`boolean`) - Status loading selama koneksi dompet. `true`
+  antara pemanggilan `select()` dan menerima hasil koneksi. Gunakan ini untuk
+  menampilkan indikator loading atau menonaktifkan tombol.
+
+- **`accounts`** (`AccountInfo[]`) - Array akun dari dompet yang terhubung.
+  Kebanyakan dompet menyediakan satu akun, tetapi beberapa mendukung beberapa
+  akun. Diperbarui secara otomatis melalui event dompet atau polling. Lihat
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Alamat dari akun yang sedang dipilih
+  (kunci publik yang dikodekan base58). Ketika dompet terhubung dengan akun
+  baru, akun tersebut secara otomatis dipilih. Jika tidak, akun yang dipilih
+  sebelumnya akan dipertahankan.
+
+#### Metode Aksi
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Menghubungkan ke
+  wallet berdasarkan nama (misalnya, `"Phantom"`, `"Solflare"`). Nama wallet
+  harus cocok persis dengan field `name` dari wallet yang ditemukan.
+
+  **Proses:**
+  1. Mengatur `connecting: true`
+  2. Memanggil fitur `standard:connect` dari wallet
+  3. Mengambil akun dari wallet
+  4. Berlangganan event wallet (atau memulai polling jika event tidak tersedia)
+  5. Menyimpan preferensi wallet di penyimpanan yang dikonfigurasi
+  6. Memperbarui state dengan akun dan akun yang dipilih
+
+  **Throws:** Error jika wallet tidak ditemukan, wallet tidak mendukung koneksi,
+  atau koneksi ditolak oleh pengguna.
+
+- **`disconnect`** (`() => Promise<void>`) - Memutuskan koneksi wallet saat ini
+  dan membersihkan semua state.
+
+  **Proses:**
+  1. Berhenti berlangganan dari event wallet
+  2. Menghentikan polling akun
+  3. Memanggil fitur `standard:disconnect` dari wallet jika tersedia
+  4. Menghapus wallet yang dipilih, akun, dan akun yang dipilih
+  5. Menghapus preferensi wallet dari penyimpanan
+
+  Tidak pernah throw error (error dicatat jika debug diaktifkan).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Mengganti akun
+  yang dipilih ke alamat yang berbeda dari wallet yang terhubung. Jika alamat
+  tidak ada di array akun saat ini, memicu koneksi ulang untuk mengambil akun
+  yang diperbarui.
+
+  **Throws:** Error jika tidak ada wallet yang terhubung atau akun yang diminta
+  tidak ditemukan setelah koneksi ulang.
+
+### `useConnectorClient()`
+
+Menyediakan akses langsung ke instance `ConnectorClient` yang mendasarinya untuk
+kasus penggunaan tingkat lanjut.
+
+**Returns:** `ConnectorClient | null` - Instance client singleton, atau `null`
+ketika digunakan di luar `ConnectorProvider`.
+
+**Kasus penggunaan:**
+
+- Akses langsung ke `getConnectorState()` untuk pembacaan state secara imperatif
+- Langganan manual dengan `subscribe(listener)` untuk listener state kustom
+- Memanggil `destroy()` untuk pembersihan paksa (tidak disarankan dalam
+  penggunaan normal)
+
+**Contoh:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Definisi Tipe
+
+### `WalletInfo`
+
+Metadata tentang wallet yang ditemukan.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Persyaratan:** Sebuah wallet dapat terhubung ketika mendukung:
+
+- Fitur `standard:connect`
+- Fitur `standard:disconnect`
+- Chain Solana (terdeteksi melalui `wallet.chains` yang berisi `"solana"`)
+
+Wallet yang tidak dapat terhubung muncul di array `wallets` tetapi tidak dapat
+dipilih.
+
+### `AccountInfo`
+
+Informasi tentang akun wallet.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Field `raw` menyediakan akses ke properti akun tambahan:
+
+- `address: string` - Public key yang dikodekan Base58
+- `publicKey: Uint8Array` - Byte public key mentah
+- `label?: string` - Label akun (jika wallet menyediakannya)
+- `icon?: string` - Ikon khusus akun (URL data)
+- `chains: string[]` - Chain yang didukung untuk akun ini
+- `features: string[]` - Fitur yang didukung untuk akun ini
+
+### `ConnectorSnapshot`
+
+Tipe kembalian dari `useConnector()`, menggabungkan state dan action.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Deteksi Perubahan Akun
+
+Connector secara otomatis mendeteksi ketika akun wallet berubah (pengguna
+menambahkan/menghapus akun, beralih akun di wallet). Dua strategi digunakan:
+
+### Berbasis Event (Disarankan)
+
+Ketika wallet mendukung `standard:events`, connector berlangganan event
+`change`:
+
+- Menerima notifikasi real-time ketika akun berubah
+- Lebih efisien (tanpa polling)
+- Mengagregasi akun dari event dan `wallet.accounts` untuk menangani wallet yang
+  hanya menyertakan akun terpilih dalam event
+
+### Fallback Polling
+
+Ketika event tidak didukung, connector melakukan polling `wallet.accounts`:
+
+- Memeriksa setiap `accountPollingIntervalMs` (default: 1500ms)
+- Membandingkan alamat akun untuk mendeteksi perubahan
+- Hanya memicu render ulang ketika akun benar-benar berubah
+
+**Logika Pemilihan Akun:**
+
+- Ketika akun berubah, pertahankan akun terpilih jika masih ada
+- Jika akun terpilih dihapus, pilih akun pertama yang tersedia
+- Ketika terhubung dengan akun baru (tidak ada di akun sebelumnya), prioritaskan
+  akun baru
+
+---
+
+## Penyimpanan & Koneksi Otomatis
+
+### Persistensi Penyimpanan
+
+Konektor menyimpan satu kunci dalam penyimpanan yang dikonfigurasi:
+
+- **Kunci:** `arc-connector:lastWallet`
+- **Nilai:** Nama dompet (misalnya, `"Phantom"`)
+
+Operasi penyimpanan dibungkus dalam try-catch untuk menangani:
+
+- Iframe sandboxed di mana `localStorage` mengeluarkan error
+- Lingkungan SSR di mana `window` tidak terdefinisi
+- React Native di mana `localStorage` tidak ada
+
+Jika penyimpanan gagal, konektor tetap berjalan tanpa persistensi (tidak ada
+error yang dilempar).
+
+### Perilaku Koneksi Otomatis
+
+Ketika `autoConnect: true`:
+
+1. Saat mount, membaca nama dompet terakhir dari penyimpanan
+2. Menunggu 100ms (memungkinkan dompet untuk mendaftar)
+3. Memanggil `select(walletName)` jika dompet ditemukan
+4. Jika koneksi otomatis gagal, menghapus preferensi yang tidak valid dari
+   penyimpanan
+
+**Catatan Keamanan:** Preferensi yang disimpan hanyalah nama dompet (string),
+bukan data sensitif. Dompet menangani autentikasi/otorisasi melalui UI-nya
+sendiri.
+
+---
+
+## Contoh Penggunaan
+
+### Tombol Dompet Dasar
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Pemilih Multi-Akun
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Pemantauan Koneksi
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Dompet yang Didukung
+
+Konektor mendukung semua dompet yang mengimplementasikan
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), termasuk:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Dompet lain yang kompatibel dengan Wallet Standard
+
+Dompet secara otomatis ditemukan ketika mereka mendaftar dengan API Wallet
+Standard (tidak memerlukan konfigurasi).
+
+---
+
+## Penggunaan Headless (Tanpa React)
+
+Untuk aplikasi non-React atau penggunaan sisi server, gunakan `ConnectorClient`
+secara langsung:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Catatan:** `ConnectorClient` mengelola state-nya sendiri dan tidak pernah
+memicu re-render React. Anda harus berlangganan perubahan state secara manual.

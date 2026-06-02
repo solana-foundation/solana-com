@@ -38,6 +38,7 @@ export default async function Page(props: Props) {
       description={data.description}
       filePath={data.info.path}
       hideTableOfContents={data.hideTableOfContents}
+      hidePageNavigation={data.hidePageNavigation}
       pageTree={developersLearnSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}

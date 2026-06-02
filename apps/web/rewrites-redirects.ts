@@ -157,6 +157,36 @@ export default {
         locale: false,
       },
       {
+        source: "/upgrade",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/upgrades/:path+`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrade",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades/:path+`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
@@ -447,9 +477,6 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    // TODO: set to newws/upgrades when we have articles
-    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
-    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
@@ -474,6 +501,10 @@ export default {
       source: "/solana_token_extensions_paper",
       destination:
         "https://drive.google.com/file/d/13u20-ItOcNXQpqlO3JHrC1eYhtz1PilE/view?usp=sharing",
+    },
+    {
+      source: "/tokenized-equities",
+      destination: "/reports/tokenized-equities",
     },
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
@@ -510,7 +541,7 @@ export default {
         "https://github.com/solana-foundation/solana-improvement-documents",
     },
     { source: "/disclaimer", destination: "/tos" },
-    { source: "/ecosystem(.*)", destination: "/" },
+    { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
     { source: "/solana-pay", destination: "https://solanapay.com/" },
     { source: "/solanapay", destination: "https://solanapay.com/" },
@@ -579,10 +610,6 @@ export default {
     {
       source: "/solutions/solana-permissioned-environments",
       destination: "https://launch.solana.com/products/contra",
-    },
-    {
-      source: "/enterprise",
-      destination: "/solutions/enterprise",
     },
     {
       source: "/2024-outlook",

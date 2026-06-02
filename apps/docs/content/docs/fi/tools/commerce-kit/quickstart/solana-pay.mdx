@@ -1,0 +1,433 @@
+---
+title: Solana Pay
+description: Luo Solana Pay -URL-osoitteita, QR-koodeja ja maksutapahtumia
+---
+
+`@solana-commerce/solana-pay`-paketti tarjoaa täydellisen
+[Solana Pay](https://solanapay.com) -toiminnallisuuden maksukokemuksien
+rakentamiseen, yhteensopivana [`gill`](https://www.gillsdk.com/)- ja
+[`@solana/kit`](https://github.com/anza-xyz/kit) -kirjastojen kanssa. Se
+käsittelee URL-osoitteiden koodauksen ja jäsentämisen, QR-koodien generoinnin
+mukautetulla tyylillä sekä tapahtumien muodostamisen sekä SOL- että
+SPL-rahakesiirroille.
+
+## Asennus
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URL-koodaus
+
+### `encodeURL(fields)`
+
+Luo Solana Pay -URL-osoitteen, joka noudattaa
+[Solana Pay -spesifikaatiota](https://docs.solanapay.com/spec). Tämä funktio
+generoi `solana:`-protokollan URL-osoitteita, jotka voidaan jakaa linkkeinä tai
+koodata QR-koodeiksi, jotta mobiililompakot voivat skannata ne.
+
+#### Parametrit
+
+- **`fields`** (`TransferRequestURLFields | TransactionRequestURLFields`) -
+  Maksu-URL:n konfiguraatio
+
+#### `TransferRequestURLFields`
+
+Käytetään yksinkertaisiin maksupyyntöihin (suorat siirrot):
+
+- **`recipient`** (`Address`, vaaditaan) - Kauppiaan lompakko-osoite
+  (base58-koodattu julkinen avain), joka vastaanottaa maksun. Voi olla
+  merkkijono tai `Address`-tyyppi `gill`:stä.
+
+- **`amount`** (`bigint`, valinnainen) - Maksun määrä **lamporteissa**
+  (atomiyksikköinä). SOL:lle 1 SOL = 1 000 000 000 lamportia (9 desimaalia).
+  SPL-tokeneille käytä tokenin desimaalitarkkuutta (esim. USDC käyttää 6
+  desimaalia, joten 1 USDC = 1 000 000).
+
+- **`splToken`** (`Address`, valinnainen) - SPL-tokenin mint-osoite
+  tokenmaksuille. Jos jätetään pois, maksun oletetaan olevan SOL:ssa.
+
+- **`reference`** (`Address | Address[]`, valinnainen) - Yksilöllinen
+  viiteosoite/osoitteet, joita käytetään maksujen seuraamiseen. Generoi
+  käyttämällä `generateKeyPairSigner().address`-funktiota. Viite lisätään vain
+  luku -tilinä tapahtumaan, mikä mahdollistaa maksujen hakemisen tätä viitettä
+  käyttäen.
+
+- **`label`** (`string`, valinnainen) - Ihmisluettava kauppiaan tai sovelluksen
+  nimi, joka näytetään käyttäjälle hänen lompakossaan (esim. "Kahvila",
+  "Kauppani").
+
+- **`message`** (`string`, valinnainen) - Käyttäjälle ennen maksua näytettävä
+  viesti (esim. "Kiitos ostoksestasi!", "Kiitos erinomaisesta palvelusta").
+
+- **`memo`** (`string`, valinnainen) - Tapahtumaan liitetty ketjussa oleva
+  muistiinpano. Tallennetaan pysyvästi Solanaan. Hyödyllinen tilausnumeroille,
+  laskujen numeroille tai muulle maksun metatiedolle.
+
+#### `TransactionRequestURLFields`
+
+Käytetään monimutkaisiin maksupyyntöihin (mukaan lukien ohjeet):
+
+- **`link`** (`URL`, pakollinen) - Linkki tapahtumaan
+  ([`Link`](/docs/tools/solana-pay/specification/version1-1#link)). Jos URL
+  sisältää kyselyparametreja, se on URL-koodattava.
+
+- **`label`** (`string`, valinnainen) - Ihmisluettava kauppiaan tai sovelluksen
+  nimi, joka näytetään käyttäjälle hänen lompakossaan (esim. "Kahvila", "Oma
+  Kauppa").
+
+- **`message`** (`string`, valinnainen) - Käyttäjälle ennen maksua näytettävä
+  viesti (esim. "Kiitos ostoksestasi!", "Kiitos erinomaisesta palvelusta").
+
+#### Miten se toimii
+
+Funktio suorittaa useita toimintoja muodostaakseen kelvollisen Solana Pay
+-URL-osoitteen:
+
+1. **Protokollaetuliite** - Luo URL-osoitteen `solana:`-protokollan mukaisesti
+   (samankaltainen kuin `mailto:` tai `bitcoin:`)
+
+2. **Vastaanottaja polkuna** - Käyttää vastaanottajan base58-osoitetta
+   URL-polkuna (esim. `solana:merchantWalletAddress123...`)
+
+3. **Summan muuntaminen** - Muuntaa bigint-lamport-määrän desimaalilukumuotoon
+   ilman liukulukutarkkuusongelmia.
+
+4. **Kyselyparametrit** - Liittää kaikki valinnaiset kentät ja viittaukset
+   URL-koodattuina kyselyparametreina
+
+#### Palautusarvo
+
+`URL`-objekti `solana:`-protokollalla, joka voidaan:
+
+- Muuntaa merkkijonoksi käyttämällä `.toString()` jakamista varten
+- Välittää funktiolle `createQR()` QR-koodin luomiseksi
+- Käyttää suoraan anchor-tageissa:
+  `<a href={url.toString()}>Pay with Solana</a>`
+
+#### Esimerkki: Perusmaksu
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### Esimerkki: SPL-tokeni-maksu
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### Esimerkki: Maksu seurannalla
+
+Käytä viitteitä tiettyjen maksujen tunnistamiseen:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL-jäsennys
+
+### `parseURL(url)`
+
+Purkaa ja validoi Solana Pay -URL:n ja poimii kaikki maksuparametrit. Tämä
+funktio suorittaa validoinnin ja muuntaa summat desimaalilukumerkkijonoista
+takaisin bigint-muotoisiksi lamporteiksi.
+
+#### Parametrit
+
+- **`url`** (`string | URL`) - Jäsennettävä Solana Pay -URL. Voi olla merkkijono
+  tai URL-objekti.
+
+#### Palautusarvo
+
+Jäsennetty `TransferRequestURLFields`- tai
+`TransactionRequestURLFields`-objekti.
+
+#### Esimerkki: Jäsennys ja validointi
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### Esimerkki: URL-validointifunktio
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## QR-koodin luominen
+
+### `createQR(url, size, background, color)`
+
+Luo Solana Pay -URL:ille optimoidun SVG-muotoisen QR-koodin. Funktio tuottaa
+tyyliteltyjä, korkealaatuisia QR-koodeja pyöristetyillä kulmilla ja
+mukautettavilla väreillä.
+
+#### Parametrit
+
+- **`url`** (`string | URL`) - QR-koodiin koodattava Solana Pay -URL
+- **`size`** (`number`, oletus: `512`) - Leveys ja korkeus pikseleinä
+- **`background`** (`string`, oletus: `'white'`) - Taustaväri (hex tai nimetty
+  väri). Tulisi olla vaalea lompakkoyhteensopivuuden vuoksi.
+- **`color`** (`string`, oletus: `'black'`) - Edustalla oleva/pisteiden väri
+  (hex tai nimetty väri). Tulisi olla tumma kontrastin vuoksi.
+
+_Vaihtoehtoisesti voit käyttää funktiota `createStyledQRCode(url, options)`,
+joka tarjoaa enemmän hallintaa QR-koodin tyylittelyyn (leveys, reunus, värit,
+pistetyyli, kulmatyyli, logo, logon koko, logon taustaväri, logon reunus)._
+
+#### Palautusarvo
+
+`Promise<string>` - SVG-merkintä merkkijonona, joka voidaan:
+
+- Asettaa `img`-elementin src-attribuutiksi: `<img src={qrCode} />`
+- Tallentaa tiedostoon
+
+#### Esimerkki
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### Esimerkki: Brändätty QR-koodi
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## Transaktioiden rakentaminen
+
+### `createTransfer(rpc, sender, fields)`
+
+Rakentaa täydellisen Solana-transaktioviestin maksunsiirroa varten. Tämä funktio
+havaitsee automaattisesti, luodaanko SOL- vai SPL-token-siirto
+`splToken`-parametrin perusteella, ja rakentaa kaikki tarvittavat ohjeet.
+Funktio asettaa transaktion lohkohashin elinajan käyttäen viimeisintä
+lohkohashia RPC-asiakasohjelmasta ja palauttaa valmiin, allekirjoittamattoman
+transaktion, joka on valmis allekirjoitettavaksi ja lähetettäväksi RPC:lle
+(tyyppi `TransactionMessageWithBlockhashLifetime`, yhteensopiva Solana
+Kit/Gill:n kanssa).
+
+#### Parametrit
+
+- **`rpc`** (`Rpc<SolanaRpcApi>`) - Solana RPC -asiakasohjelma osoitteesta
+  `gill`. Luo komennolla `createSolanaClient(rpcUrl).rpc`.
+
+- **`sender`** (`Address`) - Maksajan lompakon osoite. Täytyy olla rahoitettu
+  tili, joka allekirjoittaa transaktion.
+
+- **`fields`** (`CreateTransferFields`) - Siirron määritykset:
+  - `recipient` (`Address`, pakollinen) - Kohdelompakon osoite
+  - `amount` (`bigint`, pakollinen) - Määrä lamporteissa (SOL) tai tokenin
+    atomiyksiköissä (SPL)
+  - `splToken` (`Address`, valinnainen) - SPL-tokenin mint-osoite. Jos jätetään
+    pois, luodaan SOL-siirto.
+  - `reference` (`Address | Address[]`, valinnainen) - Viiteosoite(et) seurantaa
+    varten
+  - `memo` (`string`, valinnainen) - Ketjumuistio-teksti
+
+#### Palautusarvo
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - Täydellinen
+transaktioviesti, joka sisältää:
+
+- Versio 0 -muodon (tukee osoitehakutaulukoita)
+- Lohkohashin elinajan (transaktio vanhenee ~60 sekunnin jälkeen)
+- Kaikki tarvittavat ohjeet (siirto + valinnainen muistio)
+- Valmis allekirjoitettavaksi lompakolla ja lähetettäväksi RPC:lle
+
+#### Virheiden käsittely
+
+Heittää poikkeuksen `CreateTransferError` tietyillä viesteillä:
+
+- `"sender not found"` - Lähettäjän tiliä ei ole olemassa
+- `"recipient not found"` - Vastaanottajan tiliä ei ole olemassa
+
+#### Esimerkki: SOL-maksu
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### Esimerkki: USDC-maksu
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

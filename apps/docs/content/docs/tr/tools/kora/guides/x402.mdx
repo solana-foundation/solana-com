@@ -1,0 +1,623 @@
+---
+title: Kora ile x402 Entegrasyonu
+description:
+  x402 ödeme protokolünü Kora'nın gaz ücretsiz Solana imzalama altyapısıyla
+  nasıl entegre edeceğinizi öğrenin; sıfır gaz ücreti ile API erişimi için mikro
+  ödemeleri mümkün kılın.
+---
+
+## Ne Oluşturacaksınız
+
+Bu kılavuz, Kora ile eksiksiz bir x402 (HTTP 402 Ödeme Gerekli) entegrasyonunun
+uygulanmasında size yol gösterecektir. Kora, Solana'nın gaz ücretsiz imzalama
+altyapısıdır. Sonunda, aşağıdaki özelliklere sahip çalışan bir sisteme sahip
+olacaksınız:
+
+- API'ler, x402 protokolünü kullanarak erişim için mikro ödemeler talep edebilir
+- Kullanıcılar, gaz ücretleri için SOL'e ihtiyaç duymadan USDC ile ödeme yapar
+- Kora, gaz ücretsiz kolaylaştırıcı olarak tüm işlem ücretlerini yönetir
+- Ödemeler Solana blok zincirinde atomik olarak sonuçlandırılır
+
+Nihai sonuç, tamamen işlevsel bir ödeme korumalı API olacaktır:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+X402 + KORA PAYMENT FLOW DEMONSTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing payment signer
+  → Network: solana-devnet
+  → Payer address: BYJV...TbBc
+  ✓ Signer initialized
+
+[2/4] Attempting to access protected endpoint without payment
+  → GET http://localhost:4021/protected
+  → Response: 402 Payment Required
+  ✅ Status code: 402
+
+[3/4] Accessing protected endpoint with x402 payment
+  → Using x402 fetch wrapper
+  → Payment will be processed via Kora facilitator
+  → Transaction submitted to Solana
+  ✅ Status code: 200
+
+[4/4] Processing response data
+  ✓ Payment response decoded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Payment completed and API accessed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response Data:
+{
+    "data": {
+        "message": "Protected endpoint accessed successfully",
+        "timestamp": "2025-09-25T20:14:04.242Z"
+    },
+    "status_code": 200,
+    "payment_response": {
+        "transaction": "5ULZpdeThaMAy6hcEGfAoMFqJqPpCtxdCxb6JYUV6nA4x8Lk2hKEuzofGUPoe1pop6BdWMSmF5oRPrXsbdWmpruf",
+        "success": true,
+        "network": "solana-devnet"
+    }
+}
+```
+
+## x402 Nedir?
+
+[x402](https://www.x402.org/), API erişimi için sorunsuz mikro ödemeleri mümkün
+kılan açık bir ödeme standardıdır. Geleneksel abonelik modelleri veya API
+anahtarları yerine, x402 sunucuların tek tek API çağrıları için ücret almasına
+olanak tanıyarak gerçek kullanım başına ödeme altyapısı oluşturur.
+
+x402'nin temel avantajları:
+
+- **Anlık Mikro Ödemeler**: API çağrısı başına sentin kesirleri kadar ödeme
+  yapın
+- **AI ajanlarının API çağrıları için ödeme yapmasını sağlayın**: AI ajanları
+  ile API çağrıları için ödeme yapın
+- **Abonelik Yok**: Kullanıcılar yalnızca kullandıkları kadar öderler
+- **Web3 Ödemeleri**: Zincir üzerinde şeffaf, doğrulanabilir ödemeler
+- **Standart HTTP**: Ödeme gerektiğinde HTTP 402 durum kodu kullanarak mevcut
+  web altyapısıyla çalışır
+
+API erişimi için mikro ödeme gerektirmek üzere x402 kullanan sunucular, ödeme
+gerektiğinde HTTP 402 durum kodu döndürecektir. Korumalı uç noktalara erişmek
+için istemciler, sunucuya `X-PAYMENT` başlığında geçerli bir ödeme iletmelidir.
+x402, işlemleri doğrulamak ve sonuçlandırmak için "Kolaylaştırıcılar"a güvenir,
+böylece sunucuların doğrudan blok zinciri altyapısıyla etkileşim kurmasına gerek
+kalmaz.
+
+### Kolaylaştırıcıları Anlamak
+
+Kolaylaştırıcılar, x402 ekosisteminde kritik bir bileşendir. API sunucuları
+adına blokzincir ödemelerini soyutlayan özelleşmiş hizmetler olarak işlev
+görürler.
+
+**Kolaylaştırıcıların Yaptıkları:**
+
+- **Ödemeleri Doğrular**: İstemcinin ödeme yüklerinin doğru şekilde
+  oluşturulduğunu ve yeterli olduğunu doğrular
+- **Karmaşıklığı Soyutlar**: Sunucuların blokzincir altyapısıyla doğrudan
+  etkileşim kurma ihtiyacını ortadan kaldırır (imzalama ve ağ ücretlerini ödeme)
+- **İşlemleri Gerçekleştirir**: Doğrulanmış işlemleri Solana'ya (veya diğer
+  ağlara) gönderir
+
+Demomuzda, işlemleri doğrulamak ve gerçekleştirmek için Kora'yı kullanan bir
+kolaylaştırıcı oluşturuyoruz (aşağıda daha fazla ayrıntı).
+
+## Kora Nedir?
+
+Kora, imzalama ve gaz ücreti olmayan işlem hizmetleri sağlayan bir Solana
+imzalayıcı düğümüdür. Uygulamaların gaz ücretlerini soyutlamasını sağlayarak
+kullanıcıların işlem maliyetlerini SOL dışındaki tokenlarla ödemesine veya
+ücretlerin tamamen sponsor edilmesine olanak tanır.
+
+Kora'nın temel özellikleri:
+
+- **Gaz Ücreti Olmayan İşlemler**: Kullanıcıların işlemleri gerçekleştirmek için
+  SOL'e ihtiyacı yoktur
+- **Ücret Soyutlama**: Ücretleri USDC veya diğer SPL tokenlarında ödeyin
+- **JSON-RPC Arayüzü**: İşlem yönetimi için basit HTTP API'si
+- **Esnek İmzalayıcılar**: Birden fazla imzalayıcı arka ucu desteği (bellek,
+  Vault, Turnkey, Privy)
+- **Politika Motoru**: İşlem doğrulama ve ücret politikaları üzerinde ayrıntılı
+  kontrol
+
+x402 bağlamında Kora, kolaylaştırıcılar için mükemmel bir arka uç görevi görür:
+ağ ücretlerini yönetir, işlemleri imzalar ve işlemleri doğrular. Kora her işlemi
+imzalamadan önce incelediği için, Kora düğümleri ek bir güvenlik katmanı ve
+işlem doğrulama ile ücret politikalarının daha hassas kontrolünü sunar.
+
+## Mimari Genel Bakış
+
+x402 + Kora entegrasyonumuz, eksiksiz bir istek/yanıt döngüsüne sahip birbirine
+bağlı dört bileşenden oluşur:
+
+Tam Ödeme Akışı:
+
+1. İstemci korumalı kaynağı talep eder → API 402 Payment Required yanıtı döner
+2. İstemci, x402 fetch sarmalayıcısı ile ödeme işlemi oluşturur (bu, bir ödeme
+   talimatı içeren Solana işlemini bir araya getirir)
+3. İstemci, doğrulama için ödemeyi Facilitator'a gönderir
+4. Facilitator, Kora aracılığıyla doğrular; Kora imzalar ve Solana'ya gönderir
+5. İşlem zincir üzerinde onaylanır, Facilitator API'ye bildirir
+6. API, ödeme makbuzu ile birlikte korumalı içeriği İstemci'ye döner
+
+### Bileşen Dökümü
+
+1. **Kora RPC Sunucusu** (Port 8080)
+   - Temel gazsız işlem hizmeti
+   - İşlemleri ücret ödeyici olarak imzalar
+   - İşlemleri yapılandırılmış politikalara göre doğrular
+
+2. **Facilitator Sarmalayıcı/Proxy Sunucusu** (Port 3000)
+   - Kora'yı x402 protokolüne uyarlar
+   - `/verify`, `/settle` ve `/supported` uç noktalarını uygular
+   - x402 ile Kora veri formatları arasında çeviri yapar
+
+3. **Korumalı API** (Port 4021)
+   - Ödeme korumalı uç noktalara sahip demo API sunucusu
+   - Ödeme işlemleri için x402-express middleware'ini kullanır
+   - Verileri yalnızca başarılı ödemeden sonra döner
+
+4. **İstemci Uygulaması**
+   - x402 fetch sarmalayıcısı kullanımını gösterir
+   - İşlemleri kullanıcının özel anahtarı ile imzalar
+
+Çok bileşenli yaklaşım karmaşık görünebilir, ancak ödeme işleme, API sunumu ve
+istemci uygulamalarının ayrı kaygılar olduğu gerçek dünya üretim sistemlerini
+yansıtır.
+
+## Ön Koşullar
+
+Başlamadan önce aşağıdakilere sahip olduğunuzdan emin olun:
+
+- [**Rust**](https://www.rust-lang.org/tools/install) (en son kararlı sürüm)
+- [**Node.js**](https://nodejs.org/en/download) (LTS veya sonrası)
+- [**Kora CLI**](https://github.com/solana-foundation/kora/releases/latest) (en
+  son sürüm - `cargo install kora-cli`)
+- [**pnpm**](https://pnpm.io/installation) (en son sürüm)
+- [Solana işlemleri](https://solana.com/docs/core/transactions) ve
+  [SPL token'ları](https://solana.com/docs/tokens) hakkında temel anlayış
+
+## Proje Kurulumu
+
+### Adım 1: Kora'yı Klonlayın ve Derleyin
+
+> **Önemli:** Kora'nın `main` dalı bir entegrasyon dalıdır ve yayınlanmamış veya
+> beta değişiklikler içerebilir. Her zaman en son kararlı sürüm etiketini
+> kullanın. En son kararlı sürümü
+> [Kora sürümleri sayfasında](https://github.com/solana-foundation/kora/releases)
+> bulabilirsiniz.
+
+```bash
+# Clone the repository
+git clone https://github.com/solana-foundation/kora.git
+cd kora
+
+# Checkout the latest stable tag
+git checkout v2.0.5
+
+# Build and install Kora
+just install
+```
+
+Bu, RPC sunucusunu çalıştırmak için kullanacağımız `kora` binary dosyasını
+sisteminize yükler.
+
+### Adım 2: Demo Dizinine Gidin
+
+```bash
+cd examples/x402/demo
+```
+
+### Adım 3: Bağımlılıkları Yükleyin
+
+Tüm demo bileşenleri için Node.js bağımlılıklarını yükleyin:
+
+```bash
+# Install dependencies for all components (facilitator, API, and client)
+pnpm run install:all
+```
+
+Bu betik şunlar için bağımlılıkları yükler:
+
+- Kolaylaştırıcı sarmalayıcı hizmeti
+- Korumalı API sunucusu
+- İstemci demo uygulaması
+
+### Adım 4: Ortamı Yapılandırın
+
+Demo, gerekli ortam değişkenlerini içeren bir `.env.example` dosyası içerir.
+Önce, temel yapılandırmayı ayarlayalım:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+Şimdi demo için keypair oluşturmanız veya sağlamanız gerekiyor. Keypairleri
+oluşturmak için aşağıdaki komutu çalıştırın:
+
+```bash
+pnpm run setup
+```
+
+Bu, keypairleri oluşturacak ve bunları `.env` dosyasına ekleyecektir:
+
+- `KORA_SIGNER_ADDRESS` - Kora imzalayıcısının adresi
+- `KORA_SIGNER_PRIVATE_KEY` - Kora imzalayıcısının özel anahtarı
+- `PAYER_ADDRESS` - Korumalı API'ye erişim için ödeme yapacak ödeyicinin adresi
+- `PAYER_PRIVATE_KEY` - Ödeyicinin özel anahtarı
+
+### Adım 5: Yapılandırma Dosyalarını Güncelleyin
+
+#### kora.toml
+
+`kora/kora.toml` dosyası Kora RPC sunucusunu yapılandırır. Bu dosyada herhangi
+bir değişiklik yapmanıza gerek yoktur, ancak aşağıdaki ayarları
+doğrulayabilirsiniz:
+
+1. **Ödeme Jetonu**: Devnet USDC mint'inin izin listesinde olduğundan emin olun:
+
+```toml
+allowed_tokens = [
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", # USDC devnet
+]
+```
+
+2. **API Kimlik Doğrulaması**: Demo, Kora erişimi için bir API anahtarı
+   kullanır. Bu, `.env` dosyasındaki `KORA_API_KEY` ile eşleşmelidir:
+
+```toml
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+```
+
+3. **Ücret Ödeyici Politikası**: İstenmeyen işlemlerin imzalanmasını ayrıntılı
+   kontroller kullanarak kısıtlayacak şekilde yapılandırılmıştır:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false
+allow_assign = false
+allow_create_account = false
+allow_allocate = false
+
+[validation.fee_payer_policy.system.nonce]
+allow_initialize = false
+allow_advance = false
+allow_authorize = false
+allow_withdraw = false
+
+[validation.fee_payer_policy.spl_token]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+
+[validation.fee_payer_policy.token_2022]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+```
+
+4. **İzin Verilen Programlar**: Sistem programının, token programının, ilişkili
+   token programının ve hesaplama bütçesi programının izin listesinde olduğundan
+   emin olun:
+
+```toml
+allowed_programs = [
+    "11111111111111111111111111111111",             # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Token Program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", # Associated Token Program
+    "ComputeBudget111111111111111111111111111111",  # Compute Budget Program
+]
+```
+
+#### signers.toml
+
+`kora/signers.toml` dosyası Kora imzalayıcısını yapılandırır. Bu dosyada
+herhangi bir değişiklik yapmanız gerekmez, ancak aşağıdaki ayarları
+doğrulayabilirsiniz:
+
+1. **İmzalayıcı Ortam Değişkeni**: İmzalayıcı ortam değişkeninin,
+   `private_key_env` değerinin `KORA_SIGNER_PRIVATE_KEY` olarak ayarlandığından
+   emin olun (`.env` dosyasındaki ortam değişkeni adıyla eşleşmelidir).
+
+```toml
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_SIGNER_PRIVATE_KEY"
+weight = 1
+```
+
+### Adım 6: Hesapları Fonlayın
+
+#### Devnet SOL
+
+Kora imzalayıcı adresimizin işlem ücretlerini ödemek için SOL'a ihtiyacı olacak.
+Solana CLI'ı kullanarak Kora imzalayıcı adresine devnet SOL'u airdrop
+edebilirsiniz:
+
+```bash
+# Airdrop SOL
+solana airdrop 1 <KORA_SIGNER_ADDRESS> --url devnet
+```
+
+Alternatif olarak, Kora imzalayıcı adresine SOL airdrop etmek için
+[Solana Faucet](https://faucet.solana.com/) kullanabilirsiniz.
+
+#### Devnet USDC
+
+`.env` dosyasında ayarlanan `PAYER_ADDRESS` adresinizin işlem ücretlerini ödemek
+için USDC'ye ihtiyacı olacak.
+
+[Circle'ın Faucet'inden](https://faucet.circle.com/) Devnet USDC alın. "Solana
+Devnet" seçeneğini seçtiğinizden ve USDC talep etmek için `PAYER_ADDRESS`
+adresinizi kullandığınızdan emin olun.
+
+## Demo'yu Çalıştırma
+
+Tüm bileşenleri `examples/x402/demo` dizininden çalıştırmak için dört terminal
+penceresine ihtiyacınız olacak.
+
+### Terminal 1: Kora RPC Sunucusunu Başlatın
+
+Kora RPC sunucusunu başlatmak için aşağıdaki komutu çalıştırın:
+
+```bash
+pnpm run start:kora
+```
+
+Kora RPC sunucusunun çalıştığını belirten bir dizi log görmelisiniz:
+
+```
+INFO kora_lib::rpc_server::server: RPC server started on 0.0.0.0:8080, port 8080
+```
+
+### Terminal 2: Facilitator'ü Başlatın
+
+Facilitator'ü başlatmak için aşağıdaki komutu çalıştırın:
+
+```bash
+pnpm run start:facilitator
+```
+
+Şunu görmelisiniz:
+
+```
+Server listening at http://localhost:3000
+```
+
+### Terminal 3: Korumalı API'yi Başlatın
+
+Korumalı API'yi başlatmak için aşağıdaki komutu çalıştırın:
+
+```bash
+pnpm run start:api
+```
+
+Şunu görmelisiniz:
+
+```
+Server listening at http://localhost:4021
+```
+
+### Terminal 4: İstemci Demosunu Çalıştırın
+
+```bash
+pnpm run demo
+```
+
+## Uygulamayı Anlamak
+
+Başarılı bir ödeme akışı sırasında gerçekleşenler:
+
+1. **İstemci İsteği** → API, ödeme gereksinimleriyle birlikte 402 döndürür
+2. **Ödeme Oluşturma** → İstemci, ödeme içeren Solana işlemi oluşturur
+3. **Ödeme Gönderimi** → İstemci, `X-PAYMENT` başlığında ödeme içeren isteği
+   sunucuya gönderir
+4. **Doğrulama** → Kolaylaştırıcı, Kora'nın `signTransaction` aracılığıyla
+   doğrular
+5. **Uzlaşma** → Kolaylaştırıcı, Kora'nın `signAndSendTransaction` aracılığıyla
+   uzlaşır (ödeme işlemini Solana'ya gönderir)
+6. **Erişim Verildi** → Kolaylaştırıcı işlem imzasını döndürür ve API korumalı
+   içeriği ödeme makbuzu ile birlikte döndürür
+
+![İşlem Akışı](/assets/docs/tools/kora/x402-protocol-flow.png)
+
+_Kaynak: [x402 GitHub](https://github.com/coinbase/x402/)_
+
+Her bileşenin nasıl çalıştığına derinlemesine bakalım:
+
+- **Kora RPC** (Port 8080): Gaz gerektirmeyen işlem imzalamayı yönetir
+- **Kolaylaştırıcı** (Port 3000): x402 protokolünü Kora'ya köprüler
+- **Korumalı API** (Port 4021): Para kazandıran API uç noktanız
+- **İstemci**: Otomatik ödeme akışını gösterir
+
+### Kolaylaştırıcı Sarmalayıcı/Proxy Sunucusu
+
+Kolaylaştırıcı, 3000 portunda çalışır. Bu, Solana ile (bizim durumumuzda Kora
+aracılığıyla) iletişimi yöneten sunucudur. x402 ödemelerini doğrulamak ve
+uzlaştırmak için kullanılır.
+
+Kolaylaştırıcı (`facilitator/src/facilitator.ts`), x402 protokolü ile Kora RPC
+arasındaki köprüdür. Üç temel uç nokta uygular:
+
+#### 1. `/verify` Uç Noktası
+
+Bu uç nokta:
+
+- Korumalı API sunucusundan bir x402 ödeme yükü alır
+- x402 yardımcılarını kullanarak Solana işlemini çıkarır
+- Yayınlamadan geçerliliği doğrulamak için Kora'nın `signTransaction`'ini
+  kullanır
+- Doğrulama durumunu, `isValid`'i döndürür
+
+#### 2. `/settle` Uç Noktası
+
+Bu uç nokta:
+
+- Ödeme `/verify` uç noktası tarafından doğrulandıktan sonra x402 ödeme yükünü
+  alır
+- İşlemi imzalamak ve yayınlamak için Kora'nın `signAndSendTransaction` metodunu
+  kullanır
+- Ödeme kanıtı olarak işlem imzasını döndürür
+
+#### 3. `/supported` Uç Noktası
+
+Bu uç nokta, kolaylaştırıcının yeteneklerini aşağıdakiler dahil olmak üzere
+etkili bir şekilde tanıtır:
+
+- Desteklenen x402 sürümü
+- Ödeme şeması (tam ödemeler)
+- Ağ (solana-devnet)
+- `getPayerSigner` metodu kullanılarak Kora'dan aldığımız ücret ödeyici adresi
+
+### Korumalı API
+
+API sunucusu (`api/src/api.ts`), uç noktaları korumak için x402-express ara
+yazılımını kullanır:
+
+```typescript
+app.use(
+  paymentMiddleware(
+    KORA_PAYER_ADDRESS, // Where payments should go
+    {
+      "GET /protected": {
+        price: "$0.0001", // Price in USD
+        network: NETWORK // solana-devnet
+      }
+    },
+    {
+      url: FACILITATOR_URL // Our facilitator wrapper
+    }
+  )
+);
+```
+
+Ara yazılım:
+
+- Korumalı uç noktalara gelen istekleri yakalar (bizim durumumuzda, `/protected`
+  uç noktası)
+- Ödeme eksikse 402 durumu döndürür
+- Kolaylaştırıcı aracılığıyla ödemeleri doğrular ve işler
+- Başarılı ödemeden sonra erişime izin verir
+
+Express kullanıyor olsak da, x402 kütüphanesi birçok yaygın framework için ara
+yazılım desteği içerir. Daha fazla bilgi için
+[x402 TypeScript Paketleri](https://github.com/coinbase/x402/tree/main/typescript/packages)
+sayfasına bakın.
+
+### İstemci Uygulaması
+
+İstemci (`client/src/index.ts`), standart bir `fetch` çağrısı ile istek
+göndererek ve ardından ödeme sarmalayıcısı ile isteği yeniden deneyerek x402'nin
+nasıl çalıştığını otomatik olarak gösterir:
+
+```typescript
+// Create a signer from private key
+const payer = await createSigner(NETWORK, PAYER_PRIVATE_KEY);
+
+// Wrap fetch with x402 payment capabilities
+const fetchWithPayment = wrapFetchWithPayment(fetch, payer);
+
+// First attempt: Regular fetch (will fail with 402)
+const expect402Response = await fetch(PROTECTED_API_URL);
+console.log(`Status: ${expect402Response.status}`); // 402
+
+// Second attempt: Fetch with payment wrapper (succeeds)
+const response = await fetchWithPayment(PROTECTED_API_URL);
+console.log(`Status: ${response.status}`); // 200
+```
+
+x402 fetch sarmalayıcısı:
+
+- 402 yanıtlarını algılar
+- Korumalı API'nin ödeme gereksinimlerine göre otomatik olarak ödeme işlemi
+  oluşturur
+- Kullanıcının özel anahtarı ile imzalar
+- Doğrulama ve işleme için ödemeyi kolaylaştırıcıya gönderir
+- `x-payment-response` başlığında ödeme kanıtı ile isteği yeniden dener
+- Başarılı yanıt döndürür
+
+## Tamamlama
+
+Tebrikler! 🔥 Kora'nın gassız altyapısı ile eksiksiz bir x402 ödeme akışını
+başarıyla uyguladınız. Bu gösteri şunları ortaya koyuyor:
+
+- **x402 Protokolü** mikro ödemeler aracılığıyla sorunsuz API para kazandırma
+  olanağı sağlar
+- **Kora RPC** işlemleri doğrulayarak ve sonuçlandırarak x402 ödemeleri için
+  kolaylaştırıcı olarak çalışır
+- **Kullanıcılar** SOL tutmadan veya gas ücretlerini yönetmeden API erişimi için
+  ödeme yapabilir
+
+Bu mimari şunlar için güçlü bir temel oluşturur:
+
+- AI Agent pazaryerleri
+- Kullanım başına ödeme API'leri
+- Mikro ödeme içerik platformları
+- Kullanıma dayalı SaaS fiyatlandırması
+- Anlık, doğrulanabilir ödeme gerektiren her türlü hizmet
+
+x402 ve Kora kombinasyonu, Solana'nın gücünü geleneksel web altyapısına taşır.
+
+### Geliştirmeye Devam Edin
+
+- **Fiyatlandırmayı Özelleştirin**: Farklı uç noktalar için farklı tutarlar
+  talep etmek üzere API'yi değiştirin
+- **Birden Fazla Token Ekleyin**: Ödeme için çeşitli SPL tokenlarını kabul etmek
+  üzere Kora'yı yapılandırın
+- **Üretim Dağıtımı**: Üretim imzalayıcılarıyla (Vault, Turnkey veya Privy)
+  mainnet'e dağıtın
+- **Kendi API'nizi Oluşturun**: x402 ödemeleri aracılığıyla para kazandıran
+  gerçek bir hizmet oluşturun
+
+## Ek Kaynaklar
+
+#### x402 Protokolü
+
+- [x402 Dokümantasyonu](https://x402.gitbook.io/x402/)
+- [x402 GitHub](https://github.com/coinbase/x402)
+- [x402 TypeScript SDK](https://www.npmjs.com/package/x402)
+
+#### Kora
+
+- [Kora Yapılandırma Kılavuzu](/docs/tools/kora/operators/configuration)
+- [Kora İmzalayıcılar Kılavuzu](/docs/tools/kora/operators/signers)
+- [Kora API Referansı](/docs/tools/kora/json-rpc-api)
+
+#### Solana
+
+- [Solana Dokümantasyonu](https://solana.com/docs)
+- [SPL Token Programı](https://spl.solana.com/token)
+
+## Destek
+
+Yardıma mı ihtiyacınız var?
+
+- [Solana Stack Exchange](https://solana.stackexchange.com/)'de `kora` ve `x402`
+  etiketleriyle soru sorun
+- [Kora GitHub deposunda](https://github.com/solana-foundation/kora) sorun
+  bildirin

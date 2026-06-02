@@ -1,0 +1,126 @@
+---
+title: 수수료 참조
+description: Kora 수수료 계산에 대한 완전한 참조 문서입니다.
+---
+
+_최종 업데이트: 2025-10-31_
+
+Kora는 `estimate_transaction_fee` 및 `sign_transaction` RPC 메서드를 수행할 때
+트랜잭션 수수료를 추정합니다. 수수료를 추정하기 위해 Kora는 네트워크 수수료,
+계정 생성 비용 및 선택적 결제 처리 수수료를 포함하여 Solana에서 트랜잭션을
+실행하는 데 드는 총 비용을 계산합니다. 이 가이드는 수수료 계산의 각 구성 요소를
+분석합니다.
+
+## 수수료 계산 공식
+
+수수료는 `kora.toml`에 구성된 가격 모델에 따라 결정됩니다:
+
+- `PriceModel::Free` - 모든 트랜잭션 수수료를 후원합니다 (총 수수료 = 0)
+- `PriceModel::Fixed` - 특정 토큰으로 고정 금액을 청구합니다 (네트워크 수수료와
+  무관)
+- `PriceModel::Margin` - 총 수수료에 퍼센트 마진을 추가합니다.
+
+`PriceModel::Margin`에서 사용되는 총 수수료 추정의 주요 진입점은
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs)의
+`FeeConfigUtil::estimate_kora_fee()`입니다. 다음과 같은 일반화된 공식을
+사용합니다:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## 수수료 구성 요소
+
+| 구성 요소                | 설명                                                                        | 계산 방법                                                                                                                     | 적용 시점                                       |
+| ------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **기본 수수료**          | 서명 검증 및 트랜잭션 처리를 포함하는 핵심 Solana 트랜잭션 수수료           | `RpcClient.get_fee_for_message()` - 컴퓨팅 유닛 및 우선 순위 수수료를 기반으로 한 Solana 수수료 계산 사용                     | 항상                                            |
+| **계정 생성 수수료**     | 새로운 Associated Token Account(ATA) 생성을 위한 rent 면제 최소 잔액        | `Rent::default().minimum_balance(account_size)` - 계정 데이터 크기(토큰 확장에 따라 165-355바이트)를 기반으로 rent 계산       | 트랜잭션이 새로운 ATA를 생성할 때               |
+| **Kora 서명 수수료**     | Kora가 비참여 수수료 지불자로 서명할 때 추가되는 수수료                     | 고정: 5,000 lamport (`LAMPORTS_PER_SIGNATURE`)                                                                                | 수수료 지불자가 이미 트랜잭션 서명자가 아닐 때  |
+| **수수료 지불자 유출액** | 트랜잭션에서 수수료 지불자가 보내는 총 SOL (전송, 계정 생성 등)             | 다음의 합계: 수수료 지불자로부터의 시스템 전송, 수수료 지불자가 자금을 제공한 CreateAccount, 수수료 지불자로부터의 Nonce 인출 | 수수료 지불자가 System Program 작업을 수행할 때 |
+| **결제 명령 수수료**     | 가스리스 트랜잭션을 위한 결제 명령 추가에 대한 우선 순위 수수료의 예상 비용 | 고정 추정: 50 lamport (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                          | 결제가 필요하지만 트랜잭션에 포함되지 않을 때   |
+| **전송 수수료**          | 민트에 구성된 Token2022 전송 수수료 (예: 전송 금액의 1%)                    | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - 민트의 전송 수수료 구성을 기반으로 함                                 | Kora 결제 주소로의 Token2022 전송에만 해당      |
+| **마진 조정**            | Kora의 가격 모델 마크업/조정                                                | `validation.price`에 구성된 마진 - 총 수수료의 %로 마크업 추가 가능                                                           | kora.toml에 `[validation.price]`이 제공될 때    |
+
+## 가격 모델 및 수수료 지불자 유출
+
+Kora는 사용자에게 트랜잭션 비용을 청구하는 방식을 결정하는 세 가지 가격 모델을
+지원합니다:
+
+### 마진 가격 책정 (기본값)
+
+- **공식:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **수수료 지불자 유출 포함:** 예
+- **최적 사용:** 수수료가 운영 마진을 포함한 실제 비용을 반영해야 하는 프로덕션
+  배포 환경
+
+### 고정 가격 책정
+
+- **공식:** `Total Fee = Fixed Amount (in specified token)`
+- **수수료 지불자 유출 포함:** 아니오
+- **최적 사용:** 통제된 환경에서 예측 가능한 가격으로 단순화된 사용자 경험 제공
+
+### 무료 가격 책정
+
+- **공식:** `Total Fee = 0`
+- **수수료 지불자 유출 포함:** 아니오 (운영자가 모든 비용 부담)
+- **최적 사용:** 프로모션 캠페인, 테스트 또는 완전히 후원되는 애플리케이션
+
+---
+
+## ⚠️ 보안 경고: 고정/무료 가격 모델
+
+**중요:** 고정/무료 가격 모델은 청구 금액에 수수료 지불자 유출을 포함하지
+**않습니다**. 적절히 구성되지 않으면 이는 심각한 보안 위험을 초래합니다. 수수료
+지불자 정책이 전송 또는 기타 유출 작업을 허용하는 경우, 공격자가 이를 악용하여
+수수료 지불자 계정을 고갈시킬 수 있습니다.
+
+### 필수 보안 제어
+
+고정/무료 가격을 사용할 때는 **반드시** 모든 자금 이동 및 권한 변경 작업을
+차단하는 제한적인 수수료 지불자 정책을 구성해야 합니다:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### 추가 보호 조치
+
+1. **인증 활성화:** 고정/무료 가격 사용 시 항상 API 키 또는 HMAC 인증 요구
+2. **낮은 한도 설정:** 보수적인 `max_allowed_lamports` 값 사용
+3. **사용량 모니터링:** 높은 유출 트랜잭션의 비정상적인 패턴 추적
+4. **마진 가격 고려:** 마진 가격은 수수료에 유출 비용을 자동으로 포함
+
+### 검증 경고
+
+Kora의 구성 validator는 위험한 구성에 대해 경고합니다:
+
+```bash
+kora --config kora.toml config validate
+```
+
+취약한 구성에 대한 예상 경고:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

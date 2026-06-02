@@ -1,0 +1,228 @@
+---
+title: المراقبة والمقاييس
+description: راقب عقدة Kora الخاصة بك باستخدام Prometheus و Grafana
+---
+
+_آخر تحديث: 2025-08-22_
+
+توفر
+[مكتبة Kora Metrics](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+جمع مقاييس شامل ومراقبة لخادم Kora RPC.
+
+يعرض Kora نقطة نهاية `/metrics` توفر بيانات أداء في الوقت الفعلي بتنسيق
+Prometheus.
+
+## الإعدادات
+
+يتم تكوين المقاييس في قسم `[metrics]` من ملف `kora.toml` الخاص بك. يقوم قسم
+`[metrics]` بتكوين جمع المقاييس والمراقبة. هذا القسم اختياري وبشكل افتراضي، تكون
+المقاييس معطلة.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| الخيار            | الوصف                           | مطلوب | النوع |
+| ----------------- | ------------------------------- | ----- | ----- |
+| `enabled`         | تفعيل جمع المقاييس              | ✅    | منطقي |
+| `endpoint`        | مسار نقطة نهاية المقاييس المخصص | ✅    | نصي   |
+| `port`            | منفذ نقطة نهاية المقاييس        | ✅    | رقمي  |
+| `scrape_interval` | تكرار جمع Prometheus (بالثواني) | ✅    | رقمي  |
+
+### تتبع رصيد دافع الرسوم
+
+يقوم قسم `[metrics.fee_payer_balance]` بتكوين المراقبة التلقائية لرصيد SOL لدافع
+الرسوم الخاص بك:
+
+| الخيار           | الوصف                           | مطلوب               | النوع |
+| ---------------- | ------------------------------- | ------------------- | ----- |
+| `enabled`        | تفعيل تتبع رصيد دافع الرسوم     | ❌ (افتراضي: false) | منطقي |
+| `expiry_seconds` | فترة التتبع في الخلفية بالثواني | ❌ (افتراضي: 30)    | رقمي  |
+
+عند التفعيل، يتتبع Kora تلقائياً رصيد SOL لدافع الرسوم الخاص بك ويعرضه عبر مقياس
+Prometheus `fee_payer_balance_lamports`. يساعد هذا في تخطيط السعة والتنبيه عند
+انخفاض الرصيد.
+
+## البداية السريعة
+
+**الوصول إلى المقاييس:**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## ما ستراه
+
+تُظهر المقاييس كيفية أداء خادم RPC الخاص بك:
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+إذا لم تقم باستدعاء خادم RPC بعد، فلن ترى أي مقاييس. يمكنك تشغيل اختبار بسيط عن
+طريق استدعاء الطريقة `getConfig`:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+ثم تحقق من المقاييس:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## شرح المقاييس الرئيسية
+
+1. **`kora_http_requests_total`** - عدد الطلبات التي تمت معالجتها
+   - `method`: طريقة RPC التي تم استدعاؤها
+   - `status`: رمز حالة HTTP (200=نجاح، 400=خطأ، إلخ.)
+   - استخدم هذا لتتبع أنماط الاستخدام ومعدلات الأخطاء
+
+2. **`kora_http_request_duration_seconds`** - مدى سرعة طلباتك
+   - يعرض النسب المئوية (p50، p95، p99) لأوقات الاستجابة
+   - استخدم هذا لتحديد نقاط النهاية البطيئة
+
+3. **`signer_balance_lamports`** - رصيد SOL الحالي لكل موقّع
+   - يعرض الرصيد بوحدة lamport (1 SOL = 1,000,000,000 lamport) لكل موقّع
+   - التصنيفات: `signer_name` (الاسم المقروء) و `signer_pubkey` (المفتاح العام)
+   - يتم التحديث تلقائياً في الخلفية عند التفعيل
+   - استخدم هذا للتخطيط للسعة وتنبيهات الرصيد المنخفض عبر جميع الموقّعين
+
+## استخدام البيانات
+
+### الخيار 1: فحص سريع للصحة
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### الخيار 2: Prometheus + Grafana (موصى به)
+
+للحصول على رسوم بيانية وتنبيهات، قم بتشغيل مجموعة المراقبة الكاملة:
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+ثم قم بزيارة:
+
+- Prometheus: http://localhost:9090 (استعلام المقاييس)
+- لوحة معلومات Kora الجاهزة في Grafana: http://localhost:3000
+  - تسجيل الدخول الافتراضي: admin/admin (أو استخدم بيانات اعتماد
+    `GF_SECURITY_ADMIN_PASSWORD` و `GF_SECURITY_ADMIN_USER` من ملف `.env` الخاص
+    بك)
+
+### الخيار 3: نظام المراقبة الخاص بك
+
+وجّه أي أداة متوافقة مع Prometheus إلى `http://your-server:8080/metrics`:
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## أمثلة على الاستعلامات (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## مراقبة الموقّعين المتعددين
+
+عند استخدام موقّعين متعددين، يمكنك مراقبة كل موقّع على حدة أو تتبع المقاييس
+الإجمالية:
+
+### مقاييس الموقّع الفردي
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### استعلامات Prometheus لإعدادات الموقّعين المتعددين
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## ملاحظة أمنية
+
+نقطة النهاية `/metrics` عامة افتراضياً. في بيئة الإنتاج، يُنصح بما يلي:
+
+- وضعها خلف جدار ناري
+- استخدام منفذ منفصل للمقاييس
+- إضافة المصادقة عبر وكيل عكسي
+
+## كيفية عمل جمع المقاييس
+
+1. **طبقة البرمجيات الوسيطة لـ HTTP** - تعترض جميع الطلبات وتجمع:
+   - عدد الطلبات حسب طريقة JSON-RPC والحالة
+   - مدة الطلب حسب الطريقة
+
+2. **نقطة نهاية المقاييس** - نقطة النهاية `/metrics` متاحة تلقائياً عند تمكين
+   الميزة
+   - يتم التعامل معها بواسطة `MetricsHandlerLayer`
+   - تُرجع المقاييس بتنسيق Prometheus
+
+3. **استخلاص Prometheus** - مُهيأ لاستخلاص بيانات Kora كل 60 ثانية (راجع
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml))

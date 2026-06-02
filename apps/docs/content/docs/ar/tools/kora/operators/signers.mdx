@@ -1,0 +1,492 @@
+---
+title: الموقّعون
+description: إعداد وإدارة موقّعي Kora
+---
+
+_آخر تحديث: 2025-08-22_
+
+## ما هو الموقّع؟
+
+**الموقّع** هو زوج المفاتيح التشفيري الذي تستخدمه عقدة Kora الخاصة بك لتوقيع
+معاملات سولانا باعتباره دافع الرسوم. عندما يرسل المستخدمون معاملات إلى عقدة Kora
+الخاصة بك، فإنها تتحقق من صحتها وتوقعها بشكل مشترك باستخدام المفتاح الخاص
+للموقّع الخاص بك لتغطية رسوم معاملات SOL.
+
+**ملاحظة**: بشكل افتراضي، يتم إرسال رسوم الدفع بالرموز إلى عنوان الموقّع. ومع
+ذلك، يمكنك تكوين `payment_address` منفصل في `kora.toml` الخاص بك لاستلام
+المدفوعات على عنوان مختلف مع الاحتفاظ بالموقّع الخاص بك منفصلاً. راجع
+[دليل التكوين](/docs/tools/kora/operators/configuration) للحصول على التفاصيل.
+
+يمتلك زوج مفاتيح الموقّع الخاص بك وصولاً مباشراً إلى أموال SOL الخاصة بك
+المستخدمة لدفع رسوم المعاملات. إذا تم اختراقه، يمكن للمهاجم:
+
+- استنزاف رصيد SOL الخاص بك
+- توقيع معاملات غير مصرح بها
+- تعطيل خدمة مدير المدفوعات الخاصة بك
+
+## تكوين الموقّع
+
+يتطلب Kora RPC CLI تحديد `signer.toml` عبر علامة `--signers-config`. يسمح لك ملف
+`singer.toml` بتكوين الموقّع (الموقّعين) وإعدادات الموقّع لعقدتك. يحتوي
+`signer.toml` على قسمين:
+
+1. `[signer_pool]` - تكوين مجموعة الموقّعين
+2. `[[signers]]` - تكوين كل موقّع (يجب أن يكون هناك موقّع واحد على الأقل ما لم
+   تستخدم علامة `--no-load-signer` التي تتمتع بوظائف محدودة)
+
+#### `[signer_pool]`
+
+يحدد تكوين مجموعة الموقّعين السمات الخاصة بمجموعة الموقّعين ككل:
+
+- `strategy` - استراتيجية الاختيار لاختيار الموقّعين. الاستراتيجيات المتاحة هي:
+  - `round_robin` (افتراضي) - التنقل بين الموقّعين بالترتيب.
+  - `random` - اختيار الموقّعين بشكل عشوائي.
+  - `weighted` - اختيار الموقّعين بناءً على الوزن.
+
+#### `[[signers]]`
+
+يتم تكوين كل موقّع بـ:
+
+- `name`: معرّف يمكن قراءته للموقّع ويجب أن يكون فريدًا ضمن مجموعة الموقّعين
+- `weight` اختياري: رقم يحدد وزن الموقّع إذا كان `strategy` هو `weighted`
+- `type` وإعدادات خاصة بالنوع (راجع [أنواع الموقّعين](#signer-types))
+
+يُطلب موقّع واحد على الأقل ما لم يتم استخدام علامة `--no-load-signer` التي لها
+وظائف محدودة. بالنسبة لعمليات النشر الإنتاجية، يُوصى بإعداد عدة موقّعين لتحسين
+الموثوقية والأداء.
+
+### مثال
+
+إليك مثال على ملف `signers.toml` يحدد مجموعة موقّعين بنظام دائري بثلاثة موقّعين
+(_ملاحظة: سنغطي أنواع الموقّعين وإعداداتهم المختلفة في القسم التالي_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### متغيرات البيئة
+
+قم بتعيين متغيرات البيئة لجميع الموقّعين المُعدّين:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### تشغيل Kora بإعدادات الموقّعين
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## أنواع الموقّعين
+
+تدعم Kora أربعة أنواع رئيسية من الموقّعين، ولكل منها خصائص أمنية وتشغيلية مختلفة
+(مع خيار بدون موقّع للاختبار المحدود):
+
+- [المفتاح الخاص](#private-key-signer) - بسيط، يُدار ذاتيًا
+- [Turnkey](#turnkey-signer) - خدمة إدارة المفاتيح
+- [Privy](#privy-signer) - خدمة إدارة المفاتيح
+- Vault - تكامل HashiCorp Vault
+- [بدون موقّع](#no-signer) - بدون موقّع (للاختبار المحدود)
+
+## موقّع المفتاح الخاص
+
+النهج الأبسط - قم بتخزين مفتاحك الخاص مباشرة في متغيرات البيئة أو مرره عبر
+علامات سطر الأوامر. تقبل Kora المفاتيح الخاصة بثلاثة أشكال:
+
+#### 1. تنسيق Base58 (افتراضي)
+
+مفتاح خاص مشفّر بتنسيق Base58 القياسي لسولانا:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. تنسيق U8Array
+
+مصفوفة من 64 بايت بتنسيق JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. مسار ملف JSON
+
+مسار إلى ملف JSON يحتوي على زوج المفاتيح:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+حيث يحتوي `keypair.json` على:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### إنشاء زوج مفاتيح جديد
+
+يمكنك إنشاء زوج مفاتيح جديد لعقدة Kora الخاصة بك باستخدام واجهة سطر الأوامر
+سولانا:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### إعدادات Signer.toml
+
+المتغيرات المطلوبة:
+
+- `name` - اسم الموقّع
+- `type` - نوع الموقّع (يجب أن يكون `memory`)
+- `private_key_env` - متغير البيئة الذي يحتوي على المفتاح الخاص
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## موقّع Turnkey
+
+توفر [Turnkey](https://www.turnkey.com/) إدارة مفاتيح على مستوى المؤسسات مع
+وحدات أمان الأجهزة (HSMs) وضوابط السياسات.
+
+### المتطلبات الأساسية
+
+ستحتاج إلى **حساب Turnkey** لاستخدام موقّع Turnkey. سجّل في
+[turnkey.com](https://www.turnkey.com/)
+
+### الإعداد
+
+ستحتاج إلى خمسة مفاتيح لاستخدام موقّع Turnkey:
+
+- معرّف منظمة Turnkey
+- المفتاح العام لواجهة برمجة التطبيقات Turnkey
+- المفتاح الخاص لواجهة برمجة التطبيقات Turnkey
+- معرّف المفتاح الخاص Turnkey
+- المفتاح العام Turnkey
+
+لنقم بجلبها من Turnkey:
+
+#### 1. منظمة Turnkey
+
+انقر على قائمة المستخدم في الزاوية العلوية اليمنى من لوحة تحكم Turnkey وانسخ
+معرّف المنظمة:
+
+![معرّف منظمة Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+احفظ معرّف المنظمة في متغير بيئة:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. مفاتيح واجهة برمجة التطبيقات Turnkey
+
+- انقر على قائمة المستخدم في الزاوية العلوية اليمنى من لوحة تحكم Turnkey وانقر
+  على "إعدادات الحساب".
+- ضمن "مفاتيح واجهة برمجة التطبيقات"، انقر على "+ إنشاء مفتاح API".
+- حدد "إنشاء مفاتيح API في المتصفح"
+- أدخل اسماً لمفتاح API وانقر على "متابعة"
+- احفظ المفاتيح العامة والخاصة وانقر على "موافقة"
+
+![مفاتيح واجهة برمجة التطبيقات Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+احفظ المفاتيح العامة والخاصة لواجهة برمجة التطبيقات في متغيرات البيئة:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. مفاتيح محفظة Turnkey
+
+من القائمة الرئيسية، انتقل إلى
+["المحافظ"](https://app.turnkey.com/dashboard/wallets) وانقر على "إنشاء مفتاح
+خاص".
+
+سنقوم بإنشاء مفتاح خاص جديد من نوع ED25519 بنوع عنوان أصل "سولانا":
+
+![محافظ Turnkey](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+انقر على "متابعة" ثم "موافقة".
+
+من صفحة محافظك، يجب أن ترى مفتاحك الخاص الجديد. انقر عليه لعرض التفاصيل. ستحتاج
+إلى نسخ "معرف المفتاح الخاص" و"العنوان" الخاص بالمحفظة. احفظهما في متغيرات
+البيئة:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![تفاصيل محفظة Turnkey](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+ستحتاج إلى تمويل المحفظة بعملة SOL لدفع رسوم المعاملات.
+
+### تكوين متغيرات البيئة
+
+يجب أن يكون لديك الآن متغيرات البيئة التالية:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+راجع [مستودع Kora](https://github.com/solana-foundation/kora) للحصول على ملف
+`.env.example` كامل.
+
+للحصول على الدعم الخاص بـ Turnkey، راجع
+[توثيق Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### تكوين Signer.toml
+
+المتغيرات المطلوبة:
+
+- `name` - اسم الموقّع
+- `type` - نوع الموقّع (يجب أن يكون `turnkey`)
+- `api_public_key_env` - متغير البيئة الذي يحتوي على المفتاح العام لواجهة برمجة
+  التطبيقات Turnkey
+- `api_private_key_env` - متغير البيئة الذي يحتوي على المفتاح الخاص لواجهة برمجة
+  التطبيقات Turnkey
+- `organization_id_env` - متغير البيئة الذي يحتوي على معرف مؤسسة Turnkey
+- `private_key_id_env` - متغير البيئة الذي يحتوي على معرف المفتاح الخاص لـ
+  Turnkey
+- `public_key_env` - متغير البيئة الذي يحتوي على المفتاح العام لـ Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## موقّع Privy
+
+تقدم [Privy](https://www.privy.io/) بنية تحتية للمحافظ المدمجة مع إدارة آمنة
+للمفاتيح لتطبيقات Web3.
+
+### المتطلبات الأساسية
+
+ستحتاج إلى **حساب Privy** لاستخدام موقّع Privy. سجّل في
+[privy.io](https://www.privy.io/)
+
+### الإعداد
+
+ستحتاج إلى ثلاثة مفاتيح لاستخدام موقّع Privy:
+
+- معرف تطبيق Privy
+- مفتاح تطبيق Privy السري
+- معرف محفظة Privy
+
+لنقم بجلبها من Privy:
+
+#### 1. معرف تطبيق Privy
+
+من لوحة التحكم الخاصة بك، اختر التطبيق الذي تريد استخدامه مع Kora (أو انقر على
+"+ تطبيق جديد" إذا لم يكن لديك واحد).
+
+اختر "استرداد مفاتيح API" وانقر على "+ مفتاح سري جديد":
+
+![محافظ Privy](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+انسخ "معرف التطبيق" و"المفتاح السري للتطبيق" واحفظهما في متغيرات البيئة:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. محفظة Privy
+
+بعد ذلك، سنحتاج إلى إنشاء محفظة جديدة لـ Kora. من الشريط الجانبي للوحة التحكم
+انقر على "المحافظ" ضمن "البنية التحتية للمحافظ"، واختر "محفظة جديدة".
+
+اختر "سولانا" كبلوكتشين وانقر على "حفظ".
+
+انقر على المحفظة لعرض التفاصيل:
+
+![محافظ Privy](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+انسخ "معرف المحفظة" واحفظه في متغيرات البيئة:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+ستحتاج إلى تمويل المحفظة بعملة SOL لدفع رسوم المعاملات.
+
+### تكوين متغيرات البيئة
+
+يجب أن يكون لديك الآن متغيرات البيئة التالية:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+راجع [مستودع Kora](https://github.com/solana-foundation/kora) للحصول على ملف
+`.env.example` كامل.
+
+للحصول على الدعم مع Privy، راجع
+[وثائق Privy](https://docs.privy.io/wallets/overview).
+
+### تكوين Signer.toml
+
+المتغيرات المطلوبة:
+
+- `name` - اسم الموقّع
+- `type` - نوع الموقّع (يجب أن يكون `privy`)
+- `app_id_env` - متغير البيئة الذي يحتوي على معرف تطبيق Privy
+- `app_secret_env` - متغير البيئة الذي يحتوي على المفتاح السري لتطبيق Privy
+- `wallet_id_env` - متغير البيئة الذي يحتوي على معرف محفظة Privy
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## لا يوجد موقّع
+
+إذا لم يتم تكوين موقّع، سيطرح Kora خطأ. إذا كنت تريد تشغيل Kora بدون موقّع،
+يمكنك تشغيله باستخدام علامة `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+لاحظ أن هذا سيحد من عقدتك لمعالجة الطلبات التي لا تتطلب موقّعاً فقط.
+
+## استكشاف الأخطاء وإصلاحها
+
+### مرجع سريع
+
+| رسالة الخطأ                                                       | نوع الموقّع     | الحل السريع                                        |
+| ----------------------------------------------------------------- | --------------- | -------------------------------------------------- |
+| "At least one signer must be configured"                          | أي              | أضف موقّعاً واحداً على الأقل إلى التكوين           |
+| "Failed to read config file"                                      | أي              | تحقق من مسار الملف ومحتوياته                       |
+| "Failed to parse signers config TOML"                             | أي              | تحقق من تنسيق الملف ومحتويات الموقّع               |
+| "Duplicate signer name"                                           | أي              | تأكد من أن كل موقّع له اسم فريد في التكوين         |
+| "Invalid base58 string"                                           | مفتاح خاص       | تحقق من تنسيق المفتاح، لا مسافات إضافية            |
+| "Invalid private key length"                                      | مفتاح خاص       | استخدم مفتاح سولانا كامل بحجم 64 بايت              |
+| "Turnkey \{key\} required"                                        | Turnkey         | اضبط `TURNKEY_{key}`                               |
+| "Privy \{key\} required"                                          | Privy           | اضبط `PRIVY_{key}`                                 |
+| "Vault \{key\} required"                                          | Vault           | اضبط `VAULT_{key}`                                 |
+| "Failed to create Vault client"                                   | Vault           | تحقق من بيانات اعتماد Vault                        |
+| "Failed to sign with \[service\]"                                 | أي              | تحقق من حالة الخدمة وبيانات الاعتماد وحدود المعدل  |
+| "Signer pool not initialized"                                     | موقّعون متعددون | تحقق من مسار `signers.toml` وتنسيقه                |
+| "Cannot create empty signer pool"                                 | موقّعون متعددون | أضف موقّعاً واحداً على الأقل إلى التكوين           |
+| "Signer with pubkey ... not found"                                | موقّعون متعددون | تحقق من أن تلميح الموقّع يطابق الموقّعين المكوّنين |
+| "Signers configuration is required unless using --no-load-signer" | أي              | أضف ملف تكوين الموقّعين                            |
+
+### نصائح عامة لتصحيح الأخطاء
+
+#### تفعيل السجلات التفصيلية
+
+أضف سجلات تفصيلية لتشخيص المشكلات:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## الأمان وأفضل الممارسات
+
+### الأمان العام
+
+- استخدم أزواج مفاتيح مخصصة لـ Kora (لا تعيد استخدام المحافظ الشخصية)
+- قم بالتمويل فقط بمبلغ SOL الذي ترغب في إنفاقه على الرسوم
+- حافظ على رصيد تشغيلي بحد أدنى مع مراقبة آلية وإعادة تعبئة
+- نفّذ المراقبة والتنبيهات لأي نشاط غير معتاد
+- يجب تخزين جميع المفاتيح الخاصة ومفاتيح واجهة برمجة التطبيقات في متغيرات البيئة
+  أو أنظمة إدارة الأسرار (أسرار Railway، AWS Secrets Manager، إلخ.)
+
+## تحديد الموقِّع (من جانب العميل)
+
+يمكن للعملاء تحديد موقِّع مفضل لضمان الاتساق عبر العمليات المرتبطة:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+بدون مفاتيح الموقِّع، تحدد الاستراتيجية المُكوَّنة اختيار الموقِّع. من المهم
+ملاحظة أن المفاتيح يجب أن تكون متسقة عبر الاستدعاءات المتعلقة بنفس المعاملة (على
+سبيل المثال، إذا قمت بإنشاء معاملة بمفتاح موقِّع محدد، يجب عليك استخدام نفس
+مفتاح الموقِّع لجميع الاستدعاءات ذات الصلة).

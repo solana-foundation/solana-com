@@ -33,7 +33,7 @@ export function MultiCode({
 
   const tabs = (
     <Tabs
-      ch-container="true"
+      data-ch-container="true"
       value={currentTitle}
       onValueChange={setCurrentTitle}
       className={cn(

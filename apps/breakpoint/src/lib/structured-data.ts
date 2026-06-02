@@ -17,7 +17,7 @@ function asPlainTextMessage(value: unknown) {
 const TICKET_OFFERS: OfferSeed[] = [
   {
     name: "General Admission",
-    price: 350,
+    price: 450,
     url: GENERAL_ADMISSION_HREF,
   },
 ];

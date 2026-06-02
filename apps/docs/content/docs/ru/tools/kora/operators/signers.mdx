@@ -1,0 +1,512 @@
+---
+title: Подписанты
+description: Настройка и управление подписантами Kora
+---
+
+_Последнее обновление: 2025-08-22_
+
+## Что такое подписант?
+
+**Подписант** — это криптографическая пара ключей, которую ваш узел Kora
+использует для подписания транзакций Solana в качестве плательщика комиссии.
+Когда пользователи отправляют транзакции на ваш узел Kora, он проверяет их и
+подписывает совместно, используя закрытый ключ вашего подписанта для покрытия
+комиссий за транзакции в SOL.
+
+**Примечание**: По умолчанию комиссии за оплату токенами отправляются на адрес
+подписанта. Однако вы можете настроить отдельный `payment_address` в вашем
+`kora.toml`, чтобы получать платежи на другой адрес, сохраняя при этом
+подписанта отдельно. Подробности см. в
+[Руководстве по настройке](/docs/tools/kora/operators/configuration).
+
+Ваша пара ключей подписанта имеет прямой доступ к вашим средствам SOL,
+используемым для оплаты комиссий за транзакции. В случае компрометации
+злоумышленник может:
+
+- Опустошить ваш баланс SOL
+- Подписать несанкционированные транзакции
+- Нарушить работу вашего сервиса paymaster
+
+## Конфигурация подписанта
+
+Для CLI Kora RPC требуется указать `signer.toml` с помощью флага
+`--signers-config`. Файл `singer.toml` позволяет настроить подписанта
+(подписантов) и конфигурацию подписантов для вашего узла. `signer.toml` содержит
+два раздела:
+
+1. `[signer_pool]` — Конфигурация для пула подписантов
+2. `[[signers]]` — Конфигурация для каждого подписанта (требуется как минимум
+   один подписант, если не используется флаг `--no-load-signer`, который имеет
+   ограниченную функциональность)
+
+#### `[signer_pool]`
+
+Конфигурация пула подписантов определяет атрибуты, относящиеся ко всему пулу
+подписантов:
+
+- `strategy` — Стратегия выбора подписантов. Доступные стратегии:
+  - `round_robin` (по умолчанию) — Циклический перебор подписантов по порядку.
+  - `random` — Случайный выбор подписантов.
+  - `weighted` — Выбор подписантов на основе веса.
+
+#### `[[signers]]`
+
+Каждый подписант настраивается с помощью:
+
+- `name`: удобочитаемый идентификатор для подписанта, который должен быть
+  уникальным в пуле подписантов
+- необязательный `weight`: число, определяющее вес подписанта, если `strategy`
+  имеет значение `weighted`
+- `type` и специфичную для типа конфигурацию (см.
+  [Типы подписантов](#signer-types))
+
+Требуется один подписант, если не используется флаг `--no-load-signer`, который
+имеет ограниченную функциональность. Для производственных развертываний
+рекомендуется настроить несколько подписантов для повышения надежности и
+производительности.
+
+### Пример
+
+Вот пример файла `signers.toml`, который определяет пул подписантов с
+циклическим перебором и тремя подписантами (_примечание: различные
+типы/конфигурации подписантов мы рассмотрим в следующем разделе_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Переменные окружения
+
+Задайте переменные окружения для всех настроенных подписантов:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Запуск Kora с конфигурацией подписантов
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Типы подписантов
+
+Kora поддерживает четыре основных типа подписантов, каждый с различными
+характеристиками безопасности и эксплуатации (и опцию без подписанта для
+ограниченного тестирования):
+
+- [Приватный ключ](#private-key-signer) — простой, самостоятельно управляемый
+- [Turnkey](#turnkey-signer) — сервис управления ключами
+- [Privy](#privy-signer) — сервис управления ключами
+- Vault — интеграция с HashiCorp Vault
+- [Без подписанта](#no-signer) — без подписанта (для ограниченного тестирования)
+
+## Подписант с приватным ключом
+
+Самый простой подход — храните свой приватный ключ непосредственно в переменных
+окружения или передавайте через флаги CLI. Kora принимает приватные ключи в трех
+форматах:
+
+#### 1. Формат Base58 (по умолчанию)
+
+Стандартный приватный ключ Solana в кодировке base58:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. Формат U8Array
+
+Массив из 64 байт в формате JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. Путь к JSON-файлу
+
+Путь к JSON-файлу, содержащему пару ключей:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Где `keypair.json` содержит:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Генерация новой пары ключей
+
+Вы можете создать новую пару ключей для вашей ноды Kora с помощью Solana CLI:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Конфигурация Signer.toml
+
+Обязательные переменные:
+
+- `name` - Имя подписанта
+- `type` - Тип подписанта (должен быть `memory`)
+- `private_key_env` - Переменная окружения, содержащая приватный ключ
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Подписант Turnkey
+
+[Turnkey](https://www.turnkey.com/) предоставляет управление ключами
+корпоративного уровня с аппаратными модулями безопасности (HSM) и средствами
+контроля политик.
+
+### Предварительные требования
+
+Для использования подписанта Turnkey вам понадобится **аккаунт Turnkey**.
+Зарегистрируйтесь на [turnkey.com](https://www.turnkey.com/)
+
+### Настройка
+
+Для использования подписанта Turnkey вам понадобятся пять ключей:
+
+- ID организации Turnkey
+- Публичный ключ API Turnkey
+- Приватный ключ API Turnkey
+- ID приватного ключа Turnkey
+- Публичный ключ Turnkey
+
+Давайте получим их из Turnkey:
+
+#### 1. Организация Turnkey
+
+Нажмите на меню пользователя в правом верхнем углу панели управления Turnkey и
+скопируйте ID организации:
+
+![ID организации Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Сохраните ID организации в переменную окружения:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. API-ключи Turnkey
+
+- Нажмите на меню пользователя в правом верхнем углу панели управления Turnkey и
+  выберите «Настройки аккаунта».
+- В разделе «API Keys» нажмите «+ Create API Key».
+- Выберите «Generate API keys in-browser»
+- Введите имя для API-ключа и нажмите «Continue»
+- Сохраните публичный и приватный ключи и нажмите «Approve»
+
+![API-ключи Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Сохраните публичный и приватный API-ключи в переменные окружения:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Ключи кошелька Turnkey
+
+В главном меню перейдите в раздел
+["Кошельки"](https://app.turnkey.com/dashboard/wallets) и нажмите "Создать
+приватный ключ".
+
+Мы создадим новый приватный ключ ED25519 с типом адреса актива "Solana":
+
+![Кошельки Turnkey](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Нажмите "Продолжить", а затем "Подтвердить".
+
+На странице ваших кошельков вы увидите новый приватный ключ. Нажмите на него,
+чтобы просмотреть подробности. Вам нужно будет скопировать "Идентификатор
+приватного ключа" и "Адрес" кошелька. Сохраните их в переменные окружения:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Детали кошелька Turnkey](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Вам нужно пополнить кошелек токенами SOL для оплаты комиссий за транзакции.
+
+### Настройка переменных окружения
+
+Теперь у вас должны быть следующие переменные окружения:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Полный файл `.env.example` см. в
+[репозитории Kora](https://github.com/solana-foundation/kora).
+
+Для получения поддержки по Turnkey обратитесь к
+[документации Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Конфигурация Signer.toml
+
+Обязательные переменные:
+
+- `name` - Название подписчика
+- `type` - Тип подписчика (должен быть `turnkey`)
+- `api_public_key_env` - Переменная окружения, содержащая публичный ключ API
+  Turnkey
+- `api_private_key_env` - Переменная окружения, содержащая приватный ключ API
+  Turnkey
+- `organization_id_env` - Переменная окружения, содержащая идентификатор
+  организации Turnkey
+- `private_key_id_env` - Переменная окружения, содержащая идентификатор
+  приватного ключа Turnkey
+- `public_key_env` - Переменная окружения, содержащая публичный ключ Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Подписчик Privy
+
+[Privy](https://www.privy.io/) предлагает инфраструктуру встроенных кошельков с
+безопасным управлением ключами для Web3-приложений.
+
+### Предварительные требования
+
+Для использования подписчика Privy вам понадобится **аккаунт Privy**.
+Зарегистрируйтесь на [privy.io](https://www.privy.io/)
+
+### Настройка
+
+Для использования подписчика Privy вам понадобятся три ключа:
+
+- Privy App ID
+- Privy App Secret
+- Privy Wallet ID
+
+Давайте получим их из Privy:
+
+#### 1. Privy App ID
+
+На вашей панели управления выберите приложение, которое вы хотите использовать
+для Kora (или нажмите "+ New app", если у вас его еще нет).
+
+Выберите "Retrieve API Keys" и нажмите "+ New Secret":
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Скопируйте ваш "App ID" и "App Secret" и сохраните их в переменных окружения:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy Wallet
+
+Далее нам нужно создать новый кошелек для Kora. На боковой панели вашей панели
+управления нажмите "Wallets" в разделе "Wallet Infrastructure" и выберите "New
+Wallet".
+
+Выберите "Solana" в качестве блокчейна и нажмите "Save".
+
+Нажмите на кошелек, чтобы просмотреть детали:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Скопируйте "Wallet ID" и сохраните его в переменных окружения:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Вам потребуется пополнить кошелек SOL для оплаты комиссий за транзакции.
+
+### Настройка переменных окружения
+
+Теперь у вас должны быть следующие переменные окружения:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Полный файл `.env.example` смотрите в
+[репозитории Kora](https://github.com/solana-foundation/kora).
+
+Для получения поддержки по Privy см.
+[документацию Privy](https://docs.privy.io/wallets/overview).
+
+### Конфигурация Signer.toml
+
+Обязательные переменные:
+
+- `name` — Имя подписывающего
+- `type` — Тип подписывающего (должен быть `privy`)
+- `app_id_env` — Переменная окружения, содержащая Privy app ID
+- `app_secret_env` — Переменная окружения, содержащая Privy app secret
+- `wallet_id_env` — Переменная окружения, содержащая Privy wallet ID
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Отсутствие подписчика
+
+Если подписчик не настроен, Kora выдаст ошибку. Если вы хотите запустить Kora
+без подписчика, выполните команду с флагом `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Обратите внимание, что это ограничит ваш узел обработкой только тех запросов,
+которые не требуют подписчика.
+
+## Устранение неполадок
+
+### Краткий справочник
+
+| Сообщение об ошибке                                               | Тип подписчика   | Быстрое решение                                               |
+| ----------------------------------------------------------------- | ---------------- | ------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Любой            | Добавьте хотя бы один подписчик в конфигурацию                |
+| "Failed to read config file"                                      | Любой            | Проверьте путь к файлу и его содержимое                       |
+| "Failed to parse signers config TOML"                             | Любой            | Проверьте формат файла и содержимое подписчиков               |
+| "Duplicate signer name"                                           | Любой            | Убедитесь, что каждый подписчик имеет уникальное имя          |
+| "Invalid base58 string"                                           | Приватный ключ   | Проверьте формат ключа, уберите лишние пробелы                |
+| "Invalid private key length"                                      | Приватный ключ   | Используйте полный 64-байтный ключ Solana                     |
+| "Turnkey \{key\} required"                                        | Turnkey          | Установите `TURNKEY_{key}`                                    |
+| "Privy \{key\} required"                                          | Privy            | Установите `PRIVY_{key}`                                      |
+| "Vault \{key\} required"                                          | Vault            | Установите `VAULT_{key}`                                      |
+| "Failed to create Vault client"                                   | Vault            | Проверьте учетные данные Vault                                |
+| "Failed to sign with \[service\]"                                 | Любой            | Проверьте статус сервиса, учетные данные и лимиты             |
+| "Signer pool not initialized"                                     | Мульти-подписчик | Проверьте путь и формат `signers.toml`                        |
+| "Cannot create empty signer pool"                                 | Мульти-подписчик | Добавьте хотя бы один подписчик в конфигурацию                |
+| "Signer with pubkey ... not found"                                | Мульти-подписчик | Проверьте, что подсказка подписчика соответствует настроенным |
+| "Signers configuration is required unless using --no-load-signer" | Любой            | Добавьте файл конфигурации подписчиков                        |
+
+### Общие советы по отладке
+
+#### Включите подробное логирование
+
+Добавьте детальное логирование для диагностики проблем:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Безопасность и лучшие практики
+
+### Общая безопасность
+
+- Используйте выделенные keypair для Kora (не используйте повторно личные
+  кошельки)
+- Пополняйте только тем количеством SOL, которое вы готовы потратить на комиссии
+- Поддерживайте минимальный операционный баланс с автоматическим мониторингом и
+  пополнением
+- Внедрите мониторинг и оповещения о необычной активности
+- Все приватные ключи и API-ключи должны храниться в переменных окружения или
+  системах управления секретами (Railway secrets, AWS Secrets Manager и т.д.)
+
+## Указание подписанта (на стороне клиента)
+
+Клиенты могут указать предпочтительного подписанта для обеспечения
+согласованности между связанными операциями:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Без ключей подписанта настроенная стратегия определяет выбор подписанта. Важно
+отметить, что ключи должны быть согласованы между вызовами, относящимися к одной
+тransакции (например, если вы генерируете транзакцию с указанным ключом
+подписанта, вы должны использовать тот же ключ подписанта для всех связанных
+вызовов).

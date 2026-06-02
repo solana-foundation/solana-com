@@ -26,6 +26,7 @@ export async function MainDocsPage({
       description={page.data.description}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
+      hidePageNavigation={page.data.hidePageNavigation}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}

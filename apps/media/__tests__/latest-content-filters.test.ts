@@ -8,7 +8,6 @@ const {
   nextJsonMock,
   fetchLatestLinksMock,
   extractPlainTextMock,
-  contentDocumentToPlainTextMock,
 } = vi.hoisted(() => ({
   readerMock: {
     collections: {
@@ -42,9 +41,6 @@ const {
   })),
   fetchLatestLinksMock: vi.fn(),
   extractPlainTextMock: vi.fn((value: string) => `plain:${value}`),
-  contentDocumentToPlainTextMock: vi.fn((value: unknown) =>
-    String(value ?? ""),
-  ),
 }));
 
 vi.mock("@/lib/reader", () => ({
@@ -73,7 +69,6 @@ vi.mock("@/lib/post-data", () => ({
 vi.mock("@/lib/content-renderer", () => ({
   contentDocumentToPlainText: extractPlainTextMock,
   extractPlainText: extractPlainTextMock,
-  contentDocumentToPlainText: contentDocumentToPlainTextMock,
 }));
 
 import { fetchLatestLinks } from "@/lib/keystatic/link-data";

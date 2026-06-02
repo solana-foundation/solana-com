@@ -30,13 +30,13 @@ type RecentPublishedPost = {
   publishedAt: Date;
 };
 
-async function getPublishedPosts(): Promise<RecentPublishedPost[]> {
+async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
   const allSlugs = await reader.collections.posts.list();
   const posts: RecentPublishedPost[] = [];
 
   for (const slug of allSlugs) {
     const post = await reader.collections.posts.read(slug);
-    if (!isPublishedPost(post)) {
+    if (!isPublishedPost(post, now)) {
       continue;
     }
 
@@ -65,37 +65,35 @@ async function buildGoogleNewsSitemapXml(
   const minNewsPublishedAt = new Date(
     now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
   );
-  const posts = await getPublishedPosts();
-  const urls = posts
-    .filter((post) => post.publishedAt <= now)
-    .map((post) => {
-      const loc = `${NEWS_URL}/${post.slug}`;
-      const isGoogleNewsEligible =
-        post.publishedAt >= minNewsPublishedAt && post.publishedAt <= now;
+  const posts = await getPublishedPosts(now);
+  const urls = posts.map((post) => {
+    const loc = `${NEWS_URL}/${post.slug}`;
+    const isGoogleNewsEligible =
+      post.publishedAt >= minNewsPublishedAt && post.publishedAt <= now;
 
-      const lines = [
-        "<url>",
-        `<loc>${escapeXml(loc)}</loc>`,
-        `<lastmod>${escapeXml(post.publishedAt.toISOString())}</lastmod>`,
-      ];
+    const lines = [
+      "<url>",
+      `<loc>${escapeXml(loc)}</loc>`,
+      `<lastmod>${escapeXml(post.publishedAt.toISOString())}</lastmod>`,
+    ];
 
-      if (isGoogleNewsEligible) {
-        lines.push(
-          "<news:news>",
-          "<news:publication>",
-          `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
-          `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
-          "</news:publication>",
-          `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
-          `<news:title>${escapeXml(post.title)}</news:title>`,
-          "</news:news>",
-        );
-      }
+    if (isGoogleNewsEligible) {
+      lines.push(
+        "<news:news>",
+        "<news:publication>",
+        `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
+        `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
+        "</news:publication>",
+        `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
+        `<news:title>${escapeXml(post.title)}</news:title>`,
+        "</news:news>",
+      );
+    }
 
-      lines.push("</url>");
+    lines.push("</url>");
 
-      return lines.join("");
-    });
+    return lines.join("");
+  });
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',

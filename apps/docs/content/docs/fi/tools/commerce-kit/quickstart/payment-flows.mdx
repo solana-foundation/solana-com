@@ -1,0 +1,475 @@
+---
+title: HeadlessPayment Flows
+description: Headless-kaupan primitiivit mihin tahansa kehykseen
+---
+
+# Maksuvirrat
+
+`@solana-commerce/headless`-paketti tarjoaa kehyksestä riippumattomia funktioita
+kaupallisten maksuvirrtojen rakentamiseen. Nämä työkalut auttavat luomaan
+maksupyyntö- objekteja, generoimaan Solana Pay -URL-osoitteita ja tarkistamaan
+on-chain-maksuja. Paketti on suunniteltu toimimaan missä tahansa
+JavaScript-ympäristössä: React, Vue, Svelte, vanilla JS, Node.js tai
+serverless-funktioissa.
+
+## Asennus
+
+```bash
+pnpm add @solana-commerce/headless
+```
+
+## Maksupyyntöfunktiot
+
+Nämä funktiot luovat standardoituja maksupyyntö-objekteja erilaisiin
+kauppamalleihin. Ne eivät suorita mitään lohkoketjuoperaatioita—ne vain
+jäsentävät dataa käytettäväksi lompakoissa, Solana Pay -URL-osoitteissa tai
+mukautetuissa maksukäyttöliittymissä.
+
+### `createBuyNowRequest()`
+
+Luo standardoidun maksupyynnön yksittäisen tuotteen ostoa varten.
+
+```typescript
+function createBuyNowRequest(
+  recipient: string,
+  product: any,
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parametrit
+
+- **`recipient`** (`string`, pakollinen) - Kauppiaan lompakko-osoite
+  (base58-koodattu Solana-julkinen avain), joka vastaanottaa maksun.
+
+- **`product`** (`any`, pakollinen) - Tuote-objekti, joka sisältää:
+  - `price` (numero, pakollinen) - Tuotteen hinta. Yksikkö riippuu kontekstista
+    (esim. lamportit SOL:lle, pienimmät yksiköt tokeneille).
+  - `currency` (merkkijono, pakollinen) - Maksuvaluutta. Voi olla `'SOL'` tai
+    token- mint-osoite.
+  - `name` (merkkijono, pakollinen) - Tuotteen nimi, käytetään
+    oletusmemona/nimiönä, jos ei anneta.
+  - Lisäkentät (id, kuvaus, kuva jne.) välitetään edelleen
+    `products`-taulukossa.
+
+- **`options`** (objekti, valinnainen) - Mukautusasetukset:
+  - `memo` (merkkijono) - On-chain-memo transaktiolle. Oletus:
+    `"Purchase: {product.name}"`.
+  - `label` (merkkijono) - Näyttönimiö maksupyynnölle (käytetään Solana
+    Pay:ssä). Oletus: `product.name`.
+  - `message` (merkkijono) - Onnistumisviesti, joka näytetään maksun jälkeen.
+    Oletus: `"Thank you for purchasing {product.name}!"`.
+
+#### Palautusarvo
+
+`PaymentRequest`-objekti, joka sisältää:
+
+- `recipient` - Kauppiaan lompakko-osoite
+- `amount` - Tuotteen hinta (kopioitu `product.price`:sta)
+- `currency` - Maksuvaluutta (kopioitu `product.currency`:sta)
+- `products` - Taulukko, joka sisältää yhden tuotteen
+- `memo` - Transaktiomemo (asetus tai oletus: "Purchase: (product.name)")
+- `label` - Maksun nimiö (asetus tai oletus: "product.name")
+- `message` - Onnistumisviesti (asetus tai oletus: "Thank you for purchasing
+  (product.name)!")
+
+**Esimerkki:**
+
+```typescript
+const payment = createBuyNowRequest(
+  "merchant-wallet-address",
+  {
+    id: "prod_123",
+    name: "Premium Subscription",
+    price: 50000000, // 0.05 SOL in lamports
+    currency: "SOL"
+  },
+  {
+    label: "Premium Subscription",
+    message: "Thank you for subscribing!"
+  }
+);
+```
+
+### `createCartRequest()`
+
+Luo maksupyynnön usealle tuotteelle ostoskorissa.
+
+```typescript
+function createCartRequest(
+  recipient: string,
+  products: any[],
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+    currency?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parametrit
+
+- **`recipient`** (`string`, pakollinen) - Kauppiaan lompakko-osoite, joka
+  vastaanottaa maksun.
+
+- **`products`** (`any[]`, pakollinen) - Tuoteobjektien taulukko.
+
+- **`options`** (object, valinnainen) - Mukautusasetukset:
+  - `currency` (string) - Koko ostoskorin maksuvaluutta.
+  - `memo` (string) - Lohkoketjumuistiinpano. Oletusarvo:
+    `"Cart purchase (products.length items)"`.
+  - `label` (string) - Maksun tunniste. Oletusarvo: `"Cart Checkout"`.
+  - `message` (string) - Onnistumisviesti. Oletusarvo:
+    `"Thank you for your purchase!"`.
+
+#### Palautusarvo
+
+`PaymentRequest`-objekti, joka sisältää:
+
+- `recipient` - Kauppiaan lompakko-osoite
+- `amount` - Kaikkien tuotehintojen summa
+  (`products.reduce((sum, p) => sum + p.price, 0)`)
+- `currency` - Maksuvaluutta (asetuksista tai undefined)
+- `products` - Tuotteiden taulukko
+- `memo`, `label`, `message` - Asetusarvot tai oletusarvot
+
+**Esimerkki:**
+
+```typescript
+const cart = createCartRequest(
+  "merchant-wallet-address",
+  [
+    { id: "1", name: "Product A", price: 25 },
+    { id: "2", name: "Product B", price: 15 },
+    { id: "3", name: "Product C", price: 10 }
+  ],
+  {
+    currency: "USDC",
+    label: "My Store Checkout",
+    message: "Thank you for your order!"
+  }
+);
+// cart.amount === 50 (sum of prices)
+```
+
+---
+
+### `createTipRequest()`
+
+Luo maksupyynnön juomarahoja tai lahjoituksia varten käyttäjän määrittelemällä
+summalla.
+
+```typescript
+function createTipRequest(
+  recipient: string,
+  amount: number,
+  options?: {
+    currency?: string;
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parametrit
+
+- **`recipient`** (`string`, pakollinen) - Juomarahan vastaanottajan
+  lompakko-osoite (sisällöntuottaja, striimaaja, hyväntekeväisyys jne.).
+
+- **`amount`** (`number`, pakollinen) - Juomarahan määrä. Yksikkö riippuu
+  valuutasta (lamportit SOL:lle, pienimmät yksiköt tokeneille).
+
+- **`options`** (object, valinnainen) - Mukautusasetukset:
+  - `currency` (string) - Maksuvaluutta. Oletusarvo: undefined (käsitellään
+    tyypillisesti SOL:na kuluttajien toimesta).
+  - `memo` (string) - Lohkoketjumuistiinpano. Oletusarvo:
+    `"Thank you for your support!"`.
+  - `label` (string) - Maksun tunniste. Oletusarvo: `"Tip"`.
+  - `message` (string) - Onnistumisviesti. Oletusarvo: `"Thanks for the tip!"`.
+
+#### Palautusarvo
+
+`PaymentRequest`-objekti, joka sisältää:
+
+- `recipient` - Juomarahan vastaanottajan lompakko-osoite
+- `amount` - Juomarahan määrä
+- `currency` - Maksuvaluutta (asetuksista tai undefined)
+- `memo`, `label`, `message` - Asetusarvot tai oletusarvot
+
+**Esimerkki:**
+
+```typescript
+const tip = createTipRequest(
+  "creator-wallet-address",
+  5_000_000, // 0.005 SOL in lamports
+  {
+    currency: "SOL",
+    label: "Tip for Content Creator",
+    message: "Thanks for the support!"
+  }
+);
+```
+
+## Maksun vahvistusfunktiot
+
+Nämä funktiot ovat vuorovaikutuksessa Solanan kanssa transaktioiden
+vahvistamiseksi ja vahvistusten odottamiseksi. Ne vaativat Solana RPC -asiakkaan
+`gill`-kirjastosta.
+
+### `verifyPayment()`
+
+Vahvistaa, että transaktio on olemassa ketjussa ja validoi valinnaisesti maksun
+summan, vastaanottajan ja tokenin.
+
+```typescript
+async function verifyPayment(
+  rpc: SolanaClient["rpc"],
+  signatureString: string,
+  expectedAmount?: number,
+  expectedRecipient?: string,
+  expectedMint?: string
+): Promise<PaymentVerificationResult>;
+```
+
+#### Parametrit
+
+- **`rpc`** (`SolanaClient['rpc']`, pakollinen) - RPC-asiakas
+  `gill`-kirjastosta. Luo käyttämällä `createSolanaClient(rpcUrl).rpc`.
+
+- **`signatureString`** (`string`, pakollinen) - Vahvistettava
+  transaktioallekirjoitus (base58-koodattu).
+
+- **`expectedAmount`** (`number`, valinnainen) - Odotettu maksusumma validointia
+  varten. Yksikön tulee vastata valuuttaa:
+  - SOL:lle: lamportit (1 SOL = 1 000 000 000 lamportia)
+  - SPL-tokeneille: tokenin desimaaleihin perustuvat pienimmät yksiköt (esim.
+    USDC käyttää 6 desimaalia)
+
+  Jos ei anneta, summan validointi ohitetaan.
+
+- **`expectedRecipient`** (`string`, valinnainen) - Odotettu vastaanottajan
+  lompakko-osoite. Jos annetaan (yhdessä `expectedAmount`:n kanssa), funktio
+  validoi, että vastaanottaja on saanut vähintään tämän summan. Jos ei anneta,
+  validointi ohitetaan.
+
+- **`expectedMint`** (`string`, valinnainen) - SPL-tokenin mint-osoite.
+  Vaaditaan vain SPL-tokenisiirroissa. Jos ei anneta, funktio olettaa
+  SOL-siirron.
+
+#### Palautusarvo
+
+`Promise<PaymentVerificationResult>`-objekti:
+
+```typescript
+interface PaymentVerificationResult {
+  verified: boolean; // True if payment is valid
+  signature?: string; // Transaction signature (echoed back)
+  amount?: number; // Expected amount (echoed back)
+  recipient?: string; // Expected recipient (echoed back)
+  error?: string; // Error message if verification failed
+}
+```
+
+#### Vahvistuslogiikka
+
+Funktio suorittaa nämä tarkistukset:
+
+1. **Allekirjoituksen validiteetti:** Tarkistaa, että allekirjoitus on
+   kelvollinen.
+
+2. **Transaktion olemassaolo:** Hakee transaktion käyttämällä
+   `rpc.getTransaction()`:ia. Jos ei löydy, palauttaa `verified: false`.
+
+3. **Vahvistustila:** Tarkistaa, että transaktio on saapunut ketjuun.
+
+4. **SOL-siirron validointi** (jos `expectedRecipient` ja `expectedAmount`
+   annettu, eikä `expectedMint`:ia ole):
+   - Löytää vastaanottajan tilin indeksin transaktiossa
+   - Vertaa `preBalances`:ia ja `postBalances`:ia saldon muutoksen laskemiseksi
+   - Vahvistaa, että muutos on vähintään `expectedAmount`
+
+5. **SPL-tokenin siirron validointi** (jos `expectedMint` on annettu):
+   - Johtaa vastaanottajan Associated Token Account (ATA) -tilin sekä Token
+     Program- että Token-2022 Program -ohjelmille
+   - Tarkistaa `postTokenBalances`:sta vastaavan ATA:n, jolla on odotettu mint
+   - Varmistaa, että tokenin määrä on vähintään `expectedAmount`
+
+#### Turvallisuusnäkökohdat
+
+- **Asiakaspuolen varmennus:** Tämä funktio hakee transaktiotiedot RPC:stä. Älä
+  paljasta RPC-URL-osoitettasi asiakkaalle.
+- **Viimeistely:** Funktio tarkistaa vahvistetut transaktiot, mutta arvokkaiden
+  maksujen kohdalla harkitse `finalized`-tilaan odottamista.
+
+**Esimerkki:**
+
+```typescript
+import { verifyPayment } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+const result = await verifyPayment(
+  client.rpc,
+  "transaction-signature-here",
+  50_000_000, // 0.05 SOL in lamports
+  "merchant-wallet-address"
+  // No mint = SOL transfer
+);
+
+if (result.verified) {
+  console.log("Payment confirmed!");
+} else {
+  console.error("Verification failed:", result.error);
+}
+```
+
+---
+
+### `waitForConfirmation()`
+
+Kyselee lohkoketjua, kunnes transaktio saavuttaa vahvistetun tai viimeistellyn
+tilan, tai aikakatkaisu tapahtuu.
+
+```typescript
+async function waitForConfirmation(
+  rpc: SolanaClient["rpc"],
+  signatureStr: string,
+  timeoutMs?: number
+): Promise<boolean>;
+```
+
+#### Parametrit
+
+- **`rpc`** (`SolanaClient['rpc']`, pakollinen) - RPC-asiakas `gill`:sta.
+
+- **`signatureStr`** (`string`, pakollinen) - Transaktioallekirjoitus, jota
+  odotetaan.
+
+- **`timeoutMs`** (`number`, valinnainen) - Maksimiaika odottaa millisekunteina.
+  Oletus: `30000` (30 sekuntia).
+
+#### Palautusarvo
+
+- `Promise<boolean>` - Palauttaa `true`, jos transaktio saavuttaa `confirmed`-
+  tai `finalized`-tilan aikakatkaisun sisällä, muuten `false`.
+
+**Esimerkki:**
+
+```typescript
+import { waitForConfirmation } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+// After sending transaction
+const signature = await wallet.sendTransaction(transaction);
+
+// Wait for confirmation (30 second timeout)
+const confirmed = await waitForConfirmation(client.rpc, signature, 30000);
+
+if (confirmed) {
+  console.log("Transaction confirmed!");
+} else {
+  console.log("Timeout - transaction not confirmed within 30 seconds");
+}
+```
+
+## Solana Pay -funktiot
+
+Nämä funktiot luovat [Solana Pay](https://docs.solanapay.com/) -URL-osoitteita
+ja tyyliteltyjä QR-koodeja mobiililompakon skannausta varten.
+
+### `createSolanaPayRequest()`
+
+Luo Solana Pay -URL-osoitteen ja tyylitellyn QR-koodin.
+
+```typescript
+async function createSolanaPayRequest(
+  request: TransferRequestURLFields,
+  options: SolanaPayRequestOptions
+): Promise<{ url: URL; qr: string }>;
+```
+
+#### Parametrit
+
+- **`request`** (`TransferRequestURLFields`, pakollinen) - Solana Pay
+  -siirtopyyntökentät:
+  - `recipient` - Vastaanottajan julkinen avain (käytä
+    `createRecipient(address)` `@solana-commerce/solana-pay`:sta)
+  - `amount` - (valinnainen) Maksun määrä pienimmissä yksiköissä (lamportit
+    SOL:lle)
+  - `splToken` (valinnainen) - SPL-tokenin mint-julkinen avain (käytä
+    `createSPLToken(address)`)
+  - `reference` (valinnainen) - Viitejulkinen avain seurantaa varten
+  - `label` (valinnainen) - Kauppiaan nimi
+  - `message` (valinnainen) - Onnistumisviesti
+  - `memo` (valinnainen) - Lohkoketjumuistiinpano
+
+- **`options`** (`SolanaPayRequestOptions`, pakollinen) - QR-koodin
+  tyylivalinnat:
+  - `size` (numero) - QR-koodin leveys/korkeus pikseleinä. Oletus: `256`.
+  - `background` (merkkijono) - Taustaväri (hex/rgb). Oletus: `'white'`.
+  - `color` (merkkijono) - QR-koodin väri (hex/rgb). Oletus: `'black'`.
+  - `margin` (numero) - Marginaali QR-koodin ympärillä moduuleina.
+  - `errorCorrectionLevel` (`'L' | 'M' | 'Q' | 'H'`) - Virheenkorjaustaso.
+    Korkeammat tasot sietävät enemmän vaurioita, mutta luovat tiheämpiä koodeja.
+  - `logo` (merkkijono) - Logokuvan URL upotettavaksi QR-koodin keskelle.
+  - `logoSize` (numero) - Logon koko prosentteina QR-koodin koosta.
+  - `logoBackgroundColor` (merkkijono) - Taustaväri logon takana.
+  - `logoMargin` (numero) - Marginaali logon ympärillä.
+  - `dotStyle` (`'dots' | 'rounded' | 'square'`) - QR-koodin moduulien muoto.
+  - `cornerStyle`
+    (`'square' | 'rounded' | 'extra-rounded' | 'full-rounded' | 'maximum-rounded'`) -
+    Kulmamerkkien muoto.
+
+#### Palautusarvo
+
+`Promise`, joka ratkaisee objektiksi:
+
+- `url` (URL) - Solana Pay -URL (esim.
+  `solana:recipient?amount=10&spl-token=...`)
+- `qr` (merkkijono) - Base64-koodattu data-URL QR-koodikuvasta (käytä
+  `<img src={qr} />`-attribuuttina)
+
+**Esimerkki:**
+
+```typescript
+import {
+  createSolanaPayRequest,
+  createRecipient,
+  createSPLToken
+} from "@solana-commerce/solana-pay";
+
+const payment = await createSolanaPayRequest(
+  {
+    recipient: createRecipient("merchant-wallet-address"),
+    amount: 10_000_000, // 0.01 SOL in lamports
+    splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    label: "My Store",
+    message: "Thank you for your purchase!"
+  },
+  {
+    size: 400,
+    background: "#FFFFFF",
+    color: "#000000",
+    logo: "/logo.png",
+    logoSize: 20,
+    errorCorrectionLevel: "H"
+  }
+);
+
+// Display QR code
+document.getElementById("qr").src = payment.qr;
+console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+```
