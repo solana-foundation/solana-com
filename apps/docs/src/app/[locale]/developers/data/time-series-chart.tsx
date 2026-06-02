@@ -362,19 +362,31 @@ function getDateDomain(points: SeriesPoint[]): [Date, Date] {
 }
 
 function getValueDomain(points: SeriesPoint[]): [number, number] {
-  if (points.length === 0) {
+  const values = points
+    .map((point) => point.value)
+    .filter((value) => Number.isFinite(value));
+
+  if (values.length === 0) {
     return [0, 1];
   }
 
-  const values = points.map((point) => point.value);
-  const minValue = Math.min(0, ...values);
+  const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
 
   if (minValue === maxValue) {
-    return [0, maxValue || 1];
+    const padding = Math.max(Math.abs(maxValue) * 0.08, 1);
+    return [
+      maxValue >= 0 ? Math.max(0, maxValue - padding) : maxValue - padding,
+      maxValue + padding,
+    ];
   }
 
-  return [minValue, maxValue * 1.08];
+  const padding = (maxValue - minValue) * 0.08;
+
+  return [
+    minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding,
+    maxValue + padding,
+  ];
 }
 
 function getNearestDateValue(value: number, values: number[]) {
