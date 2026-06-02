@@ -62,10 +62,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "cdn.builder.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {
