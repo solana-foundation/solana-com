@@ -2,6 +2,7 @@ import { defaultLocale } from "@workspace/i18n/config";
 
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
+const PUBLIC_SITE_ORIGIN = "https://solana.com";
 const publicAssetDirectories = [
   "/_next/",
   "/assets/",
@@ -20,7 +21,7 @@ function getSiteOrigin() {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  return "https://solana.com";
+  return PUBLIC_SITE_ORIGIN;
 }
 
 const siteOrigin = getSiteOrigin();
@@ -61,6 +62,11 @@ export const localizedRouteUrl = (
   path: string = "/",
 ) => `${siteOrigin}${localizedRoutePath(locale, path)}`;
 
+export const publicLocalizedRouteUrl = (
+  locale: string = defaultLocale,
+  path: string = "/",
+) => `${PUBLIC_SITE_ORIGIN}${localizedRoutePath(locale, path)}`;
+
 export function publicAssetPath(path: string) {
   if (
     !path.startsWith("/") ||
@@ -79,7 +85,9 @@ export function publicAssetPath(path: string) {
 export const config = {
   assetPrefix,
   siteOrigin,
+  publicSiteOrigin: PUBLIC_SITE_ORIGIN,
   siteUrl: localizedRouteUrl(defaultLocale),
+  publicUrl: publicLocalizedRouteUrl(defaultLocale),
   siteMetadata: {
     title: "Breakpoint 2026",
     description:
@@ -92,7 +100,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: `${siteOrigin}${routePath("/social-card.jpg")}`,
+    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card.jpg")}`,
     googleAnalytics: {
       trackingId: "G-94WS0LRZRS",
       adWordsId: "AW-302884864",
