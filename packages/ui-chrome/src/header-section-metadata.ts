@@ -21,6 +21,7 @@ export const HEADER_SECTION_METADATA: Array<
     titleKey: "nav.build.title",
     matchRules: [
       { type: "includes", value: "/developers" },
+      { type: "equals", value: "/data" },
       { type: "includes", value: "/docs", exclude: ["/docs/tools"] },
       { type: "equals", value: "/hackathon" },
     ],

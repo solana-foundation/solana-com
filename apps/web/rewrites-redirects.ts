@@ -374,13 +374,13 @@ export default {
         locale: false,
       },
       {
-        source: "/developers/data",
-        destination: `${DOCS_APP_URL}/developers/data`,
+        source: "/data",
+        destination: `${DOCS_APP_URL}/data`,
         locale: false,
       },
       {
-        source: "/developers/data/:path*",
-        destination: `${DOCS_APP_URL}/developers/data/:path*`,
+        source: "/data/:path*",
+        destination: `${DOCS_APP_URL}/data/:path*`,
         locale: false,
       },
       {
@@ -460,13 +460,13 @@ export default {
         locale: false,
       },
       {
-        source: "/:locale/developers/data",
-        destination: `${DOCS_APP_URL}/:locale/developers/data`,
+        source: "/:locale/data",
+        destination: `${DOCS_APP_URL}/:locale/data`,
         locale: false,
       },
       {
-        source: "/:locale/developers/data/:path*",
-        destination: `${DOCS_APP_URL}/:locale/developers/data/:path*`,
+        source: "/:locale/data/:path*",
+        destination: `${DOCS_APP_URL}/:locale/data/:path*`,
         locale: false,
       },
     ],
@@ -581,6 +581,8 @@ export default {
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
+    { source: "/developers/data", destination: "/data" },
+    { source: "/developers/data/:path*", destination: "/data/:path*" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
       source: "/solutions/token22",

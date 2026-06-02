@@ -12,7 +12,7 @@ import {
   rangeOptions,
   type DataApiResponse,
   type MetricRow,
-} from "@/app/[locale]/developers/data/data-config";
+} from "@/app/[locale]/data/data-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -60,6 +60,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title,
     description,
-    alternates: getAlternates("/developers/data", locale),
+    alternates: getAlternates("/data", locale),
   };
 }

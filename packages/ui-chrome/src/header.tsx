@@ -26,6 +26,12 @@ function Header({
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
+  const pathname = router.asPath.split(/[?#]/)[0];
+  const showSecondaryDevelopersNav =
+    pathname.includes("/developers") ||
+    pathname.includes("/docs") ||
+    pathname.endsWith("/data") ||
+    pathname.includes("/data/");
 
   return (
     <>
@@ -86,12 +92,10 @@ function Header({
           </div>
         </nav>
       </header>
-      {/* Secondary nav for /developers/* and /docs/* */}
-      {showDevelopersNav &&
-        (router.asPath.includes("/developers") ||
-          router.asPath.includes("/docs")) && (
-          <DevelopersNav containerClassName={containerClassName} />
-        )}
+      {/* Secondary nav for docs-owned developer routes. */}
+      {showDevelopersNav && showSecondaryDevelopersNav && (
+        <DevelopersNav containerClassName={containerClassName} />
+      )}
     </>
   );
 }

@@ -142,7 +142,7 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
-                to="/developers/data"
+                to="/data"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <StatisticsIcon
