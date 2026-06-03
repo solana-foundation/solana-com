@@ -6,7 +6,7 @@ import { Section } from "../layout/section";
 import { Link } from "@workspace/i18n/routing";
 
 export interface GalleryImageProps extends ComponentPropsWithoutRef<"figure"> {
-  [key: string]: any;
+  [key: string]: unknown;
   index?: number;
   total?: number;
   heading?: string;

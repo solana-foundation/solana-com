@@ -123,7 +123,10 @@ export default async function LocaleLayout({ children, params }: Props) {
         <ThemeProvider>
           <GTMTrackingSnippet />
           <CookieConsent />
-          <LayoutProvider globalSettings={globalData.global} pageData={null}>
+          <LayoutProvider
+            globalSettings={globalData.global ?? undefined}
+            pageData={undefined}
+          >
             <VideoDialogProvider>
               <Header />
               <main>{children}</main>

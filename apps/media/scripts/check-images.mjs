@@ -1,3 +1,4 @@
+/* eslint-disable turbo/no-undeclared-env-vars */
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";

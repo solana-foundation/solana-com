@@ -1,11 +1,5 @@
 "use client";
 
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
-
 import React from "react";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";

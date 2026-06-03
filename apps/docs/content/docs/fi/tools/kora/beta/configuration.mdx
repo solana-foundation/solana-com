@@ -1,0 +1,351 @@
+---
+title: Uudet asetukset (beeta)
+description:
+  Uudet kora.toml-asetusosiot, jotka esiteltiin Kora v2.2.0-beta-versiossa.
+---
+
+Nämä asetukset ovat saatavilla alkaen versiosta `v2.2.0-beta.1`. Lisää ne
+olemassa olevaan `kora.toml`-tiedostoon vakaan konfiguraation rinnalle.
+
+## Transaktiolaajennukset
+
+`[kora.plugins]`-osio määrittää transaktiolaajennukset, jotka suoritetaan
+allekirjoitusprosessien aikana. Laajennukset validoivat transaktioiden rakenteen
+ja sisällön ennen kuin Kora allekirjoittaa ne. Ne suoritetaan komennoille
+`signTransaction`, `signAndSendTransaction`, `signBundle` ja `signAndSendBundle`
+— mutta **ei** komennolle `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Asetus    | Kuvaus                                           | Pakollinen      | Tyyppi   |
+| --------- | ------------------------------------------------ | --------------- | -------- |
+| `enabled` | Lista käytössä olevista transaktiolaajennuksista | Ei (oletus: []) | string[] |
+
+### `gas_swap`-laajennus
+
+`gas_swap`-laajennus pakottaa tiukan transaktiorakenteen kaasuttomille
+token-SOL-vaihto-operaatioille. Kun se on käytössä, jokaisen
+allekirjoitusprosessin kautta lähetetyn transaktion on sisällettävä täsmälleen:
+
+1. **Yksi SPL Token -siirto** (SPL Token tai Token-2022) — omistajalta, joka ei
+   ole maksaja
+2. **Yksi System SOL -siirto** (`Transfer` tai `TransferWithSeed`) — maksajalta
+
+Compute Budget -käskyt (laske laskentayksikön raja/hinta) ovat sallittuja kahden
+vaaditun käskyn rinnalla. Kaikki ylimääräiset tai muut kuin vaihto-ulommat
+käskyt hylätään.
+
+#### Konfiguraatiovaatimukset
+
+`gas_swap`-laajennus validoi konfiguraatiosi käynnistyksen yhteydessä ja tuottaa
+virheen, jos vaatimukset eivät täyty:
+
+- **System Program** on oltava `allowed_programs`-luettelossa
+- **Vähintään yksi token-ohjelma** (SPL Token tai Token-2022) on oltava
+  `allowed_programs`-luettelossa
+- **Vähintään yksi token** on oltava `allowed_tokens`-luettelossa
+- **Hinnoittelumalli** ei saa olla `Free` — aseta marginaali tai kiinteä hinta
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Varoitus:** Kun käytät `gas_swap`-laajennusta kiinteän hinnoittelun kanssa,
+> varmista että kiinteä token-maksu on arvoltaan vähintään
+> `max_allowed_lamports` SOL:na välttääksesi tyhjennystilan, jossa lähetetty SOL
+> ylittää vastaanotetun tokenin arvon.
+
+---
+
+## Bundle-määritykset
+
+`[kora.bundle]`-osio mahdollistaa Jito bundle -tuen atomiselle usean transaktion
+suoritukselle:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Vaihtoehto | Kuvaus                        | Vaaditaan          | Tyyppi  |
+| ---------- | ----------------------------- | ------------------ | ------- |
+| `enabled`  | Ota bundle-toiminnot käyttöön | Ei (oletus: false) | boolean |
+
+### Jito-määritykset
+
+| Vaihtoehto         | Kuvaus                        | Vaaditaan                    | Tyyppi |
+| ------------------ | ----------------------------- | ---------------------------- | ------ |
+| `block_engine_url` | Jito block engine -URL-osoite | Kyllä (kun bundlet käytössä) | string |
+
+Saatavilla olevat Jito block engine -URL-osoitteet:
+
+- **Mainnet (julkinen):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (yksityinen):** Ota yhteyttä Jitoon saadaksesi pääsyn
+
+> **Tärkeää:** Kun käytät bundleja Koran maksamien Jito-tippien kanssa, aseta
+> `allow_transfer = true` `[validation.fee_payer_policy.system]`-kohtaan, jotta
+> allekirjoittaja voi siirtää SOL-tokeneita tippiä varten.
+
+Täydellinen opas Jito bundlejen käyttöönottoon Koran kanssa löytyy
+[Jito Bundle -oppaasta](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Lighthouse-maksusuojaus
+
+`[kora.lighthouse]`-osio mahdollistaa Lighthouse-maksusuojauksen. Kun se on
+käytössä, Kora lisää transaktioihin saldovakuutusohjeita, jotka suojaavat
+maksajaa tyhjennysiskuilta varmistamalla, että maksajan saldo ei putoa alle
+odotetun tason.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Vaihtoehto                          | Kuvaus                                                                                                      | Vaaditaan          | Tyyppi  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------ | ------- |
+| `enabled`                           | Ota käyttöön Lighthouse-vakuutukset maksajan suojaamiseksi                                                  | Ei (oletus: false) | boolean |
+| `fail_if_transaction_size_overflow` | Hylkää transaktio, jos vakuutuksen lisääminen ylittää kokorajoituksen. Jos false, ohittaa lisäyksen hiljaa. | Ei (oletus: true)  | boolean |
+
+### Miten se toimii
+
+Kun Lighthouse on käytössä, Kora hakee maksajan nykyisen saldon ja lisää
+Lighthouse-vakuutusohjeen, joka varmistaa, että saldo ei putoa alle
+`(current_balance - estimated_fee)` transaktion valmistuttua. Tämä estää
+haitalliset transaktiot tyhjentämästä maksajaa yli odotettujen kustannusten.
+
+### Menetelmien yhteensopivuus
+
+Lighthouse-suojaus **toimii vain `signTransaction`- ja `signBundle`-menetelmien
+kanssa**. Se **EI** toimi `signAndSendTransaction`- tai
+`signAndSendBundle`-menetelmien kanssa.
+
+Kun Lighthouse lisää vahvistusohjeen, se muokkaa transaktioviestiä. Tämä mitätöi
+kaikki olemassa olevat asiakasallekirjoitukset. `signAndSend*`-työnkulut
+epäonnistuisivat, koska:
+
+1. Asiakas allekirjoittaa transaktion
+2. Kora lisää Lighthouse-vahvistuksen (muokkaa viestiä)
+3. Asiakkaan alkuperäinen allekirjoitus muuttuu virheelliseksi
+4. Verkko hylkää virheilmoituksella "allekirjoituksen vahvistus epäonnistui"
+
+**Suositeltu käyttötapa Lighthousessa:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Asetusvaatimukset
+
+Kun otat Lighthouseen käyttöön, lisää Lighthouse-ohjelma
+`allowed_programs`-kohtaan:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora tarkistaa tämän käynnistyksen yhteydessä ja palauttaa virheen, jos
+Lighthouse on käytössä mutta ohjelma puuttuu `allowed_programs`-kohdasta.
+
+> **Huomautus:** Jos `signAndSendTransaction` tai `signAndSendBundle` on
+> käytössä Lighthouseen rinnalla, Kora kirjaa varoituksen, että näillä
+> menetelmillä ei ole maksajan suojausta.
+
+## reCAPTCHA-bottisuojaus
+
+reCAPTCHA v3 tarjoaa näkymättömän bottisuojauksen arkaluontoisille
+päätepistille. Toisin kuin API-avain ja HMAC, jotka todentavat kaikki pyynnöt,
+reCAPTCHA suojaa vain tiettyjä korkean riskin menetelmiä (oletuksena
+allekirjoitusmenetelmät).
+
+### Palvelimen määritykset
+
+Lisää `KORA_RECAPTCHA_SECRET` ympäristömuuttujiisi (prioriteettina), tai lisää
+`recaptcha_secret` `kora.toml`-tiedostoosi:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Asetus                      | Kuvaus                                                                             | Oletusarvo              |
+| --------------------------- | ---------------------------------------------------------------------------------- | ----------------------- |
+| `recaptcha_secret`          | reCAPTCHA v3 -salainen avaimesi Googlesta                                          | -                       |
+| `recaptcha_score_threshold` | Vähimmäispistemäärä hyväksymiseen (0.0 = kaikki läpäisee, 1.0 = mikään ei läpäise) | 0.5                     |
+| `protected_methods`         | RPC-menetelmät, jotka vaativat vahvistuksen                                        | Allekirjoitusmenetelmät |
+
+### Miten se toimii
+
+1. Asiakas hankkii reCAPTCHA-tokenin Googlen reCAPTCHA v3 -rajapinnasta
+2. Asiakas sisällyttää tokenin `x-recaptcha-token`-otsikkoon
+3. Palvelin vahvistaa tokenin Googlella ja tarkistaa pistemäärän
+4. Jos pistemäärä >= kynnysarvo, pyyntö etenee; muuten palauttaa 401
+   Unauthorized
+
+reCAPTCHA suoritetaan _sen jälkeen_, kun API Key/HMAC-todennus onnistuu (jos
+määritetty). Suojaamattomat metodit ohittavat reCAPTCHA-vahvistuksen kokonaan.
+
+### Asiakastoteutus
+
+**Käyttäen Kora SDK:ta:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Käyttäen fetch-funktiota:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### reCAPTCHA-avainten hankkiminen
+
+1. Siirry
+   [Google reCAPTCHA -hallintakonsoliin](https://www.google.com/recaptcha/admin)
+2. Luo uusi sivusto **reCAPTCHA v3** -versiolla
+3. Käytä **Site Key** -avainta käyttöliittymässäsi (asiakaspuoli)
+4. Käytä **Secret Key** -avainta Kora-konfiguraatiossasi (palvelinpuoli)
+
+## Käyttörajoitukset
+
+`[kora.usage_limit]`-osio määrittää lompakkokohtaiset käyttörajoitukset
+väärinkäytön estämiseksi ja oikeudenmukaisen käytön varmistamiseksi. Tätä
+voidaan käyttää myös palkinto-ohjelmien luomiseen käyttäjien transaktiomaksujen
+tukemiseksi tiettyyn rajaan asti.
+
+**Huomautus**: Tämä ominaisuus vaatii Redisin, kun se on käytössä useiden
+Kora-instanssien välillä.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Asetus                    | Kuvaus                                            | Vaaditaan          | Tyyppi  |
+| ------------------------- | ------------------------------------------------- | ------------------ | ------- |
+| `enabled`                 | Ota käyttöön lompakkokohtaiset käyttörajoitukset  | Ei (oletus: false) | boolean |
+| `cache_url`               | Redis-yhteyden URL jaettuun käytön seurantaan     | Ei                 | string  |
+| `fallback_if_unavailable` | Salli transaktiot, jos Redis ei ole käytettävissä | Ei (oletus: true)  | boolean |
+
+> _Kun `fallback_if_unavailable` on true, järjestelmä sallii transaktioiden
+> jatkumisen, jos Redis on tilapäisesti poissa käytöstä, estäen palvelun
+> keskeytymisen._
+
+### Käyttörajoitussäännöt
+
+Beta tuo yksityiskohtaiset, sääntöpohjaiset käyttörajoitukset. Yhden
+`max_transactions`-laskurin sijaan voit määrittää useita sääntöjä, jotka
+kohdistuvat tiettyihin transaktiototyyppeihin tai yksittäisiin käskyihin,
+valinnaisilla aikaikkunoilla.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Sääntökenttä     | Kuvaus                                                                                      | Vaaditaan  |
+| ---------------- | ------------------------------------------------------------------------------------------- | ---------- |
+| `type`           | `"transaction"` (laskee kaikki transaktiot) tai `"instruction"` (laskee tietyt käskytyypit) | Kyllä      |
+| `max`            | Enimmäismäärä ennen lompakon estämistä                                                      | Kyllä      |
+| `window_seconds` | Aikaikkuna sekunteina. Jos jätetty pois, rajoitus on pysyvä.                                | Ei         |
+| `program`        | Täsmättävä ohjelman osoite (vaaditaan `instruction`-tyypille)                               | Ehdollinen |
+| `instruction`    | Täsmättävä käskyn nimi, esim. `"Transfer"`, `"Burn"` (vaaditaan `instruction`-tyypille)     | Ehdollinen |
+
+Kun `window_seconds` on asetettu, laskuri nollautuu aikaikkuna päätyttyä. Ilman
+sitä rajoitus on pysyvä — kun se saavutetaan, lompakko estetään, kunnes se
+poistetaan manuaalisesti Redisistä.
+
+## Uudet käytössä olevat metodit
+
+Seuraavat metodit on lisätty `[kora.enabled_methods]`:een:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Metodi                 | Kuvaus                                        |
+| ---------------------- | --------------------------------------------- |
+| `get_version`          | Palauttaa Kora-palvelimen version             |
+| `estimate_bundle_fee`  | Arvioi maksut transaktiopaketille             |
+| `sign_bundle`          | Allekirjoittaa transaktiopaketin lähettämättä |
+| `sign_and_send_bundle` | Allekirjoittaa ja lähettää paketin Jitolle    |
+
+Katso täydellinen API-dokumentaatio kohdasta
+[Pakettimetodit](/docs/tools/kora/beta/bundle-methods).

@@ -56,7 +56,7 @@ export function Rate({
 
     try {
       const stream = await onRateAction(pathname, {
-        opinion: opinion,
+        opinion: opinion!,
         message,
       });
 

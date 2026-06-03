@@ -62,7 +62,7 @@ export function HeroTitle({
     )} */}
         </p>
 
-        <TagCloud record={record} baseHref={baseHref} />
+        <TagCloud record={record} baseHref={baseHref || ""} />
       </div>
       <div className={"col-span-12 lg:col-span-4"}>
         <div className={styles["developers-content-page__hero-image"]}>
@@ -70,8 +70,9 @@ export function HeroTitle({
             <Image
               alt={record.title}
               src={
-                `/opengraph${record.href.replace(/^\/[a-z]{2}(?:-[a-z]{2})?\//, "/")}` ||
-                defaultImg
+                record.href
+                  ? `/opengraph${record.href.replace(/^\/[a-z]{2}(?:-[a-z]{2})?\//, "/")}`
+                  : defaultImg
               }
               loading="lazy"
               fill

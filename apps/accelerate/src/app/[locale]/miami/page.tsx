@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import {
   Hero,
   EventDetails,
+  AgendaBanner,
   Sponsors,
   FAQ,
   GettingThere,
   FooterCTA,
   HashScroll,
-  MiamiSpeakers,
 } from "@/components";
-import { EventLineup } from "@/components/homepage";
 import sponsorsData from "@/data/miami/sponsors.json";
 import { composeSponsors, type SponsorAugmentation } from "@/lib/sponsor-data";
 import type { Sponsor } from "@/types/sponsors";
@@ -58,8 +57,10 @@ export default async function MiamiPage({ params }: PageProps) {
       <Hero
         translationPrefix="accelerate.miami"
         logoImage="/images/accelerate-usa-logo.svg"
-        agendaPath={null}
-        showVideo={false}
+        agendaPath="/accelerate/miami/agenda"
+        showSpeakersNav={false}
+        showCta={false}
+        videoId="T6x_TIoZWPY"
         backgroundContent={<MiamiHeroSymbols />}
       />
       <EventDetails
@@ -69,8 +70,11 @@ export default async function MiamiPage({ params }: PageProps) {
         showFocusTopics={false}
         showTicketsRow={false}
       />
-      <MiamiSpeakers />
-      <EventLineup futureOnly />
+      <AgendaBanner
+        translationPrefix="accelerate.miami.agendaBanner"
+        agendaPath="/accelerate/miami/agenda"
+        showSpeakersCount={false}
+      />
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
@@ -87,6 +91,7 @@ export default async function MiamiPage({ params }: PageProps) {
         translationPrefix="accelerate.miami.footerCta"
         backgroundImage="/images/palm-trees.svg"
         lumaId="accelerate-miami"
+        showCta={false}
       />
     </>
   );

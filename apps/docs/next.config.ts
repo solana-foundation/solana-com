@@ -19,8 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value:
-      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234",
+    value: "frame-ancestors 'self'",
   },
 ];
 
@@ -99,10 +98,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "cdn.builder.io",
-      },
-      {
-        protocol: "https",
         hostname: "solana-developer-content.vercel.app",
       },
       {
@@ -172,11 +167,28 @@ const nextConfig: NextConfig = {
     externalDir: true,
   },
 
+  // Cookbook MDX uses async compile (lazy at request time) and the
+  // remark-include-code plugin reads from packages/docs-examples on disk.
+  // Tell Next/Vercel to bundle those source files into the cookbook
+  // function's filesystem so the reads succeed in production.
+  outputFileTracingIncludes: {
+    "/[locale]/developers/cookbook/**/*": [
+      "../../packages/docs-examples/cookbook/**/*.ts",
+      "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/Cargo.toml",
+    ],
+    "/[locale]/developers/cookbook/[...slug]": [
+      "../../packages/docs-examples/cookbook/**/*.ts",
+      "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/Cargo.toml",
+    ],
+  },
+
   // Ignore deprecation warnings and mixed declaration warnings
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")

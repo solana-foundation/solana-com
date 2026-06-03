@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { parsePublishedAt } from "@/lib/keystatic/publishing";
 
 const BASE_URL = "https://solana.com";
@@ -30,13 +30,13 @@ type RecentPublishedPost = {
   publishedAt: Date;
 };
 
-async function getPublishedPosts(): Promise<RecentPublishedPost[]> {
+async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
   const allSlugs = await reader.collections.posts.list();
   const posts: RecentPublishedPost[] = [];
 
   for (const slug of allSlugs) {
-    const post = await reader.collections.posts.read(slug);
-    if (!isPublishedPost(post)) {
+    const post = await fetchPublishedPostBySlug(slug, now);
+    if (!post) {
       continue;
     }
 
@@ -65,7 +65,7 @@ async function buildGoogleNewsSitemapXml(
   const minNewsPublishedAt = new Date(
     now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
   );
-  const posts = await getPublishedPosts();
+  const posts = await getPublishedPosts(now);
   const urls = posts.map((post) => {
     const loc = `${NEWS_URL}/${post.slug}`;
     const isGoogleNewsEligible =

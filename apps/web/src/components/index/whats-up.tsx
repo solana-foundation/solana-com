@@ -195,7 +195,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
       return;
     }
 
-    const prevItems = prevItemsRef.current;
+    const prevItems = prevItemsRef.current ?? [];
     const prevItemIds = prevItems.map((item) => item.id);
     const newIds = items
       .filter((item) => !prevItemIds.includes(item.id))
@@ -507,7 +507,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                     "py-3 px-5 flex flex-col items-end justify-end gap-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                   type="button"
-                  disabled={page === 2 || items?.length <= 5}
+                  disabled={page === 2 || (items?.length ?? 0) <= 5}
                   onClick={() => {
                     setPage(2);
                   }}

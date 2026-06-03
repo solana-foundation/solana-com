@@ -1,0 +1,136 @@
+---
+title: Ücret Referansı
+description: Kora ücret hesaplaması için eksiksiz referans.
+---
+
+_Son güncelleme: 2025-10-31_
+
+Kora, `estimate_transaction_fee` ve `sign_transaction` RPC yöntemlerini
+gerçekleştirirken işlem ücretlerini tahmin eder. Ücretleri tahmin etmek için
+Kora, ağ ücretleri, hesap oluşturma maliyetleri ve isteğe bağlı ödeme işleme
+ücretleri dahil olmak üzere Solana'da işlemleri yürütmenin toplam maliyetini
+hesaplar. Bu kılavuz, ücret hesaplamasının her bileşenini açıklamaktadır.
+
+## Ücret Hesaplama Formülü
+
+Ücret, `kora.toml` içinde yapılandırılan fiyatlandırma modeline göre belirlenir:
+
+- `PriceModel::Free` - Tüm işlem ücretlerini sponsor olur (toplam ücret = 0)
+- `PriceModel::Fixed` - Belirli bir token cinsinden sabit bir tutar tahsil eder
+  (ağ ücretlerinden bağımsız)
+- `PriceModel::Margin` - Toplam ücretlere yüzde marjı ekler.
+
+`PriceModel::Margin` içinde kullanılan toplam ücret tahmini için ana giriş
+noktası,
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs)
+içindeki `FeeConfigUtil::estimate_kora_fee()`'dir. Aşağıdaki genelleştirilmiş
+formülü kullanır:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Ücret Bileşenleri
+
+| Bileşen                    | Açıklama                                                                                 | Hesaplama Yöntemi                                                                                                                         | Ne Zaman Uygulanır                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Temel Ücret**            | İmza doğrulama ve işlem işlemeyi kapsayan çekirdek Solana işlem ücreti                   | `RpcClient.get_fee_for_message()` - Hesaplama birimleri ve öncelik ücretlerine dayalı Solana'nın ücret hesaplamasını kullanır             | Her zaman                                                    |
+| **Hesap Oluşturma Ücreti** | Yeni İlişkili Token Hesapları (ATA'lar) oluşturmak için kira muafiyetli minimum bakiye   | `Rent::default().minimum_balance(account_size)` - Hesap veri boyutuna (token uzantılarına bağlı olarak 165-355 bayt) göre kirayı hesaplar | İşlem yeni ATA'lar oluşturduğunda                            |
+| **Kora İmza Ücreti**       | Kora katılımcı olmayan ücret ödeyici olarak imza attığında ek ücret                      | Sabit: 5.000 lamport (`LAMPORTS_PER_SIGNATURE`)                                                                                           | Ücret ödeyici zaten bir işlem imzalayıcısı olmadığında       |
+| **Ücret Ödeyici Çıkışı**   | Ücret ödeyicinin işlemde gönderdiği toplam SOL (transferler, hesap oluşturmaları vb.)    | Toplamı: Ücret ödeyiciden sistem transferleri, Ücret ödeyici tarafından finanse edilen CreateAccount, Ücret ödeyiciden nonce çekimleri    | Ücret ödeyici System Program işlemlerini gerçekleştirdiğinde |
+| **Ödeme Talimatı Ücreti**  | Gazsız işlemler için ödeme talimatı eklemenin tahmini öncelik ücreti maliyeti            | Sabit tahmin: 50 lamport (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                   | Ödeme gerekli olduğunda ancak işleme dahil edilmediğinde     |
+| **Transfer Ücreti**        | Mint üzerinde yapılandırılmış Token2022 transfer ücretleri (ör. transfer tutarının %1'i) | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Mint'in transfer ücreti yapılandırmasına göre                                     | Yalnızca Kora ödeme adresine Token2022 transferleri için     |
+| **Marj Ayarlaması**        | Kora'nın fiyatlandırma modeli işaretlemesi/ayarlaması                                    | `validation.price` içinde yapılandırılmış marj - Toplam ücreti % olarak işaretleme ekleyebilir                                            | kora.toml içinde `[validation.price]` sağlandığında          |
+
+## Fiyatlandırma Modelleri ve Ücret Ödeyici Çıkışı
+
+Kora, işlemler için kullanıcılardan nasıl ücret alınacağını belirleyen üç
+fiyatlandırma modelini destekler:
+
+### Marj Fiyatlandırması (Varsayılan)
+
+- **Formül:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Ücret Ödeyici Çıkışını İçerir:** Evet
+- **En Uygun Olduğu Durumlar:** Ücretlerin ek işletme marjı ile birlikte gerçek
+  maliyetleri yansıtması gereken üretim dağıtımları
+
+### Sabit Fiyatlandırma
+
+- **Formül:** `Total Fee = Fixed Amount (in specified token)`
+- **Ücret Ödeyici Çıkışını İçerir:** Hayır
+- **En Uygun Olduğu Durumlar:** Kontrollü ortamlarda öngörülebilir fiyatlandırma
+  ile basitleştirilmiş kullanıcı deneyimi
+
+### Ücretsiz Fiyatlandırma
+
+- **Formül:** `Total Fee = 0`
+- **Ücret Ödeyici Çıkışını İçerir:** Hayır (operatör tüm maliyetleri üstlenir)
+- **En Uygun Olduğu Durumlar:** Tanıtım kampanyaları, test ortamları veya
+  tamamen sponsorlu uygulamalar
+
+---
+
+## ⚠️ Güvenlik Uyarısı: Sabit/Ücretsiz Fiyatlandırma Modelleri
+
+**KRİTİK:** Sabit/ücretsiz fiyatlandırma modelleri, ücret ödeyici çıkışını
+tahsil edilen tutara **DAHİL ETMEZ**. Bu durum, düzgün yapılandırılmadığı
+takdirde önemli bir güvenlik riski oluşturur. Ücret ödeyici politikanız transfer
+veya diğer çıkış işlemlerine izin veriyorsa, saldırganlar bunu istismar ederek
+ücret ödeyici hesabınızı boşaltabilir.
+
+### Gerekli Güvenlik Kontrolleri
+
+Sabit/ücretsiz fiyatlandırma kullanırken, TÜM parasal ve yetki değiştiren
+işlemleri engellemek için kısıtlayıcı ücret ödeyici politikaları yapılandırmanız
+**ZORUNLUDUR**:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Ek Korumalar
+
+1. **Kimlik Doğrulamayı Etkinleştirin:** Sabit/ücretsiz fiyatlandırma ile her
+   zaman API anahtarı veya HMAC kimlik doğrulaması gerektirin
+2. **Düşük Limitler Belirleyin:** Muhafazakar `max_allowed_lamports` değerleri
+   kullanın
+3. **Kullanımı İzleyin:** Yüksek çıkışlı işlemlerin olağandışı desenlerini takip
+   edin
+4. **Marj Fiyatlandırmasını Düşünün:** Marj fiyatlandırması, çıkış maliyetlerini
+   otomatik olarak ücretlere dahil eder
+
+### Doğrulama Uyarıları
+
+Kora'nın yapılandırma doğrulayıcısı, tehlikeli yapılandırmalar hakkında sizi
+uyaracaktır:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Savunmasız yapılandırmalar için beklenen uyarılar:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

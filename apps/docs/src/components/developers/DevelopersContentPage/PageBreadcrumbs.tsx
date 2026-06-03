@@ -26,7 +26,7 @@ export const PageBreadcrumbs = memo(
             return (
               <Fragment key={key}>
                 <span>&gt;</span>
-                <ComponentToUse href={item.href}>
+                <ComponentToUse href={item.href ?? ""}>
                   {item?.label || item?.title}
                 </ComponentToUse>
               </Fragment>

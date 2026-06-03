@@ -122,19 +122,6 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 - `packages/ecosystem-data`: shared company metadata and logos, not app-specific
   marketing copy
 
-## OpenSpec
-
-Some apps use OpenSpec instructions. If a request is about a proposal, major new
-capability, architecture shift, or ambiguous scoped change, read the app-local
-`openspec/AGENTS.md` before implementing.
-
-Current app-level OpenSpec entry points:
-
-- `apps/web/openspec/AGENTS.md`
-- `apps/accelerate/openspec/AGENTS.md`
-- `apps/breakpoint/openspec/`
-- `apps/media/openspec/`
-
 ## Best Next File
 
 After reading this file:

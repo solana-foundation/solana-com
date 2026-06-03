@@ -176,11 +176,6 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
   { route: "/research", name: "Research", category: "other" },
   { route: "/staking", name: "Staking", category: "other" },
   { route: "/wallets", name: "Wallets", category: "other" },
-  {
-    route: "/tokenized-equities",
-    name: "Tokenized Equities",
-    category: "other",
-  },
 ];
 
 export const PRODUCTION_BASE_URL = "https://solana.com";
