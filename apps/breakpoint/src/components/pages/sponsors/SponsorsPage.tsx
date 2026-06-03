@@ -4,6 +4,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
 import Button from "@/components/Button";
+import GlitchOverlay, {
+  getGlitchIntensityStyle,
+  type GlitchCssProperties,
+} from "@/components/GlitchOverlay";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
@@ -16,6 +20,9 @@ import {
   type SponsorTier,
 } from "@/content/sponsors";
 import { resolveSponsorLogo } from "@/lib/sponsors";
+
+const SPONSOR_MODAL_GLITCH_MS = 650;
+const SPONSOR_MODAL_GLITCH_INTENSITY = 0.76;
 
 function getLogo(sponsor: SponsorLogo) {
   const resolved = resolveSponsorLogo(sponsor);
@@ -197,6 +204,108 @@ function getSponsorTags(company: CompanyRecord) {
   return Array.from(new Set(tags));
 }
 
+function SponsorModalBody({
+  company,
+  decorative = false,
+  description,
+  descriptionId,
+  logo,
+  modalLogoStyle,
+  socialLinks,
+  tags,
+  titleId,
+}: {
+  company: CompanyRecord;
+  decorative?: boolean;
+  description?: string;
+  descriptionId?: string;
+  logo: ReturnType<typeof getLogo>;
+  modalLogoStyle: CSSProperties;
+  socialLinks: SponsorSocialLink[];
+  tags: string[];
+  titleId?: string;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-start md:gap-l md:p-l">
+      <div className="flex h-[246px] w-full shrink-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:p-[10px]">
+        <span
+          className="block w-[min(var(--modal-logo-width-mobile),62%)] max-w-[72%] md:w-[min(var(--modal-logo-width),68%)]"
+          style={{
+            ...modalLogoStyle,
+            aspectRatio: "var(--modal-logo-ratio)",
+          }}
+        >
+          <img
+            src={publicAssetPath(logo.src)}
+            alt=""
+            aria-hidden="true"
+            className="block h-full w-full object-contain brightness-0 invert"
+          />
+        </span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col px-xs pb-xs pt-s md:mt-[42px] md:h-[356px] md:w-[430px] md:flex-none md:px-0 md:pb-0 md:pt-0">
+        <div className="flex flex-col items-start gap-2xs">
+          <h2
+            id={decorative ? undefined : titleId}
+            className="type-h5 text-white"
+          >
+            {company.name}
+          </h2>
+
+          {socialLinks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-s">
+              {socialLinks.map((link) =>
+                decorative ? (
+                  <span
+                    key={link.label}
+                    className="inline-flex size-5 items-center justify-center text-white"
+                  >
+                    {link.icon}
+                  </span>
+                ) : (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${company.name} ${link.label}`}
+                    className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  >
+                    {link.icon}
+                  </a>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+
+        {description && (
+          <p
+            id={decorative ? undefined : descriptionId}
+            className="type-paragraph mt-s min-h-0 flex-1 overflow-y-auto text-white md:mt-m md:h-[182px] md:flex-none"
+          >
+            {description}
+          </p>
+        )}
+
+        {tags.length > 0 && (
+          <div className="mt-s flex flex-wrap items-start gap-3xs md:mt-m">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="border border-stroke-primary px-3xs py-3xs font-mono text-button font-bold uppercase text-text-secondary"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SponsorCard({
   sponsor,
   cellAspect,
@@ -298,6 +407,7 @@ function SponsorModal({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const [showOpenGlitch, setShowOpenGlitch] = useState(false);
 
   useEffect(() => {
     if (!sponsor) return;
@@ -348,6 +458,23 @@ function SponsorModal({
     };
   }, [onClose, sponsor]);
 
+  useEffect(() => {
+    if (!sponsor) {
+      setShowOpenGlitch(false);
+      return;
+    }
+
+    setShowOpenGlitch(true);
+
+    const glitchTimer = window.setTimeout(() => {
+      setShowOpenGlitch(false);
+    }, SPONSOR_MODAL_GLITCH_MS);
+
+    return () => {
+      window.clearTimeout(glitchTimer);
+    };
+  }, [sponsor]);
+
   if (!sponsor) return null;
 
   const logo = getLogo(sponsor);
@@ -363,6 +490,12 @@ function SponsorModal({
     "--modal-logo-width-mobile": `${sponsor.width * 0.64}px`,
     "--modal-logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
+  const modalGlitchStyle: GlitchCssProperties = {
+    "--bp-glitch-duration": `${SPONSOR_MODAL_GLITCH_MS}ms`,
+    "--bp-glitch-color": "var(--color-core-white)",
+    "--bp-glitch-static-filter": "grayscale(1) brightness(4)",
+    ...getGlitchIntensityStyle(SPONSOR_MODAL_GLITCH_INTENSITY),
+  };
 
   return (
     <div
@@ -375,7 +508,10 @@ function SponsorModal({
     >
       <div
         ref={dialogRef}
-        className="relative flex h-[calc(100dvh-48px)] max-h-[635px] w-full max-w-[328px] flex-col overflow-hidden border border-stroke-primary bg-black md:h-[536px] md:max-h-[calc(100dvh-48px)] md:max-w-[1014px]"
+        className={`relative flex h-[calc(100dvh-48px)] max-h-[635px] w-full max-w-[328px] flex-col overflow-hidden border border-stroke-primary bg-black md:h-[536px] md:max-h-[calc(100dvh-48px)] md:max-w-[1014px] ${
+          showOpenGlitch ? "bp-glitch-jitter" : ""
+        }`}
+        style={modalGlitchStyle}
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -388,71 +524,38 @@ function SponsorModal({
           <CloseIcon />
         </button>
 
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-start md:gap-l md:p-l">
-          <div className="flex h-[246px] w-full shrink-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:p-[10px]">
-            <span
-              className="block w-[min(var(--modal-logo-width-mobile),62%)] max-w-[72%] md:w-[min(var(--modal-logo-width),68%)]"
-              style={{
-                ...modalLogoStyle,
-                aspectRatio: "var(--modal-logo-ratio)",
-              }}
-            >
-              <img
-                src={publicAssetPath(logo.src)}
-                alt=""
-                aria-hidden="true"
-                className="block h-full w-full object-contain brightness-0 invert"
-              />
+        <SponsorModalBody
+          company={company}
+          description={description}
+          descriptionId={descriptionId}
+          logo={logo}
+          modalLogoStyle={modalLogoStyle}
+          socialLinks={socialLinks}
+          tags={tags}
+          titleId={titleId}
+        />
+
+        <GlitchOverlay
+          active={showOpenGlitch}
+          durationMs={SPONSOR_MODAL_GLITCH_MS}
+          intensity={SPONSOR_MODAL_GLITCH_INTENSITY}
+          size="lg"
+        >
+          <div className="relative flex h-full w-full flex-col overflow-hidden bg-black">
+            <span className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black md:right-[15px] md:top-[15px]">
+              <CloseIcon />
             </span>
+            <SponsorModalBody
+              company={company}
+              decorative
+              description={description}
+              logo={logo}
+              modalLogoStyle={modalLogoStyle}
+              socialLinks={socialLinks}
+              tags={tags}
+            />
           </div>
-
-          <div className="flex min-h-0 flex-1 flex-col px-xs pb-xs pt-s md:mt-[42px] md:h-[356px] md:w-[430px] md:flex-none md:px-0 md:pb-0 md:pt-0">
-            <div className="flex flex-col items-start gap-2xs">
-              <h2 id={titleId} className="type-h5 text-white">
-                {company.name}
-              </h2>
-
-              {socialLinks.length > 0 && (
-                <div className="flex flex-wrap items-center gap-s">
-                  {socialLinks.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`${company.name} ${link.label}`}
-                      className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
-                    >
-                      {link.icon}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {description && (
-              <p
-                id={descriptionId}
-                className="type-paragraph mt-s min-h-0 flex-1 overflow-y-auto text-white md:mt-m md:h-[182px] md:flex-none"
-              >
-                {description}
-              </p>
-            )}
-
-            {tags.length > 0 && (
-              <div className="mt-s flex flex-wrap items-start gap-3xs md:mt-m">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="border border-stroke-primary px-3xs py-3xs font-mono text-button font-bold uppercase text-text-secondary"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        </GlitchOverlay>
       </div>
     </div>
   );
