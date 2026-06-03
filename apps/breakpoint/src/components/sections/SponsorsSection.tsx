@@ -6,31 +6,26 @@ import { SPONSOR_FORM_HREF } from "@/content/links";
 import { sponsorMarqueeRows, type SponsorMarqueeRow } from "@/content/sponsors";
 import { resolveSponsorLogo, type ResolvedSponsorLogo } from "@/lib/sponsors";
 
+// Figma sponsors marquee (node 301:23300): uniform 120px-tall rows (cells
+// 239×120 desktop) with 4px vertical gaps and equally scaled logos across every
+// row — no featured/standard/compact size differentiation.
+const uniformRowCell = "h-[84px] w-[180px] md:h-[120px] md:w-[240px]";
 const rowCellClasses = {
-  featured: "h-[72px] w-[220px] md:h-[96px] md:w-[320px]",
-  standard: "h-[56px] w-[172px] md:h-[72px] md:w-[240px]",
-  compact: "h-[52px] w-[156px] md:h-[64px] md:w-[216px]",
+  featured: uniformRowCell,
+  standard: uniformRowCell,
+  compact: uniformRowCell,
 } satisfies Record<SponsorMarqueeRow["density"], string>;
 
+const uniformLogoScale = {
+  mobile: 0.46,
+  desktop: 0.68,
+  mobileMaxHeight: "38px",
+  desktopMaxHeight: "48px",
+};
 const logoScales = {
-  featured: {
-    mobile: 0.58,
-    desktop: 0.92,
-    mobileMaxHeight: "52px",
-    desktopMaxHeight: "72px",
-  },
-  standard: {
-    mobile: 0.46,
-    desktop: 0.68,
-    mobileMaxHeight: "38px",
-    desktopMaxHeight: "48px",
-  },
-  compact: {
-    mobile: 0.46,
-    desktop: 0.64,
-    mobileMaxHeight: "38px",
-    desktopMaxHeight: "48px",
-  },
+  featured: uniformLogoScale,
+  standard: uniformLogoScale,
+  compact: uniformLogoScale,
 } satisfies Record<
   SponsorMarqueeRow["density"],
   {
@@ -160,7 +155,7 @@ export default function SponsorsSection() {
   return (
     <section id="sponsors" className="bg-black py-20 md:py-[120px]">
       <div className="container">
-        <div className="mx-auto max-w-[676px]">
+        <div className="mx-auto max-w-[800px]">
           <SectionHeadline
             alignment="center"
             eyebrow="Sponsors"
@@ -194,7 +189,7 @@ export default function SponsorsSection() {
 
       <div
         aria-hidden="true"
-        className="mt-l flex flex-col gap-3xs overflow-hidden md:mt-xl md:gap-xs"
+        className="mt-l flex flex-col gap-[4px] overflow-hidden md:mt-xl"
         style={maskStyle}
       >
         {sponsorRows.map((row, rowIndex) => (
