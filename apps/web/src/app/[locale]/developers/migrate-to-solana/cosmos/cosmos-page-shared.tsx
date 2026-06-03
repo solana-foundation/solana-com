@@ -80,6 +80,7 @@ export function AnimatedHeroSection({
                 ? "text-lg md:text-xl tracking-[-0.36px] md:tracking-[-0.4px]"
                 : "text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px]",
             ].join(" ")}
+            // body must only ever be trusted static HTML (e.g. from i18n strings, never user input)
             dangerouslySetInnerHTML={{ __html: body }}
           />
           {buttons.length > 0 && (
