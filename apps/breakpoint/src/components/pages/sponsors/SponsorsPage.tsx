@@ -492,8 +492,6 @@ function SponsorModal({
   } as CSSProperties;
   const modalGlitchStyle: GlitchCssProperties = {
     "--bp-glitch-duration": `${SPONSOR_MODAL_GLITCH_MS}ms`,
-    "--bp-glitch-color": "var(--color-core-white)",
-    "--bp-glitch-static-filter": "grayscale(1) brightness(4)",
     ...getGlitchIntensityStyle(SPONSOR_MODAL_GLITCH_INTENSITY),
   };
 
@@ -542,7 +540,7 @@ function SponsorModal({
           size="lg"
         >
           <div className="relative flex h-full w-full flex-col overflow-hidden bg-black">
-            <span className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black md:right-[15px] md:top-[15px]">
+            <span className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-purple text-black md:right-[15px] md:top-[15px]">
               <CloseIcon />
             </span>
             <SponsorModalBody
