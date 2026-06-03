@@ -517,7 +517,7 @@ function SponsorModal({
           type="button"
           onClick={onClose}
           aria-label="Close sponsor details"
-          className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-purple text-black transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
+          className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
         >
           <CloseIcon />
         </button>
