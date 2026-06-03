@@ -1,0 +1,236 @@
+---
+title: Pemantauan & Metrik
+description: Pantau node Kora Anda dengan Prometheus dan Grafana
+---
+
+_Terakhir Diperbarui: 2025-08-22_
+
+[Kora Metrics Crate](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+menyediakan pengumpulan metrik dan pemantauan komprehensif untuk server RPC
+Kora.
+
+Kora mengekspos endpoint `/metrics` yang menyediakan data kinerja real-time
+dalam format Prometheus.
+
+## Konfigurasi
+
+Metrik dikonfigurasi di bagian `[metrics]` pada file `kora.toml` Anda. Bagian
+`[metrics]` mengonfigurasi pengumpulan dan pemantauan metrik. Bagian ini
+bersifat opsional dan secara default, metrik dinonaktifkan.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| Opsi              | Deskripsi                             | Wajib | Tipe    |
+| ----------------- | ------------------------------------- | ----- | ------- |
+| `enabled`         | Aktifkan pengumpulan metrik           | ✅    | boolean |
+| `endpoint`        | Path endpoint metrik khusus           | ✅    | string  |
+| `port`            | Port endpoint metrik                  | ✅    | number  |
+| `scrape_interval` | Frekuensi scraping Prometheus (detik) | ✅    | number  |
+
+### Pelacakan Saldo Fee Payer
+
+Bagian `[metrics.fee_payer_balance]` mengonfigurasi pemantauan otomatis saldo
+SOL fee payer Anda:
+
+| Opsi             | Deskripsi                                 | Wajib               | Tipe    |
+| ---------------- | ----------------------------------------- | ------------------- | ------- |
+| `enabled`        | Aktifkan pelacakan saldo fee payer        | ❌ (default: false) | boolean |
+| `expiry_seconds` | Interval pelacakan background dalam detik | ❌ (default: 30)    | number  |
+
+Ketika diaktifkan, Kora secara otomatis melacak saldo SOL fee payer Anda dan
+mengeksposnya melalui gauge Prometheus `fee_payer_balance_lamports`. Ini
+membantu dalam perencanaan kapasitas dan peringatan saldo rendah.
+
+## Memulai Cepat
+
+**Akses metrik:**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Yang Akan Anda Lihat
+
+Metrik menunjukkan bagaimana kinerja server RPC Anda:
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+Jika Anda belum memanggil server RPC, Anda tidak akan melihat metrik apapun.
+Anda dapat menjalankan tes sederhana dengan memanggil metode `getConfig`:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+dan kemudian periksa metriknya:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Penjelasan Metrik Utama
+
+1. **`kora_http_requests_total`** - Berapa banyak permintaan yang telah Anda
+   tangani
+   - `method`: Metode RPC mana yang dipanggil
+   - `status`: Kode status HTTP (200=sukses, 400=error, dll.)
+   - Gunakan ini untuk melacak pola penggunaan dan tingkat error
+
+2. **`kora_http_request_duration_seconds`** - Seberapa cepat permintaan Anda
+   - Menampilkan persentil (p50, p95, p99) untuk waktu respons
+   - Gunakan ini untuk mengidentifikasi endpoint yang lambat
+
+3. **`signer_balance_lamports`** - Saldo SOL saat ini dari setiap signer
+   - Menampilkan saldo dalam lamport (1 SOL = 1.000.000.000 lamport) untuk
+     setiap signer
+   - Label: `signer_name` (nama yang mudah dibaca) dan `signer_pubkey` (kunci
+     publik)
+   - Diperbarui secara otomatis di latar belakang saat diaktifkan
+   - Gunakan ini untuk perencanaan kapasitas dan peringatan saldo rendah di
+     semua signer
+
+## Menggunakan Data
+
+### Opsi 1: Pemeriksaan Kesehatan Cepat
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### Opsi 2: Prometheus + Grafana (Direkomendasikan)
+
+Untuk grafik dan peringatan, jalankan stack pemantauan lengkap:
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+Kemudian kunjungi:
+
+- Prometheus: http://localhost:9090 (kueri metrik)
+- Dashboard Kora Siap Pakai di Grafana: http://localhost:3000
+  - Login default: admin/admin (atau gunakan kredensial
+    `GF_SECURITY_ADMIN_PASSWORD` dan `GF_SECURITY_ADMIN_USER` dari file `.env`
+    Anda)
+
+### Opsi 3: Pemantauan Anda Sendiri
+
+Arahkan alat apa pun yang kompatibel dengan Prometheus ke
+`http://your-server:8080/metrics`:
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## Contoh Kueri (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## Pemantauan Multi-Signer
+
+Saat menggunakan beberapa signer, Anda dapat memantau setiap signer secara
+individual atau melacak metrik agregat:
+
+### Metrik Signer Individual
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### Kueri Prometheus untuk Pengaturan Multi-Signer
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## Catatan Keamanan
+
+Endpoint `/metrics` bersifat publik secara default. Dalam produksi,
+pertimbangkan:
+
+- Menempatkannya di balik firewall
+- Menggunakan port metrik terpisah
+- Menambahkan autentikasi melalui reverse proxy
+
+## Cara Kerja Pengumpulan Metrik
+
+1. **Lapisan Middleware HTTP** - Mengintersepsi semua permintaan dan
+   mengumpulkan:
+   - Jumlah permintaan berdasarkan metode JSON-RPC dan status
+   - Durasi permintaan berdasarkan metode
+
+2. **Endpoint Metrik** - Endpoint `/metrics` diekspos secara otomatis ketika
+   fitur diaktifkan
+   - Ditangani oleh `MetricsHandlerLayer`
+   - Mengembalikan metrik berformat Prometheus
+
+3. **Scraping Prometheus** - Dikonfigurasi untuk melakukan scraping Kora setiap
+   60 detik (lihat
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml))

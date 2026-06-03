@@ -4,8 +4,9 @@ import { createLocalizedEntries } from "../utils";
 export const breakpointRoutes: RouteGenerator = () => {
   try {
     return createLocalizedEntries("/breakpoint", {
-      changeFrequency: "weekly",
-      priority: 0.8,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1,
     });
   } catch (error) {
     console.error("Failed to build breakpoint sitemap routes", error);

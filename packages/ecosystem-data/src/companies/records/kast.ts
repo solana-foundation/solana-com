@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import kastBreakpoint2026White from "../../../assets/companies/kast/breakpoint-2026-white.png";
 import kastLogo from "../../../assets/companies/kast/logo.svg";
 import kastLogoDark from "../../../assets/companies/kast/logo-dark.svg";
 import kastMarkDark from "../../../assets/companies/kast/mark-dark.svg";
@@ -27,6 +28,14 @@ export const kast = {
   },
   defaultLogoId: "logo-light",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: kastBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo-light",
       fileName: "logo.svg",

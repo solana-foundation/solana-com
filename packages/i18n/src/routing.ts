@@ -39,15 +39,32 @@ export function pathsWithLocales<T>(paths: { params: T }[]) {
   );
 }
 
+function normalizeAlternatePath(path: string) {
+  if (!path || path === "/") {
+    return "/";
+  }
+
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function localizeAlternatePath(path: string, locale: string) {
+  if (locale === defaultLocale) {
+    return path;
+  }
+
+  return path === "/" ? `/${locale}` : `/${locale}${path}`;
+}
+
 export function getAlternates(path: string, locale: string) {
+  const normalizedPath = normalizeAlternatePath(path);
   const languages: Record<string, string> = {
-    "x-default": `/${path}`,
+    "x-default": normalizedPath,
   };
   locales.forEach((l) => {
-    languages[l] = l === defaultLocale ? `/${path}` : `/${l}${path}`;
+    languages[l] = localizeAlternatePath(normalizedPath, l);
   });
   return {
-    canonical: locale === defaultLocale ? `/${path}` : `/${locale}${path}`,
+    canonical: localizeAlternatePath(normalizedPath, locale),
     languages,
   };
 }

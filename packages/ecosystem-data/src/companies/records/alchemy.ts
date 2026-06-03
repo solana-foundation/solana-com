@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import alchemyBreakpoint2026White from "../../../assets/companies/alchemy/breakpoint-2026-white.svg";
 import alchemyLogoBlack from "../../../assets/companies/alchemy/logo-black.svg";
 import alchemyLogoColor from "../../../assets/companies/alchemy/logo-color.svg";
 import alchemyLogoWhiteBlue from "../../../assets/companies/alchemy/logo-white-blue.svg";
@@ -30,6 +31,14 @@ export const alchemy = {
   },
   defaultLogoId: "logo-white",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: alchemyBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo-black",
       fileName: "logo-black.svg",

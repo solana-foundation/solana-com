@@ -45,7 +45,7 @@ export function SingleCode({
 
   const content = (
     <div
-      ch-container="true"
+      data-ch-container="true"
       className={cn(
         "tw-border rounded overflow-hidden relative border-ch-border flex flex-col selection:bg-ch-selection !bg-ch-background",
         isRunnable ? "h-full" : "my-4",
@@ -116,10 +116,10 @@ export async function toCodeGroup(props: {
       }
       return {
         options,
-        title,
+        title: title || "",
         style: highlighted.style,
         code: highlighted.code,
-        icon: <CodeIcon title={title} lang={tab.lang} />,
+        icon: <CodeIcon title={title ?? ""} lang={tab.lang} />,
         lang: tab.lang,
         pre: (
           <Pre

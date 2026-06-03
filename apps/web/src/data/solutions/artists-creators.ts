@@ -25,7 +25,7 @@ export const CARDS_CREATE_URLS = [
 ];
 
 export const CARDS_EARN_URLS = [
-  "https://hub.accessprotocol.co/creators",
+  "https://www.accessprotocol.co/en/creators",
   "https://drip.haus/",
   "https://helio.co/nfts/",
   "https://tiplink.io/",

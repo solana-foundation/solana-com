@@ -3,7 +3,7 @@ import { getMetadataFromSlug, MainDocsPage } from "../docs";
 import { toStaticParams } from "@@/src/app/sources/utils";
 
 type Props = {
-  params: Promise<{ slug?: string[]; locale: string }>;
+  params: Promise<{ slug: string[]; locale: string }>;
 };
 
 export default async function Page(props: Props) {
@@ -12,9 +12,10 @@ export default async function Page(props: Props) {
 }
 
 export async function generateStaticParams() {
+  const standaloneDocsSections = new Set(["rpc", "payments", "tools"]);
   const params = toStaticParams(docsSource)
     .filter((param) => param.slug.length > 0)
-    .filter((param) => param.slug[0] !== "rpc");
+    .filter((param) => !standaloneDocsSections.has(param.slug[0]));
 
   return params;
 }

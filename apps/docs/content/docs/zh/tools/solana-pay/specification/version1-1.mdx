@@ -1,0 +1,367 @@
+---
+title: Solana Pay 规范 v1.1
+description: 在 URL 中编码 Solana 交易请求的标准协议最新版本
+---
+
+## 摘要
+
+一个标准协议，用于在 URL 中编码 Solana 交易请求，以实现支付和其他用例。
+
+关于此规范已达成大致共识，并且在 Phantom、FTX 和 Slope 中已有实现。
+
+本标准借鉴了
+[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) 和
+[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md)。
+
+## 动机
+
+用于请求原生 SOL 转账、SPL 代币转账和 Solana 交易的标准 URL 协议，可为 Solana 生态系统中的应用程序和钱包提供更好的用户体验。
+
+这些 URL 可以编码为二维码或 NFC 标签，或在用户和应用程序之间发送，以请求支付和组合交易。
+
+应用程序应确保交易已被确认且有效，然后再发放正在销售的商品或服务，或授予对对象或活动的访问权限。
+
+移动钱包应注册处理该 URL 方案，以便在环境中遇到 Solana Pay
+URL 时提供无缝且安全的体验。
+
+通过标准化解决这些问题的简单方法，我们确保应用程序和钱包的基本兼容性，使开发人员能够专注于更高层次的抽象。
+
+## 规范：转账请求
+
+Solana Pay 转账请求 URL 描述了一个非交互式的 SOL 或 SPL 代币转账请求。
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+该请求是非交互式的，因为 URL 中的参数被钱包用于直接组合交易。
+
+### 收款人
+
+路径名中需要单个 `recipient`
+字段。该值必须是原生 SOL 账户的 base58 编码公钥。不得使用关联代币账户。
+
+相反，要请求 SPL Token 转账，必须使用 `spl-token` 字段来指定 SPL Token
+mint，并从中派生出接收者的关联代币地址。
+
+### 金额
+
+允许使用单个 `amount`
+字段作为可选查询参数。该值必须是非负整数或"用户"单位的十进制数。对于 SOL，是 SOL 而不是 lamport。对于代币，使用
+[`uiAmountString` 而不是 `amount`](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure)。
+
+`0` 是有效值。如果值是小于 `1` 的十进制数，则必须在 `.` 前有前导
+`0`。禁止使用科学计数法。
+
+如果未提供值，钱包必须提示用户输入金额。如果小数位数超过 SOL（9 位）或 SPL
+Token（特定于 mint）所支持的位数，钱包必须将该 URL 拒绝为**格式错误**。
+
+### SPL Token
+
+允许使用单个 `spl-token` 字段作为可选查询参数。该值必须是 SPL Token mint
+account 的 base58 编码公钥。
+
+如果提供了该字段，则必须使用[关联代币账户](https://spl.solana.com/associated-token-account)
+约定，钱包必须将 `TokenProgram.Transfer` 或 `TokenProgram.TransferChecked`
+指令作为交易的最后一条指令。
+
+如果未提供该字段，该 URL 描述的是原生 SOL 转账，钱包必须将
+`SystemProgram.Transfer` 指令作为交易的最后一条指令。
+
+钱包必须从 `recipient` 和 `spl-token`
+字段派生 ATA 地址。不支持转账到辅助代币账户。
+
+### 引用
+
+允许使用多个 `reference`
+字段作为可选查询参数。这些值必须是 base58 编码的 32 字节数组。这些可能是也可能不是公钥，可能在曲线上也可能不在曲线上，可能对应也可能不对应 Solana 上的账户。
+
+如果提供了这些值,钱包必须按照提供的顺序将它们作为只读、非签名密钥包含到支付交易的
+`SystemProgram.Transfer` 或
+`TokenProgram.Transfer`/`TokenProgram.TransferChecked`
+指令中。这些值可能是也可能不是支付请求所独有的,并且可能对应也可能不对应 Solana 上的账户。
+
+由于 Solana 验证器通过这些账户密钥索引交易,`reference`
+值可以用作客户端 ID(在知道最终支付交易之前可用的 ID)。可以使用
+[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress)
+RPC 方法以这种方式定位交易。
+
+### 标签
+
+允许使用单个 `label` 字段作为可选查询参数。该值必须是一个经过
+[URL 编码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)的 UTF-8 字符串,用于描述转账请求的来源。
+
+例如,这可能是发起请求的品牌、商店、应用程序或个人的名称。钱包应该对该值进行
+[URL 解码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent),并向用户显示解码后的值。
+
+### 消息
+
+允许使用单个 `message` 字段作为可选查询参数。该值必须是一个经过
+[URL 编码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)的 UTF-8 字符串,用于描述转账请求的性质。
+
+例如,这可能是正在购买的商品名称、订单 ID 或感谢信息。钱包应该对该值进行
+[URL 解码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent),并向用户显示解码后的值。
+
+### 备注
+
+允许使用单个 `memo` 字段作为可选查询参数。该值必须是一个经过
+[URL 编码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)的 UTF-8 字符串,且必须包含在支付交易的
+[SPL Memo](https://spl.solana.com/memo) 指令中。
+
+钱包必须对该值进行
+[URL 解码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent),并应向用户显示解码后的值。该备注将由验证器记录,因此不应包含私密或敏感信息。
+
+如果提供了该字段,钱包必须在交易的倒数第二条指令中包含一个 `MemoProgram`
+指令,紧邻 SOL 或SPL Token 转账指令之前,以避免与交易中的其他指令产生歧义。
+
+### 示例
+
+#### 描述 1 SOL 转账请求的 URL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### 描述 0.01 USDC 转账请求的 URL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### 描述 SOL 转账请求的 URL(提示用户输入金额)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## 规范:交易请求
+
+Solana Pay 交易请求 URL 描述了对任何 Solana 交易的交互式请求。
+
+```
+solana:<link>
+```
+
+该请求是交互式的,因为 URL 中的参数由钱包用于发起 HTTP 请求以组合交易。
+
+### 链接
+
+路径名中必须包含单个 `link` 字段。该值必须是有条件进行
+[URL 编码](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)的绝对 HTTPS
+URL。
+
+如果 URL 包含查询参数,则必须进行 URL 编码。协议查询参数可能会添加到此规范中。对值进行 URL 编码可防止与协议参数发生冲突。
+
+如果 URL 不包含查询参数,则不应进行 URL 编码。这样可以生成更短的 URL 和密度更低的二维码。
+
+无论哪种情况,钱包都必须对值进行
+[URL 解码](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)。如果值未进行 URL 编码,则此操作无效。如果解码后的值不是绝对 HTTPS
+URL,钱包必须将其视为**格式错误**而拒绝。
+
+#### GET 请求
+
+钱包应向该 URL 发起 HTTP `GET` JSON 请求。该请求不应识别钱包或用户的身份。
+
+钱包应在请求中包含
+[Accept-Encoding 标头](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Accept-Encoding), 应用程序应在响应中包含
+[Content-Encoding 标头](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Content-Encoding)
+以支持 HTTP 压缩。
+
+钱包应在发出请求时显示 URL 的域名。
+
+#### GET 响应
+
+钱包必须处理 HTTP
+[客户端错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+[服务器错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+和
+[重定向响应](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)。应用程序必须响应这些状态码，或返回一个 HTTP
+`OK` JSON 响应，响应体为：
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+`<label>`
+值必须是描述交易请求来源的 UTF-8 字符串。例如，这可能是发出请求的品牌、商店、应用程序或个人的名称。
+
+`<icon>` 值必须是图标图像的绝对 HTTP 或 HTTPS
+URL。该文件必须是 SVG、PNG 或 WebP 图像，否则钱包必须将其拒绝为**格式错误**。
+
+除非
+[HTTP 缓存](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching)响应头另有指示，否则钱包不应缓存响应。
+
+钱包应向用户显示标签并渲染图标图像。
+
+#### POST 请求
+
+钱包必须向该 URL 发出 HTTP `POST` JSON 请求，请求体为：
+
+```json
+{ "account": "<account>" }
+```
+
+`<account>` 值必须是可能签署该交易的账户的 base58 编码公钥。
+
+钱包应在请求中包含
+[Accept-Encoding 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)，应用程序应返回
+[Content-Encoding 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)以支持 HTTP 压缩。
+
+钱包应在发出请求时显示 URL 的域名。如果已发出 `GET`
+请求，钱包还应显示标签并渲染响应中的图标图像。
+
+#### POST 响应
+
+钱包必须处理 HTTP
+[客户端错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+[服务器错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+和
+[重定向响应](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)。应用程序必须响应这些状态码，或返回一个 HTTP
+`OK` JSON 响应，响应体为：
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+`<transaction>` 值必须是 base64 编码的
+[序列化交易](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)。钱包必须对交易进行 base64 解码并
+[反序列化](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from)。
+
+应用程序可能会返回部分签名或完全签名的交易。钱包必须将该交易视为**不可信**并进行验证。
+
+#### 空签名
+
+如果交易的
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+为空：
+
+- 应用程序应将
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  设置为请求中的 `account`，或零值（`new PublicKey(0)` 或
+  `new PublicKey("11111111111111111111111111111111")`）。
+- 应用程序应将
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  设置为
+  [最新区块哈希](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)，或零值（`new PublicKey(0).toBase58()`
+  或 `"11111111111111111111111111111111"`）。
+- 钱包必须忽略交易中的
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)，并将
+  `feePayer` 设置为请求中的 `account`。
+- 钱包必须忽略交易中的
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)，并将
+  `recentBlockhash` 设置为
+  [最新区块哈希](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)。
+
+如果交易的
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+不为空：
+
+- 应用程序必须将
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  设置为
+  [第一个签名的公钥](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair)。
+- 应用程序必须将
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  设置为
+  [最新区块哈希](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)。
+- 应用程序必须在签名之前对交易进行序列化和反序列化。这可确保账户密钥的排序一致性，作为
+  [此问题](https://github.com/solana-labs/solana/issues/21722)的解决方案。
+- 钱包不得设置
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  和
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)。
+- 钱包必须验证签名，如果任何签名无效，钱包必须将该交易作为**格式错误**拒绝。
+
+钱包必须仅使用请求中的 `account` 对交易进行签名，并且只有在需要请求中的
+`account` 的签名时才能这样做。
+
+如果需要除请求中的 `account`
+签名之外的任何签名，钱包必须将该交易作为**恶意**拒绝。
+
+应用程序还可以在响应体中包含一个可选的 `message` 字段：
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+`<message>` 值必须是一个 UTF-8 字符串，用于描述交易响应的性质。
+
+例如，这可能是正在购买的商品名称、应用于购买的折扣或感谢备注。钱包应向用户显示该值。
+
+钱包和应用程序应允许在请求体和响应体中包含额外字段，这些字段可能会在未来的规范中添加。
+
+### 示例
+
+##### 描述交易请求的 URL。
+
+```
+solana:https://example.com/solana-pay
+```
+
+##### 带有查询参数的交易请求 URL。
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+##### GET 请求
+
+```
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+##### GET 响应
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+##### POST 请求
+
+```
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+##### POST 响应
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## 扩展
+
+可以在本规范中加入其他格式和字段以支持新的用例，同时确保与应用程序和钱包的兼容性。
+
+请提交 Github issue 以提议规范变更，从而征求应用程序和钱包开发者的反馈。
+
+[此类提议的实际示例。](https://github.com/solana-foundation/pay/issues/26)

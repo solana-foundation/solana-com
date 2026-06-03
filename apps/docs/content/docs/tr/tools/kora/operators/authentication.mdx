@@ -1,0 +1,257 @@
+---
+title: Kimlik Doğrulama
+description: Operatörün kimlik doğrulama referans kılavuzu
+---
+
+Kora, RPC uç noktanızı güvence altına almak için iki isteğe bağlı kimlik
+doğrulama yöntemini destekler: API Anahtarı ve HMAC kimlik doğrulaması. Bu
+kılavuz kurulum, uygulama ve güvenlik en iyi uygulamalarını kapsar.
+
+Kimlik doğrulama isteğe bağlıdır ancak üretim dağıtımları için **şiddetle
+önerilir**. Kimlik doğrulama olmadan, Kora uç noktanızı keşfeden herkes işlem
+gönderebilir ve SOL bakiyenizi tüketebilir.
+
+| Yöntem           | Güvenlik Seviyesi | Kullanım Senaryosu                            | Karmaşıklık |
+| ---------------- | ----------------- | --------------------------------------------- | ----------- |
+| **Yok**          | ⚠️ Yok            | Geliştirme, test, yüksek marjlı fiyatlandırma | Yok         |
+| **API Anahtarı** | Temel             | Dahili uygulamalar, güvenilir istemciler      | Düşük       |
+| **HMAC**         | Yüksek            | Genel API'ler, güvenilmeyen ağlar             | Orta        |
+| **Her İkisi**    | Maksimum          | Yüksek güvenlikli ortamlar                    | Orta        |
+
+Kora Kimlik Doğrulama, `[kora.auth]` bölümündeki `kora.toml` dosyasında
+yapılandırılır.
+
+Bu belgede:
+
+- [API Anahtarı Kimlik Doğrulaması](#api-key-authentication)
+- [HMAC Kimlik Doğrulaması](#hmac-authentication)
+- [Birleşik Kimlik Doğrulama](#combined-authentication)
+- [Güvenlik En İyi Uygulamaları](#security-best-practices)
+- [Muaf Uç Noktalar](#exempt-endpoints)
+- [Sorun Giderme](#troubleshooting)
+
+## API Anahtarı Kimlik Doğrulaması
+
+HTTP başlıkları kullanarak basit paylaşımlı gizli anahtar kimlik doğrulaması.
+Terminalinizde `openssl` komutunu (veya benzer bir komutu) kullanarak yeni bir
+API anahtarı oluşturabilirsiniz:
+
+```bash
+openssl rand -hex 32
+```
+
+### Sunucu Yapılandırması
+
+- .env dosyanıza (ortam değişkenleri) bir `KORA_API_KEY` ekleyin (önceliğe
+  sahiptir) veya
+- `kora.toml` dosyanıza bir `api_key` ekleyin:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Bu anahtar, Kora RPC uç noktasına yapılan tüm istekler için global olarak
+gerekli olacaktır.
+
+### İstemci Uygulaması
+
+Her istekte `x-api-key` başlığına API anahtarını ekleyin:
+
+**cURL Örneği:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**Kora SDK kullanarak JavaScript Örneği:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+\*\*fetch kullanarak JavaScript Örneği:
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## HMAC Kimlik Doğrulama
+
+Her istekle birlikte bir API anahtarı göndermek yerine, HMAC, bir sırrı ifşa
+etmeden bildiğinizi kanıtlayan benzersiz bir kriptografik imza oluşturur. Her
+imza bir zaman damgası içerir ve 5 dakika sonra sona erer, böylece ele geçirilen
+istekler yeniden gönderilemez. Saldırganlar, gizli anahtarınıza sahip
+olmadıkları için yeni istekler oluşturamazlar.
+
+### Sunucu Yapılandırması
+
+- .env dosyanıza (ortam değişkenleri) `KORA_HMAC_SECRET` ekleyin (önceliğe
+  sahiptir) veya
+- `kora.toml` dosyanıza global bir `hmac_secret` ekleyin (minimum 32
+  karakter--`openssl rand -hex 32` veya benzeri bir araçla oluşturabilirsiniz):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### HMAC Nasıl Çalışır
+
+1. İstemci, şunları birleştirerek bir mesaj oluşturur:
+   `{timestamp}{request_body}`
+2. İstemci, paylaşılan gizli anahtar kullanarak HMAC-SHA256 ile mesajı imzalar
+3. İstemci, zaman damgası ve imza başlıklarıyla isteği gönderir
+4. Sunucu, imzayı ve zaman damgasını doğrular (5 dakika içinde olmalıdır)
+
+### İstemci Uygulaması
+
+HMAC'i istemci tarafında kullanmak için Kora SDK'sını veya JavaScript'te
+`crypto` kütüphanesini kullanabilirsiniz:
+
+1. Bir zaman damgası oluşturun
+2. İstek gövdesini oluşturun
+3. Zaman damgası ve gövdeyi birleştirerek bir mesaj oluşturun (örneğin,
+   `message = timestamp + body`)
+4. Mesajı HMAC sırrıyla imzalayarak (`crypto.createHmac` metodunu kullanarak)
+   bir imza oluşturun
+5. İsteği zaman damgası (`x-timestamp`) ve imza (`x-hmac-signature`)
+   başlıklarıyla gönderin
+
+**Kora SDK Kullanarak JavaScript Örneği:**
+
+Kora SDK, HMAC kimlik doğrulama sürecini soyutlar, böylece çağırmak istediğiniz
+metodu çağırmanız yeterlidir ve SDK kimlik doğrulamayı sizin için halleder.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**`crypto` Kütüphanesi Kullanarak JavaScript Örneği:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Birleşik Kimlik Doğrulama
+
+Maksimum güvenlik için her iki kimlik doğrulama yöntemini aynı anda
+etkinleştirebilirsiniz:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Her ikisi de yapılandırıldığında, istemciler `x-api-key`, `x-timestamp` ve
+`x-hmac-signature` başlıklarını göndermelidir.
+
+## Güvenlik En İyi Uygulamaları
+
+- **Güçlü, rastgele anahtarlar kullanın**: Yüksek entropiye sahip minimum 32
+  karakter
+- **Düzenli olarak yenileyin**: Anahtarları periyodik olarak değiştirin
+  (aylık/üç aylık)
+- **Güvenli depolama**: Ortam değişkenlerini veya gizli yönetim sistemlerini
+  kullanın (Railway secrets, AWS Secrets Manager, vb.)
+- **Asla sabit kodlamayın**: Anahtarları kaynak kodundan ve günlüklerden uzak
+  tutun
+- **HTTPS kullanın**: Aktarım sırasında anahtarları korumak için üretimde her
+  zaman TLS kullanın
+- **Erişimi izleyin**: Olağandışı kimlik doğrulama kalıplarını veya tekrarlanan
+  başarısızlıkları takip edin
+
+## Muaf Uç Noktalar
+
+`/liveness` uç noktası, sağlık kontrollerine izin vermek için kimlik
+doğrulamadan her zaman muaftır:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Sorun Giderme
+
+**API Anahtarı ile 401 Yetkisiz:**
+
+- API anahtarının doğru olduğunu ve sunucu yapılandırmasıyla eşleştiğini
+  doğrulayın
+- `x-api-key` başlığının gönderildiğini kontrol edin
+- Anahtarda fazladan boşluk olmadığından emin olun
+
+**HMAC ile 401 Yetkisiz:**
+
+- Zaman damgasının güncel olduğunu doğrulayın (5 dakika içinde)
+- Mesaj oluşturmanın şununla eşleştiğini kontrol edin: `{timestamp}{body}`
+- HMAC gizli anahtarının sunucu yapılandırmasıyla eşleştiğinden emin olun
+- İmzanın küçük harf onaltılık olduğunu doğrulayın

@@ -1,0 +1,341 @@
+---
+title: 새로운 구성 옵션 (베타)
+description: Kora v2.2.0-beta에서 도입된 새로운 kora.toml 구성 섹션입니다.
+---
+
+이러한 구성 옵션은 `v2.2.0-beta.1`부터 사용할 수 있습니다. 기존 `kora.toml`에
+안정 버전 구성과 함께 추가하세요.
+
+## 트랜잭션 플러그인
+
+`[kora.plugins]` 섹션은 서명 플로우 중에 실행되는 트랜잭션 플러그인을
+구성합니다. 플러그인은 Kora가 서명하기 전에 트랜잭션의 구조와 내용을 검증합니다.
+`signTransaction`, `signAndSendTransaction`, `signBundle`, `signAndSendBundle`에
+대해 실행되지만 `estimateBundleFee`에 대해서는 **실행되지 않습니다**.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| 옵션      | 설명                            | 필수 여부           | 타입     |
+| --------- | ------------------------------- | ------------------- | -------- |
+| `enabled` | 활성화된 트랜잭션 플러그인 목록 | 아니오 (기본값: []) | string[] |
+
+### `gas_swap` 플러그인
+
+`gas_swap` 플러그인은 가스 없는 토큰-SOL 스왑 작업에 대해 엄격한 트랜잭션 구조를
+적용합니다. 활성화되면 서명 플로우를 통해 제출된 모든 트랜잭션은 정확히 다음을
+포함해야 합니다:
+
+1. **하나의 SPL 토큰 전송** (SPL Token 또는 Token-2022) — 수수료 지불자가 아닌
+   소유자로부터
+2. **하나의 System SOL 전송** (`Transfer` 또는 `TransferWithSeed`) — 수수료
+   지불자로부터
+
+컴퓨트 버짓 인스트럭션(컴퓨트 유닛 한도/가격 설정)은 필수 인스트럭션 두 개와
+함께 허용됩니다. 추가적이거나 스왑이 아닌 외부 인스트럭션은 거부됩니다.
+
+#### 구성 요구사항
+
+`gas_swap` 플러그인은 시작 시 구성을 검증하며, 요구사항이 충족되지 않으면 오류가
+발생합니다:
+
+- **System Program**은 `allowed_programs`에 있어야 합니다
+- **최소 하나의 토큰 프로그램** (SPL Token 또는 Token-2022)이
+  `allowed_programs`에 있어야 합니다
+- **최소 하나의 토큰**이 `allowed_tokens`에 있어야 합니다
+- **가격 책정 모델**은 `Free`이 아니어야 합니다 — 마진 또는 고정 가격을
+  설정하세요
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **경고:** `gas_swap`를 고정 가격 책정과 함께 사용할 경우, 전송된 SOL이 받은
+> 토큰을 초과하는 유출 상황을 방지하기 위해 고정 토큰 수수료가 최소
+> `max_allowed_lamports`의 SOL 가치를 가지도록 하세요.
+
+---
+
+## 번들 구성
+
+`[kora.bundle]` 섹션은 원자적 다중 트랜잭션 실행을 위한 Jito 번들 지원을
+활성화합니다:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| 옵션      | 설명             | 필수 여부              | 타입    |
+| --------- | ---------------- | ---------------------- | ------- |
+| `enabled` | 번들 기능 활성화 | 아니오 (기본값: false) | boolean |
+
+### Jito 구성
+
+| 옵션               | 설명               | 필수 여부           | 타입   |
+| ------------------ | ------------------ | ------------------- | ------ |
+| `block_engine_url` | Jito 블록 엔진 URL | 예 (번들 활성화 시) | string |
+
+사용 가능한 Jito 블록 엔진 URL:
+
+- **메인넷 (공개):** `https://mainnet.block-engine.jito.wtf`
+- **메인넷 (비공개):** 액세스를 위해 Jito에 문의하세요
+
+> **중요:** Kora가 지불하는 Jito 팁과 함께 번들을 사용할 때는
+> `[validation.fee_payer_policy.system]`에서 `allow_transfer = true`을 설정하여
+> 서명자가 팁을 위해 SOL을 전송할 수 있도록 허용하세요.
+
+Kora와 함께 Jito 번들을 구현하는 전체 가이드는
+[Jito 번들 가이드](/docs/tools/kora/beta/jito-guide)를 참조하세요.
+
+---
+
+## Lighthouse 수수료 지불자 보호
+
+`[kora.lighthouse]` 섹션은 Lighthouse 수수료 지불자 보호를 활성화합니다.
+활성화되면 Kora는 트랜잭션에 잔액 검증 명령어를 추가하여, 수수료 지불자의 잔액이
+예상 수준 이하로 떨어지지 않는지 확인함으로써 수수료 지불자를 고갈 공격으로부터
+보호합니다.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| 옵션                                | 설명                                                                                       | 필수 여부              | 타입    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------- | ------- |
+| `enabled`                           | 수수료 지불자 보호를 위한 Lighthouse 검증 활성화                                           | 아니오 (기본값: false) | boolean |
+| `fail_if_transaction_size_overflow` | 검증 추가 시 크기 제한을 초과하면 트랜잭션 거부. false인 경우 검증 추가를 자동으로 건너뜀. | 아니오 (기본값: true)  | boolean |
+
+### 작동 방식
+
+Lighthouse가 활성화되면 Kora는 수수료 지불자의 현재 잔액을 가져와서 트랜잭션
+완료 시 잔액이 `(current_balance - estimated_fee)` 아래로 떨어지지 않는지
+확인하는 Lighthouse 검증 명령어를 추가합니다. 이는 악의적인 트랜잭션이 예상
+비용을 초과하여 수수료 지불자를 고갈시키는 것을 방지합니다.
+
+### 메서드 호환성
+
+Lighthouse 보호는 **`signTransaction` 및 `signBundle`에서만 작동합니다**.
+`signAndSendTransaction` 또는 `signAndSendBundle`에서는 **작동하지 않습니다**.
+
+Lighthouse가 검증 명령어를 추가하면 트랜잭션 메시지가 수정됩니다. 이는 기존의
+클라이언트 서명을 무효화합니다. `signAndSend*` 플로우는 다음과 같은 이유로
+실패합니다:
+
+1. 클라이언트가 트랜잭션에 서명
+2. Kora가 Lighthouse 검증을 추가 (메시지 수정)
+3. 클라이언트의 원래 서명이 무효화됨
+4. 네트워크가 "서명 검증 실패"로 거부
+
+**Lighthouse 사용 시 권장 패턴:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### 설정 요구사항
+
+Lighthouse를 활성화할 때 `allowed_programs`에 Lighthouse 프로그램을 추가하세요:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora는 시작 시 이를 검증하며, Lighthouse가 활성화되었지만 프로그램이
+`allowed_programs`에 없으면 오류를 반환합니다.
+
+> **참고:** `signAndSendTransaction` 또는 `signAndSendBundle`가 Lighthouse와
+> 함께 활성화된 경우, Kora는 이러한 메서드에 수수료 지불자 보호가 적용되지
+> 않는다는 경고를 기록합니다.
+
+## reCAPTCHA 봇 보호
+
+reCAPTCHA v3는 민감한 엔드포인트에 보이지 않는 봇 보호 기능을 제공합니다. 모든
+요청을 인증하는 API Key 및 HMAC와 달리, reCAPTCHA는 특정 고위험
+메서드(기본적으로 서명 메서드)만 보호합니다.
+
+### 서버 설정
+
+환경 변수에 `KORA_RECAPTCHA_SECRET`를 추가하거나(우선순위가 높음), `kora.toml`에
+`recaptcha_secret`를 추가하세요:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| 옵션                        | 설명                                                     | 기본값      |
+| --------------------------- | -------------------------------------------------------- | ----------- |
+| `recaptcha_secret`          | Google의 reCAPTCHA v3 비밀 키                            | -           |
+| `recaptcha_score_threshold` | 통과를 위한 최소 점수 (0.0 = 모두 통과, 1.0 = 모두 거부) | 0.5         |
+| `protected_methods`         | 검증이 필요한 RPC 메서드                                 | 서명 메서드 |
+
+### 작동 방식
+
+1. 클라이언트가 Google의 reCAPTCHA v3 API로부터 reCAPTCHA 토큰을 획득
+2. 클라이언트가 `x-recaptcha-token` 헤더에 토큰을 포함
+3. 서버가 Google과 토큰을 검증하고 점수를 확인
+4. 점수 >= 임계값인 경우 요청이 진행되고, 그렇지 않으면 401 Unauthorized를 반환
+
+reCAPTCHA는 API 키/HMAC 인증이 성공한 _이후에_ 실행됩니다(설정된 경우). 보호되지
+않은 메서드는 reCAPTCHA 검증을 완전히 우회합니다.
+
+### 클라이언트 구현
+
+**Kora SDK 사용:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**fetch 사용:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### reCAPTCHA 키 얻기
+
+1. [Google reCAPTCHA 관리 콘솔](https://www.google.com/recaptcha/admin)로
+   이동합니다
+2. **reCAPTCHA v3**로 새 사이트를 생성합니다
+3. 프론트엔드(클라이언트 측)에서 **사이트 키**를 사용합니다
+4. Kora 구성(서버 측)에서 **비밀 키**를 사용합니다
+
+## 사용 제한
+
+`[kora.usage_limit]` 섹션은 남용을 방지하고 공정한 사용을 보장하기 위해 지갑당
+사용 제한을 구성합니다. 이는 사용자의 거래 수수료를 특정 한도까지 보조하는
+리워드 프로그램을 만드는 데에도 사용할 수 있습니다.
+
+**참고**: 이 기능은 여러 Kora 인스턴스에서 활성화될 때 Redis가 필요합니다.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| 옵션                      | 설명                                  | 필수                   | 타입    |
+| ------------------------- | ------------------------------------- | ---------------------- | ------- |
+| `enabled`                 | 지갑당 사용 제한 활성화               | 아니오 (기본값: false) | boolean |
+| `cache_url`               | 공유 사용 추적을 위한 Redis 연결 URL  | 아니오                 | string  |
+| `fallback_if_unavailable` | Redis를 사용할 수 없는 경우 거래 허용 | 아니오 (기본값: true)  | boolean |
+
+> _`fallback_if_unavailable`가 true인 경우, Redis를 일시적으로 사용할 수 없을 때
+> 시스템이 거래를 진행할 수 있도록 허용하여 서비스 중단을 방지합니다._
+
+### 사용 제한 규칙
+
+베타 버전에서는 세분화된 규칙 기반 사용 제한이 도입됩니다. 단일
+`max_transactions` 카운트 대신, 특정 거래 유형 또는 개별 명령어를 대상으로 하는
+여러 규칙을 정의할 수 있으며, 선택적으로 시간 창을 설정할 수 있습니다.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| 규칙 필드        | 설명                                                                          | 필수   |
+| ---------------- | ----------------------------------------------------------------------------- | ------ |
+| `type`           | `"transaction"` (모든 거래 계산) 또는 `"instruction"` (특정 명령어 유형 계산) | 예     |
+| `max`            | 지갑이 차단되기 전 최대 카운트                                                | 예     |
+| `window_seconds` | 시간 창(초 단위). 생략하면 제한이 영구적입니다.                               | 아니오 |
+| `program`        | 일치시킬 program account (`instruction` 유형에 필수)                          | 조건부 |
+| `instruction`    | 일치시킬 명령어 이름, 예: `"Transfer"`, `"Burn"` (`instruction` 유형에 필수)  | 조건부 |
+
+`window_seconds`가 설정되면, 시간 윈도우가 만료된 후 카운터가 리셋됩니다.
+설정하지 않으면 제한이 영구적으로 적용됩니다 — 한 번 도달하면 Redis에서 수동으로
+지워질 때까지 지갑이 차단됩니다.
+
+## 새롭게 활성화된 메서드
+
+다음 메서드들이 `[kora.enabled_methods]`에 추가되었습니다:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| 메서드                 | 설명                         |
+| ---------------------- | ---------------------------- |
+| `get_version`          | Kora 서버 버전 반환          |
+| `estimate_bundle_fee`  | 트랜잭션 번들의 수수료 추정  |
+| `sign_bundle`          | 전송 없이 트랜잭션 번들 서명 |
+| `sign_and_send_bundle` | 번들에 서명하고 Jito에 제출  |
+
+전체 API 문서는 [번들 메서드](/docs/tools/kora/beta/bundle-methods)를
+참조하세요.

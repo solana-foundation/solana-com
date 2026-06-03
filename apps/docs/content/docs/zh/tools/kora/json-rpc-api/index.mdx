@@ -1,0 +1,149 @@
+---
+title: JSON-RPC API 概述
+description:
+  Kora 实现了 JSON-RPC 2.0 接口，用于在 Solana 上进行无 Gas 交易处理。
+---
+
+> **正在使用 Kora v2.2.0-beta？** 请参阅
+> [Beta 文档](/docs/tools/kora/beta/bundle-methods)了解新的捆绑方法 (`signBundle`、`signAndSendBundle`、`estimateBundleFee`) 和
+> `getVersion`。
+
+## TypeScript SDK
+
+`@solana/kora` 包提供了三种客户端选项，用于与 Kora 服务器交互：
+
+### KoraClient（独立模式）
+
+使用 `KoraClient` 进行独立使用。兼容 `@solana/kit` v5.0+。
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin（Kit 可组合）
+
+使用 `koraPlugin()` 将 Kora 方法组合到现有的 Kit 客户端中。需要 `@solana/kit`
+v5.4+ 以支持 `createEmptyClient().use()` 模式。
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+该插件提供 Kit 类型的响应（`Address`、`Blockhash`、`Base64EncodedWireTransaction`）并导出
+`KoraPlugin` 类型以便与其他插件组合。
+
+### createKitKoraClient（Kit 客户端）
+
+使用 `createKitKoraClient()`
+进行完整的 Kit 集成，具备自动交易规划、费用估算、支付注入和执行功能。这是大多数应用程序的推荐方法。需要
+`@solana/kit` v6.1+。
+
+Kit 客户端将 Kora 与 Kit 的插件架构（规划器、执行器、支付器插件）组合在一起，因此您可以直接使用 Kit 程序插件，例如
+`tokenProgram()`。
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**配置选项：**
+
+| 选项               | 必需 | 描述                                                                               |
+| ------------------ | ---- | ---------------------------------------------------------------------------------- |
+| `endpoint`         | 是   | Kora RPC 端点 URL                                                                  |
+| `rpcUrl`           | 是   | Solana RPC URL，用于计算单元估算和 program account 兼容性                          |
+| `feeToken`         | 是   | 用于支付费用的 SPL 铸币地址                                                        |
+| `feePayerWallet`   | 是   | 授权 SPL 费用支付的 `TransactionSigner`                                            |
+| `apiKey`           | 否   | 用于身份验证的 API 密钥                                                            |
+| `hmacSecret`       | 否   | 用于基于签名的身份验证的 HMAC 密钥                                                 |
+| `computeUnitLimit` | 否   | 固定的计算单元限制（如果未设置则使用基于模拟的估算）                               |
+| `computeUnitPrice` | 否   | 以微 lamport 为单位的优先费用                                                      |
+| `tokenProgramId`   | 否   | Token Program ID（默认为 Token Program；对于 Token-2022 代币使用 Token-2022 地址） |
+
+## 协议
+
+- **标准**: JSON-RPC 2.0
+- **传输方式**: HTTP POST
+- **Content-Type**: application/json
+- **端点**: `http://your-kora-instance/`
+
+## 可用方法
+
+| 方法                                                                              | 描述                                                                               |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | 估算交易费用，以 lamport 和指定代币为单位。                                        |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | 从 Kora 服务器连接的 Solana RPC 获取最新的区块哈希。                               |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | 检索当前 Kora 服务器的配置信息。                                                   |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | 从 Kora 服务器检索付款方签名者和付款目标地址。                                     |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | 创建一个付款指令，以便添加到交易中，用于向 Kora 付款主支付费用。                   |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | 检索支持用于费用支付的代币列表。                                                   |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | 签署交易并立即将其广播到 Solana 网络。                                             |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | 使用 Kora 费用付款方签署交易（如果交易包含向费用付款方的必要付款），但不进行广播。 |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | 创建一个以 Kora 作为费用付款方的代币转账交易。                                     |
+
+## 请求格式
+
+所有请求均遵循 JSON-RPC 2.0 标准：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## 响应格式
+
+成功响应：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+错误响应：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

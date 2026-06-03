@@ -1,0 +1,577 @@
+---
+title: React Hooks
+description:
+  Erstellen Sie benutzerdefinierte Zahlungs-UIs mit Solana Commerce React Hooks
+---
+
+Das `@solana-commerce/sdk`-Paket stellt React Hooks zum Erstellen
+benutzerdefinierter Solana-Zahlungserlebnisse bereit. Diese Hooks bieten volle
+Kontrolle über SOL- und SPL- Token-Überweisungen mit integriertem
+Zustandsmanagement, automatischer Wiederholungslogik, Fehler- behandlung und
+UI-Hilfsfunktionen.
+
+Unter der Haube verwendet das SDK [TanStack Query](https://tanstack.com/query)
+für Caching und Zustandsmanagement,
+[@solana/kit](https://github.com/anza-xyz/kit) für Solana-Primitive und
+integriert sich nahtlos mit `@solana-commerce/connector` für die
+Wallet-Verbindung.
+
+## Installation
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Provider-Einrichtung
+
+### `ArcProvider`
+
+Der `ArcProvider` ist der Root-Provider, der den Solana-RPC-Client
+initialisiert, die Netzwerkkonfiguration verwaltet und allen Hooks die
+Blockchain-Konnektivität bereitstellt. Er muss alle Komponenten umschließen, die
+SDK-Hooks verwenden.
+
+#### Props
+
+- **`config`** (`ArcWebClientConfig`) - Konfigurationsobjekt für den Arc-Client
+- **`children`** (`ReactNode`) - Untergeordnete Komponenten, die Zugriff auf die
+  Hooks erhalten
+- **`queryClient`** (`QueryClient`, optional) - Benutzerdefinierter TanStack
+  Query-Client. Falls nicht angegeben, wird intern eine Standardinstanz
+  erstellt.
+
+#### `ArcWebClientConfig`
+
+Konfiguration für den Arc-Client, der RPC-Konnektivität und Commitment- Level
+steuert.
+
+##### Erforderliche Felder
+
+Der Provider integriert sich automatisch über den `useConnectorClient`-Hook mit
+`@solana-commerce/connector`, sodass keine explizite Connector-Konfiguration
+erforderlich ist, wenn er innerhalb eines `ConnectorProvider` verwendet wird.
+
+##### Optionale Felder
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Solana-Netzwerk, zu dem
+  eine Verbindung hergestellt werden soll. Standard: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - Benutzerdefinierte RPC-Endpunkt-URL. Falls nicht
+  angegeben, werden öffentliche Endpunkte für das ausgewählte Netzwerk
+  verwendet.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - Transaktions-
+  bestätigungslevel. Standard: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Aktiviert ausführliches Konsolen-Logging für
+  Debugging-Zwecke. Standard: `false`.
+
+- **`autoConnect`** (`boolean`) - Stellt automatisch eine Verbindung zur Wallet
+  her, wenn die Komponente gemountet wird. Standard: `true`.
+
+- **`storage`** (`Storage`) - Benutzerdefinierter Speicheradapter für das
+  Persistieren von Wallet-Einstellungen. Muss implementieren:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Standard: `window.localStorage` wenn verfügbar (nur Browser). Verwenden Sie
+  dies für React Native (`AsyncStorage`) oder benutzerdefinierten SSR-sicheren
+  Speicher.
+
+#### Integration mit `ConnectorProvider`
+
+Der Provider integriert sich mit `ConnectorProvider` von
+`@solana-commerce/connector`. Umschließen Sie Ihre App immer mit
+`ConnectorProvider` vor `ArcProvider`:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Zentrale Hooks
+
+### `useTransferSOL`
+
+Hook für die Übertragung von SOL mit automatischer Wiederholungslogik,
+Zustandsverwaltung und UI-Hilfsfunktionen. Basiert auf TanStack Query für
+Caching und Request-Deduplizierung.
+
+#### Signatur
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Parameter
+
+- **`initialToInput`** (`string`, optional) - Anfangswert für die Eingabe der
+  Empfängeradresse. Nützlich zum Vorausfüllen von Formularen.
+- **`initialAmountInput`** (`string`, optional) - Anfangswert für die
+  Betragseingabe in SOL. Nützlich zum Vorausfüllen von Formularen.
+
+#### Rückgabewert
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Kernfunktion
+
+- **`transferSOL`** - Initiiert eine SOL-Übertragung. Gibt ein Promise zurück,
+  das aufgelöst wird, sobald die Transaktion on-chain bestätigt wurde.
+
+##### Zustandseigenschaften
+
+- **`isLoading`** (`boolean`) - `true` während die Transaktion verarbeitet wird
+  (Signieren, Übermitteln, Bestätigen). Verwenden Sie dies für Ladeanzeigen und
+  Button-Zustände.
+
+- **`error`** (`Error | null`) - Fehlerobjekt, wenn die Transaktion in
+  irgendeiner Phase fehlgeschlagen ist. `null` wenn kein Fehler vorliegt. Fehler
+  umfassen Wallet-Ablehnungen, unzureichendes Guthaben, Netzwerkausfälle usw.
+
+- **`data`** (`TransferSOLResult | null`) - Ergebnisobjekt bei erfolgreicher
+  Transaktion. Enthält Signatur, Adressen, Beträge und Blockchain-Metadaten.
+  `null` vor der ersten erfolgreichen Übertragung.
+
+- **`reset`** (`() => void`) - Setzt den Mutations-Zustand zurück und löscht
+  `error` und `data`. Nützlich für Wiederholungs-Abläufe oder zum Zurücksetzen
+  von Formularen nach Abschluss.
+
+##### UI-Hilfseigenschaften & -Methoden
+
+Der Hook bietet integrierte Zustandsverwaltung für Formulareingaben:
+
+- **`toInput`** / **`setToInput`** - Kontrollierter State für das Eingabefeld
+  der Empfängeradresse
+
+- **`amountInput`** / **`setAmountInput`** - Kontrollierter State für das
+  Betragseingabefeld (in SOL, nicht in lamport)
+
+- **`handleToInputChange`** - Vordefinierter onChange-Handler für die
+  Empfängereingabe: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Vordefinierter onChange-Handler für die
+  Betragseingabe: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Komfortmethode, die SOL unter Verwendung der
+  aktuellen `toInput`- und `amountInput`-Werte überweist. Konvertiert den Betrag
+  automatisch von SOL in lamport.
+
+- **`handleSubmit`** - Formular-Submit-Handler, der `transferFromInputs()`
+  aufruft und das standardmäßige Formularverhalten verhindert. Wird mit
+  `<form onSubmit={handleSubmit}>` verwendet.
+
+#### Optionen
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (erforderlich) - Solana-Adresse des Empfängers. Kann ein String oder
+  der Typ `Address` aus `@solana/kit` sein.
+
+- **`amount`** (erforderlich) - Überweisungsbetrag in **lamport** (nicht SOL).
+  Muss ein `bigint` sein. Verwenden Sie `BigInt()` oder Literal-Notation:
+  `1_000_000_000n` = 1 SOL.
+
+- **`from`** (optional) - Senderadresse. Falls nicht angegeben, wird die Adresse
+  des verbundenen Wallets verwendet. Nur für erweiterte Anwendungsfälle
+  erforderlich (z. B. Signieren für ein anderes Konten).
+
+#### Ergebnis
+
+Das Ergebnis enthält Transaktionsmetadaten einschließlich Überweisungsdetails
+und der Transaktionssignatur:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### Interne Architektur
+
+**Transaction Builder:** Der Hook verwendet einen gemeinsamen Transaction
+Builder, der:
+
+- Aktuelle Blockhashes für jede Transaktion abruft
+- Optimierte Transaktionsnachrichten mit minimalen Fee erstellt
+- Transaktionen mit dem verbundenen Wallet signiert
+- Transaktionen in einem einzigen Ablauf übermittelt und bestätigt
+
+**Cache-Invalidierung:** Bei erfolgreicher Überweisung invalidiert der Hook
+automatisch die TanStack-Query-Caches für:
+
+- Saldo des Senders (`from`-Adresse)
+- Saldo des Empfängers (`to`-Adresse)
+
+Dies stellt sicher, dass alle Komponenten, die Kontostände anzeigen (z. B. über
+`useArcClient`), automatisch aktualisiert werden, ohne dass ein manueller
+Eingriff erforderlich ist.
+
+**Präzise Betragsumrechnung:** Bei Verwendung von `transferFromInputs()` wird
+der Betrag von SOL in lamports unter Verwendung stringbasierter Arithmetik
+umgerechnet, um Gleitkomma-Präzisionsfehler zu vermeiden. Die Umrechnung:
+
+- Validiert das Eingabeformat (lehnt negative, ungültige Zahlen ab)
+- Verarbeitet bis zu 9 Dezimalstellen (1 lamport = 0,000000001 SOL)
+- Kürzt oder füllt Bruchwerte nach Bedarf auf
+- Wirft beschreibende Fehler bei ungültigen Eingaben
+
+---
+
+### `useTransferToken`
+
+Wie `useTransferSOL` wird dieser Hook für die Übertragung von SPL-Tokens
+verwendet. Zusätzlich zur Abwicklung von Übertragungen behandelt der Hook auch
+die automatische Erstellung von Associated Token Accounts (ATA), wenn
+erforderlich.
+
+#### Signatur
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Parameter
+
+- **`initialMintInput`** (`string`, optional) - Anfängliche Token-Mint-Adresse.
+  Nützlich für Überweisungen mit festem Token.
+- **`initialToInput`** (`string`, optional) - Anfängliche Empfängeradresse.
+- **`initialAmountInput`** (`string`, optional) - Anfänglicher Betrag in den
+  Basiseinheiten des Tokens (unter Berücksichtigung der Dezimalstellen).
+
+#### Rückgabewert
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Der Rückgabewert ähnelt `useTransferSOL`, enthält jedoch zusätzlich einen
+`mintInput`-Status für die Token-Auswahl.
+
+#### Optionen
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Erforderliche Felder
+
+- **`mint`** - SPL-Token-Mint-Adresse. Zum Beispiel:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Wallet-Adresse des Empfängers (nicht dessen token account). Der
+  Hook leitet automatisch das korrekte Associated Token Account ab.
+
+- **`amount`** - Überweisungsbetrag in der **kleinsten Einheit** des Tokens.
+  Muss die Token-Dezimalstellen berücksichtigen:
+  - USDC (6 Dezimalstellen): `1_000_000n` = 1 USDC
+  - SOL-wrapped-Tokens (9 Dezimalstellen): `1_000_000_000n` = 1 Token
+
+##### Optionale Felder
+
+- **`from`** - Wallet-Adresse des Absenders. Standardmäßig verbundenes Wallet.
+
+- **`createAccountIfNeeded`** (Standard: `true`) - Wenn der Empfänger kein token
+  account für dieses Mint besitzt, wird es automatisch als Teil der Transaktion
+  erstellt. Wenn `false`, schlägt die Überweisung fehl, falls das
+  Empfänger-Konto nicht existiert.
+
+  _Hinweis:_ Das Erstellen eines Token-Kontos kostet ~0,00203 SOL. Dies wird vom
+  Absender bezahlt.
+
+- **`retryConfig`** - Konfiguration für automatische Wiederholungsversuche bei
+  Ablauf des Blockhash. Siehe
+  [Wiederholungskonfiguration](#retry-configuration).
+
+#### Ergebnis
+
+Das Ergebnis enthält Transaktionsmetadaten einschließlich Überweisungsdetails
+und der Transaktionssignatur:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Wiederholungskonfiguration
+
+Der Hook enthält eine ausgefeilte Wiederholungslogik für den Umgang mit
+Blockhash-Ablauf, der häufig bei Netzwerküberlastung auftritt.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Maximale Anzahl von Transaktionsversuchen. Bei jedem
+  Versuch wird ein neuer Blockhash abgerufen. Standard: `3`.
+
+- **`baseDelay`** - Verzögerung in Millisekunden vor dem ersten
+  Wiederholungsversuch. Standard: `1000` (1 Sekunde).
+
+- **`backoffMultiplier`** - Exponentieller Backoff-Multiplikator. Jeder
+  Wiederholungsversuch wartet `baseDelay * (backoffMultiplier ^ attemptNumber)`
+  Millisekunden.
+  - `1` = linearer Backoff (1s, 1s, 1s)
+  - `1.5` = exponentieller Backoff (1s, 1,5s, 2,25s)
+  - `2` = aggressiver exponentieller Backoff (1s, 2s, 4s)
+
+**Funktionsweise der Wiederholungsversuche:**
+
+1. **Erster Versuch:** Transaktion wird mit aktuellem Blockhash erstellt und
+   übermittelt
+2. **Blockhash läuft ab:** Wenn der Blockhash vor der Bestätigung veraltet,
+   lehnt Solana die Transaktion ab
+3. **Automatischer Wiederholungsversuch:** Hook erkennt den Ablauf, ruft einen
+   neuen Blockhash ab, erstellt die Transaktion neu und übermittelt sie erneut
+4. **Exponentieller Backoff:** Jeder Wiederholungsversuch wartet länger, um
+   Netzwerküberlastung zu vermeiden
+5. **Endgültiges Fehlschlagen:** Nach `maxAttempts` wird
+   `BlockhashExpirationError` mit Kontext ausgelöst
+
+**Wann Wiederholungsversuche nicht ausgelöst werden:**
+
+- Nicht-Blockhash-Fehler (unzureichende Mittel, ungültige Konten usw.) werden
+  sofort ohne Wiederholungsversuch ausgelöst
+- Nur Blockhash-Ablauffehler lösen den Wiederholungsmechanismus aus
+
+#### Interne Architektur
+
+**ATA-Verwaltung:**
+
+- Leitet Associated Token Accounts deterministisch mit `findAssociatedTokenPda`
+  ab (_Hinweis: derzeit wird nur das Token Program unterstützt_)
+- Prüft, ob der Absender ein Token-Konto hat (schlägt sofort fehl, wenn der
+  Absender den Token nicht hält)
+- Prüft, ob der Empfänger ein Token-Konto hat (erstellt es bei Bedarf und
+  `createAccountIfNeeded: true`)
+- Kontoprüfungen werden nur beim ersten Versuch durchgeführt, um redundante
+  RPC-Aufrufe während Wiederholungsversuchen zu vermeiden
+
+**Cache-Invalidierung:** Bei Erfolg werden TanStack-Query-Caches invalidiert
+für:
+
+- Token-Guthaben des Absenders für diesen Mint
+- Token-Guthaben des Empfängers für diesen Mint
+- Zugehörige Kontendaten
+
+Dies hält alle UI-Komponenten, die Guthaben anzeigen, automatisch synchron.
+
+### `useArcClient`
+
+Hook für den Zugriff auf den zugrundeliegenden Solana-RPC-Client, den
+Wallet-Status und die Netzwerkkonfiguration. Dies ist ein Hook auf niedrigerer
+Ebene für fortgeschrittene Anwendungsfälle, die direkten RPC-Zugriff benötigen.
+
+#### Signatur
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Rückgabewert
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### Status
+
+Der `ArcClientSnapshot` erweitert den `ArcWebClient`, der Zugriff bietet auf:
+
+- Wallet-Status (Adresse, Signer, verfügbare Wallets, Funktionen und
+  Wallet-Status)
+- Netzwerkkonfiguration (RPC-Endpunkt, Solana-Cluster)
+
+#### Anwendungsfälle
+
+**Direkte RPC-Abfragen:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Netzwerkabhängige Komponenten:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Bedingte Darstellung basierend auf Wallet:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

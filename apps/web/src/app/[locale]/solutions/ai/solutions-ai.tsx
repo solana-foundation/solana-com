@@ -58,7 +58,7 @@ export function SolutionsAiPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("ai-solution.products.title")}
           description={t("ai-solution.products.description")}
           products={PRODUCTS}

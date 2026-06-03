@@ -1,0 +1,474 @@
+---
+title: Alur Pembayaran HeadlessPayment
+description: Primitif perdagangan headless untuk framework apa pun
+---
+
+# Alur Pembayaran
+
+Paket `@solana-commerce/headless` menyediakan fungsi-fungsi yang tidak terikat
+framework untuk membangun alur pembayaran perdagangan. Alat-alat ini membantu
+membuat objek permintaan pembayaran, menghasilkan URL Solana Pay, dan
+memverifikasi pembayaran on-chain. Paket ini dirancang untuk bekerja di
+lingkungan JavaScript apa pun: React, Vue, Svelte, vanilla JS, Node.js, atau
+fungsi serverless.
+
+## Instalasi
+
+```bash
+pnpm add @solana-commerce/headless
+```
+
+## Fungsi Permintaan Pembayaran
+
+Fungsi-fungsi ini membuat objek permintaan pembayaran yang terstandarisasi untuk
+pola perdagangan yang berbeda. Mereka tidak melakukan operasi blockchain apa
+pun—mereka hanya menyusun data untuk digunakan dalam dompet, URL Solana Pay,
+atau UI pembayaran kustom.
+
+### `createBuyNowRequest()`
+
+Membuat permintaan pembayaran terstandarisasi untuk pembelian produk tunggal.
+
+```typescript
+function createBuyNowRequest(
+  recipient: string,
+  product: any,
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameter
+
+- **`recipient`** (`string`, wajib) - Alamat dompet pedagang (kunci publik
+  Solana yang dikodekan base58) yang akan menerima pembayaran.
+
+- **`product`** (`any`, wajib) - Objek produk yang berisi:
+  - `price` (angka, wajib) - Harga produk. Satuannya tergantung pada konteks
+    (misalnya, lamport untuk SOL, unit minor untuk token).
+  - `currency` (string, wajib) - Mata uang pembayaran. Bisa berupa `'SOL'` atau
+    alamat mint token.
+  - `name` (string, wajib) - Nama produk, digunakan untuk memo/label default
+    jika tidak disediakan.
+  - Bidang tambahan (id, deskripsi, gambar, dll.) diteruskan dalam array
+    `products`.
+
+- **`options`** (objek, opsional) - Opsi kustomisasi:
+  - `memo` (string) - Memo on-chain untuk transaksi. Default:
+    `"Purchase: {product.name}"`.
+  - `label` (string) - Label tampilan untuk permintaan pembayaran (digunakan
+    dalam Solana Pay). Default: `product.name`.
+  - `message` (string) - Pesan sukses yang ditampilkan setelah pembayaran.
+    Default: `"Thank you for purchasing {product.name}!"`.
+
+#### Hasil Pengembalian
+
+Objek `PaymentRequest` yang berisi:
+
+- `recipient` - Alamat dompet pedagang
+- `amount` - Harga produk (disalin dari `product.price`)
+- `currency` - Mata uang pembayaran (disalin dari `product.currency`)
+- `products` - Array yang berisi satu produk
+- `memo` - Memo transaksi (opsi atau default: "Pembelian: (product.name)")
+- `label` - Label pembayaran (opsi atau default: "product.name")
+- `message` - Pesan sukses (opsi atau default: "Terima kasih telah membeli
+  (product.name)!")
+
+**Contoh:**
+
+```typescript
+const payment = createBuyNowRequest(
+  "merchant-wallet-address",
+  {
+    id: "prod_123",
+    name: "Premium Subscription",
+    price: 50000000, // 0.05 SOL in lamports
+    currency: "SOL"
+  },
+  {
+    label: "Premium Subscription",
+    message: "Thank you for subscribing!"
+  }
+);
+```
+
+### `createCartRequest()`
+
+Membuat permintaan pembayaran untuk beberapa produk dalam keranjang belanja.
+
+```typescript
+function createCartRequest(
+  recipient: string,
+  products: any[],
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+    currency?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameter
+
+- **`recipient`** (`string`, wajib) - Alamat dompet merchant yang akan menerima
+  pembayaran.
+
+- **`products`** (`any[]`, wajib) - Array objek produk.
+
+- **`options`** (objek, opsional) - Opsi kustomisasi:
+  - `currency` (string) - Mata uang pembayaran untuk seluruh keranjang.
+  - `memo` (string) - Memo on-chain. Default:
+    `"Cart purchase (products.length items)"`.
+  - `label` (string) - Label pembayaran. Default: `"Cart Checkout"`.
+  - `message` (string) - Pesan sukses. Default:
+    `"Thank you for your purchase!"`.
+
+#### Mengembalikan
+
+Objek `PaymentRequest` dengan:
+
+- `recipient` - Alamat dompet merchant
+- `amount` - Jumlah semua harga produk
+  (`products.reduce((sum, p) => sum + p.price, 0)`)
+- `currency` - Mata uang pembayaran (dari opsi, atau undefined)
+- `products` - Array produk
+- `memo`, `label`, `message` - Nilai opsi atau default
+
+**Contoh:**
+
+```typescript
+const cart = createCartRequest(
+  "merchant-wallet-address",
+  [
+    { id: "1", name: "Product A", price: 25 },
+    { id: "2", name: "Product B", price: 15 },
+    { id: "3", name: "Product C", price: 10 }
+  ],
+  {
+    currency: "USDC",
+    label: "My Store Checkout",
+    message: "Thank you for your order!"
+  }
+);
+// cart.amount === 50 (sum of prices)
+```
+
+---
+
+### `createTipRequest()`
+
+Membuat permintaan pembayaran untuk tips atau donasi dengan jumlah yang
+ditentukan pengguna.
+
+```typescript
+function createTipRequest(
+  recipient: string,
+  amount: number,
+  options?: {
+    currency?: string;
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameter
+
+- **`recipient`** (`string`, wajib) - Alamat dompet penerima tip (kreator,
+  streamer, badan amal, dll.).
+
+- **`amount`** (`number`, wajib) - Jumlah tip. Satuan tergantung pada mata uang
+  (lamport untuk SOL, unit minor untuk token).
+
+- **`options`** (objek, opsional) - Opsi kustomisasi:
+  - `currency` (string) - Mata uang pembayaran. Default: undefined (biasanya
+    dianggap sebagai SOL oleh konsumen).
+  - `memo` (string) - Memo on-chain. Default: `"Thank you for your support!"`.
+  - `label` (string) - Label pembayaran. Default: `"Tip"`.
+  - `message` (string) - Pesan sukses. Default: `"Thanks for the tip!"`.
+
+#### Mengembalikan
+
+Objek `PaymentRequest` dengan:
+
+- `recipient` - Alamat dompet penerima tip
+- `amount` - Jumlah tip
+- `currency` - Mata uang pembayaran (dari opsi, atau undefined)
+- `memo`, `label`, `message` - Nilai opsi atau default
+
+**Contoh:**
+
+```typescript
+const tip = createTipRequest(
+  "creator-wallet-address",
+  5_000_000, // 0.005 SOL in lamports
+  {
+    currency: "SOL",
+    label: "Tip for Content Creator",
+    message: "Thanks for the support!"
+  }
+);
+```
+
+## Fungsi Verifikasi Pembayaran
+
+Fungsi-fungsi ini berinteraksi dengan Solana untuk memverifikasi transaksi dan
+menunggu konfirmasi. Fungsi-fungsi ini memerlukan klien RPC Solana dari pustaka
+`gill`.
+
+### `verifyPayment()`
+
+Memverifikasi bahwa transaksi ada di on-chain dan secara opsional memvalidasi
+jumlah pembayaran, penerima, dan token.
+
+```typescript
+async function verifyPayment(
+  rpc: SolanaClient["rpc"],
+  signatureString: string,
+  expectedAmount?: number,
+  expectedRecipient?: string,
+  expectedMint?: string
+): Promise<PaymentVerificationResult>;
+```
+
+#### Parameter
+
+- **`rpc`** (`SolanaClient['rpc']`, wajib) - Klien RPC dari `gill`. Buat dengan
+  `createSolanaClient(rpcUrl).rpc`.
+
+- **`signatureString`** (`string`, wajib) - Tanda tangan transaksi
+  (base58-encoded) yang akan diverifikasi.
+
+- **`expectedAmount`** (`number`, opsional) - Jumlah pembayaran yang diharapkan
+  untuk divalidasi. Satuan harus sesuai dengan mata uang:
+  - Untuk SOL: lamport (1 SOL = 1.000.000.000 lamport)
+  - Untuk token SPL: unit minor berdasarkan desimal token (misalnya, USDC
+    menggunakan 6 desimal)
+
+  Jika tidak diberikan, validasi jumlah akan dilewati.
+
+- **`expectedRecipient`** (`string`, opsional) - Alamat dompet penerima yang
+  diharapkan. Jika diberikan (bersama dengan `expectedAmount`), fungsi akan
+  memvalidasi bahwa penerima menerima setidaknya jumlah ini. Jika tidak
+  diberikan, validasi akan dilewati.
+
+- **`expectedMint`** (`string`, opsional) - Alamat mint token SPL. Hanya
+  diperlukan untuk transfer token SPL. Jika tidak diberikan, fungsi akan
+  mengasumsikan transfer SOL.
+
+#### Nilai Kembalian
+
+Objek `Promise<PaymentVerificationResult>`:
+
+```typescript
+interface PaymentVerificationResult {
+  verified: boolean; // True if payment is valid
+  signature?: string; // Transaction signature (echoed back)
+  amount?: number; // Expected amount (echoed back)
+  recipient?: string; // Expected recipient (echoed back)
+  error?: string; // Error message if verification failed
+}
+```
+
+#### Logika Verifikasi
+
+Fungsi ini melakukan pemeriksaan berikut:
+
+1. **Validitas Tanda Tangan:** Memeriksa bahwa tanda tangan valid.
+
+2. **Keberadaan Transaksi:** Mengambil transaksi menggunakan
+   `rpc.getTransaction()`. Jika tidak ditemukan, mengembalikan
+   `verified: false`.
+
+3. **Status Konfirmasi:** Memeriksa bahwa transaksi telah tercatat di on-chain.
+
+4. **Validasi Transfer SOL** (jika `expectedRecipient` dan `expectedAmount`
+   diberikan, dan tidak ada `expectedMint`):
+   - Menemukan indeks akun penerima dalam transaksi
+   - Membandingkan `preBalances` dan `postBalances` untuk menghitung delta saldo
+   - Memverifikasi delta setidaknya `expectedAmount`
+
+5. **Validasi Transfer Token SPL** (jika `expectedMint` disediakan):
+   - Menurunkan Associated Token Account (ATA) penerima untuk Token Program dan
+     Token-2022 Program
+   - Memeriksa `postTokenBalances` untuk ATA yang cocok dengan mint yang
+     diharapkan
+   - Memverifikasi jumlah token minimal `expectedAmount`
+
+#### Pertimbangan Keamanan
+
+- **Verifikasi Sisi Klien:** Fungsi ini mengambil data transaksi dari RPC.
+  Jangan ekspos URL RPC Anda ke klien.
+- **Finalisasi:** Fungsi ini memeriksa transaksi yang dikonfirmasi, tetapi untuk
+  pembayaran bernilai tinggi, pertimbangkan untuk menunggu status `finalized`.
+
+**Contoh:**
+
+```typescript
+import { verifyPayment } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+const result = await verifyPayment(
+  client.rpc,
+  "transaction-signature-here",
+  50_000_000, // 0.05 SOL in lamports
+  "merchant-wallet-address"
+  // No mint = SOL transfer
+);
+
+if (result.verified) {
+  console.log("Payment confirmed!");
+} else {
+  console.error("Verification failed:", result.error);
+}
+```
+
+---
+
+### `waitForConfirmation()`
+
+Melakukan polling blockchain hingga transaksi mencapai status confirmed atau
+finalized, atau timeout.
+
+```typescript
+async function waitForConfirmation(
+  rpc: SolanaClient["rpc"],
+  signatureStr: string,
+  timeoutMs?: number
+): Promise<boolean>;
+```
+
+#### Parameter
+
+- **`rpc`** (`SolanaClient['rpc']`, wajib) - Klien RPC dari `gill`.
+
+- **`signatureStr`** (`string`, wajib) - Signature transaksi yang ditunggu.
+
+- **`timeoutMs`** (`number`, opsional) - Waktu maksimal untuk menunggu dalam
+  milidetik. Default: `30000` (30 detik).
+
+#### Nilai Kembali
+
+- `Promise<boolean>` - Mengembalikan `true` jika transaksi mencapai `confirmed`
+  atau status `finalized` dalam batas timeout, `false` jika sebaliknya.
+
+**Contoh:**
+
+```typescript
+import { waitForConfirmation } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+// After sending transaction
+const signature = await wallet.sendTransaction(transaction);
+
+// Wait for confirmation (30 second timeout)
+const confirmed = await waitForConfirmation(client.rpc, signature, 30000);
+
+if (confirmed) {
+  console.log("Transaction confirmed!");
+} else {
+  console.log("Timeout - transaction not confirmed within 30 seconds");
+}
+```
+
+## Fungsi Solana Pay
+
+Fungsi-fungsi ini menghasilkan URL [Solana Pay](https://docs.solanapay.com/) dan
+kode QR bergaya untuk pemindaian dompet seluler.
+
+### `createSolanaPayRequest()`
+
+Membuat URL Solana Pay dan kode QR bergaya.
+
+```typescript
+async function createSolanaPayRequest(
+  request: TransferRequestURLFields,
+  options: SolanaPayRequestOptions
+): Promise<{ url: URL; qr: string }>;
+```
+
+#### Parameter
+
+- **`request`** (`TransferRequestURLFields`, wajib) - Field permintaan transfer
+  Solana Pay:
+  - `recipient` - Public key penerima (gunakan `createRecipient(address)` dari
+    `@solana-commerce/solana-pay`)
+  - `amount` - (opsional) Jumlah pembayaran dalam unit terkecil (lamport untuk
+    SOL)
+  - `splToken` (opsional) - Public key mint token SPL (gunakan
+    `createSPLToken(address)`)
+  - `reference` (opsional) - Public key referensi untuk pelacakan
+  - `label` (opsional) - Nama merchant
+  - `message` (opsional) - Pesan sukses
+  - `memo` (opsional) - Memo on-chain
+
+- **`options`** (`SolanaPayRequestOptions`, wajib) - Opsi styling kode QR:
+  - `size` (angka) - Lebar/tinggi kode QR dalam piksel. Default: `256`.
+  - `background` (string) - Warna latar belakang (hex/rgb). Default: `'white'`.
+  - `color` (string) - Warna kode QR (hex/rgb). Default: `'black'`.
+  - `margin` (angka) - Margin di sekitar kode QR dalam modul.
+  - `errorCorrectionLevel` (`'L' | 'M' | 'Q' | 'H'`) - Tingkat koreksi
+    kesalahan. Tingkat yang lebih tinggi memungkinkan lebih banyak kerusakan
+    tetapi menghasilkan kode yang lebih padat.
+  - `logo` (string) - URL gambar logo untuk disematkan di tengah kode QR.
+  - `logoSize` (angka) - Ukuran logo sebagai persentase dari ukuran kode QR.
+  - `logoBackgroundColor` (string) - Warna latar belakang di belakang logo.
+  - `logoMargin` (angka) - Margin di sekitar logo.
+  - `dotStyle` (`'dots' | 'rounded' | 'square'`) - Bentuk modul kode QR.
+  - `cornerStyle`
+    (`'square' | 'rounded' | 'extra-rounded' | 'full-rounded' | 'maximum-rounded'`) -
+    Bentuk penanda sudut.
+
+#### Nilai Kembali
+
+Sebuah `Promise` yang menyelesaikan ke sebuah objek:
+
+- `url` (URL) - URL Solana Pay (misalnya,
+  `solana:recipient?amount=10&spl-token=...`)
+- `qr` (string) - Data URL kode QR yang dikodekan Base64 (gunakan sebagai
+  `<img src={qr} />`)
+
+**Contoh:**
+
+```typescript
+import {
+  createSolanaPayRequest,
+  createRecipient,
+  createSPLToken
+} from "@solana-commerce/solana-pay";
+
+const payment = await createSolanaPayRequest(
+  {
+    recipient: createRecipient("merchant-wallet-address"),
+    amount: 10_000_000, // 0.01 SOL in lamports
+    splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    label: "My Store",
+    message: "Thank you for your purchase!"
+  },
+  {
+    size: 400,
+    background: "#FFFFFF",
+    color: "#000000",
+    logo: "/logo.png",
+    logoSize: 20,
+    errorCorrectionLevel: "H"
+  }
+);
+
+// Display QR code
+document.getElementById("qr").src = payment.qr;
+console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+```

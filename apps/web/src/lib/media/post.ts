@@ -3,10 +3,19 @@ import { MEDIA_APP_URL } from "../../../apps-urls";
 
 export interface FetchLatestPostsParams {
   limit?: number;
+  cursor?: string;
+  category?: string;
+  tag?: string;
 }
 
 export interface FetchLatestPostsResponse {
   posts: PostItem[];
+  pageInfo?: {
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+    startCursor?: string | null;
+    endCursor?: string | null;
+  };
 }
 
 /**
@@ -29,11 +38,26 @@ export const fetchLatestPosts = async (
 ): Promise<FetchLatestPostsResponse> => {
   try {
     const baseUrl = getBaseUrl();
-    let url = `${baseUrl}/api/posts/latest`;
+    const searchParams = new URLSearchParams();
 
     if (params.limit) {
-      url += `?limit=${params.limit}`;
+      searchParams.set("limit", String(params.limit));
     }
+
+    if (params.cursor) {
+      searchParams.set("cursor", params.cursor);
+    }
+
+    if (params.category) {
+      searchParams.set("category", params.category);
+    }
+
+    if (params.tag) {
+      searchParams.set("tag", params.tag);
+    }
+
+    const query = searchParams.toString();
+    const url = `${baseUrl}/api/posts/latest${query ? `?${query}` : ""}`;
 
     const response = await fetch(url, {
       next: { revalidate: 300 }, // Cache for 5 minutes
@@ -47,6 +71,7 @@ export const fetchLatestPosts = async (
 
     return {
       posts: (data.posts || []) as PostItem[],
+      pageInfo: data.pageInfo,
     };
   } catch (error) {
     console.error("Failed to fetch latest posts:", error);

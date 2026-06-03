@@ -1,0 +1,482 @@
+---
+title: Lompakon yhdistäminen
+description: Yhdistä Solana-lompakot käyttäen Wallet Standard -standardia
+---
+
+`@solana-commerce/connector`-paketti tarjoaa headless-lompakon yhdistämisen,
+joka on rakennettu
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+-standardin päälle. Se hallitsee lompakon havaitsemista, yhteystilaa,
+tilienhallintaa ja automaattista uudelleenyhdistämistä. Paketti on suunniteltu
+framework-agnostiseksi ja sisältää React-sidokset. Se on räätälöity saumattomaan
+käyttöön Solana Commerce Kitissä ja on yhteensopiva
+[@solana/kit](https://github.com/anza-xyz/kit) ja
+[gill](https://www.gillsdk.com/):n kanssa.
+
+![Lompakon yhdistäminen](/assets/docs/tools/commerce-kit/connector.png)
+
+## Asennus
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Provider-kokoonpano
+
+### `ConnectorProvider`
+
+`ConnectorProvider`-komponentti käärii sovelluksesi ja tarjoaa lompakon yhteyden
+tilan kaikille alikomponenteille. Se hallitsee singleton-
+`ConnectorClient`-instanssia, joka säilyy komponentin mount/unmount-syklien yli.
+
+#### Propsit
+
+Kaikki kokoonpano välitetään `config`-propsin kautta:
+
+- **`config`** (`ConnectorConfig`, valinnainen) - Yhdistimen kokoonpano-objekti.
+  Kaikki kentät ovat valinnaisia.
+
+#### `ConnectorConfig`
+
+Kokoonpano-objekti lompakon yhdistämiskäyttäytymiselle.
+
+##### Valinnaiset kentät
+
+- **`autoConnect`** (`boolean`) - Kun `true`, yhdistää automaattisesti viimeksi
+  käytettyyn lompakkoon mount-vaiheessa. Lompakkopreferenssi tallennetaan
+  määritettyyn tallennustilaan (oletuksena `localStorage`). Oletus: `false`.
+
+- **`debug`** (`boolean`) - Ottaa käyttöön yksityiskohtaisen konsolilokituksen
+  yhteysvirtojen, tilimuutosten ja virheiden debuggausta varten. Lokit
+  sisältävät etuliitteitä kuten `[Connector]` ja `[ConnectorProvider]`. Oletus:
+  `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Kyselyväli millisekunneissa
+  tilimuutosten tarkistamiseen, kun lompakko ei tue
+  `standard:events`-ominaisuutta. Useimmat nykyaikaiset lompakot tukevat
+  tapahtumia, joten kysely on varasuunnitelma. Oletus: `1500` (1,5 sekuntia).
+
+- **`storage`** (`Storage`) - Mukautettu tallennusadapteri lompakkopreferenssien
+  tallentamiseen. Täytyy toteuttaa:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Oletus: `window.localStorage` kun saatavilla (vain selain). Käytä tätä React
+  Nativessa (`AsyncStorage`) tai mukautetussa SSR-turvallisessa tallennuksessa.
+
+#### Palveluntarjoajan arkkitehtuuri
+
+Palveluntarjoaja käyttää **singleton-mallia** viitelaskennalla:
+
+- Useat `ConnectorProvider`-instanssit jakavat saman `ConnectorClient`
+- Asiakasohjelma luodaan ensimmäisellä liittämisellä ja säilyy irrotuksien
+  aikana
+- Kun kaikki palveluntarjoajat irrotetaan, siivous viivästyy 5 sekuntia
+  käsittelemään nopeat uudelleenliitokset
+- Siivouksen aikana lompakko katkaistaan ja kaikki tapahtumankuuntelijat
+  poistetaan
+
+Tämä suunnittelu estää lompakon katkaisemisen reittien vaihtojen tai
+komponenttipäivitysten aikana.
+
+---
+
+## Hookit
+
+### `useConnector()`
+
+Ensisijainen hook lompakon yhteystilan ja toimintojen käyttöön. Täytyy käyttää
+`ConnectorProvider`:n sisällä.
+
+Palauttaa `ConnectorSnapshot`-olion, joka sisältää:
+
+#### Tilan ominaisuudet
+
+- **`wallets`** (`WalletInfo[]`) - Taulukko kaikista löydetyistä Wallet Standard
+  -yhteensopivista lompakoista. Päivittyy automaattisesti, kun lompakoita
+  asennetaan tai poistetaan. Jokainen lompakko sisältää metatietoja, kuten
+  nimen, kuvakkeen ja ominaisuudet. Katso [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Tällä hetkellä yhdistetty Wallet
+  Standard -lompakko-olio. `null`, kun yhteys on katkaistu. Tämä on raaka
+  lompakko-instanssi Wallet Standard API:sta.
+
+- **`connected`** (`boolean`) - Yhteystila. `true`, kun lompakko on yhdistetty
+  ja tilit ovat saatavilla. Käytä tätä ehdolliseen käyttöliittymän
+  renderöintiin.
+
+- **`connecting`** (`boolean`) - Latauksen tila lompakon yhdistämisen aikana.
+  `true` `select()`:n kutsumisen ja yhteyden tuloksen vastaanottamisen välillä.
+  Käytä tätä latauksen ilmaisimien näyttämiseen tai painikkeiden poistamiseen
+  käytöstä.
+
+- **`accounts`** (`AccountInfo[]`) - Taulukko yhdistetyn lompakon tileistä.
+  Useimmat lompakot tarjoavat yhden tilin, mutta jotkin tukevat useita.
+  Päivittyy automaattisesti lompakon tapahtumien tai kyselyn kautta. Katso
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Tällä hetkellä valitun tilin osoite
+  (base58-koodattu julkinen avain). Kun lompakko yhdistyy uudella tilillä,
+  kyseinen tili valitaan automaattisesti. Muutoin aiemmin valittu tili
+  säilytetään.
+
+#### Toimintometodit
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Yhdistää lompakkoon
+  nimen perusteella (esim. `"Phantom"`, `"Solflare"`). Lompakon nimen on
+  vastattava täsmällisesti löydetyn lompakon `name`-kenttää.
+
+  **Prosessi:**
+  1. Asettaa `connecting: true`-arvon
+  2. Kutsuu lompakon `standard:connect`-ominaisuutta
+  3. Hakee tilit lompakosta
+  4. Tilaa lompakon tapahtumat (tai aloittaa kyselyn, jos tapahtumat eivät ole
+     saatavilla)
+  5. Tallentaa lompakon asetuksen määritettyyn tallennustilaan
+  6. Päivittää tilan tileillä ja valitulla tilillä
+
+  **Heittää virheen:** Jos lompakkoa ei löydy, lompakko ei tue yhteyttä tai
+  käyttäjä hylkäsi yhteyden.
+
+- **`disconnect`** (`() => Promise<void>`) - Katkaisee yhteyden nykyiseen
+  lompakkoon ja tyhjentää kaiken tilan.
+
+  **Prosessi:**
+  1. Peruuttaa lompakon tapahtumien tilauksen
+  2. Lopettaa tilien kyselyn
+  3. Kutsuu lompakon `standard:disconnect`-ominaisuutta, jos saatavilla
+  4. Tyhjentää valitun lompakon, tilit ja valitun tilin
+  5. Poistaa lompakon asetuksen tallennustilasta
+
+  Ei koskaan heitä virhettä (virheet kirjataan lokiin, jos debug on käytössä).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Vaihtaa valitun
+  tilin toiseen osoitteeseen yhdistetystä lompakosta. Jos osoitetta ei ole
+  nykyisessä tilit-taulukossa, käynnistää uudelleenyhteyden hakeakseen
+  päivitetyt tilit.
+
+  **Heittää virheen:** Jos lompakkoa ei ole yhdistetty tai pyydettyä tiliä ei
+  löydy uudelleenyhteyden jälkeen.
+
+### `useConnectorClient()`
+
+Tarjoaa suoran pääsyn taustalla olevaan `ConnectorClient`-instanssiin
+edistyneisiin käyttötapauksiin.
+
+**Palauttaa:** `ConnectorClient | null` - Singleton-asiakas-instanssi tai
+`null`, kun käytetään `ConnectorProvider`-komponentin ulkopuolella.
+
+**Käyttötapaukset:**
+
+- Suora pääsy `getConnectorState()`-tilaan imperatiivisia tilalukuja varten
+- Manuaalinen tilaus `subscribe(listener)`-metodilla mukautetuille
+  tilankuuntelijoille
+- `destroy()`-metodin kutsuminen pakotettua siivousta varten (ei suositella
+  normaalikäytössä)
+
+**Esimerkki:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Tyyppimäärittelyt
+
+### `WalletInfo`
+
+Metatiedot löydetystä lompakosta.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Vaatimukset:** Lompakko on yhdistettävissä, kun se tukee:
+
+- `standard:connect` ominaisuutta
+- `standard:disconnect` ominaisuutta
+- Solana-ketjuja (havaitaan `wallet.chains` kautta, joka sisältää `"solana"`)
+
+Ei-yhdistettävissä olevat lompakot näkyvät `wallets` taulukossa, mutta niitä ei
+voi valita.
+
+### `AccountInfo`
+
+Tietoja lompakon tilistä.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+`raw` kenttä tarjoaa pääsyn lisätiliominaisuuksiin:
+
+- `address: string` - Base58-koodattu julkinen avain
+- `publicKey: Uint8Array` - Julkisen avaimen raakatavut
+- `label?: string` - Tilin nimi (jos lompakko tarjoaa sen)
+- `icon?: string` - Tilikohtainen kuvake (data URL)
+- `chains: string[]` - Tuetut ketjut tälle tilille
+- `features: string[]` - Tuetut ominaisuudet tälle tilille
+
+### `ConnectorSnapshot`
+
+`useConnector()` paluutyyppi, joka yhdistää tilan ja toiminnot.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Tilimuutosten havaitseminen
+
+Yhdistin havaitsee automaattisesti, kun lompakon tilit muuttuvat (käyttäjä
+lisää/poistaa tilejä, vaihtaa tiliä lompakossa). Käytetään kahta strategiaa:
+
+### Tapahtumapohjainen (suositeltu)
+
+Kun lompakko tukee `standard:events`, yhdistin tilaa `change` tapahtumat:
+
+- Vastaanottaa reaaliaikaiset ilmoitukset, kun tilit muuttuvat
+- Tehokkaampi (ei kyselyä)
+- Kokoaa tilit sekä tapahtumasta että `wallet.accounts` käskystä käsitelläkseen
+  lompakoita, jotka sisällyttävät vain valitun tilin tapahtumiin
+
+### Kyselyvaralla
+
+Kun tapahtumat eivät ole tuettuja, yhdistin kyselee `wallet.accounts`:
+
+- Tarkistaa `accountPollingIntervalMs` välein (oletus: 1500ms)
+- Vertaa tiliosoitteita havaitsemaan muutokset
+- Laukaisee uudelleenrenderöinnin vain, kun tilit todella muuttuvat
+
+**Tilin valintalogiikka:**
+
+- Kun tilit muuttuvat, säilytä valittu tili, jos se on edelleen olemassa
+- Jos valittu tili poistettiin, valitse ensimmäinen saatavilla oleva tili
+- Kun yhdistetään uudella tilillä (jota ei ole aiemmissa tileissä), suosi uutta
+  tiliä
+
+---
+
+## Tallennus ja automaattiyhdistäminen
+
+### Tallennuksen pysyvyys
+
+Yhdistin tallentaa yhden avaimen määritettyyn tallennustilaan:
+
+- **Avain:** `arc-connector:lastWallet`
+- **Arvo:** Lompakon nimi (esim. `"Phantom"`)
+
+Tallennustoiminnot on kääritty try-catch-rakenteeseen käsittelemään:
+
+- Hiekkalaatikoidut iframe-kehykset, joissa `localStorage` aiheuttaa virheen
+- SSR-ympäristöt, joissa `window` on määrittelemätön
+- React Native, jossa `localStorage` ei ole olemassa
+
+Jos tallennus epäonnistuu, yhdistin jatkaa ilman pysyvyyttä (virheitä ei
+heitetä).
+
+### Automaattiyhdistämisen toiminta
+
+Kun `autoConnect: true`:
+
+1. Liittämisen yhteydessä lukee viimeisen lompakon nimen tallennustilasta
+2. Odottaa 100 ms (antaa lompakoiden rekisteröityä)
+3. Kutsuu `select(walletName)`, jos lompakko löydetään
+4. Jos automaattiyhdistäminen epäonnistuu, poistaa virheellisen asetuksen
+   tallennustilasta
+
+**Turvallisuushuomautus:** Tallennettu asetus on vain lompakon nimi
+(merkkijono), ei arkaluontoista tietoa. Lompakko käsittelee todennuksen ja
+valtuutuksen oman käyttöliittymänsä kautta.
+
+---
+
+## Käyttöesimerkit
+
+### Perustason lompakkopainike
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Monitilin valitsin
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Yhteyden seuranta
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Tuetut lompakot
+
+Yhdistin tukee kaikkia lompakoita, jotka toteuttavat
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+-standardin, mukaan lukien:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Kaikki muut Wallet Standard -yhteensopivat lompakot
+
+Lompakot löydetään automaattisesti, kun ne rekisteröityvät Wallet Standard API:n
+(määritystä ei tarvita).
+
+---
+
+## Headless-käyttö (ei Reactia)
+
+Muissa kuin React-sovelluksissa tai palvelinpuolen käytössä, käytä suoraan
+`ConnectorClient`:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Huomio:** `ConnectorClient` hallitsee omaa tilaansa eikä koskaan käynnistä
+Reactin uudelleenrenderöintejä. Sinun on tilattava tilamuutokset manuaalisesti.

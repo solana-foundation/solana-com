@@ -14,7 +14,7 @@ const events = [
     dateLocation: "May 5 / Miami",
     href: "/accelerate/miami",
     external: false,
-    active: true,
+    active: false,
   },
   {
     image: getImagePath("/images/homepage/ai-miami-card-photo.png"),

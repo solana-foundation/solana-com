@@ -8,12 +8,13 @@ import EventsList from "@/components/events/EventsList";
 import Button from "@/components/shared/Button";
 import Divider from "@/components/shared/Divider";
 import { InlineLink } from "@/utils/Link";
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 interface EventsLandingPageProps {
-  events: any[];
-  communityEvents: any[];
-  featuredEvent: any;
-  usEvents: any[];
+  events: CalendarEvent[];
+  communityEvents: CalendarEvent[];
+  featuredEvent: CalendarEvent | null;
+  usEvents: CalendarEvent[];
   translations: {
     usHeading: string;
     usDescription: string;

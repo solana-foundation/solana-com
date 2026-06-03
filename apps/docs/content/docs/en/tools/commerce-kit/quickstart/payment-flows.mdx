@@ -1,0 +1,466 @@
+---
+title: HeadlessPayment Flows
+description: Headless commerce primitives for any framework
+---
+
+# Payment Flows
+
+The `@solana-commerce/headless` package provides framework-agnostic functions
+for building commerce payment flows. These tools help create payment request
+objects, generate Solana Pay URLs, and verify on-chain payments. The package is
+designed to work in any JavaScript environment: React, Vue, Svelte, vanilla JS,
+Node.js, or serverless functions.
+
+## Installation
+
+```bash
+pnpm add @solana-commerce/headless
+```
+
+## Payment Request Functions
+
+These functions create standardized payment request objects for different
+commerce patterns. They don't perform any blockchain operations—they simply
+structure data for use in wallets, Solana Pay URLs, or custom payment UIs.
+
+### `createBuyNowRequest()`
+
+Creates a standardized payment request for a single product purchase.
+
+```typescript
+function createBuyNowRequest(
+  recipient: string,
+  product: any,
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameters
+
+- **`recipient`** (`string`, required) - Merchant wallet address (base58-encoded
+  Solana public key) that will receive the payment.
+
+- **`product`** (`any`, required) - Product object containing:
+  - `price` (number, required) - Product price. The unit depends on context
+    (e.g., lamports for SOL, minor units for tokens).
+  - `currency` (string, required) - Payment currency. Can be `'SOL'` or a token
+    mint address.
+  - `name` (string, required) - Product name, used for default memo/label if not
+    provided.
+  - Additional fields (id, description, image, etc.) are passed through in the
+    `products` array.
+
+- **`options`** (object, optional) - Customization options:
+  - `memo` (string) - On-chain memo for the transaction. Default:
+    `"Purchase: {product.name}"`.
+  - `label` (string) - Display label for the payment request (used in Solana
+    Pay). Default: `product.name`.
+  - `message` (string) - Success message shown after payment. Default:
+    `"Thank you for purchasing {product.name}!"`.
+
+#### Returns
+
+A `PaymentRequest` object containing:
+
+- `recipient` - The merchant wallet address
+- `amount` - The product price (copied from `product.price`)
+- `currency` - Payment currency (copied from `product.currency`)
+- `products` - Array containing the single product
+- `memo` - Transaction memo (option or default: "Purchase: (product.name)")
+- `label` - Payment label (option or default: "product.name")
+- `message` - Success message (option or default: "Thank you for purchasing
+  (product.name)!")
+
+**Example:**
+
+```typescript
+const payment = createBuyNowRequest(
+  "merchant-wallet-address",
+  {
+    id: "prod_123",
+    name: "Premium Subscription",
+    price: 50000000, // 0.05 SOL in lamports
+    currency: "SOL"
+  },
+  {
+    label: "Premium Subscription",
+    message: "Thank you for subscribing!"
+  }
+);
+```
+
+### `createCartRequest()`
+
+Creates a payment request for multiple products in a shopping cart.
+
+```typescript
+function createCartRequest(
+  recipient: string,
+  products: any[],
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+    currency?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameters
+
+- **`recipient`** (`string`, required) - Merchant wallet address that will
+  receive the payment.
+
+- **`products`** (`any[]`, required) - Array of product objects.
+
+- **`options`** (object, optional) - Customization options:
+  - `currency` (string) - Payment currency for the entire cart.
+  - `memo` (string) - On-chain memo. Default:
+    `"Cart purchase (products.length items)"`.
+  - `label` (string) - Payment label. Default: `"Cart Checkout"`.
+  - `message` (string) - Success message. Default:
+    `"Thank you for your purchase!"`.
+
+#### Returns
+
+A `PaymentRequest` object with:
+
+- `recipient` - The merchant wallet address
+- `amount` - Sum of all product prices
+  (`products.reduce((sum, p) => sum + p.price, 0)`)
+- `currency` - Payment currency (from options, or undefined)
+- `products` - The array of products
+- `memo`, `label`, `message` - Option values or defaults
+
+**Example:**
+
+```typescript
+const cart = createCartRequest(
+  "merchant-wallet-address",
+  [
+    { id: "1", name: "Product A", price: 25 },
+    { id: "2", name: "Product B", price: 15 },
+    { id: "3", name: "Product C", price: 10 }
+  ],
+  {
+    currency: "USDC",
+    label: "My Store Checkout",
+    message: "Thank you for your order!"
+  }
+);
+// cart.amount === 50 (sum of prices)
+```
+
+---
+
+### `createTipRequest()`
+
+Creates a payment request for tips or donations with a user-defined amount.
+
+```typescript
+function createTipRequest(
+  recipient: string,
+  amount: number,
+  options?: {
+    currency?: string;
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Parameters
+
+- **`recipient`** (`string`, required) - Wallet address of the tip recipient
+  (creator, streamer, charity, etc.).
+
+- **`amount`** (`number`, required) - Tip amount. Unit depends on currency
+  (lamports for SOL, minor units for tokens).
+
+- **`options`** (object, optional) - Customization options:
+  - `currency` (string) - Payment currency. Default: undefined (typically
+    treated as SOL by consumers).
+  - `memo` (string) - On-chain memo. Default: `"Thank you for your support!"`.
+  - `label` (string) - Payment label. Default: `"Tip"`.
+  - `message` (string) - Success message. Default: `"Thanks for the tip!"`.
+
+#### Returns
+
+A `PaymentRequest` object with:
+
+- `recipient` - The tip recipient's wallet address
+- `amount` - The tip amount
+- `currency` - Payment currency (from options, or undefined)
+- `memo`, `label`, `message` - Option values or defaults
+
+**Example:**
+
+```typescript
+const tip = createTipRequest(
+  "creator-wallet-address",
+  5_000_000, // 0.005 SOL in lamports
+  {
+    currency: "SOL",
+    label: "Tip for Content Creator",
+    message: "Thanks for the support!"
+  }
+);
+```
+
+## Payment Verification Functions
+
+These functions interact with Solana to verify transactions and wait for
+confirmations. They require a Solana RPC client from the `gill` library.
+
+### `verifyPayment()`
+
+Verifies that a transaction exists on-chain and optionally validates the payment
+amount, recipient, and token.
+
+```typescript
+async function verifyPayment(
+  rpc: SolanaClient["rpc"],
+  signatureString: string,
+  expectedAmount?: number,
+  expectedRecipient?: string,
+  expectedMint?: string
+): Promise<PaymentVerificationResult>;
+```
+
+#### Parameters
+
+- **`rpc`** (`SolanaClient['rpc']`, required) - RPC client from `gill`. Create
+  with `createSolanaClient(rpcUrl).rpc`.
+
+- **`signatureString`** (`string`, required) - Transaction signature
+  (base58-encoded) to verify.
+
+- **`expectedAmount`** (`number`, optional) - Expected payment amount to
+  validate. Unit should match the currency:
+  - For SOL: lamports (1 SOL = 1,000,000,000 lamports)
+  - For SPL tokens: minor units based on token decimals (e.g., USDC uses 6
+    decimals)
+
+  If not provided, amount validation is skipped.
+
+- **`expectedRecipient`** (`string`, optional) - Expected recipient wallet
+  address. If provided (along with `expectedAmount`), the function validates
+  that the recipient received at least this amount. If not provided, validation
+  is skipped.
+
+- **`expectedMint`** (`string`, optional) - SPL token mint address. Only
+  required for SPL token transfers. If not provided, the function assumes SOL
+  transfer.
+
+#### Returns
+
+A `Promise<PaymentVerificationResult>` object:
+
+```typescript
+interface PaymentVerificationResult {
+  verified: boolean; // True if payment is valid
+  signature?: string; // Transaction signature (echoed back)
+  amount?: number; // Expected amount (echoed back)
+  recipient?: string; // Expected recipient (echoed back)
+  error?: string; // Error message if verification failed
+}
+```
+
+#### Verification Logic
+
+The function performs these checks:
+
+1. **Signature Validity:** Checks that the signature is valid.
+
+2. **Transaction Existence:** Fetches the transaction using
+   `rpc.getTransaction()`. If not found, returns `verified: false`.
+
+3. **Confirmation Status:** Checks that the transaction has landed on-chain.
+
+4. **SOL Transfer Validation** (if `expectedRecipient` and `expectedAmount`
+   provided, and no `expectedMint`):
+   - Finds the recipient's account index in the transaction
+   - Compares `preBalances` and `postBalances` to calculate balance delta
+   - Verifies delta is at least `expectedAmount`
+
+5. **SPL Token Transfer Validation** (if `expectedMint` provided):
+   - Derives the recipient's Associated Token Account (ATA) for both Token
+     Program and Token-2022 Program
+   - Checks `postTokenBalances` for a matching ATA with the expected mint
+   - Verifies the token amount is at least `expectedAmount`
+
+#### Security Considerations
+
+- **Client-Side Verification:** This function fetches transaction data from RPC.
+  Do not expose your RPC URL to the client.
+- **Finalization:** The function checks for confirmed transactions, but for
+  high-value payments, consider waiting for `finalized` status.
+
+**Example:**
+
+```typescript
+import { verifyPayment } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+const result = await verifyPayment(
+  client.rpc,
+  "transaction-signature-here",
+  50_000_000, // 0.05 SOL in lamports
+  "merchant-wallet-address"
+  // No mint = SOL transfer
+);
+
+if (result.verified) {
+  console.log("Payment confirmed!");
+} else {
+  console.error("Verification failed:", result.error);
+}
+```
+
+---
+
+### `waitForConfirmation()`
+
+Polls the blockchain until a transaction reaches confirmed or finalized status,
+or times out.
+
+```typescript
+async function waitForConfirmation(
+  rpc: SolanaClient["rpc"],
+  signatureStr: string,
+  timeoutMs?: number
+): Promise<boolean>;
+```
+
+#### Parameters
+
+- **`rpc`** (`SolanaClient['rpc']`, required) - RPC client from `gill`.
+
+- **`signatureStr`** (`string`, required) - Transaction signature to wait for.
+
+- **`timeoutMs`** (`number`, optional) - Maximum time to wait in milliseconds.
+  Default: `30000` (30 seconds).
+
+#### Returns
+
+- `Promise<boolean>` - Returns `true` if transaction reaches `confirmed` or
+  `finalized` status within the timeout, `false` otherwise.
+
+**Example:**
+
+```typescript
+import { waitForConfirmation } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+// After sending transaction
+const signature = await wallet.sendTransaction(transaction);
+
+// Wait for confirmation (30 second timeout)
+const confirmed = await waitForConfirmation(client.rpc, signature, 30000);
+
+if (confirmed) {
+  console.log("Transaction confirmed!");
+} else {
+  console.log("Timeout - transaction not confirmed within 30 seconds");
+}
+```
+
+## Solana Pay Functions
+
+These functions generate [Solana Pay](https://docs.solanapay.com/) URLs and
+styled QR codes for mobile wallet scanning.
+
+### `createSolanaPayRequest()`
+
+Creates a Solana Pay URL and a styled QR code.
+
+```typescript
+async function createSolanaPayRequest(
+  request: TransferRequestURLFields,
+  options: SolanaPayRequestOptions
+): Promise<{ url: URL; qr: string }>;
+```
+
+#### Parameters
+
+- **`request`** (`TransferRequestURLFields`, required) - Solana Pay transfer
+  request fields:
+  - `recipient` - Recipient public key (use `createRecipient(address)` from
+    `@solana-commerce/solana-pay`)
+  - `amount` - (optional) Payment amount in minor units (lamports for SOL)
+  - `splToken` (optional) - SPL token mint public key (use
+    `createSPLToken(address)`)
+  - `reference` (optional) - Reference public key for tracking
+  - `label` (optional) - Merchant name
+  - `message` (optional) - Success message
+  - `memo` (optional) - On-chain memo
+
+- **`options`** (`SolanaPayRequestOptions`, required) - QR code styling options:
+  - `size` (number) - QR code width/height in pixels. Default: `256`.
+  - `background` (string) - Background color (hex/rgb). Default: `'white'`.
+  - `color` (string) - QR code color (hex/rgb). Default: `'black'`.
+  - `margin` (number) - Margin around QR code in modules.
+  - `errorCorrectionLevel` (`'L' | 'M' | 'Q' | 'H'`) - Error correction level.
+    Higher levels allow more damage but create denser codes.
+  - `logo` (string) - Logo image URL to embed in center of QR code.
+  - `logoSize` (number) - Logo size as percentage of QR code size.
+  - `logoBackgroundColor` (string) - Background color behind logo.
+  - `logoMargin` (number) - Margin around logo.
+  - `dotStyle` (`'dots' | 'rounded' | 'square'`) - Shape of QR code modules.
+  - `cornerStyle`
+    (`'square' | 'rounded' | 'extra-rounded' | 'full-rounded' | 'maximum-rounded'`) -
+    Shape of corner markers.
+
+#### Returns
+
+A `Promise` resolving to an object:
+
+- `url` (URL) - Solana Pay URL (e.g.,
+  `solana:recipient?amount=10&spl-token=...`)
+- `qr` (string) - Base64-encoded data URL of the QR code image (use as
+  `<img src={qr} />`)
+
+**Example:**
+
+```typescript
+import {
+  createSolanaPayRequest,
+  createRecipient,
+  createSPLToken
+} from "@solana-commerce/solana-pay";
+
+const payment = await createSolanaPayRequest(
+  {
+    recipient: createRecipient("merchant-wallet-address"),
+    amount: 10_000_000, // 0.01 SOL in lamports
+    splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    label: "My Store",
+    message: "Thank you for your purchase!"
+  },
+  {
+    size: 400,
+    background: "#FFFFFF",
+    color: "#000000",
+    logo: "/logo.png",
+    logoSize: 20,
+    errorCorrectionLevel: "H"
+  }
+);
+
+// Display QR code
+document.getElementById("qr").src = payment.qr;
+console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+```

@@ -1,0 +1,136 @@
+---
+title: Referensi Biaya
+description: Referensi lengkap untuk perhitungan biaya Kora.
+---
+
+_Terakhir diperbarui: 2025-10-31_
+
+Kora memperkirakan biaya transaksi saat menjalankan metode RPC
+`estimate_transaction_fee` dan `sign_transaction`. Untuk memperkirakan biaya,
+Kora menghitung total biaya untuk mengeksekusi transaksi di Solana, termasuk
+biaya jaringan, biaya pembuatan akun, dan biaya pemrosesan pembayaran opsional.
+Panduan ini menguraikan setiap komponen dari perhitungan biaya.
+
+## Rumus Perhitungan Biaya
+
+Biaya ditentukan oleh model harga yang dikonfigurasi di `kora.toml`:
+
+- `PriceModel::Free` - Mensponsori semua biaya transaksi (total biaya = 0)
+- `PriceModel::Fixed` - Membebankan jumlah tetap dalam token tertentu (terlepas
+  dari biaya jaringan)
+- `PriceModel::Margin` - Menambahkan margin persentase ke total biaya.
+
+Titik masuk utama untuk estimasi biaya total yang digunakan di
+`PriceModel::Margin` adalah `FeeConfigUtil::estimate_kora_fee()` di
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Rumus ini menggunakan formula umum berikut:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Komponen Biaya
+
+| Komponen                       | Deskripsi                                                                                  | Metode Perhitungan                                                                                                                      | Kapan Diterapkan                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Biaya Dasar**                | Biaya transaksi inti Solana yang mencakup verifikasi tanda tangan dan pemrosesan transaksi | `RpcClient.get_fee_for_message()` - Menggunakan perhitungan biaya Solana berdasarkan unit komputasi dan biaya prioritas                 | Selalu                                                             |
+| **Biaya Pembuatan Akun**       | Saldo minimum bebas rent untuk membuat Associated Token Accounts (ATA) baru                | `Rent::default().minimum_balance(account_size)` - Menghitung rent berdasarkan ukuran data akun (165-355 byte tergantung ekstensi token) | Saat transaksi membuat ATA baru                                    |
+| **Biaya Tanda Tangan Kora**    | Biaya tambahan saat Kora menandatangani sebagai pembayar biaya non-peserta                 | Tetap: 5.000 lamport (`LAMPORTS_PER_SIGNATURE`)                                                                                         | Saat pembayar biaya bukan penandatangan transaksi                  |
+| **Arus Keluar Pembayar Biaya** | Total SOL yang dikirim pembayar biaya dalam transaksi (transfer, pembuatan akun, dll.)     | Jumlah dari: Transfer Sistem dari pembayar biaya, CreateAccount yang didanai pembayar biaya, Penarikan nonce dari pembayar biaya        | Saat pembayar biaya melakukan operasi System Program               |
+| **Biaya Instruksi Pembayaran** | Perkiraan biaya prioritas untuk menambahkan instruksi pembayaran untuk transaksi tanpa gas | Perkiraan tetap: 50 lamport (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                              | Saat pembayaran diperlukan tetapi tidak disertakan dalam transaksi |
+| **Biaya Transfer**             | Biaya transfer Token2022 yang dikonfigurasi pada mint (misalnya, 1% dari jumlah transfer)  | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Berdasarkan konfigurasi biaya transfer mint                                     | Hanya untuk transfer Token2022 ke alamat pembayaran Kora           |
+| **Penyesuaian Margin**         | Markup/penyesuaian model harga Kora                                                        | Margin yang dikonfigurasi di `validation.price` - Dapat menambahkan markup sebagai % dari total biaya                                   | Saat `[validation.price]` disediakan di kora.toml                  |
+
+## Model Harga & Arus Keluar Pembayar Biaya
+
+Kora mendukung tiga model harga yang menentukan bagaimana pengguna dikenakan
+biaya untuk transaksi:
+
+### Harga Margin (Default)
+
+- **Rumus:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Termasuk Arus Keluar Pembayar Biaya:** Ya
+- **Terbaik Untuk:** Deployment produksi di mana biaya harus mencerminkan biaya
+  aktual dengan margin operasi tambahan
+
+### Harga Tetap
+
+- **Rumus:** `Total Fee = Fixed Amount (in specified token)`
+- **Termasuk Arus Keluar Pembayar Biaya:** Tidak
+- **Terbaik Untuk:** UX yang disederhanakan dengan harga yang dapat diprediksi
+  dalam lingkungan yang terkontrol
+
+### Harga Gratis
+
+- **Rumus:** `Total Fee = 0`
+- **Termasuk Arus Keluar Pembayar Biaya:** Tidak (operator menanggung semua
+  biaya)
+- **Terbaik Untuk:** Kampanye promosi, pengujian, atau aplikasi yang sepenuhnya
+  disponsori
+
+---
+
+## ⚠️ Peringatan Keamanan: Model Harga Tetap/Gratis
+
+**KRITIS:** Model harga tetap/gratis **TIDAK** menyertakan arus keluar pembayar
+biaya dalam jumlah yang dikenakan. Ini menciptakan risiko keamanan yang
+signifikan jika tidak dikonfigurasi dengan benar. Jika kebijakan pembayar biaya
+Anda mengizinkan transfer atau operasi arus keluar lainnya, penyerang dapat
+mengeksploitasi ini untuk menguras akun pembayar biaya Anda.
+
+### Kontrol Keamanan yang Diperlukan
+
+Saat menggunakan harga tetap/gratis, Anda **HARUS** mengonfigurasi kebijakan
+pembayar biaya yang restriktif untuk memblokir SEMUA operasi moneter dan
+perubahan otoritas:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Perlindungan Tambahan
+
+1. **Aktifkan Autentikasi:** Selalu memerlukan kunci API atau autentikasi HMAC
+   dengan harga tetap/gratis
+2. **Tetapkan Batas Rendah:** Gunakan nilai `max_allowed_lamports` yang
+   konservatif
+3. **Pantau Penggunaan:** Lacak pola tidak biasa dari transaksi arus keluar
+   tinggi
+4. **Pertimbangkan Harga Margin:** Harga margin secara otomatis menyertakan
+   biaya arus keluar dalam biaya
+
+### Peringatan Validasi
+
+Validator konfigurasi Kora akan memperingatkan Anda tentang konfigurasi yang
+berbahaya:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Peringatan yang diharapkan untuk konfigurasi yang rentan:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

@@ -1,0 +1,277 @@
+---
+title: Rust
+description: Installa e utilizza solana-keychain nelle applicazioni Rust
+---
+
+## Installazione
+
+Aggiungi `solana-keychain` al tuo `Cargo.toml` con solo i backend di cui hai
+bisogno:
+
+```toml title="Cargo.toml"
+[dependencies]
+# Memory signer only (default)
+solana-keychain = "1.2"
+
+# Or specify backends explicitly
+solana-keychain = { version = "1.2", default-features = false, features = ["vault", "aws_kms"] }
+
+# All backends
+solana-keychain = { version = "1.2", features = ["all"] }
+```
+
+### Flag di Funzionalità
+
+| Funzionalità | Descrizione                            |
+| ------------ | -------------------------------------- |
+| `memory`     | Firma con keypair locale (predefinito) |
+| `vault`      | Motore Transit di HashiCorp Vault      |
+| `aws_kms`    | AWS KMS con Ed25519                    |
+| `gcp_kms`    | GCP Cloud KMS con Ed25519              |
+| `privy`      | Wallet integrati Privy                 |
+| `turnkey`    | API Turnkey                            |
+| `fireblocks` | MPC Fireblocks                         |
+| `cdp`        | Piattaforma Sviluppatori Coinbase      |
+| `crossmint`  | Wallet gestiti Crossmint               |
+| `dfns`       | Infrastruttura wallet Dfns             |
+| `openfort`   | Wallet integrati Openfort              |
+| `para`       | Wallet MPC Para                        |
+| `all`        | Abilita tutti i backend                |
+
+## Utilizzo Base
+
+Tutti i firmatari implementano il
+[trait `SolanaSigner`](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs):
+
+```rust
+use solana_keychain::{SolanaSigner, Signer, SignerError, SignTransactionResult};
+use solana_sdk::transaction::Transaction;
+
+async fn sign_transaction(
+    signer: &impl SolanaSigner,
+    tx: &mut Transaction,
+) -> Result<(), SignerError> {
+    // Get the signer's public key
+    let pubkey = signer.pubkey();
+    println!("Signing with: {}", pubkey);
+
+    // Check availability (useful for remote signers)
+    if !signer.is_available().await {
+        return Err(SignerError::NotAvailable("Signer offline".into()));
+    }
+
+    // Sign the transaction — returns Complete or Partial
+    let result = signer.sign_transaction(tx).await?;
+    let (base64_tx, signature) = result.into_signed_transaction();
+    println!("Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+## Configurazione Backend
+
+### Firmatario in Memoria
+
+Per sviluppo e test con keypair locali:
+
+```rust
+use solana_keychain::Signer;
+
+// From base58 private key
+let signer = Signer::from_memory("base58_private_key")?;
+
+// From JSON file path
+let signer = Signer::from_memory("/path/to/keypair.json")?;
+
+// From byte array string
+let signer = Signer::from_memory("[1,2,3,...]")?;
+```
+
+### HashiCorp Vault
+
+Per HSM self-hosted con motore Transit:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_vault(
+    "https://vault.example.com:8200".to_string(), // Vault address
+    "hvs.xxxxx".to_string(),                      // Vault token
+    "my-solana-key".to_string(),                  // Key name in Transit
+    "base58_public_key".to_string(),              // Expected public key
+    None,                                         // Default HTTP timeouts
+)?;
+```
+
+### AWS KMS
+
+Per firma nativa nel cloud con chiavi Ed25519 di AWS KMS:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_aws_kms(
+    "alias/my-solana-key".to_string(),   // KMS key ID or alias
+    "base58_public_key".to_string(),     // Expected public key
+    Some("us-east-1".to_string()),       // Region (optional)
+).await?;
+```
+
+### Privy
+
+Per firma con wallet integrato:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_privy(
+    "app_id".to_string(),      // Privy app ID
+    "app_secret".to_string(),  // Privy app secret
+    "wallet_id".to_string(),   // Wallet ID
+    None,                      // Default HTTP timeouts
+).await?;
+```
+
+### Turnkey
+
+Per firma non custodiale:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_turnkey(
+    "api_public_key".to_string(),   // Turnkey API public key
+    "api_private_key".to_string(),  // Turnkey API private key
+    "org_id".to_string(),           // Organization ID
+    "private_key_id".to_string(),   // Private key ID in Turnkey
+    "base58_public_key".to_string(),// Expected public key
+    None,                           // Default HTTP timeouts
+)?;
+```
+
+### Fireblocks
+
+Per la firma MPC istituzionale:
+
+```rust
+use solana_keychain::{Signer, FireblocksSignerConfig};
+
+let config = FireblocksSignerConfig {
+    api_key: "api_key".to_string(),
+    private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\n...".to_string(),
+    vault_account_id: "0".to_string(),
+    asset_id: "SOL".to_string(), // or "SOL_TEST" for devnet
+};
+
+let signer = Signer::from_fireblocks(config).await?;
+```
+
+### GCP KMS
+
+Per la firma cloud-native con chiavi Ed25519 di GCP Cloud KMS:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_gcp_kms(
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1".to_string(),
+    "base58_public_key".to_string(),
+).await?;
+```
+
+### CDP (Coinbase Developer Platform)
+
+Per la firma con wallet gestito da Coinbase:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_cdp(
+    "api_key_id".to_string(),     // CDP API key ID
+    "api_key_secret".to_string(), // CDP API private key (base64 Ed25519)
+    "wallet_secret".to_string(),  // CDP wallet secret (base64 PKCS#8 DER)
+    "base58_address".to_string(), // Solana account address
+    None,                         // Default HTTP timeouts
+)?;
+```
+
+### Crossmint
+
+Per la firma con wallet gestito da Crossmint:
+
+```rust
+use solana_keychain::{Signer, CrossmintSignerConfig};
+
+let config = CrossmintSignerConfig {
+    api_key: "api_key".to_string(),
+    wallet_locator: "wallet_locator".to_string(),
+    signer_secret: None,
+    signer: None,
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+};
+
+let signer = Signer::from_crossmint(config).await?;
+```
+
+### Dfns
+
+Per la firma con infrastruttura wallet Dfns:
+
+```rust
+use solana_keychain::{Signer, DfnsSignerConfig};
+
+let config = DfnsSignerConfig {
+    auth_token: "auth_token".to_string(),
+    cred_id: "cred_id".to_string(),
+    private_key_pem: "-----BEGIN EC PRIVATE KEY-----\n...".to_string(),
+    app_id: "app_id".to_string(),
+    wallet_id: "wallet_id".to_string(),
+    api_base_url: None,
+    http_client_config: None,
+};
+
+let signer = Signer::from_dfns(config).await?;
+```
+
+### Para
+
+Per la firma con wallet MPC Para:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_para(
+    "api_key".to_string(),   // Para API key
+    "wallet_id".to_string(), // Para wallet ID
+    None,                    // Default API base URL
+).await?;
+```
+
+## Enum Signer Unificato
+
+Utilizza l'enum `Signer` per selezionare i backend in runtime:
+
+```rust
+use solana_keychain::{Signer, SolanaSigner, SignerError};
+
+async fn get_signer(backend: &str) -> Result<Signer, SignerError> {
+    match backend {
+        "memory" => Signer::from_memory("base58_key"),
+        "vault" => Signer::from_vault(/* ... */),
+        "kms" => Signer::from_aws_kms(/* ... */).await,
+        _ => Err(SignerError::ConfigError("Unknown backend".into())),
+    }
+}
+
+// Use it generically
+let signer = get_signer("kms").await?;
+let pubkey = signer.pubkey();
+```
+
+## Aggiungere Signer Personalizzati
+
+Consulta la [guida Aggiungere Signer](/docs/tools/keychain/adding-signers) per
+integrare ulteriori servizi di gestione delle chiavi.

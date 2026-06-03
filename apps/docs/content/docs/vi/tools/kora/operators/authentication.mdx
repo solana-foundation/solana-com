@@ -1,0 +1,247 @@
+---
+title: Xác thực
+description: Hướng dẫn tham khảo cho người vận hành về xác thực
+---
+
+Kora hỗ trợ hai phương thức xác thực tùy chọn để bảo mật điểm cuối RPC của bạn:
+Xác thực API Key và HMAC. Hướng dẫn này bao gồm thiết lập, triển khai và các
+phương pháp bảo mật tốt nhất.
+
+Xác thực là tùy chọn nhưng **được khuyến nghị mạnh mẽ** cho các triển khai
+production. Nếu không có xác thực, bất kỳ ai phát hiện ra điểm cuối Kora của bạn
+đều có thể gửi giao dịch và tiêu thụ số dư SOL của bạn.
+
+| Phương thức | Mức độ bảo mật | Trường hợp sử dụng                        | Độ phức tạp |
+| ----------- | -------------- | ----------------------------------------- | ----------- |
+| **Không**   | ⚠️ Không có    | Phát triển, thử nghiệm, định giá biên cao | Không       |
+| **API Key** | Cơ bản         | Ứng dụng nội bộ, client đáng tin cậy      | Thấp        |
+| **HMAC**    | Cao            | API công khai, mạng không đáng tin cậy    | Trung bình  |
+| **Cả hai**  | Tối đa         | Môi trường bảo mật cao                    | Trung bình  |
+
+Xác thực Kora được cấu hình trong tệp `kora.toml` ở phần `[kora.auth]`.
+
+Trong tài liệu này:
+
+- [Xác thực API Key](#api-key-authentication)
+- [Xác thực HMAC](#hmac-authentication)
+- [Xác thực kết hợp](#combined-authentication)
+- [Phương pháp bảo mật tốt nhất](#security-best-practices)
+- [Điểm cuối được miễn trừ](#exempt-endpoints)
+- [Khắc phục sự cố](#troubleshooting)
+
+## Xác thực API Key
+
+Xác thực bí mật chia sẻ đơn giản sử dụng HTTP header. Bạn có thể tạo một API key
+mới bằng lệnh `openssl` (hoặc lệnh tương tự) trong terminal của bạn:
+
+```bash
+openssl rand -hex 32
+```
+
+### Cấu hình máy chủ
+
+- Thêm `KORA_API_KEY` vào .env (biến môi trường) của bạn (có độ ưu tiên cao hơn)
+  hoặc
+- Thêm `api_key` vào `kora.toml` của bạn:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Key này sẽ được yêu cầu toàn cục cho tất cả các request đến điểm cuối RPC Kora.
+
+### Triển khai trên Client
+
+Bao gồm API key trong header `x-api-key` với mọi request:
+
+**Ví dụ cURL:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**Ví dụ JavaScript sử dụng Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Ví dụ JavaScript sử dụng fetch:**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## Xác thực HMAC
+
+Thay vì gửi API key cùng với mỗi yêu cầu, HMAC tạo ra một chữ ký mã hóa duy nhất
+để chứng minh bạn biết một bí mật mà không cần tiết lộ nó. Mỗi chữ ký bao gồm
+một dấu thời gian và hết hạn sau 5 phút, do đó các yêu cầu bị chặn không thể
+được phát lại. Kẻ tấn công không thể tạo các yêu cầu mới vì họ không có khóa bí
+mật của bạn.
+
+### Cấu hình máy chủ
+
+- Thêm `KORA_HMAC_SECRET` vào .env (biến môi trường) của bạn (có độ ưu tiên cao
+  nhất) hoặc
+- Thêm `hmac_secret` toàn cục vào `kora.toml` của bạn (tối thiểu 32 ký tự--bạn
+  có thể tạo một cái bằng `openssl rand -hex 32` hoặc tương tự):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### Cách HMAC hoạt động
+
+1. Client tạo một thông điệp bằng cách nối: `{timestamp}{request_body}`
+2. Client ký thông điệp sử dụng HMAC-SHA256 với khóa bí mật được chia sẻ
+3. Client gửi yêu cầu với các header dấu thời gian và chữ ký
+4. Server xác thực chữ ký và dấu thời gian (phải trong vòng 5 phút)
+
+### Triển khai phía Client
+
+Để sử dụng HMAC ở phía client, bạn có thể dùng Kora SDK hoặc thư viện `crypto`
+trong JavaScript:
+
+1. Tạo một dấu thời gian
+2. Tạo nội dung yêu cầu
+3. Tạo một thông điệp bằng cách nối dấu thời gian và nội dung (ví dụ:
+   `message = timestamp + body`)
+4. Tạo chữ ký bằng cách ký thông điệp với khóa bí mật HMAC (sử dụng phương thức
+   `crypto.createHmac`)
+5. Gửi yêu cầu với các header dấu thời gian (`x-timestamp`) và chữ ký
+   (`x-hmac-signature`)
+
+**Ví dụ JavaScript sử dụng Kora SDK:**
+
+Kora SDK trừu tượng hóa quy trình xác thực HMAC, vì vậy bạn chỉ cần gọi phương
+thức mà bạn muốn và SDK sẽ xử lý xác thực cho bạn.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Ví dụ JavaScript sử dụng thư viện `crypto`:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Xác thực kết hợp
+
+Bạn có thể kích hoạt đồng thời cả hai phương thức xác thực để có bảo mật tối đa:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Khi cả hai được cấu hình, máy khách phải gửi các header `x-api-key`,
+`x-timestamp` và `x-hmac-signature`.
+
+## Thực Hành Bảo Mật Tốt Nhất
+
+- **Sử dụng khóa mạnh, ngẫu nhiên**: Tối thiểu 32 ký tự với độ entropy cao
+- **Xoay vòng thường xuyên**: Thay đổi khóa định kỳ (hàng tháng/hàng quý)
+- **Lưu trữ an toàn**: Sử dụng biến môi trường hoặc quản lý bí mật (Railway
+  secrets, AWS Secrets Manager, v.v.)
+- **Không bao giờ mã hóa cứng**: Giữ khóa tách khỏi mã nguồn và nhật ký
+- **Sử dụng HTTPS**: Luôn sử dụng TLS trong môi trường production để bảo vệ khóa
+  trong quá trình truyền tải
+- **Giám sát truy cập**: Theo dõi các mẫu xác thực bất thường hoặc lỗi lặp đi
+  lặp lại
+
+## Các Endpoint Được Miễn Trừ
+
+Endpoint `/liveness` luôn được miễn xác thực để cho phép kiểm tra sức khỏe:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Khắc Phục Sự Cố
+
+**401 Unauthorized với API Key:**
+
+- Xác minh API key chính xác và khớp với cấu hình máy chủ
+- Kiểm tra rằng header `x-api-key` đang được gửi
+- Đảm bảo không có khoảng trắng thừa trong khóa
+
+**401 Unauthorized với HMAC:**
+
+- Xác minh timestamp hiện tại (trong vòng 5 phút)
+- Kiểm tra rằng việc xây dựng thông điệp khớp với: `{timestamp}{body}`
+- Đảm bảo HMAC secret khớp với cấu hình máy chủ
+- Xác minh chữ ký ở dạng hex chữ thường

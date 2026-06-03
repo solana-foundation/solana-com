@@ -1,0 +1,388 @@
+---
+title: Bundle & Metode RPC Baru
+description:
+  Metode RPC baru di Kora v2.2.0-beta — bundle Jito, versi, dan estimasi biaya
+  bundle.
+---
+
+Metode-metode ini tersedia mulai dari `v2.2.0-beta.1`. Aktifkan di `kora.toml`
+Anda pada bagian `[kora.enabled_methods]`.
+
+## getVersion
+
+Mengambil informasi versi server Kora.
+
+### Permintaan JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### Respons JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### Contoh cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### Konfigurasi
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+Menghitung biaya gabungan untuk beberapa transaksi dalam sebuah bundle. Berguna
+untuk menentukan total biaya sebelum menandatangani dan mengirimkan bundle.
+
+> **Catatan:** Plugin transaksi (misalnya, `gas_swap`) **tidak** dijalankan
+> selama estimasi biaya. Plugin hanya berjalan selama alur penandatanganan
+> (`signBundle`, `signAndSendBundle`).
+
+### Permintaan JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### Parameter
+
+| Parameter      | Tipe     | Wajib | Deskripsi                                          |
+| -------------- | -------- | ----- | -------------------------------------------------- |
+| `transactions` | string[] | Ya    | Array transaksi yang dikodekan base64 (maksimal 5) |
+| `fee_token`    | string   | Ya    | Token mint untuk perhitungan biaya                 |
+
+### Respons JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### Contoh cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### Konfigurasi
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+Menandatangani beberapa transaksi sebagai bundle tanpa mengirimkannya ke
+jaringan. Gunakan ini ketika Anda ingin menangani pengiriman bundle ke Jito
+sendiri.
+
+Metode ini dilindungi oleh reCAPTCHA ketika dikonfigurasi. Sertakan header
+`x-recaptcha-token` jika server Anda mengaktifkan reCAPTCHA.
+
+Ketika
+[plugin transaksi](/docs/tools/kora/beta/configuration#transaction-plugins)
+diaktifkan (misalnya, `gas_swap`), setiap transaksi dalam bundle divalidasi
+terhadap aturan plugin sebelum ditandatangani.
+
+### Perlindungan Fee Payer Lighthouse
+
+Ketika
+[perlindungan Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+diaktifkan, Kora menambahkan instruksi pernyataan saldo ke **transaksi
+terakhir** dalam bundle. Ini melindungi fee payer dari serangan drainage dengan
+memastikan saldo tidak turun di bawah level yang diharapkan setelah semua
+transaksi bundle selesai.
+
+**Penting:** Karena Lighthouse memodifikasi pesan transaksi, tanda tangan klien
+yang sudah ada sebelumnya pada transaksi terakhir menjadi tidak valid. Klien
+harus **menandatangani ulang** setelah menerima bundle yang telah dimodifikasi
+kembali dari Kora.
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### Permintaan JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parameter
+
+| Parameter              | Tipe     | Wajib | Deskripsi                                                          |
+| ---------------------- | -------- | ----- | ------------------------------------------------------------------ |
+| `transactions`         | string[] | Ya    | Array transaksi yang dikodekan base64 (maks 5)                     |
+| `signer_key`           | string   | Tidak | Penandatangan spesifik untuk digunakan (default ke pemilihan pool) |
+| `transactions_to_sign` | number[] | Tidak | Indeks transaksi yang akan ditandatangani (default semua)          |
+
+### Respons JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Contoh cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### Penandatanganan Bundle Parsial
+
+Gunakan `transactions_to_sign` untuk menandatangani hanya transaksi tertentu
+dalam bundle:
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### Konfigurasi
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+Menandatangani dan mengirimkan bundle hingga 5 transaksi ke block engine Jito.
+Semua transaksi dalam bundle dijalankan secara atomik dan berurutan — semuanya
+berhasil atau tidak sama sekali.
+
+Metode ini dilindungi oleh reCAPTCHA ketika dikonfigurasi. Sertakan header
+`x-recaptcha-token` jika server Anda mengaktifkan reCAPTCHA.
+
+Ketika
+[plugin transaksi](/docs/tools/kora/beta/configuration#transaction-plugins)
+diaktifkan (misalnya, `gas_swap`), setiap transaksi dalam bundle divalidasi
+terhadap aturan plugin sebelum ditandatangani.
+
+> **Catatan:**
+> [Perlindungan pembayar biaya Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+> **tidak** berlaku untuk metode ini. Karena bundle dikirim segera, menambahkan
+> asersi Lighthouse akan membatalkan tanda tangan klien yang ada. Jika Anda
+> memerlukan perlindungan Lighthouse, gunakan [`signBundle`](#signbundle) dan
+> tangani pengiriman Jito sendiri setelah menandatangani ulang.
+
+### Permintaan JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parameter
+
+| Parameter              | Tipe     | Wajib | Deskripsi                                                       |
+| ---------------------- | -------- | ----- | --------------------------------------------------------------- |
+| `transactions`         | string[] | Ya    | Array transaksi berenkode base64 (maksimal 5)                   |
+| `signer_key`           | string   | Tidak | Penanda tangan spesifik yang digunakan (default pemilihan pool) |
+| `transactions_to_sign` | number[] | Tidak | Indeks transaksi yang akan ditandatangani (default semua)       |
+
+### Respons JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Contoh cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### Konfigurasi
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **Catatan:** Saat menggunakan bundle dengan tip Jito, pastikan
+> `allow_transfer = true` diatur dalam `[validation.fee_payer_policy.system]`
+> agar penanda tangan Kora dapat membayar tip.

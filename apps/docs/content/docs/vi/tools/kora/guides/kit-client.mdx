@@ -1,0 +1,191 @@
+---
+title: Tích hợp Kit Client
+description:
+  Xây dựng giao dịch không tốn phí gas bằng cách sử dụng createKitKoraClient với
+  kiến trúc plugin của Kit để xử lý phí tự động.
+date: 2026-03-09
+---
+
+_Cập nhật lần cuối: 2026-03-09_
+
+## Những gì bạn sẽ xây dựng
+
+Kit client (`createKitKoraClient`) là cách được khuyến nghị để tích hợp Kora vào
+các ứng dụng Solana. Nó bao bọc tính năng trừu tượng hóa phí của Kora vào kiến
+trúc plugin của Kit, cung cấp cho bạn một client tự động xử lý:
+
+- Quản lý blockhash
+- Ước tính phí và chèn lệnh thanh toán phí
+- Ký giao dịch thông qua Kora
+- Gửi và xác nhận giao dịch
+- Tối ưu hóa compute budget (ước tính CU dựa trên mô phỏng)
+
+Điều này có nghĩa là bạn có thể sử dụng các plugin chương trình Kit như
+`tokenProgram()` và để Kora xử lý toàn bộ độ phức tạp của phí gas ở hậu trường.
+
+## Yêu cầu tiên quyết
+
+- Đã hoàn thành
+  [Hướng dẫn bắt đầu nhanh Kora](/docs/tools/kora/getting-started/quick-start) —
+  chạy máy chủ Kora và validator cục bộ
+- Quen thuộc với [Solana Kit](https://www.solanakit.com/) và hệ thống plugin của
+  nó
+
+## Cài đặt
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Các thư viện ngang hàng (`@solana-program/token`,
+`@solana-program/compute-budget`, `@solana/kit-plugin-*`) được tự động cài đặt
+bởi hầu hết các trình quản lý gói. Xem
+[Cài đặt](/docs/tools/kora/getting-started/installation) nếu bạn cần cài đặt thủ
+công.
+
+## Tạo Client
+
+`createKitKoraClient` kết hợp nhiều plugin Kit thành một client duy nhất đáp ứng
+`ClientWithPayer`, `ClientWithTransactionPlanning`, và
+`ClientWithTransactionSending`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet` phải là `TransactionSigner` — đây là ví ủy quyền thanh toán phí
+token SPL cho nhà điều hành Kora. Nhà điều hành Kora xử lý các khoản phí mạng
+SOL.
+
+### Các tùy chọn cấu hình
+
+| Tùy chọn           | Bắt buộc | Mô tả                                                                                                                 |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Có       | URL endpoint RPC của Kora                                                                                             |
+| `rpcUrl`           | Có       | URL RPC Solana (không phải endpoint Kora) — được sử dụng cho mô phỏng compute unit và tương thích plugin chương trình |
+| `feeToken`         | Có       | Địa chỉ mint SPL để thanh toán phí (ví dụ: USDC)                                                                      |
+| `feePayerWallet`   | Có       | `TransactionSigner` ủy quyền thanh toán phí SPL                                                                       |
+| `apiKey`           | Không    | Khóa API để xác thực Kora                                                                                             |
+| `hmacSecret`       | Không    | Bí mật HMAC để xác thực dựa trên chữ ký                                                                               |
+| `computeUnitLimit` | Không    | Giới hạn CU cố định. Nếu bỏ qua, Kora sẽ mô phỏng giao dịch để ước tính CU tối ưu (khuyến nghị)                       |
+| `computeUnitPrice` | Không    | Phí ưu tiên tính bằng micro-lamport                                                                                   |
+| `tokenProgramId`   | Không    | Mặc định là Token Program. Đặt thành `TOKEN_2022_PROGRAM_ADDRESS` cho token phí Token-2022                            |
+
+## Sử dụng với Kit Program Plugins
+
+Kit client có thể kết hợp với các Kit program plugins. Ví dụ, với
+`tokenProgram()`:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Bên dưới, Kit client thực hiện:
+
+1. Lên kế hoạch giao dịch với blockhash do Kora quản lý và các lệnh ngân sách
+   tính toán
+2. Ước tính phí và chèn (hoặc cập nhật) lệnh thanh toán SPL cho nhà vận hành
+   Kora
+3. Ký một phần giao dịch bằng ví của người dùng
+4. Gửi giao dịch đến Kora để đồng ký và gửi lên Solana
+
+## Truy cập các phương thức Kora RPC
+
+Kit client cũng cung cấp toàn bộ API Kora thông qua namespace `.kora` (từ
+`koraPlugin`):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Tất cả các phản hồi từ phương thức `.kora` đều sử dụng các giá trị được định
+kiểu theo Kit (`Address`, `Blockhash`, `Signature`) thay vì chuỗi thô.
+
+## Hỗ trợ Token-2022
+
+Để thanh toán phí bằng token Token-2022, truyền tùy chọn `tokenProgramId`:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Ngân sách tính toán
+
+Theo mặc định, Kit client mô phỏng giao dịch với Solana RPC để xác định giới hạn
+đơn vị tính toán tối ưu. Điều này dẫn đến phân bổ CU chặt chẽ hơn và phí thấp
+hơn.
+
+Để ghi đè bằng giá trị cố định:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Khi nào nên sử dụng từng Client
+
+| Client                | Trường hợp sử dụng                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `createKitKoraClient` | **Khuyến nghị.** Tích hợp Kit đầy đủ với xử lý phí tự động. Tốt nhất cho các ứng dụng sử dụng Kit program plugins. |
+| `KoraClient`          | Truy cập RPC trực tiếp khi bạn cần toàn quyền kiểm soát việc xây dựng, ký và gửi giao dịch.                        |
+| `koraPlugin`          | Thêm các phương thức Kora vào Kit client hiện có mà bạn đã kết hợp với các plugins khác.                           |
+
+## Các bước tiếp theo
+
+- [Luồng giao dịch đầy đủ](/docs/tools/kora/guides/full-demo) — Hướng dẫn chi
+  tiết ở mức thấp hơn sử dụng trực tiếp `KoraClient`
+- [Tài liệu tham khảo API](/docs/tools/kora/json-rpc-api) — Tất cả các phương
+  thức RPC có sẵn
+- [Cấu hình Kora](/docs/tools/kora/operators/configuration) — Các tùy chọn cấu
+  hình phía máy chủ

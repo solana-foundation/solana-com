@@ -22,7 +22,7 @@ const useHeroStats = (t: (_key: string) => string): Stat[] => [
   },
 ];
 
-const DePINHero = ({ onEmailClick }) => {
+const DePINHero = ({ onEmailClick }: { onEmailClick?: () => void }) => {
   const t = useTranslations();
   const stats = useHeroStats(t);
 

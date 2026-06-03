@@ -1,0 +1,451 @@
+---
+title: ウォレット接続
+description: Wallet Standardを使用してSolanaウォレットを接続
+---
+
+`@solana-commerce/connector`パッケージは、[Wallet Standard](https://github.com/wallet-standard/wallet-standard)をベースに構築されたヘッドレスウォレット接続機能を提供します。ウォレットの検出、接続状態、アカウント管理、および自動再接続を管理します。このパッケージはフレームワークに依存しない設計で、Reactバインディングが含まれています。Solana
+Commerce
+Kitでシームレスに使用できるように調整されており、[@solana/kit](https://github.com/anza-xyz/kit)および[gill](https://www.gillsdk.com/)と互換性があります。
+
+![ウォレット接続](/assets/docs/tools/commerce-kit/connector.png)
+
+## インストール
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## プロバイダーの設定
+
+### `ConnectorProvider`
+
+`ConnectorProvider`コンポーネントはアプリケーションをラップし、すべての子コンポーネントにウォレット接続状態を提供します。コンポーネントのマウント/アンマウントサイクルを超えて持続するシングルトン`ConnectorClient`インスタンスを管理します。
+
+#### Props
+
+すべての設定は`config` propを介して渡されます:
+
+- **`config`**
+  (`ConnectorConfig`、オプション) - コネクタの設定オブジェクト。すべてのフィールドはオプションです。
+
+#### `ConnectorConfig`
+
+ウォレット接続動作の設定オブジェクト。
+
+##### オプションフィールド
+
+- **`autoConnect`** (`boolean`) -
+  `true`の場合、マウント時に最後に使用したウォレットに自動的に再接続します。ウォレットの設定は、設定されたストレージ(デフォルトは`localStorage`)に保存されます。デフォルト:
+  `false`。
+
+- **`debug`**
+  (`boolean`) - 接続フロー、アカウント変更、エラーをデバッグするための詳細なコンソールログを有効にします。ログには`[Connector]`や`[ConnectorProvider]`などのプレフィックスが含まれます。デフォルト:
+  `false`。
+
+- **`accountPollingIntervalMs`**
+  (`number`) - ウォレットが`standard:events`機能をサポートしていない場合のアカウント変更チェックのポーリング間隔(ミリ秒)。最新のウォレットのほとんどはイベントをサポートしているため、ポーリングはフォールバックです。デフォルト:
+  `1500`(1.5秒)。
+
+- **`storage`**
+  (`Storage`) - ウォレット設定を永続化するためのカスタムストレージアダプタ。以下を実装する必要があります:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  デフォルト: 利用可能な場合は`window.localStorage`(ブラウザのみ)。React
+  Native(`AsyncStorage`)またはカスタムSSRセーフストレージにはこれを使用してください。
+
+#### プロバイダーアーキテクチャ
+
+プロバイダーは参照カウント付きの**シングルトンパターン**を使用します：
+
+- 複数の`ConnectorProvider`インスタンスが同じ`ConnectorClient`を共有します
+- クライアントは最初のマウント時に作成され、アンマウント後も存続します
+- すべてのプロバイダーがアンマウントされると、クリーンアップは高速な再マウントを処理するために5秒間遅延されます
+- クリーンアップ中、ウォレットが切断され、すべてのイベントリスナーが削除されます
+
+この設計により、ルート変更やコンポーネント更新中のウォレット切断を防ぎます。
+
+---
+
+## フック
+
+### `useConnector()`
+
+ウォレット接続状態とアクションにアクセスするための主要なフックです。`ConnectorProvider`内で使用する必要があります。
+
+以下を含む`ConnectorSnapshot`オブジェクトを返します：
+
+#### 状態プロパティ
+
+- **`wallets`** (`WalletInfo[]`) - 検出されたすべてのWallet
+  Standard互換ウォレットの配列。ウォレットがインストールまたはアンインストールされると自動的に更新されます。各ウォレットには名前、アイコン、機能などのメタデータが含まれます。[WalletInfo](#walletinfo)を参照してください。
+
+- **`selectedWallet`** (`Wallet | null`) - 現在接続されているWallet
+  Standardウォレットオブジェクト。切断時は`null`になります。これはWallet
+  Standard APIからの生のウォレットインスタンスです。
+
+- **`connected`**
+  (`boolean`) - 接続状態。ウォレットが接続され、アカウントが利用可能な場合は`true`になります。条件付きUIレンダリングに使用します。
+
+- **`connecting`**
+  (`boolean`) - ウォレット接続中のロード状態。`select()`の呼び出しから接続結果を受信するまでの間は`true`になります。ローディングインジケーターの表示やボタンの無効化に使用します。
+
+- **`accounts`**
+  (`AccountInfo[]`) - 接続されたウォレットのアカウント配列。ほとんどのウォレットは1つのアカウントを提供しますが、複数のアカウントをサポートするものもあります。ウォレットイベントまたはポーリングにより自動的に更新されます。[AccountInfo](#accountinfo)を参照してください。
+
+- **`selectedAccount`**
+  (`string | null`) - 現在選択されているアカウントのアドレス（base58エンコードされた公開鍵）。ウォレットが新しいアカウントで接続すると、そのアカウントが自動的に選択されます。それ以外の場合は、以前に選択されたアカウントが保持されます。
+
+#### アクションメソッド
+
+- **`select`**
+  (`(walletName: string) => Promise<void>`) - 名前でウォレットに接続します（例：`"Phantom"`、`"Solflare"`）。ウォレット名は、検出されたウォレットの
+  `name` フィールドと正確に一致する必要があります。
+
+  **処理の流れ：**
+  1. `connecting: true` を設定
+  2. ウォレットの `standard:connect` 機能を呼び出し
+  3. ウォレットからアカウントを取得
+  4. ウォレットイベントをサブスクライブ（イベントが利用できない場合はポーリングを開始）
+  5. 設定されたストレージにウォレットの設定を保存
+  6. アカウントと選択されたアカウントで状態を更新
+
+  **エラー：**
+  ウォレットが見つからない場合、ウォレットが接続をサポートしていない場合、またはユーザーによって接続が拒否された場合にエラーをスローします。
+
+- **`disconnect`**
+  (`() => Promise<void>`) - 現在のウォレットを切断し、すべての状態をクリーンアップします。
+
+  **処理の流れ：**
+  1. ウォレットイベントのサブスクリプションを解除
+  2. アカウントポーリングを停止
+  3. 利用可能な場合はウォレットの `standard:disconnect` 機能を呼び出し
+  4. 選択されたウォレット、アカウント、選択されたアカウントをクリア
+  5. ストレージからウォレットの設定を削除
+
+  エラーをスローしません（デバッグ が有効な場合はエラーがログに記録されます）。
+
+- **`selectAccount`**
+  (`(address: string) => Promise<void>`) - 選択されたアカウントを、接続されたウォレットの別のアドレスに切り替えます。アドレスが現在のアカウント配列にない場合、更新されたアカウントを取得するために再接続をトリガーします。
+
+  **エラー：**
+  ウォレットが接続されていない場合、または再接続後にリクエストされたアカウントが見つからない場合にエラーをスローします。
+
+### `useConnectorClient()`
+
+高度なユースケースのために、基盤となる `ConnectorClient`
+インスタンスへの直接アクセスを提供します。
+
+**戻り値：**
+`ConnectorClient | null` - シングルトンクライアントインスタンス、または
+`ConnectorProvider` の外部で使用された場合は `null`。
+
+**ユースケース：**
+
+- 命令的な状態読み取りのための `getConnectorState()` への直接アクセス
+- カスタム状態リスナーのための `subscribe(listener)`
+  を使った手動サブスクリプション
+- 強制クリーンアップのための `destroy()`
+  の呼び出し（通常の使用では推奨されません）
+
+**例：**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## 型定義
+
+### `WalletInfo`
+
+検出されたウォレットに関するメタデータ。
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` 要件:**
+ウォレットが接続可能であるためには、以下をサポートしている必要があります:
+
+- `standard:connect` 機能
+- `standard:disconnect` 機能
+- Solanaチェーン（`wallet.chains` に `"solana"` が含まれていることで検出）
+
+接続不可能なウォレットは `wallets`
+配列に表示されますが、選択することはできません。
+
+### `AccountInfo`
+
+ウォレットアカウントに関する情報。
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+`raw` フィールドは、追加のアカウントプロパティへのアクセスを提供します:
+
+- `address: string` - Base58エンコードされた公開鍵
+- `publicKey: Uint8Array` - 公開鍵の生バイト
+- `label?: string` - アカウントラベル（ウォレットが提供する場合）
+- `icon?: string` - アカウント固有のアイコン（データURL）
+- `chains: string[]` - このアカウントでサポートされているチェーン
+- `features: string[]` - このアカウントでサポートされている機能
+
+### `ConnectorSnapshot`
+
+`useConnector()` の戻り値の型で、状態とアクションを組み合わせたもの。
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## アカウント変更の検出
+
+コネクターは、ウォレットアカウントが変更されたとき（ユーザーがアカウントを追加/削除、ウォレット内でアカウントを切り替えた場合）を自動的に検出します。2つの戦略が使用されます:
+
+### イベントベース（推奨）
+
+ウォレットが `standard:events` をサポートしている場合、コネクターは `change`
+イベントをサブスクライブします:
+
+- アカウントが変更されたときにリアルタイムで通知を受信
+- より効率的（ポーリング不要）
+- イベントと `wallet.accounts`
+  の両方からアカウントを集約し、イベントに選択されたアカウントのみを含むウォレットに対応
+
+### ポーリングフォールバック
+
+イベントがサポートされていない場合、コネクターは `wallet.accounts`
+をポーリングします:
+
+- `accountPollingIntervalMs` ごとにチェック（デフォルト: 1500ms）
+- アカウントアドレスを比較して変更を検出
+- アカウントが実際に変更された場合のみ再レンダリングをトリガー
+
+**アカウント選択ロジック:**
+
+- アカウントが変更された場合、選択されたアカウントがまだ存在する場合は保持する
+- 選択されたアカウントが削除された場合、最初の利用可能なアカウントを選択する
+- 新しいアカウント（以前のアカウントに含まれていない）で接続する場合、新しいアカウントを優先する
+
+---
+
+## ストレージと自動接続
+
+### ストレージの永続化
+
+コネクタは設定されたストレージに1つのキーを保存します：
+
+- **キー:** `arc-connector:lastWallet`
+- **値:** ウォレット名（例：`"Phantom"`）
+
+ストレージ操作は、以下の状況に対応するためtry-catchでラップされています：
+
+- `localStorage`がエラーをスローするサンドボックス化されたiframe
+- `window`が未定義のSSR環境
+- `localStorage`が存在しないReact Native
+
+ストレージが失敗した場合、コネクタは永続化なしで継続します（エラーはスローされません）。
+
+### 自動接続の動作
+
+`autoConnect: true`の場合：
+
+1. マウント時に、ストレージから最後のウォレット名を読み取ります
+2. 100ms待機します（ウォレットの登録を許可）
+3. ウォレットが検出された場合、`select(walletName)`を呼び出します
+4. 自動接続が失敗した場合、無効な設定をストレージから削除します
+
+**セキュリティに関する注意：**
+保存される設定は単なるウォレット名（文字列）であり、機密データではありません。ウォレットは独自のUIを通じて認証/認可を処理します。
+
+---
+
+## 使用例
+
+### 基本的なウォレットボタン
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### マルチアカウントセレクター
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### 接続の監視
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## サポートされているウォレット
+
+このコネクタは、[Wallet Standard](https://github.com/wallet-standard/wallet-standard)を実装するすべてのウォレットをサポートしています：
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- その他のWallet Standard互換ウォレット
+
+ウォレットは、Wallet Standard
+APIに登録されると自動的に検出されます（設定は不要です）。
+
+---
+
+## ヘッドレス使用（Reactなし）
+
+非Reactアプリケーションまたはサーバーサイドでの使用には、`ConnectorClient`を直接使用してください：
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**注意：**
+`ConnectorClient`は独自の状態を管理し、Reactの再レンダリングをトリガーすることはありません。状態の変更を手動で購読する必要があります。

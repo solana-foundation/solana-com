@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import AngleDown from "./assets/angle-down.inline.svg";
+import AngleDown from "./assets/icons/angle-down.inline.svg";
 import { twMerge } from "tailwind-merge";
 
 interface CollapseMenuProps {

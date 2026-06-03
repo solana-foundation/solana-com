@@ -9,7 +9,7 @@ export type Logo = {
   src: string;
   alt: string;
   height?: string;
-};
+} & Record<string, unknown>;
 
 export type LogosProps = {
   logos?: Logo[];

@@ -1,0 +1,433 @@
+---
+title: 无头支付流程
+description: 适用于任何框架的无头商务原语
+---
+
+# 支付流程
+
+`@solana-commerce/headless`
+包提供了与框架无关的函数，用于构建商务支付流程。这些工具可帮助创建支付请求对象、生成 Solana
+Pay
+URL 以及验证链上支付。该包旨在适用于任何 JavaScript 环境：React、Vue、Svelte、原生 JS、Node.js 或无服务器函数。
+
+## 安装
+
+```bash
+pnpm add @solana-commerce/headless
+```
+
+## 支付请求函数
+
+这些函数为不同的商务模式创建标准化的支付请求对象。它们不执行任何区块链操作——只是构造数据以供钱包、Solana
+Pay URL 或自定义支付 UI 使用。
+
+### `createBuyNowRequest()`
+
+为单个产品购买创建标准化的支付请求。
+
+```typescript
+function createBuyNowRequest(
+  recipient: string,
+  product: any,
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### 参数
+
+- **`recipient`**（`string`，必需）- 将接收付款的商家钱包地址（base58 编码的 Solana 公钥）。
+
+- **`product`**（`any`，必需）- 包含以下内容的产品对象：
+  - `price`（数字，必需）- 产品价格。单位取决于上下文（例如，SOL 为 lamport，代币为最小单位）。
+  - `currency`（字符串，必需）- 支付货币。可以是 `'SOL'` 或代币铸造地址。
+  - `name`（字符串，必需）- 产品名称，如果未提供则用作默认备注/标签。
+  - 其他字段（id、description、image 等）在 `products` 数组中传递。
+
+- **`options`**（对象，可选）- 自定义选项：
+  - `memo`（字符串）- 交易的链上备注。默认值：`"Purchase: {product.name}"`。
+  - `label`（字符串）- 支付请求的显示标签（用于 Solana
+    Pay）。默认值：`product.name`。
+  - `message`（字符串）- 支付后显示的成功消息。默认值：`"Thank you for purchasing {product.name}!"`。
+
+#### 返回值
+
+一个包含以下内容的 `PaymentRequest` 对象：
+
+- `recipient` - 商家钱包地址
+- `amount` - 产品价格（从 `product.price` 复制）
+- `currency` - 支付货币（从 `product.currency` 复制）
+- `products` - 包含单个产品的数组
+- `memo` - 交易备注（选项或默认值："购买：(product.name)"）
+- `label` - 支付标签（选项或默认值："product.name"）
+- `message` - 成功消息（选项或默认值："感谢您购买 (product.name)！"）
+
+**示例：**
+
+```typescript
+const payment = createBuyNowRequest(
+  "merchant-wallet-address",
+  {
+    id: "prod_123",
+    name: "Premium Subscription",
+    price: 50000000, // 0.05 SOL in lamports
+    currency: "SOL"
+  },
+  {
+    label: "Premium Subscription",
+    message: "Thank you for subscribing!"
+  }
+);
+```
+
+### `createCartRequest()`
+
+为购物车中的多个产品创建支付请求。
+
+```typescript
+function createCartRequest(
+  recipient: string,
+  products: any[],
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+    currency?: string;
+  }
+): PaymentRequest;
+```
+
+#### 参数
+
+- **`recipient`**（`string`，必需）- 将接收付款的商家钱包地址。
+
+- **`products`**（`any[]`，必需）- 产品对象数组。
+
+- **`options`**（object，可选）- 自定义选项：
+  - `currency`（string）- 整个购物车的支付货币。
+  - `memo`（string）- 链上备忘录。默认值：`"Cart purchase (products.length items)"`。
+  - `label`（string）- 支付标签。默认值：`"Cart Checkout"`。
+  - `message`（string）- 成功消息。默认值：`"Thank you for your purchase!"`。
+
+#### 返回值
+
+一个 `PaymentRequest` 对象，包含：
+
+- `recipient` - 商家钱包地址
+- `amount` - 所有产品价格的总和（`products.reduce((sum, p) => sum + p.price, 0)`）
+- `currency` - 支付货币（来自选项，或 undefined）
+- `products` - 产品数组
+- `memo`、`label`、`message` - 选项值或默认值
+
+**示例：**
+
+```typescript
+const cart = createCartRequest(
+  "merchant-wallet-address",
+  [
+    { id: "1", name: "Product A", price: 25 },
+    { id: "2", name: "Product B", price: 15 },
+    { id: "3", name: "Product C", price: 10 }
+  ],
+  {
+    currency: "USDC",
+    label: "My Store Checkout",
+    message: "Thank you for your order!"
+  }
+);
+// cart.amount === 50 (sum of prices)
+```
+
+---
+
+### `createTipRequest()`
+
+创建用户自定义金额的小费或捐赠支付请求。
+
+```typescript
+function createTipRequest(
+  recipient: string,
+  amount: number,
+  options?: {
+    currency?: string;
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### 参数
+
+- **`recipient`**（`string`，必需）- 小费接收者的钱包地址（创作者、主播、慈善机构等）。
+
+- **`amount`**（`number`，必需）- 小费金额。单位取决于货币（SOL 使用 lamport，代币使用最小单位）。
+
+- **`options`**（object，可选）- 自定义选项：
+  - `currency`（string）- 支付货币。默认值：undefined（消费者通常将其视为 SOL）。
+  - `memo`（string）- 链上备忘录。默认值：`"Thank you for your support!"`。
+  - `label`（string）- 支付标签。默认值：`"Tip"`。
+  - `message`（string）- 成功消息。默认值：`"Thanks for the tip!"`。
+
+#### 返回值
+
+一个 `PaymentRequest` 对象，包含：
+
+- `recipient` - 小费接收者的钱包地址
+- `amount` - 小费金额
+- `currency` - 支付货币（来自选项，或 undefined）
+- `memo`、`label`、`message` - 选项值或默认值
+
+**示例：**
+
+```typescript
+const tip = createTipRequest(
+  "creator-wallet-address",
+  5_000_000, // 0.005 SOL in lamports
+  {
+    currency: "SOL",
+    label: "Tip for Content Creator",
+    message: "Thanks for the support!"
+  }
+);
+```
+
+## 支付验证函数
+
+这些函数与 Solana 交互以验证交易并等待确认。它们需要来自 `gill` 库的 Solana
+RPC 客户端。
+
+### `verifyPayment()`
+
+验证链上交易是否存在，并可选择验证支付金额、收款人和代币。
+
+```typescript
+async function verifyPayment(
+  rpc: SolanaClient["rpc"],
+  signatureString: string,
+  expectedAmount?: number,
+  expectedRecipient?: string,
+  expectedMint?: string
+): Promise<PaymentVerificationResult>;
+```
+
+#### 参数
+
+- **`rpc`**（`SolanaClient['rpc']`，必需）- 来自 `gill` 的 RPC 客户端。使用
+  `createSolanaClient(rpcUrl).rpc` 创建。
+
+- **`signatureString`**（`string`，必需）- 要验证的交易签名（base58 编码）。
+
+- **`expectedAmount`**（`number`，可选）- 预期的支付金额用于验证。单位应与货币匹配：
+  - 对于 SOL：lamport（1 SOL = 1,000,000,000 lamport）
+  - 对于 SPL 代币：基于代币小数位数的最小单位（例如，USDC 使用 6 位小数）
+
+  如果未提供，则跳过金额验证。
+
+- **`expectedRecipient`**（`string`，可选）- 预期的收款人钱包地址。如果提供（连同
+  `expectedAmount`），该函数会验证收款人至少收到了此金额。如果未提供，则跳过验证。
+
+- **`expectedMint`**（`string`，可选）-
+  SPL 代币铸造地址。仅在 SPL 代币转账时需要。如果未提供，则该函数假定为 SOL 转账。
+
+#### 返回值
+
+一个 `Promise<PaymentVerificationResult>` 对象：
+
+```typescript
+interface PaymentVerificationResult {
+  verified: boolean; // True if payment is valid
+  signature?: string; // Transaction signature (echoed back)
+  amount?: number; // Expected amount (echoed back)
+  recipient?: string; // Expected recipient (echoed back)
+  error?: string; // Error message if verification failed
+}
+```
+
+#### 验证逻辑
+
+该函数执行以下检查：
+
+1. **签名有效性：**检查签名是否有效。
+
+2. **交易存在性：**使用 `rpc.getTransaction()` 获取交易。如果未找到，返回
+   `verified: false`。
+
+3. **确认状态：**检查交易是否已在链上确认。
+
+4. **SOL 转账验证**（如果提供了 `expectedRecipient` 和 `expectedAmount`，且没有
+   `expectedMint`）：
+   - 在交易中查找收款人的账户索引
+   - 比较 `preBalances` 和 `postBalances` 以计算余额差额
+   - 验证差额至少为 `expectedAmount`
+
+5. **SPL 代币转账验证**（如果提供了 `expectedMint`）：
+   - 为 Token Program 和 Token-2022 Program 派生接收方的关联代币账户（ATA）
+   - 检查 `postTokenBalances` 是否有与预期铸币地址匹配的 ATA
+   - 验证代币数量至少为 `expectedAmount`
+
+#### 安全注意事项
+
+- **客户端验证：** 此函数从 RPC 获取交易数据。请勿向客户端暴露您的 RPC URL。
+- **最终确认：** 该函数检查已确认的交易，但对于高价值支付，建议等待 `finalized`
+  状态。
+
+**示例：**
+
+```typescript
+import { verifyPayment } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+const result = await verifyPayment(
+  client.rpc,
+  "transaction-signature-here",
+  50_000_000, // 0.05 SOL in lamports
+  "merchant-wallet-address"
+  // No mint = SOL transfer
+);
+
+if (result.verified) {
+  console.log("Payment confirmed!");
+} else {
+  console.error("Verification failed:", result.error);
+}
+```
+
+---
+
+### `waitForConfirmation()`
+
+轮询区块链，直到交易达到已确认或已最终确认状态，或超时。
+
+```typescript
+async function waitForConfirmation(
+  rpc: SolanaClient["rpc"],
+  signatureStr: string,
+  timeoutMs?: number
+): Promise<boolean>;
+```
+
+#### 参数
+
+- **`rpc`**（`SolanaClient['rpc']`，必需）- 来自 `gill` 的 RPC 客户端。
+
+- **`signatureStr`**（`string`，必需）- 要等待的交易签名。
+
+- **`timeoutMs`**（`number`，可选）- 等待的最长时间（毫秒）。默认值：`30000`（30 秒）。
+
+#### 返回值
+
+- `Promise<boolean>` - 如果交易在超时时间内达到 `confirmed` 或 `finalized`
+  状态，则返回 `true`，否则返回 `false`。
+
+**示例：**
+
+```typescript
+import { waitForConfirmation } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+// After sending transaction
+const signature = await wallet.sendTransaction(transaction);
+
+// Wait for confirmation (30 second timeout)
+const confirmed = await waitForConfirmation(client.rpc, signature, 30000);
+
+if (confirmed) {
+  console.log("Transaction confirmed!");
+} else {
+  console.log("Timeout - transaction not confirmed within 30 seconds");
+}
+```
+
+## Solana Pay 函数
+
+这些函数生成 [Solana Pay](https://docs.solanapay.com/)
+URL 和样式化的二维码，供移动钱包扫描。
+
+### `createSolanaPayRequest()`
+
+创建 Solana Pay URL 和样式化的二维码。
+
+```typescript
+async function createSolanaPayRequest(
+  request: TransferRequestURLFields,
+  options: SolanaPayRequestOptions
+): Promise<{ url: URL; qr: string }>;
+```
+
+#### 参数
+
+- **`request`**（`TransferRequestURLFields`，必需）- Solana Pay 转账请求字段：
+  - `recipient` - 接收方公钥（使用 `@solana-commerce/solana-pay` 中的
+    `createRecipient(address)`）
+  - `amount` -（可选）以最小单位表示的支付金额（SOL 为 lamport）
+  - `splToken`（可选）- SPL 代币铸币公钥（使用 `createSPLToken(address)`）
+  - `reference`（可选）- 用于跟踪的引用公钥
+  - `label`（可选）- 商家名称
+  - `message`（可选）- 成功消息
+  - `memo`（可选）- 链上备忘录
+
+- **`options`**（`SolanaPayRequestOptions`，必需）- 二维码样式选项：
+  - `size`（数字）- 二维码的宽度/高度（像素）。默认值：`256`。
+  - `background`（字符串）- 背景颜色（十六进制/RGB）。默认值：`'white'`。
+  - `color`（字符串）- 二维码颜色（十六进制/RGB）。默认值：`'black'`。
+  - `margin`（数字）- 二维码周围的边距（以模块为单位）。
+  - `errorCorrectionLevel`（`'L' | 'M' | 'Q' | 'H'`）- 纠错级别。更高的级别允许更多损坏，但会生成更密集的二维码。
+  - `logo`（字符串）- 要嵌入二维码中心的徽标图片 URL。
+  - `logoSize`（数字）- 徽标大小占二维码大小的百分比。
+  - `logoBackgroundColor`（字符串）- 徽标后面的背景颜色。
+  - `logoMargin`（数字）- 徽标周围的边距。
+  - `dotStyle`（`'dots' | 'rounded' | 'square'`）- 二维码模块的形状。
+  - `cornerStyle`
+    （`'square' | 'rounded' | 'extra-rounded' | 'full-rounded' | 'maximum-rounded'`）- 角标记的形状。
+
+#### 返回值
+
+一个 `Promise`，解析为一个对象：
+
+- `url`（URL）- Solana Pay URL（例如，
+  `solana:recipient?amount=10&spl-token=...`）
+- `qr`（字符串）- Base64 编码的二维码图片数据 URL（用作 `<img src={qr} />`）
+
+**示例：**
+
+```typescript
+import {
+  createSolanaPayRequest,
+  createRecipient,
+  createSPLToken
+} from "@solana-commerce/solana-pay";
+
+const payment = await createSolanaPayRequest(
+  {
+    recipient: createRecipient("merchant-wallet-address"),
+    amount: 10_000_000, // 0.01 SOL in lamports
+    splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    label: "My Store",
+    message: "Thank you for your purchase!"
+  },
+  {
+    size: 400,
+    background: "#FFFFFF",
+    color: "#000000",
+    logo: "/logo.png",
+    logoSize: 20,
+    errorCorrectionLevel: "H"
+  }
+);
+
+// Display QR code
+document.getElementById("qr").src = payment.qr;
+console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+```

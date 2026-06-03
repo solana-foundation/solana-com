@@ -1,0 +1,368 @@
+---
+title: Bundle 与新的 RPC 方法
+description:
+  Kora v2.2.0-beta 中的新 RPC 方法——Jito bundles、版本信息和 bundle 费用估算。
+---
+
+这些方法从 `v2.2.0-beta.1` 开始可用。在您的 `kora.toml` 中的
+`[kora.enabled_methods]` 下启用它们。
+
+## getVersion
+
+检索 Kora 服务器版本信息。
+
+### JSON-RPC 请求
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### JSON-RPC 响应
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### cURL 示例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### 配置
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+计算 bundle 中多个交易的总费用。在签名和提交 bundle 之前确定总成本时非常有用。
+
+> **注意：** 交易插件（例如
+> `gas_swap`）在费用估算期间**不会**执行。插件仅在签名流程中运行（`signBundle`、
+> `signAndSendBundle`）。
+
+### JSON-RPC 请求
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### 参数
+
+| 参数           | 类型     | 必需 | 描述                               |
+| -------------- | -------- | ---- | ---------------------------------- |
+| `transactions` | string[] | 是   | base64 编码的交易数组（最多 5 个） |
+| `fee_token`    | string   | 是   | 用于费用计算的代币 mint 地址       |
+
+### JSON-RPC 响应
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### cURL 示例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### 配置
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+将多个交易作为捆绑包进行签名,但不提交到网络。当您希望自行处理向 Jito 提交捆绑包时使用此方法。
+
+配置 reCAPTCHA 后,此方法将受到保护。如果您的服务器启用了 reCAPTCHA,请包含
+`x-recaptcha-token` 标头。
+
+当启用 [交易插件](/docs/tools/kora/beta/configuration#transaction-plugins) (例如
+`gas_swap`)时,捆绑包中的每个交易在签名前都会根据插件规则进行验证。
+
+### Lighthouse 费用支付方保护
+
+当启用
+[Lighthouse 保护](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+时,Kora 会在捆绑包的**最后一个交易**中添加余额断言指令。这通过确保在所有捆绑包交易完成后余额不会降至预期水平以下,来保护费用支付方免受余额耗尽攻击。
+
+**重要提示:**由于 Lighthouse 会修改交易消息,最后一个交易上任何预先存在的客户端签名都将变为无效。客户端**必须在**从 Kora 收到修改后的捆绑包后**重新签名**。
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### JSON-RPC 请求
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### 参数
+
+| 参数                   | 类型     | 必需 | 描述                             |
+| ---------------------- | -------- | ---- | -------------------------------- |
+| `transactions`         | string[] | 是   | base64 编码的交易数组(最多 5 个) |
+| `signer_key`           | string   | 否   | 要使用的特定签名者(默认为池选择) |
+| `transactions_to_sign` | number[] | 否   | 要签名的交易索引(默认为全部)     |
+
+### JSON-RPC 响应
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL 示例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### 部分捆绑包签名
+
+使用 `transactions_to_sign` 仅对捆绑包中的特定交易进行签名：
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### 配置
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+对最多5笔交易的捆绑包进行签名并提交到Jito的区块引擎。捆绑包中的所有交易以原子和顺序方式执行——要么全部成功，要么全部失败。
+
+此方法在配置后受reCAPTCHA保护。如果您的服务器启用了reCAPTCHA，请包含
+`x-recaptcha-token` 请求头。
+
+当启用[交易插件](/docs/tools/kora/beta/configuration#transaction-plugins)（例如
+`gas_swap`）时，捆绑包中的每笔交易在签名前都会根据插件规则进行验证。
+
+> **注意：**
+> [Lighthouse费用支付方保护](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)不适用于此方法。由于捆绑包立即发送，添加Lighthouse断言会使现有客户端签名失效。如果您需要Lighthouse保护，请使用
+> [`signBundle`](#signbundle)，并在重新签名后自行处理Jito提交。
+
+### JSON-RPC 请求
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### 参数
+
+| 参数                   | 类型     | 必需 | 描述                               |
+| ---------------------- | -------- | ---- | ---------------------------------- |
+| `transactions`         | string[] | 是   | Base64编码的交易数组（最多5笔）    |
+| `signer_key`           | string   | 否   | 要使用的特定签名者（默认为池选择） |
+| `transactions_to_sign` | number[] | 否   | 要签名的交易索引（默认为全部）     |
+
+### JSON-RPC 响应
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### cURL 示例
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### 配置
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **注意：** 在使用带有Jito小费的捆绑包时，请确保在
+> `[validation.fee_payer_policy.system]` 中设置
+> `allow_transfer = true`，以便Kora签名者可以支付小费。

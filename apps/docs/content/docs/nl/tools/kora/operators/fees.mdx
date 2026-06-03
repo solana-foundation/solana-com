@@ -1,0 +1,135 @@
+---
+title: Tarieven Referentie
+description: Volledige referentie voor Kora tariefberekening.
+---
+
+_Laatst bijgewerkt: 2025-10-31_
+
+Kora schat transactiekosten bij het uitvoeren van `estimate_transaction_fee` en
+`sign_transaction` RPC-methoden. Om tarieven te schatten, berekent Kora de
+totale kosten voor het uitvoeren van transacties op Solana, inclusief
+netwerkkosten, accountaanmaakkosten en optionele betalingsverwerkingskosten.
+Deze handleiding legt elk onderdeel van de tariefberekening uit.
+
+## Tariefberekeningsformule
+
+Het tarief wordt bepaald door het prijsmodel dat is geconfigureerd in
+`kora.toml`:
+
+- `PriceModel::Free` - Sponsort alle transactiekosten (totaal tarief = 0)
+- `PriceModel::Fixed` - Rekent een vast bedrag in een specifieke token (ongeacht
+  netwerkkosten)
+- `PriceModel::Margin` - Voegt een procentuele marge toe aan de totale kosten.
+
+Het hoofdingangspunt voor de schatting van totale kosten die wordt gebruikt in
+`PriceModel::Margin` is `FeeConfigUtil::estimate_kora_fee()` in
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Het gebruikt de volgende algemene formule:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Tariefcomponenten
+
+| Component                     | Beschrijving                                                                                             | Berekeningsmethode                                                                                                                                   | Wanneer toegepast                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Basistarief**               | Kern Solana transactiekosten voor handtekeningverificatie en transactieverwerking                        | `RpcClient.get_fee_for_message()` - Gebruikt Solana's tariefberekening op basis van compute units en prioriteitskosten                               | Altijd                                                           |
+| **Accountaanmaakkosten**      | Huurvrij minimumsaldo voor het aanmaken van nieuwe Associated Token Accounts (ATA's)                     | `Rent::default().minimum_balance(account_size)` - Berekent huur op basis van accountgegevensgrootte (165-355 bytes afhankelijk van token extensions) | Wanneer transactie nieuwe ATA's aanmaakt                         |
+| **Kora Handtekeningkosten**   | Extra kosten wanneer Kora tekent als niet-deelnemende fee payer                                          | Vast: 5.000 lamports (`LAMPORTS_PER_SIGNATURE`)                                                                                                      | Wanneer fee payer nog geen transactie-ondertekenaar is           |
+| **Fee Payer Uitstroom**       | Totale SOL die de fee payer verstuurt in de transactie (overdrachten, accountaanmaak, etc.)              | Som van: System-overdrachten van fee payer, CreateAccount gefinancierd door fee payer, Nonce-opnames van fee payer                                   | Wanneer fee payer System Program operaties uitvoert              |
+| **Betalingsinstructiekosten** | Geschatte kosten van prioriteitskosten om een betalingsinstructie toe te voegen voor gasloze transacties | Vaste schatting: 50 lamports (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                          | Wanneer betaling vereist is maar niet in transactie is opgenomen |
+| **Overdrachtskosten**         | Token2022 overdrachtskosten geconfigureerd op de mint (bijv. 1% van overdrachtsbedrag)                   | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Gebaseerd op de overdrachtkostenconfiguratie van de mint                                     | Alleen voor Token2022-overdrachten naar Kora betalingsadres      |
+| **Margeaanpassing**           | Kora's prijsmodel opslag/aanpassing                                                                      | Geconfigureerde marge in `validation.price` - Kan opslag toevoegen als een % van de totale kosten                                                    | Wanneer `[validation.price]` is opgegeven in kora.toml           |
+
+## Prijsmodellen & Fee Payer Outflow
+
+Kora ondersteunt drie prijsmodellen die bepalen hoe gebruikers worden
+gefactureerd voor transacties:
+
+### Margin Pricing (Standaard)
+
+- **Formule:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Inclusief Fee Payer Outflow:** Ja
+- **Geschikt voor:** Productie-implementaties waarbij kosten de werkelijke
+  uitgaven moeten weerspiegelen met een toegevoegde operationele marge
+
+### Vaste Prijsstelling
+
+- **Formule:** `Total Fee = Fixed Amount (in specified token)`
+- **Inclusief Fee Payer Outflow:** Nee
+- **Geschikt voor:** Vereenvoudigde gebruikerservaring met voorspelbare prijzen
+  in gecontroleerde omgevingen
+
+### Gratis Prijsstelling
+
+- **Formule:** `Total Fee = 0`
+- **Inclusief Fee Payer Outflow:** Nee (operator absorbeert alle kosten)
+- **Geschikt voor:** Promotiecampagnes, testen of volledig gesponsorde
+  applicaties
+
+---
+
+## ⚠️ Beveiligingswaarschuwing: Vaste/Gratis Prijsmodellen
+
+**KRITIEK:** De vaste/gratis prijsmodellen bevatten **GEEN** fee payer outflow
+in het gefactureerde bedrag. Dit creëert een aanzienlijk beveiligingsrisico als
+dit niet correct is geconfigureerd. Als uw fee payer beleid transfers of andere
+outflow-operaties toestaat, kunnen aanvallers dit misbruiken om uw fee payer
+account leeg te trekken.
+
+### Vereiste Beveiligingsmaatregelen
+
+Bij gebruik van vaste/gratis prijsstelling **MOET** u restrictieve fee payer
+beleidsregels configureren om ALLE monetaire en autoriteit-wijzigende operaties
+te blokkeren:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Aanvullende Beschermingen
+
+1. **Schakel Authenticatie in:** Vereist altijd API-sleutel of
+   HMAC-authenticatie bij vaste/gratis prijsstelling
+2. **Stel Lage Limieten in:** Gebruik conservatieve `max_allowed_lamports`
+   waarden
+3. **Monitor Gebruik:** Volg ongebruikelijke patronen van transacties met hoge
+   outflow
+4. **Overweeg Margin Pricing:** Margin pricing berekent outflow-kosten
+   automatisch mee in de tarieven
+
+### Validatiewaarschuwingen
+
+Kora's configuratie-validator waarschuwt u voor gevaarlijke configuraties:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Verwachte waarschuwingen voor kwetsbare configuraties:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

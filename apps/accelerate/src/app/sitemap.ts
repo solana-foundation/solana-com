@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority?: number;
     }[]
   ).map(({ path, changeFrequency, priority }) => ({
-    url: `${config.siteUrl}${path}`,
+    url: `${config.publicUrl}${path}`,
     changeFrequency,
     priority,
   }));

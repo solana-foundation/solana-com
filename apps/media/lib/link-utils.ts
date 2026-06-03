@@ -124,7 +124,7 @@ function extractYouTubeVideoId(url: string): string | null {
 
   for (const pattern of patterns) {
     const match = url.match(pattern);
-    if (match) return match[1];
+    if (match) return match[1] ?? null;
   }
   return null;
 }
@@ -134,7 +134,8 @@ function extractYouTubeVideoId(url: string): string | null {
  */
 function extractGitHubRepo(url: string): string | null {
   const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
-  return match ? match[1] : null;
+  if (match) return match[1] ?? null;
+  return null;
 }
 
 /**
@@ -169,7 +170,7 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
         if (response.ok) {
           const html = await response.text();
           const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-          if (titleMatch) {
+          if (titleMatch && titleMatch[1]) {
             metadata.title = titleMatch[1]
               .replace(" - YouTube", "")
               .replace(/&amp;/g, "&")
@@ -178,7 +179,7 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
           const descMatch = html.match(
             /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i,
           );
-          if (descMatch) {
+          if (descMatch && descMatch[1]) {
             metadata.description = descMatch[1]
               .replace(/&amp;/g, "&")
               .replace(/&#39;/g, "'");
@@ -233,7 +234,7 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
           "i",
         ),
       );
-      if (match) return match[1];
+      if (match) return match[1] ?? null;
 
       // Try content="..." property="..."
       match = html.match(
@@ -242,28 +243,30 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
           "i",
         ),
       );
-      return match ? match[1] : null;
+      if (match) return match[1] ?? null;
+      return null;
     };
 
     // Extract Open Graph tags
-    metadata.title = extractMeta("og:title");
-    metadata.description = extractMeta("og:description");
-    metadata.image = extractMeta("og:image");
-    metadata.siteName = extractMeta("og:site_name");
-    metadata.type = extractMeta("og:type");
+    metadata.title = extractMeta("og:title") ?? undefined;
+    metadata.description = extractMeta("og:description") ?? undefined;
+    metadata.image = extractMeta("og:image") ?? undefined;
+    metadata.siteName = extractMeta("og:site_name") ?? undefined;
+    metadata.type = extractMeta("og:type") ?? undefined;
 
     // Fallback to Twitter Card tags
     if (!metadata.image) {
-      metadata.image = extractMeta("twitter:image", "name");
+      metadata.image = extractMeta("twitter:image", "name") ?? undefined;
     }
     if (!metadata.description) {
-      metadata.description = extractMeta("twitter:description", "name");
+      metadata.description =
+        extractMeta("twitter:description", "name") ?? undefined;
     }
 
     // Fallback to standard meta tags if OG tags not found
     if (!metadata.title) {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (titleMatch) {
+      if (titleMatch && titleMatch[1]) {
         metadata.title = titleMatch[1]
           .replace(/&amp;/g, "&")
           .replace(/&#39;/g, "'");
@@ -271,7 +274,7 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
     }
 
     if (!metadata.description) {
-      metadata.description = extractMeta("description", "name");
+      metadata.description = extractMeta("description", "name") ?? undefined;
     }
 
     // Decode HTML entities

@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { MermaidConfig } from "mermaid";
 import { Loader2 } from "lucide-react";
 
-function useIsVisible(ref: RefObject<HTMLElement>) {
+function useIsVisible(ref: RefObject<HTMLElement | null>) {
   const [isIntersecting, setIsIntersecting] = useState(false);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function MermaidRenderer({
   const id = useId();
   const [svg, setSvg] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const isVisible = useIsVisible(containerRef);
   const svgPanZoomInstance = useRef<SvgPanZoom.Instance | null>(null);
 

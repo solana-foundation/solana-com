@@ -1,0 +1,230 @@
+---
+title: Giám Sát & Chỉ Số
+description: Giám sát node Kora của bạn với Prometheus và Grafana
+---
+
+_Cập nhật lần cuối: 2025-08-22_
+
+[Kora Metrics Crate](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+cung cấp khả năng thu thập chỉ số và giám sát toàn diện cho máy chủ RPC Kora.
+
+Kora cung cấp điểm cuối `/metrics` để cung cấp dữ liệu hiệu suất theo thời gian
+thực ở định dạng Prometheus.
+
+## Cấu Hình
+
+Các chỉ số được cấu hình trong phần `[metrics]` của tệp `kora.toml`. Phần
+`[metrics]` cấu hình việc thu thập và giám sát chỉ số. Phần này là tùy chọn và
+theo mặc định, các chỉ số sẽ bị vô hiệu hóa.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| Tùy chọn          | Mô tả                                   | Bắt buộc | Kiểu    |
+| ----------------- | --------------------------------------- | -------- | ------- |
+| `enabled`         | Bật thu thập chỉ số                     | ✅       | boolean |
+| `endpoint`        | Đường dẫn điểm cuối chỉ số tùy chỉnh    | ✅       | string  |
+| `port`            | Cổng điểm cuối chỉ số                   | ✅       | number  |
+| `scrape_interval` | Tần suất thu thập của Prometheus (giây) | ✅       | number  |
+
+### Theo Dõi Số Dư Fee Payer
+
+Phần `[metrics.fee_payer_balance]` cấu hình giám sát tự động số dư SOL của fee
+payer:
+
+| Tùy chọn         | Mô tả                                | Bắt buộc             | Kiểu    |
+| ---------------- | ------------------------------------ | -------------------- | ------- |
+| `enabled`        | Bật theo dõi số dư fee payer         | ❌ (mặc định: false) | boolean |
+| `expiry_seconds` | Khoảng thời gian theo dõi nền (giây) | ❌ (mặc định: 30)    | number  |
+
+Khi được bật, Kora tự động theo dõi số dư SOL của fee payer và hiển thị thông
+qua gauge Prometheus `fee_payer_balance_lamports`. Điều này hỗ trợ việc lập kế
+hoạch năng lực và cảnh báo số dư thấp.
+
+## Bắt Đầu Nhanh
+
+**Truy cập chỉ số:**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Những Gì Bạn Sẽ Thấy
+
+Các chỉ số cho thấy hiệu suất hoạt động của máy chủ RPC:
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+Nếu bạn chưa gọi máy chủ RPC, bạn sẽ không thấy bất kỳ chỉ số nào. Bạn có thể
+chạy một bài kiểm tra đơn giản bằng cách gọi phương thức `getConfig`:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+và sau đó kiểm tra các chỉ số:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Giải Thích Các Chỉ Số Chính
+
+1. **`kora_http_requests_total`** - Số lượng yêu cầu bạn đã xử lý
+   - `method`: Phương thức RPC nào đã được gọi
+   - `status`: Mã trạng thái HTTP (200=thành công, 400=lỗi, v.v.)
+   - Sử dụng để theo dõi các mẫu sử dụng và tỷ lệ lỗi
+
+2. **`kora_http_request_duration_seconds`** - Tốc độ xử lý yêu cầu của bạn
+   - Hiển thị các phân vị (p50, p95, p99) cho thời gian phản hồi
+   - Sử dụng để xác định các điểm cuối chậm
+
+3. **`signer_balance_lamports`** - Số dư SOL hiện tại của mỗi người ký
+   - Hiển thị số dư tính bằng lamport (1 SOL = 1.000.000.000 lamport) cho mỗi
+     người ký
+   - Nhãn: `signer_name` (tên dễ đọc) và `signer_pubkey` (khóa công khai)
+   - Được cập nhật tự động ở chế độ nền khi bật
+   - Sử dụng để lập kế hoạch năng lực và cảnh báo số dư thấp cho tất cả người ký
+
+## Sử Dụng Dữ Liệu
+
+### Tùy Chọn 1: Kiểm Tra Sức Khỏe Nhanh
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### Tùy Chọn 2: Prometheus + Grafana (Khuyến Nghị)
+
+Để có biểu đồ và cảnh báo, hãy chạy toàn bộ hệ thống giám sát:
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+Sau đó truy cập:
+
+- Prometheus: http://localhost:9090 (truy vấn các chỉ số)
+- Bảng điều khiển Kora có sẵn trên Grafana: http://localhost:3000
+  - Đăng nhập mặc định: admin/admin (hoặc sử dụng thông tin đăng nhập
+    `GF_SECURITY_ADMIN_PASSWORD` và `GF_SECURITY_ADMIN_USER` từ tệp `.env` của
+    bạn)
+
+### Tùy Chọn 3: Hệ Thống Giám Sát Của Riêng Bạn
+
+Hướng bất kỳ công cụ tương thích Prometheus nào đến
+`http://your-server:8080/metrics`:
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## Các Truy Vấn Mẫu (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## Giám Sát Đa Người Ký
+
+Khi sử dụng nhiều người ký, bạn có thể giám sát từng người ký riêng lẻ hoặc theo
+dõi các chỉ số tổng hợp:
+
+### Chỉ Số Người Ký Riêng Lẻ
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### Truy Vấn Prometheus Cho Cấu Hình Đa Người Ký
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## Lưu ý về Bảo mật
+
+Endpoint `/metrics` mặc định là công khai. Trong môi trường production, hãy cân
+nhắc:
+
+- Đặt nó sau tường lửa
+- Sử dụng cổng metrics riêng biệt
+- Thêm xác thực thông qua reverse proxy
+
+## Cách Hoạt động của Thu thập Metrics
+
+1. **Lớp HTTP Middleware** - Chặn tất cả các yêu cầu và thu thập:
+   - Số lượng yêu cầu theo phương thức JSON-RPC và trạng thái
+   - Thời lượng yêu cầu theo phương thức
+
+2. **Endpoint Metrics** - Endpoint `/metrics` được tự động expose khi tính năng
+   được bật
+   - Được xử lý bởi `MetricsHandlerLayer`
+   - Trả về metrics theo định dạng Prometheus
+
+3. **Prometheus Scraping** - Được cấu hình để scrape Kora mỗi 60 giây (xem
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml))

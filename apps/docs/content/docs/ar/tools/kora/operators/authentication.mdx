@@ -1,0 +1,242 @@
+---
+title: المصادقة
+description: دليل مرجعي للمشغلين حول المصادقة
+---
+
+تدعم Kora طريقتين اختياريتين للمصادقة لتأمين نقطة RPC الخاصة بك: مفتاح API
+ومصادقة HMAC. يغطي هذا الدليل الإعداد والتنفيذ وأفضل ممارسات الأمان.
+
+المصادقة اختيارية ولكنها **موصى بها بشدة** لعمليات النشر في بيئة الإنتاج. بدون
+مصادقة، يمكن لأي شخص يكتشف نقطة Kora الخاصة بك إرسال المعاملات واستهلاك رصيد SOL
+الخاص بك.
+
+| الطريقة       | مستوى الأمان | حالة الاستخدام                              | التعقيد |
+| ------------- | ------------ | ------------------------------------------- | ------- |
+| **بدون**      | ⚠️ لا يوجد   | التطوير، الاختبار، التسعير ذو الهامش العالي | لا يوجد |
+| **مفتاح API** | أساسي        | التطبيقات الداخلية، العملاء الموثوقون       | منخفض   |
+| **HMAC**      | عالي         | واجهات برمجية عامة، شبكات غير موثوقة        | متوسط   |
+| **كلاهما**    | أقصى درجة    | البيئات عالية الأمان                        | متوسط   |
+
+يتم تكوين مصادقة Kora في ملف `kora.toml` في قسم `[kora.auth]`.
+
+في هذا المستند:
+
+- [مصادقة مفتاح API](#api-key-authentication)
+- [مصادقة HMAC](#hmac-authentication)
+- [المصادقة المدمجة](#combined-authentication)
+- [أفضل ممارسات الأمان](#security-best-practices)
+- [النقاط المستثناة](#exempt-endpoints)
+- [استكشاف الأخطاء وإصلاحها](#troubleshooting)
+
+## مصادقة مفتاح API
+
+مصادقة بسيطة بسر مشترك باستخدام رؤوس HTTP. يمكنك إنشاء مفتاح API جديد باستخدام
+أمر `openssl` (أو أمر مشابه) في الطرفية الخاصة بك:
+
+```bash
+openssl rand -hex 32
+```
+
+### تكوين الخادم
+
+- أضف `KORA_API_KEY` إلى ملف .env (متغيرات البيئة) (له الأولوية) أو
+- أضف `api_key` إلى `kora.toml`:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+سيكون هذا المفتاح مطلوبًا عالميًا لجميع الطلبات إلى نقطة Kora RPC.
+
+### تنفيذ العميل
+
+قم بتضمين مفتاح API في رأس `x-api-key` مع كل طلب:
+
+**مثال cURL:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**مثال JavaScript باستخدام Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**مثال JavaScript باستخدام fetch:**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## مصادقة HMAC
+
+بدلاً من إرسال مفتاح API مع كل طلب، ينشئ HMAC توقيعًا تشفيريًا فريدًا يثبت
+معرفتك بالسر دون الكشف عنه. يتضمن كل توقيع طابعًا زمنيًا وتنتهي صلاحيته بعد 5
+دقائق، لذا لا يمكن إعادة تشغيل الطلبات المعترضة. لا يستطيع المهاجمون إنشاء طلبات
+جديدة لأنهم لا يملكون مفتاحك السري.
+
+### إعداد الخادم
+
+- أضف `KORA_HMAC_SECRET` إلى ملف .env الخاص بك (متغيرات البيئة) (له الأولوية) أو
+- أضف `hmac_secret` عامًا إلى `kora.toml` الخاص بك (32 حرفًا كحد أدنى -- يمكنك
+  توليد واحد باستخدام `openssl rand -hex 32` أو ما شابه):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### كيفية عمل HMAC
+
+1. ينشئ العميل رسالة عن طريق دمج: `{timestamp}{request_body}`
+2. يوقع العميل الرسالة باستخدام HMAC-SHA256 مع السر المشترك
+3. يرسل العميل الطلب مع رؤوس الطابع الزمني والتوقيع
+4. يتحقق الخادم من التوقيع والطابع الزمني (يجب أن يكون ضمن 5 دقائق)
+
+### التنفيذ من جانب العميل
+
+لاستخدام HMAC من جانب العميل، يمكنك استخدام Kora SDK أو مكتبة `crypto` في
+JavaScript:
+
+1. إنشاء طابع زمني
+2. إنشاء نص الطلب
+3. إنشاء رسالة عن طريق دمج الطابع الزمني والنص (مثل
+   `message = timestamp + body`)
+4. إنشاء توقيع عن طريق توقيع الرسالة بالسر HMAC (باستخدام طريقة
+   `crypto.createHmac`)
+5. إرسال الطلب مع رؤوس الطابع الزمني (`x-timestamp`) والتوقيع
+   (`x-hmac-signature`)
+
+**مثال JavaScript باستخدام Kora SDK:**
+
+يخفي Kora SDK عملية مصادقة HMAC، لذا يمكنك ببساطة استدعاء الطريقة التي تريد
+استخدامها وسيتولى SDK المصادقة نيابة عنك.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**مثال JavaScript باستخدام مكتبة `crypto`:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## المصادقة المدمجة
+
+يمكنك تفعيل كلا طريقتي المصادقة في آنٍ واحد لتحقيق أقصى قدر من الأمان:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+عندما يتم تكوين كليهما، يجب على العملاء إرسال رؤوس `x-api-key` و `x-timestamp` و
+`x-hmac-signature`.
+
+## أفضل الممارسات الأمنية
+
+- **استخدم مفاتيح قوية وعشوائية**: بحد أدنى 32 حرفاً مع إنتروبيا عالية
+- **قم بالتدوير بانتظام**: غيّر المفاتيح بشكل دوري (شهرياً/ربع سنوي)
+- **تخزين آمن**: استخدم متغيرات البيئة أو إدارة الأسرار (أسرار Railway، AWS
+  Secrets Manager، إلخ)
+- **لا تقم بالترميز المباشر مطلقاً**: احتفظ بالمفاتيح بعيداً عن الكود المصدري
+  والسجلات
+- **استخدم HTTPS**: استخدم دائماً TLS في الإنتاج لحماية المفاتيح أثناء النقل
+- **راقب الوصول**: راقب أنماط المصادقة غير العادية أو حالات الفشل المتكررة
+
+## نقاط النهاية المعفاة
+
+نقطة النهاية `/liveness` معفاة دائماً من المصادقة للسماح بفحوصات الحالة الصحية:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## استكشاف الأخطاء وإصلاحها
+
+**401 غير مصرح به مع مفتاح API:**
+
+- تحقق من صحة مفتاح API ومطابقته لتكوين الخادم
+- تحقق من إرسال رأس `x-api-key`
+- تأكد من عدم وجود مسافات إضافية في المفتاح
+
+**401 غير مصرح به مع HMAC:**
+
+- تحقق من أن الطابع الزمني حالي (خلال 5 دقائق)
+- تحقق من تطابق بناء الرسالة: `{timestamp}{body}`
+- تأكد من تطابق سر HMAC مع تكوين الخادم
+- تحقق من أن التوقيع بأحرف سداسية عشرية صغيرة

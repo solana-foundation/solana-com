@@ -62,8 +62,8 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
       podcast={podcast}
       episode={episode}
       relatedEpisodes={relatedEpisodes}
-      previousEpisode={previousEpisode}
-      nextEpisode={nextEpisode}
+      previousEpisode={previousEpisode ?? null}
+      nextEpisode={nextEpisode ?? null}
     />
   );
 }

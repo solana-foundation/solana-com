@@ -1,0 +1,487 @@
+---
+title: Wallet-verbinding
+description: Verbind Solana-wallets met behulp van Wallet Standard
+---
+
+Het `@solana-commerce/connector`-pakket biedt headless wallet-verbinding gebouwd
+op de [Wallet Standard](https://github.com/wallet-standard/wallet-standard). Het
+beheert wallet-detectie, verbindingsstatus, accountbeheer en automatische
+herverbinding. Het pakket is ontworpen om framework-agnostisch te zijn met
+React- bindings inbegrepen. Het is op maat gemaakt voor naadloos gebruik in
+Solana Commerce Kit en is compatibel met
+[@solana/kit](https://github.com/anza-xyz/kit) en
+[gill](https://www.gillsdk.com/).
+
+![Wallet-verbinding](/assets/docs/tools/commerce-kit/connector.png)
+
+## Installatie
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Providerconfiguratie
+
+### `ConnectorProvider`
+
+Het `ConnectorProvider`-component omhult je applicatie en biedt wallet-
+verbindingsstatus aan alle onderliggende componenten. Het beheert een singleton
+`ConnectorClient`-instantie die behouden blijft tijdens component
+mount/unmount-cycli.
+
+#### Props
+
+Alle configuratie wordt doorgegeven via de `config`-prop:
+
+- **`config`** (`ConnectorConfig`, optioneel) - Configuratieobject voor de
+  connector. Alle velden zijn optioneel.
+
+#### `ConnectorConfig`
+
+Configuratieobject voor wallet-verbindingsgedrag.
+
+##### Optionele velden
+
+- **`autoConnect`** (`boolean`) - Wanneer `true`, maakt automatisch opnieuw
+  verbinding met de laatst gebruikte wallet bij mount. De wallet-voorkeur wordt
+  opgeslagen in de geconfigureerde opslag (standaard `localStorage`). Standaard:
+  `false`.
+
+- **`debug`** (`boolean`) - Schakelt uitgebreide console-logging in voor het
+  debuggen van verbindingsflows, accountwijzigingen en fouten. Logs bevatten
+  voorvoegsels zoals `[Connector]` en `[ConnectorProvider]`. Standaard: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Polling-interval in milliseconden
+  voor het controleren van accountwijzigingen wanneer de wallet de
+  `standard:events`-functie niet ondersteunt. De meeste moderne wallets
+  ondersteunen events, dus polling is een fallback. Standaard: `1500` (1,5
+  seconden).
+
+- **`storage`** (`Storage`) - Aangepaste opslagadapter voor het persistent maken
+  van wallet- voorkeuren. Moet implementeren:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Standaard: `window.localStorage` indien beschikbaar (alleen browser). Gebruik
+  dit voor React Native (`AsyncStorage`) of aangepaste SSR-veilige opslag.
+
+#### Provider Architectuur
+
+De provider gebruikt een **singleton patroon** met reference counting:
+
+- Meerdere `ConnectorProvider` instanties delen dezelfde `ConnectorClient`
+- De client wordt aangemaakt bij de eerste mount en blijft bestaan na unmounts
+- Wanneer alle providers unmounten, wordt de opruiming 5 seconden uitgesteld om
+  snelle remounts af te handelen
+- Tijdens de opruiming wordt de wallet losgekoppeld en worden alle event
+  listeners verwijderd
+
+Dit ontwerp voorkomt dat de wallet wordt losgekoppeld tijdens route-wijzigingen
+of component updates.
+
+---
+
+## Hooks
+
+### `useConnector()`
+
+De primaire hook voor toegang tot wallet verbindingsstatus en acties. Moet
+worden gebruikt binnen een `ConnectorProvider`.
+
+Retourneert een `ConnectorSnapshot` object met:
+
+#### Status Properties
+
+- **`wallets`** (`WalletInfo[]`) - Array van alle ontdekte Wallet Standard
+  compatibele wallets. Wordt automatisch bijgewerkt wanneer wallets worden
+  geïnstalleerd of gedeïnstalleerd. Elke wallet bevat metadata zoals naam, icoon
+  en mogelijkheden. Zie [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Het momenteel verbonden Wallet
+  Standard wallet object. `null` wanneer losgekoppeld. Dit is de raw wallet
+  instantie van de Wallet Standard API.
+
+- **`connected`** (`boolean`) - Verbindingsstatus. `true` wanneer een wallet is
+  verbonden en accounts beschikbaar zijn. Gebruik dit voor voorwaardelijke UI
+  rendering.
+
+- **`connecting`** (`boolean`) - Laadstatus tijdens wallet verbinding. `true`
+  tussen het aanroepen van `select()` en het ontvangen van het
+  verbindingsresultaat. Gebruik dit om laadindicatoren te tonen of knoppen uit
+  te schakelen.
+
+- **`accounts`** (`AccountInfo[]`) - Array van accounts van de verbonden wallet.
+  De meeste wallets bieden één account, maar sommige ondersteunen meerdere.
+  Wordt automatisch bijgewerkt via wallet events of polling. Zie
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Het adres van het momenteel
+  geselecteerde account (base58-gecodeerde public key). Wanneer een wallet
+  verbindt met een nieuw account, wordt dat account automatisch geselecteerd.
+  Anders wordt het eerder geselecteerde account behouden.
+
+#### Actiemethoden
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Maakt verbinding met
+  een wallet op naam (bijv. `"Phantom"`, `"Solflare"`). De walletnaam moet exact
+  overeenkomen met het `name`-veld van een ontdekte wallet.
+
+  **Proces:**
+  1. Stelt `connecting: true` in
+  2. Roept de `standard:connect`-functie van de wallet aan
+  3. Haalt accounts op uit de wallet
+  4. Abonneert zich op wallet-events (of start polling als events niet
+     beschikbaar zijn)
+  5. Slaat de walletvoorkeur op in de geconfigureerde opslag
+  6. Werkt de status bij met accounts en geselecteerd account
+
+  **Geeft fout:** Fout als wallet niet gevonden, wallet ondersteunt geen
+  verbinding, of verbinding wordt geweigerd door gebruiker.
+
+- **`disconnect`** (`() => Promise<void>`) - Verbreekt de verbinding met de
+  huidige wallet en ruimt alle status op.
+
+  **Proces:**
+  1. Beëindigt abonnement op wallet-events
+  2. Stopt account-polling
+  3. Roept `standard:disconnect`-functie van de wallet aan indien beschikbaar
+  4. Wist geselecteerde wallet, accounts en geselecteerd account
+  5. Verwijdert walletvoorkeur uit opslag
+
+  Geeft nooit een fout (fouten worden gelogd als debug is ingeschakeld).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Wijzigt het
+  geselecteerde account naar een ander adres van de verbonden wallet. Als het
+  adres niet in de huidige accounts-array staat, wordt een herverbinding
+  geactiveerd om bijgewerkte accounts op te halen.
+
+  **Geeft fout:** Fout als er geen wallet verbonden is of het gevraagde account
+  niet wordt gevonden na herverbinding.
+
+### `useConnectorClient()`
+
+Biedt directe toegang tot de onderliggende `ConnectorClient`-instantie voor
+geavanceerde gebruikssituaties.
+
+**Retourneert:** `ConnectorClient | null` - De singleton client-instantie, of
+`null` wanneer gebruikt buiten `ConnectorProvider`.
+
+**Gebruikssituaties:**
+
+- Directe toegang tot `getConnectorState()` voor imperatieve statusuitlezingen
+- Handmatig abonneren met `subscribe(listener)` voor aangepaste
+  statusluisteraars
+- Aanroepen van `destroy()` voor gedwongen opschoning (niet aanbevolen bij
+  normaal gebruik)
+
+**Voorbeeld:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Typedefinities
+
+### `WalletInfo`
+
+Metadata over een ontdekte wallet.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Vereisten:** Een wallet is verbindbaar wanneer deze ondersteunt:
+
+- `standard:connect` functie
+- `standard:disconnect` functie
+- Solana chains (gedetecteerd via `wallet.chains` met `"solana"`)
+
+Niet-verbindbare wallets verschijnen in de `wallets` array maar kunnen niet
+worden geselecteerd.
+
+### `AccountInfo`
+
+Informatie over een wallet-account.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Het `raw` veld biedt toegang tot aanvullende account-eigenschappen:
+
+- `address: string` - Base58-gecodeerde publieke sleutel
+- `publicKey: Uint8Array` - Ruwe publieke sleutel bytes
+- `label?: string` - Account label (indien wallet dit verstrekt)
+- `icon?: string` - Account-specifiek icoon (data URL)
+- `chains: string[]` - Ondersteunde chains voor dit account
+- `features: string[]` - Ondersteunde functies voor dit account
+
+### `ConnectorSnapshot`
+
+Het retourtype van `useConnector()`, waarbij state en acties worden
+gecombineerd.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Detectie van Account-wijzigingen
+
+De connector detecteert automatisch wanneer wallet-accounts veranderen
+(gebruiker voegt accounts toe/verwijdert accounts, wisselt van account in de
+wallet). Er worden twee strategieën gebruikt:
+
+### Op basis van Events (Voorkeur)
+
+Wanneer de wallet `standard:events` ondersteunt, abonneert de connector zich op
+`change` events:
+
+- Ontvangt real-time meldingen wanneer accounts veranderen
+- Efficiënter (geen polling)
+- Aggregeert accounts uit zowel het event als `wallet.accounts` om wallets te
+  ondersteunen die alleen het geselecteerde account in events opnemen
+
+### Polling als Terugvaloptie
+
+Wanneer events niet worden ondersteund, pollt de connector `wallet.accounts`:
+
+- Controleert elke `accountPollingIntervalMs` (standaard: 1500ms)
+- Vergelijkt account-adressen om wijzigingen te detecteren
+- Triggert alleen opnieuw renderen wanneer accounts daadwerkelijk veranderen
+
+**Account Selectie Logica:**
+
+- Wanneer accounts veranderen, behoud het geselecteerde account als deze nog
+  bestaat
+- Als het geselecteerde account is verwijderd, selecteer het eerst beschikbare
+  account
+- Bij verbinden met een nieuw account (niet in vorige accounts), geef voorkeur
+  aan het nieuwe account
+
+---
+
+## Opslag & Automatisch Verbinden
+
+### Opslagpersistentie
+
+De connector slaat één sleutel op in de geconfigureerde opslag:
+
+- **Sleutel:** `arc-connector:lastWallet`
+- **Waarde:** Walletnaam (bijv. `"Phantom"`)
+
+Opslagbewerkingen worden verpakt in try-catch om het volgende af te handelen:
+
+- Sandboxed iframes waar `localStorage` een fout genereert
+- SSR-omgevingen waar `window` ongedefinieerd is
+- React Native waar `localStorage` niet bestaat
+
+Als opslag mislukt, gaat de connector door zonder persistentie (er worden geen
+fouten gegenereerd).
+
+### Gedrag bij Automatisch Verbinden
+
+Wanneer `autoConnect: true`:
+
+1. Leest bij het laden de laatste walletnaam uit de opslag
+2. Wacht 100ms (zodat wallets zich kunnen registreren)
+3. Roept `select(walletName)` aan als de wallet wordt gevonden
+4. Als automatisch verbinden mislukt, wordt de ongeldige voorkeur uit de opslag
+   verwijderd
+
+**Beveiligingsopmerking:** De opgeslagen voorkeur is slechts een walletnaam
+(tekenreeks), geen gevoelige gegevens. De wallet regelt
+authenticatie/autorisatie via zijn eigen gebruikersinterface.
+
+---
+
+## Gebruiksvoorbeelden
+
+### Basis Walletknop
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Multi-Account Selector
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+Verbindingsmonitoring
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Ondersteunde Wallets
+
+De connector ondersteunt alle wallets die de
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+implementeren, waaronder:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Elke andere met Wallet Standard compatibele wallet
+
+Wallets worden automatisch ontdekt wanneer ze zich registreren bij de Wallet
+Standard API (geen configuratie nodig).
+
+---
+
+## Headless gebruik (Zonder React)
+
+Voor niet-React applicaties of server-side gebruik, gebruik `ConnectorClient`
+direct:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Let op:** `ConnectorClient` beheert zijn eigen state en triggert nooit React
+re-renders. Je moet handmatig abonneren op state-wijzigingen.

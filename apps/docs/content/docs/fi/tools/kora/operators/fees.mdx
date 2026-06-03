@@ -1,0 +1,134 @@
+---
+title: Maksujen viiteopas
+description: Täydellinen viiteopas Koran maksulaskentaan.
+---
+
+_Viimeksi päivitetty: 2025-10-31_
+
+Kora arvioi transaktiomaksut suorittaessaan `estimate_transaction_fee`- ja
+`sign_transaction`-RPC-metodeja. Arvioidakseen maksut Kora laskee Solanassa
+suoritettavien transaktioiden kokonaiskustannukset, mukaan lukien verkkomaksut,
+tilin luontikustannukset ja valinnaiset maksunkäsittelymaksut. Tämä opas
+erittelee maksulaskennan jokaisen komponentin.
+
+## Maksulaskennan kaava
+
+Maksu määräytyy `kora.toml`-asetuksissa konfiguroidun hinnoittelumallin mukaan:
+
+- `PriceModel::Free` - Sponsoroi kaikki transaktiomaksut (kokonaismaksu = 0)
+- `PriceModel::Fixed` - Veloittaa kiinteän summan tietyssä tokenissa
+  (verkkomaksuista riippumatta)
+- `PriceModel::Margin` - Lisää prosenttiperusteisen katteen kokonaismaksuihin.
+
+Pääasiallinen sisäänkohta `PriceModel::Margin`-mallissa käytetylle
+kokonaismaksuarviolle on `FeeConfigUtil::estimate_kora_fee()`
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs)-tiedostossa.
+Se käyttää seuraavaa yleistettyä kaavaa:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Maksukomponentit
+
+| Komponentti                  | Kuvaus                                                                                                | Laskentamenetelmä                                                                                                                         | Milloin sovelletaan                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Perusmaksu**               | Solanan ydin-transaktiomaksu, joka kattaa allekirjoituksen varmentamisen ja transaktioiden käsittelyn | `RpcClient.get_fee_for_message()` - Käyttää Solanan maksulaskentaa laskentayksiköiden ja prioriteettimaksujen perusteella                 | Aina                                                         |
+| **Tilin luontimaksu**        | Vuokravapaa vähimmäissaldo uusien Associated Token Account -tilien (ATA) luomiseksi                   | `Rent::default().minimum_balance(account_size)` - Laskee vuokran tilin datakoon perusteella (165–355 tavua token-laajennuksista riippuen) | Kun transaktio luo uusia ATA-tilejä                          |
+| **Koran allekirjoitusmaksu** | Lisämaksu, kun Kora allekirjoittaa ulkopuolisena maksun maksajana                                     | Kiinteä: 5 000 lamportia (`LAMPORTS_PER_SIGNATURE`)                                                                                       | Kun maksun maksaja ei ole jo transaktion allekirjoittaja     |
+| **Maksajan ulosmeno**        | Maksajan transaktiossa lähettämä SOL-kokonaismäärä (siirrot, tilinluonnit jne.)                       | Summa: Maksajan järjestelmäsiirrot, Maksajan rahoittamat CreateAccount-toiminnot, Maksajan nonce-nostot                                   | Kun maksaja suorittaa System Program -operaatioita           |
+| **Maksuohjeemaksu**          | Prioriteettimaksujen arvioitu kustannus maksuohjeen lisäämiseksi kaasuvapaissa transaktioissa         | Kiinteä arvio: 50 lamportia (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                | Kun maksu vaaditaan, mutta ei sisälly transaktioon           |
+| **Siirtomaksu**              | Token2022-siirtomaksut, jotka on konfiguroitu mintissä (esim. 1 % siirtosummasta)                     | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Perustuu mintin siirtomaksukonfiguraatioon                                        | Vain Token2022-siirroissa Koran maksuosoitteeseen            |
+| **Katteen säätö**            | Koran hinnoittelumallin kate/säätö                                                                    | `validation.price`-asetuksissa konfiguroitu kate - Voi lisätä katteen prosenttina kokonaismaksusta                                        | Kun `[validation.price]` on määritetty kora.toml-tiedostossa |
+
+## Hinnoittelumallit ja maksajan ulosvirtaus
+
+Kora tukee kolmea hinnoittelumallia, jotka määrittävät, miten käyttäjiltä
+veloitetaan transaktioista:
+
+### Marginaalihinnoittelu (oletus)
+
+- **Kaava:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Sisältää maksajan ulosvirtauksen:** Kyllä
+- **Parhaiten soveltuu:** Tuotantoympäristöihin, joissa maksujen tulisi
+  heijastaa todellisia kustannuksia lisättynä toimintakatteella
+
+### Kiinteä hinnoittelu
+
+- **Kaava:** `Total Fee = Fixed Amount (in specified token)`
+- **Sisältää maksajan ulosvirtauksen:** Ei
+- **Parhaiten soveltuu:** Yksinkertaistettuun käyttökokemukseen ennustettavalla
+  hinnoittelulla kontrolloiduissa ympäristöissä
+
+### Ilmainen hinnoittelu
+
+- **Kaava:** `Total Fee = 0`
+- **Sisältää maksajan ulosvirtauksen:** Ei (operaattori maksaa kaikki
+  kustannukset)
+- **Parhaiten soveltuu:** Kampanjoihin, testaukseen tai täysin sponsoroituihin
+  sovelluksiin
+
+---
+
+## ⚠️ Tietoturvavaroitus: Kiinteä/ilmainen hinnoittelumalli
+
+**KRIITTISTÄ:** Kiinteä/ilmainen hinnoittelumalli **EI** sisällä maksajan
+ulosvirtausta veloitettavaan summaan. Tämä luo merkittävän tietoturvariskin, jos
+sitä ei ole määritetty asianmukaisesti. Jos maksajapolitiikkasi sallii siirrot
+tai muut ulosvirtausoperaatiot, hyökkääjät voivat hyödyntää tätä maksajatilisi
+tyhjentämiseen.
+
+### Vaaditut tietoturvakontrollit
+
+Käytettäessä kiinteää/ilmaista hinnoittelua, sinun **TÄYTYY** määrittää
+rajoittavat maksajapolitiikat estämään KAIKKI rahalliset ja valtuuksia muuttavat
+operaatiot:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Lisäsuojaukset
+
+1. **Ota autentikointi käyttöön:** Vaadi aina API-avaimen tai
+   HMAC-autentikoinnin käyttö kiinteän/ilmaisen hinnoittelun kanssa
+2. **Aseta alhaiset rajat:** Käytä konservatiivisia
+   `max_allowed_lamports`-arvoja
+3. **Valvo käyttöä:** Seuraa epätavallisia korkean ulosvirtauksen transaktioita
+4. **Harkitse marginaalihinnoittelua:** Marginaalihinnoittelu sisältää
+   automaattisesti ulosvirtauskustannukset maksuihin
+
+### Validointivaroitukset
+
+Koran konfiguraatiovalidaattori varoittaa vaarallisista määrityksistä:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Odotettavissa olevat varoitukset haavoittuville määrityksille:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

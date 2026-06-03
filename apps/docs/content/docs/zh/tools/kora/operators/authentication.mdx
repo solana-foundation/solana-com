@@ -1,0 +1,231 @@
+---
+title: 身份验证
+description: 操作员身份验证参考指南
+---
+
+Kora 支持两种可选的身份验证方法来保护您的 RPC 端点：API 密钥和 HMAC 身份验证。本指南涵盖设置、实现和安全最佳实践。
+
+身份验证是可选的，但**强烈建议**在生产环境中使用。如果没有身份验证，任何发现您的 Kora 端点的人都可以提交交易并消耗您的 SOL 余额。
+
+| 方法         | 安全级别 | 使用场景                 | 复杂度 |
+| ------------ | -------- | ------------------------ | ------ |
+| **无**       | ⚠️ 无    | 开发、测试、高利润率定价 | 无     |
+| **API 密钥** | 基础     | 内部应用、可信客户端     | 低     |
+| **HMAC**     | 高       | 公共 API、不可信网络     | 中等   |
+| **两者结合** | 最高     | 高安全性环境             | 中等   |
+
+Kora 身份验证在 `kora.toml` 文件的 `[kora.auth]` 部分中配置。
+
+本文档包含：
+
+- [API 密钥身份验证](#api-key-authentication)
+- [HMAC 身份验证](#hmac-authentication)
+- [组合身份验证](#combined-authentication)
+- [安全最佳实践](#security-best-practices)
+- [豁免端点](#exempt-endpoints)
+- [故障排除](#troubleshooting)
+
+## API 密钥身份验证
+
+使用 HTTP 标头的简单共享密钥身份验证。您可以在终端中使用 `openssl`
+命令（或类似命令）生成新的 API 密钥：
+
+```bash
+openssl rand -hex 32
+```
+
+### 服务器配置
+
+- 在您的 .env（环境变量）中添加 `KORA_API_KEY`（具有优先级）或
+- 在您的 `kora.toml` 中添加 `api_key`：
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+此密钥将在全局范围内对所有发往 Kora RPC 端点的请求生效。
+
+### 客户端实现
+
+在每个请求的 `x-api-key` 标头中包含 API 密钥：
+
+**cURL 示例：**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**使用 Kora SDK 的 JavaScript 示例：**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**使用 fetch 的 JavaScript 示例：**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## HMAC 身份验证
+
+HMAC 不是在每次请求时发送 API 密钥,而是创建一个唯一的加密签名来证明您知道密钥而不会泄露它。每个签名都包含时间戳并在 5 分钟后过期,因此被拦截的请求无法重放。攻击者无法创建新请求,因为他们没有您的密钥。
+
+### 服务器配置
+
+- 将 `KORA_HMAC_SECRET` 添加到您的 .env(环境变量)中(具有优先级)或
+- 在您的 `kora.toml` 中添加全局 `hmac_secret`(至少 32 个字符——您可以使用
+  `openssl rand -hex 32` 或类似工具生成):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### HMAC 工作原理
+
+1. 客户端通过连接以下内容创建消息:`{timestamp}{request_body}`
+2. 客户端使用 HMAC-SHA256 和共享密钥对消息进行签名
+3. 客户端发送带有时间戳和签名头的请求
+4. 服务器验证签名和时间戳(必须在 5 分钟内)
+
+### 客户端实现
+
+要在客户端使用 HMAC,您可以使用 Kora SDK 或 JavaScript 中的 `crypto` 库:
+
+1. 创建时间戳
+2. 创建请求正文
+3. 通过连接时间戳和正文创建消息(例如,`message = timestamp + body`)
+4. 使用 HMAC 密钥对消息进行签名(使用 `crypto.createHmac` 方法)创建签名
+5. 发送带有时间戳(`x-timestamp`)和签名(`x-hmac-signature`)头的请求
+
+**使用 Kora SDK 的 JavaScript 示例:**
+
+Kora
+SDK 抽象了 HMAC 身份验证过程,因此您只需调用要调用的方法,SDK 将为您处理身份验证。
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**使用 `crypto` 库的 JavaScript 示例:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## 组合身份验证
+
+您可以同时启用两种身份验证方法以获得最大安全性:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+当两者都配置时，客户端必须发送 `x-api-key`、`x-timestamp` 和 `x-hmac-signature`
+请求头。
+
+## 安全最佳实践
+
+- **使用强随机密钥**：最少 32 个字符且具有高熵值
+- **定期轮换**：定期更换密钥（每月/每季度）
+- **安全存储**：使用环境变量或密钥管理服务（Railway secrets、AWS Secrets
+  Manager 等）
+- **绝不硬编码**：将密钥从源代码和日志中排除
+- **使用 HTTPS**：在生产环境中始终使用 TLS 来保护传输中的密钥
+- **监控访问**：留意异常的身份验证模式或重复失败
+
+## 豁免端点
+
+`/liveness` 端点始终豁免身份验证，以允许健康检查：
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## 故障排除
+
+**使用 API 密钥时出现 401 未授权：**
+
+- 验证 API 密钥是否正确并与服务器配置匹配
+- 检查是否正在发送 `x-api-key` 请求头
+- 确保密钥中没有多余的空格
+
+**使用 HMAC 时出现 401 未授权：**
+
+- 验证时间戳是否为当前时间（5 分钟以内）
+- 检查消息构造是否匹配：`{timestamp}{body}`
+- 确保 HMAC 密钥与服务器配置匹配
+- 验证签名是否为小写十六进制

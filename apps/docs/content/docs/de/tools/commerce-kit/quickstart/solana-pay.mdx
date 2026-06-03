@@ -1,0 +1,436 @@
+---
+title: Solana Pay
+description: Generieren Sie Solana Pay URLs, QR-Codes und Zahlungstransaktionen
+---
+
+Das `@solana-commerce/solana-pay`-Paket bietet vollständige
+[Solana Pay](https://solanapay.com)-Funktionalität für die Entwicklung von
+Zahlungserlebnissen, kompatibel mit den Bibliotheken
+[`gill`](https://www.gillsdk.com/) und
+[`@solana/kit`](https://github.com/anza-xyz/kit). Es übernimmt
+URL-Kodierung/-Parsing, QR-Code-Generierung mit benutzerdefiniertem Styling
+sowie Transaktionskonstruktion für sowohl SOL- als auch SPL-Token-Transfers.
+
+## Installation
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URL-Kodierung
+
+### `encodeURL(fields)`
+
+Erstellt eine Solana Pay URL, die der
+[Solana Pay-Spezifikation](https://docs.solanapay.com/spec) entspricht. Diese
+Funktion generiert `solana:`-Protokoll-URLs, die als Links geteilt oder als
+QR-Codes kodiert werden können, damit mobile Wallets sie scannen können.
+
+#### Parameter
+
+- **`fields`** (`TransferRequestURLFields | TransactionRequestURLFields`) -
+  Konfiguration für die Zahlungs-URL
+
+#### `TransferRequestURLFields`
+
+Wird für einfache Zahlungsanfragen (direkte Überweisungen) verwendet:
+
+- **`recipient`** (`Address`, erforderlich) - Die Wallet-Adresse des Händlers
+  (base58-kodierter öffentlicher Schlüssel), die die Zahlung erhält. Kann ein
+  String oder `Address`-Typ von `gill` sein.
+
+- **`amount`** (`bigint`, optional) - Zahlungsbetrag in **lamport** (atomare
+  Einheiten). Für SOL gilt: 1 SOL = 1.000.000.000 lamport (9 Dezimalstellen).
+  Für SPL-Token verwenden Sie die Dezimalpräzision des Tokens (z. B. USDC
+  verwendet 6 Dezimalstellen, also 1 USDC = 1.000.000).
+
+- **`splToken`** (`Address`, optional) - Die SPL-Token-Mint-Adresse für
+  Token-Zahlungen. Wenn nicht angegeben, wird die Zahlung als SOL angenommen.
+
+- **`reference`** (`Address | Address[]`, optional) - Eindeutige
+  Referenzadresse(n) zur Nachverfolgung von Zahlungen. Generieren Sie diese mit
+  `generateKeyPairSigner().address`. Die Referenz wird als schreibgeschütztes
+  Konto zur Transaktion hinzugefügt, sodass Sie Zahlungen mit dieser Referenz
+  abfragen können.
+
+- **`label`** (`string`, optional) - Für Menschen lesbarer Händler- oder
+  App-Name, der dem Benutzer in seiner Wallet angezeigt wird (z. B. "Café",
+  "Mein Shop").
+
+- **`message`** (`string`, optional) - Nachricht, die dem Benutzer vor der
+  Zahlung angezeigt wird (z. B. „Vielen Dank für Ihren Einkauf!“, „Trinkgeld für
+  tollen Service“).
+
+- **`memo`** (`string`, optional) - On-Chain-Memo, das der Transaktion angehängt
+  wird. Wird dauerhaft auf Solana gespeichert. Nützlich für Bestellnummern,
+  Rechnungsnummern oder andere Zahlungsmetadaten.
+
+#### `TransactionRequestURLFields`
+
+Wird für komplexe Zahlungsanforderungen verwendet (einschließlich Anweisungen):
+
+- **`link`** (`URL`, erforderlich) - Der Link zur Transaktion
+  ([`Link`](/docs/tools/solana-pay/specification/version1-1#link)). Wenn die URL
+  Abfrageparameter enthält, muss sie URL-codiert sein.
+
+- **`label`** (`string`, optional) - Für Menschen lesbarer Händler- oder
+  App-Name, der dem Benutzer in seinem Wallet angezeigt wird (z. B. „Café“,
+  „Mein Shop“).
+
+- **`message`** (`string`, optional) - Nachricht, die dem Benutzer vor der
+  Zahlung angezeigt wird (z. B. „Vielen Dank für Ihren Einkauf!“, „Trinkgeld für
+  tollen Service“).
+
+#### Funktionsweise
+
+Die Funktion führt mehrere Operationen durch, um eine gültige Solana Pay URL zu
+erstellen:
+
+1. **Protokollpräfix** - Erstellt eine URL mit dem `solana:`-Protokollschema
+   (ähnlich wie `mailto:` oder `bitcoin:`)
+
+2. **Empfänger als Pfadname** - Verwendet die Base58-Adresse des Empfängers als
+   URL- Pfadname (z. B. `solana:merchantWalletAddress123...`)
+
+3. **Betragumwandlung** - Wandelt den Bigint-lamport-Betrag in eine dezimale
+   Zeichenfolgendarstellung ohne Gleitkomma-Präzisionsprobleme um.
+
+4. **Abfrageparameter** - Hängt alle optionalen Felder und Referenzen als
+   URL-codierte Abfrageparameter an
+
+#### Rückgabewert
+
+`URL`-Objekt mit dem `solana:`-Protokoll, das:
+
+- Mit `.toString()` in eine Zeichenkette zum Teilen umgewandelt werden kann
+- An `createQR()` zur QR-Code-Generierung übergeben werden kann
+- Direkt in Anchor-Tags verwendet werden kann:
+  `<a href={url.toString()}>Pay with Solana</a>`
+
+#### Beispiel: Einfache Zahlung
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### Beispiel: SPL-Token-Zahlung
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### Beispiel: Zahlung mit Nachverfolgung
+
+Verwenden Sie Referenzen, um bestimmte Zahlungen zu identifizieren:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL-Parsing
+
+### `parseURL(url)`
+
+Dekodiert und validiert eine Solana Pay URL und extrahiert alle
+Zahlungsparameter. Diese Funktion führt eine Validierung durch und konvertiert
+Beträge von Dezimalzeichenfolgen zurück in bigint lamport.
+
+#### Parameter
+
+- **`url`** (`string | URL`) - Die zu parsende Solana Pay URL. Kann ein String
+  oder URL-Objekt sein.
+
+#### Rückgabewert
+
+Ein geparste `TransferRequestURLFields`- oder
+`TransactionRequestURLFields`-Objekt.
+
+#### Beispiel: Parsen und Validieren
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### Beispiel: URL-Validatoren-Funktion
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## QR-Code-Generierung
+
+### `createQR(url, size, background, color)`
+
+Generiert einen für Solana Pay URLs optimierten SVG-QR-Code. Die Funktion
+erzeugt stilvolle, hochwertige QR-Codes mit abgerundeten Ecken und anpassbaren
+Farben.
+
+#### Parameter
+
+- **`url`** (`string | URL`) - Die im QR-Code zu kodierende Solana Pay URL
+- **`size`** (`number`, Standard: `512`) - Breite und Höhe in Pixeln
+- **`background`** (`string`, Standard: `'white'`) - Hintergrundfarbe (Hex oder
+  benannte Farbe). Sollte für Wallet-Kompatibilität hell sein.
+- **`color`** (`string`, Standard: `'black'`) - Vordergrund-/Punktfarbe (Hex
+  oder benannte Farbe). Sollte für Kontrast dunkel sein.
+
+_Alternativ können Sie `createStyledQRCode(url, options)` für mehr Kontrolle
+über das QR-Code-Styling verwenden (Breite, Rand, Farben, Punktstil, Eckenstil,
+Logo, Logogröße, Logo-Hintergrundfarbe, Logo-Rand)._
+
+#### Rückgabewert
+
+`Promise<string>` - SVG-Markup als String, das verwendet werden kann für:
+
+- Als Quelle für ein `img`-Element: `<img src={qrCode} />`
+- Speichern in einer Datei
+
+#### Beispiel
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### Beispiel: Branded QR-Code
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## Transaktionserstellung
+
+### `createTransfer(rpc, sender, fields)`
+
+Erstellt eine vollständige Solana-Transaktionsnachricht für eine
+Zahlungsübertragung. Diese Funktion erkennt automatisch, ob eine SOL- oder
+SPL-Token-Übertragung erstellt werden soll, basierend auf dem
+`splToken`-Parameter, und konstruiert alle erforderlichen Anweisungen. Die
+Funktion legt eine Blockhash-Lebensdauer für die Transaktion fest, indem sie den
+neuesten Blockhash vom RPC-Client verwendet, und gibt eine vollständige,
+unsignierte Transaktion zurück, die zum Signieren und Übermitteln an den RPC
+bereit ist (Typ `TransactionMessageWithBlockhashLifetime`, kompatibel mit Solana
+Kit/Gill).
+
+#### Parameter
+
+- **`rpc`** (`Rpc<SolanaRpcApi>`) - Solana RPC-Client von `gill`. Erstellen mit
+  `createSolanaClient(rpcUrl).rpc`.
+
+- **`sender`** (`Address`) - Die Wallet-Adresse des Zahlers. Muss ein
+  finanziertes Konto sein, das die Transaktion signiert.
+
+- **`fields`** (`CreateTransferFields`) - Übertragungskonfiguration:
+  - `recipient` (`Address`, erforderlich) - Ziel-Wallet-Adresse
+  - `amount` (`bigint`, erforderlich) - Betrag in lamport (SOL) oder atomaren
+    Token-Einheiten (SPL)
+  - `splToken` (`Address`, optional) - SPL-Token-Mint-Adresse. Falls nicht
+    angegeben, wird eine SOL-Übertragung erstellt.
+  - `reference` (`Address | Address[]`, optional) - Referenzadresse(n) zur
+    Nachverfolgung
+  - `memo` (`string`, optional) - On-Chain-Memo-Text
+
+#### Rückgabewert
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - Vollständige
+Transaktionsnachricht mit:
+
+- Version-0-Format (unterstützt Address-Lookup-Tabellen)
+- Blockhash-Lebensdauer (Transaktion läuft nach ~60 Sekunden ab)
+- Allen erforderlichen Anweisungen (Übertragung + optionales Memo)
+- Bereit zum Signieren mit Wallet und Übermitteln an RPC
+
+#### Fehlerbehandlung
+
+Wirft `CreateTransferError` mit spezifischen Nachrichten:
+
+- `"sender not found"` - Absender-Konto existiert nicht
+- `"recipient not found"` - Empfänger-Konto existiert nicht
+
+#### Beispiel: SOL-Zahlung
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### Beispiel: USDC-Zahlung
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

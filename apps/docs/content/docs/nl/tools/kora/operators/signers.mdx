@@ -1,0 +1,514 @@
+---
+title: Ondertekenaars
+description: Kora-ondertekenaars instellen en beheren
+---
+
+_Laatst bijgewerkt: 22-08-2025_
+
+## Wat is een ondertekenaar?
+
+Een **ondertekenaar** is het cryptografische keypair dat uw Kora-node gebruikt
+om Solana-transacties te ondertekenen als de betaler van de kosten. Wanneer
+gebruikers transacties naar uw Kora-node sturen, valideert deze ze en
+ondertekent ze mee met de privésleutel van uw ondertekenaar om de
+SOL-transactiekosten te dekken.
+
+**Opmerking**: Standaard worden tokenbetalingskosten naar het adres van de
+ondertekenaar verzonden. U kunt echter een aparte `payment_address` in uw
+`kora.toml` configureren om betalingen op een ander adres te ontvangen terwijl u
+uw ondertekenaar gescheiden houdt. Zie de
+[Configuratiegids](/docs/tools/kora/operators/configuration) voor details.
+
+Uw ondertekenaar-keypair heeft directe toegang tot uw SOL-gelden die worden
+gebruikt voor het betalen van transactiekosten. Bij compromittering kan een
+aanvaller:
+
+- Uw SOL-saldo leegmaken
+- Ongeautoriseerde transacties ondertekenen
+- Uw paymaster-service verstoren
+
+## Ondertekenaarsconfiguratie
+
+De Kora RPC CLI vereist een `signer.toml` die moet worden opgegeven via de
+`--signers-config`-vlag. Het `singer.toml`-bestand stelt u in staat om de
+ondertekenaar(s) en ondertekenaarconfiguratie voor uw node te configureren.
+`signer.toml` heeft twee secties:
+
+1. `[signer_pool]` - Configuratie voor de ondertekenaarspool
+2. `[[signers]]` - Configuratie voor elke ondertekenaar (minimaal één
+   ondertekenaar is vereist, tenzij de `--no-load-signer`-vlag wordt gebruikt,
+   die beperkte functionaliteit heeft)
+
+#### `[signer_pool]`
+
+De configuratie van de ondertekenaarspool specificeert kenmerken die specifiek
+zijn voor de ondertekenaarspool als geheel:
+
+- `strategy` - De selectiestrategie voor het kiezen van ondertekenaars.
+  Beschikbare strategieën zijn:
+  - `round_robin` (standaard) - Cyclisch door ondertekenaars in volgorde.
+  - `random` - Ondertekenaars willekeurig selecteren.
+  - `weighted` - Ondertekenaars selecteren op basis van gewicht.
+
+#### `[[signers]]`
+
+Elke ondertekenaar is geconfigureerd met:
+
+- een `name`: een leesbare identificatie voor de ondertekenaar en moet uniek
+  zijn binnen de ondertekenaar-pool
+- een optionele `weight`: een getal dat het gewicht van de ondertekenaar
+  specificeert als `strategy` gelijk is aan `weighted`
+- een `type` en typespecifieke configuratie (zie
+  [Ondertekenaar-types](#signer-types))
+
+Eén ondertekenaar is vereist, tenzij de `--no-load-signer`-vlag wordt gebruikt,
+die beperkte functionaliteit heeft. Voor productie-implementaties wordt
+aanbevolen om meerdere ondertekenaars te configureren voor verbeterde
+betrouwbaarheid en prestaties.
+
+### Voorbeeld
+
+Hier is een voorbeeld `signers.toml`-bestand dat een round-robin
+ondertekenaar-pool definieert met drie ondertekenaars (_opmerking: we behandelen
+de verschillende ondertekenaar-types/configuraties in de volgende sectie_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Omgevingsvariabelen
+
+Stel omgevingsvariabelen in voor alle geconfigureerde ondertekenaars:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Start Kora met Ondertekenaars-configuratie
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Ondertekenaar-types
+
+Kora ondersteunt vier hoofdondertekenaar-types, elk met verschillende
+beveiligings- en operationele kenmerken (en een optie zonder ondertekenaar voor
+beperkt testen):
+
+- [Privésleutel](#private-key-signer) - eenvoudig, zelfbeheerd
+- [Turnkey](#turnkey-signer) - sleutelbeheerservice
+- [Privy](#privy-signer) - sleutelbeheerservice
+- Vault - HashiCorp Vault-integratie
+- [Geen ondertekenaar](#no-signer) - geen ondertekenaar (voor beperkt testen)
+
+## Privésleutel-ondertekenaar
+
+De eenvoudigste aanpak - bewaar uw privésleutel rechtstreeks in
+omgevingsvariabelen of geef deze door via CLI-vlaggen. Kora accepteert
+privésleutels in drie formaten:
+
+#### 1. Base58-formaat (standaard)
+
+Standaard Solana base58-gecodeerde privésleutel:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. U8Array-formaat
+
+Array van 64 bytes in JSON-formaat:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. JSON-bestandspad
+
+Pad naar een JSON-bestand dat het keypair bevat:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Waarbij `keypair.json` het volgende bevat:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Nieuw Keypair Genereren
+
+Je kunt een nieuw keypair aanmaken voor je Kora-node met behulp van de Solana
+CLI:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Signer.toml Configuratie
+
+Vereiste variabelen:
+
+- `name` - De naam van de signer
+- `type` - Het type signer (moet `memory` zijn)
+- `private_key_env` - De omgevingsvariabele die de private key bevat
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey Signer
+
+[Turnkey](https://www.turnkey.com/) biedt enterprise-grade sleutelbeheer met
+hardware security modules (HSM's) en beleidscontroles.
+
+### Vereisten
+
+Je hebt een **Turnkey Account** nodig om de Turnkey signer te gebruiken.
+Registreer je op [turnkey.com](https://www.turnkey.com/)
+
+### Instellen
+
+Je hebt vijf sleutels nodig om de Turnkey signer te gebruiken:
+
+- Turnkey organisatie-ID
+- Turnkey API publieke sleutel
+- Turnkey API private sleutel
+- Turnkey private sleutel ID
+- Turnkey publieke sleutel
+
+Laten we ze ophalen uit Turnkey:
+
+#### 1. Turnkey Organisatie
+
+Klik op het gebruikersmenu rechtsboven in het Turnkey-dashboard en kopieer de
+organisatie-ID:
+
+![Turnkey Organisatie-ID](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Sla de organisatie-ID op in een omgevingsvariabele:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Turnkey API-sleutels
+
+- Klik op het gebruikersmenu rechtsboven in het Turnkey-dashboard en klik op
+  "Account Settings".
+- Klik onder "API Keys" op "+ Create API Key".
+- Selecteer "Generate API keys in-browser"
+- Voer een naam in voor de API-sleutel en klik op "Continue"
+- Bewaar de publieke en private sleutels en klik op "Approve"
+
+![Turnkey API-sleutels](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Sla de publieke en private API-sleutels op in omgevingsvariabelen:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Turnkey Wallet-sleutels
+
+Navigeer vanuit het hoofdmenu naar
+["Wallets"](https://app.turnkey.com/dashboard/wallets) en klik op "Create
+Private Key".
+
+We gaan een nieuwe ED25519 private key aanmaken met het adrestype "Solana":
+
+![Turnkey Wallets](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Klik op "Continue" en vervolgens op "Approve".
+
+Op je wallets-pagina zou je nu je nieuwe private key moeten zien. Klik erop om
+de details te bekijken. Je moet de "Private key ID" en het wallet-"Address"
+kopiëren. Sla ze op als omgevingsvariabelen:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey Wallet Details](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Je moet de wallet met SOL financieren om de transactiekosten te betalen.
+
+### Omgevingsvariabelen configureren
+
+Je zou nu de volgende omgevingsvariabelen moeten hebben:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Zie de [Kora repository](https://github.com/solana-foundation/kora) voor een
+compleet `.env.example` bestand.
+
+Voor ondersteuning met Turnkey, zie de
+[Turnkey-documentatie](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Signer.toml-configuratie
+
+Vereiste variabelen:
+
+- `name` - De naam van de signer
+- `type` - Het type signer (moet `turnkey` zijn)
+- `api_public_key_env` - De omgevingsvariabele die de Turnkey API public key
+  bevat
+- `api_private_key_env` - De omgevingsvariabele die de Turnkey API private key
+  bevat
+- `organization_id_env` - De omgevingsvariabele die de Turnkey organization ID
+  bevat
+- `private_key_id_env` - De omgevingsvariabele die de Turnkey private key ID
+  bevat
+- `public_key_env` - De omgevingsvariabele die de Turnkey public key bevat
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Privy Signer
+
+[Privy](https://www.privy.io/) biedt embedded wallet-infrastructuur met veilig
+sleutelbeheer voor Web3-applicaties.
+
+### Vereisten
+
+Je hebt een **Privy-account** nodig om de Privy signer te gebruiken. Meld je aan
+op [privy.io](https://www.privy.io/)
+
+### Installatie
+
+Je hebt drie sleutels nodig om de Privy signer te gebruiken:
+
+- Privy App ID
+- Privy App Secret
+- Privy Wallet ID
+
+Laten we ze ophalen van Privy:
+
+#### 1. Privy App ID
+
+Selecteer vanuit je dashboard de applicatie die je wilt gebruiken voor Kora (of
+klik op "+ New app" als je er nog geen hebt).
+
+Selecteer "Retrieve API Keys" en klik op "+ New Secret":
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Kopieer je "App ID" en "App Secret" en bewaar ze in omgevingsvariabelen:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy Wallet
+
+Vervolgens moeten we een nieuwe wallet aanmaken voor Kora. Klik in de zijbalk
+van je dashboard op "Wallets" onder "Wallet Infrastructure" en selecteer "New
+Wallet".
+
+Selecteer "Solana" als de blockchain en klik op "Save".
+
+Klik op de wallet om de details te bekijken:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Kopieer de "Wallet ID" en bewaar deze in omgevingsvariabelen:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Je moet de wallet financieren met SOL om transactiekosten te betalen.
+
+### Omgevingsvariabelen Configureren
+
+Je zou nu de volgende omgevingsvariabelen moeten hebben:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Zie de [Kora repository](https://github.com/solana-foundation/kora) voor een
+complet `.env.example` bestand.
+
+Voor ondersteuning met Privy, zie de
+[Privy documentatie](https://docs.privy.io/wallets/overview).
+
+### Signer.toml Configuratie
+
+Vereiste variabelen:
+
+- `name` - De naam van de signer
+- `type` - Het type signer (moet `privy` zijn)
+- `app_id_env` - De omgevingsvariabele die de Privy app ID bevat
+- `app_secret_env` - De omgevingsvariabele die het Privy app secret bevat
+- `wallet_id_env` - De omgevingsvariabele die de Privy wallet ID bevat
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Geen Signer
+
+Als er geen signer is geconfigureerd, zal Kora een fout genereren. Als je Kora
+wilt uitvoeren zonder een signer, kun je het uitvoeren met de `--no-signer`
+vlag:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Let op dat dit je node beperkt tot het verwerken van alleen verzoeken die geen
+signer vereisen.
+
+## Probleemoplossing
+
+### Snelle Referentie
+
+| Foutmelding                                                       | Signer Type  | Snelle Oplossing                                                  |
+| ----------------------------------------------------------------- | ------------ | ----------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Willekeurig  | Voeg minstens één signer toe aan de configuratie                  |
+| "Failed to read config file"                                      | Willekeurig  | Controleer bestandspad en inhoud                                  |
+| "Failed to parse signers config TOML"                             | Willekeurig  | Controleer bestandsformaat en signer-inhoud                       |
+| "Duplicate signer name"                                           | Willekeurig  | Zorg dat elke signer uniek is benoemd in de configuratie          |
+| "Invalid base58 string"                                           | Private Key  | Controleer sleutelformaat, geen extra spaties                     |
+| "Invalid private key length"                                      | Private Key  | Gebruik volledige 64-byte Solana-sleutel                          |
+| "Turnkey \{key\} required"                                        | Turnkey      | Stel `TURNKEY_{key}` in                                           |
+| "Privy \{key\} required"                                          | Privy        | Stel `PRIVY_{key}` in                                             |
+| "Vault \{key\} required"                                          | Vault        | Stel `VAULT_{key}` in                                             |
+| "Failed to create Vault client"                                   | Vault        | Verifieer Vault-inloggegevens                                     |
+| "Failed to sign with \[service\]"                                 | Willekeurig  | Controleer servicestatus, inloggegevens en tarieflimieten         |
+| "Signer pool not initialized"                                     | Multi-Signer | Controleer `signers.toml` pad en formaat                          |
+| "Cannot create empty signer pool"                                 | Multi-Signer | Voeg minstens één signer toe aan de configuratie                  |
+| "Signer with pubkey ... not found"                                | Multi-Signer | Controleer of signer-hint overeenkomt met geconfigureerde signers |
+| "Signers configuration is required unless using --no-load-signer" | Willekeurig  | Voeg een signers-configuratiebestand toe                          |
+
+### Algemene Debuggingtips
+
+#### Gedetailleerde logging inschakelen
+
+Voeg gedetailleerde logging toe om problemen te diagnosticeren:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Beveiliging & Best Practices
+
+### Algemene beveiliging
+
+- Gebruik toegewijde keypairs voor Kora (hergebruik geen persoonlijke wallets)
+- Financier alleen met SOL die je bereid bent te besteden aan vergoedingen
+- Handhaaf een minimaal operationeel saldo met geautomatiseerde monitoring en
+  aanvullingen
+- Implementeer monitoring en waarschuwingen voor ongebruikelijke activiteit
+- Alle private keys en API-sleutels moeten worden opgeslagen in
+  omgevingsvariabelen of secrets management-systemen (Railway secrets, AWS
+  Secrets Manager, etc.)
+
+## Een signer specificeren (client-side)
+
+Clients kunnen een voorkeursondertekenaar specificeren voor consistentie bij
+gerelateerde operaties:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Zonder signer keys bepaalt de geconfigureerde strategie de selectie van de
+ondertekenaar. Het is belangrijk op te merken dat keys consistent moeten zijn
+over alle aanroepen die gerelateerd zijn aan dezelfde transactie (bijvoorbeeld,
+als je een transactie genereert met een gespecificeerde signer key, moet je
+dezelfde signer key gebruiken voor alle gerelateerde aanroepen).

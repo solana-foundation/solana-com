@@ -16,7 +16,10 @@ export default async function Layout({
     (child) =>
       child.type === "folder" && child.index?.url?.includes("/docs/payments"),
   );
-  const pageTree = { ...tree, children: [paymentsFolder] };
+  const pageTree = {
+    ...tree,
+    children: paymentsFolder ? [paymentsFolder] : [],
+  };
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}

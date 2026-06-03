@@ -1,0 +1,307 @@
+---
+title: 新しい設定オプション（ベータ版）
+description: Kora v2.2.0-betaで導入された新しいkora.toml設定セクション。
+---
+
+これらの設定オプションは`v2.2.0-beta.1`から利用可能です。既存の`kora.toml`に安定版設定と一緒に追加してください。
+
+## トランザクションプラグイン
+
+`[kora.plugins]`セクションは、署名フロー中に実行されるトランザクションプラグインを設定します。プラグインは、Koraが署名する前にトランザクションの構造と内容を検証します。これらは`signTransaction`、`signAndSendTransaction`、`signBundle`、`signAndSendBundle`で実行されますが、`estimateBundleFee`では**実行されません**。
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| オプション | 説明                                           | 必須                     | 型       |
+| ---------- | ---------------------------------------------- | ------------------------ | -------- |
+| `enabled`  | 有効化されたトランザクションプラグインのリスト | いいえ（デフォルト: []） | string[] |
+
+### `gas_swap`プラグイン
+
+`gas_swap`プラグインは、ガスレストークン-SOLスワップ操作に対して厳密なトランザクション構造を強制します。有効にすると、署名フローを通じて送信されるすべてのトランザクションは、次の内容を正確に含む必要があります：
+
+1. **1つのSPLトークン転送**（SPL
+   TokenまたはToken-2022） — 手数料支払者以外の所有者から
+2. **1つのシステムSOL転送**（`Transfer`または`TransferWithSeed`） — 手数料支払者から
+
+計算予算instructions（計算ユニット制限/価格の設定）は、2つの必須instructionsと一緒に許可されます。追加のまたは非スワップの外部instructionsは拒否されます。
+
+#### 設定要件
+
+`gas_swap`プラグインは起動時に設定を検証し、要件が満たされていない場合はエラーを出力します：
+
+- **System Program**が`allowed_programs`に含まれている必要があります
+- **少なくとも1つのトークンプログラム**（SPL
+  TokenまたはToken-2022）が`allowed_programs`に含まれている必要があります
+- **少なくとも1つのトークン**が`allowed_tokens`に含まれている必要があります
+- **価格設定モデル**は`Free`であってはなりません — マージンまたは固定価格を設定してください
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **警告：**
+> `gas_swap`を固定価格設定で使用する場合、固定トークン手数料が少なくとも`max_allowed_lamports`相当のSOLの価値があることを確認してください。送信されるSOLが受け取るトークンを上回るドレイン状態を避けるためです。
+
+---
+
+## バンドル設定
+
+`[kora.bundle]`セクションは、アトミックなマルチトランザクション実行のためのJitoバンドルサポートを有効にします：
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| オプション | 説明                 | 必須                       | 型      |
+| ---------- | -------------------- | -------------------------- | ------- |
+| `enabled`  | バンドル機能を有効化 | いいえ (デフォルト: false) | boolean |
+
+### Jito設定
+
+| オプション         | 説明                    | 必須                  | 型     |
+| ------------------ | ----------------------- | --------------------- | ------ |
+| `block_engine_url` | Jitoブロックエンジンurl | はい (バンドル有効時) | string |
+
+利用可能なJitoブロックエンジンURL：
+
+- **メインネット (パブリック)：** `https://mainnet.block-engine.jito.wtf`
+- **メインネット (プライベート)：** アクセスについてはJitoにお問い合わせください
+
+> **重要：**
+> KoraによるJitoチップ支払いでバンドルを使用する場合は、`[validation.fee_payer_policy.system]`で`allow_transfer = true`を設定して、署名者がチップのためにSOLを転送できるようにしてください。
+
+KoraでのJitoバンドルの実装に関する完全なガイドについては、[Jitoバンドルガイド](/docs/tools/kora/beta/jito-guide)をご覧ください。
+
+---
+
+## Lighthouse手数料支払者保護
+
+`[kora.lighthouse]`セクションは、Lighthouse手数料支払者保護を有効にします。有効にすると、Koraはトランザクションに残高アサーション命令を追加し、手数料支払者の残高が予想レベルを下回らないことを検証することで、ドレナージ攻撃から手数料支払者を保護します。
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| オプション                          | 説明                                                                                                                      | 必須                       | 型      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------- |
+| `enabled`                           | 手数料支払者保護のためのLighthouseアサーションを有効化                                                                    | いいえ (デフォルト: false) | boolean |
+| `fail_if_transaction_size_overflow` | アサーション追加がサイズ制限を超える場合、トランザクションを拒否。falseの場合は、アサーション追加をサイレントにスキップ。 | いいえ (デフォルト: true)  | boolean |
+
+### 仕組み
+
+Lighthouseが有効になると、Koraは手数料支払者の現在の残高を取得し、トランザクション完了時に残高が`(current_balance - estimated_fee)`を下回らないことを検証するLighthouseアサーション命令を追加します。これにより、悪意のあるトランザクションが予想コストを超えて手数料支払者を枯渇させることを防ぎます。
+
+### メソッドの互換性
+
+Lighthouseの保護は**`signTransaction`と`signBundle`でのみ機能します**。`signAndSendTransaction`や`signAndSendBundle`では**機能しません**。
+
+Lighthouseがアサーション命令を追加すると、トランザクションメッセージが変更されます。これにより、既存のクライアント署名が無効になります。`signAndSend*`のフローは次の理由で失敗します：
+
+1. クライアントがトランザクションに署名
+2. KoraがLighthouseアサーションを追加（メッセージを変更）
+3. クライアントの元の署名が無効になる
+4. ネットワークが「署名検証失敗」でリジェクト
+
+**Lighthouseを使用する際の推奨パターン：**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### 設定要件
+
+Lighthouseを有効にする場合は、Lighthouseプログラムを`allowed_programs`に追加してください：
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Koraは起動時にこれを検証し、Lighthouseが有効でありながらプログラムが`allowed_programs`に含まれていない場合はエラーを返します。
+
+> **注意：**
+> `signAndSendTransaction`または`signAndSendBundle`がLighthouseと同時に有効になっている場合、Koraはこれらのメソッドに手数料支払者保護が適用されないという警告をログに記録します。
+
+## reCAPTCHAボット保護
+
+reCAPTCHA
+v3は、機密性の高いエンドポイントに対して透過的なボット保護を提供します。すべてのリクエストを認証するAPIキーやHMACとは異なり、reCAPTCHAは特定の高リスクメソッド（デフォルトでは署名メソッド）のみを保護します。
+
+### サーバー設定
+
+環境変数に`KORA_RECAPTCHA_SECRET`を追加する（優先）か、`kora.toml`に`recaptcha_secret`を追加してください：
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| オプション                  | 説明                                                       | デフォルト   |
+| --------------------------- | ---------------------------------------------------------- | ------------ |
+| `recaptcha_secret`          | Googleから取得したreCAPTCHA v3シークレットキー             | -            |
+| `recaptcha_score_threshold` | 通過に必要な最小スコア（0.0 = 全て通過、1.0 = 全て不合格） | 0.5          |
+| `protected_methods`         | 検証が必要なRPCメソッド                                    | 署名メソッド |
+
+### 仕組み
+
+1. クライアントがGoogleのreCAPTCHA v3 APIからreCAPTCHAトークンを取得
+2. クライアントが`x-recaptcha-token`ヘッダーにトークンを含める
+3. サーバーがGoogleでトークンを検証し、スコアをチェック
+4. スコアが閾値以上の場合、リクエストが続行されます。それ以外の場合は401
+   Unauthorizedを返します
+
+reCAPTCHAは、APIキー/HMAC認証が成功した*後*に実行されます（設定されている場合）。保護されていないメソッドは、reCAPTCHA検証を完全にバイパスします。
+
+### クライアント実装
+
+**Kora SDKを使用する場合:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**fetchを使用する場合:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### reCAPTCHAキーの取得
+
+1. [Google reCAPTCHA管理コンソール](https://www.google.com/recaptcha/admin)にアクセス
+2. **reCAPTCHA v3**で新しいサイトを作成
+3. フロントエンド（クライアント側）で**サイトキー**を使用
+4. Kora設定（サーバー側）で**シークレットキー**を使用
+
+## 使用制限
+
+`[kora.usage_limit]`セクションは、不正使用を防止し公平な使用を確保するために、ウォレットごとの使用制限を設定します。これは、一定の制限までユーザーのトランザクション手数料を補助するリワードプログラムの作成にも使用できます。
+
+**注意**: この機能を複数のKoraインスタンス間で有効にする場合、Redisが必要です。
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| オプション                | 説明                                            | 必須                        | 型      |
+| ------------------------- | ----------------------------------------------- | --------------------------- | ------- |
+| `enabled`                 | ウォレットごとの使用制限を有効化                | いいえ（デフォルト: false） | boolean |
+| `cache_url`               | 共有使用状況追跡のためのRedis接続URL            | いいえ                      | string  |
+| `fallback_if_unavailable` | Redisが利用できない場合にトランザクションを許可 | いいえ（デフォルト: true）  | boolean |
+
+> _`fallback_if_unavailable`がtrueの場合、Redisが一時的に利用できない状態でもトランザクションの続行を許可し、サービスの中断を防ぎます。_
+
+### 使用制限ルール
+
+このベータ版では、詳細なルールベースの使用制限が導入されています。単一の`max_transactions`カウントではなく、特定のトランザクションタイプや個別のinstructionsをターゲットにした複数のルールを定義でき、オプションで時間ウィンドウも設定できます。
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| ルールフィールド | 説明                                                                                                            | 必須     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | -------- |
+| `type`           | `"transaction"`（すべてのトランザクションをカウント）または`"instruction"`（特定のinstructionタイプをカウント） | はい     |
+| `max`            | ウォレットがブロックされるまでの最大カウント                                                                    | はい     |
+| `window_seconds` | 時間ウィンドウ（秒単位）。省略した場合、制限は永続的です。                                                      | いいえ   |
+| `program`        | マッチするprogram accountアドレス（`instruction`タイプの場合は必須）                                            | 条件付き |
+| `instruction`    | マッチするinstruction名、例：`"Transfer"`、`"Burn"`（`instruction`タイプの場合は必須）                          | 条件付き |
+
+`window_seconds`
+が設定されている場合、カウンターは時間枠の期限が切れた後にリセットされます。設定されていない場合、制限は永続的です — 一度達成されると、ウォレットは Redis から手動でクリアされるまでブロックされます。
+
+## 新たに有効化されたメソッド
+
+以下のメソッドが `[kora.enabled_methods]` に追加されました：
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| メソッド               | 説明                                           |
+| ---------------------- | ---------------------------------------------- |
+| `get_version`          | Kora サーバーのバージョンを返す                |
+| `estimate_bundle_fee`  | トランザクションのバンドルの手数料を見積もる   |
+| `sign_bundle`          | 送信せずにトランザクションのバンドルに署名する |
+| `sign_and_send_bundle` | バンドルに署名して Jito に送信する             |
+
+完全な API ドキュメントについては、[バンドルメソッド](/docs/tools/kora/beta/bundle-methods)
+を参照してください。

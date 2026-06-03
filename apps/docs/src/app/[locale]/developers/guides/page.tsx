@@ -9,7 +9,7 @@ type Props = {
 export default async function Page(props: Props) {
   const { locale } = await props.params;
   const guides = getGuides(locale);
-  const featured = guides.filter((guide: any) => guide.featured).slice(0, 3);
+  const featured = guides.filter((guide) => guide.featured).slice(0, 3);
   return (
     <div className="my-12 px-6 max-w-[1120px] w-full mx-auto">
       <GuidesIndex records={guides} featured={featured} />

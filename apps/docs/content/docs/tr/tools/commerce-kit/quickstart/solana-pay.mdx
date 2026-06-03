@@ -1,0 +1,435 @@
+---
+title: Solana Pay
+description: Solana Pay URL'leri, QR kodları ve ödeme işlemleri oluşturun
+---
+
+`@solana-commerce/solana-pay` paketi, ödeme deneyimleri oluşturmak için eksiksiz
+[Solana Pay](https://solanapay.com) işlevselliği sağlar ve
+[`gill`](https://www.gillsdk.com/) ile
+[`@solana/kit`](https://github.com/anza-xyz/kit) kütüphaneleriyle uyumludur. URL
+kodlama/ayrıştırma, özel stil ile QR kod oluşturma ve hem SOL hem de SPL token
+transferleri için işlem oluşturmayı yönetir.
+
+## Kurulum
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URL Kodlama
+
+### `encodeURL(fields)`
+
+[Solana Pay spesifikasyonuna](https://docs.solanapay.com/spec) uygun bir Solana
+Pay URL'si oluşturur. Bu fonksiyon, mobil cüzdanların tarayabileceği bağlantılar
+olarak paylaşılabilecek veya QR kodları olarak kodlanabilecek `solana:`
+protokolü URL'leri üretir.
+
+#### Parametreler
+
+- **`fields`** (`TransferRequestURLFields | TransactionRequestURLFields`) -
+  Ödeme URL'si için yapılandırma
+
+#### `TransferRequestURLFields`
+
+Basit ödeme istekleri (doğrudan transferler) için kullanılır:
+
+- **`recipient`** (`Address`, zorunlu) - Ödemeyi alacak satıcının cüzdan adresi
+  (base58 kodlu genel anahtar). Bir dize veya `gill`'den `Address` türü
+  olabilir.
+
+- **`amount`** (`bigint`, isteğe bağlı) - **lamport** cinsinden ödeme tutarı
+  (atomik birimler). SOL için, 1 SOL = 1.000.000.000 lamport (9 ondalık). SPL
+  tokenları için, tokenın ondalık hassasiyetini kullanın (örn. USDC 6 ondalık
+  kullanır, yani 1 USDC = 1.000.000).
+
+- **`splToken`** (`Address`, isteğe bağlı) - Token ödemeleri için SPL token mint
+  adresi. Belirtilmezse, ödemenin SOL cinsinden olduğu varsayılır.
+
+- **`reference`** (`Address | Address[]`, isteğe bağlı) - Ödemeleri izlemek için
+  kullanılan benzersiz referans adres(ler)i. `generateKeyPairSigner().address`
+  kullanarak oluşturun. Referans, işleme salt okunur bir hesap olarak eklenir ve
+  bu referansı kullanarak ödemeleri sorgulamanıza olanak tanır.
+
+- **`label`** (`string`, isteğe bağlı) - Kullanıcıya cüzdanında gösterilen insan
+  tarafından okunabilir satıcı veya uygulama adı (örn. "Kahve Dükkanı",
+  "Mağazam").
+
+- **`message`** (`string`, isteğe bağlı) - Ödemeden önce kullanıcıya gösterilen
+  mesaj (örneğin, "Satın alımınız için teşekkürler!", "Harika hizmet için
+  bahşiş").
+
+- **`memo`** (`string`, isteğe bağlı) - İşleme eklenen zincir üstü not.
+  Solana'da kalıcı olarak saklanır. Sipariş kimlikleri, fatura numaraları veya
+  diğer ödeme meta verileri için kullanışlıdır.
+
+#### `TransactionRequestURLFields`
+
+Karmaşık ödeme istekleri için kullanılır (talimatlar dahil):
+
+- **`link`** (`URL`, gerekli) - İşleme bağlantısı
+  ([`Link`](/docs/tools/solana-pay/specification/version1-1#link)). URL sorgu
+  parametreleri içeriyorsa, URL ile kodlanmış olmalıdır.
+
+- **`label`** (`string`, isteğe bağlı) - Kullanıcıya cüzdanında gösterilen insan
+  tarafından okunabilir satıcı veya uygulama adı (örneğin, "Kahve Dükkanı",
+  "Mağazam").
+
+- **`message`** (`string`, isteğe bağlı) - Ödemeden önce kullanıcıya gösterilen
+  mesaj (örneğin, "Satın alımınız için teşekkürler!", "Harika hizmet için
+  bahşiş").
+
+#### Nasıl Çalışır
+
+Fonksiyon, geçerli bir Solana Pay URL'si oluşturmak için çeşitli işlemler
+gerçekleştirir:
+
+1. **Protokol Öneki** - `solana:` protokol şemasıyla bir URL oluşturur
+   (`mailto:` veya `bitcoin:`'ye benzer)
+
+2. **Yol Olarak Alıcı** - Alıcının base58 adresini URL yolu olarak kullanır
+   (örneğin, `solana:merchantWalletAddress123...`)
+
+3. **Tutar Dönüşümü** - Bigint lamport tutarını, kayan nokta hassasiyet
+   sorunları olmadan ondalık dize gösterimine dönüştürür.
+
+4. **Sorgu Parametreleri** - Tüm isteğe bağlı alanları ve referansları URL kodlu
+   sorgu parametreleri olarak ekler
+
+#### Dönüş Değeri
+
+`solana:` protokolü ile `URL` nesnesi:
+
+- Paylaşmak için `.toString()` ile dizeye dönüştürülebilir
+- QR kodu oluşturma için `createQR()`'e aktarılabilir
+- Doğrudan anchor etiketlerinde kullanılabilir:
+  `<a href={url.toString()}>Pay with Solana</a>`
+
+#### Örnek: Temel Ödeme
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### Örnek: SPL Token Ödemesi
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### Örnek: İzleme ile Ödeme
+
+Belirli ödemeleri tanımlamak için referansları kullanın:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL Ayrıştırma
+
+### `parseURL(url)`
+
+Bir Solana Pay URL'sini çözer ve doğrular, tüm ödeme parametrelerini çıkarır. Bu
+fonksiyon doğrulama yapar ve miktarları ondalık dizelerden tekrar bigint lamport
+değerine dönüştürür.
+
+#### Parametreler
+
+- **`url`** (`string | URL`) - Ayrıştırılacak Solana Pay URL'si. Bir string veya
+  URL nesnesi olabilir.
+
+#### Dönüş Değeri
+
+Ayrıştırılmış bir `TransferRequestURLFields` veya `TransactionRequestURLFields`
+nesnesi.
+
+#### Örnek: Ayrıştır ve Doğrula
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### Örnek: URL Doğrulayıcı Fonksiyon
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## QR Kod Oluşturma
+
+### `createQR(url, size, background, color)`
+
+Solana Pay URL'leri için optimize edilmiş bir SVG QR kodu oluşturur. Fonksiyon,
+yuvarlak köşeli ve özelleştirilebilir renklere sahip, stilize, yüksek kaliteli
+QR kodları üretir.
+
+#### Parametreler
+
+- **`url`** (`string | URL`) - QR kodunda kodlanacak Solana Pay URL'si
+- **`size`** (`number`, varsayılan: `512`) - Piksel cinsinden genişlik ve
+  yükseklik
+- **`background`** (`string`, varsayılan: `'white'`) - Arka plan rengi (hex veya
+  adlandırılmış renk). Cüzdan uyumluluğu için açık olmalıdır.
+- **`color`** (`string`, varsayılan: `'black'`) - Ön plan/nokta rengi (hex veya
+  adlandırılmış renk). Kontrast için koyu olmalıdır.
+
+_Alternatif olarak, QR kodu stillendirmesi üzerinde daha fazla kontrol için
+`createStyledQRCode(url, options)` kullanabilirsiniz (genişlik, kenar boşluğu,
+renkler, nokta stili, köşe stili, logo, logo boyutu, logo arka plan rengi, logo
+kenar boşluğu)._
+
+#### Dönüş Değeri
+
+`Promise<string>` - Şu şekillerde kullanılabilecek string olarak SVG
+işaretlemesi:
+
+- `img` öğesi src olarak ayarlanabilir: `<img src={qrCode} />`
+- Bir dosyaya kaydedilebilir
+
+#### Örnek
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### Örnek: Markalı QR Kod
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## İşlem Oluşturma
+
+### `createTransfer(rpc, sender, fields)`
+
+Bir ödeme transferi için eksiksiz bir Solana işlem mesajı oluşturur. Bu
+fonksiyon, `splToken` parametresine bağlı olarak SOL veya SPL token transferi
+oluşturup oluşturmayacağını otomatik olarak algılar ve gerekli tüm talimatları
+yapılandırır. Fonksiyon, RPC istemcisinden alınan en güncel blockhash'i
+kullanarak işlem için bir blockhash ömrü belirler ve imzalanmaya ve RPC'ye
+gönderilmeye hazır, eksiksiz, imzasız bir işlem döndürür
+(`TransactionMessageWithBlockhashLifetime` türü, Solana Kit/Gill ile uyumlu).
+
+#### Parametreler
+
+- **`rpc`** (`Rpc<SolanaRpcApi>`) - `gill`'den Solana RPC istemcisi.
+  `createSolanaClient(rpcUrl).rpc` ile oluşturun.
+
+- **`sender`** (`Address`) - Ödeme yapan kişinin cüzdan adresi. İşlemi
+  imzalayacak, fonlanmış bir hesap olmalıdır.
+
+- **`fields`** (`CreateTransferFields`) - Transfer yapılandırması:
+  - `recipient` (`Address`, zorunlu) - Hedef cüzdan adresi
+  - `amount` (`bigint`, zorunlu) - lamport (SOL) veya token atomik birimlerinde
+    (SPL) miktar
+  - `splToken` (`Address`, isteğe bağlı) - SPL token mint adresi. Atlanırsa, SOL
+    transferi oluşturur.
+  - `reference` (`Address | Address[]`, isteğe bağlı) - Takip için referans
+    adres(ler)i
+  - `memo` (`string`, isteğe bağlı) - Zincir üstü memo metni
+
+#### Dönüş Değeri
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - Aşağıdakileri içeren
+eksiksiz işlem mesajı:
+
+- Versiyon 0 formatı (adres arama tablolarını destekler)
+- Blockhash ömrü (işlem ~60 saniye sonra sona erer)
+- Gerekli tüm talimatlar (transfer + isteğe bağlı memo)
+- Cüzdan ile imzalanmaya ve RPC'ye gönderilmeye hazır
+
+#### Hata Yönetimi
+
+Belirli mesajlarla `CreateTransferError` fırlatır:
+
+- `"sender not found"` - Gönderen hesap mevcut değil
+- `"recipient not found"` - Alıcı hesap mevcut değil
+
+#### Örnek: SOL Ödemesi
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### Örnek: USDC Ödemesi
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

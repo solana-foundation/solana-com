@@ -6,10 +6,11 @@ import {
 import { ImageResponse } from "next/og";
 import { config } from "@@/src/config";
 import { generateRandomInRange } from "@@/src/utils/general";
+import { ReactNode } from "react";
 
 type DeveloperDocsImageProps = {
-  heading: string;
-  title: string;
+  heading: ReactNode;
+  title?: ReactNode;
 };
 
 // Image generation

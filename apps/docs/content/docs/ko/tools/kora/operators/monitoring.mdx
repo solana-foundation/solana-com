@@ -1,0 +1,229 @@
+---
+title: 모니터링 및 메트릭
+description: Prometheus와 Grafana로 Kora 노드 모니터링하기
+---
+
+_최종 업데이트: 2025-08-22_
+
+[Kora 메트릭 크레이트](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)는
+Kora RPC 서버를 위한 포괄적인 메트릭 수집 및 모니터링 기능을 제공합니다.
+
+Kora는 Prometheus 형식으로 실시간 성능 데이터를 제공하는 `/metrics` 엔드포인트를
+노출합니다.
+
+## 구성
+
+메트릭은 `kora.toml`의 `[metrics]` 섹션에서 구성됩니다. `[metrics]` 섹션은
+메트릭 수집 및 모니터링을 구성합니다. 이 섹션은 선택 사항이며 기본적으로
+메트릭은 비활성화되어 있습니다.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| 옵션              | 설명                               | 필수 여부 | 타입    |
+| ----------------- | ---------------------------------- | --------- | ------- |
+| `enabled`         | 메트릭 수집 활성화                 | ✅        | boolean |
+| `endpoint`        | 사용자 정의 메트릭 엔드포인트 경로 | ✅        | string  |
+| `port`            | 메트릭 엔드포인트 포트             | ✅        | number  |
+| `scrape_interval` | Prometheus 스크래핑 빈도(초)       | ✅        | number  |
+
+### 수수료 지불자 잔액 추적
+
+`[metrics.fee_payer_balance]` 섹션은 수수료 지불자의 SOL 잔액에 대한 자동
+모니터링을 구성합니다:
+
+| 옵션             | 설명                           | 필수 여부          | 타입    |
+| ---------------- | ------------------------------ | ------------------ | ------- |
+| `enabled`        | 수수료 지불자 잔액 추적 활성화 | ❌ (기본값: false) | boolean |
+| `expiry_seconds` | 백그라운드 추적 간격(초)       | ❌ (기본값: 30)    | number  |
+
+활성화되면 Kora는 수수료 지불자의 SOL 잔액을 자동으로 추적하고
+`fee_payer_balance_lamports` Prometheus 게이지를 통해 노출합니다. 이는 용량 계획
+및 낮은 잔액 알림에 도움이 됩니다.
+
+## 빠른 시작
+
+**메트릭 접근:**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## 확인할 내용
+
+메트릭은 RPC 서버의 성능을 보여줍니다:
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+아직 RPC 서버를 호출하지 않았다면 메트릭이 표시되지 않습니다. `getConfig`
+메서드를 호출하여 간단한 테스트를 실행할 수 있습니다:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+그런 다음 메트릭을 확인하세요:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## 주요 메트릭 설명
+
+1. **`kora_http_requests_total`** - 처리한 요청 수
+   - `method`: 호출된 RPC 메서드
+   - `status`: HTTP 상태 코드 (200=성공, 400=오류 등)
+   - 사용 패턴과 오류율을 추적하는 데 사용하세요
+
+2. **`kora_http_request_duration_seconds`** - 요청 속도
+   - 응답 시간의 백분위수(p50, p95, p99)를 표시합니다
+   - 느린 엔드포인트를 식별하는 데 사용하세요
+
+3. **`signer_balance_lamports`** - 각 서명자의 현재 SOL 잔액
+   - 각 서명자의 lamport 단위 잔액을 표시합니다 (1 SOL = 1,000,000,000 lamport)
+   - 레이블: `signer_name` (사람이 읽을 수 있는 이름) 및 `signer_pubkey` (공개
+     키)
+   - 활성화되면 백그라운드에서 자동으로 업데이트됩니다
+   - 모든 서명자의 용량 계획 및 낮은 잔액 알림에 사용하세요
+
+## 데이터 활용
+
+### 옵션 1: 빠른 상태 확인
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### 옵션 2: Prometheus + Grafana (권장)
+
+그래프와 알림을 위해 전체 모니터링 스택을 실행하세요:
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+다음을 방문하세요:
+
+- Prometheus: http://localhost:9090 (메트릭 조회)
+- Grafana 사전 구축된 Kora 대시보드: http://localhost:3000
+  - 기본 로그인: admin/admin (또는 `.env` 파일의 `GF_SECURITY_ADMIN_PASSWORD` 및
+    `GF_SECURITY_ADMIN_USER` 자격 증명 사용)
+
+### 옵션 3: 자체 모니터링
+
+Prometheus 호환 도구를 `http://your-server:8080/metrics`로 지정하세요:
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## 쿼리 예제 (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## 다중 서명자 모니터링
+
+여러 서명자를 사용할 때 각 서명자를 개별적으로 모니터링하거나 집계 메트릭을
+추적할 수 있습니다:
+
+### 개별 서명자 메트릭
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### 다중 서명자 설정을 위한 Prometheus 쿼리
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## 보안 참고사항
+
+`/metrics` 엔드포인트는 기본적으로 공개되어 있습니다. 프로덕션 환경에서는 다음을
+고려하세요:
+
+- 방화벽 뒤에 배치
+- 별도의 메트릭 포트 사용
+- 리버스 프록시를 통한 인증 추가
+
+## 메트릭 수집 작동 방식
+
+1. **HTTP 미들웨어 레이어** - 모든 요청을 가로채고 다음을 수집합니다:
+   - JSON-RPC 메서드 및 상태별 요청 수
+   - 메서드별 요청 소요 시간
+
+2. **메트릭 엔드포인트** - 기능이 활성화되면 `/metrics` 엔드포인트가 자동으로
+   노출됩니다
+   - `MetricsHandlerLayer`에서 처리
+   - Prometheus 형식의 메트릭 반환
+
+3. **Prometheus 스크래핑** - 60초마다 Kora를 스크래핑하도록 구성됨
+   ([`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml)
+   참조)

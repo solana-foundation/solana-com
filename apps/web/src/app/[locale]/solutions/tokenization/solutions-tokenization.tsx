@@ -20,8 +20,21 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  TokenIcon,
+  CoinsIcon,
+  LedgerIcon,
+  StepsIcon,
+} from "@solana-com/ui-chrome/icons";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
-export function SolutionsTokenizationPage() {
+type SolutionsTokenizationPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsTokenizationPage({
+  news,
+}: SolutionsTokenizationPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -29,22 +42,22 @@ export function SolutionsTokenizationPage() {
     {
       value: t("icm.hero.stats.0.value"),
       label: t("icm.hero.stats.0.label"),
-      Icon: "/src/img/solutions/icm/icon-1.svg",
+      Icon: TokenIcon,
     },
     {
       value: t("icm.hero.stats.2.value"),
       label: t("icm.hero.stats.2.label"),
-      Icon: "/src/img/solutions/icm/icon-2.svg",
+      Icon: CoinsIcon,
     },
     {
       value: t("icm.hero.stats.3.value"),
       label: t("icm.hero.stats.3.label"),
-      Icon: "/src/img/solutions/icm/icon-3.svg",
+      Icon: LedgerIcon,
     },
     {
       value: t("icm.hero.stats.1.value"),
       label: t("icm.hero.stats.1.label"),
-      Icon: "/src/img/solutions/icm/icon-4.svg",
+      Icon: StepsIcon,
     },
   ];
 
@@ -108,7 +121,7 @@ export function SolutionsTokenizationPage() {
 
         {/* Products Section */}
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("icm.products.title")}
           description={t("icm.products.description")}
           products={PRODUCTS}
@@ -138,15 +151,7 @@ export function SolutionsTokenizationPage() {
               </span>
             ),
           })}
-          items={[
-            {
-              id: "0",
-              title: t("icm.news.items.0.title"),
-              date: "2025-07-24",
-              image: "/src/img/solutions/icm/icm-anza.webp",
-              link: "https://www.anza.xyz/blog/the-internet-capital-markets-roadmap",
-            },
-          ]}
+          items={news}
         />
 
         <Divider hideOnDesktop />

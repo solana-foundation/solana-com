@@ -1,0 +1,566 @@
+---
+title: React Hooks
+description: Solana Commerce React hooks ile özel ödeme arayüzleri oluşturun
+---
+
+`@solana-commerce/sdk` paketi, özel Solana ödeme deneyimleri oluşturmak için
+React hooks sağlar. Bu hooks'lar, yerleşik durum yönetimi, otomatik yeniden
+deneme mantığı, hata işleme ve kullanıcı arayüzü yardımcıları ile SOL ve SPL
+token transferleri üzerinde tam kontrol sunar.
+
+Arka planda SDK, önbelleğe alma ve durum yönetimi için
+[TanStack Query](https://tanstack.com/query) kullanır, Solana primitifleri için
+[@solana/kit](https://github.com/anza-xyz/kit) kullanır ve cüzdan bağlantısı
+için `@solana-commerce/connector` ile sorunsuz bir şekilde entegre olur.
+
+## Kurulum
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Sağlayıcı Kurulumu
+
+### `ArcProvider`
+
+`ArcProvider`, Solana RPC istemcisini başlatan, ağ yapılandırmasını yöneten ve
+tüm hooks'lara blockchain bağlantısı sağlayan kök sağlayıcıdır. SDK hooks
+kullanan tüm bileşenleri sarmallamalıdır.
+
+#### Özellikler
+
+- **`config`** (`ArcWebClientConfig`) - Arc istemcisi için yapılandırma nesnesi
+- **`children`** (`ReactNode`) - Hooks'lara erişimi olacak alt bileşenler
+- **`queryClient`** (`QueryClient`, isteğe bağlı) - Özel TanStack Query
+  istemcisi. Sağlanmazsa, dahili olarak varsayılan bir örnek oluşturulur.
+
+#### `ArcWebClientConfig`
+
+RPC bağlantısını ve taahhüt seviyelerini kontrol eden Arc istemcisi için
+yapılandırma.
+
+##### Gerekli Alanlar
+
+Sağlayıcı, `useConnectorClient` hook'u aracılığıyla `@solana-commerce/connector`
+ile otomatik olarak entegre olur, bu nedenle `ConnectorProvider` içinde
+kullanıldığında açık bir bağlayıcı yapılandırmasına gerek yoktur.
+
+##### İsteğe Bağlı Alanlar
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Bağlanılacak Solana ağı.
+  Varsayılan: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - Özel RPC uç noktası URL'si. Sağlanmazsa, seçilen ağ
+  için genel uç noktaları kullanır.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - İşlem onay
+  seviyesi. Varsayılan: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Hata ayıklama için ayrıntılı konsol günlüğünü
+  etkinleştirir. Varsayılan: `false`.
+
+- **`autoConnect`** (`boolean`) - Bileşen bağlandığında cüzdana otomatik olarak
+  bağlanır. Varsayılan: `true`.
+
+- **`storage`** (`Storage`) - Cüzdan tercihlerini kalıcı hale getirmek için özel
+  depolama adaptörü. Şunları uygulamalıdır:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Varsayılan: Mevcut olduğunda `window.localStorage` (yalnızca tarayıcı). Bunu
+  React Native (`AsyncStorage`) veya özel SSR-güvenli depolama için kullanın.
+
+#### `ConnectorProvider` ile Entegrasyon
+
+Sağlayıcı, `@solana-commerce/connector` paketinden `ConnectorProvider` ile
+entegre olur. Uygulamanızı her zaman `ArcProvider` öncesinde `ConnectorProvider`
+ile sarmalayın:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Temel Hook'lar
+
+### `useTransferSOL`
+
+Otomatik yeniden deneme mantığı, durum yönetimi ve kullanıcı arayüzü yardımcı
+fonksiyonları ile SOL transferi yapmak için hook. Önbellekleme ve istek
+tekilleştirmesi için TanStack Query üzerine inşa edilmiştir.
+
+#### İmza
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Parametreler
+
+- **`initialToInput`** (`string`, isteğe bağlı) - Alıcı adresi girişi için
+  başlangıç değeri. Formları önceden doldurmak için kullanışlıdır.
+- **`initialAmountInput`** (`string`, isteğe bağlı) - SOL cinsinden tutar girişi
+  için başlangıç değeri. Formları önceden doldurmak için kullanışlıdır.
+
+#### Dönüş Değeri
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Temel Fonksiyon
+
+- **`transferSOL`** - Bir SOL transferi başlatır. İşlem zincir üzerinde
+  onaylandığında çözümlenen bir promise döndürür.
+
+##### Durum Özellikleri
+
+- **`isLoading`** (`boolean`) - İşlem işlenirken (imzalama, gönderme, onaylama)
+  `true` değerini alır. Bunu yükleme göstergeleri ve düğme durumları için
+  kullanın.
+
+- **`error`** (`Error | null`) - İşlem herhangi bir aşamada başarısız olduysa
+  hata nesnesi. Hata olmadığında `null` değerindedir. Hatalar arasında cüzdan
+  redleri, yetersiz bakiye, ağ hataları vb. bulunur.
+
+- **`data`** (`TransferSOLResult | null`) - İşlem başarılı olduğunda sonuç
+  nesnesi. İmza, adresler, tutarlar ve blokzincir meta verilerini içerir. İlk
+  başarılı transferden önce `null` değerindedir.
+
+- **`reset`** (`() => void`) - Mutasyon durumunu sıfırlar, `error` ve `data`
+  değerlerini temizler. Yeniden deneme akışları veya tamamlandıktan sonra
+  formları sıfırlamak için kullanışlıdır.
+
+##### Kullanıcı Arayüzü Yardımcı Özellikleri ve Yöntemleri
+
+Hook, form girişleri için yerleşik durum yönetimi sağlar:
+
+- **`toInput`** / **`setToInput`** - Alıcı adresi giriş alanı için kontrollü
+  durum
+
+- **`amountInput`** / **`setAmountInput`** - Miktar giriş alanı için kontrollü
+  durum (SOL cinsinden, lamport değil)
+
+- **`handleToInputChange`** - Alıcı girişi için önceden bağlanmış onChange
+  işleyicisi: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Miktar girişi için önceden bağlanmış onChange
+  işleyicisi: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Mevcut `toInput` ve `amountInput` değerlerini
+  kullanarak SOL transfer eden kolaylık metodu. Miktarı otomatik olarak SOL'dan
+  lamport'a dönüştürür.
+
+- **`handleSubmit`** - `transferFromInputs()`'i çağıran ve varsayılan form
+  davranışını engelleyen form gönderim işleyicisi.
+  `<form onSubmit={handleSubmit}>` ile kullanın.
+
+#### Seçenekler
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (gerekli) - Alıcı Solana adresi. Bir string veya `@solana/kit`'den
+  `Address` türü olabilir.
+
+- **`amount`** (gerekli) - **lamport** cinsinden transfer miktarı (SOL değil).
+  Bir `bigint` olmalıdır. `BigInt()` veya literal gösterim kullanın:
+  `1_000_000_000n` = 1 SOL.
+
+- **`from`** (isteğe bağlı) - Gönderen adresi. Sağlanmazsa, bağlı cüzdandaki
+  adresi kullanır. Yalnızca gelişmiş kullanım durumları için gereklidir (örn.
+  farklı bir hesap için imzalama).
+
+#### Sonuç
+
+Sonuç, transfer detayları ve işlem imzası dahil olmak üzere işlem meta
+verilerini içerir:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### İç Mimari
+
+**İşlem Oluşturucu:** Hook, şunları yapan paylaşılan bir işlem oluşturucu
+kullanır:
+
+- Her işlem için yeni blok hash'leri getirir
+- Minimal ücretlerle optimize edilmiş işlem mesajları oluşturur
+- Bağlı cüzdanı kullanarak işlemleri imzalar
+- İşlemleri tek bir akışta gönderir ve onaylar
+
+**Önbellek Geçersiz Kılma:** Başarılı transferde, hook otomatik olarak şunlar
+için TanStack Query önbelleklerini geçersiz kılar:
+
+- Gönderenin bakiyesi (`from` adresi)
+- Alıcının bakiyesi (`to` adresi)
+
+Bu, bakiyeleri görüntüleyen tüm bileşenlerin (örn. `useArcClient` aracılığıyla)
+manuel müdahale olmaksızın otomatik olarak yeniden alınmasını ve güncellenmesini
+sağlar.
+
+**Hassas Miktar Dönüşümü:** `transferFromInputs()` kullanıldığında, miktar kayan
+nokta hassasiyet hatalarından kaçınmak için dize tabanlı aritmetik kullanılarak
+SOL'dan lamport'a dönüştürülür. Dönüşüm:
+
+- Giriş formatını doğrular (negatif, geçersiz sayıları reddeder)
+- 9 ondalık basamağa kadar işler (1 lamport = 0.000000001 SOL)
+- Kesirli değerleri gerektiği gibi keser veya doldurur
+- Geçersiz girişler için açıklayıcı hatalar fırlatır
+
+---
+
+### `useTransferToken`
+
+`useTransferSOL` gibi, bu hook SPL token'larını transfer etmek için kullanılır.
+Transferleri yönetmenin yanı sıra, hook gerektiğinde otomatik Associated Token
+Account (ATA) oluşturma işlemini de yönetir.
+
+#### İmza
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Parametreler
+
+- **`initialMintInput`** (`string`, isteğe bağlı) - Başlangıç token mint adresi.
+  Sabit token transferleri için kullanışlıdır.
+- **`initialToInput`** (`string`, isteğe bağlı) - Başlangıç alıcı adresi.
+- **`initialAmountInput`** (`string`, isteğe bağlı) - Token'ın temel
+  birimlerinde başlangıç miktarı (ondalık basamaklar dikkate alınarak).
+
+#### Dönüş Değeri
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Dönüş değeri `useTransferSOL` ile benzerdir ancak token seçimi için ek bir
+`mintInput` durumu içerir.
+
+#### Seçenekler
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Zorunlu Alanlar
+
+- **`mint`** - SPL token mint adresi. Örneğin:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Alıcının cüzdan adresi (token hesabı değil). Hook otomatik olarak
+  doğru Associated Token Account'u türetir.
+
+- **`amount`** - Token'ın **en küçük birimi** cinsinden transfer miktarı. Token
+  ondalık basamaklarını dikkate almalıdır:
+  - USDC (6 ondalık): `1_000_000n` = 1 USDC
+  - SOL-wrapped token'lar (9 ondalık): `1_000_000_000n` = 1 token
+
+##### İsteğe Bağlı Alanlar
+
+- **`from`** - Gönderenin cüzdan adresi. Varsayılan olarak bağlı cüzdandır.
+
+- **`createAccountIfNeeded`** (varsayılan: `true`) - Alıcının bu mint için bir
+  token hesabı yoksa, işlemin bir parçası olarak otomatik olarak oluştur.
+  `false` olduğunda, alıcı hesabı mevcut değilse transfer başarısız olur.
+
+  _Not:_ Bir token hesabı oluşturmak ~0,00203 SOL'e mal olur. Bu tutar gönderen
+  tarafından ödenir.
+
+- **`retryConfig`** - Blockhash süre dolumu durumunda otomatik yeniden deneme
+  yapılandırması. Bkz. [Yeniden Deneme Yapılandırması](#retry-configuration).
+
+#### Sonuç
+
+Sonuç, transfer detaylarını ve işlem imzasını içeren işlem meta verilerini
+içerir:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Yeniden Deneme Yapılandırması
+
+Hook, ağ tıkanıklığı sırasında sıklıkla meydana gelen blockhash süre dolumunu
+işlemek için gelişmiş yeniden deneme mantığı içerir.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Maksimum işlem deneme sayısı. Her deneme yeni bir
+  blockhash alır. Varsayılan: `3`.
+
+- **`baseDelay`** - İlk yeniden denemeden önceki milisaniye cinsinden gecikme.
+  Varsayılan: `1000` (1 saniye).
+
+- **`backoffMultiplier`** - Üstel geri çekilme çarpanı. Her yeniden deneme
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` milisaniye bekler.
+  - `1` = doğrusal geri çekilme (1s, 1s, 1s)
+  - `1.5` = üstel geri çekilme (1s, 1.5s, 2.25s)
+  - `2` = agresif üstel (1s, 2s, 4s)
+
+**Yeniden Deneme Nasıl Çalışır:**
+
+1. **İlk Deneme:** İşlem mevcut blockhash ile oluşturulur ve gönderilir
+2. **Blockhash Süresi Dolar:** Blockhash onaydan önce eskirse, Solana işlemi
+   reddeder
+3. **Otomatik Yeniden Deneme:** Hook süre dolumunu algılar, yeni bir blockhash
+   alır, işlemi yeniden oluşturur ve tekrar gönderir
+4. **Üstel Geri Çekilme:** Her yeniden deneme, ağ tıkanıklığından kaçınmak için
+   daha uzun süre bekler
+5. **Son Başarısızlık:** `maxAttempts` sonrasında `BlockhashExpirationError`
+   hatası bağlamla birlikte fırlatır
+
+**Yeniden Denemelerin Tetiklenmediği Durumlar:**
+
+- Blockhash dışı hatalar (yetersiz bakiye, geçersiz hesaplar vb.) yeniden deneme
+  yapmadan hemen fırlatılır
+- Yalnızca blockhash süre dolumu hataları yeniden deneme mekanizmasını tetikler
+
+#### Dahili Mimari
+
+**ATA Yönetimi:**
+
+- Associated Token Account'ları `findAssociatedTokenPda` kullanarak
+  deterministik olarak türetir (_Not: şu anda yalnızca Token Program
+  desteklenmektedir_)
+- Gönderenin bir token hesabı olup olmadığını kontrol eder (gönderen token'a
+  sahip değilse hızlı başarısız olur)
+- Alıcının bir token hesabı olup olmadığını kontrol eder (gerekirse ve
+  `createAccountIfNeeded: true` ise oluşturur)
+- Hesap kontrolleri, yeniden denemeler sırasında gereksiz RPC çağrılarından
+  kaçınmak için yalnızca ilk denemede çalışır
+
+**Önbellek Geçersiz Kılma:** Başarılı olduğunda, şu TanStack Query
+önbelleklerini geçersiz kılar:
+
+- Gönderenin bu mint için token bakiyesi
+- Alıcının bu mint için token bakiyesi
+- İlgili hesap verileri
+
+Bu sayede bakiyeleri gösteren tüm UI bileşenleri otomatik olarak senkronize
+tutulur.
+
+### `useArcClient`
+
+Temel Solana RPC istemcisine, cüzdan durumuna ve ağ yapılandırmasına erişim
+sağlayan hook. Bu, doğrudan RPC erişimine ihtiyaç duyan gelişmiş kullanım
+senaryoları için alt seviye bir hook'tur.
+
+#### İmza
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Dönüş Değeri
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### Durum
+
+`ArcClientSnapshot`, şunlara erişim sağlayan `ArcWebClient`'i genişletir:
+
+- cüzdan durumu (adres, imzalayıcı, mevcut cüzdanlar, özellikler ve cüzdan
+  durumu)
+- ağ yapılandırması (RPC uç noktası, Solana kümesi)
+
+#### Kullanım Senaryoları
+
+**Doğrudan RPC Sorguları:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Ağ Duyarlı Bileşenler:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Cüzdana Dayalı Koşullu Renderlama:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

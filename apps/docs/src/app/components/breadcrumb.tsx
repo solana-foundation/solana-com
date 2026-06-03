@@ -33,7 +33,7 @@ export function Breadcrumb({
             className="truncate hover:text-fd-accent-foreground"
             href={`/${rootParts.slice(0, index + 1).join("/")}`}
           >
-            {roots[part]}
+            {roots[part as keyof typeof roots]}
           </Link>
         </React.Fragment>
       ))}

@@ -1,0 +1,476 @@
+---
+title: Cüzdan Bağlantısı
+description: Wallet Standard kullanarak Solana cüzdanlarını bağlayın
+---
+
+`@solana-commerce/connector` paketi,
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard) üzerine
+inşa edilmiş başsız cüzdan bağlantısı sağlar. Cüzdan keşfi, bağlantı durumu,
+hesap yönetimi ve otomatik yeniden bağlanmayı yönetir. Paket, React bağlamaları
+dahil olmak üzere framework-agnostik olarak tasarlanmıştır. Solana Commerce
+Kit'te sorunsuz kullanım için özelleştirilmiştir ve
+[@solana/kit](https://github.com/anza-xyz/kit) ve
+[gill](https://www.gillsdk.com/) ile uyumludur.
+
+![Cüzdan Bağlantısı](/assets/docs/tools/commerce-kit/connector.png)
+
+## Kurulum
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Sağlayıcı Yapılandırması
+
+### `ConnectorProvider`
+
+`ConnectorProvider` bileşeni uygulamanızı sarar ve tüm alt bileşenlere cüzdan
+bağlantı durumunu sağlar. Bileşen mount/unmount döngüleri boyunca kalıcı olan
+tekil bir `ConnectorClient` örneğini yönetir.
+
+#### Özellikler
+
+Tüm yapılandırma `config` özelliği üzerinden iletilir:
+
+- **`config`** (`ConnectorConfig`, isteğe bağlı) - Bağlayıcı için yapılandırma
+  nesnesi. Tüm alanlar isteğe bağlıdır.
+
+#### `ConnectorConfig`
+
+Cüzdan bağlantı davranışı için yapılandırma nesnesi.
+
+##### İsteğe Bağlı Alanlar
+
+- **`autoConnect`** (`boolean`) - `true` olduğunda, mount sırasında en son
+  kullanılan cüzdana otomatik olarak yeniden bağlanır. Cüzdan tercihi
+  yapılandırılmış depolamada saklanır (varsayılan: `localStorage`). Varsayılan:
+  `false`.
+
+- **`debug`** (`boolean`) - Bağlantı akışlarını, hesap değişikliklerini ve
+  hataları hata ayıklamak için ayrıntılı konsol günlüğünü etkinleştirir.
+  Günlükler `[Connector]` ve `[ConnectorProvider]` gibi önekler içerir.
+  Varsayılan: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Cüzdan `standard:events`
+  özelliğini desteklemediğinde hesap değişikliklerini kontrol etmek için
+  milisaniye cinsinden yoklama aralığı. Çoğu modern cüzdan olayları destekler,
+  bu nedenle yoklama bir yedektir. Varsayılan: `1500` (1,5 saniye).
+
+- **`storage`** (`Storage`) - Cüzdan tercihlerini kalıcı hale getirmek için özel
+  depolama adaptörü. Şunları uygulamalıdır:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Varsayılan: Kullanılabilir olduğunda `window.localStorage` (yalnızca
+  tarayıcı). Bunu React Native (`AsyncStorage`) veya özel SSR güvenli depolama
+  için kullanın.
+
+#### Sağlayıcı Mimarisi
+
+Sağlayıcı, referans sayımı ile **tekil (singleton) desen** kullanır:
+
+- Birden fazla `ConnectorProvider` örneği aynı `ConnectorClient`'i paylaşır
+- İstemci ilk bağlanmada oluşturulur ve bağlantı kaldırmalar boyunca devam eder
+- Tüm sağlayıcılar bağlantısını kaldırdığında, hızlı yeniden bağlanmaları
+  işlemek için temizlik 5 saniye geciktirilir
+- Temizlik sırasında, cüzdan bağlantısı kesilir ve tüm olay dinleyicileri
+  kaldırılır
+
+Bu tasarım, rota değişiklikleri veya bileşen güncellemeleri sırasında cüzdan
+bağlantısının kesilmesini önler.
+
+---
+
+## Hook'lar
+
+### `useConnector()`
+
+Cüzdan bağlantı durumuna ve eylemlerine erişmek için birincil hook.
+`ConnectorProvider` içinde kullanılmalıdır.
+
+Şunları içeren bir `ConnectorSnapshot` nesnesi döndürür:
+
+#### Durum Özellikleri
+
+- **`wallets`** (`WalletInfo[]`) - Keşfedilen tüm Wallet Standard uyumlu
+  cüzdanların dizisi. Cüzdanlar kurulduğunda veya kaldırıldığında otomatik
+  olarak güncellenir. Her cüzdan isim, simge ve yetenekler gibi meta verileri
+  içerir. Bkz. [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Şu anda bağlı olan Wallet Standard
+  cüzdan nesnesi. Bağlantı kesildiğinde `null`. Bu, Wallet Standard API'sinden
+  ham cüzdan örneğidir.
+
+- **`connected`** (`boolean`) - Bağlantı durumu. Bir cüzdan bağlı olduğunda ve
+  hesaplar mevcut olduğunda `true`. Koşullu UI render etme için bunu kullanın.
+
+- **`connecting`** (`boolean`) - Cüzdan bağlantısı sırasındaki yükleme durumu.
+  `select()` çağrısı ile bağlantı sonucunun alınması arasında `true`. Yükleme
+  göstergeleri göstermek veya düğmeleri devre dışı bırakmak için bunu kullanın.
+
+- **`accounts`** (`AccountInfo[]`) - Bağlı cüzdandan gelen hesapların dizisi.
+  Çoğu cüzdan bir hesap sağlar, ancak bazıları birden fazla hesabı destekler.
+  Cüzdan olayları veya yoklama yoluyla otomatik olarak güncellenir. Bkz.
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Şu anda seçili olan hesabın adresi
+  (base58 kodlu genel anahtar). Bir cüzdan yeni bir hesapla bağlandığında, o
+  hesap otomatik olarak seçilir. Aksi takdirde, daha önce seçilen hesap korunur.
+
+#### Eylem Yöntemleri
+
+- **`select`** (`(walletName: string) => Promise<void>`) - İsme göre bir cüzdana
+  bağlanır (örn. `"Phantom"`, `"Solflare"`). Cüzdan adı, keşfedilen cüzdanın
+  `name` alanıyla tam olarak eşleşmelidir.
+
+  **Süreç:**
+  1. `connecting: true` ayarlar
+  2. Cüzdanın `standard:connect` özelliğini çağırır
+  3. Cüzdandan hesapları alır
+  4. Cüzdan olaylarına abone olur (olaylar kullanılamıyorsa yoklama başlatır)
+  5. Cüzdan tercihini yapılandırılmış depolamada saklar
+  6. Durumu hesaplar ve seçili hesapla günceller
+
+  **Hata fırlatır:** Cüzdan bulunamazsa, cüzdan bağlanmayı desteklemiyorsa veya
+  bağlantı kullanıcı tarafından reddedilirse hata fırlatır.
+
+- **`disconnect`** (`() => Promise<void>`) - Mevcut cüzdanın bağlantısını keser
+  ve tüm durumu temizler.
+
+  **Süreç:**
+  1. Cüzdan olaylarından abonelikten çıkar
+  2. Hesap yoklamasını durdurur
+  3. Mevcutsa cüzdanın `standard:disconnect` özelliğini çağırır
+  4. Seçili cüzdan, hesaplar ve seçili hesabı temizler
+  5. Cüzdan tercihini depolamadan kaldırır
+
+  Asla hata fırlatmaz (hata ayıklama etkinse hatalar kaydedilir).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Seçili hesabı
+  bağlı cüzdandaki farklı bir adrese değiştirir. Adres mevcut hesaplar dizisinde
+  değilse, güncellenmiş hesapları almak için yeniden bağlanmayı tetikler.
+
+  **Hata fırlatır:** Bağlı cüzdan yoksa veya yeniden bağlanma sonrasında istenen
+  hesap bulunamazsa hata fırlatır.
+
+### `useConnectorClient()`
+
+Gelişmiş kullanım senaryoları için temel `ConnectorClient` örneğine doğrudan
+erişim sağlar.
+
+**Döndürür:** `ConnectorClient | null` - Singleton istemci örneği veya
+`ConnectorProvider` dışında kullanıldığında `null`.
+
+**Kullanım senaryoları:**
+
+- Zorunlu durum okumaları için `getConnectorState()`'ye doğrudan erişim
+- Özel durum dinleyicileri için `subscribe(listener)` ile manuel abonelik
+- Zorlamalı temizlik için `destroy()` çağrısı (normal kullanımda önerilmez)
+
+**Örnek:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Tip Tanımlamaları
+
+### `WalletInfo`
+
+Keşfedilen bir cüzdan hakkında meta veriler.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Gereksinimleri:** Bir cüzdan aşağıdakileri desteklediğinde
+bağlanabilir:
+
+- `standard:connect` özelliği
+- `standard:disconnect` özelliği
+- Solana zincirleri (`wallet.chains` içinde `"solana"` bulunarak tespit edilir)
+
+Bağlanamayan cüzdanlar `wallets` dizisinde görünür ancak seçilemez.
+
+### `AccountInfo`
+
+Bir cüzdan hesabı hakkında bilgi.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+`raw` alanı, ek hesap özelliklerine erişim sağlar:
+
+- `address: string` - Base58 kodlu genel anahtar
+- `publicKey: Uint8Array` - Ham genel anahtar baytları
+- `label?: string` - Hesap etiketi (cüzdan sağlıyorsa)
+- `icon?: string` - Hesaba özel ikon (veri URL'si)
+- `chains: string[]` - Bu hesap için desteklenen zincirler
+- `features: string[]` - Bu hesap için desteklenen özellikler
+
+### `ConnectorSnapshot`
+
+`useConnector()`'ın dönüş tipi, durum ve eylemleri birleştirir.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Hesap Değişikliği Tespiti
+
+Bağlayıcı, cüzdan hesapları değiştiğinde (kullanıcı hesap ekler/kaldırır,
+cüzdanda hesap değiştirir) otomatik olarak tespit eder. İki strateji kullanılır:
+
+### Olay Tabanlı (Tercih Edilen)
+
+Cüzdan `standard:events`'ı desteklediğinde, bağlayıcı `change` olaylarına abone
+olur:
+
+- Hesaplar değiştiğinde gerçek zamanlı bildirimler alır
+- Daha verimli (yoklama yok)
+- Hem olaydan hem de `wallet.accounts`'dan hesapları toplar; böylece olaylarda
+  yalnızca seçili hesabı içeren cüzdanları işler
+
+### Yoklama Yedekleme
+
+Olaylar desteklenmediğinde, bağlayıcı `wallet.accounts`'ı yoklar:
+
+- Her `accountPollingIntervalMs`'da kontrol eder (varsayılan: 1500ms)
+- Değişiklikleri tespit etmek için hesap adreslerini karşılaştırır
+- Yalnızca hesaplar gerçekten değiştiğinde yeniden render tetikler
+
+**Hesap Seçim Mantığı:**
+
+- Hesaplar değiştiğinde, seçili hesap hala mevcutsa onu koru
+- Seçili hesap kaldırıldıysa, ilk kullanılabilir hesabı seç
+- Yeni bir hesapla bağlanırken (önceki hesaplarda değilse), yeni hesabı tercih
+  et
+
+---
+
+## Depolama ve Otomatik Bağlanma
+
+### Depolama Kalıcılığı
+
+Bağlayıcı, yapılandırılmış depolamada bir anahtar saklar:
+
+- **Anahtar:** `arc-connector:lastWallet`
+- **Değer:** Cüzdan adı (örn. `"Phantom"`)
+
+Depolama işlemleri aşağıdaki durumları ele almak için try-catch ile
+sarmalanmıştır:
+
+- `localStorage` hata fırlatan korumalı iframe'ler
+- `window` tanımsız olan SSR ortamları
+- `localStorage` bulunmayan React Native
+
+Depolama başarısız olursa, bağlayıcı kalıcılık olmadan devam eder (hata
+fırlatılmaz).
+
+### Otomatik Bağlanma Davranışı
+
+`autoConnect: true` olduğunda:
+
+1. Başlangıçta, depolamadan son cüzdan adını okur
+2. 100ms bekler (cüzdanların kaydolmasına izin verir)
+3. Cüzdan keşfedilirse `select(walletName)` çağrılır
+4. Otomatik bağlanma başarısız olursa, geçersiz tercihi depolamadan kaldırır
+
+**Güvenlik Notu:** Saklanan tercih sadece bir cüzdan adıdır (string), hassas
+veri değildir. Cüzdan, kimlik doğrulama/yetkilendirmeyi kendi arayüzü üzerinden
+yönetir.
+
+---
+
+## Kullanım Örnekleri
+
+### Temel Cüzdan Butonu
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Çoklu Hesap Seçici
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Bağlantı İzleme
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Desteklenen Cüzdanlar
+
+Bağlayıcı, [Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+uygulayan tüm cüzdanları destekler, bunlar arasında:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Wallet Standard uyumlu diğer tüm cüzdanlar
+
+Cüzdanlar, Wallet Standard API'sine kaydolduklarında otomatik olarak keşfedilir
+(yapılandırma gerekmez).
+
+---
+
+## Headless Kullanım (React Olmadan)
+
+React olmayan uygulamalar veya sunucu tarafı kullanımı için doğrudan
+`ConnectorClient` kullanın:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Not:** `ConnectorClient` kendi durumunu yönetir ve asla React yeniden
+render'larını tetiklemez. Durum değişikliklerine manuel olarak abone olmanız
+gerekir.

@@ -1,0 +1,481 @@
+---
+title: 如何使用 Jito 和 Kora 实现无 Gas 交易捆绑包
+description: 本指南教您如何使用 Kora 实现无 Gas 的 Jito 捆绑包。
+date: 2025-01-09
+---
+
+_最后更新时间:2025-01-09_
+
+## 您将构建什么
+
+在[完整交易流程指南](/docs/tools/kora/guides/full-demo)中,您学习了如何使用 Kora 创建无 Gas 交易。然而,在许多场景下,单个交易是不够的,或者单个交易中没有足够的空间来包含 Kora 支付指令。在本指南中,我们将构建一个演示,展示如何使用 Kora 签名并将交易捆绑包发送到 Jito 的区块引擎, 以便在 Solana 主网上原子化执行。Kora 服务器将支付 Jito 小费和所有交易费用。
+
+最终结果将是一个可运行的 Jito 捆绑包系统:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KORA JITO BUNDLE DEMO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing clients
+  → Kora RPC: http://localhost:8080/
+  → Solana RPC: https://api.mainnet-beta.solana.com
+
+[2/4] Setting up keypairs
+  → Sender: BYJVBqQ2xV9GECc84FeoPQy2DpgoonZQFQu97MMWTbBc
+  → Kora signer address: 3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE
+
+[3/4] Creating bundle transactions
+  → Blockhash: 7HZUaMqV...
+  → Tip account: 96gYZGLn...
+  → Transaction 1: Kora Memo "Bundle tx #1"
+  → Transaction 2: Kora Memo "Bundle tx #2"
+  → Transaction 3: Kora Memo "Bundle tx #3"
+  → Transaction 4: Kora Memo "Bundle tx #4" + Jito tip
+  ✓ 4 transactions created for bundle
+
+[4/4] Signing and sending bundle
+  ✓ Bundle submitted to Jito block engine
+  → Bundle UUID: 8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Bundle confirmed on Solana
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bundle UUID:
+8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c
+```
+
+以下是我们的构建方式。
+
+## 前置条件
+
+在开始本教程之前,请确保您已:
+
+- 完成 [Kora 完整交易流程指南](/docs/tools/kora/guides/full-demo)
+  — 我们将在这些概念的基础上继续构建
+- 安装 [**Node.js**](https://nodejs.org/en/download)(LTS 或更高版本)
+- **熟悉** [Solana 交易](https://solana.com/docs/core/transactions)
+- **熟悉**
+  [Jito 捆绑包](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)
+
+### Kora v2.2.0 Beta
+
+**重要提示**:本指南需要 Kora v2.2.0 beta 版本。您可以在
+[此处](https://github.com/solana-foundation/kora/releases/tag/v2.2.0-beta.7)找到该版本。这是预发布版本,可能包含错误。
+
+```bash
+cargo install kora-cli@2.2.0-beta.7
+```
+
+## Jito 捆绑包基础知识
+
+在 Solana 上,交易中的每条指令都是原子化的——如果一条指令失败,整个交易就会失败。捆绑包是一种工具,使您能够以原子化和顺序方式执行最多 5 笔交易。捆绑包通过小费来激励, 小费越高,优先级越高。
+
+本指南假设您对
+[Jito 捆绑包](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles/)有一定的基础了解和使用经验。
+
+## 项目结构
+
+此演示的示例代码可以在
+[Kora 示例](https://github.com/solana-foundation/kora/tree/v2.2.0-beta.7/examples/jito-bundles)中找到：
+
+```
+jito-bundles/
+├── client/
+│   ├── src/
+│   │   └── index.ts       # Bundle demo implementation
+│   └── package.json
+├── server/
+│   ├── kora.toml          # Kora configuration with bundles enabled
+│   └── signers.toml       # Signer configuration
+└── scripts/
+    └── start-kora.sh      # Server startup script
+```
+
+克隆 kora 仓库并导航到 jito-bundles 目录：
+
+```bash
+git clone https://github.com/solana-foundation/kora.git
+cd kora/examples/jito-bundles
+```
+
+## Kora 服务器配置
+
+### kora.toml
+
+捆绑包支持的关键配置：
+
+```toml
+[kora]
+rate_limit = 100
+
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+
+[kora.enabled_methods]
+sign_bundle = true
+sign_and_send_bundle = true
+estimate_bundle_fee = true
+get_blockhash = true
+get_config = true
+get_payer_signer = true
+
+[validation]
+max_allowed_lamports = 1000000
+max_signatures = 10
+price_source = "Mock"
+allowed_programs = [
+    "11111111111111111111111111111111",            # System Program
+    "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", # Memo Program
+]
+
+[validation.fee_payer_policy.system]
+allow_transfer = true  # Required for Jito tip transfers
+
+[validation.price]
+type = "free"  # No payment required for this demo
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+捆绑包支持的**重要**设置：
+
+- **sign_bundle / sign_and_send_bundle** — 启用捆绑包 RPC 方法
+- **allow_transfer = true** — Kora 的签名者支付 Jito 小费，因此需要转账权限
+- **bundle.enabled = true** — 捆绑包功能的主开关
+- 我们在此演示中使用公共主网区块引擎 URL。在生产环境中，您应该使用私有区块引擎 URL。
+
+### signers.toml
+
+```toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY"
+```
+
+确保将 `.env.example` 重命名为 `.env`，并将 `KORA_PRIVATE_KEY`
+环境变量设置为您的主网私钥。签名者钱包需要在主网上有 SOL 来支付：
+
+1. 所有捆绑包交易的交易费用
+2. Jito 小费（最低 1,000 lamport）
+
+**重要提示**：本指南演示了在 Solana 主网上使用 Jito 小费。小费不可退还。
+
+### 启动服务器
+
+从 `server/` 目录：
+
+```bash
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+或使用提供的脚本。从 `server/` 目录：
+
+```bash
+../scripts/start-kora.sh
+```
+
+## 客户端实现
+
+我们将逐步讲解客户端实现，从导入开始。
+
+### 导入和配置
+
+```ts
+import { KoraClient } from "@solana/kora";
+import {
+  createNoopSigner,
+  address,
+  getBase64EncodedWireTransaction,
+  partiallySignTransactionMessageWithSigners,
+  Blockhash,
+  KeyPairSigner,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  generateKeyPairSigner
+} from "@solana/kit";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const MINIMUM_JITO_TIP = 1_000n; // lamports
+
+const CONFIG = {
+  solanaRpcUrl: "https://api.mainnet-beta.solana.com",
+  koraRpcUrl: "http://localhost:8080/",
+  jitoTipLamports: MINIMUM_JITO_TIP,
+  bundleSize: 4, // We'll create 4 transactions for this demo
+  pollIntervalMs: 6000,
+  pollTimeoutMs: 60000
+};
+```
+
+我们正在设置：
+
+- **Solana Kit** 导入用于构建交易
+- **Memo 程序**用于我们的演示交易（您可以用实际操作替换）
+- **System Program**用于 Jito 小费转账
+- **配置**用于 RPC 端点和捆绑包参数
+
+### Jito 小费账户
+
+Jito 有
+[8 个小费账户](https://docs.jito.wtf/lowlatencytxnsend/#response-example-tips)
+可以发送 SOL。我们在此演示中随机选择一个。
+
+```ts
+// Jito tip accounts - one is randomly selected by the block engine
+const JITO_TIP_ACCOUNTS = [
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"
+];
+
+function getRandomTipAccount(): string {
+  return JITO_TIP_ACCOUNTS[
+    Math.floor(Math.random() * JITO_TIP_ACCOUNTS.length)
+  ];
+}
+```
+
+小费账户是 Jito 运营的地址。向其中任何一个发送 SOL 都会向 validator 表明您的小费金额。
+
+### 步骤 1：初始化客户端
+
+我们使用 API 密钥初始化 Kora 客户端，该密钥与 `kora.toml`
+中配置的内容相匹配。在生产环境中，您应该从环境变量加载此密钥。
+
+```ts
+async function initializeClients() {
+  console.log("\n[1/4] Initializing clients");
+  console.log("  → Kora RPC:", CONFIG.koraRpcUrl);
+  console.log("  → Solana RPC:", CONFIG.solanaRpcUrl);
+
+  const client = new KoraClient({
+    rpcUrl: CONFIG.koraRpcUrl,
+    apiKey: "kora_facilitator_api_key_example"
+  });
+
+  return { client };
+}
+```
+
+### 步骤 2：设置密钥
+
+```ts
+async function setupKeys(client: KoraClient) {
+  console.log("\n[2/4] Setting up keypairs");
+
+  const senderKeypair = await generateKeyPairSigner();
+  console.log("  → Sender:", senderKeypair.address);
+
+  const { signer_address } = await client.getPayerSigner();
+  console.log("  → Kora signer address:", signer_address);
+
+  return { senderKeypair, signer_address };
+}
+```
+
+我们使用 `generateKeyPairSigner()`
+为演示创建一个新的 keypair。由于该 keypair 仅签署 memo 指令，并且不必支付任何 Kora 费用（根据我们的配置），因此不需要 SOL 或其他代币。Kora 的签名者（通过
+`getPayerSigner` 获取）支付所有费用和 Jito 小费。
+
+### 步骤 3：创建捆绑包交易
+
+现在让我们创建一个交易捆绑包。我们创建多个交易，每个交易都有自己独特的指令。我们在这里使用独特的 memo 指令，以便在交易登陆 Solana 主网后轻松验证。
+
+```ts
+async function createBundleTransactions(
+  client: KoraClient,
+  senderKeypair: KeyPairSigner,
+  signer_address: string
+) {
+  console.log("\n[3/4] Creating bundle transactions");
+
+  const noopSigner = createNoopSigner(address(signer_address));
+  const latestBlockhash = await client.getBlockhash();
+  const tipAccount = getRandomTipAccount();
+
+  console.log("  → Blockhash:", latestBlockhash.blockhash.slice(0, 8) + "...");
+  console.log("  → Tip account:", tipAccount.slice(0, 8) + "...");
+
+  const transactions: string[] = [];
+
+  for (let i = 0; i < CONFIG.bundleSize; i++) {
+    const isLastTransaction = i === CONFIG.bundleSize - 1;
+    console.log(
+      `  → Transaction ${i + 1}: Kora Memo "Bundle tx #${i + 1}"${
+        isLastTransaction ? " + Jito tip" : ""
+      }`
+    );
+
+    // Build transaction with memo
+    let transactionMessage = pipe(
+      createTransactionMessage({
+        version: 0
+      }),
+      (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+      (tx) =>
+        setTransactionMessageLifetimeUsingBlockhash(
+          {
+            blockhash: latestBlockhash.blockhash as Blockhash,
+            lastValidBlockHeight: 0n
+          },
+          tx
+        ),
+      (tx) =>
+        appendTransactionMessageInstruction(
+          getAddMemoInstruction({
+            memo: `Kora Bundle tx #${i + 1} of ${CONFIG.bundleSize}`,
+            signers: [senderKeypair]
+          }),
+          tx
+        ),
+      // Add Jito tip to the LAST transaction only
+      (tx) =>
+        isLastTransaction
+          ? appendTransactionMessageInstruction(
+              getTransferSolInstruction({
+                source: noopSigner,
+                destination: address(tipAccount),
+                amount: CONFIG.jitoTipLamports
+              }),
+              tx
+            )
+          : tx
+    );
+
+    // Sign with sender keypair (required for memo instruction)
+    const signedTransaction =
+      await partiallySignTransactionMessageWithSigners(transactionMessage);
+    const base64Transaction =
+      getBase64EncodedWireTransaction(signedTransaction);
+    transactions.push(base64Transaction);
+  }
+
+  console.log(`  ✓ ${transactions.length} transactions created for bundle`);
+  return transactions;
+}
+```
+
+**重要提示：小费由 Kora 签名者支付**：由于我们希望 Kora 节点支付 Jito 小费，我们使用一个"无操作"签名者（`noopSigner`），其中 Kora 的地址是小费转账的来源。Kora 将在处理捆绑包时对此进行签名。
+
+### 步骤 4：签名并提交捆绑包
+
+现在我们可以将所有内容整合在一起，并将捆绑包发送给 Kora 进行签名并提交到 Jito 的区块引擎。
+
+```ts
+async function main() {
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("KORA JITO BUNDLE DEMO");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  try {
+    // Step 1: Initialize clients
+    const { client } = await initializeClients();
+
+    // Step 2: Setup keys
+    const { senderKeypair, signer_address } = await setupKeys(client);
+
+    // Step 3: Create bundle transactions
+    const transactions = await createBundleTransactions(
+      client,
+      senderKeypair,
+      signer_address
+    );
+
+    // Step 4: Sign and send bundle
+    console.log("\n[4/4] Signing and sending bundle");
+    const { bundle_uuid } = await client.signAndSendBundle({
+      transactions,
+      signer_key: signer_address
+    });
+
+    console.log("\nBundle UUID:");
+    console.log(bundle_uuid);
+  } catch (error) {
+    console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("ERROR: Demo failed");
+    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("\nDetails:", error);
+    process.exit(1);
+  }
+}
+
+main().catch((e) => console.error("Error:", e));
+```
+
+## 运行演示
+
+### 1. 启动 Kora 服务器
+
+```bash
+cd examples/jito-bundles/server
+kora --config kora.toml --rpc-url https://api.mainnet-beta.solana.com rpc start --signers-config signers.toml
+```
+
+### 2. 运行客户端
+
+在新的终端中，导航到 `client/` 目录并运行演示：
+
+```bash
+cd examples/jito-bundles/client
+
+# Install dependencies
+pnpm install
+
+# Run the demo
+pnpm start
+```
+
+### 预期输出
+
+您应该会看到逐步执行的过程，最后成功生成捆绑包。该捆绑包将：
+
+- 创建 4 个备忘录交易
+- 在最后一笔交易中添加 Jito 小费（1,000 lamport）
+- 所有交易由 Kora 作为费用支付方签名
+- 原子性地提交到 Jito 的区块引擎
+
+_注意：_
+
+- Jito 的默认路由器可能会遇到速率限制。如果您收到 429 错误，可以稍后重试或请求更高的限制。请查看 Jito 的[速率限制文档](https://docs.jito.wtf/lowlatencytxnsend/#exceeding-limits)了解更多信息。
+- 由于我们的演示使用的小费非常少，捆绑包可能无法在 Solana 主网上落地。如果您在
+  [Jito 的捆绑包浏览器](https://explorer.jito.wtf/)上看不到该捆绑包，可以稍后使用更高的小费重试。
+
+## 理解发生了什么
+
+与单笔交易相比，以下是不同之处：
+
+1. **多笔交易** — 我们创建了 4 笔必须一起执行的交易，而不是单笔交易
+2. **Jito 小费** — 我们添加了小费转账（由 Kora 的签名者支付）以激励验证者
+3. **捆绑包验证** — Kora 验证所有交易是否满足 `kora.toml` 中指定的要求
+4. **原子性提交**
+   — 所有交易作为单个单元由我们的 Kora 服务器提交给 Jito，所有费用和小费均由 Kora 的签名者支付
+
+结果：要么全部 4 笔交易按顺序执行，要么一笔也不执行。不会出现部分状态。
+
+## 其他资源
+
+- **需要帮助？** 在 [Solana Stack Exchange](https://solana.stackexchange.com/)
+  上提问，并添加 `Kora` 标签
+- [**Jito 文档**](https://docs.jito.wtf/) — 官方 Jito MEV 文档
+- [**Bundle RPC 方法**](/docs/tools/kora/beta/bundle-methods) —
+  signBundle、signAndSendBundle、estimateBundleFee
+- [**GitHub 仓库**](https://github.com/solana-foundation/kora) — 源代码和示例

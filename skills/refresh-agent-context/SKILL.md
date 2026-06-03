@@ -22,8 +22,9 @@ Prefer updating these files, in this order:
 
 1. root `AGENTS.md`
 2. root `README.md`
-3. app-level `apps/*/AGENTS.md`
-4. package docs only when they materially help route ownership or shared-code
+3. root or app-level `CLAUDE.md`
+4. app-level `apps/*/AGENTS.md`
+5. package docs only when they materially help route ownership or shared-code
    discovery
 
 ## Quick Start
@@ -55,9 +56,10 @@ Check for:
 
 - missing root `AGENTS.md`
 - apps missing `AGENTS.md`
+- stale or missing `CLAUDE.md` files when Claude-specific onboarding exists
 - empty or stub-only `AGENTS.md`
-- stale README entries for app names, ports, package names, or CMS/framework
-  ownership
+- stale README or `CLAUDE.md` entries for app names, ports, package names, or
+  CMS/framework ownership
 - missing references to important shared packages such as `packages/i18n`,
   `packages/ui-chrome`, or `packages/ecosystem-data`
 - route ownership that is not obvious from the current docs
@@ -70,6 +72,7 @@ Prefer concise guides that answer these questions quickly:
 - which commands validate only that workspace
 - which config files define routing, asset prefixes, or cross-app navigation
 - which shared packages are likely involved
+- which `CLAUDE.md` files need the same operational updates as agent docs
 
 Do not turn the docs into a full architecture book. Keep them as jump-start
 guides.
@@ -96,7 +99,8 @@ Summarize:
 
 - keep docs short and operational
 - prefer tables for workspace maps and bullets for gotchas
-- preserve existing OpenSpec-managed blocks in app `AGENTS.md`
+- keep `AGENTS.md`, `CLAUDE.md`, and root onboarding docs aligned when they
+  describe the same workspace facts
 - do not duplicate long app docs when a short pointer is enough
 - if no changes are needed, say so and include the audit findings
 

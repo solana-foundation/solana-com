@@ -35,7 +35,7 @@ function StatComponent({ Icon, title, subtitle }: StatComponentProps) {
 }
 
 interface HackathonHeroSectionProps {
-  newsletterInputRef?: React.RefObject<HTMLInputElement>;
+  newsletterInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export default function HackathonHeroSection({

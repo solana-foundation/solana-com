@@ -7,6 +7,7 @@ export interface LatestLinksParams {
   cursor?: string;
   category?: string;
   tag?: string;
+  linkType?: string;
 }
 
 export interface LatestLinksResponse {
@@ -65,7 +66,7 @@ async function transformLink(
     title: String(link.title),
     url: link.url,
     linkType: link.linkType as LinkItem["linkType"],
-    description: link.description as any, // Content document type
+    description: link.description, // Content document type
     thumbnailImage: link.thumbnailImage || null,
     source: link.source || null,
     publishedAt: formattedDate,
@@ -122,10 +123,11 @@ export const fetchLatestLinks = async (
 
     const normalizedCategory = params.category?.trim().toLowerCase();
     const normalizedTag = params.tag?.trim().toLowerCase();
+    const normalizedLinkType = params.linkType?.trim().toLowerCase();
 
-    // Filter by category and/or tag if specified
+    // Filter by category, tag, and/or linkType if specified
     let filteredLinks = linksWithDates;
-    if (normalizedCategory || normalizedTag) {
+    if (normalizedCategory || normalizedTag || normalizedLinkType) {
       filteredLinks = [];
 
       for (const item of linksWithDates) {
@@ -182,7 +184,11 @@ export const fetchLatestLinks = async (
           }
         }
 
-        if (matchesCategory && matchesTag) {
+        const matchesLinkType =
+          !normalizedLinkType ||
+          item.link?.linkType?.toLowerCase() === normalizedLinkType;
+
+        if (matchesCategory && matchesTag && matchesLinkType) {
           filteredLinks.push(item);
         }
       }

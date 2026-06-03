@@ -1,0 +1,233 @@
+---
+title: İzleme ve Metrikler
+description: Prometheus ve Grafana ile Kora düğümünüzü izleyin
+---
+
+_Son Güncelleme: 2025-08-22_
+
+[Kora Metrics Crate](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+Kora RPC sunucusu için kapsamlı metrik toplama ve izleme sağlar.
+
+Kora, Prometheus formatında gerçek zamanlı performans verileri sağlayan bir
+`/metrics` uç noktası sunar.
+
+## Yapılandırma
+
+Metrikler, `kora.toml` dosyanızın `[metrics]` bölümünde yapılandırılır.
+`[metrics]` bölümü metrik toplama ve izlemeyi yapılandırır. Bu bölüm isteğe
+bağlıdır ve varsayılan olarak metrikler devre dışıdır.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| Seçenek           | Açıklama                           | Gerekli | Tür     |
+| ----------------- | ---------------------------------- | ------- | ------- |
+| `enabled`         | Metrik toplamayı etkinleştir       | ✅      | boolean |
+| `endpoint`        | Özel metrik uç noktası yolu        | ✅      | string  |
+| `port`            | Metrik uç noktası portu            | ✅      | number  |
+| `scrape_interval` | Prometheus tarama sıklığı (saniye) | ✅      | number  |
+
+### Ücret Ödeyici Bakiye Takibi
+
+`[metrics.fee_payer_balance]` bölümü, ücret ödeyicinizin SOL bakiyesinin
+otomatik izlenmesini yapılandırır:
+
+| Seçenek          | Açıklama                                  | Gerekli                | Tür     |
+| ---------------- | ----------------------------------------- | ---------------------- | ------- |
+| `enabled`        | Ücret ödeyici bakiye takibini etkinleştir | ❌ (varsayılan: false) | boolean |
+| `expiry_seconds` | Arka plan takip aralığı (saniye)          | ❌ (varsayılan: 30)    | number  |
+
+Etkinleştirildiğinde, Kora otomatik olarak ücret ödeyicinizin SOL bakiyesini
+takip eder ve bunu `fee_payer_balance_lamports` Prometheus ölçütü aracılığıyla
+sunar. Bu, kapasite planlaması ve düşük bakiye uyarıları için yardımcı olur.
+
+## Hızlı Başlangıç
+
+**Metriklere erişin:**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Neleri Göreceksiniz
+
+Metrikler, RPC sunucunuzun nasıl performans gösterdiğini gösterir:
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+Henüz RPC sunucusunu çağırmadıysanız, herhangi bir metrik görmezsiniz.
+`getConfig` metodunu çağırarak basit bir test yapabilirsiniz:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+ardından metrikleri kontrol edin:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Temel Metrikler Açıklaması
+
+1. **`kora_http_requests_total`** - Kaç istek işlediğiniz
+   - `method`: Hangi RPC metodunun çağrıldığı
+   - `status`: HTTP durum kodu (200=başarılı, 400=hata, vb.)
+   - Kullanım desenleri ve hata oranlarını izlemek için bunu kullanın
+
+2. **`kora_http_request_duration_seconds`** - İsteklerinizin ne kadar hızlı
+   olduğu
+   - Yanıt süreleri için yüzdelik dilimleri gösterir (p50, p95, p99)
+   - Yavaş uç noktaları belirlemek için bunu kullanın
+
+3. **`signer_balance_lamports`** - Her imzalayıcının mevcut SOL bakiyesi
+   - Her imzalayıcı için lamport cinsinden bakiyeyi gösterir (1 SOL =
+     1.000.000.000 lamport)
+   - Etiketler: `signer_name` (okunabilir ad) ve `signer_pubkey` (açık anahtar)
+   - Etkinleştirildiğinde arka planda otomatik olarak güncellenir
+   - Tüm imzalayıcılar için kapasite planlaması ve düşük bakiye uyarıları için
+     bunu kullanın
+
+## Verileri Kullanma
+
+### Seçenek 1: Hızlı Sağlık Kontrolü
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### Seçenek 2: Prometheus + Grafana (Önerilen)
+
+Grafikler ve uyarılar için tam izleme yığınını çalıştırın:
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+Ardından şu adresleri ziyaret edin:
+
+- Prometheus: http://localhost:9090 (metrikleri sorgulama)
+- Grafana Önceden Hazır Kora panosu: http://localhost:3000
+  - Varsayılan giriş: admin/admin (veya `.env` dosyanızdaki
+    `GF_SECURITY_ADMIN_PASSWORD` ve `GF_SECURITY_ADMIN_USER` kimlik bilgilerini
+    kullanın)
+
+### Seçenek 3: Kendi İzleme Sisteminiz
+
+Herhangi bir Prometheus uyumlu aracı `http://your-server:8080/metrics` adresine
+yönlendirin:
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## Örnek Sorgular (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## Çoklu İmzalayıcı İzleme
+
+Birden fazla imzalayıcı kullanırken, her imzalayıcıyı ayrı ayrı izleyebilir veya
+toplu metrikleri takip edebilirsiniz:
+
+### Bireysel İmzalayıcı Metrikleri
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### Çoklu İmzalayıcı Kurulumları için Prometheus Sorguları
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## Güvenlik Notu
+
+`/metrics` uç noktası varsayılan olarak herkese açıktır. Üretim ortamında
+şunları düşünün:
+
+- Bir güvenlik duvarının arkasına yerleştirin
+- Ayrı bir metrik portu kullanın
+- Ters proxy üzerinden kimlik doğrulama ekleyin
+
+## Metrik Toplama Nasıl Çalışır
+
+1. **HTTP Ara Katman Katmanı** - Tüm istekleri yakalar ve şunları toplar:
+   - JSON-RPC yöntemine ve duruma göre istek sayısı
+   - Yönteme göre istek süresi
+
+2. **Metrik Uç Noktası** - Özellik etkinleştirildiğinde otomatik olarak sunulan
+   `/metrics` uç noktası
+   - `MetricsHandlerLayer` tarafından yönetilir
+   - Prometheus formatında metrikler döndürür
+
+3. **Prometheus Tarama** - Kora'yı her 60 saniyede bir tarayacak şekilde
+   yapılandırılmıştır (bkz.
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml))

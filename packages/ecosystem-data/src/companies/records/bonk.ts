@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import bonkBreakpoint2026White from "../../../assets/companies/bonk/breakpoint-2026-white.png";
 import bonkLogoLight from "../../../assets/companies/bonk/logo-light.png";
 import bonkLogoDark from "../../../assets/companies/bonk/logo-dark.png";
 import bonkLogoMonotone from "../../../assets/companies/bonk/logo-monotone.svg";
@@ -30,6 +31,14 @@ export const bonk = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: bonkBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo-light",
       fileName: "logo-light.png",

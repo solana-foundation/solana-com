@@ -1,0 +1,499 @@
+---
+title: Σύνδεση Πορτοφολιού
+description: Συνδέστε πορτοφόλια Solana χρησιμοποιώντας το Wallet Standard
+---
+
+Το πακέτο `@solana-commerce/connector` παρέχει σύνδεση πορτοφολιού χωρίς UI
+βασισμένη στο
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard).
+Διαχειρίζεται την ανακάλυψη πορτοφολιών, την κατάσταση σύνδεσης, τη διαχείριση
+λογαριασμών και την αυτόματη επανασύνδεση. Το πακέτο είναι σχεδιασμένο να είναι
+ανεξάρτητο από framework με ενσωματωμένες συνδέσεις React. Είναι προσαρμοσμένο
+για απρόσκοπτη χρήση στο Solana Commerce Kit και είναι συμβατό με το
+[@solana/kit](https://github.com/anza-xyz/kit) και το
+[gill](https://www.gillsdk.com/).
+
+![Σύνδεση Πορτοφολιού](/assets/docs/tools/commerce-kit/connector.png)
+
+## Εγκατάσταση
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Διαμόρφωση Provider
+
+### `ConnectorProvider`
+
+Το component `ConnectorProvider` περιτυλίγει την εφαρμογή σας και παρέχει την
+κατάσταση σύνδεσης πορτοφολιού σε όλα τα θυγατρικά components. Διαχειρίζεται μια
+singleton παρουσία `ConnectorClient` που διατηρείται σε όλους τους κύκλους
+mount/unmount των components.
+
+#### Props
+
+Όλες οι ρυθμίσεις περνούν μέσω του prop `config`:
+
+- **`config`** (`ConnectorConfig`, προαιρετικό) - Αντικείμενο διαμόρφωσης για
+  τον connector. Όλα τα πεδία είναι προαιρετικά.
+
+#### `ConnectorConfig`
+
+Αντικείμενο διαμόρφωσης για τη συμπεριφορά σύνδεσης πορτοφολιού.
+
+##### Προαιρετικά Πεδία
+
+- **`autoConnect`** (`boolean`) - Όταν είναι `true`, επανασυνδέεται αυτόματα στο
+  τελευταίο χρησιμοποιημένο πορτοφόλι κατά το mount. Η προτίμηση πορτοφολιού
+  αποθηκεύεται στον διαμορφωμένο χώρο αποθήκευσης (προεπιλογή `localStorage`).
+  Προεπιλογή: `false`.
+
+- **`debug`** (`boolean`) - Ενεργοποιεί αναλυτική καταγραφή στην κονσόλα για
+  debugging ροών σύνδεσης, αλλαγών λογαριασμού και σφαλμάτων. Τα logs
+  περιλαμβάνουν προθέματα όπως `[Connector]` και `[ConnectorProvider]`.
+  Προεπιλογή: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Διάστημα polling σε χιλιοστά του
+  δευτερολέπτου για τον έλεγχο αλλαγών λογαριασμού όταν το πορτοφόλι δεν
+  υποστηρίζει τη λειτουργία `standard:events`. Τα περισσότερα σύγχρονα
+  πορτοφόλια υποστηρίζουν events, οπότε το polling είναι εφεδρική λύση.
+  Προεπιλογή: `1500` (1,5 δευτερόλεπτα).
+
+- **`storage`** (`Storage`) - Προσαρμοσμένος adapter αποθήκευσης για τη
+  διατήρηση προτιμήσεων πορτοφολιού. Πρέπει να υλοποιεί:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Προεπιλογή: `window.localStorage` όταν είναι διαθέσιμο (μόνο για browser).
+  Χρησιμοποιήστε αυτό για React Native (`AsyncStorage`) ή προσαρμοσμένη SSR-safe
+  αποθήκευση.
+
+#### Αρχιτεκτονική Παρόχου
+
+Ο πάροχος χρησιμοποιεί ένα **μοτίβο singleton** με μέτρηση αναφορών:
+
+- Πολλαπλά στιγμιότυπα `ConnectorProvider` μοιράζονται το ίδιο `ConnectorClient`
+- Ο client δημιουργείται στην πρώτη προσάρτηση και παραμένει μετά την
+  αποπροσάρτηση
+- Όταν όλοι οι πάροχοι αποπροσαρτηθούν, η εκκαθάριση καθυστερεί κατά 5
+  δευτερόλεπτα για να χειριστεί γρήγορες επαναπροσαρτήσεις
+- Κατά την εκκαθάριση, το πορτοφόλι αποσυνδέεται και όλοι οι event listeners
+  αφαιρούνται
+
+Αυτός ο σχεδιασμός αποτρέπει την αποσύνδεση του πορτοφολιού κατά τις αλλαγές
+διαδρομής ή τις ενημερώσεις στοιχείων.
+
+---
+
+## Hooks
+
+### `useConnector()`
+
+Το κύριο hook για πρόσβαση στην κατάσταση και τις ενέργειες σύνδεσης
+πορτοφολιού. Πρέπει να χρησιμοποιείται εντός ενός `ConnectorProvider`.
+
+Επιστρέφει ένα αντικείμενο `ConnectorSnapshot` που περιέχει:
+
+#### Ιδιότητες Κατάστασης
+
+- **`wallets`** (`WalletInfo[]`) - Πίνακας όλων των ανιχνευμένων πορτοφολιών
+  συμβατών με το Wallet Standard. Ενημερώνεται αυτόματα όταν εγκαθίστανται ή
+  απεγκαθίστανται πορτοφόλια. Κάθε πορτοφόλι περιλαμβάνει μεταδεδομένα όπως
+  όνομα, εικονίδιο και δυνατότητες. Δείτε [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Το τρέχον συνδεδεμένο αντικείμενο
+  πορτοφολιού Wallet Standard. `null` όταν είναι αποσυνδεδεμένο. Αυτό είναι το
+  ακατέργαστο στιγμιότυπο πορτοφολιού από το Wallet Standard API.
+
+- **`connected`** (`boolean`) - Κατάσταση σύνδεσης. `true` όταν ένα πορτοφόλι
+  είναι συνδεδεμένο και οι λογαριασμοί είναι διαθέσιμοι. Χρησιμοποιήστε το για
+  υπό συνθήκη απόδοση UI.
+
+- **`connecting`** (`boolean`) - Κατάσταση φόρτωσης κατά τη σύνδεση πορτοφολιού.
+  `true` μεταξύ της κλήσης του `select()` και της λήψης του αποτελέσματος
+  σύνδεσης. Χρησιμοποιήστε το για να εμφανίσετε ενδείξεις φόρτωσης ή να
+  απενεργοποιήσετε κουμπιά.
+
+- **`accounts`** (`AccountInfo[]`) - Πίνακας λογαριασμών από το συνδεδεμένο
+  πορτοφόλι. Τα περισσότερα πορτοφόλια παρέχουν έναν λογαριασμό, αλλά ορισμένα
+  υποστηρίζουν πολλαπλούς. Ενημερώνεται αυτόματα μέσω συμβάντων πορτοφολιού ή
+  polling. Δείτε [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Η διεύθυνση του τρέχοντος
+  επιλεγμένου λογαριασμού (δημόσιο κλειδί κωδικοποιημένο σε base58). Όταν ένα
+  πορτοφόλι συνδέεται με έναν νέο λογαριασμό, αυτός ο λογαριασμός επιλέγεται
+  αυτόματα. Διαφορετικά, ο προηγουμένως επιλεγμένος λογαριασμός διατηρείται.
+
+#### Μέθοδοι Ενέργειας
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Συνδέεται σε ένα
+  πορτοφόλι με βάση το όνομα (π.χ., `"Phantom"`, `"Solflare"`). Το όνομα του
+  πορτοφολιού πρέπει να ταιριάζει ακριβώς με το πεδίο `name` ενός ανακαλυφθέντος
+  πορτοφολιού.
+
+  **Διαδικασία:**
+  1. Ορίζει το `connecting: true`
+  2. Καλεί τη λειτουργία `standard:connect` του πορτοφολιού
+  3. Ανακτά τους λογαριασμούς από το πορτοφόλι
+  4. Εγγράφεται στα συμβάντα του πορτοφολιού (ή ξεκινά polling αν τα συμβάντα
+     δεν είναι διαθέσιμα)
+  5. Αποθηκεύει την προτίμηση πορτοφολιού στον διαμορφωμένο αποθηκευτικό χώρο
+  6. Ενημερώνει την κατάσταση με τους λογαριασμούς και τον επιλεγμένο λογαριασμό
+
+  **Προκαλεί σφάλμα:** Εάν το πορτοφόλι δεν βρεθεί, δεν υποστηρίζει σύνδεση ή η
+  σύνδεση απορριφθεί από τον χρήστη.
+
+- **`disconnect`** (`() => Promise<void>`) - Αποσυνδέει το τρέχον πορτοφόλι και
+  καθαρίζει όλη την κατάσταση.
+
+  **Διαδικασία:**
+  1. Διαγράφεται από τα συμβάντα του πορτοφολιού
+  2. Σταματά το polling λογαριασμών
+  3. Καλεί τη λειτουργία `standard:disconnect` του πορτοφολιού αν είναι
+     διαθέσιμη
+  4. Καθαρίζει το επιλεγμένο πορτοφόλι, τους λογαριασμούς και τον επιλεγμένο
+     λογαριασμό
+  5. Αφαιρεί την προτίμηση πορτοφολιού από τον αποθηκευτικό χώρο
+
+  Δεν προκαλεί ποτέ σφάλμα (τα σφάλματα καταγράφονται αν είναι ενεργοποιημένο το
+  debug).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Αλλάζει τον
+  επιλεγμένο λογαριασμό σε διαφορετική διεύθυνση από το συνδεδεμένο πορτοφόλι.
+  Εάν η διεύθυνση δεν υπάρχει στον τρέχοντα πίνακα λογαριασμών, ενεργοποιεί
+  επανασύνδεση για ανάκτηση ενημερωμένων λογαριασμών.
+
+  **Προκαλεί σφάλμα:** Εάν δεν υπάρχει συνδεδεμένο πορτοφόλι ή ο ζητούμενος
+  λογαριασμός δεν βρεθεί μετά από επανασύνδεση.
+
+### `useConnectorClient()`
+
+Παρέχει άμεση πρόσβαση στην υποκείμενη εμφάνιση `ConnectorClient` για
+προχωρημένες περιπτώσεις χρήσης.
+
+**Επιστρέφει:** `ConnectorClient | null` - Η μοναδική εμφάνιση client, ή `null`
+όταν χρησιμοποιείται εκτός `ConnectorProvider`.
+
+**Περιπτώσεις χρήσης:**
+
+- Άμεση πρόσβαση στο `getConnectorState()` για αναγνώσεις κατάστασης με
+  επιτακτικό τρόπο
+- Χειροκίνητη εγγραφή με `subscribe(listener)` για προσαρμοσμένους ακροατές
+  κατάστασης
+- Κλήση του `destroy()` για αναγκαστικό καθαρισμό (δεν συνιστάται σε κανονική
+  χρήση)
+
+**Παράδειγμα:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Ορισμοί Τύπων
+
+### `WalletInfo`
+
+Μεταδεδομένα σχετικά με ένα ανακαλυφθέν πορτοφόλι.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Απαιτήσεις:** Ένα πορτοφόλι είναι συνδέσιμο όταν υποστηρίζει:
+
+- Χαρακτηριστικό `standard:connect`
+- Χαρακτηριστικό `standard:disconnect`
+- Αλυσίδες Solana (ανιχνεύονται μέσω `wallet.chains` που περιέχει `"solana"`)
+
+Τα μη συνδέσιμα πορτοφόλια εμφανίζονται στον πίνακα `wallets` αλλά δεν μπορούν
+να επιλεγούν.
+
+### `AccountInfo`
+
+Πληροφορίες σχετικά με έναν λογαριασμό πορτοφολιού.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Το πεδίο `raw` παρέχει πρόσβαση σε πρόσθετες ιδιότητες λογαριασμού:
+
+- `address: string` - Δημόσιο κλειδί κωδικοποιημένο σε Base58
+- `publicKey: Uint8Array` - Ακατέργαστα bytes δημόσιου κλειδιού
+- `label?: string` - Ετικέτα λογαριασμού (εάν το πορτοφόλι την παρέχει)
+- `icon?: string` - Εικονίδιο συγκεκριμένου λογαριασμού (data URL)
+- `chains: string[]` - Υποστηριζόμενες αλυσίδες για αυτόν τον λογαριασμό
+- `features: string[]` - Υποστηριζόμενα χαρακτηριστικά για αυτόν τον λογαριασμό
+
+### `ConnectorSnapshot`
+
+Ο τύπος επιστροφής του `useConnector()`, συνδυάζοντας κατάσταση και ενέργειες.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Ανίχνευση Αλλαγής Λογαριασμού
+
+Ο συνδετήρας ανιχνεύει αυτόματα όταν οι λογαριασμοί πορτοφολιού αλλάζουν (ο
+χρήστης προσθέτει/αφαιρεί λογαριασμούς, αλλάζει λογαριασμούς στο πορτοφόλι).
+Χρησιμοποιούνται δύο στρατηγικές:
+
+### Βάσει Συμβάντων (Προτιμώμενη)
+
+Όταν το πορτοφόλι υποστηρίζει `standard:events`, ο συνδετήρας εγγράφεται σε
+συμβάντα `change`:
+
+- Λαμβάνει ειδοποιήσεις σε πραγματικό χρόνο όταν αλλάζουν οι λογαριασμοί
+- Πιο αποδοτική (χωρίς polling)
+- Συγκεντρώνει λογαριασμούς τόσο από το συμβάν όσο και από το `wallet.accounts`
+  για να χειριστεί πορτοφόλια που περιλαμβάνουν μόνο τον επιλεγμένο λογαριασμό
+  στα συμβάντα
+
+### Εναλλακτική Λύση Polling
+
+Όταν δεν υποστηρίζονται συμβάντα, ο συνδετήρας εκτελεί polling στο
+`wallet.accounts`:
+
+- Ελέγχει κάθε `accountPollingIntervalMs` (προεπιλογή: 1500ms)
+- Συγκρίνει τις διευθύνσεις λογαριασμών για να ανιχνεύσει αλλαγές
+- Ενεργοποιεί επανα-απόδοση μόνο όταν οι λογαριασμοί πραγματικά αλλάζουν
+
+**Λογική Επιλογής Λογαριασμού:**
+
+- Όταν αλλάζουν οι λογαριασμοί, διατηρείται ο επιλεγμένος λογαριασμός εάν
+  εξακολουθεί να υπάρχει
+- Εάν ο επιλεγμένος λογαριασμός αφαιρέθηκε, επιλέγεται ο πρώτος διαθέσιμος
+  λογαριασμός
+- Κατά τη σύνδεση με νέο λογαριασμό (που δεν υπάρχει στους προηγούμενους
+  λογαριασμούς), προτιμάται ο νέος λογαριασμός
+
+---
+
+## Αποθήκευση & Αυτόματη Σύνδεση
+
+### Μονιμότητα Αποθήκευσης
+
+Ο σύνδεσμος αποθηκεύει ένα κλειδί στη ρυθμισμένη αποθήκευση:
+
+- **Κλειδί:** `arc-connector:lastWallet`
+- **Τιμή:** Όνομα πορτοφολιού (π.χ., `"Phantom"`)
+
+Οι λειτουργίες αποθήκευσης είναι τυλιγμένες σε try-catch για τη διαχείριση:
+
+- Περιορισμένα iframes όπου το `localStorage` προκαλεί σφάλμα
+- Περιβάλλοντα SSR όπου το `window` δεν είναι ορισμένο
+- React Native όπου το `localStorage` δεν υπάρχει
+
+Εάν η αποθήκευση αποτύχει, ο σύνδεσμος συνεχίζει χωρίς μονιμότητα (δεν
+προκαλούνται σφάλματα).
+
+### Συμπεριφορά Αυτόματης Σύνδεσης
+
+Όταν `autoConnect: true`:
+
+1. Κατά την προσάρτηση, διαβάζει το όνομα του τελευταίου πορτοφολιού από την
+   αποθήκευση
+2. Περιμένει 100ms (επιτρέπει στα πορτοφόλια να εγγραφούν)
+3. Καλεί το `select(walletName)` εάν ανακαλυφθεί το πορτοφόλι
+4. Εάν η αυτόματη σύνδεση αποτύχει, αφαιρεί την άκυρη προτίμηση από την
+   αποθήκευση
+
+**Σημείωση Ασφάλειας:** Η αποθηκευμένη προτίμηση είναι απλώς ένα όνομα
+πορτοφολιού (συμβολοσειρά), όχι ευαίσθητα δεδομένα. Το πορτοφόλι διαχειρίζεται
+τον έλεγχο ταυτότητας/εξουσιοδότηση μέσω της δικής του διεπαφής χρήστη.
+
+---
+
+## Παραδείγματα Χρήσης
+
+### Βασικό Κουμπί Πορτοφολιού
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Επιλογέας Πολλαπλών Λογαριασμών
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Παρακολούθηση Σύνδεσης
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Υποστηριζόμενα Πορτοφόλια
+
+Ο σύνδεσμος υποστηρίζει όλα τα πορτοφόλια που υλοποιούν το
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard),
+συμπεριλαμβανομένων:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Οποιοδήποτε άλλο πορτοφόλι συμβατό με το Wallet Standard
+
+Τα πορτοφόλια ανακαλύπτονται αυτόματα όταν εγγράφονται στο Wallet Standard API
+(δεν απαιτείται διαμόρφωση).
+
+---
+
+## Χρήση χωρίς UI (Χωρίς React)
+
+Για εφαρμογές χωρίς React ή χρήση από την πλευρά του διακομιστή, χρησιμοποιήστε
+απευθείας το `ConnectorClient`:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Σημείωση:** Το `ConnectorClient` διαχειρίζεται τη δική του κατάσταση και δεν
+ενεργοποιεί ποτέ επανα-renderάρισμα του React. Πρέπει να εγγραφείτε χειροκίνητα
+στις αλλαγές κατάστασης.

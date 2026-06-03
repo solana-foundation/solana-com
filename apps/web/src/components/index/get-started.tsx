@@ -11,7 +11,7 @@ export interface GetStartedProps {
     title: string;
     Icon?: React.ComponentType<{
       className?: string;
-      "aria-hidden"?: boolean | "true" | "false";
+      "aria-hidden"?: boolean;
     }>;
   }[];
   links?: Record<
@@ -28,10 +28,10 @@ export interface GetStartedProps {
 export const GetStarted: React.FC<GetStartedProps> = (props) => {
   const { title, tabs, links, onClose, open } = props;
   const [activeTab, setActiveTab] = useState<string | null>(
-    tabs[0]?.id ?? null,
+    tabs?.[0]?.id ?? null,
   );
   useEffect(() => {
-    setActiveTab((state) => state ?? tabs[0]?.id ?? null);
+    setActiveTab((state) => state ?? tabs?.[0]?.id ?? null);
   }, [tabs]);
   const activeLinks = activeTab ? links?.[activeTab] : undefined;
   return (

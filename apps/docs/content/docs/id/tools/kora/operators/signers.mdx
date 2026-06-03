@@ -1,0 +1,508 @@
+---
+title: Penandatangan
+description: Atur dan kelola penandatangan Kora
+---
+
+_Terakhir Diperbarui: 2025-08-22_
+
+## Apa itu Penandatangan?
+
+**Penandatangan** adalah keypair kriptografi yang digunakan node Kora Anda untuk
+menandatangani transaksi Solana sebagai pembayar biaya. Ketika pengguna mengirim
+transaksi ke node Kora Anda, node akan memvalidasi dan menandatangani bersama
+dengan kunci privat penandatangan Anda untuk menutup biaya transaksi SOL.
+
+**Catatan**: Secara default, biaya pembayaran token dikirim ke alamat
+penandatangan. Namun, Anda dapat mengonfigurasi `payment_address` terpisah di
+`kora.toml` Anda untuk menerima pembayaran di alamat yang berbeda sambil
+memisahkan penandatangan Anda. Lihat
+[Panduan Konfigurasi](/docs/tools/kora/operators/configuration) untuk detail
+lebih lanjut.
+
+Keypair penandatangan Anda memiliki akses langsung ke dana SOL yang digunakan
+untuk membayar biaya transaksi. Jika dikompromikan, penyerang dapat:
+
+- Menguras saldo SOL Anda
+- Menandatangani transaksi yang tidak sah
+- Mengganggu layanan paymaster Anda
+
+## Konfigurasi Penandatangan
+
+Kora RPC CLI memerlukan `signer.toml` yang ditentukan melalui flag
+`--signers-config`. File `singer.toml` memungkinkan Anda mengonfigurasi
+penandatangan dan konfigurasi penandatangan untuk node Anda. `signer.toml`
+memiliki dua bagian:
+
+1. `[signer_pool]` - Konfigurasi untuk pool penandatangan
+2. `[[signers]]` - Konfigurasi untuk setiap penandatangan (setidaknya satu
+   penandatangan diperlukan kecuali menggunakan flag `--no-load-signer` yang
+   memiliki fungsionalitas terbatas)
+
+#### `[signer_pool]`
+
+Konfigurasi pool penandatangan menentukan atribut khusus untuk keseluruhan pool
+penandatangan:
+
+- `strategy` - Strategi pemilihan untuk memilih penandatangan. Strategi yang
+  tersedia adalah:
+  - `round_robin` (default) - Memutar penandatangan secara berurutan.
+  - `random` - Memilih penandatangan secara acak.
+  - `weighted` - Memilih penandatangan berdasarkan bobot.
+
+#### `[[signers]]`
+
+Setiap penandatangan dikonfigurasi dengan:
+
+- sebuah `name`: pengenal yang dapat dibaca manusia untuk penandatangan dan
+  harus unik dalam kumpulan penandatangan
+- opsional `weight`: angka yang menentukan bobot penandatangan jika `strategy`
+  adalah `weighted`
+- sebuah `type` dan konfigurasi khusus tipe (lihat
+  [Tipe Penandatangan](#signer-types))
+
+Satu penandatangan diperlukan kecuali menggunakan flag `--no-load-signer` yang
+memiliki fungsionalitas terbatas. Untuk deployment produksi, disarankan untuk
+mengonfigurasi beberapa penandatangan untuk meningkatkan keandalan dan performa.
+
+### Contoh
+
+Berikut adalah contoh file `signers.toml` yang mendefinisikan kumpulan
+penandatangan round-robin dengan tiga penandatangan (_catatan: kita akan
+membahas berbagai tipe/konfigurasi penandatangan di bagian berikutnya_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Variabel Lingkungan
+
+Atur variabel lingkungan untuk semua penandatangan yang dikonfigurasi:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Memulai Kora dengan Konfigurasi Penandatangan
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Tipe Penandatangan
+
+Kora mendukung empat tipe penandatangan utama, masing-masing dengan
+karakteristik keamanan dan operasional yang berbeda (dan opsi tanpa
+penandatangan untuk pengujian terbatas):
+
+- [Kunci Privat](#private-key-signer) - sederhana, dikelola sendiri
+- [Turnkey](#turnkey-signer) - layanan manajemen kunci
+- [Privy](#privy-signer) - layanan manajemen kunci
+- Vault - integrasi HashiCorp Vault
+- [Tanpa Penandatangan](#no-signer) - tanpa penandatangan (untuk pengujian
+  terbatas)
+
+## Penandatangan Kunci Privat
+
+Pendekatan paling sederhana - simpan kunci privat Anda langsung di variabel
+lingkungan atau lewati melalui flag CLI. Kora menerima kunci privat dalam tiga
+format:
+
+#### 1. Format Base58 (Default)
+
+Kunci privat standar Solana yang dikodekan base58:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. Format U8Array
+
+Array dari 64 byte dalam format JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. Path File JSON
+
+Path ke file JSON yang berisi keypair:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Di mana `keypair.json` berisi:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Buat Keypair Baru
+
+Anda dapat membuat keypair baru untuk node Kora Anda menggunakan Solana CLI:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Konfigurasi Signer.toml
+
+Variabel yang diperlukan:
+
+- `name` - Nama signer
+- `type` - Jenis signer (harus `memory`)
+- `private_key_env` - Variabel lingkungan yang berisi kunci privat
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Signer Turnkey
+
+[Turnkey](https://www.turnkey.com/) menyediakan manajemen kunci tingkat
+perusahaan dengan modul keamanan perangkat keras (HSM) dan kontrol kebijakan.
+
+### Prasyarat
+
+Anda memerlukan **Akun Turnkey** untuk menggunakan signer Turnkey. Daftar di
+[turnkey.com](https://www.turnkey.com/)
+
+### Pengaturan
+
+Anda memerlukan lima kunci untuk menggunakan signer Turnkey:
+
+- ID organisasi Turnkey
+- Kunci publik API Turnkey
+- Kunci privat API Turnkey
+- ID kunci privat Turnkey
+- Kunci publik Turnkey
+
+Mari kita ambil dari Turnkey:
+
+#### 1. Organisasi Turnkey
+
+Klik menu pengguna di pojok kanan atas dashboard Turnkey dan salin ID
+organisasi:
+
+![ID Organisasi Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Simpan ID organisasi dalam variabel lingkungan:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Kunci API Turnkey
+
+- Klik menu pengguna di pojok kanan atas dashboard Turnkey dan klik "Account
+  Settings".
+- Di bawah "API Keys", klik "+ Create API Key".
+- Pilih "Generate API keys in-browser"
+- Masukkan nama untuk kunci API dan klik "Continue"
+- Simpan kunci publik dan privat, lalu klik "Approve"
+
+![Kunci API Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Simpan kunci publik dan privat API dalam variabel lingkungan:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Kunci Dompet Turnkey
+
+Dari menu utama, navigasi ke
+["Wallets"](https://app.turnkey.com/dashboard/wallets) dan klik "Create Private
+Key".
+
+Kita akan membuat kunci privat ED25519 baru dengan tipe alamat aset "Solana":
+
+![Turnkey Wallets](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Klik "Continue" dan kemudian "Approve".
+
+Dari halaman dompet Anda, Anda akan melihat kunci privat baru Anda. Klik untuk
+melihat detailnya. Anda perlu menyalin "Private key ID" dan "Address" dompet.
+Simpan ke variabel environment:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey Wallet Details](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Anda perlu mendanai dompet dengan SOL untuk membayar biaya transaksi.
+
+### Konfigurasi Variabel Environment
+
+Anda sekarang harus memiliki variabel environment berikut:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Lihat [repositori Kora](https://github.com/solana-foundation/kora) untuk file
+`.env.example` lengkap.
+
+Untuk dukungan dengan Turnkey, lihat
+[dokumentasi Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Konfigurasi Signer.toml
+
+Variabel yang diperlukan:
+
+- `name` - Nama signer
+- `type` - Tipe signer (harus `turnkey`)
+- `api_public_key_env` - Variabel environment yang berisi kunci publik API
+  Turnkey
+- `api_private_key_env` - Variabel environment yang berisi kunci privat API
+  Turnkey
+- `organization_id_env` - Variabel environment yang berisi ID organisasi Turnkey
+- `private_key_id_env` - Variabel environment yang berisi ID kunci privat
+  Turnkey
+- `public_key_env` - Variabel environment yang berisi kunci publik Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Signer Privy
+
+[Privy](https://www.privy.io/) menawarkan infrastruktur dompet tertanam dengan
+manajemen kunci yang aman untuk aplikasi Web3.
+
+### Prasyarat
+
+Anda akan memerlukan **Akun Privy** untuk menggunakan signer Privy. Daftar di
+[privy.io](https://www.privy.io/)
+
+### Pengaturan
+
+Anda akan memerlukan tiga kunci untuk menggunakan signer Privy:
+
+- ID Aplikasi Privy
+- Rahasia Aplikasi Privy
+- ID Dompet Privy
+
+Mari kita ambil dari Privy:
+
+#### 1. ID Aplikasi Privy
+
+Dari dasbor Anda, pilih aplikasi yang ingin Anda gunakan untuk Kora (atau klik
+"+ Aplikasi baru" jika Anda belum memilikinya).
+
+Pilih "Retrieve API Keys" dan klik "+ New Secret":
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Salin "App ID" dan "App Secret" Anda lalu simpan dalam variabel environment:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Dompet Privy
+
+Selanjutnya, kita perlu membuat dompet baru untuk Kora. Dari sidebar dasbor Anda
+klik "Wallets" di bawah "Wallet Infrastructure", dan pilih "New Wallet".
+
+Pilih "Solana" sebagai blockchain dan klik "Save".
+
+Klik pada dompet untuk melihat detailnya:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Salin "Wallet ID" dan simpan dalam variabel environment:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Anda perlu mengisi dompet dengan SOL untuk membayar biaya transaksi.
+
+### Konfigurasi Variabel Environment
+
+Anda sekarang harus memiliki variabel environment berikut:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Lihat [repositori Kora](https://github.com/solana-foundation/kora) untuk file
+`.env.example` lengkap.
+
+Untuk dukungan dengan Privy, lihat
+[dokumentasi Privy](https://docs.privy.io/wallets/overview).
+
+### Konfigurasi Signer.toml
+
+Variabel yang diperlukan:
+
+- `name` - Nama signer
+- `type` - Jenis signer (harus `privy`)
+- `app_id_env` - Variabel environment yang berisi ID aplikasi Privy
+- `app_secret_env` - Variabel environment yang berisi rahasia aplikasi Privy
+- `wallet_id_env` - Variabel environment yang berisi ID dompet Privy
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Tanpa Penandatangan
+
+Jika tidak ada penandatangan yang dikonfigurasi, Kora akan menampilkan error.
+Jika Anda ingin menjalankan Kora tanpa penandatangan, Anda dapat menjalankannya
+dengan flag `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Perhatikan bahwa ini akan membatasi node Anda untuk hanya memproses permintaan
+yang tidak memerlukan penandatangan.
+
+## Pemecahan Masalah
+
+### Referensi Cepat
+
+| Pesan Error                                                       | Jenis Penandatangan | Solusi Cepat                                                    |
+| ----------------------------------------------------------------- | ------------------- | --------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Apa pun             | Tambahkan setidaknya satu penandatangan ke konfigurasi          |
+| "Failed to read config file"                                      | Apa pun             | Periksa jalur file dan kontennya                                |
+| "Failed to parse signers config TOML"                             | Apa pun             | Periksa format file dan konten penandatangan                    |
+| "Duplicate signer name"                                           | Apa pun             | Pastikan setiap penandatangan memiliki nama unik di konfigurasi |
+| "Invalid base58 string"                                           | Kunci Privat        | Periksa format kunci, tidak ada spasi ekstra                    |
+| "Invalid private key length"                                      | Kunci Privat        | Gunakan kunci Solana 64-byte yang lengkap                       |
+| "Turnkey \{key\} required"                                        | Turnkey             | Atur `TURNKEY_{key}`                                            |
+| "Privy \{key\} required"                                          | Privy               | Atur `PRIVY_{key}`                                              |
+| "Vault \{key\} required"                                          | Vault               | Atur `VAULT_{key}`                                              |
+| "Failed to create Vault client"                                   | Vault               | Verifikasi kredensial Vault                                     |
+| "Failed to sign with \[service\]"                                 | Apa pun             | Periksa status layanan & kredensial & batas kecepatan           |
+| "Signer pool not initialized"                                     | Multi-Penandatangan | Periksa jalur dan format `signers.toml`                         |
+| "Cannot create empty signer pool"                                 | Multi-Penandatangan | Tambahkan setidaknya satu penandatangan ke konfigurasi          |
+| "Signer with pubkey ... not found"                                | Multi-Penandatangan | Periksa petunjuk penandatangan sesuai dengan yang dikonfigurasi |
+| "Signers configuration is required unless using --no-load-signer" | Apa pun             | Tambahkan file konfigurasi penandatangan                        |
+
+### Tips Debugging Umum
+
+#### Aktifkan Logging Verbose
+
+Tambahkan logging terperinci untuk mendiagnosis masalah:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Keamanan & Praktik Terbaik
+
+### Keamanan Umum
+
+- Gunakan keypair khusus untuk Kora (jangan gunakan ulang dompet pribadi)
+- Hanya isi dengan SOL yang Anda bersedia gunakan untuk biaya
+- Pertahankan saldo operasional minimal dengan pemantauan dan pengisian otomatis
+- Terapkan pemantauan dan peringatan untuk aktivitas yang tidak biasa
+- Semua private key dan API key harus disimpan dalam variabel environment atau
+  sistem manajemen secrets (Railway secrets, AWS Secrets Manager, dll.)
+
+## Menentukan Signer (Sisi Klien)
+
+Klien dapat menentukan signer yang diinginkan untuk konsistensi di seluruh
+operasi yang terkait:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Tanpa kunci signer, strategi yang dikonfigurasi menentukan pemilihan signer.
+Penting untuk dicatat bahwa kunci harus konsisten di seluruh panggilan yang
+terkait dengan transaksi yang sama (misalnya, jika Anda membuat transaksi dengan
+kunci signer yang ditentukan, Anda harus menggunakan kunci signer yang sama
+untuk semua panggilan terkait).

@@ -3,6 +3,7 @@ export {
   fetchLatestPosts,
   fetchFeaturedPost,
   fetchPublishedPostBySlug,
+  readPostBySlug,
   type LatestPostsParams,
   type LatestPostsResponse,
   type FeaturedPostResponse,

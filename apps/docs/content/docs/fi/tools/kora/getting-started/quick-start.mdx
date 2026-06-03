@@ -1,0 +1,296 @@
+---
+title: Kora-pikaopas
+description: Luo ensimmäinen maksuttomuustapahtumasi 5 minuutissa
+---
+
+_Viimeksi päivitetty: 2025-10-31_
+
+## Koran perusteet
+
+Kora on JSON-RPC-palvelin, joka tarjoaa maksunvälityspalveluita
+Solana-tapahtumille. Sen avulla käyttäjät voivat maksaa transaktiomaksut
+SPL-tokeneilla SOL:n sijaan, mikä parantaa käyttökokemusta sovelluksissa, joissa
+käyttäjillä ei välttämättä ole SOL:ia.
+
+Kora RPC validoi asiakaspyynnöt konfiguraation (`kora.toml`) perusteella, joka
+määrittää sallitut ohjelmat, lompakot, tokenit jne. Validoinnin jälkeen
+Kora-palvelin allekirjoittaa tapahtuman ja lähettää sen verkkoon (tai palauttaa
+sarjallistetun allekirjoitetun tapahtuman asiakkaalle).
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Client App    │───▶│   Kora RPC      │───▶│   Solana RPC    │
+│                 │    │   Server        │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                       ┌──────────────────────┐
+                       │   Kora Private Key   │
+                       │ ( or Turnkey/Privy ) │
+                       └──────────────────────┘
+```
+
+Tämä pikaopas käynnistää paikallisen Kora RPC -palvelimen ja esittelee
+asiakasintegraation maksunvälitystyönkulkujen testaamiseksi.
+
+## Vaatimukset
+
+- [Solana CLI](https://solana.com/docs/intro/installation) v2.2.x tai uudempi
+- [Rust/Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+  (Kora RPC:n asennusta varten)
+- [Node.js v22+](https://nodejs.org/en/download) ja paketinhallinta (esim.
+  [pnpm](https://pnpm.io/), npm)
+
+## Asenna Kora RPC
+
+Asenna Kora RPC -palvelin globaalisti:
+
+```bash
+cargo install kora-cli
+```
+
+> **Tärkeää:** Koran `main`-haara on integrointihaara ja saattaa sisältää
+> julkaisemattomia tai beta-muutoksia. Käytä aina uusinta vakaata
+> julkaisuversiota tuotantokäyttöön ja opasohjeissa. Löydät uusimman vakaan
+> julkaisun
+> [Koran julkaisusivulta](https://github.com/solana-foundation/kora/releases).
+
+## Luo projekti
+
+Kloonaa repositorio, siirry uusimpaan vakaaseen tagiin ja siirry
+aloitusdemohakemistoon:
+
+```bash
+git clone https://github.com/solana-foundation/kora
+cd kora
+git checkout v2.0.5
+cd examples/getting-started/demo
+```
+
+### Projektin rakenne
+
+Demo sisältää kolme pääkomponenttia:
+
+**Asiakashakemisto (`client/src/`)**
+
+- `setup.ts` - Paikallinen ympäristön asetukset (luo avainparit ja kirjoittaa ne
+  .env-tiedostoon, ilma-avustaa SOL:ia, alustaa testitokenin)
+- `quick-start.ts` - Pikaopasesimerkkiskripti, joka näyttää Kora-yhteyden
+  muodostamisen ja yksinkertaisen kutsun Kora RPC -palvelimelle
+- `full-demo.ts` - Täydellinen esimerkkiskripti, joka esittelee useita Kora RPC
+  -metodeja
+
+**Palvelinhakemisto (`server/`)**
+
+- `kora.toml` - Kora RPC -konfiguraatio, joka määrittelee validointisäännöt,
+  sallitut tokenit ja maksun parametrit
+- `signers.toml` - Allekirjoittajien konfiguraatio, joka määrittelee
+  Kora-palvelimen allekirjoittajat
+
+**Jaettu konfiguraatio**
+
+- `.env` - Ympäristömuuttujat avainpareille ja osoitteille (luo `.env` juureen -
+  `demo/.env`). Ympäristömuuttujat luodaan asennusskriptillä.
+
+## Ympäristön asennus
+
+Luo ensin .env ympäristöllesi:
+
+```bash
+# Create .env file (will be populated by setup script)
+touch .env
+```
+
+### Asiakkaan asennus
+
+Asenna asiakkaan riippuvuudet:
+
+```bash
+# From project root (kora/)
+cd examples/getting-started/demo/client
+pnpm install --ignore-workspace # use --ignore-workspace to avoid pnpm workspace conflicts
+```
+
+### Kora RPC -palvelimen asennus
+
+Kora-palvelin vaatii konfiguraation, jossa määritetään, mitä tokeneita voidaan
+käyttää maksun suorittamiseen. Avaa `server/kora.toml` ja huomioi
+validointi-osio. Tässä voimme määritellä useita parametreja, jotka validoidaan
+ennen transaktion allekirjoittamista:
+
+- `max_allowed_lamports`: maksimitransaktiomaksu, jonka olet valmis maksamaan
+  käyttäjän puolesta
+- `max_signatures`: allekirjoitusten enimmäismäärä transaktiossa
+- `price_source`: oraakkeli tokenin hinnan määrittämiseen ("Mock" tai "Jupiter")
+- `allowed_programs`: sallittujen ohjelma-ID:iden valkoisuusluettelo (esim.
+  System Program, Token Program)
+- `allowed_tokens`: sallittujen siirrettävien tokenien valkoisuusluettelo
+- `allowed_spl_paid_tokens`: taulukko mint-osoitteista, jotka ohjelmasi hyväksyy
+  maksuna
+- `disallowed_accounts`: mustalistalista tileistä, jotka eivät saa olla
+  vuorovaikutuksessa kora RPC:si kanssa
+
+Jätetään toistaiseksi oletusarvot--voit palata tänne ja muuttaa näitä myöhemmin
+(lisätietoja konfiguraatiovaihtoehdoista löytyy
+[Kora-konfiguraatio](/docs/tools/kora/operators/configuration)
+-dokumentaatiosta).
+
+### Allekirjoittajien asennus
+
+Avaa `server/signers.toml` ja huomioi allekirjoittajat-osio. Tässä voimme
+määritellä, mitä allekirjoittajia käytetään transaktioiden allekirjoittamiseen
+ja (jos käytössä on useita allekirjoittajia) strategian sen valitsemiseksi, mitä
+allekirjoittajaa käytetään. Käytetään toistaiseksi yhtä allekirjoittajaa
+oletusarvoilla--voit palata tänne ja muuttaa näitä myöhemmin (lisätietoja
+allekirjoittajien konfiguraatiosta löytyy
+[Allekirjoittajat-oppaasta](/docs/tools/kora/operators/signers)
+-dokumentaatiosta).
+
+## Testipalvelin
+
+Avaa kolme terminaalia ja suorita seuraavat komennot:
+
+### Terminaali 1: Käynnistä paikallinen testivalidaattori
+
+```bash
+# From project root or anywhere
+solana-test-validator -r
+```
+
+### Terminaali 2: Alusta ympäristö
+
+```bash
+# From ./client directory
+pnpm init-env
+```
+
+Tämä skripti:
+
+- Luo avainparit ja tallentaa ne kansioon `.env`
+- Lähettää SOL-varoja testitileille
+- Luo ja alustaa paikallisen USDC-tokenin
+- Rahoittaa testitilit tokeneilla
+
+**Tärkeää:** Varmista, että kopioit uuden USDC-testitokenin julkisen avaimen
+.env-tiedostostasi ja päivität `allowed_tokens`- ja
+`allowed_spl_paid_tokens`-arvot `./server/kora.toml`-tiedostossa.
+
+```toml
+allowed_tokens = [
+    "YOUR_USDC_LOCAL_PUBLICK_KEY"    # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+]
+allowed_spl_paid_tokens = [
+    "YOUR_USDC_LOCAL_PUBLICK_KEY"    # Update this based on the USDC_LOCAL_KEY public key comment in your .env
+]
+```
+
+### Terminaali 3: Alusta maksun ATA:t (valinnainen)
+
+Maksujen vastaanottamista varten sinun on alustettava Associated Token Account
+-tilit (ATA) maksutokeneillesi. Voit tehdä tämän suorittamalla seuraavan
+komennon:
+
+```bash
+# From ./server directory
+kora rpc initialize-atas --signers-config signers.toml
+```
+
+Tämä komento:
+
+- Lukee maksuosoitteesi tiedostosta `kora.toml` (tai jos et ole määrittänyt
+  maksuosoitetta, kaikki `signers.toml`-tiedostossa luetellut allekirjoittajat)
+- Luo ATA:t kaikille `allowed_spl_paid_tokens`-tiedostossa luetelluille
+  tokeneille
+- Ohittaa kaikki jo olemassa olevat ATA:t
+- Voit halutessasi määrittää asiakaskohtaisen maksajan ATA-luomiselle
+  käyttämällä `fee_payer_key`-lippua.
+
+### Terminaali 4: Käynnistä Kora RPC -palvelin
+
+```bash
+# From ./server directory
+kora rpc start --signers-config signers.toml
+```
+
+> **Huomautus:** Tuotantokäyttöönottoihin `price_source = "Jupiter"`-komennolla
+> sinun on asetettava `JUPITER_API_KEY`-ympäristömuuttuja. Palvelin ei käynnisty
+> ilman sitä:
+>
+> ```bash
+> JUPITER_API_KEY=your_api_key kora rpc start --signers-config signers.toml
+> ```
+
+Palvelin lukee asetukset tiedostoista `kora.toml` ja `signers.toml` ja käyttää
+ympäristömuuttujia jaetussa `.env`-tiedostossa. Jos käytät eri kansiorakennetta
+kuin tässä määriteltyä, saatat joutua käyttämään `--config`-lippua
+määrittelemään `kora.toml`-tiedoston sijainnin ja `--signers-config`-lippua
+määrittelemään allekirjoittajien asetushakemiston:
+
+```bash
+kora rpc --config path/to/kora.toml start --signers-config path/to/signers.toml
+```
+
+Voit käyttää `kora rpc -h` saadaksesi ohjeita RPC-palvelimen asetuksista.
+
+### Terminaali 5: Suorita asiakasohjelma
+
+```bash
+# From ./client directory
+pnpm start
+```
+
+Sinun pitäisi nähdä vastaava tuloste:
+
+```bash
+Kora Config: {
+  fee_payer: 'Df2UmGQH86TBDsub7XZoSAo7KZa1ZJZr2w1PL1APUjjU',
+  validation_config: {
+    max_allowed_lamports: 1000000,
+    max_signatures: 10,
+    allowed_programs: [
+      '11111111111111111111111111111111',
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+      'AddressLookupTab1e1111111111111111111111111',
+      'ComputeBudget11111111111111111111111111111111'
+    ],
+    allowed_tokens: [
+      'usdCAEFbouFGxdkbHCRtMTcN7DJHd3aCmP9vqjLgmAp'
+    ],
+    allowed_spl_paid_tokens: [
+      'usdCAEFbouFGxdkbHCRtMTcN7DJHd3aCmP9vqjLgmAp'
+    ],
+    disallowed_accounts: [],
+    price_source: 'Mock',
+    fee_payer_policy: {...},
+    price: { type: 'margin', margin: 0 }
+  },
+  enabled_methods: { ... }
+ }
+}
+Blockhash:  C8W8d5w2H4jKXyFg5CEBoiaPvEpJ1am7xLxZ3fym4a2g
+```
+
+Tämä vahvistaa, että Kora-palvelimesi on käynnissä ja oikein määritetty!
+
+## Seuraavat vaiheet
+
+Kun perusasennus toimii, tutustu kattavaan Kora-esimerkkiin:
+
+**[→ Koran täydellinen kaasuttomien transaktioiden kulku](/docs/tools/kora/guides/full-demo)**
+
+tutki muita Kora RPC -menetelmiä:
+
+- `estimateTransactionFee` - Laske transaktioiden maksut
+- `getPayerSigner` - Hae maksajan allekirjoittaja ja maksun kohde
+- `getSupportedTokens` - Palauttaa taulukon tuetuista maksutokeneista
+- `signTransaction` - Allekirjoita transaktiot ehdollisesti, kun maksut katetaan
+- `transferTransaction` - Luo SOL-siirto tai SPL-tokenisiirtotransaktioita
+  (allekirjoitettu Kora-maksajalla)
+- `signAndSendTransaction` - Allekirjoittaa ehdollisesti transaktion
+  Kora-maksajalla ja lähettää sen määritetylle Solana RPC:lle
+- `getPaymentInstruction` - Hae maksukäsky transaktiolle
+
+**Onko sinulla kysyttävää?** Kysy kysymyksiä
+[Solana Stack Exchange](https://solana.stackexchange.com/) -palvelussa
+`Kora`-tunnisteella.

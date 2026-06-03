@@ -1,0 +1,137 @@
+---
+title: Fee-Referenz
+description: Vollständige Referenz zur Kora-Fee-Berechnung.
+---
+
+_Zuletzt aktualisiert: 31.10.2025_
+
+Kora schätzt Transaktionsgebühren bei der Ausführung der RPC-Methoden
+`estimate_transaction_fee` und `sign_transaction`. Zur Gebührenschätzung
+berechnet Kora die Gesamtkosten für die Ausführung von Transaktionen auf Solana,
+einschließlich Netzwerkgebühren, Kosten für die Konten-Erstellung und optionale
+Zahlungsabwicklungsgebühren. Dieser Leitfaden erläutert jede Komponente der
+Fee-Berechnung.
+
+## Formel zur Fee-Berechnung
+
+Die Fee wird durch das in `kora.toml` konfigurierte Preismodell bestimmt:
+
+- `PriceModel::Free` - Übernimmt alle Transaktionsgebühren (Gesamt-Fee = 0)
+- `PriceModel::Fixed` - Berechnet einen festen Betrag in einem bestimmten Token
+  (unabhängig von Netzwerkgebühren)
+- `PriceModel::Margin` - Fügt eine prozentuale Marge zu den Gesamtgebühren
+  hinzu.
+
+Der Haupteinstiegspunkt für die Gesamtgebührenschätzung, der in
+`PriceModel::Margin` verwendet wird, ist `FeeConfigUtil::estimate_kora_fee()` in
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Es verwendet die folgende allgemeine Formel:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Fee-Komponenten
+
+| Komponente                    | Beschreibung                                                                                              | Berechnungsmethode                                                                                                                           | Wann angewendet                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Base Fee**                  | Kern-Fee der Solana-Transaktion für Signaturverifizierung und Transaktionsverarbeitung                    | `RpcClient.get_fee_for_message()` - Verwendet Solanas Fee-Berechnung basierend auf Compute-Einheiten und priority fees                       | Immer                                                              |
+| **Konten-Erstellungs-Fee**    | Mietfreier Mindestbetrag für die Erstellung neuer Associated Token Accounts (ATAs)                        | `Rent::default().minimum_balance(account_size)` - Berechnet Miete basierend auf Kontendatengröße (165-355 Bytes je nach Token-Erweiterungen) | Wenn die Transaktion neue ATAs erstellt                            |
+| **Kora-Signatur-Fee**         | Zusätzliche Fee, wenn Kora als nicht beteiligter Fee-Zahler signiert                                      | Fest: 5.000 Lamports (`LAMPORTS_PER_SIGNATURE`)                                                                                              | Wenn Fee-Zahler nicht bereits ein Transaktions-Signer ist          |
+| **Fee-Zahler-Abfluss**        | Gesamtmenge an SOL, die der Fee-Zahler in der Transaktion ausgibt (Überweisungen, Konten-Erstellung usw.) | Summe aus: System-Überweisungen vom Fee-Zahler, CreateAccount finanziert vom Fee-Zahler, Nonce-Abhebungen vom Fee-Zahler                     | Wenn Fee-Zahler System Program-Operationen durchführt              |
+| **Zahlungs- Anweisungen-Fee** | Geschätzte Kosten von priority fees zum Hinzufügen einer Zahlungs-Anweisung für gaslose Transaktionen     | Feste Schätzung: 50 Lamports (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                  | Wenn Zahlung erforderlich, aber nicht in Transaktion enthalten ist |
+| **Transfer-Fee**              | Token2022-Transfergebühren, die auf dem Mint konfiguriert sind (z. B. 1 % des Transferbetrags)            | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Basierend auf der Transfer-Fee-Konfiguration des Mints                               | Nur für Token2022-Überweisungen an Kora-Zahlungsadresse            |
+| **Margen-Anpassung**          | Aufschlag/Anpassung des Preismodells von Kora                                                             | Konfigurierte Marge in `validation.price` - Kann Aufschlag als % der Gesamt-Fee hinzufügen                                                   | Wenn `[validation.price]` in kora.toml angegeben ist               |
+
+## Preismodelle & Fee-Abfluss
+
+Kora unterstützt drei Preismodelle, die bestimmen, wie Benutzern Transaktionen
+berechnet werden:
+
+### Margenpreisgestaltung (Standard)
+
+- **Formel:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Beinhaltet Fee-Abfluss:** Ja
+- **Am besten geeignet für:** Produktionsumgebungen, in denen Fee die
+  tatsächlichen Kosten mit einer zusätzlichen Betriebsmarge widerspiegeln
+  sollten
+
+### Feste Preisgestaltung
+
+- **Formel:** `Total Fee = Fixed Amount (in specified token)`
+- **Beinhaltet Fee-Abfluss:** Nein
+- **Am besten geeignet für:** Vereinfachte Benutzererfahrung mit vorhersehbaren
+  Preisen in kontrollierten Umgebungen
+
+### Kostenlose Preisgestaltung
+
+- **Formel:** `Total Fee = 0`
+- **Beinhaltet Fee-Abfluss:** Nein (Betreiber übernimmt alle Kosten)
+- **Am besten geeignet für:** Werbekampagnen, Tests oder vollständig gesponserte
+  Anwendungen
+
+---
+
+## ⚠️ Sicherheitswarnung: Feste/Kostenlose Preismodelle
+
+**KRITISCH:** Die festen/kostenlosen Preismodelle beinhalten **NICHT** den
+Fee-Abfluss im berechneten Betrag. Dies stellt ein erhebliches Sicherheitsrisiko
+dar, wenn es nicht ordnungsgemäß konfiguriert wird. Wenn Ihre Fee-Richtlinie
+Überweisungen oder andere Abflussoperationen zulässt, können Angreifer dies
+ausnutzen, um Ihr Fee-Konto zu leeren.
+
+### Erforderliche Sicherheitskontrollen
+
+Bei Verwendung fester/kostenloser Preisgestaltung **MÜSSEN** Sie restriktive
+Fee-Richtlinien konfigurieren, um ALLE monetären und autoritätsändernden
+Operationen zu blockieren:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Zusätzliche Schutzmaßnahmen
+
+1. **Authentifizierung aktivieren:** Verlangen Sie bei fester/kostenloser
+   Preisgestaltung immer API-Schlüssel- oder HMAC-Authentifizierung
+2. **Niedrige Limits festlegen:** Verwenden Sie konservative
+   `max_allowed_lamports`-Werte
+3. **Nutzung überwachen:** Verfolgen Sie ungewöhnliche Muster von Transaktionen
+   mit hohem Abfluss
+4. **Margenpreisgestaltung in Betracht ziehen:** Margenpreisgestaltung
+   berücksichtigt automatisch Abflusskosten in den Fee
+
+### Validierungswarnungen
+
+Der Konfigurationsvalidator von Kora warnt Sie vor gefährlichen Konfigurationen:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Erwartete Warnungen für anfällige Konfigurationen:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

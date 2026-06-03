@@ -1,0 +1,238 @@
+---
+title: Surveillance et métriques
+description: Surveillez votre nœud Kora avec Prometheus et Grafana
+---
+
+_Dernière mise à jour : 22/08/2025_
+
+La
+[Crate Kora Metrics](https://github.com/solana-foundation/kora/tree/v2.0.5/crates/lib/src/metrics)
+fournit une collecte complète de métriques et une surveillance pour le serveur
+RPC Kora.
+
+Kora expose un point de terminaison `/metrics` qui fournit des données de
+performance en temps réel au format Prometheus.
+
+## Configuration
+
+Les métriques sont configurées dans la section `[metrics]` de votre fichier
+`kora.toml`. La section `[metrics]` configure la collecte et la surveillance des
+métriques. Cette section est optionnelle et par défaut, les métriques sont
+désactivées.
+
+```toml
+[metrics]
+enabled = true
+endpoint = "/metrics"
+port = 8080
+scrape_interval = 60
+
+[metrics.fee_payer_balance]
+enabled = true
+expiry_seconds = 30
+```
+
+| Option            | Description                                 | Requis | Type    |
+| ----------------- | ------------------------------------------- | ------ | ------- |
+| `enabled`         | Activer la collecte de métriques            | ✅     | booléen |
+| `endpoint`        | Chemin personnalisé du point de terminaison | ✅     | chaîne  |
+| `port`            | Port du point de terminaison des métriques  | ✅     | nombre  |
+| `scrape_interval` | Fréquence de récupération Prometheus (sec)  | ✅     | nombre  |
+
+### Suivi du solde du payeur de frais
+
+La section `[metrics.fee_payer_balance]` configure la surveillance automatique
+du solde SOL de votre payeur de frais :
+
+| Option           | Description                                  | Requis              | Type    |
+| ---------------- | -------------------------------------------- | ------------------- | ------- |
+| `enabled`        | Activer le suivi du solde du payeur de frais | ❌ (défaut : false) | booléen |
+| `expiry_seconds` | Intervalle de suivi en arrière-plan (sec)    | ❌ (défaut : 30)    | nombre  |
+
+Lorsqu'il est activé, Kora suit automatiquement le solde SOL de votre payeur de
+frais et l'expose via la jauge Prometheus `fee_payer_balance_lamports`. Cela
+facilite la planification de capacité et les alertes de solde faible.
+
+## Démarrage rapide
+
+**Accéder aux métriques :**
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Ce que vous verrez
+
+Les métriques montrent les performances de votre serveur RPC :
+
+```
+# Total requests by method and status
+kora_http_requests_total{method="signTransaction",status="200"} 42
+kora_http_requests_total{method="signTransaction",status="400"} 3
+
+# Request duration (in seconds) by method
+kora_http_request_duration_seconds{method="signTransaction"} 0.045
+
+# Signer balances (for multi-signer setups)
+signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
+signer_balance_lamports{signer_name="backup_signer",signer_pubkey="7XyZ...abc"} 300000000
+```
+
+Si vous n'avez pas encore appelé le serveur RPC, vous ne verrez aucune métrique.
+Vous pouvez exécuter un test simple en appelant la méthode `getConfig` :
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+puis vérifiez les métriques :
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+## Explication des métriques clés
+
+1. **`kora_http_requests_total`** - Combien de requêtes vous avez traitées
+   - `method` : Quelle méthode RPC a été appelée
+   - `status` : Code de statut HTTP (200=succès, 400=erreur, etc.)
+   - Utilisez cette métrique pour suivre les modèles d'utilisation et les taux
+     d'erreur
+
+2. **`kora_http_request_duration_seconds`** - Quelle est la rapidité de vos
+   requêtes
+   - Affiche les percentiles (p50, p95, p99) pour les temps de réponse
+   - Utilisez cette métrique pour identifier les points de terminaison lents
+
+3. **`signer_balance_lamports`** - Solde SOL actuel de chaque signataire
+   - Affiche le solde en lamports (1 SOL = 1 000 000 000 lamports) pour chaque
+     signataire
+   - Libellés : `signer_name` (nom lisible) et `signer_pubkey` (clé publique)
+   - Mis à jour automatiquement en arrière-plan lorsque activé
+   - Utilisez cette métrique pour la planification de capacité et les alertes de
+     solde faible pour tous les signataires
+
+## Utilisation des données
+
+### Option 1 : Vérification rapide de l'état
+
+```bash
+# See all metrics
+curl http://localhost:8080/metrics
+
+# Check specific method performance
+curl http://localhost:8080/metrics | grep signTransaction
+```
+
+### Option 2 : Prometheus + Grafana (Recommandé)
+
+Pour obtenir des graphiques et des alertes, exécutez la pile de surveillance
+complète :
+
+```bash
+# from kora root directory
+just run-metrics
+```
+
+Puis visitez :
+
+- Prometheus : http://localhost:9090 (interroger les métriques)
+- Tableau de bord Kora préconfiguré dans Grafana : http://localhost:3000
+  - Connexion par défaut : admin/admin (ou utilisez les identifiants
+    `GF_SECURITY_ADMIN_PASSWORD` et `GF_SECURITY_ADMIN_USER` de votre fichier
+    `.env`)
+
+### Option 3 : Votre propre surveillance
+
+Pointez n'importe quel outil compatible Prometheus vers
+`http://your-server:8080/metrics` :
+
+- Datadog
+- New Relic
+- CloudWatch
+- VictoriaMetrics
+
+## Exemples de requêtes (Prometheus)
+
+```sh
+# Requests per second by method
+rate(kora_http_requests_total[1m])
+
+# 95th percentile response time
+histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+
+# Error rate
+rate(kora_http_requests_total{status!="200"}[5m])
+
+# Balance of specific signer by name
+signer_balance_lamports{signer_name="primary_signer"} / 1000000000
+
+# Balance of specific signer by public key
+signer_balance_lamports{signer_pubkey="4gBe...xyz"} / 1000000000
+
+# Total balance across all signers
+sum(signer_balance_lamports) / 1000000000
+
+# Minimum balance across all signers (useful for alerts)
+min(signer_balance_lamports) / 1000000000
+```
+
+## Surveillance multi-signataires
+
+Lorsque vous utilisez plusieurs signataires, vous pouvez surveiller chaque
+signataire individuellement ou suivre des métriques agrégées :
+
+### Métriques de signataires individuels
+
+```bash
+# Check balance of specific signer
+curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+
+# View all signer balances
+curl http://localhost:8080/metrics | grep signer_balance_lamports
+```
+
+### Requêtes Prometheus pour les configurations multi-signataires
+
+```sh
+# Alert if any signer has low balance (< 0.05 SOL)
+min(signer_balance_lamports) < 50000000
+
+# Monitor balance distribution across signers
+signer_balance_lamports / on() group_left() sum(signer_balance_lamports)
+
+# Track signer with lowest balance
+min_over_time(signer_balance_lamports[1h])
+
+# Count number of healthy signers (> 0.01 SOL)
+count(signer_balance_lamports > 10000000)
+
+# Average balance across all signers
+avg(signer_balance_lamports) / 1000000000
+```
+
+## Note de sécurité
+
+Le point de terminaison `/metrics` est public par défaut. En production,
+envisagez :
+
+- De le placer derrière un pare-feu
+- D'utiliser un port de métriques séparé
+- D'ajouter une authentification via un reverse proxy
+
+## Fonctionnement de la collecte de métriques
+
+1. **Couche middleware HTTP** - Intercepte toutes les requêtes et collecte :
+   - Le nombre de requêtes par méthode JSON-RPC et statut
+   - La durée des requêtes par méthode
+
+2. **Point de terminaison de métriques** - Point de terminaison `/metrics`
+   exposé automatiquement lorsque la fonctionnalité est activée
+   - Géré par `MetricsHandlerLayer`
+   - Renvoie des métriques au format Prometheus
+
+3. **Récupération Prometheus** - Configuré pour récupérer les données de Kora
+   toutes les 60 secondes (voir
+   [`crates/lib/src/metrics/prometheus.yml`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/metrics/prometheus.yml))

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AppHero } from "@/components/app-hero";
 import { TemplatesUiLayoutList } from "@/components/templates/templates-ui-layout-list";
@@ -7,6 +8,22 @@ import { AppProviders } from "@/components/app-providers";
 import { TemplatesProviderWrapper } from "@/components/providers/templates-provider-wrapper";
 
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: "Solana Developer Templates",
+  description:
+    "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",
+  alternates: {
+    canonical: "/developers/templates",
+  },
+  openGraph: {
+    title: "Solana Developer Templates",
+    description:
+      "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",
+    type: "website",
+    url: "/developers/templates",
+  },
+};
 
 export default async function TemplatesPage() {
   const templates = await fetchTemplatesFromGitHub();

@@ -1,0 +1,388 @@
+---
+title: Solana Pay
+description: Solana PayのURL、QRコード、および決済トランザクションを生成
+---
+
+`@solana-commerce/solana-pay`パッケージは、[Solana Pay](https://solanapay.com)の完全な機能を提供し、決済体験の構築を実現します。[`gill`](https://www.gillsdk.com/)および[`@solana/kit`](https://github.com/anza-xyz/kit)ライブラリと互換性があります。URLのエンコード/パース、カスタムスタイリングによるQRコード生成、SOLとSPLトークン転送の両方に対応したトランザクション構築を処理します。
+
+## インストール
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## URLエンコーディング
+
+### `encodeURL(fields)`
+
+[Solana Pay仕様](https://docs.solanapay.com/spec)に準拠したSolana Pay
+URLを作成します。この関数は、リンクとして共有したり、モバイルウォレットでスキャンするためのQRコードとしてエンコードできる`solana:`プロトコルURLを生成します。
+
+#### パラメータ
+
+- **`fields`**（`TransferRequestURLFields | TransactionRequestURLFields`） - 決済URLの設定
+
+#### `TransferRequestURLFields`
+
+シンプルな決済リクエスト(直接転送)に使用されます:
+
+- **`recipient`**（`Address`、必須） - 決済を受け取るマーチャントのウォレットアドレス(base58エンコードされた公開鍵)。文字列または`gill`の`Address`型を指定できます。
+
+- **`amount`**（`bigint`、オプション） -
+  **lamport**単位での決済金額(最小単位)。SOLの場合、1 SOL = 1,000,000,000
+  lamports(小数点以下9桁)。SPLトークンの場合は、トークンの小数精度を使用します(例:
+  USDCは小数点以下6桁を使用するため、1 USDC = 1,000,000)。
+
+- **`splToken`**（`Address`、オプション） - トークン決済用のSPLトークンミントアドレス。省略した場合、決済はSOLとみなされます。
+
+- **`reference`**（`Address | Address[]`、オプション） - 決済の追跡に使用される一意の参照アドレス。`generateKeyPairSigner().address`を使用して生成します。参照はトランザクションに読み取り専用アカウントとして追加され、この参照を使用して決済を照会できます。
+
+- **`label`**（`string`、オプション） - ユーザーのウォレットに表示される人間が読めるマーチャント名またはアプリ名(例:「コーヒーショップ」、「私の店」)。
+
+- **`message`**（`string`、オプション） - 支払い前にユーザーに表示されるメッセージ（例：「ご購入ありがとうございます！」、「素晴らしいサービスへのチップ」）。
+
+- **`memo`**（`string`、オプション） - トランザクションに添付されるオンチェーンメモ。Solana上に永続的に保存されます。注文ID、請求書番号、その他の決済メタデータに便利です。
+
+#### `TransactionRequestURLFields`
+
+複雑な支払いリクエスト（instructions を含む）に使用されます：
+
+- **`link`**（`URL`、必須） - トランザクションへのリンク（[`Link`](/docs/tools/solana-pay/specification/version1-1#link)）。URLにクエリパラメータが含まれている場合、URLエンコードする必要があります。
+
+- **`label`**（`string`、オプション） - ウォレット内でユーザーに表示される、人間が読める形式の販売者またはアプリ名（例：「コーヒーショップ」、「私の店」）。
+
+- **`message`**（`string`、オプション） - 支払い前にユーザーに表示されるメッセージ（例：「ご購入ありがとうございます！」、「素晴らしいサービスへのチップ」）。
+
+#### 仕組み
+
+この関数は、有効なSolana Pay URLを構築するために複数の操作を実行します：
+
+1. **プロトコルプレフィックス** -
+   `solana:`プロトコルスキームを使用してURLを作成します（`mailto:`や`bitcoin:`と同様）
+
+2. **パス名としての受取人** - 受取人のbase58アドレスをURLパス名として使用します（例：`solana:merchantWalletAddress123...`）
+
+3. **金額の変換** -
+   bigint型のlamport金額を、浮動小数点精度の問題なしに10進数の文字列表現に変換します。
+
+4. **クエリパラメータ** - すべてのオプションフィールドと参照をURLエンコードされたクエリパラメータとして追加します
+
+#### 戻り値
+
+`solana:`プロトコルを持つ`URL`オブジェクト。次のように使用できます：
+
+- 共有のために `.toString()` で文字列に変換
+- QRコード生成のために `createQR()` に渡す
+- アンカータグで直接使用：`<a href={url.toString()}>Pay with Solana</a>`
+
+#### 例：基本的な支払い
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const url = encodeURL({
+  recipient: address("merchantWalletAddress123..."),
+  amount: 100000000n, // 0.1 SOL (100 million lamports)
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchantWalletAddress123...?amount=0.1&label=Coffee%20Shop&message=Thanks%20for%20your%20order!
+```
+
+#### 例：SPLトークンでの支払い
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  label: "USDC Payment",
+  message: "Pay with USDC stablecoin"
+});
+```
+
+#### 例：追跡機能付き支払い
+
+参照を使用して特定の支払いを識別します：
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+import { Keypair } from "@solana/web3.js";
+
+// Generate unique reference for this order
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address("merchantWallet..."),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`, // On-chain memo
+  label: "E-commerce Store",
+  message: "Complete your purchase"
+});
+
+// Later, query the blockchain for transactions containing this reference
+// to verify payment was made
+```
+
+## URL解析
+
+### `parseURL(url)`
+
+Solana
+PayのURLをデコードして検証し、すべての支払いパラメータを抽出します。この関数は検証を実行し、金額を10進数文字列からbigint
+lamportに変換します。
+
+#### パラメータ
+
+- **`url`**（`string | URL`）- 解析するSolana
+  PayのURL。文字列またはURLオブジェクトを指定できます。
+
+#### 戻り値
+
+解析された`TransferRequestURLFields`または`TransactionRequestURLFields`オブジェクト。
+
+#### 例：解析と検証
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL(
+    "solana:merchant123...?amount=1.5&label=Store&reference=ref123..."
+  );
+
+  console.log(parsed.recipient); // Address object
+  console.log(parsed.amount); // 1500000000n (1.5 SOL in lamports)
+  console.log(parsed.label); // "Store"
+  console.log(parsed.reference); // [Address]
+
+  // Convert back to human-readable format
+  const solAmount = Number(parsed.amount) / 1e9;
+  console.log(`Payment of ${solAmount} SOL`);
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid Solana Pay URL:", error.message);
+  }
+}
+```
+
+#### 例：URLバリデータ関数
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+function validateSolanaPayURL(urlString: string): {
+  valid: boolean;
+  error?: string;
+  data?: any;
+} {
+  try {
+    const parsed = parseURL(urlString);
+    // Additional business logic validation
+    if (parsed.splToken) {
+      return {
+        valid: false,
+        error: "Only SOL payments are supported"
+      };
+    }
+    if (parsed.amount && parsed.amount < 1000000n) {
+      return {
+        valid: false,
+        error: "Amount too small (minimum 0.001 SOL)"
+      };
+    }
+    // etc.
+
+    return {
+      valid: true,
+      data: {
+        recipient: parsed.recipient.toString(),
+        amount: parsed.amount ? Number(parsed.amount) / 1e9 : undefined,
+        token: parsed.splToken?.toString()
+      }
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof ParseURLError ? error.message : "Unknown error"
+    };
+  }
+}
+```
+
+---
+
+## QRコード生成
+
+### `createQR(url, size, background, color)`
+
+Solana PayのURL用に最適化されたSVG
+QRコードを生成します。この関数は、角が丸く、カスタマイズ可能な色を持つ、スタイル付きの高品質なQRコードを生成します。
+
+#### パラメータ
+
+- **`url`**（`string | URL`）- QRコードにエンコードするSolana PayのURL
+- **`size`**（`number`、デフォルト：`512`）- 幅と高さ（ピクセル単位）
+- **`background`**（`string`、デフォルト：`'white'`）- 背景色（16進数または色名）。ウォレットとの互換性のため明るい色にする必要があります。
+- **`color`**（`string`、デフォルト：`'black'`）- 前景/ドット色（16進数または色名）。コントラストのため暗い色にする必要があります。
+
+_または、QRコードのスタイル（幅、マージン、色、ドットスタイル、コーナースタイル、ロゴ、ロゴサイズ、ロゴ背景色、ロゴマージン）をより細かく制御するために、`createStyledQRCode(url, options)`を使用することもできます。_
+
+#### 戻り値
+
+`Promise<string>` - 以下のように使用できる文字列としてのSVGマークアップ：
+
+- `img`要素のsrcとして設定：`<img src={qrCode} />`
+- ファイルに保存
+
+#### 例
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function generatePaymentQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 100000000n, // 0.1 SOL
+    label: "Coffee Shop"
+  });
+
+  const qrCode = await createQR(
+    url.toString(),
+    400, // 400x400 pixels
+    "white", // White background
+    "black" // Black foreground
+  );
+
+  // Display in browser
+  document.getElementById("qr-container").innerHTML = qrCode;
+
+  // Or use as image source
+  document.getElementById("qr-image").src = qrCode;
+}
+```
+
+#### 例：ブランドQRコード
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "gill";
+
+async function createBrandedQR() {
+  const url = encodeURL({
+    recipient: address("merchant..."),
+    amount: 25000000n, // 25 USDC (6 decimals)
+    splToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    label: "Coffee Shop",
+    message: "Scan to pay with USDC"
+  });
+
+  const qr = await createStyledQRCode(url.toString(), {
+    width: 600,
+    margin: 3,
+    color: {
+      dark: "#9945FF", // Solana purple
+      light: "#F5F5DC" // Beige
+    },
+    errorCorrectionLevel: "H", // Higher correction for logo
+    dotStyle: "dots", // Circular dots
+    cornerStyle: "extra-rounded",
+    logo: "/coffee-logo.png", // Your logo
+    logoSize: 120,
+    logoBackgroundColor: "#FFFFFF", // White padding behind logo
+    logoMargin: 10
+  });
+
+  return qr; // SVG string
+}
+```
+
+## トランザクション構築
+
+### `createTransfer(rpc, sender, fields)`
+
+支払い転送のための完全なSolanaトランザクションメッセージを構築します。この関数は、`splToken`パラメータに基づいて、SOLまたはSPLトークン転送のどちらを作成するかを自動的に検出し、必要なすべてのinstructionsを構築します。この関数は、RPCクライアントから取得した最新のブロックハッシュを使用してトランザクションのブロックハッシュ有効期限を設定し、署名とRPCへの送信が可能な完全な未署名トランザクション（`TransactionMessageWithBlockhashLifetime`型、Solana
+Kit/Gillと互換性あり）を返します。
+
+#### パラメータ
+
+- **`rpc`**（`Rpc<SolanaRpcApi>`）- `gill`からのSolana
+  RPCクライアント。`createSolanaClient(rpcUrl).rpc`で作成します。
+
+- **`sender`**（`Address`）- 支払者のウォレットアドレス。トランザクションに署名する資金を持つアカウントである必要があります。
+
+- **`fields`**（`CreateTransferFields`）- 転送設定：
+  - `recipient`（`Address`、必須）- 送信先ウォレットアドレス
+  - `amount`（`bigint`、必須）-
+    lamport単位（SOL）またはトークンの最小単位（SPL）での金額
+  - `splToken`（`Address`、任意）-
+    SPLトークンのミントアドレス。省略した場合、SOL転送を作成します。
+  - `reference`（`Address | Address[]`、任意）- トラッキング用の参照アドレス
+  - `memo`（`string`、任意）- オンチェーンメモテキスト
+
+#### 戻り値
+
+`Promise<TransactionMessageWithBlockhashLifetime>` - 以下を含む完全なトランザクションメッセージ：
+
+- バージョン0形式（アドレスルックアップテーブルをサポート）
+- ブロックハッシュ有効期限（トランザクションは約60秒後に期限切れ）
+- 必要なすべてのinstructions（転送 + 任意のメモ）
+- ウォレットで署名し、RPCに送信できる準備が整った状態
+
+#### エラー処理
+
+以下の特定メッセージで`CreateTransferError`をスローします：
+
+- `"sender not found"` - 送信元アカウントが存在しません
+- `"recipient not found"` - 受信先アカウントが存在しません
+
+#### 例：SOL支払い
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+
+// Build SOL transfer transaction
+const txMessage = await createTransfer(rpc, address("sender-wallet-address"), {
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL
+  memo: "Coffee purchase"
+});
+
+// Transaction is ready to sign and send
+// (wallet signing is handled separately)
+console.log("Transaction ready:", txMessage);
+```
+
+#### 例：USDC支払い
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+import { createSolanaClient } from "gill";
+import { address } from "gill";
+
+const rpc = createSolanaClient("https://api.mainnet-beta.solana.com").rpc;
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const txMessage = await createTransfer(rpc, address("sender-wallet"), {
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: usdcMint,
+  reference: [address("unique-ref-123...")],
+  memo: "Order #12345"
+});
+```

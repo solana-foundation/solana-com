@@ -1,0 +1,190 @@
+---
+title: Інтеграція клієнта Kit
+description:
+  Створюйте транзакції без газу за допомогою createKitKoraClient з архітектурою
+  плагінів Kit для автоматичної обробки комісій.
+date: 2026-03-09
+---
+
+_Останнє оновлення: 2026-03-09_
+
+## Що ви створите
+
+Клієнт Kit (`createKitKoraClient`) є рекомендованим способом інтеграції Kora у
+додатки Solana. Він обгортає абстракцію комісій Kora в архітектуру плагінів Kit,
+надаючи вам клієнт, який автоматично обробляє:
+
+- Управління блокхешами
+- Оцінку комісій та впровадження інструкцій оплати
+- Підписання транзакцій через Kora
+- Відправлення та підтвердження транзакцій
+- Оптимізацію обчислювального бюджету (оцінка CU на основі симуляції)
+
+Це означає, що ви можете використовувати плагіни програм Kit, такі як
+`tokenProgram()`, і Kora виконуватиме всю складність газових комісій у фоновому
+режимі.
+
+## Передумови
+
+- Завершений
+  [Посібник швидкого старту Kora](/docs/tools/kora/getting-started/quick-start)
+  — запущений сервер Kora та локальний validator
+- Знайомство з [Solana Kit](https://www.solanakit.com/) та його системою
+  плагінів
+
+## Встановлення
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Одноранґові залежності (`@solana-program/token`,
+`@solana-program/compute-budget`, `@solana/kit-plugin-*`) автоматично
+встановлюються більшістю менеджерів пакетів. Див.
+[Встановлення](/docs/tools/kora/getting-started/installation), якщо потрібно
+встановити їх вручну.
+
+## Створення клієнта
+
+`createKitKoraClient` компонує кілька плагінів Kit в один клієнт, який
+задовольняє `ClientWithPayer`, `ClientWithTransactionPlanning` та
+`ClientWithTransactionSending`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet` має бути `TransactionSigner` — це гаманець, який авторизує
+оплату комісії токеном SPL оператору Kora. Оператор Kora обробляє мережеві
+комісії SOL.
+
+### Опції конфігурації
+
+| Опція              | Обов'язково | Опис                                                                                                                             |
+| ------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Так         | URL кінцевої точки Kora RPC                                                                                                      |
+| `rpcUrl`           | Так         | URL Solana RPC (не кінцева точка Kora) — використовується для симуляції обчислювальних одиниць та сумісності з плагінами програм |
+| `feeToken`         | Так         | Адреса SPL mint для оплати комісії (наприклад, USDC)                                                                             |
+| `feePayerWallet`   | Так         | `TransactionSigner`, який авторизує оплату комісії SPL                                                                           |
+| `apiKey`           | Ні          | API-ключ для автентифікації Kora                                                                                                 |
+| `hmacSecret`       | Ні          | Секрет HMAC для автентифікації на основі підпису                                                                                 |
+| `computeUnitLimit` | Ні          | Фіксований ліміт CU. Якщо не вказано, Kora симулює транзакцію для оцінки оптимального CU (рекомендовано)                         |
+| `computeUnitPrice` | Ні          | Пріоритетна комісія у мікролампортах                                                                                             |
+| `tokenProgramId`   | Ні          | За замовчуванням Token Program. Встановіть на `TOKEN_2022_PROGRAM_ADDRESS` для токенів комісій Token-2022                        |
+
+## Використання з плагінами програм Kit
+
+Клієнт Kit є композитним з плагінами програм Kit. Наприклад, з `tokenProgram()`:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+За лаштунками клієнт Kit:
+
+1. Планує транзакцію з blockhash, керованим Kora, та інструкціями
+   обчислювального бюджету
+2. Оцінює комісію та впроваджує (або оновлює) інструкцію платежу SPL для
+   оператора Kora
+3. Частково підписує транзакцію гаманцем користувача
+4. Надсилає транзакцію до Kora для спільного підпису та відправки до Solana
+
+## Доступ до методів RPC Kora
+
+Клієнт Kit також надає повний API Kora через простір імен `.kora` (з
+`koraPlugin`):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Усі відповіді методів `.kora` використовують типізовані значення Kit (`Address`,
+`Blockhash`, `Signature`) замість необроблених рядків.
+
+## Підтримка Token-2022
+
+Щоб оплачувати комісії токеном Token-2022, передайте опцію `tokenProgramId`:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Обчислювальний бюджет
+
+За замовчуванням клієнт Kit симулює транзакцію через Solana RPC, щоб визначити
+оптимальний ліміт обчислювальних одиниць. Це призводить до більш точного
+розподілу CU та нижчих комісій.
+
+Щоб перевизначити фіксованим значенням:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Коли використовувати кожен клієнт
+
+| Клієнт                | Випадок використання                                                                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Рекомендовано.** Повна інтеграція Kit з автоматичною обробкою комісій. Найкраще для застосунків, що використовують плагіни програм Kit. |
+| `KoraClient`          | Прямий доступ до RPC, коли вам потрібен повний контроль над створенням, підписанням і відправкою транзакцій.                              |
+| `koraPlugin`          | Додавання методів Kora до існуючого клієнта Kit, який ви вже скомпонували з іншими плагінами.                                             |
+
+## Наступні кроки
+
+- [Повний потік транзакцій](/docs/tools/kora/guides/full-demo) — Детальний огляд
+  нижчого рівня з безпосереднім використанням `KoraClient`
+- [Довідник API](/docs/tools/kora/json-rpc-api) — Усі доступні методи RPC
+- [Конфігурація Kora](/docs/tools/kora/operators/configuration) — Параметри
+  конфігурації на стороні сервера

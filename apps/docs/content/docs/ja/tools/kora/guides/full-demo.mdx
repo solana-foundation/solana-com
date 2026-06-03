@@ -1,0 +1,693 @@
+---
+title: Kora完全なトランザクションフロー
+description:
+  このガイドでは、支払い指示とトランザクション署名を含む、Kora
+  RPCを使用した完全なガスレストランザクションフローの実装方法を学びます。
+date: 2025-08-26
+---
+
+_最終更新日: 2025-10-31_
+
+## 構築する内容
+
+クイックスタートガイドでは、Kora
+RPCのセットアップと基本的な呼び出し方法を学びました。次に、Koraの全機能を実証する完全なガスレストランザクションシステムを構築します。このガイドを完了すると、以下の機能を実装したトランザクションフローが完成します：
+
+- 複数の転送指示の作成（SPLトークンとSOL）
+- 手数料カバーのためのKoraからの支払い指示の取得
+- Koraがガス代を処理する間のユーザーキーによるトランザクション署名
+- 完全に署名されたトランザクションのSolanaネットワークへの送信
+
+最終的な成果物は、動作するガスレストランザクションシステムです：
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KORA GASLESS TRANSACTION DEMO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/6] Initializing clients
+  → Kora RPC: http://localhost:8080/
+  → Solana RPC: http://127.0.0.1:8899
+
+[2/6] Setting up keypairs
+  → Sender: BYJVBqQ2xV9GECc84FeoPQy2DpgoonZQFQu97MMWTbBc
+  → Destination: C8MC9E6nf9Am1rVqdDedDavm53uCJMiSwarEko1aXmny
+  → Kora signer address: 3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE
+
+[3/6] Creating demonstration instructions
+  → Payment token: 9BgeTKqmFsPVnfYscfM6NvsgmZxei7XfdciShQ6D3bxJ
+  ✓ Token transfer instruction created
+  ✓ SOL transfer instruction created
+  ✓ Memo instruction created
+  → Total: 3 instructions
+
+[4/6] Estimating Kora fee and assembling payment instruction
+  → Fee payer: 3Z1Ef7Ya...
+  → Blockhash: 7HZUaMqV...
+  ✓ Estimate transaction built
+  ✓ Payment instruction received from Kora
+
+[5/6] Creating and signing final transaction (with payment)
+  ✓ Final transaction built with payment
+  ✓ Transaction signed by user
+
+[6/6] Signing transaction with Kora and sending to Solana cluster
+  ✓ Transaction co-signed by Kora
+  ✓ Transaction submitted to network
+  ⏳ Awaiting confirmation...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Transaction confirmed on Solana
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Transaction signature:
+41hmwmkMfHR5mmhG9sNkjiakwHxpmr1H3Gi3bBL8v5PbsRrH7FhpUT8acHaf2mrPKNVD894dSYXfjp6LfAbVpcCE
+
+View on explorer:
+https://explorer.solana.com/tx/41hmwmkMfHR5mmhG9sNkjiakwHxpmr1H3Gi3bBL8v5PbsRrH7FhpUT8acHaf2mrPKNVD894dSYXfjp6LfAbVpcCE?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899
+```
+
+それでは、ステップバイステップで構築していきましょう！
+
+## 前提条件
+
+このチュートリアルを始める前に、以下を確認してください：
+
+- [Koraクイックスタートガイド](/docs/tools/kora/getting-started/quick-start)の完了 - クイックスタートガイドと同じテスト環境を使用します。
+- [**Node.js**](https://nodejs.org/en/download)（LTS以降）
+- [**Solana CLI**](https://solana.com/docs/intro/installation) v2.2.x以上
+- [Solanaトランザクション](https://solana.com/docs/core/transactions)と[SPLトークン](https://solana.com/docs/tokens/basics)の**理解**
+- 設定されたサーバーを持つ稼働中のKora
+  RPCサーバー（instructionsについては[クイックスタートガイド](/docs/tools/kora/getting-started/quick-start)を参照してください）
+
+## Koraトランザクションフロー
+
+Koraは、ユーザーのトランザクションの手数料支払者として機能することで、ガスレストランザクションを実現します。ガスレストランザクションフローは、以下の主要なステップで構成されています：
+
+1. **トランザクション作成** - ユーザーの意図するトランザクション（転送、プログラム呼び出しなど）を構築
+2. **手数料見積もり** - 必要な手数料を計算するための見積もりトランザクションを作成
+3. **支払い指示** - 手数料額を指定するKoraからの支払い指示を取得
+4. **ユーザー署名** - ユーザーが支払い指示を含むトランザクションに署名
+5. **Kora共同署名** - Koraが支払いを検証し、手数料支払者として共同署名
+6. **送信** - 完全に署名されたトランザクションをSolanaに送信
+
+_\*注意:
+Koraは支払いを不要に設定できますが、ここでは完全なフローを示すために使用します。_
+
+## プロジェクトのセットアップ
+
+### Koraサーバーの考慮事項
+
+- **トークン許可リスト** -
+  `kora.toml`で設定されたトークンのみが支払いに使用できます -
+  `.env`で定義されたトークンが[kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)の許可リストに含まれていることを確認してください。
+- **プログラム制限** - トランザクションはホワイトリストに登録されたプログラムとのみやり取りできます。[kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)は、System
+  Program、Token Program、Compute
+  Unitプログラム、およびMemoプログラムとのやり取りを許可するように事前設定されています。
+
+### クライアントのセットアップ
+
+_このガイドは、[クイックスタート](/docs/tools/kora/getting-started/quick-start)を完了し、デモプロジェクトがセットアップされていることを前提としています。まだの場合は、先にそちらを完了してください。_
+
+デモクライアントディレクトリに移動します:
+
+```shell
+cd kora/examples/getting-started/demo/client
+```
+
+> **注意**: デモファイルは完全な開発環境が必要なため、[GitHubリポジトリ](https://github.com/solana-foundation/kora/tree/v2.0.5/examples/getting-started/demo)に配置されています。
+
+## 実装
+
+デモを実行する前に、[完全なデモ](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/client/src/full-demo.ts)の実装をステップバイステップで見ていきましょう:
+
+### インポートと設定
+
+デモは必要なインポートと設定から始まります:
+
+```ts
+import { KoraClient } from "@solana/kora";
+import {
+  createKeyPairSignerFromBytes,
+  getBase58Encoder,
+  createNoopSigner,
+  address,
+  getBase64EncodedWireTransaction,
+  partiallySignTransactionMessageWithSigners,
+  Blockhash,
+  Base64EncodedWireTransaction,
+  partiallySignTransaction,
+  TransactionVersion,
+  Instruction,
+  KeyPairSigner,
+  Rpc,
+  SolanaRpcApi,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  MicroLamports,
+  appendTransactionMessageInstructions
+} from "@solana/kit";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { createRecentSignatureConfirmationPromiseFactory } from "@solana/transaction-confirmation";
+import {
+  updateOrAppendSetComputeUnitLimitInstruction,
+  updateOrAppendSetComputeUnitPriceInstruction
+} from "@solana-program/compute-budget";
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.join(process.cwd(), "..", ".env") });
+
+const CONFIG = {
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n as MicroLamports,
+  solanaRpcUrl: "http://127.0.0.1:8899",
+  solanaWsUrl: "ws://127.0.0.1:8900",
+  koraRpcUrl: "http://localhost:8080/"
+};
+```
+
+[Kora SDK](https://www.npmjs.com/package/@solana/kora)からKoraクライアントと、トランザクションを構築するためのSolana
+Kitライブラリからいくつかの型/ヘルパーをインポートしています。
+
+また、以下を定義するグローバル設定オブジェクトを作成しています:
+
+- **Compute Budget** - トランザクション優先順位付けのユニットと価格
+- **Transaction Version** - アドレスルックアップテーブルサポートのためにV0を使用
+- **RPC Endpoints** - ローカルのSolanaおよびKora RPCサーバー
+
+今のところこれらのデフォルト値をそのままにしておいてください。デモの後、異なる値を試して、トランザクションフローにどのような影響を与えるかを確認できます。
+
+### ユーティリティ関数
+
+このデモには、環境変数からキーペアを読み込むためのヘルパー関数が含まれています：
+
+```ts
+async function getEnvKeyPair(envKey: string) {
+  if (!process.env[envKey]) {
+    throw new Error(`Environment variable ${envKey} is not set`);
+  }
+  const base58Encoder = getBase58Encoder();
+  const b58SecretEncoded = base58Encoder.encode(process.env[envKey]);
+  return await createKeyPairSignerFromBytes(b58SecretEncoded);
+}
+```
+
+この関数の機能：
+
+- 環境変数からbase58エンコードされた秘密鍵を読み取る
+- 秘密鍵文字列をU8バイト配列にエンコードする
+- それらをキーペア署名者オブジェクトに変換する
+
+### ステップ1：クライアントの初期化
+
+まず、KoraとSolanaの両方への接続を設定します：
+
+```ts
+async function initializeClients() {
+  console.log("\n[1/6] Initializing clients");
+  console.log("  → Kora RPC:", CONFIG.koraRpcUrl);
+  console.log("  → Solana RPC:", CONFIG.solanaRpcUrl);
+
+  const client = new KoraClient({
+    rpcUrl: CONFIG.koraRpcUrl
+    // apiKey: process.env.KORA_API_KEY, // Uncomment if authentication is enabled
+    // hmacSecret: process.env.KORA_HMAC_SECRET, // Uncomment if HMAC is enabled
+  });
+
+  const rpc = createSolanaRpc(CONFIG.solanaRpcUrl);
+  const rpcSubscriptions = createSolanaRpcSubscriptions(CONFIG.solanaWsUrl);
+
+  const confirmTransaction = createRecentSignatureConfirmationPromiseFactory({
+    rpc,
+    rpcSubscriptions
+  });
+
+  return { client, rpc, confirmTransaction };
+}
+```
+
+この関数の機能：
+
+- Kora RPC URLを渡してKoraクライアントインスタンスを作成する
+- サブスクリプションサポート付きのSolana
+  RPC接続を確立する（これをSolanaクラスタへのトランザクション送信と確認に使用します）
+- トランザクション確認ユーティリティを設定する
+
+_注：私たちの
+[kora.toml](https://github.com/solana-foundation/kora/blob/v2.0.5/examples/getting-started/demo/server/kora.toml)
+ファイルには認証が含まれていないため、APIキーやHMACシークレットを渡す必要はありませんが、参考のためにコメントアウトされたコードを残してあります。_
+
+### ステップ2：キーの設定
+
+環境変数から必要なキーペアを読み込み、Kora署名者アドレスを取得します：
+
+```ts
+async function setupKeys(client: KoraClient) {
+  console.log("\n[2/6] Setting up keypairs");
+
+  const testSenderKeypair = await getEnvKeyPair("TEST_SENDER_KEYPAIR");
+  const destinationKeypair = await getEnvKeyPair("DESTINATION_KEYPAIR");
+  const { signer_address } = await client.getPayerSigner();
+
+  console.log("  → Sender:", testSenderKeypair.address);
+  console.log("  → Destination:", destinationKeypair.address);
+  console.log("  → Kora signer address:", signer_address);
+
+  return { testSenderKeypair, destinationKeypair, signer_address };
+}
+```
+
+ここでは、`getEnvKeyPair`関数を使用して環境変数からキーペアを読み込んでいます。これらのキーペアは以下を表します：
+
+- **送信者** - トランザクションを開始し、支払いトークンでKoraノードへの支払いを行う責任を持つユーザー
+- **宛先** - 送金の受取人
+
+また、`getPayerSigner`メソッドを使用してKora署名者アドレスを取得します。これは、Koraの署名でトランザクションに署名するために使用されるアドレスです。Koraノードから有効な署名者を取得し、トランザクションフロー全体で一貫して使用することが重要です。
+
+### ステップ3：デモinstructionsの作成
+
+次に、`testSender`がネットワークに送信したい一連のinstructionsを構築します。これらのinstructionsの一部はKora
+Clientを使用して構築し、その他は@solana/programsライブラリを使用して構築することで、両方の使用方法を実演します。
+
+```ts
+async function createInstructions(
+  client: KoraClient,
+  testSenderKeypair: KeyPairSigner,
+  destinationKeypair: KeyPairSigner
+) {
+  console.log("\n[3/6] Creating demonstration instructions");
+
+  const paymentToken = await client
+    .getConfig()
+    .then((config) => config.validation_config.allowed_spl_paid_tokens[0]);
+  console.log("  → Payment token:", paymentToken);
+
+  // Create token transfer (will initialize ATA if needed)
+  const transferTokens = await client.transferTransaction({
+    amount: 10_000_000, // 10 USDC (6 decimals)
+    token: paymentToken,
+    source: testSenderKeypair.address,
+    destination: destinationKeypair.address
+  });
+  console.log("  ✓ Token transfer instruction created");
+
+  // Create SOL transfer
+  const transferSol = await client.transferTransaction({
+    amount: 10_000_000, // 0.01 SOL (9 decimals)
+    token: "11111111111111111111111111111111", // SOL mint address
+    source: testSenderKeypair.address,
+    destination: destinationKeypair.address
+  });
+  console.log("  ✓ SOL transfer instruction created");
+
+  // Add memo instruction
+  const memoInstruction = getAddMemoInstruction({
+    memo: "Hello, Kora!"
+  });
+  console.log("  ✓ Memo instruction created");
+
+  const instructions = [
+    ...transferTokens.instructions,
+    ...transferSol.instructions,
+    memoInstruction
+  ];
+
+  console.log(`  → Total: ${instructions.length} instructions`);
+  return { instructions, paymentToken };
+}
+```
+
+ここではかなり多くのことが行われているので、ステップごとに見ていきましょう:
+
+1. `getConfig`を使用して、Koraの設定から支払いトークンを取得します。サーバーを設定したため、許可リストには1つのトークンしかないことがわかっているので、1番目の位置(`config.validation_config.allowed_spl_paid_tokens[0]`)で直接アクセスできます。
+2. Kora
+   Clientの`transferTransaction`メソッドを使用して、トークン転送instructionを作成します。これは、トークン転送instructionを簡単に作成できるヘルパーメソッドです。
+3. Kora
+   Clientの`transferTransaction`メソッドを使用して、SOL転送instructionを作成します。ここでは、Kora
+   Clientを使用してSOL転送を構築する方法を示すために含めています。SPLトークン転送ではなくSOLを転送したいことを示すために、ネイティブSOLミント`11111111111111111111111111111111`を使用していることに注意してください。
+4. @solana/programsライブラリの`getAddMemoInstruction`関数を使用して、メモinstructionを追加します。
+5. すべてのinstructionsを1つの配列に結合します。この配列を使用して、次のステップで見積もりトランザクションを構築します。
+
+### ステップ4: KoraからPayment Instructionを取得
+
+トランザクションの実行に必要な手数料と引き換えに、Koraへの支払いinstructionを生成するトランザクションを作成します。
+
+```ts
+async function getPaymentInstruction(
+  client: KoraClient,
+  instructions: Instruction[],
+  testSenderKeypair: KeyPairSigner,
+  paymentToken: string
+): Promise<{ paymentInstruction: Instruction }> {
+  console.log("\n[4/6] Estimating Kora fee and assembling payment instruction");
+
+  const { signer_address } = await client.getPayerSigner();
+  const noopSigner = createNoopSigner(address(signer_address));
+  const latestBlockhash = await client.getBlockhash();
+
+  console.log("  → Fee payer:", signer_address.slice(0, 8) + "...");
+  console.log("  → Blockhash:", latestBlockhash.blockhash.slice(0, 8) + "...");
+
+  // Create estimate transaction to get payment instruction
+  const estimateTransaction = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+    (tx) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: latestBlockhash.blockhash as Blockhash,
+          lastValidBlockHeight: 0n
+        },
+        tx
+      ),
+    (tx) => appendTransactionMessageInstructions(instructions, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitPriceInstruction(CONFIG.computeUnitPrice, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitLimitInstruction(CONFIG.computeUnitLimit, tx)
+  );
+
+  const signedEstimateTransaction =
+    await partiallySignTransactionMessageWithSigners(estimateTransaction);
+  const base64EncodedWireTransaction = getBase64EncodedWireTransaction(
+    signedEstimateTransaction
+  );
+  console.log("  ✓ Estimate transaction built");
+
+  // Get payment instruction from Kora
+  const paymentInstruction = await client.getPaymentInstruction({
+    transaction: base64EncodedWireTransaction,
+    fee_token: paymentToken,
+    source_wallet: testSenderKeypair.address
+  });
+  console.log("  ✓ Payment instruction received from Kora");
+
+  return { paymentInstruction: paymentInstruction.payment_instruction };
+}
+```
+
+Kora
+SDKには、トランザクションに必要な正確な手数料を計算し、支払い転送instructionを作成するヘルパーメソッド`getPaymentInstruction`があります。以下がその使用方法です:
+
+1. まず、希望するinstructionsを含む`estimateTransaction`を作成します。このトランザクションはKoraサーバー上でシミュレートされ、トランザクションに必要な手数料を見積もります。
+2. 次に、トランザクションに部分署名を行い、base64エンコードされたワイヤー文字列を取得します。
+3. base64エンコードされたワイヤートランザクションを、支払いトークンと支払い元と共に`getPaymentInstruction`メソッドに渡します。これにより、トランザクションに追加できる`Instruction`オブジェクトが返されます。
+
+ここでの主要な概念:
+
+- **有効なブロックハッシュ** -
+  `getBlockhash`メソッドを使用して、トランザクションの有効なブロックハッシュを取得します。これは、サーバー上でトランザクションをシミュレートするため、トランザクションの見積もりに必要です。
+- **Noopサイナー** -
+  Koraが署名する前にトランザクションを構築する際に使用されるプレースホルダーサイナーです。これにより、Koraの署名を取得する前にトランザクションで手数料支払者を指定できます。Noopサイナーの詳細については、[Solana Kitドキュメント](https://www.solanakit.com/docs/concepts/signers#no-op-signers)を参照してください。
+- **部分署名** - トランザクションをbase64エンコードされたワイヤー文字列として取得するには(Kora
+  RPCを介してトランザクションを送信するために必要)、トランザクションに部分署名を行う必要があります。部分サイナーの詳細については、[Solana Kitドキュメント](https://www.solanakit.com/docs/concepts/signers#partial-signers)を参照してください。
+
+### ステップ5: 最終トランザクションの作成と署名
+
+支払いinstructionが取得できたので、元のinstructionsと支払いinstructionを含む最終トランザクションを作成できます。
+
+```ts
+async function getFinalTransaction(
+  client: KoraClient,
+  paymentInstruction: Instruction,
+  testSenderKeypair: KeyPairSigner,
+  instructions: Instruction[],
+  signer_address: string
+): Promise<Base64EncodedWireTransaction> {
+  console.log("\n[5/6] Creating and signing final transaction (with payment)");
+  const noopSigner = createNoopSigner(address(signer_address));
+
+  // Build final transaction with payment instruction
+  const newBlockhash = await client.getBlockhash();
+  const fullTransaction = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(noopSigner, tx),
+    (tx) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: newBlockhash.blockhash as Blockhash,
+          lastValidBlockHeight: 0n
+        },
+        tx
+      ),
+    (tx) =>
+      appendTransactionMessageInstructions(
+        [...instructions, paymentInstruction],
+        tx
+      ),
+    (tx) =>
+      updateOrAppendSetComputeUnitPriceInstruction(CONFIG.computeUnitPrice, tx),
+    (tx) =>
+      updateOrAppendSetComputeUnitLimitInstruction(CONFIG.computeUnitLimit, tx)
+  );
+  console.log("  ✓ Final transaction built with payment");
+
+  // Sign with user keypair
+  const signedFullTransaction =
+    await partiallySignTransactionMessageWithSigners(fullTransaction);
+  const userSignedTransaction = await partiallySignTransaction(
+    [testSenderKeypair.keyPair],
+    signedFullTransaction
+  );
+  const base64EncodedWireFullTransaction = getBase64EncodedWireTransaction(
+    userSignedTransaction
+  );
+  console.log("  ✓ Transaction signed by user");
+
+  return base64EncodedWireFullTransaction;
+}
+```
+
+同じ`pipe`関数を使用してトランザクションを組み立てます。最終トランザクションには以下が含まれます:
+
+- 元のinstructions
+- 支払いinstruction
+- 新しいブロックハッシュ
+- 見積もりトランザクションの構築に使用したものと同じnoopサイナー
+
+次に、同じ`partiallySignTransactionMessageWithSigners`関数を呼び出して、トランザクションのbase64エンコードされたワイヤ文字列を取得します。ただし今回は、`partiallySignTransaction`も実行して、`testSenderKeypair`でトランザクションに署名します。Koraノードがネットワーク手数料を支払っていますが、トークン支払いと作成した他の転送命令を承認するために、`testSender`による署名が必要です。支払いを必要としないKoraノードの場合、特定の命令ではこの署名ステップが不要な場合があります。最後に、トランザクションのbase64エンコードされたワイヤ文字列を返します。
+
+### ステップ6: トランザクションの送信
+
+最後に、Koraノードにトランザクションに署名してもらい、完全に署名されたトランザクションをネットワークに送信できるようにする必要があります。これは、Koraクライアントの`signTransaction`メソッドを呼び出すことで実行します。
+
+```ts
+async function submitTransaction(
+  client: KoraClient,
+  rpc: Rpc<SolanaRpcApi>,
+  confirmTransaction: ReturnType<
+    typeof createRecentSignatureConfirmationPromiseFactory
+  >,
+  signedTransaction: Base64EncodedWireTransaction,
+  signer_address: string
+) {
+  console.log(
+    "\n[6/6] Signing transaction with Kora and sending to Solana cluster"
+  );
+
+  // Get Kora's signature
+  const { signed_transaction } = await client.signTransaction({
+    transaction: signedTransaction,
+    signer_key: signer_address
+  });
+  console.log("  ✓ Transaction co-signed by Kora");
+
+  // Submit to Solana network
+  const signature = await rpc
+    .sendTransaction(signed_transaction as Base64EncodedWireTransaction, {
+      encoding: "base64"
+    })
+    .send();
+  console.log("  ✓ Transaction submitted to network");
+
+  console.log("  ⏳ Awaiting confirmation...");
+  await confirmTransaction({
+    commitment: "confirmed",
+    signature,
+    abortSignal: new AbortController().signal
+  });
+
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("SUCCESS: Transaction confirmed on Solana");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("\nTransaction signature:");
+  console.log(signature);
+
+  return signature;
+}
+```
+
+ここでは3つのことを行っています:
+
+1. Koraクライアントの`signTransaction`メソッドを呼び出して、Koraノードにトランザクションへの署名を依頼します。ノードはトランザクションを検査して支払いが十分であることを確認し、トランザクションに署名します。_注意: 一部のKoraノードでは、支払いを必要としない`signTransaction`が有効になっている場合があります。`getConfig()`を実行することで、ノードの設定でこれが有効になっているかどうかを確認できます。_
+2. Solana
+   RPCクライアントを使用して、完全に署名されたトランザクションをSolanaネットワークに送信します。
+3. トランザクションがネットワーク上で確認されるまで待機します。
+
+### メインオーケストレーション関数
+
+メイン関数はすべてをまとめ、各関数を順番に呼び出します:
+
+```ts
+async function main() {
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("KORA GASLESS TRANSACTION DEMO");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  try {
+    // Step 1: Initialize clients
+    const { client, rpc, confirmTransaction } = await initializeClients();
+
+    // Step 2: Setup keys
+    const { testSenderKeypair, destinationKeypair, signer_address } =
+      await setupKeys(client);
+
+    // Step 3: Create demo instructions
+    const { instructions, paymentToken } = await createInstructions(
+      client,
+      testSenderKeypair,
+      destinationKeypair
+    );
+
+    // Step 4: Get payment instruction from Kora
+    const { paymentInstruction } = await getPaymentInstruction(
+      client,
+      instructions,
+      testSenderKeypair,
+      paymentToken
+    );
+
+    // Step 5: Create and partially sign final transaction
+    const finalSignedTransaction = await getFinalTransaction(
+      client,
+      paymentInstruction,
+      testSenderKeypair,
+      instructions,
+      signer_address
+    );
+
+    // Step 6: Get Kora's signature and submit to Solana cluster
+    await submitTransaction(
+      client,
+      rpc,
+      confirmTransaction,
+      finalSignedTransaction,
+      signer_address
+    );
+  } catch (error) {
+    console.error("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("ERROR: Demo failed");
+    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("\nDetails:", error);
+    process.exit(1);
+  }
+}
+```
+
+## 完全なデモの実行
+
+完全なガスレストランザクションデモを実行するには:
+
+### 1. 前提条件の確認
+
+3つのターミナルウィンドウを設定します：
+
+1. ローカルテストvalidatorを起動します：
+
+```bash
+solana-test-validator -r
+```
+
+2. Kora
+   RPCサーバーを起動します（examples/getting-started/demo/serverディレクトリから）：
+
+```bash
+kora rpc start --signers-config signers.toml
+```
+
+3. 環境を初期化します（examples/getting-started/demo/clientディレクトリから）：
+
+```bash
+pnpm init-env
+```
+
+### 2. デモの実行
+
+```bash
+# From the client directory
+pnpm full-demo
+```
+
+### 3. 期待される出力
+
+ステップバイステップの実行が表示され、最後にトランザクションが成功します。トランザクションは以下を実行します：
+
+- 送信者から宛先へトークンを転送
+- 送信者から宛先へSOLを転送
+- 「Hello, Kora!」メモメッセージを含める
+- 設定されたSPLトークンでKoraノードオペレーターに手数料を支払う
+- トランザクションのガス料金はKoraノードオペレーターが支払う
+
+## まとめ：フローの理解
+
+このデモンストレーションで何が起こるかを確認しましょう：
+
+1. **ユーザーの意図** - ユーザーは実行したいさまざまなinstructionsを含むトランザクションを組み立てました。
+2. **手数料の見積もり** -
+   Koraはユーザーが希望するトークンでトランザクションコストを計算し、支払いinstructionを作成しました。
+3. **トランザクションの組み立て** - ユーザーはユーザーが意図したinstructionsとKora支払いinstructionを含む最終的なトランザクションを組み立てました。
+4. **トランザクションの署名** - ユーザーはkeypairでトランザクションに部分的に署名し、支払いが十分であることを確認した後、署名のためにKoraノードに送信しました。
+5. **アトミック実行** - ユーザーはトランザクションをSolanaに送信し、すべてが単一のトランザクションで実行されます：
+   - ユーザーが意図した転送が実行される
+   - 手数料の支払いがKoraに転送される
+   - KoraがSolanaネットワーク手数料を支払い、トランザクションに署名する
+
+このように、ユーザーはガス料金を支払うためにSOLを保有する必要がありません。既に保有しているトークンですべてを支払うことができます！
+
+## トラブルシューティング
+
+### よくある問題
+
+**トランザクション検証の失敗**
+
+- すべてのプログラムが`kora.toml`にホワイトリスト登録されていることを確認してください
+- トークンミントが`allowed_spl_paid_tokens`に含まれていることを確認してください
+- トランザクションが`max_allowed_lamports`を超えていないことを確認してください
+
+**支払いインストラクション生成の失敗**
+
+- 見積もりトランザクションにシミュレーション用の新しいブロックハッシュがあることを確認してください
+- Koraの支払いアドレスが初期化されたATAを持っていることを確認してください
+- 支払いトークンが適切に設定されていることを確認してください
+
+**署名検証の失敗**
+
+- 必要なすべての署名者が含まれていることを確認してください（Koraと、トークン支払いまたはトランザクションに含まれる他のinstructionsに必要な署名者）
+- トランザクションが署名後に変更されていないことを確認してください
+- キーペアが正しく読み込まれていることを確認してください
+
+## まとめ
+
+おめでとうございます！Koraを使用した完全なガスレストランザクションフローの実装に成功しました。
+
+Koraを使用すると、ユーザーがガス料金やSOLの保有を気にする必要のない、シームレスなWeb3体験を提供することができます。ネオバンク、ゲームプラットフォーム、リキッドステーキングプラットフォームのいずれを構築している場合でも、Koraのガスレストランザクションはユーザー採用の大きな障壁を取り除きます。
+
+> **ヒント：**
+> よりシンプルな統合については、[Kit Clientガイド](/docs/tools/kora/guides/kit-client)をご確認ください。`createKitKoraClient()`
+> APIは、ブロックハッシュ管理、手数料見積もり、支払いインストラクションの挿入、トランザクション送信を自動的に処理します。このガイドで示した手動ステップを数行のコードに削減できます。
+
+## その他のリソース
+
+- **サポートが必要ですか？**
+  `Kora`タグを付けて[Solana Stack Exchange](https://solana.stackexchange.com/)で質問してください
+- [**Kora設定ガイド**](/docs/tools/kora/operators/configuration) - 詳細な設定オプション
+- [**署名者ガイド**](/docs/tools/kora/operators/signers) - さまざまな署名者タイプの管理
+- [**APIリファレンス**](/docs/tools/kora/json-rpc-api) - 完全なRPCメソッドのドキュメント
+- [**GitHubリポジトリ**](https://github.com/solana-foundation/kora) - ソースコードと例
+- [**Kora SDK**](https://www.npmjs.com/package/@solana/kora) - Kora
+  RPCエンドポイントと対話するためのSDK

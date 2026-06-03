@@ -1,4 +1,7 @@
-import Carousel, { CarouselControls } from "@/component-library/carousel";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { Container } from "./container";
@@ -40,7 +43,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
   cta,
   ctaHref,
 }) => {
-  const carouselRef = useRef(null);
+  const carouselRef = useRef<CarouselHandle>(null);
   const isTablet = useMediaQuery("(min-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1280px)");
   const isDesktop2xl = useMediaQuery("(min-width: 1440px)");

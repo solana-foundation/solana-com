@@ -1,0 +1,192 @@
+---
+title: Kit-asiakasohjelman integrointi
+description:
+  Rakenna kaasuttomia transaktioita käyttämällä createKitKoraClient-funktiota
+  Kitin liitännäisarkkitehtuurilla automaattista maksunkäsittelyä varten.
+date: 2026-03-09
+---
+
+_Viimeksi päivitetty: 2026-03-09_
+
+## Mitä rakennat
+
+Kit-asiakasohjelma (`createKitKoraClient`) on suositeltu tapa integroida Kora
+Solana-sovelluksiin. Se käärii Koran maksuabstraktion Kitin
+liitännäisarkkitehtuuriin, tarjoten asiakasohjelman, joka käsittelee
+automaattisesti:
+
+- Lohkohashin hallinnan
+- Maksujen arvioinnin ja maksuohjeiden injektoinnin
+- Transaktioiden allekirjoittamisen Koran kautta
+- Transaktioiden lähettämisen ja vahvistamisen
+- Laskentabudjetin optimoinnin (simulaatiopohjainen CU-arviointi)
+
+Tämä tarkoittaa, että voit käyttää Kitin ohjelma-liitännäisiä kuten
+`tokenProgram()` ja antaa Koran käsitellä kaikki kaasumaksujen monimutkaisuudet
+kulissien takana.
+
+## Edellytykset
+
+- Suoritettu [Kora-pikaopas](/docs/tools/kora/getting-started/quick-start) —
+  käynnissä oleva Kora-palvelin ja paikallinen validator
+- Tuttuus [Solana Kitiin](https://www.solanakit.com/) ja sen
+  liitännäisjärjestelmään
+
+## Asennus
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Vertaisriippuvuudet (`@solana-program/token`, `@solana-program/compute-budget`,
+`@solana/kit-plugin-*`) asentuvat automaattisesti useimpien
+paketinhallintaohjelmien kautta. Katso
+[Asennus](/docs/tools/kora/getting-started/installation), jos sinun täytyy
+asentaa ne manuaalisesti.
+
+## Asiakasohjelman luominen
+
+`createKitKoraClient` koostaa useita Kit-liitännäisiä yhdeksi asiakasohjelmaksi,
+joka täyttää `ClientWithPayer`-, `ClientWithTransactionPlanning`- ja
+`ClientWithTransactionSending`-vaatimukset.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet`-parametrin täytyy olla `TransactionSigner` — tämä on lompakko,
+joka valtuuttaa SPL-tokenimuotoisen maksun Kora-operaattorille. Kora-operaattori
+käsittelee SOL-verkon maksut.
+
+## Kokoonpanovalinnat
+
+| Asetus             | Vaaditaan | Kuvaus                                                                                                                       |
+| ------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Kyllä     | Koran RPC-päätepisteen URL-osoite                                                                                            |
+| `rpcUrl`           | Kyllä     | Solanan RPC-URL (ei Koran päätepiste) — käytetään laskentayksikköjen simulointiin ja ohjelma-liitännäisten yhteensopivuuteen |
+| `feeToken`         | Kyllä     | SPL-mintin osoite maksua varten (esim. USDC)                                                                                 |
+| `feePayerWallet`   | Kyllä     | `TransactionSigner`, joka valtuuttaa SPL-maksun                                                                              |
+| `apiKey`           | Ei        | API-avain Koran todennusta varten                                                                                            |
+| `hmacSecret`       | Ei        | HMAC-salaisuus allekirjoituspohjaiseen todennukseen                                                                          |
+| `computeUnitLimit` | Ei        | Kiinteä CU-raja. Jos jätetään pois, Kora simuloi transaktion optimaalisen CU:n arvioimiseksi (suositeltu)                    |
+| `computeUnitPrice` | Ei        | Prioriteettimaksu mikrolamporteissa                                                                                          |
+| `tokenProgramId`   | Ei        | Oletuksena Token Program. Aseta `TOKEN_2022_PROGRAM_ADDRESS` Token-2022-maksutokeneille                                      |
+
+## Käyttö Kit Program -liitännäisten kanssa
+
+Kit-asiakas on koostettavissa Kit program -liitännäisten kanssa. Esimerkiksi
+`tokenProgram()`:n kanssa:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Kulissien takana Kit-asiakas:
+
+1. Suunnittelee transaktion Koran hallinnoimalla blockhashilla ja
+   laskentabudjettiohjeilla
+2. Arvioi maksun ja lisää (tai päivittää) SPL-maksuohjeen Kora-operaattorille
+3. Allekirjoittaa transaktion osittain käyttäjän lompakolla
+4. Lähettää transaktion Koralle yhteisallekirjoitusta ja Solanaan toimittamista
+   varten
+
+## Kora RPC-menetelmien käyttö
+
+Kit-asiakas paljastaa myös täyden Kora API:n `.kora`-nimiavaruuden kautta
+(`koraPlugin`:sta):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Kaikki `.kora`-menetelmävastaukset käyttävät Kit-tyyppisiä arvoja (`Address`,
+`Blockhash`, `Signature`) raakamerkkijonojen sijaan.
+
+## Token-2022-tuki
+
+Maksujen maksamiseen Token-2022-tokenilla välitä `tokenProgramId`-vaihtoehto:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Laskentabudjetti
+
+Oletuksena Kit-asiakas simuloi transaktion Solana RPC:tä vastaan määrittääkseen
+optimaalisen laskentayksikön rajan. Tämä johtaa tiukempaan CU-allokaatioon ja
+alhaisempiin maksuihin.
+
+Korvaa kiinteällä arvolla:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Milloin käyttää kutakin asiakasta
+
+| Asiakas               | Käyttötapaus                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Suositeltu.** Täysi Kit-integraatio automaattisella maksukäsittelyllä. Paras sovelluksille, jotka käyttävät Kit program -liitännäisiä. |
+| `KoraClient`          | Suora RPC-yhteys, kun tarvitset täyden hallinnan transaktioiden muodostukseen, allekirjoitukseen ja lähettämiseen.                       |
+| `koraPlugin`          | Kora-menetelmien lisääminen olemassa olevaan Kit-asiakkaaseen, jonka olet jo koostanut muiden liitännäisten kanssa.                      |
+
+## Seuraavat askeleet
+
+- [Täysi transaktiokulku](/docs/tools/kora/guides/full-demo) — Alemman tason
+  läpikäynti käyttäen `KoraClient`:ia suoraan
+- [API-viite](/docs/tools/kora/json-rpc-api) — Kaikki saatavilla olevat
+  RPC-menetelmät
+- [Koran konfiguraatio](/docs/tools/kora/operators/configuration) —
+  Palvelinpuolen konfiguraatioasetukset

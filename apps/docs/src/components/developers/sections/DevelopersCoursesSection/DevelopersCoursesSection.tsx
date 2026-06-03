@@ -1,0 +1,95 @@
+import { useTranslations } from "next-intl";
+
+import CarouselCards from "@/components/shared/CarouselCards";
+import DevelopersCourseItem from "./DevelopersCourseItem";
+import DevelopersCourseFeaturedItem from "./DevelopersCourseFeaturedItem";
+import DevelopersSectionTitle from "../DevelopersSectionTitle";
+import styles from "./DevelopersCoursesSection.module.scss";
+
+import solanaDevCourseImg from "../../../../../assets/developers/courses/solana-dev-course.png";
+import solanaDevCourseSmallImg from "../../../../../assets/developers/courses/solana-dev-course-small.png";
+import shapeImg1 from "../../../../../assets/developers/courses/shape-1.png";
+import shapeImg2 from "../../../../../assets/developers/courses/shape-2.png";
+import shapeImg3 from "../../../../../assets/developers/courses/shape-3.png";
+import shapeImg5 from "../../../../../assets/developers/courses/shape-5.png";
+import shapeImg6 from "../../../../../assets/developers/courses/shape-6.png";
+
+export default function DevelopersCoursesSection() {
+  const t = useTranslations();
+
+  const courses = (
+    <>
+      <DevelopersCourseItem
+        title="Developers Learn Bootcamp"
+        courseCreator={"Solana Foundation"}
+        url="/developers/bootcamp"
+        image={shapeImg6}
+      />
+      <DevelopersCourseItem
+        title="Solana Bootcamp"
+        courseCreator={"Solana Foundation"}
+        url="https://www.youtube.com/watch?v=amAq-WHAFs8&list=PLilwLeBwGuK7HN8ZnXpGAD9q6i4syhnVc"
+        image={shapeImg5}
+      />
+      <DevelopersCourseItem
+        title="Solana Bytes"
+        courseCreator={"Solana Foundation"}
+        url="https://www.youtube.com/watch?v=pRYs49MqapI&list=PLilwLeBwGuK51Ji870apdb88dnBr1Xqhm"
+        image={shapeImg3}
+      />
+      <DevelopersCourseItem
+        title="Build on Solana by Rise In"
+        courseCreator={"RiseIn.com"}
+        url="https://www.risein.com/courses/build-on-solana"
+        image={shapeImg1}
+      />
+      <DevelopersCourseItem
+        title="Ethereum to Solana Developer Course"
+        courseCreator={"RareSkills.io"}
+        url="https://www.rareskills.io/solana-tutorial"
+        image={shapeImg2}
+      />
+      <DevelopersCourseItem
+        title="Solana Learning Track"
+        courseCreator={"Hackquest"}
+        url="https://www.hackquest.io/en/learning-track/d22e6118-f7f6-4f31-acf2-433d08bc52e8"
+        image={shapeImg2}
+      />
+    </>
+  );
+
+  return (
+    <section className="mt-32 md:mt-0" id="courses">
+      <div className="container">
+        <div className="mb-8 md:flex items-center justify-between">
+          <div>
+            <DevelopersSectionTitle titleId="developers.courses.title" />
+            <p className="subdued">{t("developers.courses.description")}</p>
+          </div>
+        </div>
+        <div className={styles["courses-section__carousel-container"]}>
+          <CarouselCards>
+            <DevelopersCourseItem
+              title="Solana Development Courses"
+              courseCreator={"Blueshift"}
+              url="https://learn.blueshift.gg"
+              image={solanaDevCourseSmallImg}
+            />
+            {courses}
+          </CarouselCards>
+        </div>
+        <div className={styles["courses-section__grid-container"]}>
+          <DevelopersCourseFeaturedItem
+            title={t("developers.courses.featured-item.title")}
+            description={t("developers.courses.featured-item.description")}
+            courseCreator={"Blueshift"}
+            url="https://learn.blueshift.gg"
+            image={solanaDevCourseImg}
+            className={styles["feature-card"]}
+          />
+          {courses}
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,5 +1,11 @@
 import type { CompanyRecord } from "../../types";
+import altitudeBreakpoint2026White from "../../../assets/companies/altitude/breakpoint-2026-white.svg";
+import altitudeLogoBlack from "../../../assets/companies/altitude/logo-black.svg";
+import altitudeLogoBlackPng from "../../../assets/companies/altitude/logo-black.png";
 import altitudeLogoMonotone from "../../../assets/companies/altitude/logo-monotone.svg";
+import altitudeLogoWhite from "../../../assets/companies/altitude/logo-white.png";
+import altitudeMark from "../../../assets/companies/altitude/mark.svg";
+import altitudeMarkPng from "../../../assets/companies/altitude/mark.png";
 
 export const altitude = {
   id: "altitude",
@@ -23,11 +29,54 @@ export const altitude = {
   defaultLogoId: "logo-monotone",
   logos: [
     {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: altitudeBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
+    {
       id: "logo-monotone",
       fileName: "logo-monotone.svg",
       format: "svg",
       source: altitudeLogoMonotone,
       treatment: "monotone",
+    },
+    {
+      id: "logo-black",
+      fileName: "logo-black.svg",
+      format: "svg",
+      source: altitudeLogoBlack,
+      theme: "light",
+    },
+    {
+      id: "logo-black-png",
+      fileName: "logo-black.png",
+      format: "png",
+      source: altitudeLogoBlackPng,
+      theme: "light",
+    },
+    {
+      id: "logo-white",
+      fileName: "logo-white.png",
+      format: "png",
+      source: altitudeLogoWhite,
+      theme: "dark",
+    },
+    {
+      id: "mark",
+      fileName: "mark.svg",
+      format: "svg",
+      source: altitudeMark,
+      kind: "mark",
+    },
+    {
+      id: "mark-png",
+      fileName: "mark.png",
+      format: "png",
+      source: altitudeMarkPng,
+      kind: "mark",
     },
   ],
 } satisfies CompanyRecord;

@@ -16,7 +16,7 @@ vi.mock("@/lib/reader", () => ({
 import { reader } from "@/lib/reader";
 import { getGoogleNewsSitemapResponse } from "@/lib/google-news-sitemap";
 
-const mockReader = reader as any;
+const mockReader = reader;
 
 describe("getGoogleNewsSitemapResponse", () => {
   beforeEach(() => {

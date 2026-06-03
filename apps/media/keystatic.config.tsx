@@ -31,6 +31,21 @@ const githubStorage: GitHubConfig["storage"] = {
   pathPrefix: "apps/media",
 };
 
+const DEFAULT_AUTHOR = "solana-foundation";
+
+const defaultAuthorRelationship = () => {
+  const author = fields.relationship({
+    label: "Author",
+    collection: "authors",
+    validation: { isRequired: true },
+  });
+
+  return {
+    ...author,
+    defaultValue: () => DEFAULT_AUTHOR,
+  };
+};
+
 // Background options for section blocks (exported for use in components)
 export const backgroundOptions = [
   { label: "Default", value: "bg-default" },
@@ -94,10 +109,7 @@ export default config({
             "Required for SEO. Used as meta description, og:description, and twitter:description",
           multiline: true,
         }),
-        author: fields.relationship({
-          label: "Author",
-          collection: "authors",
-        }),
+        author: defaultAuthorRelationship(),
         publishedAt: fields.datetime({
           label: "Publish Date",
           description:
@@ -131,6 +143,7 @@ export default config({
         body: fields.mdx({
           label: "Body",
           options: {
+            table: true,
             image: {
               directory: "public/uploads/posts",
               publicPath: "/uploads/posts",
@@ -145,6 +158,130 @@ export default config({
         switchback: fields.relationship({
           label: "Switchback",
           collection: "switchbacks",
+        }),
+      },
+    }),
+
+    upgrades: collection({
+      label: "Upgrades",
+      slugField: "title",
+      path: "content/upgrades/*",
+      format: { contentField: "body" },
+      entryLayout: "content",
+      schema: {
+        title: fields.slug({
+          name: { label: "Title", validation: { isRequired: true } },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: [
+            { label: "Draft", value: "draft" },
+            { label: "Published", value: "published" },
+          ],
+          defaultValue: "draft",
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Used as meta description for SEO",
+          multiline: true,
+        }),
+        subtitle: fields.text({
+          label: "Subtitle",
+          description: "Displayed below the title in the hero section",
+        }),
+        badges: fields.array(
+          fields.object({
+            text: fields.text({
+              label: "Text",
+              validation: { isRequired: true },
+            }),
+            color: fields.select({
+              label: "Color",
+              options: [
+                { label: "Green", value: "green" },
+                { label: "Yellow", value: "yellow" },
+                { label: "Red", value: "red" },
+                { label: "Purple", value: "purple" },
+              ],
+              defaultValue: "green",
+            }),
+            variant: fields.select({
+              label: "Variant",
+              options: [
+                { label: "Badge (pill style)", value: "badge" },
+                { label: "Text (plain)", value: "text" },
+              ],
+              defaultValue: "badge",
+            }),
+          }),
+          {
+            label: "Status Badges",
+            itemLabel: (props) => props.fields.text.value || "Badge",
+          },
+        ),
+        metrics: fields.array(
+          fields.object({
+            value: fields.text({
+              label: "Value",
+              validation: { isRequired: true },
+            }),
+            label: fields.text({
+              label: "Label",
+              validation: { isRequired: true },
+            }),
+          }),
+          {
+            label: "Key Metrics",
+            itemLabel: (props) => props.fields.value.value || "Metric",
+          },
+        ),
+        heroImage: fields.image({
+          label: "Hero Image",
+          description: "Used as og:image",
+          directory: "public/uploads/upgrades",
+          publicPath: "/uploads/upgrades",
+        }),
+        author: defaultAuthorRelationship(),
+        publishedAt: fields.datetime({
+          label: "Publish Date",
+          description:
+            "Date and time in UTC when the upgrade becomes visible on the site.",
+          validation: { isRequired: true },
+        }),
+        categories: fields.array(
+          fields.object({
+            category: fields.relationship({
+              label: "Category",
+              collection: "categories",
+            }),
+          }),
+          {
+            label: "Categories",
+            itemLabel: (props) => props.fields.category.value || "Category",
+          },
+        ),
+        tags: fields.array(
+          fields.object({
+            tag: fields.relationship({
+              label: "Tag",
+              collection: "tags",
+            }),
+          }),
+          {
+            label: "Tags",
+            itemLabel: (props) => props.fields.tag.value || "Tag",
+          },
+        ),
+        body: fields.mdx({
+          label: "Body",
+          options: {
+            table: true,
+            image: {
+              directory: "public/uploads/upgrades",
+              publicPath: "/uploads/upgrades",
+            },
+          },
+          components: componentBlocks,
         }),
       },
     }),
@@ -413,6 +550,11 @@ export default config({
               label: "Form ID",
               description:
                 "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the UUID `formId` value from the embed code (eg: 7aef2b29-c63f-4427-bc18-a8c15fbff49b)",
+            }),
+            formUrl: fields.text({
+              label: "Form URL",
+              description:
+                "Optional. Use the HubSpot share URL when the form needs query parameters, such as `bd_vertical=Institutional`.",
             }),
           },
           { label: "HubSpot Form CTA" },

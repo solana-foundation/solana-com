@@ -128,7 +128,11 @@ export function DevelopersDefiPage() {
         eyebrow={t("switchback.eyebrow")}
         headline={t("switchback.headline")}
         body={t.raw("switchback.body")}
-        buttons={switchbackButtons as any}
+        buttons={
+          switchbackButtons as React.ComponentProps<
+            typeof Switchback
+          >["buttons"]
+        }
       />
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
@@ -140,7 +144,12 @@ export function DevelopersDefiPage() {
       </ResponsiveBox>
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
-        <CardDeck cards={cardDeckCards as any} numCols={CARD_DECK_COLUMNS} />
+        <CardDeck
+          cards={
+            cardDeckCards as React.ComponentProps<typeof CardDeck>["cards"]
+          }
+          numCols={CARD_DECK_COLUMNS}
+        />
       </ResponsiveBox>
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
@@ -148,7 +157,11 @@ export function DevelopersDefiPage() {
           variant={CONVERSION_PANEL_PRIMARY.variant as "centered"}
           heading={t("conversionPanel.heading")}
           body={t("conversionPanel.body")}
-          buttons={conversionPanelButtons as any}
+          buttons={
+            conversionPanelButtons as React.ComponentProps<
+              typeof ConversionPanel
+            >["buttons"]
+          }
           logos={[]}
           showLogos={false}
         />
@@ -157,7 +170,11 @@ export function DevelopersDefiPage() {
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
         <CommunityGallery
           square={COMMUNITY_GALLERY_CONFIG.square}
-          cards={communityGalleryCards as any}
+          cards={
+            communityGalleryCards as React.ComponentProps<
+              typeof CommunityGallery
+            >["cards"]
+          }
         />
       </ResponsiveBox>
 
@@ -169,7 +186,11 @@ export function DevelopersDefiPage() {
           buttons={[]}
           logos={[]}
           showLogos={CONVERSION_PANEL_COMMUNITY.showLogos}
-          listItems={communityListItems as any}
+          listItems={
+            communityListItems as React.ComponentProps<
+              typeof ConversionPanel
+            >["listItems"]
+          }
         />
       </ResponsiveBox>
     </>

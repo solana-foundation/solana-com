@@ -1,5 +1,8 @@
 import path from "path";
+import { createRequire } from "node:module";
 import { defineConfig } from "vitest/config";
+
+const require = createRequire(import.meta.url);
 
 const INLINE_SVG_MOCK_ID = "\0inline-svg-mock";
 const SVG_MOCK_ID = "\0svg-mock";
@@ -48,7 +51,18 @@ export default defineConfig({
         find: "@@",
         replacement: path.resolve(__dirname, "./"),
       },
+      {
+        find: "next/navigation",
+        replacement: require.resolve("next/navigation"),
+      },
+      {
+        find: "next/server",
+        replacement: require.resolve("next/server"),
+      },
     ],
+  },
+  ssr: {
+    noExternal: ["next-intl"],
   },
   test: {
     environment: "jsdom",

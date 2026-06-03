@@ -1,0 +1,388 @@
+---
+title: Bundle e nuovi metodi RPC
+description:
+  Nuovi metodi RPC in Kora v2.2.0-beta — bundle Jito, versione e stima delle
+  commissioni bundle.
+---
+
+Questi metodi sono disponibili a partire da `v2.2.0-beta.1`. Abilitali nel tuo
+`kora.toml` sotto `[kora.enabled_methods]`.
+
+## getVersion
+
+Recupera le informazioni sulla versione del server Kora.
+
+### Richiesta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### Risposta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### Esempio cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### SDK TypeScript
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### Configurazione
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+Calcola la commissione combinata per più transazioni in un bundle. Utile per
+determinare il costo totale prima di firmare e inviare un bundle.
+
+> **Nota:** I plugin di transazione (ad es., `gas_swap`) **non** vengono
+> eseguiti durante la stima delle commissioni. I plugin vengono eseguiti solo
+> durante i flussi di firma (`signBundle`, `signAndSendBundle`).
+
+### Richiesta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### Parametri
+
+| Parametro      | Tipo     | Obbligatorio | Descrizione                                       |
+| -------------- | -------- | ------------ | ------------------------------------------------- |
+| `transactions` | string[] | Sì           | Array di transazioni codificate in base64 (max 5) |
+| `fee_token`    | string   | Sì           | Mint del token per il calcolo delle commissioni   |
+
+### Risposta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### Esempio cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### SDK TypeScript
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### Configurazione
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+Firma più transazioni come bundle senza inviarle alla rete. Utilizza questo
+metodo quando vuoi gestire tu stesso l'invio del bundle a Jito.
+
+Questo metodo è protetto da reCAPTCHA quando configurato. Includi l'header
+`x-recaptcha-token` se il tuo server ha reCAPTCHA abilitato.
+
+Quando i
+[plugin di transazione](/docs/tools/kora/beta/configuration#transaction-plugins)
+sono abilitati (ad es., `gas_swap`), ogni transazione nel bundle viene validata
+rispetto alle regole del plugin prima della firma.
+
+### Protezione Fee Payer di Lighthouse
+
+Quando la
+[protezione Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+è abilitata, Kora aggiunge un'istruzione di asserzione del saldo all'**ultima
+transazione** del bundle. Questo protegge il fee payer da attacchi di drenaggio
+assicurando che il saldo non scenda al di sotto dei livelli previsti dopo il
+completamento di tutte le transazioni del bundle.
+
+**Importante:** Poiché Lighthouse modifica il messaggio della transazione, tutte
+le firme client preesistenti sull'ultima transazione diventano non valide. I
+client devono **firmare nuovamente** dopo aver ricevuto il bundle modificato da
+Kora.
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### Richiesta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parametri
+
+| Parametro              | Tipo     | Obbligatorio | Descrizione                                                  |
+| ---------------------- | -------- | ------------ | ------------------------------------------------------------ |
+| `transactions`         | string[] | Sì           | Array di transazioni codificate in base64 (max 5)            |
+| `signer_key`           | string   | No           | Firmatario specifico da utilizzare (default: selezione pool) |
+| `transactions_to_sign` | number[] | No           | Indici delle transazioni da firmare (default: tutte)         |
+
+### Risposta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Esempio cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### SDK TypeScript
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### Firma parziale del bundle
+
+Usa `transactions_to_sign` per firmare solo transazioni specifiche nel bundle:
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### Configurazione
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+Firma e invia un bundle di massimo 5 transazioni al block engine di Jito. Tutte
+le transazioni nel bundle vengono eseguite in modo atomico e sequenziale — o
+riescono tutte o nessuna.
+
+Questo metodo è protetto da reCAPTCHA quando configurato. Includi l'header
+`x-recaptcha-token` se il tuo server ha reCAPTCHA abilitato.
+
+Quando i
+[plugin di transazione](/docs/tools/kora/beta/configuration#transaction-plugins)
+sono abilitati (ad es. `gas_swap`), ogni transazione nel bundle viene validata
+rispetto alle regole del plugin prima della firma.
+
+> **Nota:** La
+> [protezione del pagatore delle commissioni Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+> **non** si applica a questo metodo. Poiché i bundle vengono inviati
+> immediatamente, l'aggiunta di un'asserzione Lighthouse invaliderebbe le firme
+> client esistenti. Se hai bisogno della protezione Lighthouse, usa
+> [`signBundle`](#signbundle) e gestisci tu stesso l'invio a Jito dopo aver
+> firmato nuovamente.
+
+### Richiesta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Parametri
+
+| Parametro              | Tipo     | Obbligatorio | Descrizione                                                      |
+| ---------------------- | -------- | ------------ | ---------------------------------------------------------------- |
+| `transactions`         | string[] | Sì           | Array di transazioni codificate in base64 (massimo 5)            |
+| `signer_key`           | string   | No           | Firmatario specifico da utilizzare (predefinito: selezione pool) |
+| `transactions_to_sign` | number[] | No           | Indici delle transazioni da firmare (predefinito: tutte)         |
+
+### Risposta JSON-RPC
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Esempio cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### Configurazione
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **Nota:** Quando usi i bundle con le mance Jito, assicurati che
+> `allow_transfer = true` sia impostato in
+> `[validation.fee_payer_policy.system]` in modo che il firmatario Kora possa
+> pagare la mancia.

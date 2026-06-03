@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import doublezeroBreakpoint2026White from "../../../assets/companies/doublezero/breakpoint-2026-white.svg";
 import doublezeroLogo from "../../../assets/companies/doublezero/logo.svg";
 
 export const doublezero = {
@@ -22,6 +23,14 @@ export const doublezero = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: doublezeroBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

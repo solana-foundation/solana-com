@@ -1,0 +1,566 @@
+---
+title: React Hooks
+description: Bangun UI pembayaran kustom dengan hook React Solana Commerce
+---
+
+Paket `@solana-commerce/sdk` menyediakan hook React untuk membangun pengalaman
+pembayaran Solana kustom. Hook ini menawarkan kontrol penuh atas transfer SOL
+dan token SPL dengan manajemen state bawaan, logika retry otomatis, penanganan
+error, dan helper UI.
+
+Di balik layar, SDK menggunakan [TanStack Query](https://tanstack.com/query)
+untuk caching dan manajemen state,
+[@solana/kit](https://github.com/anza-xyz/kit) untuk primitif Solana, dan
+terintegrasi dengan mulus dengan `@solana-commerce/connector` untuk koneksi
+wallet.
+
+## Instalasi
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Pengaturan Provider
+
+### `ArcProvider`
+
+`ArcProvider` adalah provider root yang menginisialisasi klien RPC Solana,
+mengelola konfigurasi jaringan, dan menyediakan konektivitas blockchain ke semua
+hook. Provider ini harus membungkus semua komponen yang menggunakan hook SDK.
+
+#### Props
+
+- **`config`** (`ArcWebClientConfig`) - Objek konfigurasi untuk klien Arc
+- **`children`** (`ReactNode`) - Komponen anak yang akan memiliki akses ke hook
+- **`queryClient`** (`QueryClient`, opsional) - Klien TanStack Query kustom.
+  Jika tidak disediakan, instance default dibuat secara internal.
+
+#### `ArcWebClientConfig`
+
+Konfigurasi untuk klien Arc yang mengontrol konektivitas RPC dan tingkat
+commitment.
+
+##### Field Wajib
+
+Provider secara otomatis terintegrasi dengan `@solana-commerce/connector`
+melalui hook `useConnectorClient`, sehingga tidak diperlukan konfigurasi
+connector eksplisit ketika digunakan dalam `ConnectorProvider`.
+
+##### Field Opsional
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Jaringan Solana yang akan
+  dihubungkan. Default: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - URL endpoint RPC kustom. Jika tidak disediakan,
+  menggunakan endpoint publik untuk jaringan yang dipilih.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - Tingkat
+  konfirmasi transaksi. Default: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Mengaktifkan logging konsol verbose untuk debugging.
+  Default: `false`.
+
+- **`autoConnect`** (`boolean`) - Otomatis terhubung ke wallet saat komponen
+  dimuat. Default: `true`.
+
+- **`storage`** (`Storage`) - Adaptor penyimpanan khusus untuk mempertahankan
+  preferensi dompet. Harus mengimplementasikan:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Bawaan: `window.localStorage` bila tersedia (hanya browser). Gunakan ini untuk
+  React Native (`AsyncStorage`) atau penyimpanan khusus yang aman untuk SSR.
+
+#### Integrasi dengan `ConnectorProvider`
+
+Penyedia terintegrasi dengan `ConnectorProvider` dari
+`@solana-commerce/connector`. Selalu bungkus aplikasi Anda dengan
+`ConnectorProvider` sebelum `ArcProvider`:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Hook Inti
+
+### `useTransferSOL`
+
+Hook untuk mentransfer SOL dengan logika percobaan ulang otomatis, manajemen
+status, dan fungsi bantuan UI. Dibangun di atas TanStack Query untuk caching dan
+deduplikasi permintaan.
+
+#### Signature
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Parameter
+
+- **`initialToInput`** (`string`, opsional) - Nilai awal untuk input alamat
+  penerima. Berguna untuk mengisi formulir sebelumnya.
+- **`initialAmountInput`** (`string`, opsional) - Nilai awal untuk input jumlah
+  dalam SOL. Berguna untuk mengisi formulir sebelumnya.
+
+#### Nilai Kembalian
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Fungsi Inti
+
+- **`transferSOL`** - Memulai transfer SOL. Mengembalikan promise yang terpenuhi
+  ketika transaksi dikonfirmasi on-chain.
+
+##### Properti Status
+
+- **`isLoading`** (`boolean`) - `true` saat transaksi sedang diproses
+  (penandatanganan, pengiriman, konfirmasi). Gunakan ini untuk indikator loading
+  dan status tombol.
+
+- **`error`** (`Error | null`) - Objek error jika transaksi gagal pada tahap
+  mana pun. `null` ketika tidak ada error. Error termasuk penolakan dompet,
+  saldo tidak cukup, kegagalan jaringan, dll.
+
+- **`data`** (`TransferSOLResult | null`) - Objek hasil ketika transaksi
+  berhasil. Berisi signature, alamat, jumlah, dan metadata blockchain. `null`
+  sebelum transfer berhasil pertama kali.
+
+- **`reset`** (`() => void`) - Mereset status mutasi, menghapus `error` dan
+  `data`. Berguna untuk alur percobaan ulang atau mereset formulir setelah
+  selesai.
+
+##### Properti & Metode Bantuan UI
+
+Hook ini menyediakan manajemen status bawaan untuk input formulir:
+
+- **`toInput`** / **`setToInput`** - State terkontrol untuk kolom input alamat
+  penerima
+
+- **`amountInput`** / **`setAmountInput`** - State terkontrol untuk kolom input
+  jumlah (dalam SOL, bukan lamport)
+
+- **`handleToInputChange`** - Handler onChange yang telah diikat sebelumnya
+  untuk input penerima: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Handler onChange yang telah diikat sebelumnya
+  untuk input jumlah: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Metode praktis yang mentransfer SOL menggunakan
+  nilai `toInput` dan `amountInput` saat ini. Secara otomatis mengonversi jumlah
+  dari SOL ke lamport.
+
+- **`handleSubmit`** - Handler pengiriman formulir yang memanggil
+  `transferFromInputs()` dan mencegah perilaku formulir default. Gunakan dengan
+  `<form onSubmit={handleSubmit}>`.
+
+#### Opsi
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (wajib) - Alamat Solana penerima. Dapat berupa string atau tipe
+  `Address` dari `@solana/kit`.
+
+- **`amount`** (wajib) - Jumlah transfer dalam **lamport** (bukan SOL). Harus
+  berupa `bigint`. Gunakan `BigInt()` atau notasi literal: `1_000_000_000n` = 1
+  SOL.
+
+- **`from`** (opsional) - Alamat pengirim. Jika tidak disediakan, menggunakan
+  alamat dari dompet yang terhubung. Hanya diperlukan untuk kasus penggunaan
+  lanjutan (misalnya, menandatangani untuk akun yang berbeda).
+
+#### Hasil
+
+Hasil mencakup metadata transaksi termasuk detail transfer dan tanda tangan
+transaksi:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### Arsitektur Internal
+
+**Pembuat Transaksi:** Hook menggunakan pembuat transaksi bersama yang:
+
+- Mengambil blockhash segar untuk setiap transaksi
+- Membangun pesan transaksi yang dioptimalkan dengan biaya minimal
+- Menandatangani transaksi menggunakan dompet yang terhubung
+- Mengirim dan mengonfirmasi transaksi dalam satu alur
+
+**Pembatalan Cache:** Pada transfer yang berhasil, hook secara otomatis
+membatalkan cache TanStack Query untuk:
+
+- Saldo pengirim (alamat `from`)
+- Saldo penerima (alamat `to`)
+
+Ini memastikan bahwa komponen apa pun yang menampilkan saldo (misalnya, melalui
+`useArcClient`) secara otomatis mengambil ulang dan memperbarui tanpa intervensi
+manual.
+
+**Konversi Jumlah yang Presisi:** Saat menggunakan `transferFromInputs()`,
+jumlahnya dikonversi dari SOL ke lamport menggunakan aritmatika berbasis string
+untuk menghindari error presisi floating-point. Konversinya:
+
+- Memvalidasi format input (menolak angka negatif atau tidak valid)
+- Menangani hingga 9 angka desimal (1 lamport = 0,000000001 SOL)
+- Memotong atau mengisi nilai pecahan sesuai kebutuhan
+- Menampilkan error deskriptif untuk input yang tidak valid
+
+---
+
+### `useTransferToken`
+
+Seperti `useTransferSOL`, hook ini digunakan untuk mentransfer token SPL. Selain
+menangani transfer, hook ini juga menangani pembuatan Associated Token Account
+(ATA) otomatis saat diperlukan.
+
+#### Signature
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Parameter
+
+- **`initialMintInput`** (`string`, opsional) - Alamat mint token awal. Berguna
+  untuk transfer token tetap.
+- **`initialToInput`** (`string`, opsional) - Alamat penerima awal.
+- **`initialAmountInput`** (`string`, opsional) - Jumlah awal dalam unit dasar
+  token (mempertimbangkan desimal).
+
+#### Nilai Kembalian
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Nilai kembaliannya mirip dengan `useTransferSOL` tetapi mencakup state
+`mintInput` tambahan untuk pemilihan token.
+
+#### Opsi
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Field Wajib
+
+- **`mint`** - Alamat mint token SPL. Contohnya:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Alamat wallet penerima (bukan akun token mereka). Hook secara
+  otomatis menurunkan Associated Token Account yang benar.
+
+- **`amount`** - Jumlah transfer dalam **unit terkecil** token. Harus
+  mempertimbangkan desimal token:
+  - USDC (6 desimal): `1_000_000n` = 1 USDC
+  - Token yang dibungkus SOL (9 desimal): `1_000_000_000n` = 1 token
+
+##### Field Opsional
+
+- **`from`** - Alamat wallet pengirim. Default ke wallet yang terhubung.
+
+- **`createAccountIfNeeded`** (default: `true`) - Jika penerima tidak memiliki
+  akun token untuk mint ini, secara otomatis membuatnya sebagai bagian dari
+  transaksi. Saat `false`, transfer akan gagal jika akun penerima tidak ada.
+
+  _Catatan:_ Membuat akun token memerlukan biaya ~0,00203 SOL. Biaya ini dibayar
+  oleh pengirim.
+
+- **`retryConfig`** - Konfigurasi untuk percobaan ulang otomatis saat blockhash
+  kedaluwarsa. Lihat [Konfigurasi Percobaan Ulang](#retry-configuration).
+
+#### Hasil
+
+Hasil mencakup metadata transaksi termasuk detail transfer dan tanda tangan
+transaksi:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Konfigurasi Percobaan Ulang
+
+Hook ini dilengkapi dengan logika percobaan ulang yang canggih untuk menangani
+kedaluwarsa blockhash, yang umumnya terjadi saat jaringan mengalami kemacetan.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Jumlah maksimum percobaan transaksi. Setiap percobaan
+  mengambil blockhash yang baru. Default: `3`.
+
+- **`baseDelay`** - Jeda dalam milidetik sebelum percobaan ulang pertama.
+  Default: `1000` (1 detik).
+
+- **`backoffMultiplier`** - Pengali backoff eksponensial. Setiap percobaan ulang
+  menunggu `baseDelay * (backoffMultiplier ^ attemptNumber)` milidetik.
+  - `1` = backoff linear (1d, 1d, 1d)
+  - `1.5` = backoff eksponensial (1d, 1,5d, 2,25d)
+  - `2` = eksponensial agresif (1d, 2d, 4d)
+
+**Cara Kerja Percobaan Ulang:**
+
+1. **Percobaan Pertama:** Transaksi dibangun dengan blockhash saat ini dan
+   dikirim
+2. **Blockhash Kedaluwarsa:** Jika blockhash menjadi usang sebelum konfirmasi,
+   Solana menolak transaksi
+3. **Percobaan Ulang Otomatis:** Hook mendeteksi kedaluwarsa, mengambil
+   blockhash baru, membangun ulang transaksi, dan mengirim kembali
+4. **Backoff Eksponensial:** Setiap percobaan ulang menunggu lebih lama untuk
+   menghindari kemacetan jaringan
+5. **Kegagalan Akhir:** Setelah `maxAttempts`, melempar
+   `BlockhashExpirationError` dengan konteks
+
+**Kapan Percobaan Ulang Tidak Dipicu:**
+
+- Error non-blockhash (dana tidak mencukupi, akun tidak valid, dll.) langsung
+  melempar kesalahan tanpa mencoba ulang
+- Hanya error kedaluwarsa blockhash yang memicu mekanisme percobaan ulang
+
+#### Arsitektur Internal
+
+**Pengelolaan ATA:**
+
+- Menurunkan Associated Token Account secara deterministik menggunakan
+  `findAssociatedTokenPda` (_Catatan: hanya Token Program yang didukung saat
+  ini_)
+- Memeriksa apakah pengirim memiliki token account (gagal cepat jika pengirim
+  tidak memiliki token)
+- Memeriksa apakah penerima memiliki token account (membuat jika diperlukan dan
+  `createAccountIfNeeded: true`)
+- Pemeriksaan akun hanya berjalan pada percobaan pertama untuk menghindari
+  panggilan RPC yang berlebihan selama percobaan ulang
+
+**Pembatalan Cache:** Saat berhasil, membatalkan cache TanStack Query untuk:
+
+- Saldo token pengirim untuk mint ini
+- Saldo token penerima untuk mint ini
+- Data akun terkait
+
+Ini menjaga semua komponen UI yang menampilkan saldo tetap sinkron secara
+otomatis.
+
+### `useArcClient`
+
+Hook untuk mengakses klien RPC Solana yang mendasarinya, status wallet, dan
+konfigurasi jaringan. Ini adalah hook tingkat rendah untuk kasus penggunaan
+lanjutan yang memerlukan akses RPC langsung.
+
+#### Signature
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Nilai Kembalian
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### State
+
+`ArcClientSnapshot` memperluas `ArcWebClient` yang menyediakan akses ke:
+
+- status wallet (alamat, penandatangan, wallet yang tersedia, fitur, dan status
+  wallet)
+- konfigurasi jaringan (endpoint RPC, cluster Solana)
+
+#### Kasus Penggunaan
+
+**Query RPC Langsung:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Komponen yang Sadar Jaringan:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Rendering Kondisional Berdasarkan Wallet:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

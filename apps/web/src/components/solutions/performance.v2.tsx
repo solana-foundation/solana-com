@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@/app/components/utils";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";

@@ -95,7 +95,6 @@ All apps use `[locale]` dynamic routing pattern.
 
 Key environment variables (defined in `turbo.json`):
 
-- `NEXT_PUBLIC_BUILDER_API_KEY` - Builder.io CMS
 - `NEXT_PUBLIC_TINA_CLIENT_ID` / `TINA_TOKEN` - TinaCMS for media app
 - `SENTRY_AUTH_TOKEN` - Error tracking
 - `SIMPLECAST_API_KEY` / `SIMPLECAST_PODCAST_ID` - Podcast integration

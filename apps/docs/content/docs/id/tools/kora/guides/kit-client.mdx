@@ -1,0 +1,191 @@
+---
+title: Integrasi Klien Kit
+description:
+  Bangun transaksi tanpa gas menggunakan createKitKoraClient dengan arsitektur
+  plugin Kit untuk penanganan biaya otomatis.
+date: 2026-03-09
+---
+
+_Terakhir Diperbarui: 2026-03-09_
+
+## Apa yang Akan Anda Bangun
+
+Klien Kit (`createKitKoraClient`) adalah cara yang direkomendasikan untuk
+mengintegrasikan Kora ke dalam aplikasi Solana. Ini membungkus abstraksi biaya
+Kora ke dalam arsitektur plugin Kit, memberi Anda klien yang secara otomatis
+menangani:
+
+- Manajemen blockhash
+- Estimasi biaya dan injeksi instruksi pembayaran
+- Penandatanganan transaksi melalui Kora
+- Pengiriman dan konfirmasi transaksi
+- Optimasi anggaran compute (estimasi CU berbasis simulasi)
+
+Ini berarti Anda dapat menggunakan plugin program Kit seperti `tokenProgram()`
+dan membiarkan Kora menangani semua kompleksitas biaya gas di balik layar.
+
+## Prasyarat
+
+- Menyelesaikan
+  [Panduan Quick Start Kora](/docs/tools/kora/getting-started/quick-start) —
+  menjalankan server Kora dan validator lokal
+- Familiaritas dengan [Solana Kit](https://www.solanakit.com/) dan sistem
+  pluginnya
+
+## Instalasi
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Peer dependencies (`@solana-program/token`, `@solana-program/compute-budget`,
+`@solana/kit-plugin-*`) secara otomatis diinstal oleh sebagian besar manajer
+paket. Lihat [Instalasi](/docs/tools/kora/getting-started/installation) jika
+Anda perlu menginstalnya secara manual.
+
+## Membuat Klien
+
+`createKitKoraClient` menggabungkan beberapa plugin Kit menjadi satu klien yang
+memenuhi `ClientWithPayer`, `ClientWithTransactionPlanning`, dan
+`ClientWithTransactionSending`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet` harus berupa `TransactionSigner` — ini adalah wallet yang
+mengesahkan pembayaran biaya token SPL kepada operator Kora. Operator Kora
+menangani biaya jaringan SOL.
+
+### Opsi Konfigurasi
+
+| Opsi               | Wajib | Deskripsi                                                                                                      |
+| ------------------ | ----- | -------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Ya    | URL endpoint RPC Kora                                                                                          |
+| `rpcUrl`           | Ya    | URL RPC Solana (bukan endpoint Kora) — digunakan untuk simulasi unit compute dan kompatibilitas plugin program |
+| `feeToken`         | Ya    | Alamat mint SPL untuk pembayaran biaya (misalnya, USDC)                                                        |
+| `feePayerWallet`   | Ya    | `TransactionSigner` yang mengesahkan pembayaran biaya SPL                                                      |
+| `apiKey`           | Tidak | API key untuk autentikasi Kora                                                                                 |
+| `hmacSecret`       | Tidak | Secret HMAC untuk autentikasi berbasis signature                                                               |
+| `computeUnitLimit` | Tidak | Batas CU tetap. Jika diabaikan, Kora mensimulasikan transaksi untuk mengestimasi CU optimal (direkomendasikan) |
+| `computeUnitPrice` | Tidak | Biaya prioritas dalam micro-lamports                                                                           |
+| `tokenProgramId`   | Tidak | Default ke Token Program. Atur ke `TOKEN_2022_PROGRAM_ADDRESS` untuk token biaya Token-2022                    |
+
+## Menggunakan dengan Plugin Program Kit
+
+Klien Kit dapat dikomposisikan dengan plugin program Kit. Misalnya, dengan
+`tokenProgram()`:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Di balik layar, klien Kit:
+
+1. Merencanakan transaksi dengan blockhash yang dikelola Kora dan instruksi
+   compute budget
+2. Memperkirakan biaya dan memasukkan (atau memperbarui) instruksi pembayaran
+   SPL ke operator Kora
+3. Menandatangani sebagian transaksi dengan dompet pengguna
+4. Mengirim transaksi ke Kora untuk co-signing dan pengiriman ke Solana
+
+## Mengakses Metode RPC Kora
+
+Klien Kit juga mengekspos API Kora lengkap melalui namespace `.kora` (dari
+`koraPlugin`):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Semua respons metode `.kora` menggunakan nilai bertipe Kit (`Address`,
+`Blockhash`, `Signature`) alih-alih string mentah.
+
+## Dukungan Token-2022
+
+Untuk membayar biaya dengan token Token-2022, berikan opsi `tokenProgramId`:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Compute Budget
+
+Secara default, klien Kit mensimulasikan transaksi terhadap RPC Solana untuk
+menentukan batas compute unit yang optimal. Ini menghasilkan alokasi CU yang
+lebih ketat dan biaya yang lebih rendah.
+
+Untuk mengganti dengan nilai tetap:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Kapan Menggunakan Setiap Klien
+
+| Klien                 | Kasus Penggunaan                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Direkomendasikan.** Integrasi Kit lengkap dengan penanganan biaya otomatis. Terbaik untuk aplikasi yang menggunakan plugin program Kit. |
+| `KoraClient`          | Akses RPC langsung ketika Anda memerlukan kontrol penuh atas konstruksi, penandatanganan, dan pengiriman transaksi.                       |
+| `koraPlugin`          | Menambahkan metode Kora ke klien Kit yang sudah ada yang telah Anda komposisikan dengan plugin lain.                                      |
+
+## Langkah Selanjutnya
+
+- [Alur Transaksi Lengkap](/docs/tools/kora/guides/full-demo) — Panduan tingkat
+  lebih rendah menggunakan `KoraClient` secara langsung
+- [Referensi API](/docs/tools/kora/json-rpc-api) — Semua metode RPC yang
+  tersedia
+- [Konfigurasi Kora](/docs/tools/kora/operators/configuration) — Opsi
+  konfigurasi sisi server

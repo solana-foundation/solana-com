@@ -1,0 +1,443 @@
+---
+title: Especificação Solana Pay v1.1
+description:
+  Versão mais recente do protocolo padrão para codificar solicitações de
+  transação Solana em URLs
+---
+
+## Resumo
+
+Um protocolo padrão para codificar solicitações de transação Solana em URLs para
+possibilitar pagamentos e outros casos de uso.
+
+Um consenso aproximado sobre esta especificação foi alcançado, e existem
+implementações na Phantom, FTX e Slope.
+
+Este padrão se inspira em
+[BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) e
+[EIP 681](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-681.md).
+
+## Motivação
+
+Um protocolo de URL padrão para solicitar transferências nativas de SOL,
+transferências de Token SPL e transações Solana permite uma melhor experiência
+do usuário entre aplicativos e carteiras no ecossistema Solana.
+
+Essas URLs podem ser codificadas em códigos QR ou tags NFC, ou enviadas entre
+usuários e aplicativos para solicitar pagamento e compor transações.
+
+Os aplicativos devem garantir que uma transação foi confirmada e é válida antes
+de liberar produtos ou serviços sendo vendidos, ou conceder acesso a objetos ou
+eventos.
+
+Carteiras móveis devem se registrar para lidar com o esquema de URL para
+fornecer uma experiência integrada e segura quando URLs do Solana Pay forem
+encontradas no ambiente.
+
+Ao padronizar uma abordagem simples para resolver esses problemas, garantimos
+compatibilidade básica de aplicativos e carteiras para que os desenvolvedores
+possam se concentrar em abstrações de nível superior.
+
+## Especificação: Solicitação de Transferência
+
+Uma URL de solicitação de transferência do Solana Pay descreve uma solicitação
+não interativa para uma transferência de SOL ou Token SPL.
+
+```
+solana:<recipient>
+      ?amount=<amount>
+      &spl-token=<spl-token>
+      &reference=<reference>
+      &label=<label>
+      &message=<message>
+      &memo=<memo>
+```
+
+A solicitação é não interativa porque os parâmetros na URL são usados por uma
+carteira para compor diretamente uma transação.
+
+### Destinatário
+
+Um único campo `recipient` é obrigatório como o pathname. O valor deve ser a
+chave pública codificada em base58 de uma conta SOL nativa. Associated token
+accounts não devem ser usadas.
+
+Em vez disso, para solicitar uma transferência de SPL Token, o campo `spl-token`
+deve ser usado para especificar um mint de SPL Token, a partir do qual o
+endereço da token account associada do destinatário deve ser derivado.
+
+### Quantia
+
+Um único campo `amount` é permitido como parâmetro de consulta opcional. O valor
+deve ser um número inteiro não negativo ou decimal de unidades "usuário". Para
+SOL, isso significa SOL e não lamports. Para tokens, use
+[`uiAmountString` e não `amount`](https://docs.solana.com/developing/clients/jsonrpc-api#token-balances-structure).
+
+`0` é um valor válido. Se o valor for um número decimal menor que `1`, ele deve
+ter um `0` à esquerda antes do `.`. Notação científica é proibida.
+
+Se um valor não for fornecido, a carteira deve solicitar ao usuário a quantia.
+Se o número de casas decimais exceder o que é suportado para SOL (9) ou o SPL
+Token (específico do mint), a carteira deve rejeitar a URL como **malformada**.
+
+### SPL Token
+
+Um único campo `spl-token` é permitido como parâmetro de consulta opcional. O
+valor deve ser a chave pública codificada em base58 de uma mint account de SPL
+Token.
+
+Se o campo for fornecido, a convenção de
+[Associated Token Account](https://spl.solana.com/associated-token-account) deve
+ser usada, e a carteira deve incluir uma instrução `TokenProgram.Transfer` ou
+`TokenProgram.TransferChecked` como a última instrução da transação.
+
+Se o campo não for fornecido, a URL descreve uma transferência nativa de SOL, e
+a carteira deve incluir uma instrução `SystemProgram.Transfer` como a última
+instrução da transação.
+
+A carteira deve derivar o endereço da ATA a partir dos campos `recipient` e
+`spl-token`. Transferências para token accounts auxiliares não são suportadas.
+
+### Referência
+
+Múltiplos campos `reference` são permitidos como parâmetros de consulta
+opcionais. Os valores devem ser arrays de 32 bytes codificados em base58. Estes
+podem ou não ser chaves públicas, dentro ou fora da curva, e podem ou não
+corresponder a contas na Solana.
+
+Se os valores forem fornecidos, a carteira deve incluí-los na ordem fornecida
+como chaves somente leitura e não-assinantes na instrução
+`SystemProgram.Transfer` ou
+`TokenProgram.Transfer`/`TokenProgram.TransferChecked` na transação de
+pagamento. Os valores podem ou não ser únicos para a solicitação de pagamento e
+podem ou não corresponder a uma conta na Solana.
+
+Como os validadores da Solana indexam transações por essas chaves de conta, os
+valores `reference` podem ser usados como IDs de cliente (IDs utilizáveis antes
+de conhecer a transação de pagamento eventual). O método RPC
+[`getSignaturesForAddress`](https://docs.solana.com/developing/clients/jsonrpc-api#getsignaturesforaddress)
+pode ser usado para localizar transações dessa forma.
+
+### Rótulo
+
+Um único campo `label` é permitido como parâmetro de consulta opcional. O valor
+deve ser uma string UTF-8
+[codificada em URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+que descreva a origem da solicitação de transferência.
+
+Por exemplo, pode ser o nome de uma marca, loja, aplicativo ou pessoa que está
+fazendo a solicitação. A carteira deve
+[decodificar a URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+do valor e exibir o valor decodificado ao usuário.
+
+### Mensagem
+
+Um único campo `message` é permitido como parâmetro de consulta opcional. O
+valor deve ser uma string UTF-8
+[codificada em URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+que descreva a natureza da solicitação de transferência.
+
+Por exemplo, pode ser o nome de um item sendo comprado, um ID de pedido ou uma
+nota de agradecimento. A carteira deve
+[decodificar a URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+do valor e exibir o valor decodificado ao usuário.
+
+### Memo
+
+Um único campo `memo` é permitido como parâmetro de consulta opcional. O valor
+deve ser uma string UTF-8
+[codificada em URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+que deve ser incluída em uma instrução [SPL Memo](https://spl.solana.com/memo)
+na transação de pagamento.
+
+A carteira deve
+[decodificar a URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+do valor e deve exibir o valor decodificado ao usuário. O memo será registrado
+pelos validadores e não deve incluir informações privadas ou sensíveis.
+
+Se o campo for fornecido, a carteira deve incluir uma instrução `MemoProgram`
+como a penúltima instrução da transação, imediatamente antes da instrução de
+transferência de SOL ou Token SPL, para evitar ambiguidade com outras instruções
+na transação.
+
+### Exemplos
+
+#### URL descrevendo uma solicitação de transferência de 1 SOL
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345
+```
+
+#### URL descrevendo uma solicitação de transferência de 0,01 USDC
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+```
+
+#### URL descrevendo uma solicitação de transferência de SOL (usuário solicitado pelo valor)
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+## Especificação: Solicitação de Transação
+
+Uma URL de solicitação de transação do Solana Pay descreve uma solicitação
+interativa para qualquer transação Solana.
+
+```
+solana:<link>
+```
+
+A solicitação é interativa porque os parâmetros na URL são usados por uma
+carteira para fazer uma solicitação HTTP para compor uma transação.
+
+### Link
+
+Um único campo `link` é obrigatório como pathname. O valor deve ser uma URL
+HTTPS absoluta condicionalmente
+[codificada por URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent).
+
+Se a URL contiver parâmetros de consulta, ela deve ser codificada por URL.
+Parâmetros de consulta de protocolo podem ser adicionados a esta especificação.
+A codificação por URL do valor evita conflitos com parâmetros de protocolo.
+
+Se a URL não contiver parâmetros de consulta, ela não deve ser codificada por
+URL. Isso produz uma URL mais curta e um código QR menos denso.
+
+Em ambos os casos, a carteira deve
+[decodificar a URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent).
+Isso não tem efeito se o valor não estiver codificado por URL. Se o valor
+decodificado não for uma URL HTTPS absoluta, a carteira deve rejeitá-lo como
+**malformado**.
+
+#### Solicitação GET
+
+A carteira deve fazer uma solicitação JSON HTTP `GET` para a URL. A solicitação
+não deve identificar a carteira ou o usuário.
+
+A carteira deve fazer a solicitação com um
+[cabeçalho Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+e a aplicação deve responder com um
+[cabeçalho Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+para compressão HTTP.
+
+A carteira deve exibir o domínio da URL enquanto a solicitação está sendo feita.
+
+#### Resposta GET
+
+A carteira deve lidar com
+[erros de cliente](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+HTTP,
+[erros de servidor](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+e
+[respostas de redirecionamento](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+A aplicação deve responder com estes, ou com uma resposta JSON HTTP `OK` com um
+corpo de:
+
+```json
+{ "label": "<label>", "icon": "<icon>" }
+```
+
+O valor `<label>` deve ser uma string UTF-8 que descreve a origem da solicitação
+de transação. Por exemplo, isto pode ser o nome de uma marca, loja, aplicação ou
+pessoa fazendo a solicitação.
+
+O valor `<icon>` deve ser uma URL HTTP ou HTTPS absoluta de uma imagem de ícone.
+O arquivo deve ser uma imagem SVG, PNG ou WebP, ou a carteira deve rejeitá-lo
+como **malformado**.
+
+A carteira não deve armazenar em cache a resposta exceto quando instruído pelos
+cabeçalhos de resposta de
+[cache HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching).
+
+A carteira deve exibir o rótulo e renderizar a imagem do ícone para o usuário.
+
+#### Solicitação POST
+
+A carteira deve fazer uma solicitação JSON HTTP `POST` para a URL com um corpo
+de:
+
+```json
+{ "account": "<account>" }
+```
+
+O valor `<account>` deve ser a chave pública codificada em base58 de uma conta
+que pode assinar a transação.
+
+A carteira deve fazer a solicitação com um
+[cabeçalho Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+e a aplicação deve responder com um
+[cabeçalho Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+para compressão HTTP.
+
+A carteira deve exibir o domínio da URL enquanto a solicitação está sendo feita.
+Se uma solicitação `GET` foi feita, a carteira também deve exibir o rótulo e
+renderizar a imagem do ícone da resposta.
+
+#### Resposta POST
+
+A carteira deve lidar com
+[erros de cliente](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+HTTP,
+[erros de servidor](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+e
+[respostas de redirecionamento](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+A aplicação deve responder com estes, ou com uma resposta JSON HTTP `OK` com um
+corpo de:
+
+```json
+{ "transaction": "<transaction>" }
+```
+
+O valor `<transaction>` deve ser uma
+[transação serializada](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)
+codificada em base64. A carteira deve decodificar a transação de base64 e
+[desserializá-la](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+A aplicação pode responder com uma transação parcialmente ou totalmente
+assinada. A carteira deve validar a transação como **não confiável**.
+
+#### Assinaturas Vazias
+
+Se as
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+da transação estiverem vazias:
+
+- A aplicação deve definir o
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  como o `account` na solicitação, ou o valor zero (`new PublicKey(0)` ou
+  `new PublicKey("11111111111111111111111111111111")`).
+- A aplicação deve definir o
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  como o
+  [blockhash mais recente](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash),
+  ou o valor zero (`new PublicKey(0).toBase58()` ou
+  `"11111111111111111111111111111111"`).
+- A carteira deve ignorar o
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  na transação e definir o `feePayer` como o `account` na solicitação.
+- A carteira deve ignorar o
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  na transação e definir o `recentBlockhash` como o
+  [blockhash mais recente](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+
+Se as
+[`signatures`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+da transação não estiverem vazias:
+
+- A aplicação deve definir o
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  como a
+  [chave pública da primeira assinatura](https://solana-foundation.github.io/solana-web3.js/v1.x/modules.html#SignaturePubkeyPair).
+- A aplicação deve definir o
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  como o
+  [blockhash mais recente](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- A aplicação deve serializar e desserializar a transação antes de assiná-la.
+  Isso garante a ordenação consistente das chaves de conta, como uma solução
+  alternativa para
+  [este problema](https://github.com/solana-labs/solana/issues/21722).
+- A carteira não deve definir o
+  [`feePayer`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  e o
+  [`recentBlockhash`](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash).
+- A carteira deve verificar as assinaturas e, se alguma for inválida, a carteira
+  deve rejeitar a transação como **malformada**.
+
+A carteira deve assinar a transação apenas com o `account` na solicitação, e
+deve fazê-lo apenas se uma assinatura para o `account` na solicitação for
+esperada.
+
+Se qualquer assinatura, exceto uma assinatura para o `account` na solicitação,
+for esperada, a carteira deve rejeitar a transação como **maliciosa**.
+
+A aplicação também pode incluir um campo opcional `message` no corpo da
+resposta:
+
+```json
+{ "message": "<message>", "transaction": "<transaction>" }
+```
+
+O valor `<message>` deve ser uma string UTF-8 que descreva a natureza da
+resposta da transação.
+
+Por exemplo, pode ser o nome de um item sendo comprado, um desconto aplicado à
+compra ou uma nota de agradecimento. A carteira deve exibir o valor ao usuário.
+
+A carteira e a aplicação devem permitir campos adicionais no corpo da
+solicitação e no corpo da resposta, que podem ser adicionados por especificações
+futuras.
+
+### Exemplo
+
+##### URL descrevendo uma solicitação de transação.
+
+```
+solana:https://example.com/solana-pay
+```
+
+##### URL descrevendo uma solicitação de transação com parâmetros de consulta.
+
+```
+solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
+```
+
+##### Solicitação GET
+
+```
+GET /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+```
+
+##### Resposta GET
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 62
+Content-Encoding: gzip
+
+{"label":"Michael Vines","icon":"https://example.com/icon.svg"}
+```
+
+##### Solicitação POST
+
+```
+POST /solana-pay?order=12345 HTTP/1.1
+Host: example.com
+Connection: close
+Accept: application/json
+Accept-Encoding: br, gzip, deflate
+Content-Type: application/json
+Content-Length: 57
+
+{"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
+```
+
+##### Resposta POST
+
+```
+HTTP/1.1 200 OK
+Connection: close
+Content-Type: application/json
+Content-Length: 298
+Content-Encoding: gzip
+
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+```
+
+## Extensões
+
+Formatos e campos adicionais podem ser incorporados a esta especificação para
+permitir novos casos de uso, garantindo compatibilidade com aplicações e
+carteiras.
+
+Por favor, abra uma issue no Github para propor alterações à especificação, a
+fim de solicitar feedback de desenvolvedores de aplicações e carteiras.
+
+[Um exemplo real de tal proposta.](https://github.com/solana-foundation/pay/issues/26)

@@ -1,4 +1,5 @@
 import { createPreset } from "fumadocs-ui/tailwind-plugin";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -67,7 +68,7 @@ export default {
     },
   },
   plugins: [
-    require("tailwindcss-animate"),
+    tailwindcssAnimate,
     function ({ addVariant }) {
       addVariant("light", ".light &");
     },

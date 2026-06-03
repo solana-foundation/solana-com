@@ -1,0 +1,201 @@
+import * as cheerio from "cheerio";
+import cachedFetch from "node-fetch-cache";
+
+export type YTVideoItem = {
+  id?: string;
+  snippet: {
+    thumbnails?: Record<string, { url: string } | undefined>;
+    title: string;
+    description?: string;
+    playlistId?: string;
+    resourceId?: { videoId?: string };
+    publishedAt?: string;
+  };
+  contentDetails: { videoId: string };
+};
+
+const ytBaseURL = "https://www.googleapis.com/youtube/v3/";
+
+const scrapeUrlForTag = async (url: string, tagName: string) => {
+  const siteData = await cachedFetch(url)
+    .then((res) => res.text())
+    .catch((err) => {
+      console.log(err);
+    });
+
+  if (siteData) {
+    const $ = cheerio.load(siteData, null, false);
+    const result = $(tagName);
+    return result;
+  }
+  return "";
+};
+
+const scrapeMeetupMemberCount = async () => {
+  const meetupMemberCountTag = await scrapeUrlForTag(
+    `https://www.meetup.com/topics/solana/`,
+    `div.font-medium`,
+  );
+  if (meetupMemberCountTag.length) {
+    // @ts-expect-error The `children` prop is present in `meetupMemberCountTag[0]`
+    const meetupCountString = meetupMemberCountTag[0]?.children?.[0]?.data;
+    return parseInt(meetupCountString.replace(",", ""), 10);
+  }
+  return 0;
+};
+
+const getYoutubeSubscriberCount = async () => {
+  const channelId = process.env.YOUTUBE_CHANNEL_ID;
+  const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+  try {
+    const response = await fetch(
+      `${ytBaseURL}channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`,
+      { next: { revalidate: 3600 } },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error fetching data: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.items && data.items.length > 0) {
+      return parseInt(data.items[0].statistics.subscriberCount, 10);
+    }
+
+    throw new Error("Channel statistics not found");
+  } catch (error) {
+    console.error(
+      "Error getting subscriber count:",
+      error && typeof error === "object" && "message" in error
+        ? error.message
+        : error,
+    );
+    throw error;
+  }
+};
+
+const getStableCoins = async () => {
+  const url = "https://api.circle.com/v1/stablecoins";
+  const options = { method: "GET", headers: { Accept: "application/json" } };
+
+  try {
+    const jsonData = await cachedFetch(url, options);
+    const stableCoins = (await jsonData.json()) as {
+      data?: { chains: { chain: string; amount: number }[] }[];
+    };
+    const chainData = stableCoins.data?.[0]?.chains;
+    let solAmount = 0;
+    if (chainData) {
+      for (const chain of chainData) {
+        if (chain.chain === "SOL") {
+          solAmount = chain.amount;
+          break;
+        }
+      }
+    }
+    return solAmount;
+  } catch (err) {
+    throw new Error(`Request failed: ${err}`);
+  }
+};
+
+const getGHStargazers = async () => {
+  const res = await cachedFetch(
+    "https://api.github.com/repos/solana-foundation/solana-com",
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  const jsonData = (await res.json()) as { stargazers_count?: number };
+  return jsonData?.stargazers_count || 0;
+};
+
+const getYTVideos = async (
+  maxVideos: number = 50,
+  playlistId: string,
+  channelId: string | undefined = process.env.YOUTUBE_CHANNEL_ID,
+): Promise<YTVideoItem[]> => {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+
+  if (!apiKey) {
+    console.warn("YOUTUBE_API_KEY is not set. Returning dummy data.");
+    return [
+      {
+        snippet: {
+          title: "Solana Changelog",
+          description:
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin iaculis libero et quam egestas, et molestie neque dignissim.",
+          playlistId: "PLilwLeBwGuK5-Qri7Pg9zd-Vvhz9kX2-R",
+          resourceId: {
+            videoId: "UQy6nDI1RlU",
+          },
+        },
+        contentDetails: {
+          videoId: "UQy6nDI1RlU",
+        },
+      },
+    ];
+  }
+
+  const pageSize = Math.min(50, maxVideos);
+  const videos: YTVideoItem[] = [];
+  let videoResp: Response | undefined;
+
+  // Playlist videos
+  if (playlistId) {
+    videoResp = await fetch(
+      `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${playlistId}&key=${apiKey}`,
+      { next: { revalidate: 3600 } },
+    );
+    // Channel videos
+  } else {
+    const channelResp = await fetch(
+      `${ytBaseURL}channels?part=contentDetails&id=${channelId}&key=${apiKey}`,
+      { next: { revalidate: 3600 } },
+    );
+
+    const channelData = await channelResp.json();
+
+    if (channelData) {
+      const uploadsId =
+        channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+
+      videoResp = await fetch(
+        `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${uploadsId}&key=${apiKey}`,
+        { next: { revalidate: 3600 } },
+      );
+    }
+  }
+
+  if (!videoResp) return videos;
+
+  const videosData = await videoResp.json();
+
+  if (!videosData.error) {
+    // No thumbnails usually means the video has been deleted from a list
+    videos.push(
+      ...(videosData?.items?.filter(
+        (item: YTVideoItem) =>
+          Object.keys(item.snippet.thumbnails as object).length,
+      ) || []),
+    );
+  } else {
+    console.error(videosData.error.message);
+  }
+
+  return videos;
+};
+
+export {
+  scrapeUrlForTag,
+  scrapeMeetupMemberCount,
+  getYoutubeSubscriberCount,
+  getStableCoins,
+  getGHStargazers,
+  getYTVideos,
+};

@@ -1,0 +1,490 @@
+---
+title: Connessione Wallet
+description: Connetti wallet Solana utilizzando Wallet Standard
+---
+
+Il pacchetto `@solana-commerce/connector` fornisce una connessione wallet
+headless basata su
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard). Gestisce
+la scoperta dei wallet, lo stato di connessione, la gestione degli account e la
+riconnessione automatica. Il pacchetto è progettato per essere
+framework-agnostic con binding React inclusi. È ottimizzato per un utilizzo
+fluido in Solana Commerce Kit ed è compatibile con
+[@solana/kit](https://github.com/anza-xyz/kit) e
+[gill](https://www.gillsdk.com/).
+
+![Connessione Wallet](/assets/docs/tools/commerce-kit/connector.png)
+
+## Installazione
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Configurazione del Provider
+
+### `ConnectorProvider`
+
+Il componente `ConnectorProvider` avvolge la tua applicazione e fornisce lo
+stato di connessione del wallet a tutti i componenti figli. Gestisce un'istanza
+singleton di `ConnectorClient` che persiste attraverso i cicli di mount/unmount
+dei componenti.
+
+#### Proprietà
+
+Tutta la configurazione viene passata tramite la prop `config`:
+
+- **`config`** (`ConnectorConfig`, opzionale) - Oggetto di configurazione per il
+  connettore. Tutti i campi sono opzionali.
+
+#### `ConnectorConfig`
+
+Oggetto di configurazione per il comportamento della connessione wallet.
+
+##### Campi Opzionali
+
+- **`autoConnect`** (`boolean`) - Quando è `true`, si riconnette automaticamente
+  all'ultimo wallet utilizzato al mount. La preferenza del wallet viene
+  memorizzata nello storage configurato (predefinito su `localStorage`).
+  Predefinito: `false`.
+
+- **`debug`** (`boolean`) - Abilita il logging verbose nella console per il
+  debug dei flussi di connessione, modifiche degli account ed errori. I log
+  includono prefissi come `[Connector]` e `[ConnectorProvider]`. Predefinito:
+  `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Intervallo di polling in
+  millisecondi per verificare le modifiche dell'account quando il wallet non
+  supporta la funzionalità `standard:events`. La maggior parte dei wallet
+  moderni supporta gli eventi, quindi il polling è un fallback. Predefinito:
+  `1500` (1,5 secondi).
+
+- **`storage`** (`Storage`) - Adattatore di storage personalizzato per
+  persistere le preferenze del wallet. Deve implementare:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Predefinito: `window.localStorage` quando disponibile (solo browser).
+  Utilizzalo per React Native (`AsyncStorage`) o storage personalizzato
+  SSR-safe.
+
+#### Architettura del Provider
+
+Il provider utilizza un **pattern singleton** con conteggio dei riferimenti:
+
+- Più istanze `ConnectorProvider` condividono lo stesso `ConnectorClient`
+- Il client viene creato al primo montaggio e persiste tra i diversi smontaggi
+- Quando tutti i provider vengono smontati, la pulizia viene ritardata di 5
+  secondi per gestire i rimontaggi rapidi
+- Durante la pulizia, il wallet viene disconnesso e tutti gli event listener
+  vengono rimossi
+
+Questo design impedisce la disconnessione del wallet durante i cambi di route o
+gli aggiornamenti dei componenti.
+
+---
+
+## Hook
+
+### `useConnector()`
+
+L'hook principale per accedere allo stato della connessione del wallet e alle
+azioni. Deve essere utilizzato all'interno di un `ConnectorProvider`.
+
+Restituisce un oggetto `ConnectorSnapshot` contenente:
+
+#### Proprietà di Stato
+
+- **`wallets`** (`WalletInfo[]`) - Array di tutti i wallet compatibili con
+  Wallet Standard scoperti. Aggiornato automaticamente quando i wallet vengono
+  installati o disinstallati. Ogni wallet include metadati come nome, icona e
+  funzionalità. Vedi [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - L'oggetto wallet Wallet Standard
+  attualmente connesso. `null` quando disconnesso. Questa è l'istanza wallet raw
+  dall'API Wallet Standard.
+
+- **`connected`** (`boolean`) - Stato della connessione. `true` quando un wallet
+  è connesso e gli account sono disponibili. Utilizzalo per il rendering
+  condizionale dell'UI.
+
+- **`connecting`** (`boolean`) - Stato di caricamento durante la connessione del
+  wallet. `true` tra la chiamata a `select()` e la ricezione del risultato della
+  connessione. Utilizzalo per mostrare indicatori di caricamento o disabilitare
+  i pulsanti.
+
+- **`accounts`** (`AccountInfo[]`) - Array di account dal wallet connesso. La
+  maggior parte dei wallet fornisce un solo account, ma alcuni supportano
+  account multipli. Aggiornato automaticamente tramite eventi del wallet o
+  polling. Vedi [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - L'indirizzo dell'account attualmente
+  selezionato (chiave pubblica codificata in base58). Quando un wallet si
+  connette con un nuovo account, quell'account viene selezionato
+  automaticamente. Altrimenti, l'account precedentemente selezionato viene
+  preservato.
+
+#### Metodi di Azione
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Si connette a un
+  wallet tramite nome (ad es., `"Phantom"`, `"Solflare"`). Il nome del wallet
+  deve corrispondere esattamente al campo `name` di un wallet individuato.
+
+  **Processo:**
+  1. Imposta `connecting: true`
+  2. Richiama la funzionalità `standard:connect` del wallet
+  3. Recupera gli account dal wallet
+  4. Si sottoscrive agli eventi del wallet (o avvia il polling se gli eventi non
+     sono disponibili)
+  5. Memorizza la preferenza del wallet nello storage configurato
+  6. Aggiorna lo stato con gli account e l'account selezionato
+
+  **Solleva eccezione:** Errore se il wallet non viene trovato, il wallet non
+  supporta la connessione o la connessione viene rifiutata dall'utente.
+
+- **`disconnect`** (`() => Promise<void>`) - Disconnette il wallet corrente e
+  ripulisce tutto lo stato.
+
+  **Processo:**
+  1. Annulla la sottoscrizione agli eventi del wallet
+  2. Interrompe il polling degli account
+  3. Richiama la funzionalità `standard:disconnect` del wallet se disponibile
+  4. Cancella il wallet selezionato, gli account e l'account selezionato
+  5. Rimuove la preferenza del wallet dallo storage
+
+  Non solleva mai eccezioni (gli errori vengono registrati se il debug è
+  abilitato).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Cambia l'account
+  selezionato con un indirizzo diverso dal wallet connesso. Se l'indirizzo non è
+  presente nell'array degli account correnti, attiva una riconnessione per
+  recuperare gli account aggiornati.
+
+  **Solleva eccezione:** Errore se non è connesso alcun wallet o se l'account
+  richiesto non viene trovato dopo la riconnessione.
+
+### `useConnectorClient()`
+
+Fornisce accesso diretto all'istanza `ConnectorClient` sottostante per casi
+d'uso avanzati.
+
+**Restituisce:** `ConnectorClient | null` - L'istanza singleton del client,
+oppure `null` quando usato al di fuori di `ConnectorProvider`.
+
+**Casi d'uso:**
+
+- Accesso diretto a `getConnectorState()` per letture imperative dello stato
+- Sottoscrizione manuale con `subscribe(listener)` per listener di stato
+  personalizzati
+- Chiamata di `destroy()` per pulizia forzata (sconsigliato nell'uso normale)
+
+**Esempio:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Definizioni dei Tipi
+
+### `WalletInfo`
+
+Metadati relativi a un wallet individuato.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Requisiti:** Un wallet è connettibile quando supporta:
+
+- Funzionalità `standard:connect`
+- Funzionalità `standard:disconnect`
+- Catene Solana (rilevate tramite `wallet.chains` contenente `"solana"`)
+
+I wallet non connettibili appaiono nell'array `wallets` ma non possono essere
+selezionati.
+
+### `AccountInfo`
+
+Informazioni su un account del wallet.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Il campo `raw` fornisce accesso a proprietà aggiuntive dell'account:
+
+- `address: string` - Chiave pubblica codificata in Base58
+- `publicKey: Uint8Array` - Byte della chiave pubblica in formato raw
+- `label?: string` - Etichetta dell'account (se fornita dal wallet)
+- `icon?: string` - Icona specifica dell'account (URL dati)
+- `chains: string[]` - Catene supportate per questo account
+- `features: string[]` - Funzionalità supportate per questo account
+
+### `ConnectorSnapshot`
+
+Il tipo di ritorno di `useConnector()`, che combina stato e azioni.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Rilevamento Modifiche Account
+
+Il connettore rileva automaticamente quando gli account del wallet cambiano
+(l'utente aggiunge/rimuove account, cambia account nel wallet). Vengono
+utilizzate due strategie:
+
+### Basato su Eventi (Preferito)
+
+Quando il wallet supporta `standard:events`, il connettore si sottoscrive agli
+eventi `change`:
+
+- Riceve notifiche in tempo reale quando gli account cambiano
+- Più efficiente (nessun polling)
+- Aggrega gli account sia dall'evento che da `wallet.accounts` per gestire i
+  wallet che includono solo l'account selezionato negli eventi
+
+### Fallback con Polling
+
+Quando gli eventi non sono supportati, il connettore esegue il polling di
+`wallet.accounts`:
+
+- Verifica ogni `accountPollingIntervalMs` (predefinito: 1500ms)
+- Confronta gli indirizzi degli account per rilevare modifiche
+- Attiva il re-rendering solo quando gli account cambiano effettivamente
+
+**Logica di Selezione Account:**
+
+- Quando gli account cambiano, mantieni l'account selezionato se esiste ancora
+- Se l'account selezionato è stato rimosso, seleziona il primo account
+  disponibile
+- Quando ci si connette con un nuovo account (non presente negli account
+  precedenti), dai preferenza al nuovo account
+
+---
+
+## Archiviazione e Connessione Automatica
+
+### Persistenza dell'Archiviazione
+
+Il connettore memorizza una chiave nell'archiviazione configurata:
+
+- **Chiave:** `arc-connector:lastWallet`
+- **Valore:** Nome del wallet (es., `"Phantom"`)
+
+Le operazioni di archiviazione sono racchiuse in try-catch per gestire:
+
+- Iframe in sandbox dove `localStorage` genera un'eccezione
+- Ambienti SSR dove `window` non è definito
+- React Native dove `localStorage` non esiste
+
+Se l'archiviazione fallisce, il connettore continua senza persistenza (nessun
+errore generato).
+
+### Comportamento della Connessione Automatica
+
+Quando `autoConnect: true`:
+
+1. Al mount, legge l'ultimo nome del wallet dall'archiviazione
+2. Attende 100ms (consente ai wallet di registrarsi)
+3. Chiama `select(walletName)` se il wallet viene rilevato
+4. Se la connessione automatica fallisce, rimuove la preferenza non valida
+   dall'archiviazione
+
+**Nota sulla sicurezza:** La preferenza memorizzata è solo un nome del wallet
+(stringa), non dati sensibili. Il wallet gestisce
+l'autenticazione/autorizzazione attraverso la propria interfaccia utente.
+
+---
+
+## Esempi d'Uso
+
+### Pulsante Wallet Base
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Selettore Multi-Account
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Monitoraggio della Connessione
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Wallet Supportati
+
+Il connettore supporta tutti i wallet che implementano il
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), compresi:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Qualsiasi altro wallet compatibile con Wallet Standard
+
+I wallet vengono rilevati automaticamente quando si registrano con l'API Wallet
+Standard (nessuna configurazione necessaria).
+
+---
+
+## Utilizzo Headless (Senza React)
+
+Per applicazioni non-React o utilizzo lato server, usa direttamente
+`ConnectorClient`:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Nota:** `ConnectorClient` gestisce il proprio stato e non attiva mai il
+re-rendering di React. Devi sottoscriverti manualmente alle modifiche dello
+stato.

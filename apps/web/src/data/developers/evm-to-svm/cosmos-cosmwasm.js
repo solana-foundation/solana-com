@@ -896,6 +896,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Solana Docs",
+      body: "Core documentation for Solana programs, accounts, transactions, PDAs, CPIs, and runtime behavior.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -910,6 +911,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Anchor Documentation",
+      body: "Framework documentation for account validation, instruction handlers, IDLs, clients, and tests.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -924,6 +926,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "PDAs on Solana",
+      body: "Learn how deterministic program-owned addresses replace many CosmWasm map-key patterns.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -938,6 +941,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Cross-Program Invocation",
+      body: "Understand how Solana programs call other programs through explicit account lists and CPI.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -952,6 +956,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Dopple DEX Case Study",
+      body: "A concrete comparison of similar DEX logic implemented in CosmWasm and on Solana.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -966,6 +971,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Escrow Reference Repo",
+      body: "Example contracts and programs you can inspect while translating escrow-style logic.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },

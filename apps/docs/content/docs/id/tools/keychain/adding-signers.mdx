@@ -1,0 +1,601 @@
+---
+title: Menambahkan Penanda Tangan Baru
+description:
+  Panduan bagi penyedia layanan dompet untuk mengintegrasikan solusi manajemen
+  kunci baru
+---
+
+Panduan ini ditujukan untuk penyedia layanan dompet dan pengembang yang ingin
+mengintegrasikan solusi manajemen kunci baru ke dalam pustaka `solana-keychain`.
+Dengan menambahkan implementasi penanda tangan Anda, Anda akan memungkinkan
+pengembang menggunakan layanan Anda untuk penandatanganan transaksi Solana yang
+aman melalui antarmuka terpadu.
+
+_Menggunakan LLM? Lihat
+[Skill Menambahkan Penanda Tangan](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)._
+
+## Ikhtisar Arsitektur
+
+Pustaka ini menggunakan arsitektur berbasis trait di mana semua penanda tangan
+mengimplementasikan trait `SolanaSigner` yang didefinisikan dalam
+`src/traits.rs`. Pustaka ini juga menyediakan enum `Signer` terpadu yang
+membungkus semua implementasi, memungkinkan pemilihan backend penandatanganan
+saat runtime sambil mempertahankan API yang konsisten.
+
+## Daftar Periksa Integrasi Cepat
+
+- Buat modul penanda tangan Anda dengan implementasi
+- Implementasikan trait `SolanaSigner` (3 metode async + `pubkey()`)
+- Tambahkan flag fitur di `Cargo.toml`
+- Perbarui enum `Signer` di `src/lib.rs` (4 arm match)
+- Perbarui gerbang cfg impl reqwest `From` di `src/error.rs` (jika penanda
+  tangan Anda menggunakan reqwest)
+- Terapkan HTTPS dan konfigurasi timeout pada klien HTTP
+- Tambahkan pengujian komprehensif
+- Perbarui dokumentasi
+- Kirim PR
+
+## Langkah 1: Buat Modul Penanda Tangan Anda
+
+Buat direktori baru di bawah `src/` untuk implementasi Anda:
+
+```
+src/
+├── your_service/
+│   ├── mod.rs      # Main implementation with SolanaSigner trait
+│   └── types.rs    # API request/response types (if needed)
+```
+
+## Langkah 2: Definisikan Struct Penanda Tangan Anda
+
+Di `src/your_service/mod.rs`, definisikan struct penanda tangan Anda:
+
+```rust
+//! YourService API signer integration
+
+use crate::{error::SignerError, traits::SolanaSigner};
+use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
+use std::str::FromStr;
+
+/// YourService-based signer using YourService's API
+#[derive(Clone)]
+pub struct YourServiceSigner {
+    api_key: String,
+    api_secret: String,
+    wallet_id: String,
+    api_base_url: String,
+    client: reqwest::Client,
+    public_key: Pubkey,
+}
+
+impl std::fmt::Debug for YourServiceSigner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("YourServiceSigner")
+            .field("public_key", &self.public_key)
+            .finish_non_exhaustive()
+    }
+}
+```
+
+## Langkah 3: Implementasikan Constructor dan Metode Helper
+
+Penanda tangan jarak jauh **wajib** menerapkan HTTPS dan mengkonfigurasi timeout
+HTTP. Gunakan struct `HttpClientConfig` bersama untuk pengaturan timeout.
+
+```rust
+use crate::http_client_config::HttpClientConfig;
+
+impl YourServiceSigner {
+    pub fn new(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+        http_config: Option<HttpClientConfig>,
+    ) -> Result<Self, SignerError> {
+        let pubkey = Pubkey::from_str(&public_key)
+            .map_err(|e| SignerError::InvalidPublicKey(format!("Invalid public key: {e}")))?;
+
+        let http = http_config.unwrap_or_default();
+        let builder = reqwest::Client::builder()
+            .timeout(http.resolved_request_timeout())
+            .connect_timeout(http.resolved_connect_timeout());
+
+        // Enforce HTTPS in production; wiremock uses HTTP in tests
+        #[cfg(not(test))]
+        let builder = builder.https_only(true);
+
+        let client = builder.build().map_err(|e| {
+            SignerError::ConfigError(format!("Failed to build HTTP client: {e}"))
+        })?;
+
+        Ok(Self {
+            api_key,
+            api_secret,
+            wallet_id,
+            api_base_url: "https://api.yourservice.com/v1".to_string(),
+            client,
+            public_key: pubkey,
+        })
+    }
+
+    /// Sign raw bytes using your service's API
+    async fn sign(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        let encoded_message = base64::engine::general_purpose::STANDARD.encode(message);
+
+        let url = format!("{}/sign", self.api_base_url);
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&serde_json::json!({
+                "wallet_id": self.wallet_id,
+                "message": encoded_message,
+            }))
+            .send()
+            .await?;
+
+        // Use generic error messages — never expose raw API response text
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            return Err(SignerError::RemoteApiError(format!(
+                "YourService API returned status {status}"
+            )));
+        }
+
+        // Parse response — always use map_err, never .expect() or .unwrap()
+        let response_data: SignResponse = response
+            .json()
+            .await
+            .map_err(|e| SignerError::SerializationError(format!("Failed to parse response: {e}")))?;
+        let sig_bytes = base64::engine::general_purpose::STANDARD
+            .decode(&response_data.signature)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to decode signature: {e}")))?;
+
+        let sig_array: [u8; 64] = sig_bytes
+            .try_into()
+            .map_err(|_| SignerError::SigningFailed("Invalid signature length".to_string()))?;
+
+        Ok(Signature::from(sig_array))
+    }
+}
+```
+
+## Langkah 4: Implementasikan Trait SolanaSigner
+
+Trait ini memiliki 3 metode async (`sign_transaction`, `sign_message`,
+`is_available`) ditambah `pubkey()`. Perhatikan bahwa `sign_transaction`
+mengembalikan `SignTransactionResult` — enum bertanda yang menunjukkan apakah
+transaksi ditandatangani sepenuhnya atau ditandatangani sebagian.
+
+Gunakan helper `TransactionUtil` bersama untuk penandatanganan dan serialisasi.
+
+```rust
+use crate::transaction_util::TransactionUtil;
+use crate::traits::SignTransactionResult;
+
+#[async_trait::async_trait]
+impl SolanaSigner for YourServiceSigner {
+    fn pubkey(&self) -> Pubkey {
+        self.public_key
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let tx_bytes = bincode::serialize(tx)
+            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
+
+        let signature = self.sign(&tx_bytes).await?;
+
+        // Add the signature at the correct position
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+
+        // Serialize and classify as Complete or Partial
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+
+    async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
+        self.sign(message).await
+    }
+
+    async fn is_available(&self) -> bool {
+        let url = format!("{}/health", self.api_base_url);
+        self.client
+            .get(&url)
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
+    }
+}
+```
+
+## Langkah 5: Tambahkan Tipe API (Opsional)
+
+Jika API Anda memerlukan tipe khusus, buat `src/your_service/types.rs`:
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize)]
+pub struct SignRequest {
+    pub wallet_id: String,
+    pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct SignResponse {
+    pub signature: String,
+}
+```
+
+## Langkah 6: Tambahkan Feature Flag
+
+Perbarui `Cargo.toml` untuk menambahkan signer Anda sebagai fitur opsional:
+
+```toml
+[features]
+default = ["memory"]
+memory = []
+vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
+privy = ["dep:reqwest", "dep:base64"]
+turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
+your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
+all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+```
+
+## Langkah 7: Perbarui Enum Signer
+
+Tambahkan signer Anda ke `src/lib.rs`. Anda memerlukan 4 match arm dalam
+implementasi `SolanaSigner`: `pubkey`, `sign_transaction`, `sign_message`, dan
+`is_available`.
+
+```rust
+// Add feature-gated module
+#[cfg(feature = "your_service")]
+pub mod your_service;
+
+// Re-export your signer type
+#[cfg(feature = "your_service")]
+pub use your_service::YourServiceSigner;
+
+// Add to Signer enum
+#[derive(Debug)]
+pub enum Signer {
+    #[cfg(feature = "memory")]
+    Memory(MemorySigner),
+
+    // ... existing variants
+
+    #[cfg(feature = "your_service")]
+    YourService(YourServiceSigner),  // Add your variant
+}
+
+// Add constructor method
+impl Signer {
+    #[cfg(feature = "your_service")]
+    pub fn from_your_service(
+        api_key: String,
+        api_secret: String,
+        wallet_id: String,
+        public_key: String,
+    ) -> Result<Self, SignerError> {
+        Ok(Self::YourService(YourServiceSigner::new(
+            api_key,
+            api_secret,
+            wallet_id,
+            public_key,
+            None, // uses default HttpClientConfig
+        )?))
+    }
+}
+
+// Update trait implementation — 4 match arms
+#[async_trait::async_trait]
+impl SolanaSigner for Signer {
+    fn pubkey(&self) -> sdk_adapter::Pubkey {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.pubkey(),
+        }
+    }
+
+    async fn sign_transaction(
+        &self,
+        tx: &mut sdk_adapter::Transaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_transaction(tx).await,
+        }
+    }
+
+    async fn sign_message(
+        &self,
+        message: &[u8],
+    ) -> Result<sdk_adapter::Signature, SignerError> {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.sign_message(message).await,
+        }
+    }
+
+    async fn is_available(&self) -> bool {
+        match self {
+            // ... existing variants
+            #[cfg(feature = "your_service")]
+            Signer::YourService(s) => s.is_available().await,
+        }
+    }
+}
+```
+
+Jika signer Anda menggunakan `reqwest`, tambahkan fitur Anda ke gate
+`#[cfg(any(...))]` pada implementasi `From<reqwest::Error>` di `src/error.rs`.
+
+## Langkah 8: Tambahkan Pengujian Komprehensif
+
+Tambahkan pengujian ke modul Anda (di bagian bawah `src/your_service/mod.rs`):
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::{signature::Keypair, signer::Signer};
+    use wiremock::{
+        matchers::{header, method, path},
+        Mock, MockServer, ResponseTemplate,
+    };
+
+    #[tokio::test]
+    async fn test_new() {
+        let keypair = Keypair::new();
+        let signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        );
+        assert!(signer.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_message() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+        let message = b"test message";
+        let signature = keypair.sign_message(message);
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "signature": base64::engine::general_purpose::STANDARD.encode(signature.as_ref())
+            })))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "test-key".to_string(),
+            "test-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(message).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_sign_unauthorized() {
+        let mock_server = MockServer::start().await;
+        let keypair = Keypair::new();
+
+        Mock::given(method("POST"))
+            .and(path("/sign"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut signer = YourServiceSigner::new(
+            "bad-key".to_string(),
+            "bad-secret".to_string(),
+            "test-wallet".to_string(),
+            keypair.pubkey().to_string(),
+            None,
+        ).unwrap();
+        signer.api_base_url = mock_server.uri();
+
+        let result = signer.sign_message(b"test").await;
+        assert!(result.is_err());
+    }
+}
+```
+
+## Langkah 9: Perbarui Dokumentasi
+
+Tambahkan signer Anda ke tabel backend yang didukung di README.md:
+
+| Backend         | Kasus Penggunaan                                  | Feature Flag   |
+| --------------- | ------------------------------------------------- | -------------- |
+| **Memory**      | Keypair lokal, pengembangan, pengujian            | `memory`       |
+| **Vault**       | Manajemen kunci enterprise dengan HashiCorp Vault | `vault`        |
+| **Privy**       | Dompet tertanam dengan infrastruktur Privy        | `privy`        |
+| **Turnkey**     | Manajemen kunci non-custodial melalui Turnkey     | `turnkey`      |
+| **YourService** | Deskripsi singkat layanan Anda                    | `your_service` |
+
+Tambahkan contoh penggunaan:
+
+```rust
+use solana_keychain::{Signer, SolanaSigner};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let signer = Signer::from_your_service(
+        "your-api-key".to_string(),
+        "your-api-secret".to_string(),
+        "your-wallet-id".to_string(),
+        "your-public-key".to_string(),
+    )?;
+
+    let pubkey = signer.pubkey();
+    println!("Public key: {}", pubkey);
+
+    Ok(())
+}
+```
+
+## Menguji Integrasi Anda
+
+Jalankan pengujian untuk fitur Anda:
+
+```bash
+# Test only your signer
+cargo test --features your_service
+
+# Test with all features
+cargo test --all-features
+```
+
+## Signer TypeScript
+
+Jika Anda juga menambahkan paket signer TypeScript, buat di
+`typescript/packages/your-signer/`. Pola kunci:
+
+- Fungsi factory `createYourSigner()` mengembalikan `SolanaSigner<TAddress>`
+- Ekspor interface config (`YourSignerConfig`)
+- Terapkan HTTPS pada field config `apiBaseUrl`
+- Bersihkan teks error API remote dengan `sanitizeRemoteErrorResponse()` dari
+  `@solana/keychain-core`
+- Lindungi dari JSON yang salah format dengan optional chaining dan try/catch
+- Gunakan `throwSignerError(SignerErrorCode.*, { cause, message })` dari
+  `@solana/keychain-core`
+- Tambahkan JSDoc `@throws` ke fungsi factory yang mencantumkan kode error
+
+### Perbarui Paket Umbrella
+
+Perbarui `typescript/packages/keychain/` — 6 file yang perlu dimodifikasi:
+
+1. `src/types.ts` — Tambahkan `YourSignerConfig` ke discriminated union
+   `KeychainSignerConfig`
+2. `src/create-keychain-signer.ts` — Impor factory, tambahkan case switch
+3. `src/resolve-address.ts` — Tambahkan ke case switch fast-path atau fetch-path
+4. `src/index.ts` — Tambahkan tipe config, namespace, fungsi factory, dan ekspor
+   class
+5. `package.json` — Tambahkan dependensi
+   `@solana/keychain-your-signer: "workspace:*"`
+6. `tsconfig.json` — Tambahkan referensi `{ "path": "../your-signer" }`
+
+Pernyataan switch memiliki pemeriksaan `never` yang menyeluruh — TypeScript akan
+error jika Anda menambahkan ke union tetapi melewatkan suatu case.
+
+## Daftar Periksa Pengajuan
+
+Sebelum mengajukan PR Anda:
+
+- Kode terkompilasi tanpa peringatan (`just build`)
+- Semua tes lulus (`just test`)
+- Kode diformat/linting lulus (`just fmt`)
+- Tidak ada nilai hardcoded atau secrets dalam kode
+- Pesan error bersifat generik (tanpa teks respons API mentah)
+- HTTPS diterapkan pada HTTP client remote
+- Timeout HTTP dikonfigurasi melalui `HttpClientConfig`
+- Mengikuti konvensi penamaan Rust (snake_case)
+- Ditambahkan ke tabel backend yang didukung di README.md
+
+## Tips Implementasi
+
+### Penanganan Error
+
+Selalu gunakan varian `SignerError` yang ada. Jangan pernah menggunakan
+`.expect()` atau `.unwrap()` pada respons API yang tidak dipercaya:
+
+```rust
+// Good — uses existing error types with generic messages
+return Err(SignerError::RemoteApiError(
+    format!("YourService API returned status {}", status)
+));
+
+// Good — converts from standard errors
+let bytes = base64::decode(data)
+    .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
+```
+
+### Praktik Terbaik Keamanan
+
+- Jangan pernah mencatat data sensitif (private key, API secrets)
+- Gunakan impl `Debug` yang menyembunyikan field sensitif
+- Validasi semua input (public key, signature)
+- Gunakan HTTPS untuk semua panggilan API remote (diterapkan melalui
+  `https_only(true)`)
+- Konfigurasi request dan connect timeout melalui `HttpClientConfig`
+- Jangan pernah mengekspos teks error API remote mentah dalam pesan error
+- Gunakan `Option<Pubkey>` (bukan `Pubkey::default()`) untuk field public key
+  sebelum `init()`
+
+### Pengujian dengan Mock
+
+Gunakan `wiremock` untuk melakukan mocking API HTTP. Lakukan assertion pada tipe
+error saja, bukan teks pesan error:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+
+    #[tokio::test]
+    async fn test_api_call() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&mock_server)
+            .await;
+
+        // Use mock_server.uri() as your api_base_url
+    }
+}
+```
+
+## Mendapatkan Bantuan
+
+- Tinjau implementasi signer yang sudah ada untuk mempelajari pola-polanya:
+  - `src/memory/mod.rs` — Sederhana, sinkron
+  - `src/para/mod.rs` — Memerlukan inisialisasi (gunakan sebagai pola untuk
+    signer baru)
+  - `src/turnkey/mod.rs` — Penanganan signature yang kompleks
+  - `src/vault/mod.rs` — Library klien eksternal
+- File-file kunci: `src/traits.rs` (definisi trait), `src/transaction_util.rs`
+  (helper bersama), `src/http_client_config.rs` (konfigurasi timeout)
+- Buka issue untuk diskusi desain sebelum memulai pengerjaan
+
+## Contoh Struktur PR
+
+```
+feat(signer): add YourService signer integration
+
+Adds support for YourService as a signing backend.
+
+- [X] Code compiles without warnings (`just build`)
+- [X] Code is formatted/linting passes (`just fmt`)
+- [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
+- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Added feature flag 'your_service'
+- [X] HTTPS enforced, HTTP timeouts configured
+- [X] Added to README.md supported backends table
+
+Closes #1337
+```

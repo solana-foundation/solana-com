@@ -1,0 +1,193 @@
+---
+title: Kit Client Integratie
+description:
+  Bouw transacties zonder gaskosten met createKitKoraClient gebruikmakend van
+  Kit's plugin-architectuur voor automatische kostenafhandeling.
+date: 2026-03-09
+---
+
+_Laatst Bijgewerkt: 2026-03-09_
+
+## Wat Je Gaat Bouwen
+
+De Kit client (`createKitKoraClient`) is de aanbevolen manier om Kora in
+Solana-applicaties te integreren. Het verpakt Kora's kostenabstractie in Kit's
+plugin- architectuur en geeft je een client die automatisch het volgende
+afhandelt:
+
+- Blockhash-beheer
+- Kostenraming en injectie van betaalinstructies
+- Transactieondertekening via Kora
+- Transactie-indiening en bevestiging
+- Optimalisatie van rekenbudget (op simulatie gebaseerde CU-schatting)
+
+Dit betekent dat je Kit-programma-plugins zoals `tokenProgram()` kunt gebruiken
+en Kora alle complexiteit van gaskosten achter de schermen laat afhandelen.
+
+## Vereisten
+
+- Voltooid de [Kora Snelstartgids](/docs/tools/kora/getting-started/quick-start)
+  — draaiende Kora-server en lokale validator
+- Bekendheid met [Solana Kit](https://www.solanakit.com/) en zijn plugin-
+  systeem
+
+## Installatie
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Peer-afhankelijkheden (`@solana-program/token`,
+`@solana-program/compute-budget`, `@solana/kit-plugin-*`) worden automatisch
+geïnstalleerd door de meeste pakketbeheerders. Zie
+[Installatie](/docs/tools/kora/getting-started/installation) als je ze handmatig
+moet installeren.
+
+## De Client Aanmaken
+
+`createKitKoraClient` combineert meerdere Kit-plugins tot één enkele client die
+voldoet aan `ClientWithPayer`, `ClientWithTransactionPlanning` en
+`ClientWithTransactionSending`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+De `feePayerWallet` moet een `TransactionSigner` zijn — dit is de wallet die de
+SPL-tokenkostenbetaling aan de Kora-operator autoriseert. De Kora-operator
+handelt de SOL-netwerkkosten af.
+
+### Configuratieopties
+
+| Optie              | Vereist | Beschrijving                                                                                                            |
+| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `endpoint`         | Ja      | Kora RPC-eindpunt URL                                                                                                   |
+| `rpcUrl`           | Ja      | Solana RPC URL (niet het Kora-eindpunt) — gebruikt voor compute unit-simulatie en compatibiliteit met programma-plugins |
+| `feeToken`         | Ja      | SPL mint-adres voor kostenbetaling (bijv. USDC)                                                                         |
+| `feePayerWallet`   | Ja      | `TransactionSigner` die de SPL-kostenbetaling autoriseert                                                               |
+| `apiKey`           | Nee     | API-sleutel voor Kora-authenticatie                                                                                     |
+| `hmacSecret`       | Nee     | HMAC-geheim voor op handtekening gebaseerde authenticatie                                                               |
+| `computeUnitLimit` | Nee     | Vaste CU-limiet. Indien weggelaten, simuleert Kora de transactie om optimale CU te schatten (aanbevolen)                |
+| `computeUnitPrice` | Nee     | Prioriteitskosten in micro-lamports                                                                                     |
+| `tokenProgramId`   | Nee     | Standaard Token Program. Stel in op `TOKEN_2022_PROGRAM_ADDRESS` voor Token-2022 kostentokens                           |
+
+## Gebruik met Kit Program Plugins
+
+De Kit-client is samenstelbaar met Kit-programma-plugins. Bijvoorbeeld met
+`tokenProgram()`:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Achter de schermen doet de Kit-client het volgende:
+
+1. Plant de transactie met een door Kora beheerde blockhash en compute budget
+   instructies
+2. Schat de kosten en injecteert (of actualiseert) de SPL-betalingsinstructie
+   naar de Kora-operator
+3. Ondertekent de transactie gedeeltelijk met de wallet van de gebruiker
+4. Stuurt de transactie naar Kora voor medeondertekening en verzending naar
+   Solana
+
+## Toegang tot Kora RPC-methoden
+
+De Kit-client stelt ook de volledige Kora API beschikbaar via de `.kora`
+namespace (uit de `koraPlugin`):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Alle `.kora` methoderesponsen gebruiken Kit-typed waarden (`Address`,
+`Blockhash`, `Signature`) in plaats van ruwe strings.
+
+## Token-2022 Ondersteuning
+
+Om kosten te betalen met een Token-2022 token, geef de `tokenProgramId` optie
+door:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Compute Budget
+
+Standaard simuleert de Kit-client de transactie tegen de Solana RPC om de
+optimale compute unit-limiet te bepalen. Dit resulteert in een strakke
+CU-toewijzing en lagere kosten.
+
+Om te overschrijven met een vaste waarde:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Wanneer Welke Client Gebruiken
+
+| Client                | Gebruikssituatie                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Aanbevolen.** Volledige Kit-integratie met automatische kostenafhandeling. Ideaal voor applicaties die Kit-programma-plugins gebruiken. |
+| `KoraClient`          | Directe RPC-toegang wanneer je volledige controle nodig hebt over transactiesamenstelling, ondertekening en verzending.                   |
+| `koraPlugin`          | Kora-methoden toevoegen aan een bestaande Kit-client die je al hebt samengesteld met andere plugins.                                      |
+
+## Volgende Stappen
+
+- [Volledige Transactiestroom](/docs/tools/kora/guides/full-demo) — Walkthrough
+  op lager niveau met rechtstreeks gebruik van `KoraClient`
+- [API-referentie](/docs/tools/kora/json-rpc-api) — Alle beschikbare
+  RPC-methoden
+- [Kora-configuratie](/docs/tools/kora/operators/configuration) — Server-side
+  configuratieopties

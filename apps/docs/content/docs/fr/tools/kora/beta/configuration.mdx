@@ -1,0 +1,360 @@
+---
+title: Nouvelles options de configuration (Bêta)
+description:
+  Nouvelles sections de configuration kora.toml introduites dans Kora
+  v2.2.0-beta.
+---
+
+Ces options de configuration sont disponibles à partir de `v2.2.0-beta.1`.
+Ajoutez-les à votre `kora.toml` existant aux côtés de la configuration stable.
+
+## Plugins de transaction
+
+La section `[kora.plugins]` configure les plugins de transaction qui s'exécutent
+pendant les flux de signature. Les plugins valident la forme et le contenu des
+transactions avant que Kora ne les signe. Ils s'exécutent pour
+`signTransaction`, `signAndSendTransaction`, `signBundle` et `signAndSendBundle`
+— mais **pas** pour `estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Option    | Description                              | Requis                | Type     |
+| --------- | ---------------------------------------- | --------------------- | -------- |
+| `enabled` | Liste des plugins de transaction activés | Non (par défaut : []) | string[] |
+
+### Plugin `gas_swap`
+
+Le plugin `gas_swap` impose une structure de transaction stricte pour les
+opérations d'échange de jetons contre SOL sans frais de gaz. Lorsqu'il est
+activé, chaque transaction soumise via les flux de signature doit contenir
+exactement :
+
+1. **Un transfert de jeton SPL** (SPL Token ou Token-2022) — d'un propriétaire
+   qui n'est pas le payeur de frais
+2. **Un transfert SOL système** (`Transfer` ou `TransferWithSeed`) — du payeur
+   de frais
+
+Les instructions Compute Budget (définir la limite/le prix des unités de calcul)
+sont autorisées aux côtés des deux instructions requises. Toute instruction
+externe supplémentaire ou non liée à l'échange est rejetée.
+
+#### Exigences de configuration
+
+Le plugin `gas_swap` valide votre configuration au démarrage et génère une
+erreur si les exigences ne sont pas satisfaites :
+
+- **System Program** doit être dans `allowed_programs`
+- **Au moins un programme de jetons** (SPL Token ou Token-2022) doit être dans
+  `allowed_programs`
+- **Au moins un jeton** doit être dans `allowed_tokens`
+- **Le modèle de tarification** ne doit pas être `Free` — définissez une marge
+  ou un prix fixe
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Avertissement :** Lors de l'utilisation de `gas_swap` avec une tarification
+> fixe, assurez-vous que les frais de jeton fixes valent au moins
+> `max_allowed_lamports` en SOL pour éviter une condition de drainage où le SOL
+> envoyé dépasse le jeton reçu.
+
+---
+
+## Configuration des bundles
+
+La section `[kora.bundle]` active la prise en charge des bundles Jito pour
+l'exécution atomique de transactions multiples :
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Option    | Description                         | Requis               | Type    |
+| --------- | ----------------------------------- | -------------------- | ------- |
+| `enabled` | Activer la fonctionnalité de bundle | Non (défaut : false) | boolean |
+
+### Configuration Jito
+
+| Option             | Description                 | Requis                        | Type   |
+| ------------------ | --------------------------- | ----------------------------- | ------ |
+| `block_engine_url` | URL du moteur de blocs Jito | Oui (lorsque bundles activés) | string |
+
+URL disponibles des moteurs de blocs Jito :
+
+- **Mainnet (public) :** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (privé) :** Contactez Jito pour obtenir l'accès
+
+> **Important :** Lors de l'utilisation de bundles avec les pourboires Jito
+> payés par Kora, définissez `allow_transfer = true` dans
+> `[validation.fee_payer_policy.system]` pour permettre au signataire de
+> transférer des SOL pour le pourboire.
+
+Pour un guide complet sur l'implémentation des bundles Jito avec Kora, consultez
+le [Guide des bundles Jito](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Protection du payeur de frais Lighthouse
+
+La section `[kora.lighthouse]` active la protection du payeur de frais
+Lighthouse. Lorsqu'elle est activée, Kora ajoute des instructions d'assertion de
+solde aux transactions, protégeant le payeur de frais contre les attaques par
+drainage en vérifiant que le solde du payeur ne tombe pas en dessous des niveaux
+attendus.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Option                              | Description                                                                                                                                | Requis               | Type    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- | ------- |
+| `enabled`                           | Activer les assertions Lighthouse pour la protection du payeur de frais                                                                    | Non (défaut : false) | boolean |
+| `fail_if_transaction_size_overflow` | Rejeter la transaction si l'ajout d'une assertion dépasse la limite de taille. Si false, ignore l'ajout de l'assertion en mode silencieux. | Non (défaut : true)  | boolean |
+
+### Fonctionnement
+
+Lorsque Lighthouse est activé, Kora récupère le solde actuel du payeur de frais
+et ajoute une instruction d'assertion Lighthouse qui vérifie que le solde ne
+descend pas en dessous de `(current_balance - estimated_fee)` à la fin de la
+transaction. Cela empêche les transactions malveillantes de drainer le payeur de
+frais au-delà des coûts attendus.
+
+### Compatibilité des méthodes
+
+La protection Lighthouse **fonctionne uniquement avec `signTransaction` et
+`signBundle`**. Elle **NE** fonctionne **PAS** avec `signAndSendTransaction` ou
+`signAndSendBundle`.
+
+Lorsque Lighthouse ajoute une instruction d'assertion, il modifie le message de
+la transaction. Cela invalide toute signature client préexistante. Les flux
+`signAndSend*` échoueraient car :
+
+1. Le client signe la transaction
+2. Kora ajoute l'assertion Lighthouse (modifie le message)
+3. La signature originale du client devient invalide
+4. Le réseau rejette avec « échec de vérification de signature »
+
+**Modèle recommandé avec Lighthouse :**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Exigences de configuration
+
+Lors de l'activation de Lighthouse, ajoutez le programme Lighthouse à votre
+`allowed_programs` :
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora valide cela au démarrage et génèrera une erreur si Lighthouse est activé
+mais que le programme n'est pas dans `allowed_programs`.
+
+> **Remarque :** Si `signAndSendTransaction` ou `signAndSendBundle` sont activés
+> en même temps que Lighthouse, Kora émettra un avertissement indiquant que ces
+> méthodes n'auront pas de protection du payeur de frais.
+
+## Protection anti-bot reCAPTCHA
+
+reCAPTCHA v3 fournit une protection anti-bot invisible pour les points de
+terminaison sensibles. Contrairement à la clé API et HMAC qui authentifient
+toutes les requêtes, reCAPTCHA ne protège que des méthodes spécifiques à haut
+risque (méthodes de signature par défaut).
+
+### Configuration du serveur
+
+Ajoutez `KORA_RECAPTCHA_SECRET` à vos variables d'environnement (prioritaire),
+ou ajoutez un `recaptcha_secret` à votre `kora.toml` :
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Option                      | Description                                                           | Par défaut            |
+| --------------------------- | --------------------------------------------------------------------- | --------------------- |
+| `recaptcha_secret`          | Votre clé secrète reCAPTCHA v3 de Google                              | -                     |
+| `recaptcha_score_threshold` | Score minimum pour réussir (0.0 = tous passent, 1.0 = aucun ne passe) | 0.5                   |
+| `protected_methods`         | Méthodes RPC nécessitant une vérification                             | Méthodes de signature |
+
+### Fonctionnement
+
+1. Le client obtient un jeton reCAPTCHA depuis l'API reCAPTCHA v3 de Google
+2. Le client inclut le jeton dans l'en-tête `x-recaptcha-token`
+3. Le serveur vérifie le jeton auprès de Google et contrôle le score
+4. Si score >= seuil, la requête se poursuit ; sinon renvoie 401 Non autorisé
+
+reCAPTCHA s'exécute _après_ la réussite de l'authentification par clé API/HMAC
+(si configurée). Les méthodes non protégées contournent entièrement la
+vérification reCAPTCHA.
+
+### Implémentation côté client
+
+**Utilisation du SDK Kora :**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Utilisation de fetch :**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### Obtention des clés reCAPTCHA
+
+1. Accédez à la
+   [Console d'administration Google reCAPTCHA](https://www.google.com/recaptcha/admin)
+2. Créez un nouveau site avec **reCAPTCHA v3**
+3. Utilisez la **Clé du site** dans votre frontend (côté client)
+4. Utilisez la **Clé secrète** dans votre configuration Kora (côté serveur)
+
+## Limites d'utilisation
+
+La section `[kora.usage_limit]` configure la limitation d'utilisation par
+portefeuille pour prévenir les abus et garantir une utilisation équitable. Cela
+peut également être utilisé pour créer des programmes de récompenses afin de
+subventionner les frais de transaction des utilisateurs jusqu'à une certaine
+limite.
+
+**Remarque** : Cette fonctionnalité nécessite Redis lorsqu'elle est activée sur
+plusieurs instances de Kora.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Option                    | Description                                                | Requis                   | Type    |
+| ------------------------- | ---------------------------------------------------------- | ------------------------ | ------- |
+| `enabled`                 | Activer la limitation d'utilisation par portefeuille       | Non (par défaut : false) | boolean |
+| `cache_url`               | URL de connexion Redis pour le suivi d'utilisation partagé | Non                      | string  |
+| `fallback_if_unavailable` | Autoriser les transactions si Redis est indisponible       | Non (par défaut : true)  | boolean |
+
+> _Lorsque `fallback_if_unavailable` est défini sur true, le système autorise
+> les transactions à se poursuivre si Redis est temporairement indisponible,
+> évitant ainsi une interruption de service._
+
+### Règles de limitation d'utilisation
+
+La version bêta introduit des limites d'utilisation granulaires basées sur des
+règles. Au lieu d'un simple compteur `max_transactions`, vous pouvez définir
+plusieurs règles qui ciblent des types de transactions spécifiques ou des
+instructions individuelles, avec des fenêtres temporelles optionnelles.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Champ de règle   | Description                                                                                                       | Requis       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- | ------------ |
+| `type`           | `"transaction"` (compte toutes les transactions) ou `"instruction"` (compte des types d'instructions spécifiques) | Oui          |
+| `max`            | Nombre maximum avant le blocage du portefeuille                                                                   | Oui          |
+| `window_seconds` | Fenêtre temporelle en secondes. Si omis, la limite est permanente.                                                | Non          |
+| `program`        | Adresse du programme à faire correspondre (requis pour le type `instruction`)                                     | Conditionnel |
+| `instruction`    | Nom de l'instruction à faire correspondre, par ex. `"Transfer"`, `"Burn"` (requis pour le type `instruction`)     | Conditionnel |
+
+Lorsque `window_seconds` est défini, le compteur se réinitialise après
+l'expiration de la fenêtre temporelle. Sans cela, la limite est permanente — une
+fois atteinte, le portefeuille est bloqué jusqu'à être effacé manuellement de
+Redis.
+
+## Nouvelles méthodes activées
+
+Les méthodes suivantes ont été ajoutées à `[kora.enabled_methods]` :
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Méthode                | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `get_version`          | Retourne la version du serveur Kora          |
+| `estimate_bundle_fee`  | Estime les frais pour un lot de transactions |
+| `sign_bundle`          | Signe un lot de transactions sans l'envoyer  |
+| `sign_and_send_bundle` | Signe et soumet un lot à Jito                |
+
+Consultez [Méthodes de lot](/docs/tools/kora/beta/bundle-methods) pour la
+documentation complète de l'API.

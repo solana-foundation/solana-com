@@ -1,0 +1,257 @@
+---
+title: Autentikointi
+description: Operaattorin viiteopas autentikointiin
+---
+
+Kora tukee kahta valinnaista autentikointimenetelmää RPC-päätepisteesi
+suojaamiseen: API-avain ja HMAC-autentikointi. Tämä opas kattaa asetukset,
+toteutuksen ja turvallisuuden parhaat käytännöt.
+
+Autentikointi on valinnaista, mutta **erittäin suositeltavaa**
+tuotantokäyttöönotoissa. Ilman autentikointia kuka tahansa, joka löytää
+Kora-päätepisteesi, voi lähettää transaktioita ja kuluttaa SOL-saldoasi.
+
+| Menetelmä     | Turvallisuustaso | Käyttötapaus                                      | Monimutkaisuus |
+| ------------- | ---------------- | ------------------------------------------------- | -------------- |
+| **Ei mitään** | ⚠️ Ei mitään     | Kehitys, testaus, korkean marginaalin hinnoittelu | Ei mitään      |
+| **API-avain** | Perus            | Sisäiset sovellukset, luotetut asiakkaat          | Matala         |
+| **HMAC**      | Korkea           | Julkiset API:t, epäluotetut verkot                | Keskitaso      |
+| **Molemmat**  | Maksimi          | Korkean turvallisuuden ympäristöt                 | Keskitaso      |
+
+Koran autentikointi konfiguroidaan `kora.toml`-tiedostossa
+`[kora.auth]`-osiossa.
+
+Tässä dokumentissa:
+
+- [API-avain -autentikointi](#api-key-authentication)
+- [HMAC-autentikointi](#hmac-authentication)
+- [Yhdistetty autentikointi](#combined-authentication)
+- [Turvallisuuden parhaat käytännöt](#security-best-practices)
+- [Vapautetut päätepisteet](#exempt-endpoints)
+- [Vianmääritys](#troubleshooting)
+
+## API-avain -autentikointi
+
+Yksinkertainen jaettuun salaisuuteen perustuva autentikointi HTTP-otsikoita
+käyttäen. Voit luoda uuden API-avaimen käyttämällä `openssl`-komentoa (tai
+vastaavaa komentoa) terminaalissasi:
+
+```bash
+openssl rand -hex 32
+```
+
+### Palvelimen konfigurointi
+
+- Lisää `KORA_API_KEY` .env-tiedostoosi (ympäristömuuttujat) (prioriteetti) tai
+- Lisää `api_key` `kora.toml`-tiedostoosi:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Tätä avainta vaaditaan globaalisti kaikissa pyynnöissä Koran
+RPC-päätepisteeseen.
+
+### Asiakastoteutus
+
+Sisällytä API-avain `x-api-key`-otsikkoon jokaisen pyynnön yhteydessä:
+
+**cURL-esimerkki:**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**JavaScript-esimerkki Kora SDK:ta käyttäen:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**JavaScript-esimerkki fetch:iä käyttäen:**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## HMAC-todennus
+
+Sen sijaan, että API-avain lähetettäisiin joka pyynnön mukana, HMAC luo
+ainutlaatuisen kryptografisen allekirjoituksen, joka todistaa salaisuuden
+tuntemisen paljastamatta sitä. Jokainen allekirjoitus sisältää aikaleiman ja
+vanhenee 5 minuutin kuluttua, joten siepattuja pyyntöjä ei voida toistaa.
+Hyökkääjät eivät voi luoda uusia pyyntöjä, koska heillä ei ole salaista
+avaintasi.
+
+### Palvelimen konfigurointi
+
+- Lisää `KORA_HMAC_SECRET` .env-tiedostoosi (ympäristömuuttujat) (ensisijainen)
+  tai
+- Lisää globaali `hmac_secret` `kora.toml`-tiedostoosi (vähintään 32
+  merkkiä--voit luoda sellaisen komennolla `openssl rand -hex 32` tai
+  vastaavalla):
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### Miten HMAC toimii
+
+1. Asiakas luo viestin yhdistämällä: `{timestamp}{request_body}`
+2. Asiakas allekirjoittaa viestin HMAC-SHA256-menetelmällä käyttäen jaettua
+   salaisuutta
+3. Asiakas lähettää pyynnön aikaleima- ja allekirjoitusotsikkoineen
+4. Palvelin validoi allekirjoituksen ja aikaleiman (täytyy olla 5 minuutin
+   sisällä)
+
+### Asiakaspuolen toteutus
+
+Käyttääksesi HMAC-todennusta asiakaspuolella, voit käyttää Kora SDK:ta tai
+`crypto`-kirjastoa JavaScriptissä:
+
+1. Luo aikaleima
+2. Luo pyynnön body
+3. Luo viesti yhdistämällä aikaleima ja body (esim.
+   `message = timestamp + body`)
+4. Luo allekirjoitus allekirjoittamalla viesti HMAC-salaisuudella (käyttäen
+   `crypto.createHmac`-metodia)
+5. Lähetä pyyntö aikaleima- (`x-timestamp`) ja allekirjoitus-
+   (`x-hmac-signature`) otsikoiden kanssa
+
+**JavaScript-esimerkki käyttäen Kora SDK:ta:**
+
+Kora SDK abstrahoi HMAC-todennusprosessin, joten voit yksinkertaisesti kutsua
+haluamaasi metodia ja SDK hoitaa todennuksen puolestasi.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**JavaScript-esimerkki käyttäen `crypto`-kirjastoa:**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Yhdistetty todennus
+
+Voit ottaa käyttöön molemmat todennusmenetelmät samanaikaisesti maksimaalisen
+turvallisuuden saavuttamiseksi:
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Kun molemmat on määritetty, asiakkaiden on lähetettävä `x-api-key`-,
+`x-timestamp`- ja `x-hmac-signature`-otsikot.
+
+## Turvallisuuden parhaat käytännöt
+
+- **Käytä vahvoja, satunnaisia avaimia**: Vähintään 32 merkkiä korkealla
+  entropialla
+- **Vaihda säännöllisesti**: Vaihda avaimet määräajoin
+  (kuukausittain/neljännesvuosittain)
+- **Turvallinen tallennus**: Käytä ympäristömuuttujia tai salaisuuksien
+  hallintaa (Railway secrets, AWS Secrets Manager jne.)
+- **Älä koskaan kovakoodaa**: Pidä avaimet poissa lähdekoodista ja lokeista
+- **Käytä HTTPS:ää**: Käytä aina TLS:ää tuotannossa avainten suojaamiseksi
+  siirrossa
+- **Valvo pääsyä**: Tarkkaile epätavallisia todennusmalleja tai toistuvia
+  epäonnistumisia
+
+## Vapautetut päätepisteet
+
+`/liveness`-päätepiste on aina vapautettu todennuksesta terveystarkastusten
+mahdollistamiseksi:
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Vianmääritys
+
+**401 Unauthorized API-avaimen kanssa:**
+
+- Tarkista, että API-avain on oikein ja vastaa palvelimen määritystä
+- Varmista, että `x-api-key`-otsikko lähetetään
+- Varmista, ettei avaimessa ole ylimääräisiä välilyöntejä
+
+**401 Unauthorized HMAC:n kanssa:**
+
+- Tarkista, että aikaleima on ajantasainen (5 minuutin sisällä)
+- Varmista, että viestin muodostus vastaa: `{timestamp}{body}`
+- Varmista, että HMAC-salaisuus vastaa palvelimen määritystä
+- Tarkista, että allekirjoitus on pieniä kirjaimia sisältävä heksadesimaaliluku

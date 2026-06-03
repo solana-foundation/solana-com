@@ -57,7 +57,6 @@ apps/media/
 ├── scripts/                   # Build scripts
 ├── public/                    # Static files
 │   └── uploads/               # Media uploads
-└── openspec/                  # OpenAPI specifications
 ```
 
 ## Local Development

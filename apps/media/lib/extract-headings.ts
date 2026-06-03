@@ -16,8 +16,8 @@ export function extractHeadings(mdxSource: string): Heading[] {
     const match = line.match(/^(#{2,3})\s+(.+)$/);
     if (!match) continue;
 
-    const level = match[1].length;
-    const raw = match[2].trim();
+    const level = match[1]?.length ?? 2;
+    const raw = match[2]?.trim() ?? "";
     // Strip markdown formatting (bold, italic, code, links)
     const text = raw
       .replace(/\*\*(.+?)\*\*/g, "$1")

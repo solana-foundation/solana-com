@@ -69,9 +69,12 @@ const Marquee: React.FC<MarqueeProps> = ({
       <div
         className="flex whitespace-nowrap"
         style={{
-          animation: contentWidth
-            ? `${duration}s linear 0s infinite normal none running ${animationName}`
-            : "none",
+          animationName: contentWidth ? animationName : "none",
+          animationDuration: contentWidth ? `${duration}s` : undefined,
+          animationTimingFunction: "linear",
+          animationIterationCount: "infinite",
+          animationDirection: "normal",
+          animationFillMode: "none",
           animationPlayState: isHovered ? "paused" : "running",
         }}
       >

@@ -1,0 +1,459 @@
+---
+title: Kora'ya Yeni İmzalayıcılar Ekleme
+description:
+  Bu kılavuz, anahtar yönetim çözümlerini Kora'ya entegre etmek isteyen cüzdan
+  hizmeti sağlayıcıları içindir. İmzalayıcınızı Kora'ya ekleyerek, düğüm
+  operatörlerinin güvenli işlem imzalama için hizmetinizi kullanmasını
+  sağlayacaksınız.
+---
+
+## Mimari Genel Bakış
+
+Kora, tüm imzalama işlemleri için harici
+[`solana-keychain`](https://github.com/solana-foundation/solana-keychain)
+crate'ini kullanır. Bu mimari, Solana işlemlerini imzalamak için birleşik bir
+imzalama arayüzü sağlar. Kora'ya yeni bir imzalayıcı eklemek için şunları
+yapmanız gerekecek:
+
+1. **İlk olarak**: İmzalayıcı uygulamanızı `solana-keychain` crate'ine ekleyin
+2. **İkinci olarak**: Kora'da imzalayıcınız için yapılandırma desteği ekleyin
+
+## Adım Adım Entegrasyon Kılavuzu
+
+### Hızlı Entegrasyon Kontrol Listesi
+
+**Bölüm 1: `solana-keychain` Crate'ine İmzalayıcı Ekleme**
+
+- [ ] İmzalayıcınızı
+      [solana-keychain entegrasyon kılavuzunu](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+      takip ederek uygulayın
+- [ ] PR onayı ve crate yayınını bekleyin
+
+**Bölüm 2: Kora Yapılandırma Desteği Ekleme**
+
+- [ ] Cargo.toml bağımlılığını güncelleyin, böylece `solana-keychain` crate'i en
+      son sürümü kullanır (imzalayıcınızı içeren)
+- [ ] İmzalayıcınızın ortam değişkenleri için yapılandırma yapısı ekleyin
+- [ ] `crates/lib/src/signer/config.rs` içindeki `SignerTypeConfig` enum'unu
+      güncelleyin
+- [ ] İmzalayıcınızın yapılandırması için doğrulama mantığı ekleyin
+- [ ] Yapılandırmadan imzalayıcınızı oluşturmak için derleme mantığı ekleyin
+- [ ] Yapılandırma yapısını `crates/lib/src/signer/mod.rs` içinde dışa aktarın
+- [ ] (İsteğe bağlı) `crates/lib/src/tests/config_mock.rs` içinde test mock
+      oluşturucu ekleyin
+- [ ] Örnek yapılandırma dosyalarını güncelleyin
+- [ ] İmzalayıcınızı dahil etmek için test betiklerini güncelleyin (aşağıya
+      bakın)
+- [ ] İmzalayıcınızı dahil etmek için belgeleri güncelleyin (aşağıya bakın)
+- [ ] Kora deposuna PR gönderin
+
+### Kora'da İmzalayıcı Desteği Ekleme
+
+Öncelikle, imzalayıcınızın `solana-keychain` crate'inde desteklendiğinden emin
+olun. Desteklenmiyorsa, aşağıdaki kılavuzu takip edin:
+**[https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)**
+
+#### Adım 1: Cargo.toml Dosyasını Güncelleyin
+
+`solana-keychain` crate'inin en son sürümü (imzalayıcınızı içeren) kullanması
+için Cargo.toml bağımlılığını güncelleyin:
+
+```toml
+[dependencies]
+solana-keychain = { version = "X.Y.Z", default-features = false, features = [
+    "all",
+    "sdk-v3",
+] }
+```
+
+#### Adım 2: Yapılandırma Yapınızı Tanımlayın
+
+`crates/lib/src/signer/config.rs` dosyasında, hangi ortam değişkenlerinin
+gerekli olduğunu tanımlayan imzalayıcınız için yeni bir yapılandırma yapısı
+ekleyin. Örneğin:
+
+```rust
+/// YourService signer configuration
+#[derive(Clone, Serialize, Deserialize)]
+pub struct YourServiceSignerConfig {
+    pub api_key_env: String,
+    pub api_secret_env: String,
+    pub wallet_id_env: String,
+}
+```
+
+#### Adım 2: İmzalayıcınızı `SignerTypeConfig` Enum'una Ekleyin
+
+`crates/lib/src/signer/config.rs` dosyasındaki `SignerTypeConfig` enum'una
+imzalayıcı varyantınızı ekleyin:
+
+```rust
+/// Signer type-specific configuration
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SignerTypeConfig {
+    // Existing signer variants
+    Memory { #[serde(flatten)] config: MemorySignerConfig },
+    // ... existing variants ...
+
+    // Add your signer here
+    YourService {
+        #[serde(flatten)]
+        config: YourServiceSignerConfig,
+    },
+}
+```
+
+#### Adım 3: Yapılandırma Mantığını Ekleyin
+
+Aynı dosyada (`config.rs`), `SignerConfig` implementasyonunda yapılandırmadan
+imzalayıcınızı oluşturmak için bir metod ekleyin:
+
+```rust
+impl SignerConfig {
+    pub async fn build_signer_from_config(config: &SignerConfig) -> Result<Signer, KoraError> {
+        match &config.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config: your_service_config } => {
+                Self::build_your_service_signer(your_service_config, &config.name).await
+            }
+        }
+    }
+
+    // Add this new method
+    async fn build_your_service_signer(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<Signer, KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let api_key = get_env_var_for_signer(&config.api_key_env, signer_name)?;
+        let api_secret = get_env_var_for_signer(&config.api_secret_env, signer_name)?;
+        let wallet_id = get_env_var_for_signer(&config.wallet_id_env, signer_name)?;
+
+        // Call the constructor from solana-keychain crate
+        Signer::from_your_service(api_key, api_secret, wallet_id)
+            .await
+            .map_err(|e| {
+                KoraError::SigningError(format!(
+                    "Failed to create YourService signer '{signer_name}': {}",
+                    sanitize_error!(e)
+                ))
+            })
+    }
+}
+```
+
+**Not**: `Signer::from_your_service()` metod adı, `solana-keychain` crate'inde
+uyguladığınız adla eşleşmelidir.
+
+#### Adım 4: Doğrulama Mantığını Ekleyin
+
+`validate_individual_signer_config` metodunda imzalayıcınızın yapılandırması
+için doğrulama ekleyin:
+
+```rust
+impl SignerConfig {
+    pub fn validate_individual_signer_config(&self, index: usize) -> Result<(), KoraError> {
+        // ... existing validation
+
+        match &self.config {
+            // ... existing cases
+
+            SignerTypeConfig::YourService { config } => {
+                Self::validate_your_service_config(config, &self.name)
+            }
+        }
+    }
+
+    // Add this new validation method
+    fn validate_your_service_config(
+        config: &YourServiceSignerConfig,
+        signer_name: &str,
+    ) -> Result<(), KoraError> {
+        // Update the environment variable names to match your signer's configuration
+        let env_vars = [
+            ("api_key_env", &config.api_key_env),
+            ("api_secret_env", &config.api_secret_env),
+            ("wallet_id_env", &config.wallet_id_env),
+        ];
+
+        for (field_name, env_var) in env_vars {
+            if env_var.is_empty() {
+                return Err(KoraError::ValidationError(format!(
+                    "YourService signer '{signer_name}' must specify non-empty {field_name}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+#### Adım 5: Yapılandırmanızı Dışa Aktarın
+
+`crates/lib/src/signer/mod.rs` dosyasındaki modül dışa aktarımlarına (veya
+dosyanın üst kısmında public ise) yeni yapılandırma yapınızı ekleyin:
+
+```rust
+pub use config::{
+    MemorySignerConfig,
+    PrivySignerConfig,
+    SignerTypeConfig,
+    TurnkeySignerConfig,
+    VaultSignerConfig,
+    YourServiceSignerConfig,  // Add this
+    // ... other exports
+};
+```
+
+## Entegrasyonunuzu Test Etme
+
+### Test Mock Builder'ı Ekleyin
+
+Test etmeyi kolaylaştırmak için `crates/lib/src/tests/config_mock.rs` dosyasında
+`SignerPoolConfigBuilder`'e bir builder metodu ekleyin:
+
+```rust
+impl SignerPoolConfigBuilder {
+    // ... existing methods
+
+    pub fn with_your_service_signer(
+        mut self,
+        name: String,
+        api_key_env: String,
+        api_secret_env: String,
+        wallet_id_env: String,
+        weight: Option<u32>,
+    ) -> Self {
+        let signer = SignerConfig {
+            name,
+            weight,
+            config: SignerTypeConfig::YourService {
+                config: YourServiceSignerConfig {
+                    api_key_env,
+                    api_secret_env,
+                    wallet_id_env,
+                },
+            },
+        };
+        self.config.signers.push(signer);
+        self
+    }
+}
+```
+
+Bu, diğer testlerin imzalayıcınızı içeren sahte yapılandırmaları kolayca
+oluşturmasını sağlar:
+
+```rust
+use crate::tests::config_mock::SignerPoolConfigBuilder;
+
+let config = SignerPoolConfigBuilder::new()
+    .with_your_service_signer(
+        "yourservice_test".to_string(),
+        "YOUR_SERVICE_API_KEY".to_string(),
+        "YOUR_SERVICE_API_SECRET".to_string(),
+        "YOUR_SERVICE_WALLET_ID".to_string(),
+        Some(1)
+    )
+    .build();
+```
+
+### Ortam Değişkenleri
+
+Örnek ortam değişkenlerini aşağıdaki dosyalara ekleyin:
+
+- `.env.example` (projenin kök dizini)
+- `.env` (yerel test için projenin kök dizini)
+- `./sdks/ts/.env.example`
+- `./sdks/ts/.env`
+
+```bash
+# YourService Signer Configuration
+YOUR_SERVICE_API_KEY=your_api_key_here
+YOUR_SERVICE_API_SECRET=your_api_secret_here
+YOUR_SERVICE_WALLET_ID=your_wallet_id_here
+```
+
+### Entegrasyon Testleri
+
+Kora, TypeScript testleri de dahil olmak üzere tüm entegrasyon test aşamalarını
+yöneten birleşik bir test çalıştırıcısı (`tests/src/bin/test_runner.rs`)
+kullanır. Yeni imzalayıcınız için testler eklemek üzere:
+
+#### 1. Test Yapılandırması Ekleme
+
+Hizmetiniz için `tests/src/common/fixtures/` içinde yeni bir imzalayıcı
+yapılandırma dosyası oluşturun:
+
+```toml
+# tests/src/common/fixtures/signers-your-service.toml
+[signer_pool]
+strategy = "round_robin"
+
+[[signers]]
+name = "yourservice_main"
+type = "your_service"
+api_key_env = "YOUR_SERVICE_API_KEY"
+api_secret_env = "YOUR_SERVICE_API_SECRET"
+wallet_id_env = "YOUR_SERVICE_WALLET_ID"
+```
+
+#### 2. Test Çalıştırıcısına Test Aşaması Ekleme
+
+İmzalayıcınız için bir test aşaması eklemek üzere
+`tests/src/test_runner/test_cases.toml` dosyasını güncelleyin:
+
+```toml
+[test.your_service]
+name = "YourService Signer Tests"
+config = "tests/src/common/fixtures/kora-test.toml"
+signers = "tests/src/common/fixtures/signers-your-service.toml"
+port = "8090"  # Use a unique port
+tests = ["your_service"]
+```
+
+#### 3. Testleri Çalıştırma
+
+Ortamınızın hazır olduğundan emin olun:
+
+```bash
+# Install binaries and dependencies
+just install
+just install-ts-sdk
+just build-ts-sdk
+
+# Set environment variables for your service
+export YOUR_SERVICE_API_KEY="your_key"
+export YOUR_SERVICE_API_SECRET="your_secret"
+export YOUR_SERVICE_WALLET_ID="your_wallet"
+```
+
+Birleşik test çalıştırıcısını kullanarak testleri çalıştırın:
+
+```bash
+# Run all integration tests (includes your new signer phase)
+just test-integration
+
+# Run tests with verbose output
+just test-integration-verbose
+
+# Run specific test phase with filter
+cargo run -p tests --bin test_runner -- --phases your_service
+```
+
+## Dokümantasyon Gereksinimleri
+
+PR'ınızı gönderirken şunları ekleyin:
+
+### 1. İmzalayıcılar Kılavuzunu Güncelleme
+
+Ön koşulları, kurulumu ve kullanımı açıklayan imzalayıcı dokümantasyonunu
+[`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+kılavuzunu takip ederek ekleyin.
+
+````markdown
+## YourService Signer
+
+[YourService](https://yourservice.com) provides [brief description of your
+service].
+
+### Prerequisites
+
+- YourService account
+- API credentials
+- Funded wallet
+
+### Setup
+
+1. Get your API credentials from [dashboard link]
+2. Create a wallet...
+3. Configure environment variables:
+
+\```
+
+bash YOUR_SERVICE_API_KEY="your_api_key"
+YOUR_SERVICE_API_SECRET="your_api_secret"
+YOUR_SERVICE_WALLET_ID="your_wallet_id" \
+````
+
+### Configure signers.toml
+
+\```
+
+toml [signer_pool] strategy = "round_robin"
+
+[[signers]] name = "yourservice_main" type = "your_service" api_key_env =
+"YOUR_SERVICE_API_KEY" api_secret_env = "YOUR_SERVICE_API_SECRET" wallet_id_env
+= "YOUR_SERVICE_WALLET_ID" weight = 1 \
+
+````
+
+### Run Kora with YourService Signer
+
+\```
+
+bash kora rpc start --signers-config signers.toml \
+
+```
+
+```
+
+`
+
+### 2. README'yi Güncelleyin
+
+Ana README'deki imzalayıcı listesine servisinizi ekleyin.
+
+## Gönderim Kontrol Listesi
+
+- [ ] İmzalayıcınız `solana-keychain` crate'inde destekleniyor
+- [ ] Cargo.toml'daki `solana-keychain` bağımlılığı en son sürüme güncellendi
+- [ ] İmzalayıcınız için yapılandırma struct'ı eklendi
+- [ ] `SignerTypeConfig` varyantı eklendi
+- [ ] `build_signer_from_config`'de build mantığı eklendi
+- [ ] `validate_individual_signer_config`'de doğrulama mantığı eklendi
+- [ ] `mod.rs`'de yapılandırma struct'ı export edildi
+- [ ] (İsteğe bağlı) `config_mock.rs`'de test mock builder metodu eklendi
+- [ ] Kod uyarı olmadan derleniyor
+- [ ] Tüm testler geçiyor (`make test` ve `make test-integration`)
+- [ ] [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+      takip edilerek dokümantasyon eklendi
+- [ ] Örnek yapılandırma dosyaları oluşturuldu (`.toml` ve `.env.example`)
+- [ ] Sabit kodlanmış değerler veya gizli bilgiler yok
+- [ ] Hata mesajları yardımcı
+- [ ] Rust adlandırma kurallarına uyuyor (snake_case)
+- [ ] Linting geçiyor (`make lint`)
+- [ ] Entegrasyon testi için API Anahtarları konusunda Kora ekibiyle iletişime
+      geçildi
+
+## Yardım Alma
+
+- **İmzalayıcı implementasyonu için**:
+  [`solana-keychain`](https://github.com/solana-foundation/solana-keychain)
+  deposunda bir issue açın
+- **Kora entegrasyonu için**: Tasarım tartışmaları için Kora deposunda bir issue
+  açın
+- Topluluk kanallarımıza katılın
+- [`crates/lib/src/signer/config.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/signer/config.rs)'daki
+  mevcut imzalayıcı yapılandırmalarını inceleyin
+
+## Örnek PR Yapısı
+
+**Kora deposu için:**
+
+```
+feat(signer): add YourService signer configuration support
+
+- Add YourServiceSignerConfig struct
+- Add YourService variant to SignerTypeConfig enum
+- Add build and validation logic for YourService
+- Add example configuration files
+- Add documentation to SIGNERS.md
+- Add integration tests
+```
+
+Kora ekosistemine hoş geldiniz! Anahtar yönetim çözümünüzün platformun bir
+parçası olmasından heyecan duyuyoruz.
+````

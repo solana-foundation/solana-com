@@ -1,0 +1,195 @@
+---
+title: Integrazione del Client Kit
+description:
+  Crea transazioni senza commissioni utilizzando createKitKoraClient con
+  l'architettura dei plugin di Kit per la gestione automatica delle commissioni.
+date: 2026-03-09
+---
+
+_Ultimo Aggiornamento: 09-03-2026_
+
+## Cosa Costruirai
+
+Il client Kit (`createKitKoraClient`) è il modo consigliato per integrare Kora
+nelle applicazioni Solana. Racchiude l'astrazione delle commissioni di Kora
+nell'architettura dei plugin di Kit, fornendoti un client che gestisce
+automaticamente:
+
+- Gestione del blockhash
+- Stima delle commissioni e iniezione delle istruzioni di pagamento
+- Firma delle transazioni tramite Kora
+- Invio e conferma delle transazioni
+- Ottimizzazione del budget di calcolo (stima CU basata su simulazione)
+
+Ciò significa che puoi utilizzare i plugin dei programmi Kit come
+`tokenProgram()` e fare in modo che Kora gestisca tutta la complessità delle
+commissioni gas dietro le quinte.
+
+## Prerequisiti
+
+- Completata la
+  [Guida Rapida a Kora](/docs/tools/kora/getting-started/quick-start) — server
+  Kora e validator locale in esecuzione
+- Familiarità con [Solana Kit](https://www.solanakit.com/) e il suo sistema di
+  plugin
+
+## Installazione
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+Le dipendenze peer (`@solana-program/token`, `@solana-program/compute-budget`,
+`@solana/kit-plugin-*`) vengono installate automaticamente dalla maggior parte
+dei gestori di pacchetti. Consulta
+[Installazione](/docs/tools/kora/getting-started/installation) se devi
+installarle manualmente.
+
+## Creazione del Client
+
+`createKitKoraClient` compone più plugin Kit in un unico client che soddisfa
+`ClientWithPayer`, `ClientWithTransactionPlanning` e
+`ClientWithTransactionSending`.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+Il `feePayerWallet` deve essere un `TransactionSigner` — questo è il wallet che
+autorizza il pagamento della commissione in token SPL all'operatore Kora.
+L'operatore Kora gestisce le commissioni di rete in SOL.
+
+### Opzioni di Configurazione
+
+| Opzione            | Obbligatorio | Descrizione                                                                                                                                |
+| ------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `endpoint`         | Sì           | URL dell'endpoint RPC di Kora                                                                                                              |
+| `rpcUrl`           | Sì           | URL RPC di Solana (non l'endpoint Kora) — utilizzato per la simulazione delle unità di calcolo e la compatibilità dei plugin dei programmi |
+| `feeToken`         | Sì           | Indirizzo mint SPL per il pagamento delle commissioni (es. USDC)                                                                           |
+| `feePayerWallet`   | Sì           | `TransactionSigner` che autorizza il pagamento della commissione SPL                                                                       |
+| `apiKey`           | No           | Chiave API per l'autenticazione Kora                                                                                                       |
+| `hmacSecret`       | No           | Segreto HMAC per l'autenticazione basata su firma                                                                                          |
+| `computeUnitLimit` | No           | Limite CU fisso. Se omesso, Kora simula la transazione per stimare le CU ottimali (consigliato)                                            |
+| `computeUnitPrice` | No           | Commissione prioritaria in micro-lamport                                                                                                   |
+| `tokenProgramId`   | No           | Predefinito a Token Program. Imposta su `TOKEN_2022_PROGRAM_ADDRESS` per token di commissione Token-2022                                   |
+
+## Utilizzo con i Plugin del Programma Kit
+
+Il client Kit è componibile con i plugin del programma Kit. Ad esempio, con
+`tokenProgram()`:
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+Dietro le quinte, il client Kit:
+
+1. Pianifica la transazione con un blockhash gestito da Kora e istruzioni per il
+   budget di calcolo
+2. Stima la commissione e inietta (o aggiorna) l'istruzione di pagamento SPL
+   all'operatore Kora
+3. Firma parzialmente la transazione con il portafoglio dell'utente
+4. Invia la transazione a Kora per la co-firma e l'invio a Solana
+
+## Accesso ai Metodi RPC di Kora
+
+Il client Kit espone anche l'API completa di Kora tramite il namespace `.kora`
+(dal `koraPlugin`):
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+Tutte le risposte dei metodi `.kora` utilizzano valori tipizzati Kit (`Address`,
+`Blockhash`, `Signature`) invece di stringhe grezze.
+
+## Supporto Token-2022
+
+Per pagare le commissioni con un token Token-2022, passa l'opzione
+`tokenProgramId`:
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## Budget di Calcolo
+
+Per impostazione predefinita, il client Kit simula la transazione sul Solana RPC
+per determinare il limite ottimale delle unità di calcolo. Ciò comporta
+un'allocazione più precisa delle CU e commissioni inferiori.
+
+Per sovrascrivere con un valore fisso:
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## Quando Utilizzare Ciascun Client
+
+| Client                | Caso d'Uso                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **Consigliato.** Integrazione completa di Kit con gestione automatica delle commissioni. Ideale per applicazioni che utilizzano plugin del programma Kit. |
+| `KoraClient`          | Accesso RPC diretto quando hai bisogno del pieno controllo sulla costruzione, firma e invio delle transazioni.                                            |
+| `koraPlugin`          | Aggiunta di metodi Kora a un client Kit esistente già composto con altri plugin.                                                                          |
+
+## Prossimi Passi
+
+- [Flusso Completo delle Transazioni](/docs/tools/kora/guides/full-demo) —
+  Procedura dettagliata di livello inferiore utilizzando direttamente
+  `KoraClient`
+- [Riferimento API](/docs/tools/kora/json-rpc-api) — Tutti i metodi RPC
+  disponibili
+- [Configurazione di Kora](/docs/tools/kora/operators/configuration) — Opzioni
+  di configurazione lato server

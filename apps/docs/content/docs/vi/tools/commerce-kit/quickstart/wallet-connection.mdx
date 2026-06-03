@@ -1,0 +1,476 @@
+---
+title: Kết nối Ví
+description: Kết nối ví Solana bằng Wallet Standard
+---
+
+Gói `@solana-commerce/connector` cung cấp kết nối ví không giao diện được xây
+dựng trên [Wallet Standard](https://github.com/wallet-standard/wallet-standard).
+Nó quản lý việc phát hiện ví, trạng thái kết nối, quản lý tài khoản và tự động
+kết nối lại. Gói này được thiết kế để độc lập với framework và bao gồm các
+binding cho React. Nó được tùy chỉnh để sử dụng mượt mà trong Solana Commerce
+Kit và tương thích với [@solana/kit](https://github.com/anza-xyz/kit) và
+[gill](https://www.gillsdk.com/).
+
+![Kết nối Ví](/assets/docs/tools/commerce-kit/connector.png)
+
+## Cài đặt
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Cấu hình Provider
+
+### `ConnectorProvider`
+
+Component `ConnectorProvider` bao bọc ứng dụng của bạn và cung cấp trạng thái
+kết nối ví cho tất cả các component con. Nó quản lý một instance
+`ConnectorClient` singleton tồn tại xuyên suốt các chu kỳ mount/unmount của
+component.
+
+#### Props
+
+Tất cả cấu hình được truyền qua prop `config`:
+
+- **`config`** (`ConnectorConfig`, tùy chọn) - Đối tượng cấu hình cho connector.
+  Tất cả các trường đều là tùy chọn.
+
+#### `ConnectorConfig`
+
+Đối tượng cấu hình cho hành vi kết nối ví.
+
+##### Các trường tùy chọn
+
+- **`autoConnect`** (`boolean`) - Khi là `true`, tự động kết nối lại với ví được
+  sử dụng gần nhất khi mount. Tùy chọn ví được lưu trữ trong bộ nhớ đã cấu hình
+  (mặc định là `localStorage`). Mặc định: `false`.
+
+- **`debug`** (`boolean`) - Bật ghi log chi tiết trên console để debug luồng kết
+  nối, thay đổi tài khoản và lỗi. Logs bao gồm tiền tố như `[Connector]` và
+  `[ConnectorProvider]`. Mặc định: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Khoảng thời gian polling tính bằng
+  mili giây để kiểm tra thay đổi tài khoản khi ví không hỗ trợ tính năng
+  `standard:events`. Hầu hết các ví hiện đại đều hỗ trợ events, nên polling là
+  phương án dự phòng. Mặc định: `1500` (1,5 giây).
+
+- **`storage`** (`Storage`) - Adapter lưu trữ tùy chỉnh để duy trì tùy chọn ví.
+  Phải implement:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Mặc định: `window.localStorage` khi có sẵn (chỉ trình duyệt). Sử dụng cho
+  React Native (`AsyncStorage`) hoặc lưu trữ tùy chỉnh tương thích SSR.
+
+#### Kiến trúc Provider
+
+Provider sử dụng **mẫu singleton** với cơ chế đếm tham chiếu:
+
+- Nhiều instance `ConnectorProvider` dùng chung cùng một `ConnectorClient`
+- Client được tạo khi mount lần đầu và tồn tại qua các lần unmount
+- Khi tất cả các provider unmount, việc dọn dẹp bị trễ 5 giây để xử lý các lần
+  remount nhanh
+- Trong quá trình dọn dẹp, ví sẽ ngắt kết nối và tất cả event listener được xóa
+  bỏ
+
+Thiết kế này ngăn ngừa việc ngắt kết nối ví trong quá trình thay đổi route hoặc
+cập nhật component.
+
+---
+
+## Hooks
+
+### `useConnector()`
+
+Hook chính để truy cập trạng thái và hành động kết nối ví. Phải được sử dụng
+trong một `ConnectorProvider`.
+
+Trả về một đối tượng `ConnectorSnapshot` chứa:
+
+#### Các Thuộc tính Trạng thái
+
+- **`wallets`** (`WalletInfo[]`) - Mảng tất cả các ví tương thích Wallet
+  Standard được phát hiện. Tự động cập nhật khi ví được cài đặt hoặc gỡ cài đặt.
+  Mỗi ví bao gồm metadata như tên, biểu tượng và khả năng. Xem
+  [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Đối tượng ví Wallet Standard hiện
+  đang được kết nối. `null` khi ngắt kết nối. Đây là instance ví thô từ Wallet
+  Standard API.
+
+- **`connected`** (`boolean`) - Trạng thái kết nối. `true` khi một ví được kết
+  nối và các tài khoản khả dụng. Sử dụng thuộc tính này để render UI có điều
+  kiện.
+
+- **`connecting`** (`boolean`) - Trạng thái đang tải trong quá trình kết nối ví.
+  `true` giữa lúc gọi `select()` và nhận kết quả kết nối. Sử dụng thuộc tính này
+  để hiển thị chỉ báo đang tải hoặc vô hiệu hóa các nút.
+
+- **`accounts`** (`AccountInfo[]`) - Mảng các tài khoản từ ví đã kết nối. Hầu
+  hết các ví cung cấp một tài khoản, nhưng một số hỗ trợ nhiều tài khoản. Tự
+  động cập nhật thông qua sự kiện ví hoặc cơ chế polling. Xem
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Địa chỉ của tài khoản hiện đang được
+  chọn (khóa công khai được mã hóa base58). Khi một ví kết nối với một tài khoản
+  mới, tài khoản đó sẽ tự động được chọn. Nếu không, tài khoản đã chọn trước đó
+  sẽ được giữ nguyên.
+
+#### Phương Thức Hành Động
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Kết nối với ví theo
+  tên (ví dụ: `"Phantom"`, `"Solflare"`). Tên ví phải khớp chính xác với trường
+  `name` của ví đã được phát hiện.
+
+  **Quy trình:**
+  1. Thiết lập `connecting: true`
+  2. Gọi tính năng `standard:connect` của ví
+  3. Lấy các tài khoản từ ví
+  4. Đăng ký nhận sự kiện từ ví (hoặc bắt đầu polling nếu không có sự kiện)
+  5. Lưu trữ tùy chọn ví trong bộ nhớ đã cấu hình
+  6. Cập nhật trạng thái với các tài khoản và tài khoản đã chọn
+
+  **Throws:** Lỗi nếu không tìm thấy ví, ví không hỗ trợ kết nối, hoặc kết nối
+  bị người dùng từ chối.
+
+- **`disconnect`** (`() => Promise<void>`) - Ngắt kết nối ví hiện tại và dọn dẹp
+  toàn bộ trạng thái.
+
+  **Quy trình:**
+  1. Hủy đăng ký sự kiện từ ví
+  2. Dừng polling tài khoản
+  3. Gọi tính năng `standard:disconnect` của ví nếu có
+  4. Xóa ví đã chọn, các tài khoản và tài khoản đã chọn
+  5. Xóa tùy chọn ví khỏi bộ nhớ
+
+  Không bao giờ throw lỗi (lỗi được ghi log nếu bật chế độ debug).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Chuyển đổi tài
+  khoản đã chọn sang địa chỉ khác từ ví đã kết nối. Nếu địa chỉ không có trong
+  mảng tài khoản hiện tại, sẽ kích hoạt kết nối lại để lấy các tài khoản đã cập
+  nhật.
+
+  **Throws:** Lỗi nếu không có ví kết nối hoặc không tìm thấy tài khoản được yêu
+  cầu sau khi kết nối lại.
+
+### `useConnectorClient()`
+
+Cung cấp quyền truy cập trực tiếp vào instance `ConnectorClient` bên dưới cho
+các trường hợp sử dụng nâng cao.
+
+**Trả về:** `ConnectorClient | null` - Instance client singleton, hoặc `null`
+khi sử dụng bên ngoài `ConnectorProvider`.
+
+**Các trường hợp sử dụng:**
+
+- Truy cập trực tiếp vào `getConnectorState()` để đọc trạng thái theo lệnh
+- Đăng ký thủ công với `subscribe(listener)` cho các listener trạng thái tùy
+  chỉnh
+- Gọi `destroy()` để dọn dẹp bắt buộc (không khuyến nghị trong sử dụng thông
+  thường)
+
+**Ví dụ:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Định Nghĩa Kiểu Dữ Liệu
+
+### `WalletInfo`
+
+Metadata về một ví đã được phát hiện.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Yêu cầu:** Một ví có thể kết nối khi nó hỗ trợ:
+
+- Tính năng `standard:connect`
+- Tính năng `standard:disconnect`
+- Chuỗi Solana (được phát hiện thông qua `wallet.chains` chứa `"solana"`)
+
+Các ví không thể kết nối xuất hiện trong mảng `wallets` nhưng không thể được
+chọn.
+
+### `AccountInfo`
+
+Thông tin về một tài khoản ví.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Trường `raw` cung cấp quyền truy cập vào các thuộc tính bổ sung của tài khoản:
+
+- `address: string` - Khóa công khai được mã hóa Base58
+- `publicKey: Uint8Array` - Byte khóa công khai thô
+- `label?: string` - Nhãn tài khoản (nếu ví cung cấp)
+- `icon?: string` - Biểu tượng riêng của tài khoản (data URL)
+- `chains: string[]` - Các chuỗi được hỗ trợ cho tài khoản này
+- `features: string[]` - Các tính năng được hỗ trợ cho tài khoản này
+
+### `ConnectorSnapshot`
+
+Kiểu trả về của `useConnector()`, kết hợp trạng thái và hành động.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Phát Hiện Thay Đổi Tài Khoản
+
+Connector tự động phát hiện khi tài khoản ví thay đổi (người dùng thêm/xóa tài
+khoản, chuyển đổi tài khoản trong ví). Hai chiến lược được sử dụng:
+
+### Dựa Trên Sự Kiện (Ưu Tiên)
+
+Khi ví hỗ trợ `standard:events`, connector đăng ký các sự kiện `change`:
+
+- Nhận thông báo thời gian thực khi tài khoản thay đổi
+- Hiệu quả hơn (không cần polling)
+- Tổng hợp tài khoản từ cả sự kiện và `wallet.accounts` để xử lý các ví chỉ bao
+  gồm tài khoản đã chọn trong sự kiện
+
+### Dự Phòng Polling
+
+Khi sự kiện không được hỗ trợ, connector sẽ polling `wallet.accounts`:
+
+- Kiểm tra mỗi `accountPollingIntervalMs` (mặc định: 1500ms)
+- So sánh địa chỉ tài khoản để phát hiện thay đổi
+- Chỉ kích hoạt render lại khi tài khoản thực sự thay đổi
+
+**Logic Chọn Tài Khoản:**
+
+- Khi tài khoản thay đổi, giữ nguyên tài khoản đã chọn nếu nó vẫn tồn tại
+- Nếu tài khoản đã chọn bị xóa, chọn tài khoản khả dụng đầu tiên
+- Khi kết nối với tài khoản mới (không có trong các tài khoản trước đó), ưu tiên
+  tài khoản mới
+
+---
+
+## Lưu trữ & Tự động Kết nối
+
+### Lưu trữ Dữ liệu
+
+Connector lưu trữ một khóa trong bộ nhớ đã cấu hình:
+
+- **Khóa:** `arc-connector:lastWallet`
+- **Giá trị:** Tên ví (ví dụ: `"Phantom"`)
+
+Các thao tác lưu trữ được bao bọc trong try-catch để xử lý:
+
+- Các iframe sandbox nơi `localStorage` ném lỗi
+- Môi trường SSR nơi `window` không được định nghĩa
+- React Native nơi `localStorage` không tồn tại
+
+Nếu lưu trữ thất bại, connector vẫn tiếp tục hoạt động mà không có tính năng lưu
+trữ (không ném lỗi).
+
+### Hành vi Tự động Kết nối
+
+Khi `autoConnect: true`:
+
+1. Khi mount, đọc tên ví cuối cùng từ bộ nhớ
+2. Chờ 100ms (cho phép các ví đăng ký)
+3. Gọi `select(walletName)` nếu phát hiện ví
+4. Nếu tự động kết nối thất bại, xóa tùy chọn không hợp lệ khỏi bộ nhớ
+
+**Lưu ý Bảo mật:** Tùy chọn được lưu trữ chỉ là tên ví (chuỗi), không phải dữ
+liệu nhạy cảm. Ví xử lý xác thực/ủy quyền thông qua giao diện người dùng riêng
+của nó.
+
+---
+
+## Ví dụ Sử dụng
+
+### Nút Ví Cơ bản
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Bộ chọn Đa Tài khoản
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Giám sát Kết nối
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Các Ví Được Hỗ trợ
+
+Connector hỗ trợ tất cả các ví triển khai
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), bao gồm:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Bất kỳ ví tương thích Wallet Standard nào khác
+
+Các ví được tự động phát hiện khi chúng đăng ký với API Wallet Standard (không
+cần cấu hình).
+
+---
+
+## Sử dụng Headless (Không dùng React)
+
+Đối với các ứng dụng không dùng React hoặc sử dụng phía máy chủ, hãy dùng
+`ConnectorClient` trực tiếp:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Lưu ý:** `ConnectorClient` quản lý trạng thái riêng của nó và không bao giờ
+kích hoạt việc render lại trong React. Bạn phải tự theo dõi các thay đổi trạng
+thái thủ công.

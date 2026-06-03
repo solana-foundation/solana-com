@@ -7,7 +7,7 @@ import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string) {
-  const { siteMetadata, siteUrl } = config;
+  const { siteMetadata, publicUrl } = config;
   return {
     other: {
       language: locale,
@@ -28,7 +28,7 @@ export function getBaseMetadata(locale: string) {
     },
     robots: "index, follow",
     manifest: "/site.webmanifest",
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(publicUrl),
     icons: [
       {
         url: faviconPng.src,

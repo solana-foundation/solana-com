@@ -14,6 +14,12 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  PulseIcon,
+  StepsIcon,
+  ChartIcon,
+  MoneyHandIcon,
+} from "@solana-com/ui-chrome/icons";
 
 export function SolutionsDefiPage() {
   const t = useTranslations();
@@ -23,22 +29,22 @@ export function SolutionsDefiPage() {
     {
       value: t("defi.hero.stats.0.value"),
       label: t("defi.hero.stats.0.label"),
-      Icon: "/src/img/solutions/defi/icons/pulse.svg",
+      Icon: PulseIcon,
     },
     {
       value: t("defi.hero.stats.1.value"),
       label: t("defi.hero.stats.1.label"),
-      Icon: "/src/img/solutions/defi/icons/steps.svg",
+      Icon: StepsIcon,
     },
     {
       value: t("defi.hero.stats.2.value"),
       label: t("defi.hero.stats.2.label"),
-      Icon: "/src/img/solutions/defi/icons/chart.svg",
+      Icon: ChartIcon,
     },
     {
       value: t("defi.hero.stats.3.value"),
       label: t("defi.hero.stats.3.label"),
-      Icon: "/src/img/solutions/defi/icons/money-hand.svg",
+      Icon: MoneyHandIcon,
     },
   ];
 
@@ -89,7 +95,7 @@ export function SolutionsDefiPage() {
         <Divider />
 
         <Products
-          className="z-1"
+          className="z-[1]"
           title={t("defi.products.title")}
           description={t("defi.products.description")}
           products={PRODUCTS}

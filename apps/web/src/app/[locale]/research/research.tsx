@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Columns } from "@/component-library/columns";
 import {
   CardDeck,
@@ -264,7 +265,11 @@ export function ResearchPage({ translations }: ResearchPageProps) {
         variant={CONVERSION_PANEL.variant as "centered"}
         heading={translations.conversionPanelHeading}
         body={translations.conversionPanelBody}
-        buttons={conversionButtons as any}
+        buttons={
+          conversionButtons as React.ComponentProps<
+            typeof ConversionPanel
+          >["buttons"]
+        }
       />
     </>
   );

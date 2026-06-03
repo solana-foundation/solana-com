@@ -67,6 +67,8 @@ export const Hero: React.FC<HeroProps> = ({
   getStartedLinks,
 }) => {
   const [open, setOpen] = useState(false);
+  const isExternalBannerHref =
+    Boolean(bannerHref) && !bannerHref?.startsWith("/");
 
   // Check if banner should be shown based on expiry date
   const shouldShowBanner = React.useMemo(() => {
@@ -196,8 +198,12 @@ export const Hero: React.FC<HeroProps> = ({
                         >
                           <a
                             href={bannerHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            target={isExternalBannerHref ? "_blank" : undefined}
+                            rel={
+                              isExternalBannerHref
+                                ? "noopener noreferrer"
+                                : undefined
+                            }
                             aria-label={bannerLabel}
                           >
                             {bannerLabel}

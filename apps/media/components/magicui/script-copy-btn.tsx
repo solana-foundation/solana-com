@@ -31,8 +31,9 @@ export function ScriptCopyBtn({
   const [highlightedCode, setHighlightedCode] = useState("");
   const { theme } = useTheme();
   const command =
-    commands.find((line) => line.startsWith(packageManager))?.split("|")[1] ||
-    "";
+    commands
+      .find((line) => line.startsWith(packageManager ?? ""))
+      ?.split("|")[1] || "";
 
   useEffect(() => {
     async function loadHighlightedCode() {

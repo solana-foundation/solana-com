@@ -27,7 +27,7 @@ function extractYouTubeVideoId(url: string): string | null {
 
   for (const pattern of patterns) {
     const match = url.match(pattern);
-    if (match) return match[1];
+    if (match) return match[1] ?? null;
   }
   return null;
 }
@@ -37,7 +37,8 @@ function extractYouTubeVideoId(url: string): string | null {
  */
 function extractGitHubRepo(url: string): string | null {
   const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
-  return match ? match[1] : null;
+  if (match) return match[1] ?? null;
+  return null;
 }
 
 /**
@@ -69,7 +70,7 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
       if (response.ok) {
         const html = await response.text();
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        if (titleMatch) {
+        if (titleMatch && titleMatch[1]) {
           metadata.title = titleMatch[1]
             .replace(" - YouTube", "")
             .replace(/&amp;/g, "&")
@@ -78,7 +79,7 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
         const descMatch = html.match(
           /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i,
         );
-        if (descMatch) {
+        if (descMatch && descMatch[1]) {
           metadata.description = descMatch[1]
             .replace(/&amp;/g, "&")
             .replace(/&#39;/g, "'");
@@ -133,7 +134,7 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
         "i",
       ),
     );
-    if (match) return match[1];
+    if (match) return match[1] ?? null;
 
     // Try content="..." property="..."
     match = html.match(
@@ -142,7 +143,8 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
         "i",
       ),
     );
-    return match ? match[1] : null;
+    if (match) return match[1] ?? null;
+    return null;
   };
 
   // Extract Open Graph tags
@@ -164,7 +166,7 @@ async function fetchMetadataForUrl(url: string): Promise<LinkMetadata> {
   // Fallback to standard meta tags if OG tags not found
   if (!metadata.title) {
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    if (titleMatch) {
+    if (titleMatch && titleMatch[1]) {
       metadata.title = titleMatch[1]
         .replace(/&amp;/g, "&")
         .replace(/&#39;/g, "'");

@@ -4,7 +4,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "fumadocs-ui/provider";
 import { ReactNode } from "react";
 
-type DocsLink = { name: ReactNode; url: string };
+export type DocsLink = { name: ReactNode; url: string };
+
 export function DocsFooter({
   previous,
   next,

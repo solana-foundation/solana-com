@@ -1,12 +1,13 @@
 import { useTranslations } from "next-intl";
 import { Link } from "./link";
 import { HeaderItem } from "./header-item";
+import { HeaderBanner } from "./header-banner";
 import { CollapseMenu } from "./collapse-menu";
-import type { NavItemDefinition } from "./nav-types";
+import type { NavItemDefinition, NavPromoDefinition } from "./nav-types";
 
 export function SectionHeading({ title }: { title: string }) {
   return (
-    <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
+    <div className="pt-2 pb-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-white/45 text-[11px] tracking-[0.12em] uppercase">
       {title}
     </div>
   );
@@ -77,7 +78,7 @@ export function CollapsibleNavGroup({
     <CollapseMenu
       className={`text-[rgba(255,255,255,0.64)] data-[state=open]:text-white ${className}`.trim()}
       title={
-        <div className="py-3 xl:py-2 font-brand-mono font-medium text-[12px] xl:text-[14px] tracking-[1px] uppercase">
+        <div className="py-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-[11px] tracking-[0.12em] uppercase">
           {title}
         </div>
       }
@@ -85,5 +86,44 @@ export function CollapsibleNavGroup({
     >
       {children}
     </CollapseMenu>
+  );
+}
+
+export function NavSectionPromo({ promo }: { promo?: NavPromoDefinition }) {
+  const t = useTranslations();
+
+  if (!promo) {
+    return null;
+  }
+
+  if (promo.expiresAt && new Date() >= new Date(promo.expiresAt)) {
+    return null;
+  }
+
+  const content = t.raw(promo.translationKey) as {
+    title?: string;
+    description?: string;
+    cta?: string;
+    location?: string;
+    date?: string;
+  };
+  const Logo = promo.Logo;
+
+  return (
+    <HeaderBanner
+      className={promo.className}
+      backgroundClassName={promo.backgroundClassName}
+      logo={
+        Logo ? (
+          <Logo width={promo.logoWidth} height={promo.logoHeight} />
+        ) : undefined
+      }
+      title={content?.title}
+      description={content?.description}
+      cta={content?.cta}
+      ctaHref={promo.href}
+      location={content?.location}
+      date={content?.date}
+    />
   );
 }

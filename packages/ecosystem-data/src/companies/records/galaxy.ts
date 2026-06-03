@@ -1,9 +1,11 @@
 import type { CompanyRecord } from "../../types";
+import galaxyBreakpoint2026White from "../../../assets/companies/galaxy/breakpoint-2026-white.png";
 import galaxyLogo from "../../../assets/companies/galaxy/logo.svg";
 import galaxyLogoLight from "../../../assets/companies/galaxy/logo-light.svg";
 import galaxyLogoDark from "../../../assets/companies/galaxy/logo-dark.svg";
 import galaxyMarkLight from "../../../assets/companies/galaxy/mark-light.svg";
 import galaxyMarkDark from "../../../assets/companies/galaxy/mark-dark.svg";
+import galaxyLogoGalaxyOne from "../../../assets/companies/galaxy/logo-galaxy-one.svg";
 
 export const galaxy = {
   id: "galaxy",
@@ -28,6 +30,14 @@ export const galaxy = {
   },
   defaultLogoId: "logo-light",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: galaxyBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",
@@ -63,6 +73,12 @@ export const galaxy = {
       source: galaxyMarkDark,
       theme: "dark",
       kind: "mark",
+    },
+    {
+      id: "logo-galaxy-one",
+      fileName: "logo-galaxy-one.svg",
+      format: "svg",
+      source: galaxyLogoGalaxyOne,
     },
   ],
 } satisfies CompanyRecord;

@@ -28,8 +28,14 @@ interface AnnouncementBarProps {
   color: AlertColor;
 }
 
+function isExternalHref(href: string): boolean {
+  return /^(https?:)?\/\//i.test(href);
+}
+
 function AnnouncementBar({ text, cta, color }: AnnouncementBarProps) {
   const styles = colorStyles[color];
+  const ctaTarget = cta?.url && isExternalHref(cta.url) ? "_blank" : undefined;
+  const ctaRel = ctaTarget === "_blank" ? "noopener noreferrer" : undefined;
 
   return (
     <div
@@ -41,6 +47,8 @@ function AnnouncementBar({ text, cta, color }: AnnouncementBarProps) {
       {cta?.label && cta?.url && (
         <a
           href={cta.url}
+          target={ctaTarget}
+          rel={ctaRel}
           className="inline-flex items-center gap-1.5 font-semibold transition-opacity duration-200 hover:opacity-80 hover:underline"
           style={{ color: "inherit" }}
         >

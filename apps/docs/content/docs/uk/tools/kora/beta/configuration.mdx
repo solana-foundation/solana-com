@@ -1,0 +1,353 @@
+---
+title: Нові параметри конфігурації (бета)
+description:
+  Нові розділи конфігурації kora.toml, представлені в Kora v2.2.0-beta.
+---
+
+Ці параметри конфігурації доступні починаючи з `v2.2.0-beta.1`. Додайте їх до
+вашого існуючого `kora.toml` поруч зі стабільною конфігурацією.
+
+## Плагіни транзакцій
+
+Розділ `[kora.plugins]` налаштовує плагіни транзакцій, які виконуються під час
+процесів підписання. Плагіни перевіряють структуру та вміст транзакцій перед
+тим, як Kora їх підпише. Вони виконуються для `signTransaction`,
+`signAndSendTransaction`, `signBundle` та `signAndSendBundle` — але **не** для
+`estimateBundleFee`.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Параметр  | Опис                                  | Обов'язковий              | Тип      |
+| --------- | ------------------------------------- | ------------------------- | -------- |
+| `enabled` | Список увімкнених плагінів транзакцій | Ні (за замовчуванням: []) | string[] |
+
+### Плагін `gas_swap`
+
+Плагін `gas_swap` застосовує строгу структуру транзакцій для операцій обміну
+токенів на SOL без комісії. Коли увімкнено, кожна транзакція, подана через
+процеси підписання, повинна містити точно:
+
+1. **Один переказ SPL-токена** (SPL Token або Token-2022) — від власника, який
+   не є платником комісії
+2. **Один системний переказ SOL** (`Transfer` або `TransferWithSeed`) — від
+   платника комісії
+
+Інструкції обчислювального бюджету (встановлення ліміту/ціни обчислювальних
+одиниць) дозволені поряд з двома обов'язковими інструкціями. Будь-які додаткові
+або не пов'язані з обміном зовнішні інструкції відхиляються.
+
+#### Вимоги до конфігурації
+
+Плагін `gas_swap` перевіряє вашу конфігурацію при запуску і видасть помилку,
+якщо вимоги не виконані:
+
+- **System Program** повинна бути у `allowed_programs`
+- **Принаймні одна програма токенів** (SPL Token або Token-2022) повинна бути у
+  `allowed_programs`
+- **Принаймні один токен** повинен бути у `allowed_tokens`
+- **Модель ціноутворення** не повинна бути `Free` — встановіть маржу або
+  фіксовану ціну
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Попередження:** При використанні `gas_swap` з фіксованим ціноутворенням
+> переконайтеся, що фіксована комісія токена коштує щонайменше
+> `max_allowed_lamports` у SOL, щоб уникнути ситуації виснаження, коли
+> відправлений SOL перевищує отриманий токен.
+
+---
+
+## Конфігурація Bundle
+
+Секція `[kora.bundle]` вмикає підтримку bundle Jito для атомарного виконання
+множинних транзакцій:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Опція     | Опис                              | Обов'язково                  | Тип     |
+| --------- | --------------------------------- | ---------------------------- | ------- |
+| `enabled` | Увімкнути функціональність bundle | Ні (за замовчуванням: false) | boolean |
+
+### Конфігурація Jito
+
+| Опція              | Опис                         | Обов'язково                 | Тип    |
+| ------------------ | ---------------------------- | --------------------------- | ------ |
+| `block_engine_url` | URL-адреса block engine Jito | Так (коли bundle увімкнено) | string |
+
+Доступні URL-адреси block engine Jito:
+
+- **Mainnet (публічний):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (приватний):** Зверніться до Jito для отримання доступу
+
+> **Важливо:** Коли використовуються bundle з чайовими Jito, що сплачуються
+> Kora, встановіть `allow_transfer = true` у
+> `[validation.fee_payer_policy.system]`, щоб дозволити підписувачу переказувати
+> SOL для чайових.
+
+Повний посібник з впровадження bundle Jito разом з Kora дивіться у
+[Посібнику з Jito Bundle](/docs/tools/kora/beta/jito-guide).
+
+---
+
+## Захист платника комісії Lighthouse
+
+Секція `[kora.lighthouse]` вмикає захист платника комісії Lighthouse. Коли
+увімкнено, Kora додає інструкції перевірки балансу до транзакцій, захищаючи
+платника комісії від атак на виснаження шляхом перевірки, що баланс платника
+комісії не опускається нижче очікуваних рівнів.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Опція                               | Опис                                                                                                                                  | Обов'язково                  | Тип     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------- |
+| `enabled`                           | Увімкнути твердження Lighthouse для захисту платника комісії                                                                          | Ні (за замовчуванням: false) | boolean |
+| `fail_if_transaction_size_overflow` | Відхилити транзакцію, якщо додавання твердження перевищує ліміт розміру. Якщо false, пропускає додавання твердження без повідомлення. | Ні (за замовчуванням: true)  | boolean |
+
+### Як це працює
+
+Коли Lighthouse увімкнено, Kora отримує поточний баланс платника комісії та
+додає інструкцію твердження Lighthouse, яка перевіряє, що баланс не опускається
+нижче `(current_balance - estimated_fee)` після завершення транзакції. Це
+запобігає зловмисним транзакціям виснажувати платника комісії понад очікувані
+витрати.
+
+### Сумісність методів
+
+Захист Lighthouse **працює лише з `signTransaction` та `signBundle`**. Він
+**НЕ** працює з `signAndSendTransaction` або `signAndSendBundle`.
+
+Коли Lighthouse додає інструкцію підтвердження, він модифікує повідомлення
+транзакції. Це робить недійсними всі попередні підписи клієнта. Потоки
+`signAndSend*` завершаться невдачею, оскільки:
+
+1. Клієнт підписує транзакцію
+2. Kora додає підтвердження Lighthouse (модифікує повідомлення)
+3. Оригінальний підпис клієнта стає недійсним
+4. Мережа відхиляє з помилкою "помилка перевірки підпису"
+
+**Рекомендований патерн з Lighthouse:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Вимоги до конфігурації
+
+При увімкненні Lighthouse додайте програму Lighthouse до вашого
+`allowed_programs`:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora перевіряє це під час запуску і видасть помилку, якщо Lighthouse увімкнено,
+але програма відсутня в `allowed_programs`.
+
+> **Примітка:** Якщо `signAndSendTransaction` або `signAndSendBundle` увімкнені
+> разом з Lighthouse, Kora запише попередження, що ці методи не матимуть захисту
+> платника комісії.
+
+## Захист відботів reCAPTCHA
+
+reCAPTCHA v3 забезпечує невидимий захист відботів для критичних ендпоінтів. На
+відміну від API Key та HMAC, які автентифікують всі запити, reCAPTCHA захищає
+лише конкретні методи високого ризику (методи підпису за замовчуванням).
+
+### Конфігурація сервера
+
+Додайте `KORA_RECAPTCHA_SECRET` до ваших змінних середовища (має пріоритет), або
+додайте `recaptcha_secret` до вашого `kora.toml`:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Опція                       | Опис                                                                            | За замовчуванням |
+| --------------------------- | ------------------------------------------------------------------------------- | ---------------- |
+| `recaptcha_secret`          | Ваш секретний ключ reCAPTCHA v3 від Google                                      | -                |
+| `recaptcha_score_threshold` | Мінімальний бал для проходження (0.0 = всі проходять, 1.0 = ніхто не проходить) | 0.5              |
+| `protected_methods`         | RPC методи, що вимагають перевірки                                              | Методи підпису   |
+
+### Як це працює
+
+1. Клієнт отримує токен reCAPTCHA від API Google reCAPTCHA v3
+2. Клієнт включає токен у заголовок `x-recaptcha-token`
+3. Сервер перевіряє токен у Google та перевіряє бал
+4. Якщо бал >= порогового значення, запит продовжується; інакше повертає 401
+   Unauthorized
+
+reCAPTCHA виконується _після_ успішної аутентифікації API Key/HMAC (якщо
+налаштовано). Незахищені методи повністю обходять перевірку reCAPTCHA.
+
+### Реалізація на стороні клієнта
+
+**Використання Kora SDK:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**Використання fetch:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### Отримання ключів reCAPTCHA
+
+1. Перейдіть до
+   [Консолі адміністратора Google reCAPTCHA](https://www.google.com/recaptcha/admin)
+2. Створіть новий сайт з **reCAPTCHA v3**
+3. Використовуйте **Site Key** у вашому фронтенді (клієнтська сторона)
+4. Використовуйте **Secret Key** у вашій конфігурації Kora (серверна сторона)
+
+## Обмеження використання
+
+Секція `[kora.usage_limit]` налаштовує обмеження використання для кожного
+гаманця, щоб запобігти зловживанням і забезпечити справедливе використання. Це
+також може використовуватися для створення програм винагород для субсидування
+комісій за транзакції користувачів до певного ліміту.
+
+**Примітка**: Ця функція потребує Redis, коли увімкнена на кількох екземплярах
+Kora.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Опція                     | Опис                                                         | Обов'язково                  | Тип     |
+| ------------------------- | ------------------------------------------------------------ | ---------------------------- | ------- |
+| `enabled`                 | Увімкнути обмеження використання для кожного гаманця         | Ні (за замовчуванням: false) | boolean |
+| `cache_url`               | URL підключення Redis для спільного відстеження використання | Ні                           | string  |
+| `fallback_if_unavailable` | Дозволити транзакції, якщо Redis недоступний                 | Ні (за замовчуванням: true)  | boolean |
+
+> _Коли `fallback_if_unavailable` встановлено в true, система дозволяє
+> транзакціям виконуватися, якщо Redis тимчасово недоступний, запобігаючи
+> перебоям у роботі сервісу._
+
+### Правила обмеження використання
+
+Бета-версія представляє деталізовані обмеження використання на основі правил.
+Замість єдиного лічильника `max_transactions`, ви можете визначити кілька
+правил, які спрямовані на конкретні типи транзакцій або окремі інструкції, з
+необов'язковими часовими вікнами.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Поле правила     | Опис                                                                                                    | Обов'язково |
+| ---------------- | ------------------------------------------------------------------------------------------------------- | ----------- |
+| `type`           | `"transaction"` (враховує всі транзакції) або `"instruction"` (враховує конкретні типи інструкцій)      | Так         |
+| `max`            | Максимальна кількість до блокування гаманця                                                             | Так         |
+| `window_seconds` | Часове вікно в секундах. Якщо не вказано, обмеження є постійним.                                        | Ні          |
+| `program`        | Адреса програми для зіставлення (обов'язково для типу `instruction`)                                    | Умовно      |
+| `instruction`    | Назва інструкції для зіставлення, наприклад `"Transfer"`, `"Burn"` (обов'язково для типу `instruction`) | Умовно      |
+
+Коли встановлено `window_seconds`, лічильник скидається після закінчення
+часового вікна. Без нього ліміт є постійним — після досягнення гаманець
+блокується до ручного очищення з Redis.
+
+## Нові доступні методи
+
+До `[kora.enabled_methods]` додано наступні методи:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Метод                  | Опис                                       |
+| ---------------------- | ------------------------------------------ |
+| `get_version`          | Повертає версію сервера Kora               |
+| `estimate_bundle_fee`  | Оцінює комісії для пакета транзакцій       |
+| `sign_bundle`          | Підписує пакет транзакцій без відправлення |
+| `sign_and_send_bundle` | Підписує та відправляє пакет до Jito       |
+
+Дивіться [Методи пакетів](/docs/tools/kora/beta/bundle-methods) для повної
+документації API.

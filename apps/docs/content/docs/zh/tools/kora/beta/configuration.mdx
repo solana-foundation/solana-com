@@ -1,0 +1,321 @@
+---
+title: 新配置选项（测试版）
+description: Kora v2.2.0-beta 中引入的新 kora.toml 配置部分。
+---
+
+这些配置选项从 `v2.2.0-beta.1` 开始提供。将它们添加到现有的 `kora.toml`
+中，与稳定配置一起使用。
+
+## 交易插件
+
+`[kora.plugins]`
+部分配置在签名流程中运行的交易插件。插件在 Kora 签名之前验证交易的结构和内容。它们适用于
+`signTransaction`、`signAndSendTransaction`、`signBundle` 和 `signAndSendBundle`
+— 但**不适用于** `estimateBundleFee`。
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| 选项      | 描述                 | 是否必需         | 类型     |
+| --------- | -------------------- | ---------------- | -------- |
+| `enabled` | 已启用的交易插件列表 | 否（默认值：[]） | string[] |
+
+### `gas_swap` 插件
+
+`gas_swap`
+插件对无 gas 代币换 SOL 交易操作强制执行严格的交易结构。启用后，通过签名流程提交的每笔交易必须恰好包含：
+
+1. **一笔 SPL 代币转账**（SPL Token 或 Token-2022）— 来自非手续费支付者所有者
+2. **一笔 System SOL 转账**（`Transfer` 或
+   `TransferWithSeed`）— 来自手续费支付者
+
+计算预算指令（设置计算单元限制/价格）允许与这两个必需指令一起使用。任何额外的或非交换的外层指令都将被拒绝。
+
+#### 配置要求
+
+`gas_swap` 插件在启动时验证您的配置，如果不满足要求将报错：
+
+- **System Program** 必须在 `allowed_programs` 中
+- **至少一个代币程序**（SPL Token 或 Token-2022）必须在 `allowed_programs` 中
+- **至少一个代币**必须在 `allowed_tokens` 中
+- **定价模型**不能是 `Free` — 设置保证金或固定价格
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **警告：**当使用 `gas_swap` 和固定定价时，请确保固定代币手续费至少价值
+> `max_allowed_lamports`
+> 的 SOL，以避免出现发送的 SOL 超过接收的代币价值的消耗情况。
+
+---
+
+## 捆绑配置
+
+INLINE_CODE_PLACEHOLDER_78b835d294b52f52_END 部分启用 Jito 捆绑支持，用于原子化多交易执行：
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| 选项      | 描述         | 必需              | 类型    |
+| --------- | ------------ | ----------------- | ------- |
+| `enabled` | 启用捆绑功能 | 否（默认：false） | boolean |
+
+### Jito 配置
+
+| 选项               | 描述              | 必需             | 类型   |
+| ------------------ | ----------------- | ---------------- | ------ |
+| `block_engine_url` | Jito 区块引擎 URL | 是（启用捆绑时） | string |
+
+可用的 Jito 区块引擎 URL：
+
+- **主网（公开）：** `https://mainnet.block-engine.jito.wtf`
+- **主网（私有）：** 请联系 Jito 获取访问权限
+
+> **重要提示：** 当使用由 Kora 支付 Jito 小费的捆绑时，请在
+> `[validation.fee_payer_policy.system]` 中设置
+> `allow_transfer = true`，以允许签名者转移 SOL 支付小费。
+
+有关使用 Kora 实现 Jito 捆绑的完整指南，请参阅
+[Jito 捆绑指南](/docs/tools/kora/beta/jito-guide)。
+
+---
+
+## Lighthouse 费用支付者保护
+
+`[kora.lighthouse]`
+部分启用 Lighthouse 费用支付者保护。启用后，Kora 会向交易添加余额断言指令，通过验证费用支付者的余额不会低于预期水平来保护其免受耗尽攻击。
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| 选项                                | 描述                                                                   | 必需              | 类型    |
+| ----------------------------------- | ---------------------------------------------------------------------- | ----------------- | ------- |
+| `enabled`                           | 启用 Lighthouse 断言以保护费用支付者                                   | 否（默认：false） | boolean |
+| `fail_if_transaction_size_overflow` | 如果添加断言超过大小限制则拒绝交易。如果为 false，则静默跳过添加断言。 | 否（默认：true）  | boolean |
+
+### 工作原理
+
+当启用 Lighthouse 时，Kora 会获取费用支付者的当前余额，并添加一个 Lighthouse 断言指令，验证余额在交易完成时不会低于
+`(current_balance - estimated_fee)`。这可以防止恶意交易将费用支付者的余额耗尽到超出预期成本。
+
+### 方法兼容性
+
+Lighthouse 保护**仅适用于 `signTransaction` 和 `signBundle`**。它 **不适用于**
+`signAndSendTransaction` 或 `signAndSendBundle`。
+
+当 Lighthouse 添加断言指令时,它会修改交易消息。这会使任何预先存在的客户端签名失效。`signAndSend*`
+流程将失败,原因如下:
+
+1. 客户端对交易进行签名
+2. Kora 添加 Lighthouse 断言(修改消息)
+3. 客户端的原始签名失效
+4. 网络以"签名验证失败"拒绝交易
+
+**使用 Lighthouse 的推荐模式:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### 配置要求
+
+启用 Lighthouse 时,请将 Lighthouse 程序添加到您的 `allowed_programs` 中:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora 会在启动时验证此配置,如果启用了 Lighthouse 但程序不在 `allowed_programs`
+中,将会报错。
+
+> **注意:** 如果 `signAndSendTransaction` 或 `signAndSendBundle`
+> 与Lighthouse 同时启用,Kora 将记录警告,提示这些方法不会具有手续费支付者保护。
+
+## reCAPTCHA 机器人防护
+
+reCAPTCHA v3 为敏感端点提供隐式机器人防护。与对所有请求进行身份验证的 API
+Key 和 HMAC 不同,reCAPTCHA 仅保护特定的高风险方法(默认为签名方法)。
+
+### 服务器配置
+
+将 `KORA_RECAPTCHA_SECRET` 添加到您的环境变量中(具有优先级),或在您的 `kora.toml`
+中添加 `recaptcha_secret`:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| 选项                        | 描述                                                | 默认值   |
+| --------------------------- | --------------------------------------------------- | -------- |
+| `recaptcha_secret`          | 您从 Google 获取的 reCAPTCHA v3 密钥                | -        |
+| `recaptcha_score_threshold` | 通过所需的最低分数(0.0 = 全部通过,1.0 = 全部不通过) | 0.5      |
+| `protected_methods`         | 需要验证的 RPC 方法                                 | 签名方法 |
+
+### 工作原理
+
+1. 客户端从 Google 的 reCAPTCHA v3 API 获取 reCAPTCHA 令牌
+2. 客户端在 `x-recaptcha-token` 标头中包含该令牌
+3. 服务器通过 Google 验证令牌并检查分数
+4. 如果分数 >= 阈值,请求继续处理;否则返回 401 未授权
+
+reCAPTCHA 在 API 密钥/HMAC 身份验证成功*之后*运行（如果已配置）。未受保护的方法会完全绕过 reCAPTCHA 验证。
+
+### 客户端实现
+
+**使用 Kora SDK：**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**使用 fetch：**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### 获取 reCAPTCHA 密钥
+
+1. 访问 [Google reCAPTCHA 管理控制台](https://www.google.com/recaptcha/admin)
+2. 使用 **reCAPTCHA v3** 创建新站点
+3. 在前端（客户端）使用**网站密钥**
+4. 在 Kora 配置（服务器端）使用**密钥**
+
+## 使用限制
+
+`[kora.usage_limit]`
+部分配置每个钱包的使用限制，以防止滥用并确保公平使用。这也可用于创建奖励计划，为用户的交易费用提供补贴，直至达到一定限额。
+
+**注意**：当在多个 Kora 实例中启用此功能时，需要 Redis。
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| 选项                      | 描述                              | 必需                | 类型    |
+| ------------------------- | --------------------------------- | ------------------- | ------- |
+| `enabled`                 | 启用每个钱包的使用限制            | 否（默认值：false） | boolean |
+| `cache_url`               | 用于共享使用跟踪的 Redis 连接 URL | 否                  | string  |
+| `fallback_if_unavailable` | 当 Redis 不可用时允许交易         | 否（默认值：true）  | boolean |
+
+> _当 `fallback_if_unavailable`
+> 为 true 时，如果 Redis 暂时不可用，系统允许交易继续进行，防止服务中断。_
+
+### 使用限制规则
+
+该测试版引入了细粒度的基于规则的使用限制。您可以定义多个规则来针对特定的交易类型或单个指令，并可选择时间窗口，而不是单一的
+`max_transactions` 计数。
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| 规则字段         | 描述                                                                           | 必需   |
+| ---------------- | ------------------------------------------------------------------------------ | ------ |
+| `type`           | `"transaction"`（计算所有交易）或 `"instruction"`（计算特定指令类型）          | 是     |
+| `max`            | 钱包被阻止前的最大计数                                                         | 是     |
+| `window_seconds` | 时间窗口（秒）。如果省略，则限制为永久性。                                     | 否     |
+| `program`        | 要匹配的程序地址（对于 `instruction` 类型为必需）                              | 有条件 |
+| `instruction`    | 要匹配的指令名称，例如 `"Transfer"`、`"Burn"`（对于 `instruction` 类型为必需） | 有条件 |
+
+当设置 `window_seconds`
+时,计数器会在时间窗口到期后重置。如果不设置,限制将是永久性的——一旦达到限制,钱包将被阻止,直到从 Redis 中手动清除。
+
+## 新增启用的方法
+
+以下方法已添加到 `[kora.enabled_methods]`:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| 方法                   | 描述                          |
+| ---------------------- | ----------------------------- |
+| `get_version`          | 返回 Kora 服务器版本          |
+| `estimate_bundle_fee`  | 估算交易捆绑包的费用          |
+| `sign_bundle`          | 对交易捆绑包进行签名但不发送  |
+| `sign_and_send_bundle` | 对捆绑包进行签名并提交至 Jito |
+
+完整的 API 文档请参阅 [捆绑包方法](/docs/tools/kora/beta/bundle-methods)。

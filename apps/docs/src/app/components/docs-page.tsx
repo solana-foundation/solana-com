@@ -6,8 +6,9 @@ import {
 import { ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
-import { DocsFooter } from "./docs-footer";
+import { DocsFooter, DocsLink } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
+import type { PageTree } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
@@ -19,10 +20,11 @@ export function DocsPage(props: {
   filePath: string;
   toc: DocsPageProps["toc"];
   hideTableOfContents?: boolean;
+  hidePageNavigation?: boolean;
   full?: boolean;
   title: string;
   description?: string;
-  pageTree?: any;
+  pageTree?: Parameters<typeof findNeighbour>[0];
   href: string;
   markdown: string;
   isRoot?: boolean;
@@ -56,7 +58,10 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       footer={{
-        component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
+        component:
+          props.pageTree && !props.hidePageNavigation ? (
+            <Footer pageUrl={props.href} pageTree={props.pageTree} />
+          ) : undefined,
       }}
     >
       {props.hideHeader ? null : props.isRoot ? (
@@ -114,17 +119,36 @@ function getEditUrl(path: string, editPathPrefix = "content/docs") {
   return `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/${editPathPrefix}/${path.startsWith("/") ? path.slice(1) : path}`;
 }
 
-function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
+function getFirstPage(
+  node: PageTree.Root | PageTree.Node,
+): PageTree.Item | null {
+  if ("type" in node && node.type === "page") {
+    return node;
+  }
+
+  if ("children" in node) {
+    const firstChild =
+      "index" in node && node.index ? node.index : node.children[0];
+    return firstChild ? getFirstPage(firstChild) : null;
+  }
+
+  return null;
+}
+
+function Footer({
+  pageUrl,
+  pageTree,
+}: {
+  pageUrl: string;
+  pageTree: Parameters<typeof findNeighbour>[0];
+}) {
   const { next, previous } = findNeighbour(pageTree, pageUrl);
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)
-    let firstPage = pageTree;
-    while (firstPage && firstPage.children) {
-      firstPage = firstPage.index || firstPage.children[0];
-    }
+    const firstPage = getFirstPage(pageTree);
     if (!firstPage) return null;
-    return <DocsFooter next={firstPage} previous={undefined} />;
+    return <DocsFooter next={firstPage as DocsLink} previous={undefined} />;
   }
   return <DocsFooter previous={previous} next={next} />;
 }

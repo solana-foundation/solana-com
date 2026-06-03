@@ -16,7 +16,7 @@ export default async function Layout({
     (child) =>
       child.type === "folder" && child.index?.url?.includes("/docs/rpc"),
   );
-  const pageTree = { ...tree, children: [rpcFolder] };
+  const pageTree = { ...tree, children: rpcFolder ? [rpcFolder] : [] };
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}

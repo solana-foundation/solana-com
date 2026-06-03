@@ -336,6 +336,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
   return (
     <div className="overflow-hidden bg-black">
       {/* Animation styles */}
+      {/* eslint-disable-next-line react/no-unknown-property*/}
       <style jsx global>{`
         @keyframes blink {
           0%,

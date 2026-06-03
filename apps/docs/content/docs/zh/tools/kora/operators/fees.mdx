@@ -1,0 +1,116 @@
+---
+title: 费用参考
+description: Kora 费用计算的完整参考。
+---
+
+_最后更新：2025-10-31_
+
+Kora 在执行 `estimate_transaction_fee` 和 `sign_transaction`
+RPC 方法时会估算交易费用。为了估算费用，Kora 会计算在 Solana 上执行交易的总成本，包括网络费用、账户创建成本以及可选的支付处理费用。本指南详细说明了费用计算的各个组成部分。
+
+## 费用计算公式
+
+费用由 `kora.toml` 中配置的定价模型确定：
+
+- `PriceModel::Free` - 赞助所有交易费用（总费用 = 0）
+- `PriceModel::Fixed` - 以特定代币收取固定金额（无论网络费用如何）
+- `PriceModel::Margin` - 在总费用基础上添加百分比差价。
+
+`PriceModel::Margin` 中使用的总费用估算主要入口点是
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs)
+中的 `FeeConfigUtil::estimate_kora_fee()`。它使用以下通用公式：
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## 费用组成
+
+| 组成部分           | 描述                                                     | 计算方法                                                                                                  | 应用时机                                      |
+| ------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **基础费用**       | 涵盖签名验证和交易处理的 Solana 核心交易费用             | `RpcClient.get_fee_for_message()` - 使用基于计算单元和优先费用的 Solana 费用计算                          | 始终                                          |
+| **账户创建费用**   | 创建新的关联代币账户 (ATA) 所需的免租金最低余额          | `Rent::default().minimum_balance(account_size)` - 根据账户数据大小计算租金（根据代币扩展为 165-355 字节） | 当交易创建新的 ATA 时                         |
+| **Kora 签名费用**  | 当 Kora 作为非参与者费用支付方签名时收取的额外费用       | 固定：5,000 lamports (`LAMPORTS_PER_SIGNATURE`)                                                           | 当费用支付方尚未成为交易签名者时              |
+| **费用支付方流出** | 费用支付方在交易中发送的 SOL 总额（转账、账户创建等）    | 总和：来自费用支付方的系统转账、由费用支付方资助的 CreateAccount、来自费用支付方的 Nonce 提款             | 当费用支付方执行 System Program 操作时        |
+| **支付指令费用**   | 为无 gas 交易添加支付指令的优先费用估算成本              | 固定估算：50 lamports (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                      | 当需要支付但交易中未包含时                    |
+| **转账费用**       | 在铸币上配置的 Token2022 转账费用（例如，转账金额的 1%） | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - 基于铸币的转账费用配置                            | 仅适用于向 Kora 支付地址的 Token2022 转账     |
+| **差价调整**       | Kora 的定价模型标记/调整                                 | 在 `validation.price` 中配置的差价 - 可以按总费用的百分比添加标记                                         | 当在 kora.toml 中提供 `[validation.price]` 时 |
+
+## 定价模型与付费方流出
+
+Kora 支持三种定价模型，用于确定如何向用户收取交易费用：
+
+### 保证金定价（默认）
+
+- **公式：** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **包含付费方流出：** 是
+- **最适用于：** 生产环境部署，其中费用应反映实际成本并添加运营保证金
+
+### 固定定价
+
+- **公式：** `Total Fee = Fixed Amount (in specified token)`
+- **包含付费方流出：** 否
+- **最适用于：** 在受控环境中提供可预测定价的简化用户体验
+
+### 免费定价
+
+- **公式：** `Total Fee = 0`
+- **包含付费方流出：** 否（运营方承担所有费用）
+- **最适用于：** 促销活动、测试或完全赞助的应用程序
+
+---
+
+## ⚠️ 安全警告：固定/免费定价模型
+
+**重要提示：**
+固定/免费定价模型**不会**在收费金额中包含付费方流出。如果配置不当，这会造成重大安全风险。如果您的付费方策略允许转账或其他流出操作，攻击者可以利用此漏洞耗尽您的付费方账户。
+
+### 必需的安全控制措施
+
+使用固定/免费定价时，您**必须**配置限制性付费方策略，以阻止所有货币和权限更改操作：
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### 其他保护措施
+
+1. **启用身份验证：** 在使用固定/免费定价时始终要求 API 密钥或 HMAC 身份验证
+2. **设置低限额：** 使用保守的 `max_allowed_lamports` 值
+3. **监控使用情况：** 跟踪高流出交易的异常模式
+4. **考虑保证金定价：** 保证金定价会自动将流出成本包含在费用中
+
+### 验证警告
+
+Kora 的配置 validator 会对危险配置发出警告：
+
+```bash
+kora --config kora.toml config validate
+```
+
+针对易受攻击配置的预期警告：
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

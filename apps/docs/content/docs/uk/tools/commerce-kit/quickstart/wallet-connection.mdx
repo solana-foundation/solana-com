@@ -1,0 +1,487 @@
+---
+title: Підключення гаманця
+description: Підключайте гаманці Solana за допомогою Wallet Standard
+---
+
+Пакет `@solana-commerce/connector` забезпечує headless-підключення гаманців,
+побудоване на
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard). Він керує
+виявленням гаманців, станом підключення, управлінням обліковими записами та
+автоматичним повторним підключенням. Пакет розроблено як framework-agnostic з
+включеними прив'язками для React. Він оптимізований для безшовного використання
+в Solana Commerce Kit і сумісний з
+[@solana/kit](https://github.com/anza-xyz/kit) та
+[gill](https://www.gillsdk.com/).
+
+![Підключення гаманця](/assets/docs/tools/commerce-kit/connector.png)
+
+## Встановлення
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Конфігурація провайдера
+
+### `ConnectorProvider`
+
+Компонент `ConnectorProvider` обгортає ваш додаток і надає стан підключення
+гаманця всім дочірнім компонентам. Він керує одиничним екземпляром
+`ConnectorClient`, який зберігається протягом циклів монтування/демонтування
+компонентів.
+
+#### Властивості
+
+Вся конфігурація передається через властивість `config`:
+
+- **`config`** (`ConnectorConfig`, необов'язково) - Об'єкт конфігурації для
+  коннектора. Усі поля є необов'язковими.
+
+#### `ConnectorConfig`
+
+Об'єкт конфігурації для поведінки підключення гаманця.
+
+##### Необов'язкові поля
+
+- **`autoConnect`** (`boolean`) - Коли встановлено `true`, автоматично повторно
+  підключається до останнього використаного гаманця при монтуванні. Налаштування
+  гаманця зберігається в налаштованому сховищі (за замовчуванням
+  `localStorage`). За замовчуванням: `false`.
+
+- **`debug`** (`boolean`) - Увімкнення детального логування в консоль для
+  відлагодження потоків підключення, змін облікових записів та помилок. Логи
+  включають префікси, такі як `[Connector]` та `[ConnectorProvider]`. За
+  замовчуванням: `false`.
+
+- **`accountPollingIntervalMs`** (`number`) - Інтервал опитування в мілісекундах
+  для перевірки змін облікового запису, коли гаманець не підтримує функцію
+  `standard:events`. Більшість сучасних гаманців підтримують події, тому
+  опитування є резервним варіантом. За замовчуванням: `1500` (1,5 секунди).
+
+- **`storage`** (`Storage`) - Користувацький адаптер сховища для збереження
+  налаштувань гаманця. Повинен реалізовувати:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  За замовчуванням: `window.localStorage`, якщо доступно (тільки в браузері).
+  Використовуйте це для React Native (`AsyncStorage`) або кастомного
+  SSR-безпечного сховища.
+
+#### Архітектура провайдера
+
+Провайдер використовує **патерн одинак** з підрахунком посилань:
+
+- Декілька екземплярів `ConnectorProvider` спільно використовують той самий
+  `ConnectorClient`
+- Клієнт створюється при першому монтуванні і зберігається між демонтуваннями
+- Коли всі провайдери демонтуються, очищення затримується на 5 секунд для
+  обробки швидких повторних монтувань
+- Під час очищення гаманець відключається і всі обробники подій видаляються
+
+Такий дизайн запобігає відключенню гаманця під час зміни маршрутів або оновлення
+компонентів.
+
+---
+
+## Хуки
+
+### `useConnector()`
+
+Основний хук для доступу до стану з'єднання з гаманцем та дій. Має
+використовуватися всередині `ConnectorProvider`.
+
+Повертає об'єкт `ConnectorSnapshot`, що містить:
+
+#### Властивості стану
+
+- **`wallets`** (`WalletInfo[]`) - Масив усіх виявлених гаманців, сумісних зі
+  стандартом Wallet Standard. Автоматично оновлюється при встановленні або
+  видаленні гаманців. Кожен гаманець включає метадані, такі як назва, іконка та
+  можливості. Дивіться [WalletInfo](#walletinfo).
+
+- **`selectedWallet`** (`Wallet | null`) - Об'єкт гаманця Wallet Standard, що
+  наразі підключений. `null`, коли відключений. Це необроблений екземпляр
+  гаманця з API Wallet Standard.
+
+- **`connected`** (`boolean`) - Статус підключення. `true`, коли гаманець
+  підключений і акаунти доступні. Використовуйте це для умовного рендерингу
+  інтерфейсу.
+
+- **`connecting`** (`boolean`) - Стан завантаження під час підключення гаманця.
+  `true` між викликом `select()` і отриманням результату підключення.
+  Використовуйте це для відображення індикаторів завантаження або вимкнення
+  кнопок.
+
+- **`accounts`** (`AccountInfo[]`) - Масив акаунтів з підключеного гаманця.
+  Більшість гаманців надають один акаунт, але деякі підтримують декілька.
+  Автоматично оновлюється через події гаманця або опитування. Дивіться
+  [AccountInfo](#accountinfo).
+
+- **`selectedAccount`** (`string | null`) - Адреса наразі вибраного акаунта
+  (публічний ключ у кодуванні base58). Коли гаманець підключається з новим
+  акаунтом, цей акаунт автоматично вибирається. В іншому випадку зберігається
+  раніше вибраний акаунт.
+
+#### Методи дій
+
+- **`select`** (`(walletName: string) => Promise<void>`) - Підключається до
+  гаманця за назвою (наприклад, `"Phantom"`, `"Solflare"`). Назва гаманця
+  повинна точно збігатися з полем `name` виявленого гаманця.
+
+  **Процес:**
+  1. Встановлює `connecting: true`
+  2. Викликає функцію `standard:connect` гаманця
+  3. Отримує облікові записи з гаманця
+  4. Підписується на події гаманця (або запускає опитування, якщо події
+     недоступні)
+  5. Зберігає налаштування гаманця в налаштованому сховищі
+  6. Оновлює стан з обліковими записами та вибраним обліковим записом
+
+  **Викидає помилку:** Помилка, якщо гаманець не знайдено, гаманець не підтримує
+  підключення або підключення відхилено користувачем.
+
+- **`disconnect`** (`() => Promise<void>`) - Відключає поточний гаманець і
+  очищає весь стан.
+
+  **Процес:**
+  1. Скасовує підписку на події гаманця
+  2. Зупиняє опитування облікових записів
+  3. Викликає функцію `standard:disconnect` гаманця, якщо доступна
+  4. Очищає вибраний гаманець, облікові записи та вибраний обліковий запис
+  5. Видаляє налаштування гаманця зі сховища
+
+  Ніколи не викидає помилок (помилки реєструються, якщо увімкнено режим
+  налагодження).
+
+- **`selectAccount`** (`(address: string) => Promise<void>`) - Перемикає
+  вибраний обліковий запис на іншу адресу з підключеного гаманця. Якщо адреси
+  немає в поточному масиві облікових записів, ініціює повторне підключення для
+  отримання оновлених облікових записів.
+
+  **Викидає помилку:** Помилка, якщо гаманець не підключено або запитуваний
+  обліковий запис не знайдено після повторного підключення.
+
+### `useConnectorClient()`
+
+Надає прямий доступ до базового екземпляра `ConnectorClient` для розширених
+сценаріїв використання.
+
+**Повертає:** `ConnectorClient | null` - Екземпляр синглтону клієнта або `null`
+при використанні поза `ConnectorProvider`.
+
+**Сценарії використання:**
+
+- Прямий доступ до `getConnectorState()` для імперативного читання стану
+- Ручна підписка за допомогою `subscribe(listener)` для власних слухачів стану
+- Виклик `destroy()` для примусового очищення (не рекомендується при звичайному
+  використанні)
+
+**Приклад:**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## Визначення типів
+
+### `WalletInfo`
+
+Метадані про виявлений гаманець.
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` Вимоги:** Гаманець може підключатися, якщо він підтримує:
+
+- функцію `standard:connect`
+- функцію `standard:disconnect`
+- ланцюги Solana (виявляються через `wallet.chains`, що містить `"solana"`)
+
+Гаманці, які не можуть підключатися, відображаються в масиві `wallets`, але не
+можуть бути вибрані.
+
+### `AccountInfo`
+
+Інформація про обліковий запис гаманця.
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+Поле `raw` надає доступ до додаткових властивостей облікового запису:
+
+- `address: string` - публічний ключ у кодуванні Base58
+- `publicKey: Uint8Array` - байти необробленого публічного ключа
+- `label?: string` - мітка облікового запису (якщо гаманець її надає)
+- `icon?: string` - іконка, специфічна для облікового запису (data URL)
+- `chains: string[]` - підтримувані ланцюги для цього облікового запису
+- `features: string[]` - підтримувані функції для цього облікового запису
+
+### `ConnectorSnapshot`
+
+Тип значення, що повертається `useConnector()`, поєднує стан та дії.
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## Виявлення зміни облікового запису
+
+Конектор автоматично виявляє зміни облікових записів гаманця (коли користувач
+додає/видаляє облікові записи, перемикається між обліковими записами в гаманці).
+Використовуються дві стратегії:
+
+### На основі подій (рекомендовано)
+
+Якщо гаманець підтримує `standard:events`, конектор підписується на події
+`change`:
+
+- Отримує сповіщення в реальному часі про зміни облікових записів
+- Більш ефективний (без опитування)
+- Агрегує облікові записи як з події, так і з `wallet.accounts` для обробки
+  гаманців, які включають лише вибраний обліковий запис у події
+
+### Резервне опитування
+
+Якщо події не підтримуються, конектор опитує `wallet.accounts`:
+
+- Перевіряє кожні `accountPollingIntervalMs` (за замовчуванням: 1500 мс)
+- Порівнює адреси облікових записів для виявлення змін
+- Ініціює повторний рендеринг лише при фактичній зміні облікових записів
+
+**Логіка вибору облікового запису:**
+
+- При зміні облікових записів зберігати вибраний обліковий запис, якщо він все
+  ще існує
+- Якщо вибраний обліковий запис було видалено, вибрати перший доступний
+  обліковий запис
+- При підключенні з новим обліковим записом (якого немає в попередніх облікових
+  записах) надати перевагу новому обліковому запису
+
+---
+
+## Сховище та автоматичне підключення
+
+### Збереження у сховищі
+
+Конектор зберігає один ключ у налаштованому сховищі:
+
+- **Ключ:** `arc-connector:lastWallet`
+- **Значення:** Назва гаманця (наприклад, `"Phantom"`)
+
+Операції зі сховищем обгорнуті у try-catch для обробки:
+
+- Ізольованих iframe, де `localStorage` викидає помилку
+- SSR-середовищ, де `window` не визначено
+- React Native, де `localStorage` не існує
+
+Якщо сховище не працює, конектор продовжує роботу без збереження (помилки не
+викидаються).
+
+### Поведінка автоматичного підключення
+
+Коли `autoConnect: true`:
+
+1. При монтуванні зчитує назву останнього гаманця зі сховища
+2. Очікує 100 мс (дозволяє гаманцям зареєструватися)
+3. Викликає `select(walletName)`, якщо гаманець виявлено
+4. Якщо автоматичне підключення не вдається, видаляє недійсне налаштування зі
+   сховища
+
+**Примітка щодо безпеки:** Збережене налаштування — це лише назва гаманця
+(рядок), а не конфіденційні дані. Гаманець обробляє автентифікацію/авторизацію
+через власний інтерфейс.
+
+---
+
+## Приклади використання
+
+### Базова кнопка гаманця
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### Селектор кількох акаунтів
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Моніторинг підключення
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## Підтримувані гаманці
+
+Конектор підтримує всі гаманці, що реалізують
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard), зокрема:
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- Будь-який інший гаманець, сумісний із Wallet Standard
+
+Гаманці автоматично виявляються, коли вони реєструються в API Wallet Standard
+(налаштування не потрібне).
+
+---
+
+## Використання без інтерфейсу (без React)
+
+Для додатків без React або для використання на стороні сервера використовуйте
+`ConnectorClient` безпосередньо:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**Примітка:** `ConnectorClient` керує власним станом і ніколи не викликає
+повторний рендеринг React. Ви повинні вручну підписатися на зміни стану.

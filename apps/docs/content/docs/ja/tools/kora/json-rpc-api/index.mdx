@@ -1,0 +1,155 @@
+---
+title: JSON-RPC API 概要
+description:
+  Kora は、Solana 上でガスレストランザクション処理を行うための JSON-RPC 2.0
+  インターフェースを実装しています。
+---
+
+> **Kora v2.2.0-beta をご利用ですか？**
+> 新しいバンドルメソッド（`signBundle`、`signAndSendBundle`、`estimateBundleFee`）および
+> `getVersion` については、
+> [Beta ドキュメント](/docs/tools/kora/beta/bundle-methods)をご覧ください。
+
+## TypeScript SDK
+
+`@solana/kora`
+パッケージは、Kora サーバーとやり取りするための 3 つのクライアントオプションを提供します：
+
+### KoraClient（スタンドアロン）
+
+スタンドアロン使用には `KoraClient` を使用します。`@solana/kit`
+v5.0+ で動作します。
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin（Kit コンポーザブル）
+
+既存の Kit クライアントに Kora メソッドを組み込むには `koraPlugin()`
+を使用します。`createEmptyClient().use()` パターンには `@solana/kit`
+v5.4+ が必要です。
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+このプラグインは、Kit 型のレスポンス（`Address`、`Blockhash`、`Base64EncodedWireTransaction`）を提供し、他のプラグインとの組み合わせのために
+`KoraPlugin` 型をエクスポートします。
+
+### createKitKoraClient（Kit クライアント）
+
+自動トランザクションプランニング、手数料見積もり、支払い注入、実行を備えた完全な Kit 統合には
+`createKitKoraClient()`
+を使用します。これはほとんどのアプリケーションで推奨されるアプローチです。`@solana/kit`
+v6.1+ が必要です。
+
+Kit クライアントは、Kora を Kit のプラグインアーキテクチャ（プランナー、エグゼキューター、ペイヤープラグイン）と組み合わせることで、`tokenProgram()`
+のような Kit program プラグインを直接使用できるようにします。
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**設定オプション：**
+
+| オプション         | 必須   | 説明                                                                                                  |
+| ------------------ | ------ | ----------------------------------------------------------------------------------------------------- |
+| `endpoint`         | はい   | Kora RPC エンドポイント URL                                                                           |
+| `rpcUrl`           | はい   | コンピュートユニット見積もりおよび program プラグイン互換性のための Solana RPC URL                    |
+| `feeToken`         | はい   | 手数料支払い用の SPL ミントアドレス                                                                   |
+| `feePayerWallet`   | はい   | SPL 手数料支払いを承認する `TransactionSigner`                                                        |
+| `apiKey`           | いいえ | 認証用の API キー                                                                                     |
+| `hmacSecret`       | いいえ | 署名ベース認証用の HMAC シークレット                                                                  |
+| `computeUnitLimit` | いいえ | 固定コンピュートユニット制限（設定されていない場合はシミュレーションベースの見積もりを使用）          |
+| `computeUnitPrice` | いいえ | マイクロランポート単位の優先手数料                                                                    |
+| `tokenProgramId`   | いいえ | Token Program ID（デフォルトは Token Program；Token-2022 トークンの場合は Token-2022 アドレスを使用） |
+
+## プロトコル
+
+- **標準**: JSON-RPC 2.0
+- **トランスポート**: HTTP POST
+- **Content-Type**: application/json
+- **エンドポイント**: `http://your-kora-instance/`
+
+## 利用可能なメソッド
+
+| メソッド                                                                          | 説明                                                                                                                   |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | lamportと指定されたトークンの両方でトランザクション手数料を見積もります。                                              |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | Koraサーバーーが接続しているSolana RPCから最新のブロックハッシュを取得します。                                         |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | 現在のKoraサーバー設定を取得します。                                                                                   |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | Koraサーバーから支払者署名者と支払先を取得します。                                                                     |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | Kora paymasterへの手数料支払いのためにトランザクションに追加する支払いinstructionsを作成します。                       |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | 手数料支払いに対応しているトークンのリストを取得します。                                                               |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | トランザクションに署名し、即座にSolanaネットワークにブロードキャストします。                                           |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | トランザクションに手数料支払者への必要な支払いが含まれている場合、ブロードキャストせずにKora手数料支払者で署名します。 |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | Koraを手数料支払者としてトークン転送トランザクションを作成します。                                                     |
+
+## リクエスト形式
+
+すべてのリクエストはJSON-RPC 2.0標準に従います：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## レスポンス形式
+
+成功レスポンス：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+エラーレスポンス：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

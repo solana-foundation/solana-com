@@ -1,0 +1,439 @@
+---
+title: 钱包连接
+description: 使用 Wallet Standard 连接 Solana 钱包
+---
+
+`@solana-commerce/connector` 包提供了基于
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+构建的无头钱包连接功能。它管理钱包发现、连接状态、账户管理和自动重连。该包设计为框架无关,并包含 React 绑定。它专为在 Solana
+Commerce Kit 中无缝使用而定制,并与
+[@solana/kit](https://github.com/anza-xyz/kit) 和
+[gill](https://www.gillsdk.com/) 兼容。
+
+![钱包连接](/assets/docs/tools/commerce-kit/connector.png)
+
+## 安装
+
+```bash
+pnpm add @solana-commerce/connector
+```
+
+## Provider 配置
+
+### `ConnectorProvider`
+
+`ConnectorProvider`
+组件包裹您的应用程序,并为所有子组件提供钱包连接状态。它管理一个单例
+`ConnectorClient` 实例,该实例在组件挂载/卸载周期中持续存在。
+
+#### 属性
+
+所有配置通过 `config` 属性传递:
+
+- **`config`**(`ConnectorConfig`,可选)- 连接器的配置对象。所有字段均为可选。
+
+#### `ConnectorConfig`
+
+钱包连接行为的配置对象。
+
+##### 可选字段
+
+- **`autoConnect`**(`boolean`)- 当设置为 `true`
+  时,在挂载时自动重连到上次使用的钱包。钱包偏好设置存储在配置的存储中(默认为
+  `localStorage`)。默认值:`false`。
+
+- **`debug`**(`boolean`)- 启用详细的控制台日志记录,用于调试连接流程、账户变更和错误。日志包含
+  `[Connector]` 和 `[ConnectorProvider]` 等前缀。默认值:`false`。
+
+- **`accountPollingIntervalMs`**(`number`)- 当钱包不支持 `standard:events`
+  特性时,用于检查账户变更的轮询间隔(毫秒)。大多数现代钱包支持事件,因此轮询是一种后备方案。默认值:`1500`(1.5 秒)。
+
+- **`storage`**(`Storage`)- 用于持久化钱包偏好设置的自定义存储适配器。必须实现:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  默认值:可用时使用 `window.localStorage`(仅限浏览器)。将此用于 React
+  Native(`AsyncStorage`)或自定义 SSR 安全存储。
+
+#### 提供者架构
+
+提供者使用**单例模式**与引用计数：
+
+- 多个 `ConnectorProvider` 实例共享同一个 `ConnectorClient`
+- 客户端在首次挂载时创建，并在卸载后持续存在
+- 当所有提供者卸载时，清理会延迟 5 秒以处理快速重新挂载
+- 在清理过程中，钱包会断开连接，所有事件监听器会被移除
+
+此设计可防止在路由变更或组件更新期间钱包断开连接。
+
+---
+
+## 钩子函数
+
+### `useConnector()`
+
+用于访问钱包连接状态和操作的主要钩子。必须在 `ConnectorProvider` 内使用。
+
+返回一个包含以下内容的 `ConnectorSnapshot` 对象：
+
+#### 状态属性
+
+- **`wallets`**（`WalletInfo[]`）- 所有已发现的兼容钱包标准的钱包数组。当钱包安装或卸载时自动更新。每个钱包包含名称、图标和功能等元数据。参见
+  [WalletInfo](#walletinfo)。
+
+- **`selectedWallet`**（`Wallet | null`）- 当前连接的钱包标准钱包对象。断开连接时为
+  `null`。这是来自钱包标准 API 的原始钱包实例。
+
+- **`connected`**（`boolean`）- 连接状态。当钱包已连接且账户可用时为
+  `true`。用于条件 UI 渲染。
+
+- **`connecting`**（`boolean`）- 钱包连接期间的加载状态。在调用 `select()`
+  到接收连接结果之间为 `true`。用于显示加载指示器或禁用按钮。
+
+- **`accounts`**（`AccountInfo[]`）- 来自已连接钱包的账户数组。大多数钱包提供一个账户，但有些支持多个账户。通过钱包事件或轮询自动更新。参见
+  [AccountInfo](#accountinfo)。
+
+- **`selectedAccount`**（`string | null`）- 当前选定账户的地址（base58 编码的公钥）。当钱包连接新账户时，该账户会自动被选中。否则，会保留之前选中的账户。
+
+#### 操作方法
+
+- **`select`**
+  (`(walletName: string) => Promise<void>`) - 通过名称连接到钱包（例如
+  `"Phantom"`、`"Solflare"`）。钱包名称必须与已发现钱包的 `name` 字段完全匹配。
+
+  **流程：**
+  1. 设置 `connecting: true`
+  2. 调用钱包的 `standard:connect` 功能
+  3. 从钱包检索账户
+  4. 订阅钱包事件（如果事件不可用则启动轮询）
+  5. 将钱包偏好存储在配置的存储中
+  6. 使用账户和选定账户更新状态
+
+  **抛出异常：** 如果找不到钱包、钱包不支持连接或用户拒绝连接，则抛出错误。
+
+- **`disconnect`** (`() => Promise<void>`) - 断开当前钱包连接并清理所有状态。
+
+  **流程：**
+  1. 取消订阅钱包事件
+  2. 停止账户轮询
+  3. 如果可用，调用钱包的 `standard:disconnect` 功能
+  4. 清除选定的钱包、账户和选定账户
+  5. 从存储中移除钱包偏好
+
+  永不抛出异常（如果启用调试，则记录错误）。
+
+- **`selectAccount`**
+  (`(address: string) => Promise<void>`) - 将选定账户切换到已连接钱包中的不同地址。如果该地址不在当前账户数组中，则触发重新连接以获取更新的账户。
+
+  **抛出异常：** 如果未连接钱包或重新连接后找不到请求的账户，则抛出错误。
+
+### `useConnectorClient()`
+
+为高级用例提供对底层 `ConnectorClient` 实例的直接访问。
+
+**返回值：** `ConnectorClient | null` - 单例客户端实例，或在 `ConnectorProvider`
+外部使用时返回 `null`。
+
+**使用场景：**
+
+- 直接访问 `getConnectorState()` 以进行命令式状态读取
+- 使用 `subscribe(listener)` 进行手动订阅以实现自定义状态监听器
+- 调用 `destroy()` 进行强制清理（不建议在正常使用中执行）
+
+**示例：**
+
+```tsx
+const client = useConnectorClient();
+
+// Get current state without triggering re-render
+const state = client?.getConnectorState();
+
+// Subscribe to state changes manually
+useEffect(() => {
+  if (!client) return;
+  const unsubscribe = client.subscribe((state) => {
+    console.log("Wallet state changed:", state);
+  });
+  return unsubscribe;
+}, [client]);
+```
+
+---
+
+## 类型定义
+
+### `WalletInfo`
+
+关于已发现钱包的元数据。
+
+```typescript
+interface WalletInfo {
+  wallet: Wallet; // Raw Wallet Standard wallet object
+  name: string; // Display name (e.g., "Phantom", "Solflare")
+  icon?: string; // Data URL for wallet icon (base64 encoded)
+  installed: boolean; // Always true (only installed wallets are discovered)
+  connectable?: boolean; // Whether wallet supports required features
+}
+```
+
+**`connectable` 要求：** 当钱包支持以下功能时即可连接：
+
+- `standard:connect` 功能
+- `standard:disconnect` 功能
+- Solana 链（通过 `wallet.chains` 中包含 `"solana"` 来检测）
+
+不可连接的钱包会出现在 `wallets` 数组中，但无法被选择。
+
+### `AccountInfo`
+
+关于钱包账户的信息。
+
+```typescript
+interface AccountInfo {
+  address: string; // Base58-encoded public key
+  icon?: string; // Account-specific icon (data URL)
+  raw: WalletAccount; // Raw WalletAccount object from Wallet Standard
+}
+```
+
+`raw` 字段提供对额外账户属性的访问：
+
+- `address: string` - Base58 编码的公钥
+- `publicKey: Uint8Array` - 原始公钥字节
+- `label?: string` - 账户标签（如果钱包提供）
+- `icon?: string` - 账户专属图标（数据 URL）
+- `chains: string[]` - 此账户支持的链
+- `features: string[]` - 此账户支持的功能
+
+### `ConnectorSnapshot`
+
+`useConnector()` 的返回类型，结合了状态和操作。
+
+```typescript
+type ConnectorSnapshot = ConnectorState & {
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (address: string) => Promise<void>;
+};
+
+interface ConnectorState {
+  wallets: WalletInfo[];
+  selectedWallet: Wallet | null;
+  connected: boolean;
+  connecting: boolean;
+  accounts: AccountInfo[];
+  selectedAccount: string | null;
+}
+```
+
+---
+
+## 账户变更检测
+
+连接器会自动检测钱包账户的变更（用户添加/删除账户、在钱包中切换账户）。使用两种策略：
+
+### 基于事件（首选）
+
+当钱包支持 `standard:events` 时，连接器会订阅 `change` 事件：
+
+- 接收账户变更的实时通知
+- 更高效（无需轮询）
+- 聚合来自事件和 `wallet.accounts` 的账户，以处理仅在事件中包含已选账户的钱包
+
+### 轮询回退
+
+当不支持事件时，连接器会轮询 `wallet.accounts`：
+
+- 每 `accountPollingIntervalMs` 检查一次（默认：1500毫秒）
+- 比较账户地址以检测变更
+- 仅在账户实际发生变更时触发重新渲染
+
+**账户选择逻辑：**
+
+- 当账户变更时，如果已选账户仍然存在，则保留该账户
+- 如果已选账户已被删除，则选择第一个可用账户
+- 当连接新账户（不在之前的账户中）时，优先选择新账户
+
+---
+
+## 存储与自动连接
+
+### 存储持久化
+
+连接器在配置的存储中保存一个键：
+
+- **键：** `arc-connector:lastWallet`
+- **值：** 钱包名称（例如，`"Phantom"`）
+
+存储操作被包装在 try-catch 中以处理：
+
+- 沙盒 iframe 中 `localStorage` 会抛出异常
+- SSR 环境中 `window` 未定义
+- React Native 中不存在 `localStorage`
+
+如果存储失败，连接器将继续运行但不保存持久化数据（不会抛出错误）。
+
+### 自动连接行为
+
+当 `autoConnect: true` 时：
+
+1. 挂载时，从存储中读取上次使用的钱包名称
+2. 等待 100 毫秒（允许钱包注册）
+3. 如果发现钱包，则调用 `select(walletName)`
+4. 如果自动连接失败，从存储中移除无效的偏好设置
+
+**安全提示：**
+存储的偏好设置仅是钱包名称（字符串），不包含敏感数据。钱包通过自己的 UI 处理身份验证/授权。
+
+---
+
+## 使用示例
+
+### 基础钱包按钮
+
+```tsx
+import { ConnectorProvider, useConnector } from "@solana-commerce/connector";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <WalletButton />
+    </ConnectorProvider>
+  );
+}
+
+function WalletButton() {
+  const { wallets, select, disconnect, connected, accounts, connecting } =
+    useConnector();
+
+  if (!connected) {
+    return (
+      <div>
+        <h3>Connect Wallet</h3>
+        {wallets.map((wallet) => (
+          <button
+            key={wallet.name}
+            onClick={() => select(wallet.name)}
+            disabled={!wallet.connectable || connecting}
+          >
+            {wallet.icon && (
+              <img src={wallet.icon} alt={wallet.name} width={24} />
+            )}
+            {wallet.name}
+            {!wallet.connectable && " (Unsupported)"}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p>Connected: {accounts[0]?.address.slice(0, 8)}...</p>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+### 多账户选择器
+
+```tsx
+function AccountSelector() {
+  const { accounts, selectedAccount, selectAccount } = useConnector();
+
+  if (accounts.length <= 1) return null;
+
+  return (
+    <select
+      value={selectedAccount || ""}
+      onChange={(e) => selectAccount(e.target.value)}
+    >
+      {accounts.map((account) => (
+        <option key={account.address} value={account.address}>
+          {account.raw.label || `${account.address.slice(0, 8)}...`}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+### 连接监控
+
+```tsx
+function ConnectionMonitor() {
+  const { connected, selectedWallet, accounts } = useConnector();
+
+  useEffect(() => {
+    if (connected) {
+      console.log("Wallet connected:", selectedWallet?.name);
+      console.log(
+        "Accounts:",
+        accounts.map((a) => a.address)
+      );
+    }
+  }, [connected, selectedWallet, accounts]);
+
+  return null;
+}
+```
+
+---
+
+## 支持的钱包
+
+连接器支持所有实现了
+[Wallet Standard](https://github.com/wallet-standard/wallet-standard)
+的钱包，包括：
+
+- **Phantom**
+- **Solflare**
+- **Backpack**
+- **Glow**
+- **Brave Wallet**
+- **Coinbase Wallet**
+- 任何其他兼容 Wallet Standard 的钱包
+
+当钱包通过 Wallet Standard API 注册时，会自动被发现（无需配置）。
+
+---
+
+## 无头使用(非 React)
+
+对于非 React 应用程序或服务器端使用,请直接使用 `ConnectorClient`:
+
+```typescript
+import { ConnectorClient } from "@solana-commerce/connector";
+
+const connector = new ConnectorClient({
+  autoConnect: true,
+  debug: true
+});
+
+// Get current state
+const state = connector.getConnectorState();
+console.log("Available wallets:", state.wallets);
+
+// Connect to a wallet
+await connector.select("Phantom");
+
+// Subscribe to state changes
+const unsubscribe = connector.subscribe((state) => {
+  console.log("Connected:", state.connected);
+  console.log("Accounts:", state.accounts);
+});
+
+// Switch account
+await connector.selectAccount("account-address-here");
+
+// Disconnect
+await connector.disconnect();
+
+// Cleanup (removes all listeners and timers)
+connector.destroy();
+```
+
+**注意:** `ConnectorClient`
+管理自己的状态,永远不会触发 React 重新渲染。您必须手动订阅状态变化。

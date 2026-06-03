@@ -1,0 +1,133 @@
+---
+title: Referência de Taxas
+description: Referência completa para o cálculo de taxas da Kora.
+---
+
+_Última atualização: 31-10-2025_
+
+A Kora estima as taxas de transação ao executar os métodos RPC
+`estimate_transaction_fee` e `sign_transaction`. Para estimar as taxas, a Kora
+calcula o custo total para executar transações na Solana, incluindo taxas de
+rede, custos de criação de contas e taxas opcionais de processamento de
+pagamento. Este guia detalha cada componente do cálculo de taxas.
+
+## Fórmula de Cálculo de Taxas
+
+A taxa é determinada pelo modelo de preços configurado em `kora.toml`:
+
+- `PriceModel::Free` - Patrocina todas as taxas de transação (taxa total = 0)
+- `PriceModel::Fixed` - Cobra um valor fixo num token específico
+  (independentemente das taxas de rede)
+- `PriceModel::Margin` - Adiciona uma margem percentual às taxas totais.
+
+O ponto de entrada principal para a estimativa de taxa total usado em
+`PriceModel::Margin` é `FeeConfigUtil::estimate_kora_fee()` em
+[`crates/lib/src/fee/fee.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/fee/fee.rs).
+Usa a seguinte fórmula generalizada:
+
+```
+Total Fee = Base Fee
+          + Account Creation Fee
+          + Kora Signature Fee
+          + Fee Payer Outflow
+          + Payment Instruction Fee
+          + Transfer Fee Amount
+          + Margin Adjustment
+```
+
+## Componentes das Taxas
+
+| Componente                         | Descrição                                                                                            | Método de Cálculo                                                                                                                                       | Quando Aplicado                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Taxa Base**                      | Taxa principal da transação Solana que cobre a verificação de assinatura e o processamento           | `RpcClient.get_fee_for_message()` - Usa o cálculo de taxa da Solana baseado em unidades de computação e taxas prioritárias                              | Sempre                                                                 |
+| **Taxa de Criação de Conta**       | Saldo mínimo isento de rent para criar novas Contas de Token Associadas (ATAs)                       | `Rent::default().minimum_balance(account_size)` - Calcula rent com base no tamanho dos dados da conta (165-355 bytes dependendo das extensões de token) | Quando a transação cria novas ATAs                                     |
+| **Taxa de Assinatura Kora**        | Taxa adicional quando a Kora assina como pagador de taxas não participante                           | Fixo: 5.000 lamports (`LAMPORTS_PER_SIGNATURE`)                                                                                                         | Quando o pagador de taxas ainda não é signatário da transação          |
+| **Saída do Pagador de Taxas**      | Total de SOL que o pagador de taxas envia na transação (transferências, criação de contas, etc.)     | Soma de: Transferências do Sistema do pagador de taxas, CreateAccount financiado pelo pagador, Levantamentos de Nonce do pagador                        | Quando o pagador de taxas executa operações do System Program          |
+| **Taxa de Instrução de Pagamento** | Custo estimado de taxas prioritárias para adicionar uma instrução de pagamento em transações sem gás | Estimativa fixa: 50 lamports (`ESTIMATED_LAMPORTS_FOR_PAYMENT_INSTRUCTION`)                                                                             | Quando o pagamento é obrigatório mas não está incluído na transação    |
+| **Taxa de Transferência**          | Taxas de transferência Token2022 configuradas no mint (por exemplo, 1% do valor da transferência)    | `Token2022Mint.calculate_transfer_fee(amount, epoch)` - Baseado na configuração de taxa de transferência do mint                                        | Apenas para transferências Token2022 para o endereço de pagamento Kora |
+| **Ajuste de Margem**               | Margem de markup/ajuste do modelo de preços da Kora                                                  | Margem configurada em `validation.price` - Pode adicionar markup como % da taxa total                                                                   | Quando `[validation.price]` é fornecido no kora.toml                   |
+
+## Modelos de Precificação e Saída do Pagador de Taxas
+
+A Kora suporta três modelos de precificação que determinam como os usuários são
+cobrados pelas transações:
+
+### Precificação por Margem (Padrão)
+
+- **Fórmula:** `Total Fee = (Base + Outflow + Other Components) × (1 + margin)`
+- **Inclui Saída do Pagador de Taxas:** Sim
+- **Ideal Para:** Implantações em produção onde as taxas devem refletir os
+  custos reais com margem operacional adicional
+
+### Precificação Fixa
+
+- **Fórmula:** `Total Fee = Fixed Amount (in specified token)`
+- **Inclui Saída do Pagador de Taxas:** Não
+- **Ideal Para:** UX simplificada com precificação previsível em ambientes
+  controlados
+
+### Precificação Gratuita
+
+- **Fórmula:** `Total Fee = 0`
+- **Inclui Saída do Pagador de Taxas:** Não (o operador absorve todos os custos)
+- **Ideal Para:** Campanhas promocionais, testes ou aplicações totalmente
+  patrocinadas
+
+---
+
+## ⚠️ Aviso de Segurança: Modelos de Precificação Fixa/Gratuita
+
+**CRÍTICO:** Os modelos de precificação fixa/gratuita **NÃO** incluem a saída do
+pagador de taxas no valor cobrado. Isso cria um risco de segurança significativo
+se não for devidamente configurado. Se sua política de pagador de taxas permitir
+transferências ou outras operações de saída, atacantes podem explorar isso para
+drenar sua conta de pagador de taxas.
+
+### Controles de Segurança Obrigatórios
+
+Ao usar precificação fixa/gratuita, você **DEVE** configurar políticas
+restritivas do pagador de taxas para bloquear TODAS as operações monetárias e de
+mudança de autoridade:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false              # Block SOL transfers
+allow_create_account = false        # Block account creation with lamports
+allow_allocate = false              # Block space allocation
+
+[validation.fee_payer_policy.system.nonce]
+allow_withdraw = false              # Block nonce account withdrawals
+
+[validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+allow_transfer = false              # Block SPL transfers
+allow_burn = false                  # Block SPL token burning
+allow_close_account = false         # Block SPL token account closures (returns rent)
+allow_mint_to = false               # Block unauthorized SPL token minting
+allow_initialize_account = false    # Block account initialization
+```
+
+### Proteções Adicionais
+
+1. **Habilite Autenticação:** Sempre exija autenticação por chave de API ou HMAC
+   com precificação fixa/gratuita
+2. **Defina Limites Baixos:** Use valores conservadores para
+   `max_allowed_lamports`
+3. **Monitore o Uso:** Acompanhe padrões incomuns de transações com alta saída
+4. **Considere Precificação por Margem:** A precificação por margem inclui
+   automaticamente os custos de saída nas taxas
+
+### Avisos de Validação
+
+O validador de configuração da Kora irá alertá-lo sobre configurações perigosas:
+
+```bash
+kora --config kora.toml config validate
+```
+
+Avisos esperados para configurações vulneráveis:
+
+```
+⚠️  SECURITY: Fixed pricing with system.allow_transfer=true.
+    Users can make the fee payer transfer arbitrary SOL amounts at fixed cost.
+    This can drain your fee payer account.
+```

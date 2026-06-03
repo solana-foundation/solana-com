@@ -20,6 +20,7 @@ interface SwitchbackProps {
     buttonLabel: string;
     portalId: string;
     formId: string;
+    formUrl?: string;
   };
   pdfUrl?: string;
   headline?: string;
@@ -103,6 +104,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
                       buttonLabel={hubspotForm.buttonLabel}
                       portalId={hubspotForm.portalId}
                       formId={hubspotForm.formId}
+                      formUrl={hubspotForm.formUrl}
                       title={displayTitle}
                     />
                   )}

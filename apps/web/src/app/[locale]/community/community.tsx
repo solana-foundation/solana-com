@@ -6,15 +6,17 @@ import CommunityLinks from "@/components/community/CommunityLinks";
 import CommunitySocial from "@/components/community/CommunitySocial";
 import CommunityNews from "@/components/community/CommunityNews";
 import CommunityCollective from "@/components/community/CommunityCollective";
+import type { PostItem } from "@/types/media";
+import type { YTVideoItem } from "@/utils/followerFunctions";
 
 interface CommunityPageProps {
-  posts: any[];
+  posts: PostItem[];
   socialData: {
-    youtube: any;
-    github: any;
-    meetup: any;
+    youtube?: number;
+    github?: number;
+    meetup?: number;
   };
-  youtubeVideos: any;
+  youtubeVideos: YTVideoItem[] | undefined;
 }
 
 export function CommunityPage({
@@ -28,8 +30,8 @@ export function CommunityPage({
       <CommunityLinks />
       <CommunitySocial data={socialData} />
       <CommunityCollective />
-      <FeaturedVideos videos={youtubeVideos} />
-      <CommunityNews posts={posts} />
+      <FeaturedVideos videos={youtubeVideos || []} />
+      <CommunityNews posts={posts || []} />
     </div>
   );
 }

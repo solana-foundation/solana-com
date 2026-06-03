@@ -1,0 +1,505 @@
+---
+title: İmzalayanlar
+description: Kora imzalayanlarını ayarlayın ve yönetin
+---
+
+_Son Güncelleme: 2025-08-22_
+
+## İmzalayan Nedir?
+
+**İmzalayan**, Kora düğümünüzün Solana işlemlerini ücret ödeyici olarak
+imzalamak için kullandığı kriptografik keypair'dir. Kullanıcılar Kora düğümünüze
+işlem gönderdiğinde, düğüm bunları doğrular ve SOL işlem ücretlerini karşılamak
+için imzalayanınızın özel anahtarıyla birlikte imzalar.
+
+**Not**: Varsayılan olarak, token ödeme ücretleri imzalayanın adresine
+gönderilir. Ancak, `kora.toml` dosyanızda ayrı bir `payment_address`
+yapılandırarak ödemeleri farklı bir adreste alabilir ve imzalayanınızı ayrı
+tutabilirsiniz. Ayrıntılar için
+[Yapılandırma Kılavuzu](/docs/tools/kora/operators/configuration) bölümüne
+bakın.
+
+İmzalayan keypair'iniz, işlem ücretlerini ödemek için kullanılan SOL fonlarınıza
+doğrudan erişime sahiptir. Ele geçirilirse, bir saldırgan şunları yapabilir:
+
+- SOL bakiyenizi boşaltabilir
+- Yetkisiz işlemleri imzalayabilir
+- Ödeme hizmetinizi kesintiye uğratabilir
+
+## İmzalayan Yapılandırması
+
+Kora RPC CLI, `--signers-config` bayrağı aracılığıyla belirtilen bir
+`signer.toml` gerektirir. `singer.toml` dosyası, düğümünüz için imzalayan(ları)
+ve imzalayan yapılandırmasını ayarlamanıza olanak tanır. `signer.toml` iki
+bölümden oluşur:
+
+1. `[signer_pool]` - İmzalayan havuzu yapılandırması
+2. `[[signers]]` - Her imzalayan için yapılandırma (sınırlı işlevselliğe sahip
+   `--no-load-signer` bayrağı kullanılmadığı sürece en az bir imzalayan
+   gereklidir)
+
+#### `[signer_pool]`
+
+İmzalayan havuzu yapılandırması, bir bütün olarak imzalayan havuzuna özgü
+özellikleri belirtir:
+
+- `strategy` - İmzalayan seçimi için seçim stratejisi. Kullanılabilir
+  stratejiler:
+  - `round_robin` (varsayılan) - İmzalayanları sırayla döngüsel olarak seç.
+  - `random` - İmzalayanları rastgele seç.
+  - `weighted` - İmzalayanları ağırlığa göre seç.
+
+#### `[[signers]]`
+
+Her imzalayan şu şekilde yapılandırılır:
+
+- bir `name`: imzalayan için insan tarafından okunabilir bir tanımlayıcı ve
+  imzalayan havuzu içinde benzersiz olmalıdır
+- isteğe bağlı bir `weight`: eğer `strategy` değeri `weighted` ise imzalayanın
+  ağırlığını belirten bir sayı
+- bir `type` ve türe özgü yapılandırma (bkz. [İmzalayan Türleri](#signer-types))
+
+`--no-load-signer` bayrağı kullanılmadığı sürece bir imzalayan gereklidir, bu
+bayrak sınırlı işlevselliğe sahiptir. Üretim dağıtımları için, geliştirilmiş
+güvenilirlik ve performans için birden fazla imzalayan yapılandırılması
+önerilir.
+
+### Örnek
+
+İşte üç imzalayanlı round-robin imzalayan havuzunu tanımlayan örnek bir
+`signers.toml` dosyası (_not: farklı imzalayan türlerini/yapılandırmalarını bir
+sonraki bölümde ele alacağız_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Ortam Değişkenleri
+
+Yapılandırılmış tüm imzalayanlar için ortam değişkenlerini ayarlayın:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Kora'yı İmzalayan Yapılandırmasıyla Başlatın
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## İmzalayan Türleri
+
+Kora, her biri farklı güvenlik ve operasyonel özelliklere sahip dört ana
+imzalayan türünü destekler (ve sınırlı test için imzalayansız bir seçenek):
+
+- [Özel Anahtar](#private-key-signer) - basit, kendi kendini yöneten
+- [Turnkey](#turnkey-signer) - anahtar yönetim hizmeti
+- [Privy](#privy-signer) - anahtar yönetim hizmeti
+- Vault - HashiCorp Vault entegrasyonu
+- [İmzalayansız](#no-signer) - imzalayan yok (sınırlı test için)
+
+## Özel Anahtar İmzalayan
+
+En basit yaklaşım - özel anahtarınızı doğrudan ortam değişkenlerinde saklayın
+veya CLI bayrakları aracılığıyla iletin. Kora üç formatta özel anahtarları kabul
+eder:
+
+#### 1. Base58 Formatı (Varsayılan)
+
+Standart Solana base58 kodlu özel anahtar:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. U8Array Formatı
+
+JSON formatında 64 baytlık dizi:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. JSON Dosya Yolu
+
+Keypair içeren bir JSON dosyasının yolu:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Burada `keypair.json` şunları içerir:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Yeni Keypair Oluşturma
+
+Solana CLI kullanarak Kora düğümünüz için yeni bir keypair oluşturabilirsiniz:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Signer.toml Yapılandırması
+
+Gerekli değişkenler:
+
+- `name` - İmzalayıcının adı
+- `type` - İmzalayıcının türü (`memory` olmalıdır)
+- `private_key_env` - Özel anahtarı içeren ortam değişkeni
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey İmzalayıcı
+
+[Turnkey](https://www.turnkey.com/), donanım güvenlik modülleri (HSM'ler) ve
+politika kontrolleri ile kurumsal düzeyde anahtar yönetimi sağlar.
+
+### Ön Koşullar
+
+Turnkey imzalayıcıyı kullanmak için bir **Turnkey Hesabına** ihtiyacınız olacak.
+[turnkey.com](https://www.turnkey.com/) adresinden kaydolun
+
+### Kurulum
+
+Turnkey imzalayıcıyı kullanmak için beş anahtara ihtiyacınız olacak:
+
+- Turnkey organizasyon kimliği
+- Turnkey API genel anahtarı
+- Turnkey API özel anahtarı
+- Turnkey özel anahtar kimliği
+- Turnkey genel anahtarı
+
+Bunları Turnkey'den alalım:
+
+#### 1. Turnkey Organizasyonu
+
+Turnkey kontrol panelinin sağ üst köşesindeki kullanıcı menüsüne tıklayın ve
+organizasyon kimliğini kopyalayın:
+
+![Turnkey Organizasyon Kimliği](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Organizasyon kimliğini bir ortam değişkeninde saklayın:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Turnkey API Anahtarları
+
+- Turnkey kontrol panelinin sağ üst köşesindeki kullanıcı menüsüne tıklayın ve
+  "Hesap Ayarları"na tıklayın.
+- "API Anahtarları" altında "+ API Anahtarı Oluştur"a tıklayın.
+- "API anahtarlarını tarayıcıda oluştur"u seçin
+- API anahtarı için bir ad girin ve "Devam"a tıklayın
+- Genel ve özel anahtarları kaydedin ve "Onayla"ya tıklayın
+
+![Turnkey API Anahtarları](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+API genel ve özel anahtarlarını ortam değişkenlerinde saklayın:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Turnkey Cüzdan Anahtarları
+
+Ana menüden ["Cüzdanlar"](https://app.turnkey.com/dashboard/wallets) bölümüne
+gidin ve "Özel Anahtar Oluştur" seçeneğine tıklayın.
+
+"Solana" varlık adresi türü ile yeni bir ED25519 özel anahtarı oluşturacağız:
+
+![Turnkey Cüzdanları](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+"Devam Et" ve ardından "Onayla" seçeneklerine tıklayın.
+
+Cüzdanlar sayfanızdan yeni özel anahtarınızı görmelisiniz. Detayları
+görüntülemek için üzerine tıklayın. "Özel anahtar ID"sini ve cüzdan "Adresini"
+kopyalamanız gerekecek. Bunları ortam değişkenlerine kaydedin:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey Cüzdan Detayları](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+İşlem ücretlerini ödemek için cüzdanı SOL ile fonlamanız gerekecek.
+
+### Ortam Değişkenlerini Yapılandırma
+
+Artık aşağıdaki ortam değişkenlerine sahip olmalısınız:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Eksiksiz bir `.env.example` dosyası için
+[Kora deposuna](https://github.com/solana-foundation/kora) bakın.
+
+Turnkey desteği için
+[Turnkey belgelerine](https://docs.turnkey.com/embedded-wallets/overview) bakın.
+
+### Signer.toml Yapılandırması
+
+Gerekli değişkenler:
+
+- `name` - İmzalayanın adı
+- `type` - İmzalayan türü (`turnkey` olmalıdır)
+- `api_public_key_env` - Turnkey API genel anahtarını içeren ortam değişkeni
+- `api_private_key_env` - Turnkey API özel anahtarını içeren ortam değişkeni
+- `organization_id_env` - Turnkey organizasyon ID'sini içeren ortam değişkeni
+- `private_key_id_env` - Turnkey özel anahtar ID'sini içeren ortam değişkeni
+- `public_key_env` - Turnkey genel anahtarını içeren ortam değişkeni
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Privy İmzalayıcı
+
+[Privy](https://www.privy.io/), Web3 uygulamaları için güvenli anahtar yönetimi
+ile gömülü cüzdan altyapısı sunar.
+
+### Ön Gereksinimler
+
+Privy imzalayıcısını kullanmak için bir **Privy Hesabına** ihtiyacınız olacak.
+[privy.io](https://www.privy.io/) adresinden kaydolun.
+
+### Kurulum
+
+Privy imzalayıcısını kullanmak için üç anahtara ihtiyacınız olacak:
+
+- Privy App ID
+- Privy App Secret
+- Privy Wallet ID
+
+Bunları Privy'den alalım:
+
+#### 1. Privy App ID
+
+Kontrol panelinizden, Kora için kullanmak istediğiniz uygulamayı seçin (veya bir
+uygulamanız yoksa "+ Yeni uygulama"ya tıklayın).
+
+"API Anahtarlarını Al"ı seçin ve "+ Yeni Secret"a tıklayın:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+"App ID" ve "App Secret" bilgilerinizi kopyalayın ve bunları ortam
+değişkenlerinde saklayın:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy Wallet
+
+Ardından, Kora için yeni bir cüzdan oluşturmamız gerekecek. Kontrol panelinizin
+kenar çubuğundan "Wallet Infrastructure" altındaki "Wallets"a tıklayın ve "Yeni
+Cüzdan"ı seçin.
+
+Blokzincir olarak "Solana"yı seçin ve "Kaydet"e tıklayın.
+
+Ayrıntıları görüntülemek için cüzdana tıklayın:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+"Wallet ID"yi kopyalayın ve ortam değişkenlerinde saklayın:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+İşlem ücretlerini ödemek için cüzdanı SOL ile fonlamanız gerekecektir.
+
+### Ortam Değişkenlerini Yapılandırın
+
+Artık aşağıdaki ortam değişkenlerine sahip olmalısınız:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Tam bir `.env.example` dosyası için
+[Kora deposuna](https://github.com/solana-foundation/kora) bakın.
+
+Privy desteği için [Privy belgelerine](https://docs.privy.io/wallets/overview)
+bakın.
+
+### Signer.toml Yapılandırması
+
+Gerekli değişkenler:
+
+- `name` - İmzalayanın adı
+- `type` - İmzalayan türü (`privy` olmalıdır)
+- `app_id_env` - Privy app ID'sini içeren ortam değişkeni
+- `app_secret_env` - Privy app secret'ını içeren ortam değişkeni
+- `wallet_id_env` - Privy wallet ID'sini içeren ortam değişkeni
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## İmzalayıcı Yok
+
+Eğer hiçbir imzalayıcı yapılandırılmamışsa, Kora bir hata verecektir. Kora'yı
+imzalayıcı olmadan çalıştırmak istiyorsanız, `--no-signer` bayrağı ile
+çalıştırabilirsiniz:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Bunun, düğümünüzü yalnızca imzalayıcı gerektirmeyen istekleri işlemekle
+sınırlayacağını unutmayın.
+
+## Sorun Giderme
+
+### Hızlı Başvuru
+
+| Hata Mesajı                                                                | İmzalayıcı Türü  | Hızlı Çözüm                                                                  |
+| -------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| "En az bir imzalayıcı yapılandırılmalıdır"                                 | Herhangi         | Yapılandırmaya en az bir imzalayıcı ekleyin                                  |
+| "Yapılandırma dosyası okunamadı"                                           | Herhangi         | Dosya yolunu ve içeriğini kontrol edin                                       |
+| "İmzalayıcılar yapılandırma TOML'si ayrıştırılamadı"                       | Herhangi         | Dosya formatını ve imzalayıcı içeriğini kontrol edin                         |
+| "Yinelenen imzalayıcı adı"                                                 | Herhangi         | Yapılandırmada her imzalayıcının benzersiz adlandırıldığından emin olun      |
+| "Geçersiz base58 dizesi"                                                   | Özel Anahtar     | Anahtar formatını kontrol edin, fazla boşluk olmamalı                        |
+| "Geçersiz özel anahtar uzunluğu"                                           | Özel Anahtar     | Tam 64-baytlık Solana anahtarı kullanın                                      |
+| "Turnkey \{key\} gereklidir"                                               | Turnkey          | `TURNKEY_{key}` ayarlayın                                                    |
+| "Privy \{key\} gereklidir"                                                 | Privy            | `PRIVY_{key}` ayarlayın                                                      |
+| "Vault \{key\} gereklidir"                                                 | Vault            | `VAULT_{key}` ayarlayın                                                      |
+| "Vault istemcisi oluşturulamadı"                                           | Vault            | Vault kimlik bilgilerini doğrulayın                                          |
+| "\[servis\] ile imzalama başarısız oldu"                                   | Herhangi         | Servis durumunu, kimlik bilgilerini ve hız limitlerini kontrol edin          |
+| "İmzalayıcı havuzu başlatılmadı"                                           | Çoklu İmzalayıcı | `signers.toml` yolunu ve formatını kontrol edin                              |
+| "Boş imzalayıcı havuzu oluşturulamaz"                                      | Çoklu İmzalayıcı | Yapılandırmaya en az bir imzalayıcı ekleyin                                  |
+| "pubkey ... ile imzalayıcı bulunamadı"                                     | Çoklu İmzalayıcı | İmzalayıcı ipucunun yapılandırılmış imzalayıcılarla eşleştiğini kontrol edin |
+| "--no-load-signer kullanılmadıkça imzalayıcılar yapılandırması gereklidir" | Herhangi         | Bir imzalayıcılar yapılandırma dosyası ekleyin                               |
+
+### Genel Hata Ayıklama İpuçları
+
+#### Ayrıntılı Günlük Kaydını Etkinleştir
+
+Sorunları teşhis etmek için ayrıntılı günlük kaydı ekleyin:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Güvenlik ve En İyi Uygulamalar
+
+### Genel Güvenlik
+
+- Kora için özel keypair'ler kullanın (kişisel cüzdanları yeniden kullanmayın)
+- Yalnızca ücretlere harcamaya razı olduğunuz SOL ile fonlayın
+- Otomatik izleme ve bakiye ekleme ile minimum operasyonel bakiye tutun
+- Olağandışı aktiviteler için izleme ve uyarı sistemleri uygulayın
+- Tüm özel anahtarlar ve API anahtarları ortam değişkenlerinde veya gizli
+  anahtar yönetim sistemlerinde (Railway secrets, AWS Secrets Manager vb.)
+  saklanmalıdır
+
+## İmzalayıcı Belirtme (İstemci Tarafı)
+
+İstemciler, ilgili işlemler arasında tutarlılık sağlamak için tercih edilen bir
+imzalayıcı belirtebilir:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+İmzalayıcı anahtarları olmadan, yapılandırılmış strateji imzalayıcı seçimini
+belirler. Aynı işlemle ilgili çağrılarda anahtarların tutarlı olması gerektiğini
+unutmamak önemlidir (örneğin, belirli bir imzalayıcı anahtarıyla bir işlem
+oluşturursanız, ilgili tüm çağrılar için aynı imzalayıcı anahtarını
+kullanmalısınız).

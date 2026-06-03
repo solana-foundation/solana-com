@@ -59,13 +59,17 @@ export default async function Page(_props: Props) {
   const compareWalletsButton = {
     ...cmpRest,
     label: t(COMPARE_WALLETS_BUTTON.labelKey),
-  } as React.ComponentProps<typeof ConversionPanel>["buttons"][number];
+  } as NonNullable<
+    React.ComponentProps<typeof ConversionPanel>["buttons"]
+  >[number];
 
   const { labelKey: _appKey, ...appRest } = APPLY_FOR_GRANT_BUTTON;
   const applyForGrantButton = {
     ...appRest,
     label: t(APPLY_FOR_GRANT_BUTTON.labelKey),
-  } as React.ComponentProps<typeof ConversionPanel>["buttons"][number];
+  } as NonNullable<
+    React.ComponentProps<typeof ConversionPanel>["buttons"]
+  >[number];
 
   const translations = {
     heroEyebrow: t("hero.eyebrow"),

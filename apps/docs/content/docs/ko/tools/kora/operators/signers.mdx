@@ -1,0 +1,488 @@
+---
+title: 서명자
+description: Kora 서명자 설정 및 관리
+---
+
+_최종 업데이트: 2025-08-22_
+
+## 서명자란 무엇인가요?
+
+**서명자**는 Kora 노드가 수수료 지불자로서 솔라나 트랜잭션에 서명하는 데
+사용하는 암호화 keypair입니다. 사용자가 Kora 노드로 트랜잭션을 전송하면, 노드는
+이를 검증하고 서명자의 개인 키로 공동 서명하여 SOL 트랜잭션 수수료를 부담합니다.
+
+**참고**: 기본적으로 토큰 결제 수수료는 서명자의 주소로 전송됩니다. 그러나
+`kora.toml`에서 별도의 `payment_address`를 구성하여 서명자를 별도로 유지하면서
+다른 주소로 결제를 받을 수 있습니다. 자세한 내용은
+[구성 가이드](/docs/tools/kora/operators/configuration)를 참조하세요.
+
+서명자 keypair는 트랜잭션 수수료 지불에 사용되는 SOL 자금에 직접 액세스할 수
+있습니다. 유출될 경우 공격자는 다음을 수행할 수 있습니다:
+
+- SOL 잔액 탈취
+- 무단 트랜잭션 서명
+- 페이마스터 서비스 중단
+
+## 서명자 구성
+
+Kora RPC CLI는 `--signers-config` 플래그를 통해 지정된 `signer.toml`가
+필요합니다. `singer.toml` 파일을 사용하면 노드의 서명자 및 서명자 구성을 설정할
+수 있습니다. `signer.toml`는 두 개의 섹션으로 구성됩니다:
+
+1. `[signer_pool]` - 서명자 풀 구성
+2. `[[signers]]` - 각 서명자 구성 (제한된 기능을 가진 `--no-load-signer`
+   플래그를 사용하지 않는 한 최소 하나의 서명자가 필요함)
+
+#### `[signer_pool]`
+
+서명자 풀 구성은 서명자 풀 전체에 대한 특정 속성을 지정합니다:
+
+- `strategy` - 서명자 선택을 위한 선택 전략. 사용 가능한 전략:
+  - `round_robin` (기본값) - 순서대로 서명자를 순환합니다.
+  - `random` - 서명자를 무작위로 선택합니다.
+  - `weighted` - 가중치에 따라 서명자를 선택합니다.
+
+#### `[[signers]]`
+
+각 서명자는 다음과 같이 구성됩니다:
+
+- `name`: 서명자를 나타내는 사람이 읽을 수 있는 식별자이며 서명자 풀 내에서
+  고유해야 합니다
+- 선택적 `weight`: `strategy`가 `weighted`일 경우 서명자의 가중치를 지정하는
+  숫자입니다
+- `type` 및 유형별 구성 ([서명자 유형](#signer-types) 참조)
+
+제한된 기능을 가진 `--no-load-signer` 플래그를 사용하지 않는 한 하나의 서명자가
+필요합니다. 프로덕션 배포의 경우 향상된 안정성과 성능을 위해 여러 서명자를
+구성하는 것이 권장됩니다.
+
+### 예제
+
+다음은 세 개의 서명자로 라운드 로빈 서명자 풀을 정의하는 `signers.toml` 파일의
+예입니다 (_참고: 다음 섹션에서 다양한 서명자 유형/구성을 다룰 예정입니다_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### 환경 변수
+
+구성된 모든 서명자에 대한 환경 변수를 설정하세요:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### 서명자 구성으로 Kora 시작
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## 서명자 유형
+
+Kora는 각각 다른 보안 및 운영 특성을 가진 네 가지 주요 서명자 유형을 지원합니다
+(그리고 제한된 테스트를 위한 서명자 없음 옵션):
+
+- [프라이빗 키](#private-key-signer) - 간단한 자체 관리
+- [Turnkey](#turnkey-signer) - 키 관리 서비스
+- [Privy](#privy-signer) - 키 관리 서비스
+- Vault - HashiCorp Vault 통합
+- [서명자 없음](#no-signer) - 서명자 없음 (제한된 테스트용)
+
+## 프라이빗 키 서명자
+
+가장 간단한 접근 방식 - 프라이빗 키를 환경 변수에 직접 저장하거나 CLI 플래그를
+통해 전달합니다. Kora는 세 가지 형식의 프라이빗 키를 허용합니다:
+
+#### 1. Base58 형식 (기본값)
+
+표준 솔라나 base58 인코딩 프라이빗 키:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. U8Array 형식
+
+JSON 형식의 64바이트 배열:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. JSON 파일 경로
+
+keypair가 포함된 JSON 파일의 경로:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+여기서 `keypair.json`는 다음을 포함합니다:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### 새 키페어 생성
+
+Solana CLI를 사용하여 Kora 노드용 새 키페어를 생성할 수 있습니다:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Signer.toml 구성
+
+필수 변수:
+
+- `name` - 서명자의 이름
+- `type` - 서명자의 유형 (`memory`이어야 함)
+- `private_key_env` - 개인 키가 포함된 환경 변수
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey 서명자
+
+[Turnkey](https://www.turnkey.com/)는 하드웨어 보안 모듈(HSM)과 정책 제어를 통해
+엔터프라이즈급 키 관리 기능을 제공합니다.
+
+### 전제 조건
+
+Turnkey 서명자를 사용하려면 **Turnkey 계정**이 필요합니다.
+[turnkey.com](https://www.turnkey.com/)에서 가입하세요.
+
+### 설정
+
+Turnkey 서명자를 사용하려면 다섯 가지 키가 필요합니다:
+
+- Turnkey 조직 ID
+- Turnkey API 공개 키
+- Turnkey API 개인 키
+- Turnkey 개인 키 ID
+- Turnkey 공개 키
+
+Turnkey에서 가져오겠습니다:
+
+#### 1. Turnkey 조직
+
+Turnkey 대시보드의 오른쪽 상단에 있는 사용자 메뉴를 클릭하고 조직 ID를
+복사하세요:
+
+![Turnkey 조직 ID](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+조직 ID를 환경 변수에 저장하세요:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Turnkey API 키
+
+- Turnkey 대시보드의 오른쪽 상단에 있는 사용자 메뉴를 클릭하고 "계정 설정"을
+  클릭하세요.
+- "API 키" 아래에서 "+ API 키 생성"을 클릭하세요.
+- "브라우저에서 API 키 생성"을 선택하세요
+- API 키의 이름을 입력하고 "계속"을 클릭하세요
+- 공개 키와 개인 키를 저장하고 "승인"을 클릭하세요
+
+![Turnkey API 키](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+API 공개 키와 개인 키를 환경 변수에 저장하세요:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Turnkey 지갑 키
+
+메인 메뉴에서 ["Wallets"](https://app.turnkey.com/dashboard/wallets)로 이동하여
+"Create Private Key"를 클릭합니다.
+
+"Solana" 자산 주소 유형으로 새로운 ED25519 개인 키를 생성하겠습니다:
+
+![Turnkey Wallets](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+"Continue"를 클릭한 다음 "Approve"를 클릭합니다.
+
+지갑 페이지에서 새로운 개인 키를 확인할 수 있습니다. 클릭하여 세부 정보를
+확인하세요. "Private key ID"와 지갑 "Address"를 복사해야 합니다. 환경 변수에
+저장하세요:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey Wallet Details](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+트랜잭션 수수료를 지불하기 위해 지갑에 SOL을 충전해야 합니다.
+
+### 환경 변수 설정
+
+이제 다음 환경 변수를 갖추어야 합니다:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+전체 `.env.example` 파일은
+[Kora 저장소](https://github.com/solana-foundation/kora)를 참조하세요.
+
+Turnkey 지원이 필요하시면
+[Turnkey 문서](https://docs.turnkey.com/embedded-wallets/overview)를 참조하세요.
+
+### Signer.toml 설정
+
+필수 변수:
+
+- `name` - 서명자 이름
+- `type` - 서명자 유형 (`turnkey`이어야 함)
+- `api_public_key_env` - Turnkey API 공개 키를 포함하는 환경 변수
+- `api_private_key_env` - Turnkey API 개인 키를 포함하는 환경 변수
+- `organization_id_env` - Turnkey 조직 ID를 포함하는 환경 변수
+- `private_key_id_env` - Turnkey 개인 키 ID를 포함하는 환경 변수
+- `public_key_env` - Turnkey 공개 키를 포함하는 환경 변수
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Privy 서명자
+
+[Privy](https://www.privy.io/)는 Web3 애플리케이션을 위한 안전한 키 관리 기능을
+갖춘 임베디드 지갑 인프라를 제공합니다.
+
+### 사전 요구 사항
+
+Privy 서명자를 사용하려면 **Privy 계정**이 필요합니다.
+[privy.io](https://www.privy.io/)에서 가입하세요.
+
+### 설정
+
+Privy 서명자를 사용하려면 세 개의 키가 필요합니다:
+
+- Privy 앱 ID
+- Privy 앱 시크릿
+- Privy 지갑 ID
+
+Privy에서 가져오겠습니다:
+
+#### 1. Privy 앱 ID
+
+대시보드에서 Kora에 사용할 애플리케이션을 선택하세요(애플리케이션이 없다면 "+ 새
+앱"을 클릭하세요).
+
+"API 키 가져오기"를 선택하고 "+ 새 시크릿"을 클릭하세요:
+
+![Privy 지갑](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+"앱 ID"와 "앱 시크릿"을 복사하여 환경 변수에 저장하세요:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy 지갑
+
+다음으로 Kora용 새 지갑을 생성해야 합니다. 대시보드 사이드바에서 "지갑 인프라"
+아래의 "지갑"을 클릭하고 "새 지갑"을 선택하세요.
+
+블록체인으로 "Solana"를 선택하고 "저장"을 클릭하세요.
+
+지갑을 클릭하여 세부 정보를 확인하세요:
+
+![Privy 지갑](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+"지갑 ID"를 복사하여 환경 변수에 저장하세요:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+트랜잭션 수수료를 지불하기 위해 지갑에 SOL을 입금해야 합니다.
+
+### 환경 변수 설정
+
+이제 다음 환경 변수가 있어야 합니다:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+전체 `.env.example` 파일은
+[Kora 저장소](https://github.com/solana-foundation/kora)를 참조하세요.
+
+Privy 지원은 [Privy 문서](https://docs.privy.io/wallets/overview)를 참조하세요.
+
+### Signer.toml 설정
+
+필수 변수:
+
+- `name` - 서명자 이름
+- `type` - 서명자 유형 (반드시 `privy`이어야 함)
+- `app_id_env` - Privy 앱 ID를 포함하는 환경 변수
+- `app_secret_env` - Privy 앱 시크릿을 포함하는 환경 변수
+- `wallet_id_env` - Privy 지갑 ID를 포함하는 환경 변수
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## 서명자 없음
+
+서명자가 구성되지 않은 경우 Kora는 오류를 발생시킵니다. 서명자 없이 Kora를
+실행하려면 `--no-signer` 플래그를 사용하여 실행하세요:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+이 경우 노드는 서명자가 필요하지 않은 요청만 처리할 수 있습니다.
+
+## 문제 해결
+
+### 빠른 참조
+
+| 오류 메시지                                                       | 서명자 유형 | 빠른 해결 방법                                       |
+| ----------------------------------------------------------------- | ----------- | ---------------------------------------------------- |
+| "At least one signer must be configured"                          | 모두        | 구성에 최소 하나의 서명자를 추가하세요               |
+| "Failed to read config file"                                      | 모두        | 파일 경로와 내용을 확인하세요                        |
+| "Failed to parse signers config TOML"                             | 모두        | 파일 형식과 서명자 내용을 확인하세요                 |
+| "Duplicate signer name"                                           | 모두        | 구성에서 각 서명자의 이름이 고유한지 확인하세요      |
+| "Invalid base58 string"                                           | 개인 키     | 키 형식을 확인하고 추가 공백이 없는지 확인하세요     |
+| "Invalid private key length"                                      | 개인 키     | 완전한 64바이트 솔라나 키를 사용하세요               |
+| "Turnkey \{key\} required"                                        | Turnkey     | `TURNKEY_{key}`를 설정하세요                         |
+| "Privy \{key\} required"                                          | Privy       | `PRIVY_{key}`를 설정하세요                           |
+| "Vault \{key\} required"                                          | Vault       | `VAULT_{key}`를 설정하세요                           |
+| "Failed to create Vault client"                                   | Vault       | Vault 자격 증명을 확인하세요                         |
+| "Failed to sign with \[service\]"                                 | 모두        | 서비스 상태 및 자격 증명 및 사용량 제한을 확인하세요 |
+| "Signer pool not initialized"                                     | 다중 서명자 | `signers.toml` 경로와 형식을 확인하세요              |
+| "Cannot create empty signer pool"                                 | 다중 서명자 | 구성에 최소 하나의 서명자를 추가하세요               |
+| "Signer with pubkey ... not found"                                | 다중 서명자 | 서명자 힌트가 구성된 서명자와 일치하는지 확인하세요  |
+| "Signers configuration is required unless using --no-load-signer" | 모두        | 서명자 구성 파일을 추가하세요                        |
+
+### 일반 디버깅 팁
+
+#### 상세 로깅 활성화
+
+문제 진단을 위해 상세 로깅을 추가하세요:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## 보안 및 모범 사례
+
+### 일반 보안
+
+- Kora 전용 keypair를 사용하세요 (개인 지갑을 재사용하지 마세요)
+- 수수료로 사용할 의향이 있는 SOL만 충전하세요
+- 자동 모니터링 및 충전으로 최소 운영 잔액을 유지하세요
+- 비정상적인 활동에 대한 모니터링 및 알림을 구현하세요
+- 모든 개인 키와 API 키는 환경 변수 또는 비밀 관리 시스템(Railway secrets, AWS
+  Secrets Manager 등)에 저장해야 합니다
+
+## 서명자 지정 (클라이언트 측)
+
+클라이언트는 관련 작업 전반에 걸쳐 일관성을 위해 선호하는 서명자를 지정할 수
+있습니다:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+서명자 키가 없으면 구성된 전략이 서명자 선택을 결정합니다. 동일한 트랜잭션과
+관련된 호출에서는 키가 일관되어야 한다는 점에 유의해야 합니다(예: 지정된 서명자
+키로 트랜잭션을 생성한 경우, 모든 관련 호출에 동일한 서명자 키를 사용해야
+합니다).
