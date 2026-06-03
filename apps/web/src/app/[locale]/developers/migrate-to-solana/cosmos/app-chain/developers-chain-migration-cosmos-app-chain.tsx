@@ -228,7 +228,7 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
             <h1 className={styles.heroHeadline}>{t("hero.headline")}</h1>
             <div
               className={styles.heroBody}
-              dangerouslySetInnerHTML={{ __html: t("hero.body") }}
+              dangerouslySetInnerHTML={{ __html: t.raw("hero.body") as string }}
             />
             <div className={styles.heroButtons}>
               {navButtons.map((button) => (

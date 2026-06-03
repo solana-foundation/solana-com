@@ -17,14 +17,14 @@ export function AnimatedHeroSection({
   eyebrow,
   headline,
   body,
-  buttons,
+  buttons = [],
   showScene = true,
   compact = false,
 }: {
   eyebrow: string;
   headline: string;
   body: string;
-  buttons: HeroButton[];
+  buttons?: HeroButton[];
   showScene?: boolean;
   compact?: boolean;
 }) {

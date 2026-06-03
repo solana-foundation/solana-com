@@ -52,23 +52,23 @@ export const RUNBOOK_HIGHLIGHTS = {
   banner: {
     eyebrow: "Migration framing",
     title: "Treat this as a coordinated shutdown and relaunch.",
-    body: "A Cosmos app-chain migration is not a chain upgrade. You are decommissioning an L1, exporting the obligations it held, then relaunching the product, token, and operational model on Solana with new security, liquidity, and user-experience assumptions.",
+    body: "A Cosmos app-chain migration is not a routine chain upgrade. You are retiring a live Layer 1, preserving the obligations it held, and relaunching the product, token, governance, and operations on Solana.",
   },
   cards: [
     {
       number: "01",
       title: "Plan the shutdown before the rewrite",
-      body: "Governance, validator coordination, IBC cutoffs, exchange notice, and archival strategy need to be locked before the destination programs are final.",
+      body: "Governance, validator coordination, IBC cutoffs, exchange notice, and archival strategy need to be locked before destination programs are final.",
     },
     {
       number: "02",
       title: "Separate token migration from product migration",
-      body: "Snapshot rules, claim flows, bridge mechanics, and unclaimed-token policy should be explicit projects with their own operators and support playbooks.",
+      body: "Snapshot rules, claim flows, bridge mechanics, and unclaimed-token policy should be explicit projects with their own owners, operators, and support playbooks.",
     },
     {
       number: "03",
       title: "Launch on Solana like a production cutover",
-      body: "The mint, metadata, vault authorities, claim programs, liquidity, governance, and user comms all need to go live in a sequence you can rehearse and defend.",
+      body: "The token mint, metadata, vault authorities, claim program, liquidity, governance, and user comms all need to go live in a sequence you can rehearse and defend.",
     },
   ],
 };
@@ -102,6 +102,7 @@ export const RUNBOOK_SECTIONS = [
     html: `
       <h2>2. Decision Framework: Is Solana the Right Destination?</h2>
       <p>Do not start a migration because another team did. Validate that Solana fits your product better than continuing on Cosmos or moving to another environment.</p>
+      <p>On Solana, a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
@@ -114,10 +115,10 @@ export const RUNBOOK_SECTIONS = [
           <tbody>
             <tr><td>Security</td><td>How much economic security does the destination chain have, and is it proportionate to your product?</td><td>Strong for teams that want deep shared security instead of their own validator set.</td></tr>
             <tr><td>Liquidity</td><td>Can your token find real liquidity on major venues?</td><td>Strong DEX aggregation and active market structure.</td></tr>
-            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong developer tooling, program frameworks, testing resources, RPC provioders, indexers, wallets, and payment rails</td></tr>
+            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong developer tooling, program frameworks, testing resources, <a href="/docs/rpc">RPC</a> providers, indexers, wallets, and payment rails.</td></tr>
             <tr><td>User base</td><td>Do your target users already live here?</td><td>Often strong for consumer, trading, payments, and NFT-adjacent products.</td></tr>
             <tr><td>IBC compatibility</td><td>Do you still need native Cosmos interoperability after migration?</td><td>Limited. You need bridge or custom interoperability design.</td></tr>
-            <tr><td>Smart contract model</td><td>Can the product survive a rewrite to the account model?</td><td>Good if you can re-architect; poor if you need CosmWasm patterns unchanged.</td></tr>
+            <tr><td>Smart contract model</td><td>Can the product survive a rewrite to the account model?</td><td>Good if you can re-architect around explicit accounts; poor if you need CosmWasm patterns unchanged.</td></tr>
             <tr><td>Transaction fees</td><td>Can your users afford frequent activity?</td><td>Very low nominal fees.</td></tr>
           </tbody>
         </table>
@@ -144,6 +145,7 @@ export const RUNBOOK_SECTIONS = [
       </ul>
       <h3>Community governance</h3>
       <p>Even if the team can coordinate a validator halt without formal governance, skipping governance usually destroys trust. The operationally clean approach is to publish a temperature-check discussion first and a binding governance action later.</p>
+      <p>The proposal should explain the new Solana asset clearly. Most migrated fungible tokens become <a href="/docs/tokens">SPL tokens</a>: tokens managed by Solana token programs rather than by your retired Cosmos chain.</p>
       <pre><code class="language-text">Title: [Deprecation Proposal] Shut Down CHAIN_NAME and Migrate to Solana
 
 Summary:
@@ -240,15 +242,15 @@ The chain will halt at block HEIGHT on DATE.
     tone: "phase",
     html: `
       <h2>5. Phase 2: Token Migration Architecture</h2>
-      <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of trying to keep a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit the Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
-      <p>This keeps the migration auditable and bounded. Your canonical dataset is the final Cosmos snapshot, your on-chain commitment is the Merkle root, and your claim program only needs to verify proofs, mint or transfer the correct amount, and mark each leaf as claimed. A working reference is available in the <a href="https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
+      <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of keeping a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit one Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
+      <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The <a href="/docs/core/programs">claim program</a> verifies each proof, releases the right <a href="/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
       <h3>Recommended architecture: Merkle tree claimer</h3>
       <ul>
         <li>Take a final Cosmos snapshot and normalize the balance dataset you intend to honor.</li>
         <li>Convert each claim into a deterministic leaf such as <code>{index, cosmos_address, solana_address, amount}</code> or <code>{index, recipient, amount}</code>.</li>
         <li>Build the Merkle tree off-chain and publish the root plus the full snapshot artifact for community review.</li>
-        <li>Deploy a Solana claim program that stores the Merkle root, vault authority, mint or token-vault accounts, and the claim window.</li>
-        <li>Require each claimant to submit their amount, leaf index, and Merkle proof, then mark that leaf as claimed on-chain.</li>
+        <li>Deploy a Solana claim program that stores the Merkle root, vault <a href="/docs/references/terminology#authority">authority</a>, <a href="/docs/references/terminology#token-mint">token mint</a> or token-vault accounts, and claim window.</li>
+        <li>Require each claimant to submit their amount, leaf index, and Merkle proof, then mark that leaf as claimed in onchain state.</li>
       </ul>
       <pre><code class="language-text">Cosmos final snapshot
   -> normalized claims file
@@ -258,6 +260,7 @@ The chain will halt at block HEIGHT on DATE.
   -> token vault funded
   -> users submit proof and receive SPL tokens</code></pre>
       <h3>What the Solana claimer should own</h3>
+      <p>In the Rust-style structs below, <code>Pubkey</code> means a Solana <a href="/docs/references/terminology#public-key-pubkey">public key</a>: the address of an account, program, mint, vault, or wallet.</p>
       <pre><code class="language-rust">pub struct Distributor {
     pub merkle_root: [u8; 32],
     pub mint: Pubkey,
@@ -270,7 +273,7 @@ pub struct ClaimStatus {
     pub index: u64,
     pub claimed: bool,
 }</code></pre>
-      <p>A simple implementation uses one PDA or bitmap entry per leaf index to prevent double claims. The claim instruction recomputes the leaf hash from the submitted payload, verifies the Merkle proof against the stored root, transfers or mints the exact SPL amount, and then records the claim status before returning.</p>
+      <p>A simple implementation uses one <a href="/docs/core/pda">Program Derived Address (PDA)</a> or bitmap entry per leaf index to prevent double claims. A PDA is a deterministic address controlled by a program instead of a user's private key. The claim <a href="/docs/core/instructions">instruction</a> recomputes the leaf hash, verifies the Merkle proof against the stored root, transfers or mints the exact SPL amount, and then records the claim status before returning.</p>
       <pre><code class="language-rust">pub fn claim(
     ctx: Context&lt;Claim&gt;,
     index: u64,
@@ -325,13 +328,15 @@ pub struct ClaimStatus {
     html: `
       <h2>6. Phase 3: Launching on Solana</h2>
       <h3>Create the SPL token</h3>
+      <p>An <a href="/docs/tokens">SPL token</a> has a <a href="/docs/tokens#mint-account">mint account</a> that defines the token's decimals, supply controls, and authorities. Match the migrated token's precision deliberately, and decide whether you need the standard <a href="/docs/references/terminology#token-program">Token Program</a> or <a href="/docs/tokens/extensions">Token Extensions</a> for features such as transfer fees, metadata, or compliance controls.</p>
       <pre><code class="language-bash">solana-keygen new --outfile migration-authority.json
 solana config set --keypair migration-authority.json
 solana config set --url mainnet-beta
 
 spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
+      <p><a href="/docs/references/terminology#cluster">mainnet-beta</a> is Solana's production cluster. Rehearse the full launch on a local validator or devnet before you run these commands for real.</p>
       <h3>Add metadata</h3>
-      <p>Without token metadata, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
+      <p>Without <a href="/docs/tokens/metaplex">token metadata</a>, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
       <pre><code class="language-typescript">await createFungible(umi, {
   mint: publicKey(MINT_ADDRESS),
   name: "Your Token Name",
@@ -353,10 +358,10 @@ spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
 spl-token mint MINT_ADDRESS 1000000000
 spl-token authorize MINT_ADDRESS mint --disable
 spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
-      <p>Only revoke mint and freeze authorities after you verify supply, vault custody, and operational signers. These are one-way actions.</p>
+      <p>A mint authority can create more tokens, and a freeze authority can freeze token accounts. Only revoke these <a href="/docs/references/terminology#authority">authorities</a> after you verify supply, vault custody, and operational signers. Disabling them is a one-way action.</p>
       <h3>Multisig, token lists, and liquidity</h3>
       <ul>
-        <li>Move treasury and migration vault control to a multisig such as Squads.</li>
+        <li>Move treasury and migration vault control to a multisig such as <a href="https://squads.xyz" target="_blank" rel="noreferrer">Squads</a>.</li>
         <li>Submit token metadata to the venues and registries your users will rely on.</li>
         <li>Seed at least one meaningful liquidity venue before the migration rush begins.</li>
       </ul>
@@ -368,14 +373,15 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
     tone: "phase",
     html: `
       <h2>7. Phase 4: Smart Contract / Program Migration</h2>
-      <p>The contract rewrite itself is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a>. Operationally, this phase is about deciding which live chain state must survive and how it will be represented on Solana.</p>
+      <p>The contract rewrite itself is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a>. Operationally, this phase is about deciding which live chain state must survive and how it will be represented as Solana accounts.</p>
       <h3>Categorize every contract and module</h3>
       <pre><code class="language-text">Category A - Migrate with state
 Category B - Migrate logic only
 Category C - Deprecate
 Category D - Replace with native Solana equivalents</code></pre>
+      <p>For anything in Category A, design the target <a href="/docs/core/accounts">account layout</a> before writing migration jobs. Solana programs are stateless executables, so durable balances, positions, schedules, and configuration must live in accounts owned by the relevant program.</p>
       <h3>Vesting migration</h3>
-      <p>Financial obligations such as vesting schedules need exact treatment. Export them explicitly and initialize equivalent Solana state, not ad-hoc spreadsheets.</p>
+      <p>Financial obligations such as vesting schedules need exact treatment. Export them explicitly and initialize equivalent Solana state, not ad-hoc spreadsheets. In <a href="/docs/references/terminology#anchor">Anchor</a>, a Rust framework for Solana programs, <code>#[account]</code> marks a struct that will be serialized into a Solana account.</p>
       <pre><code class="language-bash">cat final_state.json | jq '.app_state.wasm.contracts' | \
   python3 extract_vesting.py &gt; vesting_positions.json</code></pre>
       <pre><code class="language-rust">#[account]
@@ -390,7 +396,7 @@ pub struct VestingSchedule {
       <h3>NFT migration</h3>
       <ul>
         <li>Export token ownership and metadata dependencies.</li>
-        <li>Pick the Solana NFT or digital-asset standard before writing claim logic.</li>
+        <li>Pick the <a href="/docs/tokens/metaplex">Solana NFT or digital-asset standard</a> before writing claim logic.</li>
         <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
       </ul>
     `,
@@ -401,8 +407,8 @@ pub struct VestingSchedule {
     tone: "phase",
     html: `
       <h2>8. Phase 5: Governance Migration</h2>
-      <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main on-chain DAO and treasury-management interface for Solana. It sits on top of SPL Governance and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for things like treasury transfers and program upgrades.</p>
-      <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one, because Cosmos governance is chain governance while Realms governs assets, programs, and operational workflows on Solana.</p>
+      <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/docs/core/programs/program-deployment">program upgrades</a>.</p>
+      <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one: Cosmos governance controls chain state, while Solana governance usually controls assets, program authorities, and operational workflows.</p>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
@@ -414,7 +420,7 @@ pub struct VestingSchedule {
           <tbody>
             <tr><td>Text proposals</td><td>Snapshot or other off-chain governance process</td></tr>
             <tr><td>Parameter changes</td><td>Governed admin program or multisig-controlled program authority</td></tr>
-            <tr><td>Upgrade proposals</td><td>Squads or similar controlled authority flow</td></tr>
+            <tr><td>Upgrade proposals</td><td>Squads or similar controlled upgrade-authority flow</td></tr>
             <tr><td>Community pool</td><td>Realms or treasury multisig</td></tr>
           </tbody>
         </table>
@@ -427,7 +433,7 @@ pub struct VestingSchedule {
         <li>Rewrite recurring Cosmos proposal types as explicit Solana actions: treasury transfers, parameter updates through admin programs, and program upgrades through governed execution.</li>
       </ul>
       <h3>Practical mapping</h3>
-      <p>A Cosmos text proposal often becomes an off-chain forum post plus a Realms proposal only when there is an executable action attached. A Cosmos software-upgrade proposal usually becomes a Solana program-upgrade proposal after the upgrade authority is transferred into governance. Treasury and community-pool decisions usually become Realms treasury proposals executed by governed wallets.</p>
+      <p>An upgrade authority is the signer allowed to replace an upgradeable Solana program's executable code. A Cosmos software-upgrade proposal usually becomes a Solana program-upgrade proposal after that authority is transferred into governance. Treasury and community-pool decisions usually become Realms treasury proposals executed by governed wallets.</p>
       <p>The main design choice is who can propose and who can veto. Many migrations start with a council-controlled Realm for safety, then expand toward broader token voting once the token, treasury, and program authorities are settled on Solana.</p>
     `,
   },
@@ -461,8 +467,9 @@ pub struct VestingSchedule {
         <li>Connect Cosmos and Solana wallets in the same flow.</li>
         <li>Show eligibility and claimable amount from the canonical snapshot.</li>
         <li>Support your chosen architecture: mapping-only, one-way bridge, or post-snapshot claim.</li>
-        <li>Provide status tracking and a user-visible audit trail.</li>
+        <li>Provide status tracking, transaction signatures, and a user-visible audit trail.</li>
       </ul>
+      <p>The Rust example below is an Anchor-style claim instruction. It uses a <a href="/docs/core/cpi">Cross Program Invocation (CPI)</a>, which is how one Solana program calls another, to ask the SPL Token program to transfer tokens from the vault into the user's token account. The vault authority is a <a href="/docs/core/pda">PDA</a>, so the claim program can sign for the vault without holding a private key.</p>
       <pre><code class="language-rust">#[program]
 pub mod migration_claim {
     use super::*;
@@ -507,7 +514,7 @@ pub mod migration_claim {
     .rpc();
 }</code></pre>
       <h3>Exchange coordination</h3>
-      <p>Custodial platforms need the new mint address, the conversion ratio, the cutover date, a test transaction, and a real technical contact. Large exchanges usually need more notice than your community does.</p>
+      <p>Custodial platforms need the new mint address, conversion ratio, cutover date, test transaction, and a real technical contact. Large exchanges usually need more notice than your community does.</p>
     `,
   },
   {
@@ -517,6 +524,7 @@ pub mod migration_claim {
     html: `
       <h2>10. Phase 7: Decommissioning Cosmos Infrastructure</h2>
       <h3>Inventory everything first</h3>
+      <p>On Solana, <a href="/docs/rpc">RPC</a> services expose account and transaction data to wallets, indexers, dashboards, and support tools. Keep enough Cosmos RPC, LCD, gRPC, and explorer infrastructure online for users to verify history while the Solana-side product becomes the source of truth.</p>
       <pre><code class="language-text">Validators:
   - primary validator
   - sentry nodes
@@ -591,7 +599,7 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
       </ul>
       <h3>SPL launch and migration mechanics</h3>
       <ul>
-        <li>Create the mint, metadata, treasury accounts, and multisig control plane.</li>
+        <li>Create the token mint, metadata, treasury accounts, and multisig control plane.</li>
         <li>Choose the migration architecture: snapshot plus airdrop, one-way bridge, or supported third-party bridge.</li>
         <li>Define the unclaimed-token policy before launch.</li>
         <li>Deploy and rehearse the claim or bridge programs.</li>
@@ -625,7 +633,7 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Merkle Tree Token Claimer",
-      body: "Reference implementation for a snapshot-driven token migration using a Merkle root, funded claim vault, and on-chain proof verification.",
+      body: "Reference implementation for a snapshot-driven token migration using a Merkle root, funded claim vault, and onchain proof verification.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
@@ -655,12 +663,12 @@ export const RESOURCE_CARD_DECK = {
       type: "image",
       headingAs: "h3",
       heading: "Squads Protocol",
-      body: "Use a multisig instead of a hot single signer for migration vaults, treasury control, and upgrade authority.",
+      body: "Use a multisig instead of a hot single signer for migration vaults, treasury control, and program upgrade authority.",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://squads.so",
+        url: "https://squads.xyz",
         label: "Open Squads",
         endIcon: "arrow-right",
         hierarchy: "outline",
