@@ -459,7 +459,7 @@ function SponsorModal({
 }
 
 function SponsorsIntro() {
-  const introText = `<span class="text-purple">7,300+</span> high-signal <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to the teams shaping Solana's next chapter in London's financial hub. Your brand, their attention.`;
+  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
 
   return (
     <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
@@ -485,7 +485,7 @@ function SponsorsIntro() {
             arrow
             className="mt-s"
             href={SPONSOR_FORM_HREF}
-            label="Reach out"
+            label="Contact us"
             variant="primary"
           />
         </div>
