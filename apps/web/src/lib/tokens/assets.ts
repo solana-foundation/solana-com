@@ -5,10 +5,13 @@
  * solutions page. The API key must stay server-side, so this module is only
  * ever imported from server components / route handlers.
  *
- * Docs: https://api.tokens.xyz/v1 — `GET /v1/assets/curated`
+ * Docs: https://docs.tokens.xyz/v1/quickstart — `GET /v1/assets/curated`
  */
 
 const DEFAULT_API_BASE_URL = "https://api.tokens.xyz";
+const TOKENS_REVALIDATE_SECONDS = 60 * 60;
+const MARKET_PROTOCOL_CONCURRENCY = 8;
+const MARKET_PROTOCOL_TIMEOUT_MS = 2_500;
 
 /** Categories surfaced on the tokenization page (real Tokens API categories). */
 export const TOKENIZED_ASSET_CATEGORIES = [
@@ -51,6 +54,8 @@ type CuratedPrimaryVariant = {
   issuer?: string;
   issuerUrl?: string;
   label?: string;
+  name?: string;
+  symbol?: string;
   market: {
     marketCap?: number | null;
     liquidity?: number | null;
@@ -74,6 +79,40 @@ type CuratedResponse = {
   assets?: CuratedAsset[];
 };
 
+type AssetMarket = {
+  source?: string | null;
+};
+
+type AssetMarketsResponse = {
+  includes?: {
+    markets?: {
+      ok: boolean;
+      data?: {
+        markets?: AssetMarket[];
+      };
+    };
+  };
+};
+
+const getTokensApiBaseUrl = (): string => {
+  const configuredBaseUrl =
+    process.env.TOKENS_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+
+  return configuredBaseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
+};
+
+const firstText = (
+  ...values: Array<string | null | undefined>
+): string | null => {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return null;
+};
+
 const isTokenizedCategory = (
   category: string,
 ): category is TokenizedAssetCategory =>
@@ -90,7 +129,85 @@ const firstNumber = (
   return null;
 };
 
-const toTokenizedAsset = (asset: CuratedAsset): TokenizedAsset | null => {
+const getVariantIssuerOrLabel = (asset: CuratedAsset): string | null =>
+  firstText(asset.primaryVariant?.issuer, asset.primaryVariant?.label);
+
+const getMarketProtocol = async (
+  baseUrl: string,
+  apiKey: string,
+  assetId: string,
+): Promise<string | null> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    MARKET_PROTOCOL_TIMEOUT_MS,
+  );
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/v1/assets/${encodeURIComponent(assetId)}?include=markets`,
+      {
+        headers: {
+          "x-api-key": apiKey,
+          accept: "application/json",
+        },
+        next: { revalidate: TOKENS_REVALIDATE_SECONDS },
+        signal: controller.signal,
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as AssetMarketsResponse;
+    const markets = data.includes?.markets?.data?.markets ?? [];
+    const market = markets.find((market) => firstText(market.source));
+
+    return firstText(market?.source);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const getMarketProtocols = async (
+  baseUrl: string,
+  apiKey: string,
+  assets: CuratedAsset[],
+): Promise<Map<string, string>> => {
+  const targets = assets
+    .filter((asset) => isTokenizedCategory(asset.category))
+    .filter((asset) => getVariantIssuerOrLabel(asset) === null)
+    .map((asset) => asset.assetId);
+
+  const protocols = new Map<string, string>();
+  let nextTargetIndex = 0;
+
+  const workers = Array.from(
+    { length: Math.min(MARKET_PROTOCOL_CONCURRENCY, targets.length) },
+    async () => {
+      while (nextTargetIndex < targets.length) {
+        const assetId = targets[nextTargetIndex++];
+        const protocol = await getMarketProtocol(baseUrl, apiKey, assetId);
+
+        if (protocol) {
+          protocols.set(assetId, protocol);
+        }
+      }
+    },
+  );
+
+  await Promise.all(workers);
+
+  return protocols;
+};
+
+const toTokenizedAsset = (
+  asset: CuratedAsset,
+  marketProtocols: Map<string, string>,
+): TokenizedAsset | null => {
   if (!isTokenizedCategory(asset.category)) {
     return null;
   }
@@ -103,7 +220,13 @@ const toTokenizedAsset = (asset: CuratedAsset): TokenizedAsset | null => {
     name: asset.name || asset.symbol || asset.assetId,
     category: asset.category,
     imageUrl: asset.imageUrl ?? null,
-    issuer: asset.primaryVariant?.issuer ?? null,
+    issuer: firstText(
+      asset.primaryVariant?.issuer,
+      asset.primaryVariant?.label,
+      marketProtocols.get(asset.assetId),
+      asset.primaryVariant?.name,
+      asset.primaryVariant?.symbol,
+    ),
     issuerUrl: asset.primaryVariant?.issuerUrl ?? null,
     marketCap: firstNumber(asset.stats?.marketCap, market?.marketCap),
     liquidity: firstNumber(asset.stats?.liquidity, market?.liquidity),
@@ -130,11 +253,8 @@ export const fetchTokenizedAssets = async (): Promise<TokenizedAsset[]> => {
     return [];
   }
 
-  const baseUrl = (
-    process.env.TOKENS_API_BASE_URL || DEFAULT_API_BASE_URL
-  ).replace(/\/$/, "");
-
   try {
+    const baseUrl = getTokensApiBaseUrl();
     const response = await fetch(
       `${baseUrl}/v1/assets/curated?list=all&groupBy=asset&limit=500`,
       {
@@ -153,9 +273,10 @@ export const fetchTokenizedAssets = async (): Promise<TokenizedAsset[]> => {
 
     const data = (await response.json()) as CuratedResponse;
     const assets = Array.isArray(data.assets) ? data.assets : [];
+    const marketProtocols = await getMarketProtocols(baseUrl, apiKey, assets);
 
     const mapped = assets
-      .map(toTokenizedAsset)
+      .map((asset) => toTokenizedAsset(asset, marketProtocols))
       .filter((asset): asset is TokenizedAsset => asset !== null);
 
     // Surface the assets with the most market presence first.
