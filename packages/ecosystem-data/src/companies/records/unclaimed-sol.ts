@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import unclaimedSolBreakpoint2026NegativeRelief from "../../../assets/companies/unclaimed-sol/breakpoint-2026-negative-relief.svg";
 import unclaimedSolBreakpoint2026White from "../../../assets/companies/unclaimed-sol/breakpoint-2026-white.svg";
 import unclaimedSolClaimy from "../../../assets/companies/unclaimed-sol/claimy.png";
 import unclaimedSolLogo from "../../../assets/companies/unclaimed-sol/logo.png";
@@ -26,6 +27,14 @@ export const unclaimedSol = {
   },
   defaultLogoId: "breakpoint-2026-white",
   logos: [
+    {
+      id: "breakpoint-2026-negative-relief",
+      fileName: "breakpoint-2026-negative-relief.svg",
+      format: "svg",
+      source: unclaimedSolBreakpoint2026NegativeRelief,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",
