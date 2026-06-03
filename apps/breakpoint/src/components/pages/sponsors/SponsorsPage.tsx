@@ -602,14 +602,16 @@ export default function SponsorsPage() {
     <PageShell contentId="breakpoint-sponsors-content">
       <SubpageHero title="Sponsors" heroImage="sponsors" />
       <SponsorsIntro />
-      {sponsorTiers.map((tier, index) => (
-        <SponsorTierSection
-          key={tier.title}
-          tier={tier}
-          first={index === 0}
-          onSponsorClick={setActiveSponsor}
-        />
-      ))}
+      <div className="pb-xl md:pb-2xl">
+        {sponsorTiers.map((tier, index) => (
+          <SponsorTierSection
+            key={tier.title}
+            tier={tier}
+            first={index === 0}
+            onSponsorClick={setActiveSponsor}
+          />
+        ))}
+      </div>
       <Footer />
       <SponsorModal
         sponsor={activeSponsor}
