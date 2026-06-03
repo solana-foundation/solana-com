@@ -252,9 +252,9 @@ function SponsorTierSection({
   return (
     <section
       aria-labelledby={`${tier.title.toLowerCase()}-sponsors`}
-      className={`px-xs md:px-m ${first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}`}
+      className={first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}
     >
-      <div className="mx-auto max-w-[1376px]">
+      <div className="container">
         <h2
           id={`${tier.title.toLowerCase()}-sponsors`}
           className="type-h3 text-white"
@@ -462,8 +462,8 @@ function SponsorsIntro() {
   const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
 
   return (
-    <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
-      <div className="mx-auto flex max-w-[1376px] flex-col gap-m md:flex-row md:items-start md:justify-between">
+    <section className="bg-black pt-l md:pt-xl">
+      <div className="container flex flex-col gap-m md:flex-row md:items-start md:justify-between">
         <WordReveal
           as="p"
           className="type-eyebrow text-white"
