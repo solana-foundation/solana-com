@@ -2,13 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import {
-  getCompany,
-  getCompanyLogo,
-  resolveImportedAssetSrc,
-  type CompanyId,
-  type CompanyRecord,
-} from "@workspace/ecosystem-data";
+import { type CompanyRecord } from "@workspace/ecosystem-data";
 import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
@@ -16,234 +10,20 @@ import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
 import { SPONSOR_FORM_HREF } from "@/content/links";
-
-const SPONSOR_LOGO_ID = "breakpoint-2026-white";
-
-type SponsorLogo = {
-  companyId: CompanyId;
-  width: number;
-  height: number;
-};
-
-type SponsorTier = {
-  title: string;
-  mobileColumns: string;
-  mobileLogoScale: number;
-  columns: string;
-  cellAspect: string;
-  sponsors: SponsorLogo[];
-  emptyCells?: number;
-};
-
-const platinumSponsors = [
-  {
-    companyId: "solflare",
-    width: 230.648,
-    height: 55.2,
-  },
-  {
-    companyId: "phantom",
-    width: 279.68,
-    height: 55.2,
-  },
-  {
-    companyId: "galaxy",
-    width: 203.262,
-    height: 58.075,
-  },
-  {
-    companyId: "syndica",
-    width: 274,
-    height: 55.2,
-  },
-  {
-    companyId: "render-network",
-    width: 173.158,
-    height: 140.691,
-  },
-] satisfies SponsorLogo[];
-
-const diamondSponsors = [
-  {
-    companyId: "altitude",
-    width: 181.818,
-    height: 32,
-  },
-  {
-    companyId: "allnodes",
-    width: 196,
-    height: 40,
-  },
-  {
-    companyId: "pancakeswap",
-    width: 218.182,
-    height: 40,
-  },
-  {
-    companyId: "trojan",
-    width: 200.941,
-    height: 56,
-  },
-  {
-    companyId: "bonk",
-    width: 199.046,
-    height: 64,
-  },
-  {
-    companyId: "walrus",
-    width: 153.931,
-    height: 36,
-  },
-  {
-    companyId: "sanctum",
-    width: 204.615,
-    height: 40,
-  },
-  {
-    companyId: "monke-dao",
-    width: 167.565,
-    height: 64,
-  },
-  {
-    companyId: "kast",
-    width: 191.781,
-    height: 40,
-  },
-  {
-    companyId: "dmcc",
-    width: 167.377,
-    height: 48,
-  },
-  {
-    companyId: "flash-trade",
-    width: 195.652,
-    height: 72,
-  },
-] satisfies SponsorLogo[];
-
-const goldSponsors = [
-  {
-    companyId: "yala",
-    width: 95.143,
-    height: 36,
-  },
-  {
-    companyId: "d3",
-    width: 137.143,
-    height: 48,
-  },
-  {
-    companyId: "solpay",
-    width: 123.221,
-    height: 31.5,
-  },
-  {
-    companyId: "doublezero",
-    width: 168.75,
-    height: 27,
-  },
-  {
-    companyId: "listing-help",
-    width: 148.718,
-    height: 36,
-  },
-  {
-    companyId: "dawn",
-    width: 152.219,
-    height: 24,
-  },
-  {
-    companyId: "walletconnect",
-    width: 166.213,
-    height: 18,
-  },
-  {
-    companyId: "orbitflare",
-    width: 138.909,
-    height: 24,
-  },
-  {
-    companyId: "alchemy",
-    width: 140,
-    height: 30,
-  },
-  {
-    companyId: "drpc",
-    width: 111.13,
-    height: 36,
-  },
-  {
-    companyId: "reap",
-    width: 118.607,
-    height: 27,
-  },
-  {
-    companyId: "ryder",
-    width: 117.728,
-    height: 39,
-  },
-  {
-    companyId: "xbit",
-    width: 104.157,
-    height: 30,
-  },
-] satisfies SponsorLogo[];
-
-const sponsorTiers = [
-  {
-    title: "Platinum",
-    mobileColumns: "grid-cols-1",
-    mobileLogoScale: 0.6,
-    columns: "md:grid-cols-3",
-    cellAspect: "aspect-[442/221]",
-    sponsors: platinumSponsors,
-    emptyCells: 1,
-  },
-  {
-    title: "Diamond",
-    mobileColumns: "grid-cols-2",
-    mobileLogoScale: 0.512,
-    columns: "md:grid-cols-4",
-    cellAspect: "aspect-[326/163]",
-    sponsors: diamondSponsors,
-    emptyCells: 1,
-  },
-  {
-    title: "Gold",
-    mobileColumns: "grid-cols-2",
-    mobileLogoScale: 0.64,
-    columns: "md:grid-cols-5",
-    cellAspect: "aspect-[256/128]",
-    sponsors: goldSponsors,
-    emptyCells: 1,
-  },
-] satisfies SponsorTier[];
-
-function getSponsorCompany(companyId: CompanyId) {
-  const company = getCompany(companyId);
-
-  if (!company) {
-    throw new Error(`Missing Breakpoint sponsor company: ${companyId}`);
-  }
-
-  return company;
-}
+import {
+  sponsorTiers,
+  type SponsorLogo,
+  type SponsorTier,
+} from "@/content/sponsors";
+import { resolveSponsorLogo } from "@/lib/sponsors";
 
 function getLogo(sponsor: SponsorLogo) {
-  const company = getSponsorCompany(sponsor.companyId);
-  const logo =
-    getCompanyLogo(sponsor.companyId, { id: SPONSOR_LOGO_ID }) ??
-    getCompanyLogo(sponsor.companyId, { treatment: "monotone" });
-  const src = logo ? resolveImportedAssetSrc(logo.source) : undefined;
-
-  if (!src) {
-    throw new Error(`Missing Breakpoint sponsor logo: ${sponsor.companyId}`);
-  }
+  const resolved = resolveSponsorLogo(sponsor);
 
   return {
-    company,
-    alt: company.name,
-    src,
+    company: resolved.company,
+    alt: resolved.alt,
+    src: resolved.src,
   };
 }
 
