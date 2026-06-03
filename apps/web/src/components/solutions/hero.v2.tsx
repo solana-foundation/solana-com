@@ -12,6 +12,7 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 export type SolutionHeroStat = {
   value: string;
   label: string;
+  delta?: string;
   Icon?:
     | string
     | ComponentType<{
@@ -139,40 +140,41 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             {subtitle}
           </p>
 
-          {extraCta && extraCtaHref && (
-            <div className="mt-[32px] xl:mt-[64px]">
-              <Button
-                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-                size="lg"
-                asChild
-              >
-                <a
-                  href={extraCtaHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={extraCta}
+          {((extraCta && extraCtaHref) || (emailCta && onEmailClick)) && (
+            <div className="mt-[32px] xl:mt-[64px] flex flex-wrap items-center gap-3 md:gap-4">
+              {extraCta && extraCtaHref && (
+                <Button
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  size="lg"
+                  asChild
                 >
-                  {extraCta}
-                </a>
-              </Button>
-            </div>
-          )}
+                  <a
+                    href={extraCtaHref}
+                    {...(/^https?:\/\//.test(extraCtaHref)
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                    aria-label={extraCta}
+                  >
+                    {extraCta}
+                  </a>
+                </Button>
+              )}
 
-          {emailCta && onEmailClick && (
-            <div className="mt-[32px] xl:mt-[64px]">
-              <Button
-                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-                size="lg"
-                aria-label={emailCta}
-                onClick={onEmailClick}
-              >
-                <ArrowDownToLine
-                  aria-hidden={true}
-                  className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                  strokeWidth={3}
-                />
-                {emailCta}
-              </Button>
+              {emailCta && onEmailClick && (
+                <Button
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  size="lg"
+                  aria-label={emailCta}
+                  onClick={onEmailClick}
+                >
+                  <ArrowDownToLine
+                    aria-hidden={true}
+                    className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
+                    strokeWidth={3}
+                  />
+                  {emailCta}
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -233,6 +235,11 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                       <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
                         {stat.label}
                       </div>
+                      {stat.delta && (
+                        <div className="mt-[4px] text-[12px] md:text-[14px] font-medium text-[#ABABBA] tracking-[-0.14px]">
+                          {stat.delta}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
