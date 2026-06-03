@@ -8,7 +8,6 @@ import {
 } from "@/app/components/docs-code-snippet";
 import { cn } from "@/app/components/utils";
 import {
-  GUIDE_HIGHLIGHTS,
   GUIDE_SECTIONS,
   NAV_BUTTONS,
   QUICK_REFERENCE_ROWS,
@@ -103,12 +102,12 @@ const SECTION_COMPARISON_GROUPS: Partial<
       anchorHeading: "Compare token handling:",
       labels: [
         "CosmWasm",
-        "Anchor",
-        "Anchor",
-        "Anchor",
-        "Pinocchio",
-        "Pinocchio",
-        "Pinocchio",
+        "Anchor SOL",
+        "Anchor SPL",
+        "Anchor Vault",
+        "Native SOL",
+        "Native SPL",
+        "Native Vault",
       ],
     },
   ],
@@ -122,7 +121,7 @@ const SECTION_COMPARISON_GROUPS: Partial<
   serialization: [
     {
       kind: "code-order",
-      anchorHeading: "8. Serialization: JSON / serde vs wincode",
+      anchorHeading: "8. Serialization: JSON / serde vs Binary Data",
       labels: ["CosmWasm", "Solana"],
     },
   ],
@@ -731,7 +730,7 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
             <h1 className={styles.heroHeadline}>{t("hero.headline")}</h1>
             <div
               className={styles.heroBody}
-              dangerouslySetInnerHTML={{ __html: t("hero.body") }}
+              dangerouslySetInnerHTML={{ __html: t.raw("hero.body") as string }}
             />
             <div className={styles.heroButtons}>
               {navButtons.map((button) => (
@@ -749,28 +748,6 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
               ))}
             </div>
           </header>
-
-          {/* Highlights */}
-          <div className={styles.highlights}>
-            <div className={styles.highlightBanner}>
-              <p className={styles.highlightBannerEyebrow}>
-                {GUIDE_HIGHLIGHTS.banner.eyebrow}
-              </p>
-              <h2 className={styles.highlightBannerTitle}>
-                {GUIDE_HIGHLIGHTS.banner.title}
-              </h2>
-              <p className={styles.highlightBannerBody}>
-                {GUIDE_HIGHLIGHTS.banner.body}
-              </p>
-            </div>
-            {GUIDE_HIGHLIGHTS.cards.map((card) => (
-              <div key={card.number} className={styles.highlightCard}>
-                <p className={styles.highlightCardNumber}>{card.number}</p>
-                <h3 className={styles.highlightCardTitle}>{card.title}</h3>
-                <p className={styles.highlightCardBody}>{card.body}</p>
-              </div>
-            ))}
-          </div>
 
           {/* Mobile TOC */}
           <div className={styles.mobileToc}>

@@ -127,18 +127,6 @@ export function DevelopersChainMigrationCosmosPage() {
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
         body={t.raw("hero.body")}
-        buttons={[
-          {
-            label: "Smart Contract Migration",
-            url: "/developers/migrate-to-solana/cosmos/cosmwasm",
-            hierarchy: "primary",
-          },
-          {
-            label: "App Chain Migration",
-            url: "/developers/migrate-to-solana/cosmos/app-chain",
-            hierarchy: "outline",
-          },
-        ]}
         showScene={true}
       />
 

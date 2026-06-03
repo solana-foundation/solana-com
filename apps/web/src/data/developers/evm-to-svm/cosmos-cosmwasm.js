@@ -48,31 +48,6 @@ export const NAV_BUTTONS = [
   },
 ];
 
-export const GUIDE_HIGHLIGHTS = {
-  banner: {
-    eyebrow: "Contract migration framing",
-    title: "Treat this as a model rewrite, not a syntax conversion.",
-    body: "CosmWasm contracts bundle stateful instances, contract-local storage, and asynchronous message passing. Solana programs separate logic from state, require explicit account graphs, and use synchronous CPI plus binary layouts. Porting goes well when you redesign around those rules instead of forcing CosmWasm patterns to survive unchanged.",
-  },
-  cards: [
-    {
-      number: "01",
-      title: "Anchor around accounts and PDAs",
-      body: "A contract instance does not become another deployed program. It becomes one program plus a set of program-owned accounts whose addresses encode the state keys you used to store in Maps and Items.",
-    },
-    {
-      number: "02",
-      title: "Translate execution flow deliberately",
-      body: "CosmWasm async messages, replies, and JSON entry points turn into instruction handlers, explicit account validation, and synchronous CPI. That affects architecture, not just implementation details.",
-    },
-    {
-      number: "03",
-      title: "Plan state, tests, and upgrades up front",
-      body: "Rent, account sizing, CPI account plumbing, local-validator tests, and upgrade authority policy are all part of the program surface on Solana. They are not cleanup tasks after the port.",
-    },
-  ],
-};
-
 export const GUIDE_SECTIONS = [
   {
     id: "philosophy-scaling",
@@ -81,6 +56,7 @@ export const GUIDE_SECTIONS = [
     html: `
       <h2>1. Design Overview</h2>
       <p>This guide is for Rust smart contract developers who already know CosmWasm and want to make sound Solana architecture decisions instead of trying to preserve patterns that do not translate cleanly.</p>
+      <p>Four Solana concepts shape the whole rewrite: a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the state object the runtime stores and loads, an <a href="/docs/core/instructions">instruction</a> is a request to run one program handler, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that succeeds or fails atomically.</p>
       <p>Before touching code, internalize the two chains' core bets:</p>
       <div class="tw-overflow-x-auto">
         <table class="tw-w-full tw-border-collapse tw-border tw-border-white/10">
@@ -93,15 +69,15 @@ export const GUIDE_SECTIONS = [
           </thead>
           <tbody>
             <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Scaling strategy</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Horizontal app-chain ecosystem connected by IBC</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">One high-throughput chain with parallel execution</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Typical block cadence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Seconds</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Sub-second slots</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Execution VM</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">WASM bytecode</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">eBPF bytecode</td></tr>
+            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Typical block cadence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Seconds</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Sub-second slots, which are Solana's leader-scheduled time windows</td></tr>
+            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Execution VM</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">WASM bytecode</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">sBPF bytecode, Solana's executable program format</td></tr>
             <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Nondeterminism</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Disallowed</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Disallowed</td></tr>
             <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Contract instances</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Many instances per uploaded code</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">One deployed program; many state accounts</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Scaling consequence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Application isolation by chain</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Sealevel parallelism via explicit account locking</td></tr>
+            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Scaling consequence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Application isolation by chain</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Parallel execution through explicit account locks</td></tr>
           </tbody>
         </table>
       </div>
-      <p>The biggest practical consequence is Solana's parallel runtime. Transactions declare every account they will touch up front, so the runtime can execute non-conflicting transactions simultaneously. That requirement shapes the rest of the programming model.</p>
+      <p>The biggest practical consequence is Solana's parallel runtime: transactions declare every account they will touch up front. The runtime can then lock only those accounts and run transactions that do not write to the same account at the same time. That requirement shapes the rest of the programming model.</p>
     `,
   },
   {
@@ -124,15 +100,15 @@ export const GUIDE_SECTIONS = [
       |-- Pool Account A   (PDA)
       |-- Pool Account B   (PDA)
       '-- User Account C   (PDA)</code></pre>
-      <p>A Solana program is stateless logic. State lives in separate accounts owned by the program, and the client or calling program must pass every required account into each instruction explicitly.</p>
+      <p>A <a href="/docs/core/programs">Solana program</a> is stateless logic. State lives in separate <a href="/docs/core/accounts">accounts</a> owned by the program. Ownership matters because only the owner program can modify an account's data, and the client or calling program must pass every required account into each instruction explicitly.</p>
       <h3>Why this matters in practice</h3>
       <ul>
         <li>A CosmWasm factory often stores deployed child addresses. A Solana program usually derives addresses deterministically instead of storing them.</li>
         <li>A CosmWasm contract owns one isolated KV store. A Solana program looks more like a database engine that defines schemas and rules for many rows stored as separate accounts.</li>
-        <li>Transactions declare all accounts they will read or write. That declaration is what unlocks parallelism.</li>
+        <li><a href="/docs/core/transactions">Transactions</a> declare all accounts they will read or write. That declaration is what unlocks parallelism.</li>
       </ul>
       <h3>Program Derived Addresses</h3>
-      <p>PDAs are the cornerstone of Solana state management. They are off-curve addresses derived from seeds plus the program ID and a bump seed. They encode the lookup key in the address itself.</p>
+      <p><a href="/docs/core/pda">Program Derived Addresses (PDAs)</a> are the cornerstone of Solana state management. They are deterministic, off-curve account addresses derived from seeds plus the program ID and a bump seed. "Off-curve" means no private key exists for the address, so only the deriving program can sign for it through the runtime.</p>
       <h4>Solana PDA</h4>
       <pre><code class="language-rust">#[derive(Accounts)]
 pub struct Increment&lt;'info&gt; {
@@ -148,7 +124,7 @@ pub struct Increment&lt;'info&gt; {
       <h4>Cosmos map lookup</h4>
       <pre><code class="language-rust">pub const USER_COUNTERS: Map&lt;&amp;Addr, u64&gt; = Map::new("user_counters");
 let count = USER_COUNTERS.load(deps.storage, &amp;info.sender)?;</code></pre>
-      <p>That CosmWasm map lookup becomes PDA derivation plus account deserialization on Solana. The key is the address.</p>
+      <p>That CosmWasm map lookup becomes <a href="/docs/core/pda/pda-derivation">PDA derivation</a> plus account deserialization on Solana. The key is the address.</p>
     `,
   },
   {
@@ -157,14 +133,14 @@ let count = USER_COUNTERS.load(deps.storage, &amp;info.sender)?;</code></pre>
     tone: "default",
     html: `
       <h2>3. Project Structure &amp; Toolchain</h2>
-      <p>CosmWasm and Solana are both Rust ecosystems, but the build pipeline, deployment model, and testing workflow differ substantially.</p>
+      <p>CosmWasm and Solana are both Rust ecosystems, but the build pipeline, deployment model, and testing workflow differ substantially. Solana programs compile to <a href="/docs/core/programs/program-execution">sBPF</a>, the Solana bytecode format executed by the runtime.</p>
       <h3>CosmWasm toolchain</h3>
       <pre><code class="language-bash">rustup target add wasm32-unknown-unknown
 cargo generate --git https://github.com/CosmWasm/cw-template
 cargo build --target wasm32-unknown-unknown --release</code></pre>
       <p>Key crates: <code>cosmwasm-std</code>, <code>cw-storage-plus</code>, <code>cw-multi-test</code>, and <code>thiserror</code>.</p>
       <h3>Solana toolchain options</h3>
-      <p>Most Solana Rust teams choose between <a href="https://github.com/solana-foundation/anchor" target="_blank" rel="noreferrer">Anchor</a> and <a href="https://github.com/anza-xyz/pinocchio" target="_blank" rel="noreferrer">Pinocchio</a>. Both target Solana's runtime, but they optimize for different tradeoffs.</p>
+      <p>Most Solana Rust teams choose between <a href="https://www.anchor-lang.com/docs" target="_blank" rel="noreferrer">Anchor</a> and <a href="https://github.com/anza-xyz/pinocchio" target="_blank" rel="noreferrer">Pinocchio</a>. Both target Solana's runtime, but they optimize for different tradeoffs.</p>
       <h4>Anchor toolchain</h4>
       <pre><code class="language-bash">sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
 cargo install --git https://github.com/solana-foundation/anchor anchor-cli
@@ -173,13 +149,15 @@ anchor init my_program
 cd my_program
 anchor build
 anchor test</code></pre>
-      <p>Anchor is the higher-level framework. It adds account validation macros, IDL generation, client bindings, and a batteries-included test workflow. That makes it the default choice when you want fast iteration, better ergonomics, and a larger ecosystem of examples.</p>
-      <p>Key crates: <code>solana-program</code>, <code>anchor-lang</code>, <code>anchor-spl</code>, and SPL program libraries such as <code>spl-token</code>.</p>
+      <p>Anchor is the higher-level framework. It adds account validation macros, <a href="/docs/references/terminology#idl">IDL</a> generation, client bindings, and a batteries-included test workflow.</p>
+      <p>An IDL is a machine-readable description of a program's instructions, accounts, and types. Clients can use it to build transactions safely, which makes Anchor the default choice when you want fast iteration, better ergonomics, and a larger ecosystem of examples.</p>
+      <p>Key crates: <code>solana-program</code>, <code>anchor-lang</code>, <code>anchor-spl</code>, and <a href="/docs/tokens">SPL Token</a> libraries such as <code>spl-token</code>.</p>
       <h4>Pinocchio toolchain</h4>
       <pre><code class="language-bash">cargo add pinocchio
 cargo build-sbf</code></pre>
-      <p>Pinocchio is a lower-level framework with a much thinner abstraction layer. It keeps you closer to native Solana program structure, which can be useful when you want tighter control over instruction dispatch, account handling, binary size, or compute behavior.</p>
-      <p>Use Anchor when you want framework support for account constraints, IDLs, and client generation. Use Pinocchio when you want a lighter abstraction and are comfortable owning more of the boilerplate and safety checks yourself.</p>
+      <p>Pinocchio is a lower-level framework with a much thinner abstraction layer. It keeps you closer to native Solana program structure, which can be useful when you want tighter control over instruction dispatch, account handling, binary size, or <a href="/docs/core/fees/compute-budget">compute budget</a> behavior.</p>
+      <p>Compute budget is Solana's per-transaction limit for execution work, measured in compute units. Use Anchor when you want framework support for account constraints, IDLs, and client generation. Use Pinocchio when you want a lighter abstraction and are comfortable owning more of the boilerplate and safety checks yourself.</p>
+      <p>Account constraints are declarative checks that tell Anchor which accounts must sign, be writable, match seeds, or satisfy ownership rules.</p>
       <h3>Directory layout comparison</h3>
       <pre><code class="language-bash">src/
   contract.rs
@@ -206,8 +184,8 @@ tests/
     tone: "phase",
     html: `
       <h2>4. Entry Points: Messages vs Instructions</h2>
-      <p>CosmWasm exposes distinct entry points for different classes of work. Native Solana exposes one instruction processor that you dispatch yourself, and Anchor rebuilds a multi-handler abstraction on top.</p>
-      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates and seeds state accounts. Queries are off-chain RPC reads, not on-chain handlers.</p>
+      <p>CosmWasm exposes distinct entry points for different classes of work. Native Solana exposes one <a href="/docs/core/instructions">instruction</a> processor that you dispatch yourself, and Anchor rebuilds a multi-handler abstraction on top.</p>
+      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates state accounts and derives any PDA addresses they use. Queries are <a href="/docs/rpc/http/getaccountinfo">off-chain RPC reads</a>, not on-chain handlers; clients fetch account data from an RPC node and decode it locally.</p>
       <h4>Compare the entry points:</h4>
       <pre><code class="language-rust">#[entry_point]
 pub fn instantiate(
@@ -279,7 +257,7 @@ pub mod counter {
     tone: "phase",
     html: `
       <h2>5. State Management: Contract Storage vs PDAs</h2>
-      <p>Every <code>Item</code> or <code>Map</code> you used in CosmWasm needs an explicit account model on Solana. In practice, each logical entry often becomes its own program-owned account.</p>
+      <p>Every <code>Item</code> or <code>Map</code> you used in CosmWasm needs an explicit account model on Solana. In practice, each logical entry often becomes its own program-owned account: an account whose <a href="/docs/core/accounts/account-structure">owner field</a> is set to your program ID, which lets your program write that account's data.</p>
       <h4>Compare state management:</h4>
       <pre><code class="language-rust">use cw_storage_plus::{Item, Map};
 
@@ -338,14 +316,14 @@ pub fn process_transfer(
     Ok(())
 }</code></pre>
       <h3>Rent and space allocation</h3>
-      <p>Solana storage is not abstracted away. Accounts must carry enough lamports to remain rent-exempt, and you must allocate enough space up front for the data layout you intend to store.</p>
+      <p>Solana storage is not abstracted away. Accounts must carry enough <a href="/docs/references/terminology#lamport">lamports</a>, the smallest unit of SOL, to remain <a href="/docs/references/terminology#rent-exempt">rent-exempt</a>. Rent exemption means the account has the minimum balance required to stay onchain for its allocated data size, and you must allocate enough space up front for the layout you intend to store.</p>
       <pre><code class="language-rust">#[account(
     init,
     payer = user,
     space = 8 + UserBalance::INIT_SPACE,
 )]
 pub user_balance: Account&lt;'info, UserBalance&gt;</code></pre>
-      <p>In Anchor, the leading 8 bytes are the account discriminator. In Pinocchio or other lower-level frameworks, you define and validate the binary layout yourself. Variable-length fields such as strings and vectors require explicit sizing discipline either way.</p>
+      <p>In Anchor, the leading 8 bytes are the account discriminator, a type identifier Anchor writes before the account data so it can reject the wrong account type. In Pinocchio or other lower-level frameworks, you define and validate the binary layout yourself. Variable-length fields such as strings and vectors require explicit sizing discipline either way.</p>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct Metadata {
@@ -354,7 +332,8 @@ pub struct Metadata {
     #[max_len(200)]
     pub uri: String,
 }</code></pre>
-      <p>If you may add fields later, either pre-allocate spare space up front or plan a <code>realloc</code> or migration path. Existing Solana accounts do not automatically grow the way contract-local storage feels like it does in CosmWasm.</p>
+      <p>If you may add fields later, either pre-allocate spare space up front or plan a <a href="/docs/core/accounts/modification-rules"><code>realloc</code></a> or migration path.</p>
+      <p>Reallocation changes an existing account's data length, but it has runtime limits and may require extra lamports to keep the account rent-exempt. Existing Solana accounts do not automatically grow the way contract-local storage feels like it does in CosmWasm.</p>
     `,
   },
   {
@@ -363,7 +342,10 @@ pub struct Metadata {
     tone: "phase",
     html: `
       <h2>6. Token Handling: Bank Module / CW20 vs SPL Tokens</h2>
-      <p>CosmWasm splits native-denom flows and CW20 flows. Solana standardizes fungible tokens around the SPL Token program, while SOL itself moves through the System Program.</p>
+      <p>CosmWasm splits native-denom flows and CW20 flows. Solana standardizes fungible tokens around the <a href="/docs/tokens">SPL Token program</a>, where a mint account defines a token and token accounts hold balances for one owner and one mint.</p>
+      <p>SOL itself moves through the <a href="/docs/core/programs/builtin-programs#the-system-program">System Program</a>, the built-in program that creates accounts, transfers SOL, allocates data, and assigns ownership.</p>
+      <p>Two terms show up throughout the Solana examples: a <a href="/docs/core/cpi">CPI</a> is a program-to-program call made during the same transaction, and an <a href="/docs/references/terminology#authority">authority</a> is the account or PDA that a program recognizes as allowed to perform an action such as transferring tokens, minting tokens, or changing settings.</p>
+      <p>The examples below cover the three common transfer cases: moving SOL with the System Program, moving SPL tokens with the Token Program, and moving tokens from a program-controlled vault by signing with PDA seeds.</p>
       <h4>Compare token handling:</h4>
       <pre><code class="language-rust">let payment = info.funds.iter()
     .find(|c| c.denom == "uatom")
@@ -469,13 +451,15 @@ invoke_signed(
             </tr>
           </thead>
           <tbody>
-            <tr><td>Receiving tokens</td><td><code>info.funds</code> or CW20 receive hook</td><td>User token account or ATA is passed explicitly</td></tr>
+            <tr><td>Receiving tokens</td><td><code>info.funds</code> or CW20 receive hook</td><td>User token account or <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">ATA</a> is passed explicitly</td></tr>
             <tr><td>Sending tokens</td><td><code>BankMsg::Send</code> or CW20 execute</td><td>System Program CPI or SPL Token CPI</td></tr>
             <tr><td>Token standard</td><td>CW20 contract per token</td><td>Shared token program plus mint accounts</td></tr>
             <tr><td>Program escrow</td><td>Contract balance or tracked allowances</td><td>PDA-controlled vault token accounts</td></tr>
           </tbody>
         </table>
       </div>
+      <p>An <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">Associated Token Account (ATA)</a> is the conventional token account address for a wallet and mint. It is derived deterministically, which lets clients find or create the expected token account without asking users to manage token-account addresses directly.</p>
+      <p>A vault token account is a normal token account whose authority is a PDA instead of a user's wallet. Your program can move tokens out of that vault only when it proves the PDA seeds to the runtime with <code>invoke_signed</code> or Anchor's signer-seed helpers.</p>
     `,
   },
   {
@@ -484,7 +468,7 @@ invoke_signed(
     tone: "phase",
     html: `
       <h2>7. Cross-Contract Communication: Sub-Messages vs CPIs</h2>
-      <p>CosmWasm composes contracts through asynchronous messages. Solana composes programs through synchronous cross-program invocations.</p>
+      <p>CosmWasm composes contracts through asynchronous messages. Solana composes programs through synchronous <a href="/docs/core/cpi">cross-program invocations (CPIs)</a>. A CPI is one Solana program calling an instruction on another program during the same transaction.</p>
       <h4>Compare contract calls:</h4>
       <pre><code class="language-rust">let exec = WasmMsg::Execute {
     contract_addr: pool_contract.to_string(),
@@ -518,11 +502,12 @@ pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
             <tr><td>Execution</td><td>Asynchronous message queue</td><td>Synchronous call stack</td></tr>
             <tr><td>Return values</td><td>Observed through <code>reply</code></td><td>Available immediately</td></tr>
             <tr><td>Accounts known up front</td><td>No</td><td>Yes, across the whole call chain</td></tr>
-            <tr><td>Nesting limit</td><td>Flexible application-level design</td><td>CPI depth is limited</td></tr>
+            <tr><td>Nesting limit</td><td>Flexible application-level design</td><td><a href="/docs/core/cpi/cpi-cost-model">CPI depth is limited</a></td></tr>
           </tbody>
         </table>
       </div>
-      <p>Practical consequence: on Solana, the caller must gather every account the entire CPI chain will need and include them in the transaction. The reward is a more predictable execution surface.</p>
+      <p>Practical consequence: on Solana, the caller must gather every account the entire CPI chain will need and include them in the transaction.</p>
+      <p>Account privileges such as signer and writable status flow from caller to callee, so a callee cannot use an account with privileges the original transaction did not grant. The reward is a more predictable execution surface.</p>
     `,
   },
   {
@@ -530,10 +515,12 @@ pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
     navLabel: "8. Serialization",
     tone: "default",
     html: `
-      <h2>8. Serialization: JSON / serde vs wincode</h2>
-      <p>CosmWasm messages are JSON-first and CLI-friendly. Solana instructions and account data are binary-first.</p>
-      <p>Anchor prepends an 8-byte discriminator to each instruction and each account type so it can route handlers and validate layouts automatically. One practical upside over JSON is that integers stay integers. You do not need the string-encoded <code>Uint128</code> convention that exists to protect precision in JSON tooling. If you are writing native Solana instruction enums without Anchor's IDL layer, binary codecs such as <code>wincode</code> are a common fit.</p>
-      <p>The tradeoff is debuggability: instruction bytes are not naturally human-readable at the CLI layer, so your client and tests matter more.</p>
+      <h2>8. Serialization: JSON / serde vs Binary Data</h2>
+      <p>CosmWasm messages are JSON-first and CLI-friendly. Solana <a href="/docs/core/instructions/instruction-structure">instruction data</a> and account data are binary-first: programs receive byte arrays and interpret those bytes according to the program's own layout.</p>
+      <p>Anchor prepends an 8-byte discriminator to each instruction and each account type so it can route handlers and validate layouts automatically. For instructions, a discriminator identifies which handler should run; for accounts, it identifies which account type is being decoded.</p>
+      <p>One practical upside over JSON is that integers stay integers. You do not need the string-encoded <code>Uint128</code> convention that exists to protect precision in JSON tooling.</p>
+      <p>If you are writing native Solana instruction enums without Anchor's IDL layer, choose a deterministic binary codec such as <code>wincode</code> or <code>borsh</code>, then document that format so clients can encode the same bytes.</p>
+      <p>The tradeoff is debuggability: instruction bytes are not naturally human-readable at the CLI layer, so your client, IDL, and tests become part of the interface contract.</p>
       <h4>Compare serialization:</h4>
       <pre><code class="language-rust">#[cw_serde]
 pub enum ExecuteMsg {
@@ -554,7 +541,7 @@ pub enum CounterInstruction {
     tone: "default",
     html: `
       <h2>9. Error Handling</h2>
-      <p>Both ecosystems lean on Rust error types, but Solana makes it more important to avoid panics because a panic often collapses into an unhelpful runtime failure.</p>
+      <p>Both ecosystems lean on Rust error types, but Solana makes it more important to avoid panics because a panic often collapses into an unhelpful runtime failure. Prefer explicit Anchor <code>#[error_code]</code> values or native <code>ProgramError</code> variants so callers and tests can identify the failure path.</p>
       <h4>Compare error handling:</h4>
       <pre><code class="language-rust">#[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
@@ -580,7 +567,7 @@ pub enum CounterError {
     tone: "default",
     html: `
       <h2>10. Time &amp; Block Information</h2>
-      <p>CosmWasm gives you consensus time and block height in <code>env</code>. Solana exposes time and slot data through sysvars such as <code>Clock</code>.</p>
+      <p>CosmWasm gives you consensus time and block height in <code>env</code>. Solana exposes time and slot data through <a href="/docs/references/terminology#sysvar">sysvars</a>, which are read-only system accounts that expose cluster state to programs. The most common one here is <code>Clock</code>.</p>
       <pre><code class="language-rust">let now_secs = env.block.time.seconds();
 let height = env.block.height;</code></pre>
       <pre><code class="language-rust">let clock = Clock::get()?;
@@ -589,7 +576,7 @@ require!(
     clock.unix_timestamp &gt;= unlock_time,
     LockError::NotYetUnlockable
 );</code></pre>
-      <p>Use <code>clock.slot</code> for ordering and sequencing. Use <code>clock.unix_timestamp</code> for approximate wall-clock checks such as unlock windows or expiries. Treat the timestamp as good enough for time-based UX, not as a perfect monotonic clock.</p>
+      <p>Use <a href="/docs/references/terminology#slot"><code>clock.slot</code></a> for ordering and sequencing. A slot is Solana's logical time unit for leader-scheduled block production. Use <code>clock.unix_timestamp</code> for approximate wall-clock checks such as unlock windows or expiries. Treat the timestamp as good enough for time-based UX, not as a perfect monotonic clock.</p>
     `,
   },
   {
@@ -598,7 +585,7 @@ require!(
     tone: "phase",
     html: `
       <h2>11. Testing</h2>
-      <p>On Solana, transaction assembly is part of the product surface. Good tests exercise accounts, signers, PDA derivation, token accounts, and CPI behavior in addition to pure business logic.</p>
+      <p>On Solana, transaction assembly is part of the product surface. Good tests exercise accounts, signers, PDA derivation, token accounts, and CPI behavior in addition to pure business logic. A signer is an account whose private key authorized the transaction, and signer status is one of the account privileges the runtime checks before execution.</p>
       <pre><code class="language-rust">let mut app = App::default();
 let code = ContractWrapper::new(execute, instantiate, query);
 let code_id = app.store_code(Box::new(code));</code></pre>
@@ -618,8 +605,9 @@ svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
       </ul>
       <h3>Surfpool</h3>
       <pre><code class="language-bash">surfpool start</code></pre>
-      <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is useful when you want a validator-like local environment with RPC workflows, debugger-style inspection, and on-demand access to cluster state. See also the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>.</p>
+      <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is useful when you want a validator-like local environment with RPC workflows, debugger-style inspection, and on-demand access to cluster state. A local validator environment gives you a private Solana cluster for integration testing without relying on devnet or mainnet RPC. See also the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>.</p>
       <p>Port your old contract tests conceptually, then add Solana-specific cases for signer spoofing, account substitution, stale reads after CPI, rent-funded account creation, and account closure behavior.</p>
+      <p>Account closure transfers lamports out and leaves the account unusable for the old state layout, so test it anywhere your program releases escrow or deletes state.</p>
     `,
   },
   {
@@ -628,7 +616,7 @@ svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
     tone: "phase",
     html: `
       <h2>12. Deployment &amp; Upgrades</h2>
-      <p>CosmWasm separates code upload from instantiation and supports explicit migrate handlers. Solana deploys one program address and upgrades it in place under an upgrade authority.</p>
+      <p>CosmWasm separates code upload from instantiation and supports explicit migrate handlers. Solana deploys one <a href="/docs/core/programs/program-deployment">program address</a> and upgrades it in place under an upgrade authority. The upgrade authority is the signer allowed to replace the program's bytecode; revoking it makes the program immutable.</p>
       <pre><code class="language-bash"># CosmWasm
 cargo build --target wasm32-unknown-unknown --release
 wasmd tx wasm store counter_opt.wasm --from wallet
@@ -663,7 +651,7 @@ solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
           </tbody>
         </table>
       </div>
-      <p>State migration on Solana is your responsibility. If old accounts need a new layout, either pre-allocate space for forward compatibility or add a protected one-time migration instruction.</p>
+      <p>State migration on Solana is your responsibility. If old accounts need a new layout, either pre-allocate space for forward compatibility or add a protected one-time migration instruction. A migration instruction is just another program instruction, but it should be tightly authorized and usually guarded by a state-version field.</p>
     `,
   },
   {
@@ -672,7 +660,7 @@ solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
     tone: "phase",
     html: `
       <h2>13. Full Side-by-Side Example: Counter Contract</h2>
-      <p>A counter contract is a useful migration seed because it forces you to model state layout, authority, initialization, and off-chain reads without too much noise.</p>
+      <p>A counter contract is a useful migration seed because it forces you to model state layout, authority, initialization, and off-chain reads without too much noise. Authority means the account or PDA your program treats as allowed to perform an action, usually enforced with a signer check, PDA seed check, or stored public key comparison.</p>
       <pre><code class="language-rust">pub const COUNTS: Map&lt;&amp;Addr, i32&gt; = Map::new("counts");
 
 #[entry_point]
@@ -698,6 +686,7 @@ pub fn execute(
         }
     }
 }</code></pre>
+      <p>The Anchor example below uses <code>init_if_needed</code>, which creates the PDA account if it does not exist and otherwise loads the existing account. That is convenient for a small example, but production code should still validate the existing account's authority, seeds, and state version before trusting it.</p>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
 pub struct Counter {
@@ -781,6 +770,7 @@ pub fn process_increment(
     html: `
       <h2>14. Porting a DEX: Lessons from the Real World</h2>
       <p>DEX ports expose the biggest architectural differences quickly because they touch factories, pools, vaults, LP tokens, pricing state, and multi-hop account graphs.</p>
+      <p>In Solana programs, a vault is usually a PDA-controlled token account that holds assets for a pool or escrow. A multi-hop account graph is the full list of accounts needed for every swap leg in one transaction.</p>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
@@ -798,7 +788,7 @@ pub fn process_increment(
           </tbody>
         </table>
       </div>
-      <p>The client-side complexity shifts noticeably. On Solana, the client must derive PDAs, create ATAs when needed, and assemble all accounts for the whole transaction. The payoff is explicitness and parallel-friendly execution.</p>
+      <p>The client-side complexity shifts noticeably. On Solana, the client must derive PDAs, create ATAs when needed, and assemble all accounts for the whole transaction. For discovery flows, clients often use <a href="/docs/rpc/http/getprogramaccounts"><code>getProgramAccounts</code></a> or an indexer to find accounts owned by a program. The payoff is explicitness and parallel-friendly execution.</p>
       <p>This is why a factory port is not just a contract rewrite. It is also a client rewrite and a state-discovery rewrite.</p>
     `,
   },
@@ -811,13 +801,13 @@ pub fn process_increment(
       <ol>
         <li>Do not forget to include every required account in the transaction. If an account is not passed in, the program cannot touch it.</li>
         <li>Do not try to deploy a new program per user or per pool. One program usually serves many accounts.</li>
-        <li>Treat <code>init_if_needed</code> as a sharp tool. Pair it with clear authority, seed, and state-version validation so it cannot silently reuse an account in an invalid state.</li>
+        <li>Treat <code>init_if_needed</code> as a sharp tool. This Anchor constraint initializes an account only when it is missing, so pair it with clear authority, seed, and state-version validation so it cannot silently reuse an account in an invalid state.</li>
         <li>Store bump seeds you will need later for PDA signing instead of recomputing them everywhere.</li>
         <li>Always include the 8-byte Anchor discriminator in space calculations.</li>
         <li>Do not use floating-point arithmetic. Use integers and scaled units such as basis points.</li>
         <li>Translate auth checks into account constraints, not just inline handler code.</li>
-        <li>Remember that CPI nesting is limited. Very deep call graphs may need to be flattened or split across transactions.</li>
-        <li>Account size is fixed unless you explicitly reallocate it.</li>
+        <li>Remember that <a href="/docs/core/cpi/cpi-cost-model">CPI nesting is limited</a>. Very deep call graphs may need to be flattened or split across transactions.</li>
+        <li>Account size is fixed unless you explicitly <a href="/docs/core/accounts/modification-rules">reallocate</a> it.</li>
         <li>Use <code>clock.slot</code> for sequencing and <code>clock.unix_timestamp</code> for approximate wall-clock logic.</li>
       </ol>
     `,
@@ -833,7 +823,7 @@ pub fn process_increment(
       <ul>
         <li>Identify every <code>Item</code> and <code>Map</code> and decide which PDA or account type will replace it.</li>
         <li>Replace <code>instantiate</code> with one or more initialization instructions.</li>
-        <li>Remove on-chain query assumptions. Reads happen through RPC.</li>
+        <li>Remove on-chain query assumptions. Reads happen through <a href="/docs/rpc">RPC</a>.</li>
         <li>Map each <code>ExecuteMsg</code> variant to an instruction handler and an account graph.</li>
       </ul>
       <h3>State</h3>
@@ -846,9 +836,10 @@ pub fn process_increment(
       <h3>Tokens</h3>
       <ul>
         <li>Replace bank sends with System Program transfers where the asset is SOL.</li>
-        <li>Replace CW20 flows with SPL Token CPIs and token-account modeling.</li>
-        <li>Add ATA creation for holders that need token accounts.</li>
+        <li>Replace CW20 flows with <a href="/docs/tokens">SPL Token</a> CPIs and token-account modeling.</li>
+        <li>Add <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">ATA</a> creation for holders that need token accounts.</li>
         <li>Replace LP-token contracts with SPL mint accounts plus mint authority policy.</li>
+        <li>For CW721-style assets, choose whether the Solana version uses <a href="/docs/tokens/metaplex">Metaplex metadata</a>, <a href="https://www.metaplex.com/docs/smart-contracts/core" target="_blank" rel="noreferrer">Metaplex Core</a>, or another NFT standard before you finalize account layouts.</li>
       </ul>
       <h3>Security, testing, and deployment</h3>
       <ul>
@@ -865,7 +856,7 @@ pub fn process_increment(
     tone: "success",
     html: `
       <h2>Quick Reference Table</h2>
-      <p>Use this as a fast translation map when you are porting familiar CosmWasm primitives into Solana-native account and instruction patterns.</p>
+      <p>Use this as a fast translation map when you are porting familiar CosmWasm primitives into Solana-native account and instruction patterns. The linked sections above define the Solana terms used in this table.</p>
     `,
   },
 ];
@@ -966,7 +957,7 @@ export const RESOURCE_CARD_DECK = {
       },
       callToAction: {
         label: "Read the article",
-        url: "https://medium.com/@rustopian/from-cosmwasm-to-solana-59a7dede45de",
+        url: "https://rustopian.dev/article/dopple-dex-in-cosmwasm-and-solana",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -974,7 +965,7 @@ export const RESOURCE_CARD_DECK = {
     {
       type: "image",
       headingAs: "h3",
-      heading: "Escrow Referemce Repo",
+      heading: "Escrow Reference Repo",
       backgroundImage: {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
