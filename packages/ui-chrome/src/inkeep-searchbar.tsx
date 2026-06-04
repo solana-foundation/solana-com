@@ -54,7 +54,7 @@ export function InkeepSearchBar({ className, expanded }: InkeepSearchBarProps) {
             {t("commands.searchOrAskAI")}
           </span>
 
-          <kbd className="hidden xl:inline-flex group-data-[expanded]:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-900/50 rounded light:text-gray-700 light:bg-gray-200">
+          <kbd className="hidden xl:inline-flex group-data-[expanded]:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-400 bg-gray-900/50 rounded light:text-gray-700 light:bg-gray-200">
             ⌘K
           </kbd>
         </button>

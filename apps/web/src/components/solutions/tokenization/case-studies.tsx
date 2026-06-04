@@ -107,7 +107,7 @@ export const CaseStudies = () => {
                 <span
                   className={cn(
                     "text-xs",
-                    isActive ? "text-black/50" : "text-white/40",
+                    isActive ? "text-black/70" : "text-white/60",
                   )}
                 >
                   {group.cards.length}

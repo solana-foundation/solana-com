@@ -43,14 +43,13 @@ export const Liquidity = () => {
 
             <dl className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10">
               {STAT_KEYS.map((key) => (
-                <div key={key} className="bg-black p-5 md:p-6">
-                  <dt className="sr-only">{t(`stats.${key}.label`)}</dt>
-                  <dd className="text-3xl md:text-4xl font-light leading-none">
+                <div key={key} className="flex flex-col bg-black p-5 md:p-6">
+                  <dt className="order-2 mt-2 text-sm text-[#ABABBA] leading-snug">
+                    {t(`stats.${key}.label`)}
+                  </dt>
+                  <dd className="order-1 text-3xl md:text-4xl font-light leading-none">
                     {t(`stats.${key}.value`)}
                   </dd>
-                  <p className="mt-2 text-sm text-[#ABABBA] leading-snug">
-                    {t(`stats.${key}.label`)}
-                  </p>
                 </div>
               ))}
             </dl>
@@ -116,7 +115,7 @@ export const Liquidity = () => {
                 {t(`pillars.${key}.body`)}
               </p>
               <div className="mt-5 pt-4 border-t border-white/10">
-                <span className="block text-xs uppercase tracking-[0.06em] text-white/40">
+                <span className="block text-xs uppercase tracking-[0.06em] text-white/60">
                   {t(`pillars.${key}.partnersLabel`)}
                 </span>
                 <span className="mt-1 block text-sm text-white/70">

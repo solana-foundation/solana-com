@@ -114,7 +114,7 @@ export const AssetTable = ({ assets }: AssetTableProps) => {
                       <span
                         className={cn(
                           "text-xs",
-                          isActive ? "text-black/50" : "text-white/40",
+                          isActive ? "text-black/70" : "text-white/60",
                         )}
                       >
                         {counts.get(value) ?? 0}
@@ -140,10 +140,15 @@ export const AssetTable = ({ assets }: AssetTableProps) => {
             </div>
 
             {/* Table */}
-            <div className="max-h-[640px] overflow-x-auto overflow-y-auto rounded-2xl border border-white/10">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label={t("title")}
+              className="max-h-[640px] overflow-x-auto overflow-y-auto rounded-2xl border border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CA9FF5]"
+            >
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
-                  <tr className="text-xs uppercase tracking-[0.06em] text-white/40">
+                  <tr className="text-xs uppercase tracking-[0.06em] text-white/60">
                     <th className="font-medium px-5 py-4">
                       {t("columns.asset")}
                     </th>
@@ -231,7 +236,7 @@ export const AssetTable = ({ assets }: AssetTableProps) => {
                           className={cn(
                             "px-5 py-4 text-right tabular-nums",
                             asset.priceChange24hPercent === null
-                              ? "text-white/40"
+                              ? "text-white/60"
                               : asset.priceChange24hPercent >= 0
                                 ? "text-emerald-400"
                                 : "text-red-400",

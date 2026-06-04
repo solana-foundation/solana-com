@@ -92,6 +92,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       title.split(/(\n)/).map((part, idx) =>
         part === "\n" ? (
           <React.Fragment key={idx}>
+            {" "}
             <br />
           </React.Fragment>
         ) : (
@@ -109,7 +110,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
     >
       {bgJsonFilePath && (
         <UnicornScene
-          className="!absolute inset-0 z-0"
+          className="!absolute inset-0 z-0 [&_p]:!text-red-700"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"

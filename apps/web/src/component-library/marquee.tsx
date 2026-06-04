@@ -64,6 +64,7 @@ const Marquee: React.FC<MarqueeProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       tabIndex={0}
+      role="region"
       aria-label="Scrolling content"
     >
       <div
