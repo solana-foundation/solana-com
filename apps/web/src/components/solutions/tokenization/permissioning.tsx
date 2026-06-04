@@ -18,10 +18,6 @@ const CTA2_HREF = "/docs/tokens/extensions";
 export const Permissioning = () => {
   const t = useTranslations("icm.permissioning");
 
-  const titleNodes = t("title")
-    .split("\n")
-    .flatMap((part, idx) => (idx === 0 ? [part] : [<br key={idx} />, part]));
-
   return (
     <section
       id="compliance"
@@ -33,7 +29,9 @@ export const Permissioning = () => {
           <div>
             <Eyebrow>{t("eyebrow")}</Eyebrow>
             <h2 className="mt-4 font-brand font-medium leading-[1.05] text-[32px] md:text-[44px] xl:text-[56px] tracking-[-1.28px] md:tracking-[-1.76px] xl:tracking-[-2.24px]">
-              {titleNodes}
+              {t.rich("title", {
+                br: () => <br />,
+              })}
             </h2>
             <p className="mt-5 text-[#ABABBA] text-base md:text-lg leading-[1.55] max-w-xl">
               {t("description1")}

@@ -263,7 +263,7 @@ export const fetchTokenizedAssets = async (): Promise<TokenizedAsset[]> => {
           accept: "application/json",
         },
         // Tokens caches upstream; refresh hourly.
-        next: { revalidate: 60 * 60 },
+        next: { revalidate: TOKENS_REVALIDATE_SECONDS },
       },
     );
 
