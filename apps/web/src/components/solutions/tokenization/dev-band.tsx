@@ -13,7 +13,7 @@ export const DevBand = () => {
   const t = useTranslations("icm.devBand");
 
   return (
-    <section className="relative bg-black text-white text-left">
+    <section className="relative z-10 bg-black text-white text-left">
       <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] pb-[64px] md:pb-[80px]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6 md:p-8">
           <div className="flex items-center gap-4">
