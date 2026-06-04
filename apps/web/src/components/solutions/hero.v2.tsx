@@ -75,6 +75,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   bgJsonFilePath,
   showDownloadCard = true,
 }) => {
+  const [canRenderHeroScene, setCanRenderHeroScene] = React.useState(false);
   const statsCount = stats?.length ?? 0;
   const hasStats = statsCount > 0;
   const hasBottomContent =
@@ -102,15 +103,31 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
     [title],
   );
 
+  React.useEffect(() => {
+    if (!bgJsonFilePath) {
+      setCanRenderHeroScene(false);
+      return;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      setCanRenderHeroScene(
+        Boolean(canvas.getContext("webgl") || canvas.getContext("webgl2")),
+      );
+    } catch {
+      setCanRenderHeroScene(false);
+    }
+  }, [bgJsonFilePath]);
+
   return (
     <section
       id="hero"
       className="relative overflow-hidden bg-black text-white text-left"
       aria-labelledby="hero-title"
     >
-      {bgJsonFilePath && (
+      {bgJsonFilePath && canRenderHeroScene && (
         <UnicornScene
-          className="!absolute inset-0 z-0 [&_p]:!text-red-700"
+          className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
@@ -119,7 +136,10 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           fps={30}
           lazyLoad={true}
           production={true}
-          onError={(error) => console.error("UnicornScene error:", error)}
+          onError={(error) => {
+            console.error("UnicornScene error:", error);
+            setCanRenderHeroScene(false);
+          }}
         />
       )}
       <div
