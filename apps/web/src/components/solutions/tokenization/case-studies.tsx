@@ -57,7 +57,7 @@ export const CaseStudies = () => {
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm md:text-base font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CA9FF5]",
                   isActive
-                    ? "border-white bg-white text-black"
+                    ? "border-white !bg-white !text-black"
                     : "border-white/15 text-[#ABABBA] hover:border-white/30 hover:text-white",
                 )}
               >

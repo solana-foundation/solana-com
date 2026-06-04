@@ -11,7 +11,7 @@ import { Eyebrow } from "./eyebrow";
 
 const STAT_KEYS = ["0", "1", "2", "3"] as const;
 const FLOW_KEYS = ["0", "1", "2"] as const;
-const CALLOUT_HREF = "https://kamino.finance";
+const CALLOUT_HREF = "https://kamino.com/borrow";
 
 /**
  * Allocator / liquidity section: copy + stat grid, a "composability in

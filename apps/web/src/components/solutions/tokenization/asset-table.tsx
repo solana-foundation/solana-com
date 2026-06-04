@@ -106,7 +106,7 @@ export const AssetTable = ({ assets }: AssetTableProps) => {
                       className={cn(
                         "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CA9FF5]",
                         isActive
-                          ? "border-white bg-white text-black"
+                          ? "border-white !bg-white !text-black"
                           : "border-white/15 text-[#ABABBA] hover:border-white/30 hover:text-white",
                       )}
                     >
