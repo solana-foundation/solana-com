@@ -140,7 +140,7 @@ export const AssetTable = ({ assets }: AssetTableProps) => {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto rounded-2xl border border-white/10">
+            <div className="max-h-[640px] overflow-x-auto overflow-y-auto rounded-2xl border border-white/10">
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
                   <tr className="text-xs uppercase tracking-[0.06em] text-white/40">
