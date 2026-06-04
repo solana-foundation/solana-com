@@ -8,7 +8,7 @@ import { cn } from "@/app/components/utils";
 import { PERMISSION_ATTRS } from "@/data/solutions/tokenization";
 import { Eyebrow } from "./eyebrow";
 
-const CTA1_HREF = "/solutions/token-extensions";
+const CTA1_HREF = "/reports/privacy-2026";
 const CTA2_HREF = "/docs/tokens/extensions";
 
 /**
