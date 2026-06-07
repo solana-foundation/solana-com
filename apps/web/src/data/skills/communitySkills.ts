@@ -278,7 +278,7 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: INFRASTRUCTURE,
   },
   {
-    slug: "covenant",
+    slug: "covenant-skill",
     title: "Covenant",
     description:
       "Verifiable agent execution on Solana: signed capability gating, hash-chained audit, separately-keyed verifier refutation, and on-chain anchored Merkle witness. Devnet-first.",
