@@ -9,7 +9,8 @@ type Props = {
 };
 
 const title = "Solana Data";
-const description = "Explore live Solana network and stablecoin metrics.";
+const description =
+  "Explore live Solana network, stablecoin, and DeFi metrics.";
 
 export const revalidate = 3600;
 

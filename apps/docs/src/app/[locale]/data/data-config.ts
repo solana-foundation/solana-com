@@ -11,10 +11,11 @@ export const providers = [
   "Blockworks",
   "DefiLama",
   "Dune",
+  "Token Terminal",
 ] as const;
 
 export type ProviderName = (typeof providers)[number];
-export type DashboardTab = "stablecoins" | "overview";
+export type DashboardTab = "stablecoins" | "overview" | "defi";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
 
@@ -26,6 +27,7 @@ export type ChartDefinition = {
   metrics: readonly string[];
   aggregation: Aggregation;
   seriesField: SeriesField;
+  providers?: readonly ProviderName[];
 };
 
 export type MetricRow = {
@@ -49,7 +51,27 @@ export const providerColors: Record<ProviderName, string> = {
   Blockworks: "#00D4FF",
   DefiLama: "#DC1FFF",
   Dune: "#CFF15E",
+  "Token Terminal": "#FFB000",
 };
+
+const dexVolumeProviders = [
+  "Allium",
+  "Artemis",
+  "Blockworks",
+  "Dune",
+  "Token Terminal",
+] as const satisfies readonly ProviderName[];
+
+const dexActivityProviders = [
+  "Allium",
+  "Dune",
+] as const satisfies readonly ProviderName[];
+
+const dexCountProviders = [
+  "Allium",
+  "Blockworks",
+  "Dune",
+] as const satisfies readonly ProviderName[];
 
 export const metricColors: Record<string, string> = {
   "Base Fees": "#9945FF",
@@ -166,6 +188,46 @@ export const chartDefinitions = [
     metrics: ["Fee Payers"],
     aggregation: "avg",
     seriesField: "provider",
+  },
+  {
+    id: "dex-volume",
+    tab: "defi",
+    title: "DEX Volume",
+    valueLabel: "USD",
+    metrics: ["DEX Volume"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: dexVolumeProviders,
+  },
+  {
+    id: "dex-transactions",
+    tab: "defi",
+    title: "DEX Transactions",
+    valueLabel: "Count",
+    metrics: ["DEX Transactions"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: dexActivityProviders,
+  },
+  {
+    id: "dex-count",
+    tab: "defi",
+    title: "DEX Count",
+    valueLabel: "Count",
+    metrics: ["DEX Count"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: dexCountProviders,
+  },
+  {
+    id: "dex-traders",
+    tab: "defi",
+    title: "DEX Traders",
+    valueLabel: "Count",
+    metrics: ["DEX Traders"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: dexActivityProviders,
   },
 ] as const satisfies readonly ChartDefinition[];
 

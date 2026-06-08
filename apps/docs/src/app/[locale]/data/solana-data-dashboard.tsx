@@ -28,7 +28,27 @@ import {
 const tabs = [
   { label: "Stablecoins", value: "stablecoins" },
   { label: "Overview", value: "overview" },
-] as const;
+  { label: "DeFi", value: "defi" },
+] as const satisfies readonly { label: string; value: DashboardTab }[];
+
+const tabContent: Record<DashboardTab, { description: string; label: string }> =
+  {
+    stablecoins: {
+      label: "Stablecoins",
+      description:
+        "Stablecoin supply, transfer, and active address metrics across data providers.",
+    },
+    overview: {
+      label: "Overview",
+      description:
+        "Core Solana network activity, fee, price, and block production metrics.",
+    },
+    defi: {
+      label: "DeFi",
+      description:
+        "DEX & Spot Trading metrics across data providers (Allium, Artemis, Blockworks, Dune, Token Terminal).",
+    },
+  };
 
 const defaultProviders = new Set<ProviderName>(providers);
 const defaultRangeDays = 90;
@@ -40,6 +60,7 @@ export function SolanaDataDashboard() {
   const searchParams = useSearchParams();
   const showProviderControls = useMinWidth("(min-width: 768px)");
   const activeTab = parseTab(searchParams.get("tab"));
+  const activeTabContent = tabContent[activeTab];
   const rangeDays = parseRangeDays(searchParams.get("days"));
   const selectedProviders = parseProviders(searchParams.get("providers"));
   const selectedProviderList = providers.filter((provider) =>
@@ -122,8 +143,8 @@ export function SolanaDataDashboard() {
             </span>
             <h1 className="nd-heading-l mt-3">Solana data</h1>
             <p className="nd-body-m text-nd-mid-em-text mt-3 max-w-[560px]">
-              Network and stablecoin metrics, sourced live from leading on-chain
-              providers.
+              Network, stablecoin, and DeFi metrics, sourced live from leading
+              on-chain providers.
             </p>
           </div>
         </header>
@@ -185,6 +206,18 @@ export function SolanaDataDashboard() {
             ) : null}
           </div>
         </nav>
+
+        <section
+          aria-label={`${activeTabContent.label} summary`}
+          className="mt-8 max-w-[720px]"
+        >
+          <h2 className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+            {activeTabContent.label}
+          </h2>
+          <p className="nd-body-m text-nd-mid-em-text mt-2">
+            {activeTabContent.description}
+          </p>
+        </section>
 
         {error ? <DataError error={error} /> : null}
 
@@ -496,9 +529,13 @@ function ProviderToggle({
 
 function hasChartSourceData(chart: ChartDefinition, rows: MetricRow[]) {
   const metricSet = new Set<string>(chart.metrics);
+  const chartProviderSet = new Set<ProviderName>(getChartProviders(chart));
 
   return rows.some(
-    (row) => metricSet.has(row.metricName) && isProviderName(row.providerName),
+    (row) =>
+      metricSet.has(row.metricName) &&
+      isProviderName(row.providerName) &&
+      chartProviderSet.has(row.providerName),
   );
 }
 
@@ -508,6 +545,8 @@ function buildSeries(
   selectedProviders: Set<ProviderName>,
 ): ChartSeries[] {
   const metricSet = new Set<string>(chart.metrics);
+  const chartProviders = getChartProviders(chart);
+  const chartProviderSet = new Set<ProviderName>(chartProviders);
   const buckets = new Map<
     string,
     Map<string, { color: string; count: number; label: string; sum: number }>
@@ -517,6 +556,7 @@ function buildSeries(
     if (
       !metricSet.has(row.metricName) ||
       !isProviderName(row.providerName) ||
+      !chartProviderSet.has(row.providerName) ||
       !selectedProviders.has(row.providerName)
     ) {
       continue;
@@ -545,7 +585,7 @@ function buildSeries(
 
   const orderedSeriesIds =
     chart.seriesField === "provider"
-      ? providers.filter((provider) => buckets.has(provider))
+      ? chartProviders.filter((provider) => buckets.has(provider))
       : chart.metrics.filter((metric) => buckets.has(metric));
 
   return orderedSeriesIds.map((seriesId) => {
@@ -566,6 +606,10 @@ function buildSeries(
         .sort((a, b) => a.date.getTime() - b.date.getTime()),
     };
   });
+}
+
+function getChartProviders(chart: ChartDefinition) {
+  return chart.providers ?? providers;
 }
 
 function getKpiValue(
@@ -686,7 +730,7 @@ function useMinWidth(query: string) {
 }
 
 function parseTab(value: string | null): DashboardTab {
-  return value === "overview" ? "overview" : "stablecoins";
+  return value === "overview" || value === "defi" ? value : "stablecoins";
 }
 
 function parseRangeDays(value: string | null) {
