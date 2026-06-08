@@ -165,6 +165,52 @@ let aes_key = AeKey::new_from_signer(&signer, &token_account_pubkey.to_bytes())
   service), protect them with the same rigor as signing keys.
 </Callout>
 
+The derivation helpers return serialized key material. The high-level operation
+helpers (shown later) take WASM `ElGamalKeypair` and `AeKey` objects, so rebuild
+them from the bytes when you need them:
+
+```ts !! title="JS-rebuild-keys.ts"
+import { ElGamalKeypair, ElGamalSecretKey, AeKey } from "@solana/zk-sdk";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Creating and configuring accounts
+
+Before an account can hold a confidential balance it needs the
+`ConfidentialTransferAccount` extension, which adds roughly 295 bytes to the
+token account (on the order of 0.0015 SOL in extra rent). Setup is two steps:
+create the token account, then configure the extension.
+
+Configuring normally requires the **account owner** to sign and supply a proof
+that they own the ElGamal public key being set on the account. A wallet or
+exchange can create and fund the bare token account for a user, but it cannot
+configure the confidential extension on the user's behalf without that
+signature.
+
+Because of this, avoid silently provisioning confidential accounts for every
+user: it costs extra rent and still needs owner involvement. Configure on first
+use, or when the user opts into confidential transfers.
+
+The **ElGamal registry** removes the per-account owner step. A user registers
+their ElGamal public key once (signing a proof at registration), and the
+registry entry is reusable across every mint. After that, a third party can
+configure confidential accounts for the user with
+`ConfigureAccountWithRegistry`, which needs no owner signature or proof at
+configuration time, only a payer for rent. This is the mechanism to use if you
+want to provision confidential accounts for users smoothly.
+
+<Callout type="info">
+  Registry configuration is available in the Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) and the
+  `spl-elgamal-registry` program today. Equivalent helpers in the
+  `@solana-program/token-2022` JS client are not available yet, so JS
+  integrations that need the registry path should track that client's releases.
+</Callout>
+
 ## Displaying balances
 
 A robust integration shows the public balance using the standard token balance,
@@ -385,6 +431,27 @@ for (const ix of instructions) {
 
 </CodeTabs>
 
+Identifying the instruction is the easy part. The gaps to plan for on the
+indexing side:
+
+- **No amounts for confidential transfers.** A `ConfidentialTransfer` carries
+  encrypted amounts, so volume, flow, and transfer-size analytics cannot be
+  computed from it. Mark these transfers as confidential rather than recording a
+  zero or a raw ciphertext.
+- **No balance deltas.** Confidential moves do not change the public token
+  balance, so the pre/post token balance diffing that drives most transfer
+  indexing does not capture them. The pending and available balances are
+  ciphertexts.
+- **Deposits and withdrawals are in the clear.** `ConfidentialDeposit` and
+  `ConfidentialWithdraw` carry cleartext amounts, so you can still index the
+  flow into and out of the confidential pool, just not the transfers within it.
+- **One transfer spans several transactions today.** Proof context state
+  accounts are created, used, and closed around the transfer, so correlate the
+  related transactions rather than treating each in isolation. This collapses
+  once single-transaction confidential transfers land (see above).
+- **Auditor mints are decryptable.** If a mint has a global auditor and you hold
+  the auditor key, you can decrypt transfer amounts for that mint (see below).
+
 ## Auditors and compliance
 
 A mint may configure a **global auditor** ElGamal public key. When set, every
@@ -398,6 +465,24 @@ If your product is the auditor (for example a regulated issuer or a compliance
 provider), you decrypt transfer amounts with the auditor secret key the same way
 an owner decrypts their own balance. Owners can also selectively share their
 per-account keys with a specific party without exposing them publicly.
+
+### Transaction monitoring (KYT)
+
+For know-your-transaction and AML providers, confidential transfers change what
+is observable, not the overall model:
+
+- **Address and graph analysis is unaffected.** Senders, recipients, mints, and
+  account owners stay public, so address screening, sanctions matching, and
+  counterparty graph analysis work the same as for any token.
+- **Amount-based heuristics need the auditor key.** Structuring, threshold
+  reporting, and volume-based risk scoring cannot read confidential transfer
+  amounts on their own. Deposit and withdraw amounts stay in the clear, so the
+  size of flows entering and leaving the confidential pool is still visible.
+- **Coverage comes from the auditor model.** On mints that configure a global
+  auditor, a provider operating with the auditor key (or receiving selective
+  disclosure from the user or issuer) can recover transfer amounts. Issuers in
+  regulated contexts should plan to configure an auditor or support selective
+  disclosure so monitoring is possible.
 
 ## Backwards compatibility
 
@@ -445,6 +530,8 @@ per-account keys with a specific party without exposing them publicly.
 | Label confidential accounts and mints       | Clearly mark accounts and mints that use the extension, and show the public balance.                            | **P0**   |
 | Parse confidential instructions             | Decode configure, deposit, apply, transfer, and withdraw instructions and display their type (not the amounts). | **P0**   |
 | Do not display encrypted amounts as numbers | Never render ciphertext fields as if they were plaintext balances; show them as confidential.                   | **P0**   |
+| Index public deposit/withdraw flows         | Record the cleartext amounts on deposit and withdraw to track flow in and out of the confidential pool.         | **P1**   |
+| Correlate multi-transaction transfers       | Group the proof setup, transfer, and cleanup transactions that make up one confidential transfer.               | **P1**   |
 | Show auditor configuration                  | Surface whether a mint has a global auditor configured.                                                         | **P1**   |
 | Proof account lifecycle                     | Recognize proof context state account creation and closing so transactions read sensibly.                       | **P2**   |
 
@@ -452,11 +539,23 @@ per-account keys with a specific party without exposing them publicly.
 
 ### Exchanges and Custodians
 
-| Requirement                         | Description                                                                                              | Priority |
-| :---------------------------------- | :------------------------------------------------------------------------------------------------------- | :------- |
-| Track public and confidential state | Account for both public and confidential balances when crediting deposits and computing holdings.        | **P0**   |
-| Apply pending on deposits           | Apply pending balances when confidential deposits arrive so credited amounts are accurate.               | **P0**   |
-| Secure key handling                 | If holding confidential funds custodially, manage ElGamal/AES keys with the same rigor as signing keys.  | **P0**   |
-| Withdrawals to users                | Support confidential or public withdrawals depending on the destination account configuration.           | **P1**   |
-| Compliance / auditor support        | Where required, use auditor keys or selective disclosure to meet reporting obligations.                  | **P1**   |
-| Internal accounting on raw amounts  | Reconcile against decrypted amounts at the edge and store them; do not attempt to aggregate ciphertexts. | **P1**   |
+| Requirement                         | Description                                                                                                                                                            | Priority |
+| :---------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Track public and confidential state | Account for both public and confidential balances when crediting deposits and computing holdings.                                                                      | **P0**   |
+| Apply pending on deposits           | Apply pending balances when confidential deposits arrive so credited amounts are accurate.                                                                             | **P0**   |
+| Secure key handling                 | If holding confidential funds custodially, manage ElGamal/AES keys with the same rigor as signing keys.                                                                | **P0**   |
+| Account provisioning via registry   | To set up confidential accounts for users, have users register an ElGamal key once and provision with the registry path rather than requiring a signature per account. | **P1**   |
+| Withdrawals to users                | Support confidential or public withdrawals depending on the destination account configuration.                                                                         | **P1**   |
+| Compliance / auditor support        | Where required, use auditor keys or selective disclosure to meet reporting obligations.                                                                                | **P1**   |
+| Internal accounting on raw amounts  | Reconcile against decrypted amounts at the edge and store them; do not attempt to aggregate ciphertexts.                                                               | **P1**   |
+
+---
+
+### Compliance and KYT Providers
+
+| Requirement                   | Description                                                                                                      | Priority |
+| :---------------------------- | :--------------------------------------------------------------------------------------------------------------- | :------- |
+| Address and graph screening   | Screen senders, recipients, mints, and owners and run counterparty graph analysis; these stay public.            | **P0**   |
+| Track public deposit/withdraw | Monitor cleartext deposit and withdraw amounts as the observable entry and exit points of the confidential pool. | **P0**   |
+| Auditor-key amount visibility | For auditor-enabled mints, decrypt transfer amounts using the auditor key to support amount-based detection.     | **P1**   |
+| Selective disclosure intake   | Support amount disclosures shared by users or issuers via per-account keys.                                      | **P2**   |
