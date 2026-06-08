@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { cn } from "@/app/components/utils";
@@ -25,23 +25,23 @@ import {
   type ChartSeries,
 } from "./time-series-chart";
 
-const tabs = [
-  { label: "Stablecoins", value: "stablecoins" },
+const tabOptions = [
   { label: "Overview", value: "overview" },
+  { label: "Stablecoins", value: "stablecoins" },
   { label: "DeFi", value: "defi" },
 ] as const satisfies readonly { label: string; value: DashboardTab }[];
 
 const tabContent: Record<DashboardTab, { description: string; label: string }> =
   {
-    stablecoins: {
-      label: "Stablecoins",
-      description:
-        "Stablecoin supply, transfer, and active address metrics across data providers.",
-    },
     overview: {
       label: "Overview",
       description:
         "Core Solana network activity, fee, price, and block production metrics.",
+    },
+    stablecoins: {
+      label: "Stablecoins",
+      description:
+        "Stablecoin supply, transfer, and active address metrics across data providers.",
     },
     defi: {
       label: "DeFi",
@@ -53,81 +53,58 @@ const tabContent: Record<DashboardTab, { description: string; label: string }> =
 const defaultProviders = new Set<ProviderName>(providers);
 const defaultRangeDays = 90;
 const emptyRows: MetricRow[] = [];
+const kpiCount = 4;
+const chartHeight = 320;
+const dataRefreshIntervalMs = 10 * 60 * 1000;
+const dataDedupingIntervalMs = 60 * 1000;
+const dataSWRConfig = {
+  dedupingInterval: dataDedupingIntervalMs,
+  keepPreviousData: true,
+  refreshInterval: dataRefreshIntervalMs,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+} as const;
+
+type QueryUpdates = {
+  days?: number;
+  providers?: Set<ProviderName>;
+  tab?: DashboardTab;
+};
+
+type KpiItem = {
+  chart: ChartDefinition;
+  delta: number;
+  value: number;
+};
 
 export function SolanaDataDashboard() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const showProviderControls = useMinWidth("(min-width: 768px)");
-  const activeTab = parseTab(searchParams.get("tab"));
+  const {
+    activeTab,
+    rangeDays,
+    selectedProviderList,
+    selectedProviders,
+    updateQuery,
+  } = useDashboardQueryState();
   const activeTabContent = tabContent[activeTab];
-  const rangeDays = parseRangeDays(searchParams.get("days"));
-  const selectedProviders = parseProviders(searchParams.get("providers"));
-  const selectedProviderList = providers.filter((provider) =>
-    selectedProviders.has(provider),
-  );
   const dataUrl = `/api/databricks/data?days=${rangeDays}`;
   const { data, error, isLoading, isValidating } = useSWR<DataApiResponse>(
     dataUrl,
     fetchData,
-    {
-      dedupingInterval: 60 * 1000,
-      keepPreviousData: true,
-      refreshInterval: 10 * 60 * 1000,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    },
+    dataSWRConfig,
   );
   const rows = data?.rows ?? emptyRows;
-  const activeCharts = useMemo(
-    () => chartDefinitions.filter((chart) => chart.tab === activeTab),
-    [activeTab],
-  );
+  const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const visibleCharts = useMemo(
-    () =>
-      rows.length > 0
-        ? activeCharts.filter((chart) => hasChartSourceData(chart, rows))
-        : activeCharts,
+    () => getVisibleCharts(activeCharts, rows),
     [activeCharts, rows],
   );
   const kpis = useMemo(
-    () =>
-      visibleCharts.slice(0, 4).map((chart) => ({
-        chart,
-        ...getKpiValue(chart, rows, selectedProviders),
-      })),
+    () => getKpis(visibleCharts, rows, selectedProviders),
     [visibleCharts, rows, selectedProviders],
   );
-
-  const updateQuery = (updates: {
-    days?: number;
-    providers?: Set<ProviderName>;
-    tab?: DashboardTab;
-  }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (updates.tab) {
-      params.set("tab", updates.tab);
-    }
-
-    if (updates.days) {
-      params.set("days", String(updates.days));
-    }
-
-    if (updates.providers) {
-      const nextProviders = providers.filter((provider) =>
-        updates.providers?.has(provider),
-      );
-
-      if (nextProviders.length === providers.length) {
-        params.delete("providers");
-      } else {
-        params.set("providers", nextProviders.join(","));
-      }
-    }
-
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
+  const isInitialLoading = isLoading && rows.length === 0;
+  const isRefreshing = isValidating && rows.length > 0;
 
   return (
     <main className="relative bg-nd-inverse text-nd-high-em-text font-brand">
@@ -153,58 +130,13 @@ export function SolanaDataDashboard() {
           aria-label="Controls"
           className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
-          <div className="px-5 md:px-8 xl:px-10 py-2.5 grid gap-2 xl:flex xl:items-center xl:justify-between">
-            <div className="-mx-1 flex items-center gap-x-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <InlineControl
-                ariaLabel="Data section"
-                options={tabs}
-                value={activeTab}
-                onChange={(value) => updateQuery({ tab: value })}
-              />
-              <Separator />
-              <InlineControl
-                ariaLabel="Date range"
-                options={rangeOptions}
-                value={rangeDays}
-                onChange={(value) => updateQuery({ days: value })}
-              />
-            </div>
-            {showProviderControls ? (
-              <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-                  Providers
-                </span>
-                <ProviderToggle
-                  active={selectedProviders.size === providers.length}
-                  label="All"
-                  onClick={() => updateQuery({ providers: new Set(providers) })}
-                />
-                {providers.map((provider) => (
-                  <ProviderToggle
-                    active={selectedProviders.has(provider)}
-                    color={providerColors[provider]}
-                    key={provider}
-                    label={provider}
-                    onClick={() => {
-                      const nextProviders = new Set(selectedProviders);
-
-                      if (nextProviders.has(provider)) {
-                        nextProviders.delete(provider);
-                      } else {
-                        nextProviders.add(provider);
-                      }
-
-                      if (nextProviders.size === 0) {
-                        nextProviders.add(provider);
-                      }
-
-                      updateQuery({ providers: nextProviders });
-                    }}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <DashboardControls
+            activeTab={activeTab}
+            rangeDays={rangeDays}
+            selectedProviders={selectedProviders}
+            showProviderControls={showProviderControls}
+            onUpdateQuery={updateQuery}
+          />
         </nav>
 
         <section
@@ -223,58 +155,21 @@ export function SolanaDataDashboard() {
 
         {!error ? (
           <>
-            <section
-              aria-label="Key metrics"
-              className={cn(
-                "mt-10 xl:mt-14 border-y border-nd-border-light relative",
-                "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
-                "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
-                "[&>*]:border-nd-border-light",
-                isValidating && rows.length > 0 ? "opacity-75" : "",
-              )}
-            >
-              {isLoading && rows.length === 0
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <KpiSkeleton index={index} key={index} />
-                  ))
-                : kpis.map((kpi, index) => (
-                    <KpiCell
-                      delta={kpi.delta}
-                      index={index}
-                      key={kpi.chart.id}
-                      label={kpi.chart.title}
-                      unit={kpi.chart.valueLabel}
-                      value={formatValue(kpi.value, kpi.chart.valueLabel)}
-                    />
-                  ))}
-            </section>
+            <KpiGrid
+              isLoading={isInitialLoading}
+              isRefreshing={isRefreshing}
+              kpis={kpis}
+            />
 
-            <section
-              aria-label={`${activeTab} charts`}
-              className={cn(
-                "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
-                "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
-                isValidating && rows.length > 0 ? "opacity-75" : "",
-              )}
-            >
-              {isLoading && rows.length === 0
-                ? activeCharts.map((chart, index) => (
-                    <ChartSkeleton
-                      index={index}
-                      key={chart.id}
-                      title={chart.title}
-                    />
-                  ))
-                : visibleCharts.map((chart, index) => (
-                    <ChartCard
-                      chart={chart}
-                      index={index}
-                      key={chart.id}
-                      rows={rows}
-                      selectedProviders={selectedProviders}
-                    />
-                  ))}
-            </section>
+            <ChartGrid
+              activeCharts={activeCharts}
+              activeTab={activeTab}
+              isLoading={isInitialLoading}
+              isRefreshing={isRefreshing}
+              rows={rows}
+              selectedProviders={selectedProviders}
+              visibleCharts={visibleCharts}
+            />
           </>
         ) : null}
 
@@ -297,6 +192,160 @@ export function SolanaDataDashboard() {
         </footer>
       </div>
     </main>
+  );
+}
+
+function DashboardControls({
+  activeTab,
+  onUpdateQuery,
+  rangeDays,
+  selectedProviders,
+  showProviderControls,
+}: {
+  activeTab: DashboardTab;
+  onUpdateQuery: (_updates: QueryUpdates) => void;
+  rangeDays: number;
+  selectedProviders: Set<ProviderName>;
+  showProviderControls: boolean;
+}) {
+  return (
+    <div className="px-5 md:px-8 xl:px-10 py-2.5 grid gap-2 xl:flex xl:items-center xl:justify-between">
+      <div className="-mx-1 flex items-center gap-x-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <InlineControl
+          ariaLabel="Data section"
+          options={tabOptions}
+          value={activeTab}
+          onChange={(value) => onUpdateQuery({ tab: value })}
+        />
+        <Separator />
+        <InlineControl
+          ariaLabel="Date range"
+          options={rangeOptions}
+          value={rangeDays}
+          onChange={(value) => onUpdateQuery({ days: value })}
+        />
+      </div>
+
+      {showProviderControls ? (
+        <ProviderControls
+          selectedProviders={selectedProviders}
+          onChange={(nextProviders) =>
+            onUpdateQuery({ providers: nextProviders })
+          }
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ProviderControls({
+  onChange,
+  selectedProviders,
+}: {
+  onChange: (_providers: Set<ProviderName>) => void;
+  selectedProviders: Set<ProviderName>;
+}) {
+  return (
+    <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+        Providers
+      </span>
+      <ProviderToggle
+        active={selectedProviders.size === providers.length}
+        label="All"
+        onClick={() => onChange(new Set(providers))}
+      />
+      {providers.map((provider) => (
+        <ProviderToggle
+          active={selectedProviders.has(provider)}
+          color={providerColors[provider]}
+          key={provider}
+          label={provider}
+          onClick={() => onChange(toggleProvider(selectedProviders, provider))}
+        />
+      ))}
+    </div>
+  );
+}
+
+function KpiGrid({
+  isLoading,
+  isRefreshing,
+  kpis,
+}: {
+  isLoading: boolean;
+  isRefreshing: boolean;
+  kpis: KpiItem[];
+}) {
+  return (
+    <section
+      aria-label="Key metrics"
+      className={cn(
+        "mt-10 xl:mt-14 border-y border-nd-border-light relative",
+        "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
+        "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
+        "[&>*]:border-nd-border-light",
+        isRefreshing ? "opacity-75" : "",
+      )}
+    >
+      {isLoading
+        ? Array.from({ length: kpiCount }).map((_, index) => (
+            <KpiSkeleton index={index} key={index} />
+          ))
+        : kpis.map((kpi, index) => (
+            <KpiCell
+              delta={kpi.delta}
+              index={index}
+              key={kpi.chart.id}
+              label={kpi.chart.title}
+              unit={kpi.chart.valueLabel}
+              value={formatValue(kpi.value, kpi.chart.valueLabel)}
+            />
+          ))}
+    </section>
+  );
+}
+
+function ChartGrid({
+  activeCharts,
+  activeTab,
+  isLoading,
+  isRefreshing,
+  rows,
+  selectedProviders,
+  visibleCharts,
+}: {
+  activeCharts: readonly ChartDefinition[];
+  activeTab: DashboardTab;
+  isLoading: boolean;
+  isRefreshing: boolean;
+  rows: MetricRow[];
+  selectedProviders: Set<ProviderName>;
+  visibleCharts: readonly ChartDefinition[];
+}) {
+  return (
+    <section
+      aria-label={`${activeTab} charts`}
+      className={cn(
+        "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
+        "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
+        isRefreshing ? "opacity-75" : "",
+      )}
+    >
+      {isLoading
+        ? activeCharts.map((chart, index) => (
+            <ChartSkeleton index={index} key={chart.id} title={chart.title} />
+          ))
+        : visibleCharts.map((chart, index) => (
+            <ChartCard
+              chart={chart}
+              index={index}
+              key={chart.id}
+              rows={rows}
+              selectedProviders={selectedProviders}
+            />
+          ))}
+    </section>
   );
 }
 
@@ -329,7 +378,7 @@ function ChartCard({
 
       {series.length > 0 ? (
         <TimeSeriesChart
-          height={320}
+          height={chartHeight}
           series={series}
           valueLabel={chart.valueLabel}
         />
@@ -339,12 +388,7 @@ function ChartCard({
         </div>
       )}
 
-      <span
-        aria-hidden="true"
-        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-normal"
-      >
-        {String(index + 1).padStart(2, "0")}
-      </span>
+      <ChartOrdinal index={index} />
     </article>
   );
 }
@@ -363,14 +407,7 @@ function KpiCell({
   value: string;
 }) {
   return (
-    <article
-      className={cn(
-        "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
-        index > 0 ? "border-l" : "",
-        index >= 2 ? "border-t xl:border-t-0" : "",
-        index === 2 ? "xl:border-l" : "",
-      )}
-    >
+    <article className={getKpiCellClassName(index)}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
           {label}
@@ -398,14 +435,7 @@ function KpiCell({
 
 function KpiSkeleton({ index }: { index: number }) {
   return (
-    <div
-      className={cn(
-        "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
-        index > 0 ? "border-l" : "",
-        index >= 2 ? "border-t xl:border-t-0" : "",
-        index === 2 ? "xl:border-l" : "",
-      )}
-    >
+    <div className={getKpiCellClassName(index)}>
       <div className="h-3 w-24 rounded-sm bg-nd-border-light animate-pulse" />
       <div className="h-8 w-32 rounded-sm bg-nd-border-light animate-pulse" />
     </div>
@@ -422,13 +452,19 @@ function ChartSkeleton({ index, title }: { index: number; title: string }) {
         <div className="h-3 w-12 rounded-sm bg-nd-border-light animate-pulse" />
       </div>
       <div className="h-[352px] animate-pulse bg-nd-border-light/40" />
-      <span
-        aria-hidden="true"
-        className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-normal"
-      >
-        {String(index + 1).padStart(2, "0")}
-      </span>
+      <ChartOrdinal index={index} />
     </article>
+  );
+}
+
+function ChartOrdinal({ index }: { index: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60 tracking-normal"
+    >
+      {String(index + 1).padStart(2, "0")}
+    </span>
   );
 }
 
@@ -527,16 +563,135 @@ function ProviderToggle({
   );
 }
 
+function useDashboardQueryState() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const providerParam = searchParams.get("providers");
+  const selectedProviders = useMemo(
+    () => parseProviders(providerParam),
+    [providerParam],
+  );
+  const selectedProviderList = useMemo(
+    () => getOrderedSelectedProviders(selectedProviders),
+    [selectedProviders],
+  );
+
+  const updateQuery = useCallback(
+    (updates: QueryUpdates) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      applyQueryUpdates(params, updates);
+      router.replace(getDashboardUrl(pathname, params), { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  return {
+    activeTab: parseTab(searchParams.get("tab")),
+    rangeDays: parseRangeDays(searchParams.get("days")),
+    selectedProviderList,
+    selectedProviders,
+    updateQuery,
+  };
+}
+
+function applyQueryUpdates(params: URLSearchParams, updates: QueryUpdates) {
+  if (updates.tab) {
+    params.set("tab", updates.tab);
+  }
+
+  if (updates.days) {
+    params.set("days", String(updates.days));
+  }
+
+  if (updates.providers) {
+    updateProvidersParam(params, updates.providers);
+  }
+}
+
+function updateProvidersParam(
+  params: URLSearchParams,
+  selectedProviders: Set<ProviderName>,
+) {
+  const nextProviders = getOrderedSelectedProviders(selectedProviders);
+
+  if (nextProviders.length === 0 || nextProviders.length === providers.length) {
+    params.delete("providers");
+  } else {
+    params.set("providers", nextProviders.join(","));
+  }
+}
+
+function getDashboardUrl(pathname: string, params: URLSearchParams) {
+  const queryString = params.toString();
+
+  return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+function toggleProvider(
+  selectedProviders: Set<ProviderName>,
+  provider: ProviderName,
+) {
+  const nextProviders = new Set(selectedProviders);
+
+  if (nextProviders.has(provider)) {
+    nextProviders.delete(provider);
+  } else {
+    nextProviders.add(provider);
+  }
+
+  if (nextProviders.size === 0) {
+    nextProviders.add(provider);
+  }
+
+  return nextProviders;
+}
+
+function getOrderedSelectedProviders(
+  selectedProviders: ReadonlySet<ProviderName>,
+) {
+  return providers.filter((provider) => selectedProviders.has(provider));
+}
+
+function getChartsForTab(tab: DashboardTab) {
+  return chartDefinitions.filter((chart) => chart.tab === tab);
+}
+
+function getVisibleCharts(
+  activeCharts: readonly ChartDefinition[],
+  rows: MetricRow[],
+) {
+  return rows.length > 0
+    ? activeCharts.filter((chart) => hasChartSourceData(chart, rows))
+    : activeCharts;
+}
+
+function getKpis(
+  charts: readonly ChartDefinition[],
+  rows: MetricRow[],
+  selectedProviders: Set<ProviderName>,
+): KpiItem[] {
+  return charts.slice(0, kpiCount).map((chart) => ({
+    chart,
+    ...getKpiValue(chart, rows, selectedProviders),
+  }));
+}
+
+function getKpiCellClassName(index: number) {
+  return cn(
+    "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
+    index > 0 ? "border-l" : "",
+    index >= 2 ? "border-t xl:border-t-0" : "",
+    index === 2 ? "xl:border-l" : "",
+  );
+}
+
 function hasChartSourceData(chart: ChartDefinition, rows: MetricRow[]) {
   const metricSet = new Set<string>(chart.metrics);
   const chartProviderSet = new Set<ProviderName>(getChartProviders(chart));
 
-  return rows.some(
-    (row) =>
-      metricSet.has(row.metricName) &&
-      isProviderName(row.providerName) &&
-      chartProviderSet.has(row.providerName),
-  );
+  return rows.some((row) => isChartDataRow(row, metricSet, chartProviderSet));
 }
 
 function buildSeries(
@@ -554,9 +709,7 @@ function buildSeries(
 
   for (const row of rows) {
     if (
-      !metricSet.has(row.metricName) ||
-      !isProviderName(row.providerName) ||
-      !chartProviderSet.has(row.providerName) ||
+      !isChartDataRow(row, metricSet, chartProviderSet) ||
       !selectedProviders.has(row.providerName)
     ) {
       continue;
@@ -610,6 +763,18 @@ function buildSeries(
 
 function getChartProviders(chart: ChartDefinition) {
   return chart.providers ?? providers;
+}
+
+function isChartDataRow(
+  row: MetricRow,
+  metricSet: ReadonlySet<string>,
+  chartProviderSet: ReadonlySet<ProviderName>,
+): row is MetricRow & { providerName: ProviderName } {
+  return (
+    metricSet.has(row.metricName) &&
+    isProviderName(row.providerName) &&
+    chartProviderSet.has(row.providerName)
+  );
 }
 
 function getKpiValue(
@@ -730,7 +895,7 @@ function useMinWidth(query: string) {
 }
 
 function parseTab(value: string | null): DashboardTab {
-  return value === "overview" || value === "defi" ? value : "stablecoins";
+  return value === "stablecoins" || value === "defi" ? value : "overview";
 }
 
 function parseRangeDays(value: string | null) {
