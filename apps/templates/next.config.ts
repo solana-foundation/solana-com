@@ -1,10 +1,12 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
+const assetPrefix = "/templates-assets";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
-  assetPrefix: "/templates-assets",
+  assetPrefix,
 
   env: {
     NEXT_PUBLIC_APP_NAME: "templates",
@@ -45,6 +47,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    path: `${assetPrefix}/_next/image`,
     remotePatterns: [
       {
         protocol: "https",

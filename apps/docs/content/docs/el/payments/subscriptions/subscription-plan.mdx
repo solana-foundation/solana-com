@@ -1,0 +1,432 @@
+---
+title: Πρόγραμμα Συνδρομής
+description: Οδηγός για τη ρύθμιση συναλλαγών προγράμματος συνδρομής.
+---
+
+Ένα πρόγραμμα συνδρομής επιτρέπει σε έναν έμπορο να δημοσιεύσει όρους χρέωσης
+που μπορούν να αποδεχτούν οι χρήστες. Αφού ένας χρήστης εγγραφεί, ο έμπορος ή
+ένας εγκεκριμένος συλλέκτης μπορεί να εισπράξει έως και το ποσό του προγράμματος
+σε κάθε περίοδο χρέωσης.
+
+Αυτός ο οδηγός παρουσιάζει την πλήρη ροή ως δομικά στοιχεία. Ο έμπορος
+δημιουργεί ένα πρόγραμμα, ο συνδρομητής το αποδέχεται και ο έμπορος ή ο
+συλλέκτης εισπράττει πληρωμές από το αποτελούμενο PDA συνδρομής.
+
+## Εγκατάσταση
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```bash
+    pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```toml
+    [dependencies]
+    subscriptions = "^0.1"
+    solana-instruction = "^2"
+    solana-address = { version = "^2", features = ["curve25519"] }
+    ```
+
+  </Tab>
+</Tabs>
+
+## Δημιουργία Προγράμματος
+
+Ο έμπορος κατέχει το πρόγραμμα. Το PDA του προγράμματος προκύπτει από τη
+διεύθυνση του εμπόρου και το `planId`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { address, createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findPlanPda, subscriptionsProgram } from '@solana/subscriptions';
+
+    const merchantClient = createClient()
+      .use(signer(merchantSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const planId = 1n;
+    const tokenMint = address('TOKEN_MINT_ADDRESS_HERE');
+    const amount = 5_000_000n;
+    const periodHours = 720n;
+    const metadataUri = 'https://example.com/plan.json';
+    const destinations = [merchantSigner.address];
+    const pullers = [address('PULLER_WALLET_ADDRESS_HERE')];
+
+    await merchantClient.subscriptions.instructions
+      .createPlan({
+        planId,
+        mint: tokenMint,
+        amount,
+        periodHours,
+        endTs: 0n,
+        destinations,
+        pullers,
+        metadataUri,
+      })
+      .sendTransaction();
+
+    const [planPda] = await findPlanPda({
+      owner: merchantSigner.address,
+      planId,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
+
+    const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let merchant: Address = address!("MERCHANT_WALLET_ADDRESS_HERE");
+    let token_mint: Address = address!("TOKEN_MINT_ADDRESS_HERE");
+    let merchant_token_account: Address = address!("MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let puller: Address = address!("PULLER_WALLET_ADDRESS_HERE");
+    let plan_id = 1u64;
+    let amount = 5_000_000u64;
+    let period_hours = 720u64;
+
+    let (plan_pda, _) = Address::find_program_address(
+        &[b"plan", merchant.as_ref(), &plan_id.to_le_bytes()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let mut metadata_uri = [0u8; 128];
+    let metadata_bytes = b"https://example.com/plan.json";
+    metadata_uri[..metadata_bytes.len()].copy_from_slice(metadata_bytes);
+
+    let mut destinations = [Address::default(); 4];
+    destinations[0] = merchant;
+
+    let mut pullers = [Address::default(); 4];
+    pullers[0] = puller;
+
+    let create_plan_ix = CreatePlanBuilder::new()
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .token_mint(token_mint)
+        .token_program(TOKEN_PROGRAM_ID)
+        .plan_data(PlanData {
+            plan_id,
+            mint: token_mint,
+            terms: PlanTerms { amount, period_hours, created_at: 0 },
+            end_ts: 0,
+            destinations,
+            pullers,
+            metadata_uri,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Ενημέρωση Προγράμματος
+
+Ο έμπορος μπορεί να ενημερώσει τα μεταβλητά πεδία του προγράμματος μετά τη
+δημιουργία. Οι υπάρχοντες συνδρομητές διατηρούν τους όρους που αποδέχτηκαν, ενώ
+οι νέοι συνδρομητές αποδέχονται τους τρέχοντες όρους του προγράμματος.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { PlanStatus } from '@solana/subscriptions';
+
+    const updatedMetadataUri = 'https://example.com/updated-plan.json';
+    const updatedPullers = [address('NEW_PULLER_WALLET_ADDRESS_HERE')];
+
+    await merchantClient.subscriptions.instructions
+      .updatePlan({
+        owner: merchantSigner,
+        planPda,
+        status: PlanStatus.Active,
+        endTs: 0n,
+        pullers: updatedPullers,
+        metadataUri: updatedMetadataUri,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
+    let mut updated_pullers = [Address::default(); 4];
+    updated_pullers[0] = new_puller;
+
+    let mut updated_metadata_uri = [0u8; 128];
+    let updated_metadata_bytes = b"https://example.com/updated-plan.json";
+    updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
+
+    let update_plan_ix = UpdatePlanBuilder::new()
+        .owner(merchant)
+        .plan_pda(plan_pda)
+        .update_plan_data(UpdatePlanData {
+            status: PlanStatus::Active as u8,
+            end_ts: 0,
+            pullers: updated_pullers,
+            metadata_uri: updated_metadata_uri,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Εγγραφή
+
+Ο συνδρομητής αποδέχεται τους τρέχοντες όρους του πλάνου. Το PDA της συνδρομής
+προκύπτει από το PDA του πλάνου και τη διεύθυνση του συνδρομητή.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { createClient } from '@solana/kit';
+    import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
+    import { signer } from '@solana/kit-plugin-signer';
+    import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+    import {
+      fetchMaybeSubscriptionAuthority,
+      findSubscriptionAuthorityPda,
+      findSubscriptionDelegationPda,
+      subscriptionsProgram,
+    } from '@solana/subscriptions';
+
+    const subscriberClient = createClient()
+      .use(signer(subscriberSigner))
+      .use(solanaLocalRpc({ rpcUrl: 'http://127.0.0.1:8899' }))
+      .use(subscriptionsProgram());
+
+    const [subscriberAta] = await findAssociatedTokenPda({
+      mint: tokenMint,
+      owner: subscriberSigner.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    const [subscriptionAuthorityPda] = await findSubscriptionAuthorityPda({
+      user: subscriberSigner.address,
+      tokenMint,
+    });
+
+    const subscriptionAuthority = await fetchMaybeSubscriptionAuthority(
+      subscriberClient.rpc,
+      subscriptionAuthorityPda,
+    );
+
+    if (!subscriptionAuthority.exists) {
+      await subscriberClient.subscriptions.instructions
+        .initSubscriptionAuthority({
+          tokenMint,
+          tokenProgram: TOKEN_PROGRAM_ADDRESS,
+          userAta: subscriberAta,
+        })
+        .sendTransaction();
+    }
+
+    await subscriberClient.subscriptions.instructions
+      .subscribe({
+        merchant: merchantSigner.address,
+        planId,
+        tokenMint,
+      })
+      .sendTransaction();
+
+    const [subscriptionPda] = await findSubscriptionDelegationPda({
+      planPda,
+      subscriber: subscriberSigner.address,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
+
+    const SYSTEM_PROGRAM_ID: Address = address!("11111111111111111111111111111111");
+
+    let subscriber: Address = address!("SUBSCRIBER_WALLET_ADDRESS_HERE");
+    let subscriber_ata: Address = address!("SUBSCRIBER_TOKEN_ACCOUNT_ADDRESS_HERE");
+
+    let (subscription_authority, _) = Address::find_program_address(
+        &[b"SubscriptionAuthority", subscriber.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let (subscription_pda, _) = Address::find_program_address(
+        &[b"subscription", plan_pda.as_ref(), subscriber.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let (_, plan_bump) = Address::find_program_address(
+        &[b"plan", merchant.as_ref(), &plan_id.to_le_bytes()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let init_ix = InitSubscriptionAuthorityBuilder::new()
+        .owner(subscriber)
+        .subscription_authority(subscription_authority)
+        .token_mint(token_mint)
+        .user_ata(subscriber_ata)
+        .system_program(SYSTEM_PROGRAM_ID)
+        .token_program(TOKEN_PROGRAM_ID)
+        .instruction();
+
+    // Fetch and decode the plan account before building SubscribeData.
+    let fetched_plan: Plan = fetched_plan;
+
+    let subscribe_ix = SubscribeBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority_pda(subscription_authority)
+        .subscribe_data(SubscribeData {
+            plan_id,
+            plan_bump,
+            expected_mint: fetched_plan.data.mint,
+            expected_amount: fetched_plan.data.terms.amount,
+            expected_period_hours: fetched_plan.data.terms.period_hours,
+            expected_created_at: fetched_plan.data.terms.created_at,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Είσπραξη Πληρωμής
+
+Ο έμπορος ή ένας εξουσιοδοτημένος χρήστης υπογράφει την είσπραξη. Όταν το πλάνο
+χρησιμοποιεί λίστα επιτρεπόμενων προορισμών, ο κάτοχος του λογαριασμού token
+παραλήπτη πρέπει να περιλαμβάνεται στο `destinations`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
+
+    await merchantClient.subscriptions.instructions
+      .transferSubscription({
+        caller: merchantOrPullerSigner,
+        delegator: subscriberSigner.address,
+        tokenMint,
+        subscriptionPda,
+        planPda,
+        amount: 200_000n,
+        receiverAta,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::{TransferData, TransferSubscriptionBuilder};
+
+    let merchant_or_puller: Address = merchant;
+    let receiver_ata: Address = merchant_token_account;
+
+    let collect_ix = TransferSubscriptionBuilder::new()
+        .subscription_pda(subscription_pda)
+        .plan_pda(plan_pda)
+        .subscription_authority(subscription_authority)
+        .delegator_ata(subscriber_ata)
+        .receiver_ata(receiver_ata)
+        .caller(merchant_or_puller)
+        .token_program(TOKEN_PROGRAM_ID)
+        .transfer_data(TransferData { amount: 200_000, delegator: subscriber, mint: token_mint })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Ακύρωση και Ανάκληση
+
+Η ακύρωση σηματοδοτεί το τέλος της συνδρομής. Η ανάκληση κλείνει το PDA της
+συνδρομής αφού παρέλθει η προθεσμία ακύρωσης. Ο συνδρομητής υπογράφει και τις
+δύο συναλλαγές.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        subscriptionPda,
+      })
+      .sendTransaction();
+
+    // Run this after the cancelled subscription's expiresAtTs has elapsed.
+    await subscriberClient.subscriptions.instructions
+      .revokeSubscription({
+        authority: subscriberSigner,
+        planPda,
+        subscriptionPda,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_instruction::AccountMeta;
+    use subscriptions::generated::instructions::*;
+
+    let cancel_ix = CancelSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .instruction();
+
+    // Send this after the cancelled subscription's expires_at_ts has elapsed.
+    let revoke_ix = RevokeDelegationBuilder::new()
+        .authority(subscriber)
+        .delegation_account(subscription_pda)
+        .add_remaining_account(AccountMeta::new_readonly(plan_pda, false))
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Σημειώσεις
+
+- Το `amount` είναι σε βασικές μονάδες. Για ένα token με 6 δεκαδικά, το
+  `5_000_000` σημαίνει `5` tokens.
+- Το TypeScript SDK ανακτά τους όρους του πακέτου σε πραγματικό χρόνο κατά τη
+  διάρκεια του `subscribe` όταν τους παραλείψετε.
+- Το Rust `SubscribeBuilder` χρειάζεται τους αναμενόμενους όρους του πακέτου.
+  Πρώτα ανακτήστε και αποκωδικοποιήστε τον λογαριασμό του πακέτου και στη
+  συνέχεια περάστε αυτά τα πεδία μέσω του `SubscribeData`.
+- Μόνο ο έμπορος ή ένα πορτοφόλι που περιλαμβάνεται στο `pullers` μπορεί να
+  εισπράξει πληρωμές.
+- Ο συνδρομητής υπογράφει τις συναλλαγές ρύθμισης, ακύρωσης και ανάκλησης. Ο
+  έμπορος ή ο εγκεκριμένος εισπράκτορας υπογράφει τις συναλλαγές είσπραξης.

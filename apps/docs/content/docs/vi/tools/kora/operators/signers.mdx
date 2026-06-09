@@ -1,0 +1,497 @@
+---
+title: Người ký
+description: Thiết lập và quản lý người ký Kora
+---
+
+_Cập nhật lần cuối: 2025-08-22_
+
+## Người ký là gì?
+
+**Người ký** là cặp keypair mã hóa mà node Kora của bạn sử dụng để ký các giao
+dịch Solana với vai trò người trả phí. Khi người dùng gửi giao dịch đến node
+Kora của bạn, nó sẽ xác thực và đồng ký với khóa riêng của người ký để chi trả
+phí giao dịch SOL.
+
+**Lưu ý**: Mặc định, phí thanh toán bằng token sẽ được gửi đến địa chỉ của người
+ký. Tuy nhiên, bạn có thể cấu hình một `payment_address` riêng trong `kora.toml`
+để nhận thanh toán tại địa chỉ khác trong khi vẫn giữ người ký riêng biệt. Xem
+[Hướng dẫn cấu hình](/docs/tools/kora/operators/configuration) để biết chi tiết.
+
+Cặp keypair người ký của bạn có quyền truy cập trực tiếp vào số dư SOL được sử
+dụng để thanh toán phí giao dịch. Nếu bị xâm phạm, kẻ tấn công có thể:
+
+- Rút cạn số dư SOL của bạn
+- Ký các giao dịch trái phép
+- Làm gián đoạn dịch vụ paymaster của bạn
+
+## Cấu hình người ký
+
+Kora RPC CLI yêu cầu phải chỉ định `signer.toml` thông qua cờ
+`--signers-config`. Tệp `singer.toml` cho phép bạn cấu hình (các) người ký và
+cấu hình người ký cho node của bạn. `signer.toml` có hai phần:
+
+1. `[signer_pool]` - Cấu hình cho nhóm người ký
+2. `[[signers]]` - Cấu hình cho từng người ký (cần ít nhất một người ký trừ khi
+   sử dụng cờ `--no-load-signer` có chức năng hạn chế)
+
+#### `[signer_pool]`
+
+Cấu hình nhóm người ký chỉ định các thuộc tính cụ thể cho toàn bộ nhóm người ký:
+
+- `strategy` - Chiến lược lựa chọn người ký. Các chiến lược khả dụng là:
+  - `round_robin` (mặc định) - Luân phiên qua từng người ký theo thứ tự.
+  - `random` - Chọn người ký ngẫu nhiên.
+  - `weighted` - Chọn người ký dựa trên trọng số.
+
+#### `[[signers]]`
+
+Mỗi người ký được cấu hình với:
+
+- một `name`: một định danh dễ đọc cho người ký và phải là duy nhất trong nhóm
+  người ký
+- một `weight` tùy chọn: một số chỉ định trọng số của người ký nếu `strategy` là
+  `weighted`
+- một `type` và cấu hình theo loại cụ thể (xem
+  [Các Loại Người Ký](#signer-types))
+
+Cần có một người ký trừ khi sử dụng cờ `--no-load-signer` với chức năng hạn chế.
+Đối với triển khai sản xuất, khuyến nghị cấu hình nhiều người ký để cải thiện độ
+tin cậy và hiệu suất.
+
+### Ví dụ
+
+Đây là một ví dụ về tệp `signers.toml` định nghĩa một nhóm người ký theo kiểu
+round-robin với ba người ký (_lưu ý: chúng ta sẽ đề cập đến các loại/cấu hình
+người ký khác nhau trong phần tiếp theo_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Biến Môi Trường
+
+Đặt các biến môi trường cho tất cả người ký đã cấu hình:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Khởi động Kora với Cấu hình Người Ký
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Các Loại Người Ký
+
+Kora hỗ trợ bốn loại người ký chính, mỗi loại có các đặc điểm bảo mật và vận
+hành khác nhau (và một tùy chọn không có người ký cho mục đích thử nghiệm hạn
+chế):
+
+- [Private Key](#private-key-signer) - đơn giản, tự quản lý
+- [Turnkey](#turnkey-signer) - dịch vụ quản lý khóa
+- [Privy](#privy-signer) - dịch vụ quản lý khóa
+- Vault - tích hợp HashiCorp Vault
+- [No Signer](#no-signer) - không có người ký (cho mục đích thử nghiệm hạn chế)
+
+## Người Ký Private Key
+
+Cách tiếp cận đơn giản nhất - lưu trữ khóa riêng tư của bạn trực tiếp trong biến
+môi trường hoặc truyền qua cờ CLI. Kora chấp nhận khóa riêng tư theo ba định
+dạng:
+
+#### 1. Định dạng Base58 (Mặc định)
+
+Khóa riêng tư được mã hóa base58 chuẩn của Solana:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. Định dạng U8Array
+
+Mảng gồm 64 byte theo định dạng JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. Đường dẫn Tệp JSON
+
+Đường dẫn đến tệp JSON chứa keypair:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Trong đó `keypair.json` chứa:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Tạo Keypair Mới
+
+Bạn có thể tạo một keypair mới cho node Kora của mình bằng Solana CLI:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Cấu Hình Signer.toml
+
+Các biến bắt buộc:
+
+- `name` - Tên của signer
+- `type` - Loại signer (phải là `memory`)
+- `private_key_env` - Biến môi trường chứa khóa riêng tư
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey Signer
+
+[Turnkey](https://www.turnkey.com/) cung cấp giải pháp quản lý khóa cấp doanh
+nghiệp với các mô-đun bảo mật phần cứng (HSM) và kiểm soát chính sách.
+
+### Yêu Cầu Trước
+
+Bạn sẽ cần một **Tài Khoản Turnkey** để sử dụng Turnkey signer. Đăng ký tại
+[turnkey.com](https://www.turnkey.com/)
+
+### Thiết Lập
+
+Bạn sẽ cần năm khóa để sử dụng Turnkey signer:
+
+- ID tổ chức Turnkey
+- Khóa công khai API Turnkey
+- Khóa riêng tư API Turnkey
+- ID khóa riêng tư Turnkey
+- Khóa công khai Turnkey
+
+Hãy lấy chúng từ Turnkey:
+
+#### 1. Tổ Chức Turnkey
+
+Nhấp vào menu người dùng ở góc trên bên phải của bảng điều khiển Turnkey và sao
+chép ID tổ chức:
+
+![ID Tổ Chức Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Lưu ID tổ chức vào một biến môi trường:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Khóa API Turnkey
+
+- Nhấp vào menu người dùng ở góc trên bên phải của bảng điều khiển Turnkey và
+  chọn "Account Settings" (Cài Đặt Tài Khoản).
+- Trong phần "API Keys" (Khóa API), nhấp "+ Create API Key" (+ Tạo Khóa API).
+- Chọn "Generate API keys in-browser" (Tạo khóa API trong trình duyệt)
+- Nhập tên cho khóa API và nhấp "Continue" (Tiếp Tục)
+- Lưu khóa công khai và khóa riêng tư rồi nhấp "Approve" (Phê Duyệt)
+
+![Khóa API Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Lưu khóa công khai và khóa riêng tư API vào các biến môi trường:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Khóa Ví Turnkey
+
+Từ menu chính, điều hướng đến ["Ví"](https://app.turnkey.com/dashboard/wallets)
+và nhấp vào "Tạo Khóa Riêng Tư".
+
+Chúng ta sẽ tạo một khóa riêng tư ED25519 mới với loại địa chỉ tài sản "Solana":
+
+![Ví Turnkey](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Nhấp vào "Tiếp tục" và sau đó "Phê duyệt".
+
+Từ trang ví của bạn, bạn sẽ thấy khóa riêng tư mới. Nhấp vào nó để xem chi tiết.
+Bạn sẽ cần sao chép "ID khóa riêng tư" và "Địa chỉ" ví. Lưu chúng vào các biến
+môi trường:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Chi Tiết Ví Turnkey](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Bạn sẽ cần nạp SOL vào ví để thanh toán phí giao dịch.
+
+### Cấu Hình Biến Môi Trường
+
+Bây giờ bạn sẽ có các biến môi trường sau:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Xem [Kho lưu trữ Kora](https://github.com/solana-foundation/kora) để biết tệp
+`.env.example` đầy đủ.
+
+Để được hỗ trợ với Turnkey, xem
+[tài liệu Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Cấu Hình Signer.toml
+
+Các biến bắt buộc:
+
+- `name` - Tên của người ký
+- `type` - Loại người ký (phải là `turnkey`)
+- `api_public_key_env` - Biến môi trường chứa khóa công khai API Turnkey
+- `api_private_key_env` - Biến môi trường chứa khóa riêng tư API Turnkey
+- `organization_id_env` - Biến môi trường chứa ID tổ chức Turnkey
+- `private_key_id_env` - Biến môi trường chứa ID khóa riêng tư Turnkey
+- `public_key_env` - Biến môi trường chứa khóa công khai Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Người Ký Privy
+
+[Privy](https://www.privy.io/) cung cấp cơ sở hạ tầng ví nhúng với quản lý khóa
+an toàn cho các ứng dụng Web3.
+
+### Yêu Cầu
+
+Bạn sẽ cần một **Tài Khoản Privy** để sử dụng người ký Privy. Đăng ký tại
+[privy.io](https://www.privy.io/)
+
+### Thiết Lập
+
+Bạn sẽ cần ba khóa để sử dụng người ký Privy:
+
+- ID Ứng dụng Privy
+- Secret Ứng dụng Privy
+- ID Ví Privy
+
+Hãy lấy chúng từ Privy:
+
+#### 1. ID Ứng dụng Privy
+
+Từ bảng điều khiển của bạn, chọn ứng dụng bạn muốn sử dụng cho Kora (hoặc nhấp
+vào "+ New app" nếu bạn chưa có ứng dụng nào).
+
+Chọn "Retrieve API Keys" và nhấp vào "+ New Secret":
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Sao chép "App ID" và "App Secret" của bạn rồi lưu chúng vào các biến môi trường:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Ví Privy
+
+Tiếp theo, chúng ta cần tạo một ví mới cho Kora. Từ thanh bên của bảng điều
+khiển, nhấp vào "Wallets" trong mục "Wallet Infrastructure", rồi chọn "New
+Wallet".
+
+Chọn "Solana" làm blockchain và nhấp "Save".
+
+Nhấp vào ví để xem chi tiết:
+
+![Privy Wallets](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Sao chép "Wallet ID" và lưu vào biến môi trường:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Bạn sẽ cần nạp SOL vào ví để trả phí giao dịch.
+
+### Cấu hình Biến Môi trường
+
+Bây giờ bạn nên có các biến môi trường sau:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Xem [kho lưu trữ Kora](https://github.com/solana-foundation/kora) để có tệp
+`.env.example` đầy đủ.
+
+Để được hỗ trợ về Privy, hãy xem
+[tài liệu Privy](https://docs.privy.io/wallets/overview).
+
+### Cấu hình Signer.toml
+
+Các biến bắt buộc:
+
+- `name` - Tên của signer
+- `type` - Loại signer (phải là `privy`)
+- `app_id_env` - Biến môi trường chứa ID ứng dụng Privy
+- `app_secret_env` - Biến môi trường chứa secret ứng dụng Privy
+- `wallet_id_env` - Biến môi trường chứa ID ví Privy
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Không có Signer
+
+Nếu không có signer nào được cấu hình, Kora sẽ báo lỗi. Nếu bạn muốn chạy Kora
+mà không có signer, bạn có thể chạy với cờ `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Lưu ý rằng điều này sẽ giới hạn node của bạn chỉ xử lý các yêu cầu không yêu cầu
+signer.
+
+## Khắc phục sự cố
+
+### Tham khảo nhanh
+
+| Thông báo lỗi                                                     | Loại Signer  | Cách khắc phục nhanh                                               |
+| ----------------------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
+| "At least one signer must be configured"                          | Bất kỳ       | Thêm ít nhất một signer vào cấu hình                               |
+| "Failed to read config file"                                      | Bất kỳ       | Kiểm tra đường dẫn tệp và nội dung                                 |
+| "Failed to parse signers config TOML"                             | Bất kỳ       | Kiểm tra định dạng tệp và nội dung signer                          |
+| "Duplicate signer name"                                           | Bất kỳ       | Đảm bảo mỗi signer có tên duy nhất trong cấu hình                  |
+| "Invalid base58 string"                                           | Private Key  | Kiểm tra định dạng khóa, không có khoảng trắng thừa                |
+| "Invalid private key length"                                      | Private Key  | Sử dụng khóa Solana 64-byte đầy đủ                                 |
+| "Turnkey \{key\} required"                                        | Turnkey      | Đặt `TURNKEY_{key}`                                                |
+| "Privy \{key\} required"                                          | Privy        | Đặt `PRIVY_{key}`                                                  |
+| "Vault \{key\} required"                                          | Vault        | Đặt `VAULT_{key}`                                                  |
+| "Failed to create Vault client"                                   | Vault        | Xác minh thông tin xác thực Vault                                  |
+| "Failed to sign with \[service\]"                                 | Bất kỳ       | Kiểm tra trạng thái dịch vụ & thông tin xác thực & giới hạn tốc độ |
+| "Signer pool not initialized"                                     | Multi-Signer | Kiểm tra đường dẫn và định dạng `signers.toml`                     |
+| "Cannot create empty signer pool"                                 | Multi-Signer | Thêm ít nhất một signer vào cấu hình                               |
+| "Signer with pubkey ... not found"                                | Multi-Signer | Kiểm tra gợi ý signer khớp với các signer đã cấu hình              |
+| "Signers configuration is required unless using --no-load-signer" | Bất kỳ       | Thêm tệp cấu hình signers                                          |
+
+### Mẹo Gỡ Lỗi Chung
+
+#### Bật Ghi Nhật Ký Chi Tiết
+
+Thêm ghi nhật ký chi tiết để chẩn đoán vấn đề:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Bảo Mật & Thực Hành Tốt Nhất
+
+### Bảo Mật Chung
+
+- Sử dụng keypair riêng biệt cho Kora (không sử dụng lại ví cá nhân)
+- Chỉ nạp SOL mà bạn sẵn sàng chi cho phí giao dịch
+- Duy trì số dư hoạt động tối thiểu với giám sát tự động và nạp tiền định kỳ
+- Triển khai giám sát và cảnh báo cho các hoạt động bất thường
+- Tất cả khóa riêng tư và khóa API nên được lưu trữ trong biến môi trường hoặc
+  hệ thống quản lý bí mật (Railway secrets, AWS Secrets Manager, v.v.)
+
+## Chỉ Định Người Ký (Phía Client)
+
+Client có thể chỉ định người ký ưu tiên để đảm bảo tính nhất quán giữa các thao
+tác liên quan:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Nếu không có khóa người ký, chiến lược đã cấu hình sẽ xác định việc chọn người
+ký. Điều quan trọng cần lưu ý là các khóa phải nhất quán giữa các lời gọi liên
+quan đến cùng một giao dịch (ví dụ: nếu bạn tạo giao dịch với khóa người ký được
+chỉ định, bạn phải sử dụng cùng khóa người ký đó cho tất cả các lời gọi liên
+quan).

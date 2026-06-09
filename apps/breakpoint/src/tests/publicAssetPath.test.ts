@@ -3,6 +3,7 @@ import {
   config,
   localizedRoutePath,
   localizedRouteUrl,
+  publicLocalizedRouteUrl,
   publicAssetPath,
   routePath,
 } from "@/config";
@@ -35,6 +36,9 @@ describe("localizedRoutePath", () => {
   it("builds absolute localized Breakpoint URLs", () => {
     expect(localizedRouteUrl("en")).toBe("https://solana.com/breakpoint");
     expect(localizedRouteUrl("de", "/registration")).toBe(
+      "https://solana.com/de/breakpoint/registration",
+    );
+    expect(publicLocalizedRouteUrl("de", "/registration")).toBe(
       "https://solana.com/de/breakpoint/registration",
     );
   });

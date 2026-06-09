@@ -257,12 +257,6 @@ function getMediaReportEntries() {
 }
 
 function getUpgradeEntries() {
-  const upgradesDir = path.join(mediaContentRoot, "upgrades");
-
-  if (!fs.existsSync(upgradesDir)) {
-    return [];
-  }
-
   const entries = [
     ...createLocalizedEntries("/upgrades", {
       changeFrequency: "weekly",
@@ -270,24 +264,23 @@ function getUpgradeEntries() {
     }),
   ];
 
-  for (const fileName of fs.readdirSync(upgradesDir)) {
-    if (!fileName.endsWith(".yaml")) {
-      continue;
-    }
+  const upgradeEntries = readContentEntries("upgrades", {
+    filter: ({ data }) => data.status === "published",
+    mapEntry: ({ data, fileName, filePath }) => {
+      const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
+      const lastModified = data.publishedAt
+        ? new Date(String(data.publishedAt)).toISOString()
+        : getFileLastModified(filePath);
 
-    const slug = fileName.replace(/\.yaml$/, "");
-    const filePath = path.join(upgradesDir, fileName);
-
-    entries.push(
-      ...createLocalizedEntries(`/upgrades/${slug}`, {
-        lastModified: getFileLastModified(filePath),
+      return createLocalizedEntries(`/upgrades/${slug}`, {
+        lastModified,
         changeFrequency: "weekly",
         priority: 0.7,
-      }),
-    );
-  }
+      });
+    },
+  });
 
-  return dedupeEntries(entries);
+  return dedupeEntries([...entries, ...upgradeEntries.flat()]);
 }
 
 export const mediaRoutes: RouteGenerator = () => {

@@ -1,0 +1,512 @@
+---
+title: Podpisujący
+description: Skonfiguruj i zarządzaj podpisującymi Kora
+---
+
+_Ostatnia aktualizacja: 2025-08-22_
+
+## Czym jest podpisujący?
+
+**Podpisujący** to para kluczy kryptograficznych, której Twój węzeł Kora używa
+do podpisywania transakcji Solana jako płatnik opłat. Gdy użytkownicy wysyłają
+transakcje do Twojego węzła Kora, waliduje je i współpodpisuje swoim kluczem
+prywatnym podpisującego, aby pokryć opłaty transakcyjne SOL.
+
+**Uwaga**: Domyślnie opłaty za płatności tokenami są wysyłane na adres
+podpisującego. Możesz jednak skonfigurować osobny `payment_address` w swoim
+`kora.toml`, aby otrzymywać płatności na inny adres, zachowując podpisującego
+oddzielnie. Zobacz
+[Przewodnik konfiguracji](/docs/tools/kora/operators/configuration), aby uzyskać
+szczegóły.
+
+Twoja para kluczy podpisującego ma bezpośredni dostęp do Twoich środków SOL
+używanych do opłacania transakcji. W przypadku kompromitacji atakujący może:
+
+- Wyczerpać Twoje saldo SOL
+- Podpisać nieautoryzowane transakcje
+- Zakłócić działanie Twojej usługi paymaster
+
+## Konfiguracja podpisującego
+
+CLI Kora RPC wymaga określenia `signer.toml` za pomocą flagi `--signers-config`.
+Plik `singer.toml` pozwala skonfigurować podpisującego (podpisujących) i
+konfigurację podpisującego dla Twojego węzła. `signer.toml` zawiera dwie sekcje:
+
+1. `[signer_pool]` - Konfiguracja puli podpisujących
+2. `[[signers]]` - Konfiguracja każdego podpisującego (wymagany co najmniej
+   jeden podpisujący, chyba że używasz flagi `--no-load-signer`, która ma
+   ograniczoną funkcjonalność)
+
+#### `[signer_pool]`
+
+Konfiguracja puli podpisujących określa atrybuty specyficzne dla całej puli
+podpisujących:
+
+- `strategy` - Strategia wyboru podpisujących. Dostępne strategie to:
+  - `round_robin` (domyślna) - Przechodzenie przez podpisujących po kolei.
+  - `random` - Losowy wybór podpisujących.
+  - `weighted` - Wybór podpisujących na podstawie wagi.
+
+#### `[[signers]]`
+
+Każdy podpisujący jest konfigurowany z:
+
+- `name`: czytelny dla człowieka identyfikator sygnatariusza, który musi być
+  unikalny w puli sygnatariuszy
+- opcjonalny `weight`: liczba określająca wagę sygnatariusza, jeśli `strategy`
+  ma wartość `weighted`
+- `type` i konfiguracja specyficzna dla typu (zobacz
+  [Typy sygnatariuszy](#signer-types))
+
+Jeden sygnatariusz jest wymagany, chyba że używana jest flaga
+`--no-load-signer`, która ma ograniczoną funkcjonalność. W przypadku wdrożeń
+produkcyjnych zaleca się konfigurację wielu sygnatariuszy w celu poprawy
+niezawodności i wydajności.
+
+### Przykład
+
+Oto przykładowy plik `signers.toml`, który definiuje pulę sygnatariuszy
+round-robin z trzema sygnatariuszami (_uwaga: różne typy/konfiguracje
+sygnatariuszy omówimy w następnej sekcji_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Zmienne środowiskowe
+
+Ustaw zmienne środowiskowe dla wszystkich skonfigurowanych sygnatariuszy:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Uruchom Kora z konfiguracją sygnatariuszy
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Typy sygnatariuszy
+
+Kora obsługuje cztery główne typy sygnatariuszy, każdy o różnych
+charakterystykach bezpieczeństwa i operacyjnych (oraz opcję bez sygnatariusza do
+ograniczonych testów):
+
+- [Klucz prywatny](#private-key-signer) - prosty, samodzielnie zarządzany
+- [Turnkey](#turnkey-signer) - usługa zarządzania kluczami
+- [Privy](#privy-signer) - usługa zarządzania kluczami
+- Vault - integracja z HashiCorp Vault
+- [Bez sygnatariusza](#no-signer) - brak sygnatariusza (do ograniczonych testów)
+
+## Sygnatariusz klucza prywatnego
+
+Najprostsze podejście - przechowuj swój klucz prywatny bezpośrednio w zmiennych
+środowiskowych lub przekaż przez flagi CLI. Kora akceptuje klucze prywatne w
+trzech formatach:
+
+#### 1. Format Base58 (domyślny)
+
+Standardowy klucz prywatny Solana zakodowany w base58:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. Format U8Array
+
+Tablica 64 bajtów w formacie JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. Ścieżka do pliku JSON
+
+Ścieżka do pliku JSON zawierającego parę kluczy:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Gdzie `keypair.json` zawiera:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Wygeneruj nową parę kluczy
+
+Możesz utworzyć nową parę kluczy dla swojego węzła Kora za pomocą Solana CLI:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Konfiguracja Signer.toml
+
+Wymagane zmienne:
+
+- `name` - Nazwa podpisującego
+- `type` - Typ podpisującego (musi być `memory`)
+- `private_key_env` - Zmienna środowiskowa zawierająca klucz prywatny
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Podpisujący Turnkey
+
+[Turnkey](https://www.turnkey.com/) zapewnia zarządzanie kluczami na poziomie
+korporacyjnym z modułami bezpieczeństwa sprzętowego (HSM) i kontrolami zasad.
+
+### Wymagania wstępne
+
+Aby korzystać z podpisującego Turnkey, potrzebujesz **konta Turnkey**.
+Zarejestruj się na [turnkey.com](https://www.turnkey.com/)
+
+### Konfiguracja
+
+Do korzystania z podpisującego Turnkey potrzebujesz pięciu kluczy:
+
+- ID organizacji Turnkey
+- Klucz publiczny API Turnkey
+- Klucz prywatny API Turnkey
+- ID klucza prywatnego Turnkey
+- Klucz publiczny Turnkey
+
+Pobierzmy je z Turnkey:
+
+#### 1. Organizacja Turnkey
+
+Kliknij menu użytkownika w prawym górnym rogu panelu Turnkey i skopiuj ID
+organizacji:
+
+![ID organizacji Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Zapisz ID organizacji w zmiennej środowiskowej:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Klucze API Turnkey
+
+- Kliknij menu użytkownika w prawym górnym rogu panelu Turnkey i kliknij
+  "Ustawienia konta".
+- W sekcji "Klucze API" kliknij "+ Utwórz klucz API".
+- Wybierz "Generuj klucze API w przeglądarce"
+- Wprowadź nazwę klucza API i kliknij "Kontynuuj"
+- Zapisz klucze publiczny i prywatny, a następnie kliknij "Zatwierdź"
+
+![Klucze API Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Zapisz klucze publiczny i prywatny API w zmiennych środowiskowych:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Klucze portfela Turnkey
+
+Z menu głównego przejdź do
+["Portfele"](https://app.turnkey.com/dashboard/wallets) i kliknij "Utwórz klucz
+prywatny".
+
+Zamierzamy utworzyć nowy klucz prywatny ED25519 z typem adresu zasobu "Solana":
+
+![Portfele Turnkey](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Kliknij "Kontynuuj", a następnie "Zatwierdź".
+
+Na stronie swoich portfeli powinieneś zobaczyć nowy klucz prywatny. Kliknij go,
+aby wyświetlić szczegóły. Musisz skopiować "Identyfikator klucza prywatnego"
+oraz "Adres" portfela. Zapisz je w zmiennych środowiskowych:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Szczegóły portfela Turnkey](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Musisz zasilić portfel w SOL, aby opłacić opłaty transakcyjne.
+
+### Konfiguracja zmiennych środowiskowych
+
+Powinieneś teraz mieć następujące zmienne środowiskowe:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Zobacz [repozytorium Kora](https://github.com/solana-foundation/kora), aby
+uzyskać pełny plik `.env.example`.
+
+Aby uzyskać wsparcie dotyczące Turnkey, zobacz
+[dokumentację Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Konfiguracja pliku Signer.toml
+
+Wymagane zmienne:
+
+- `name` - Nazwa podpisującego
+- `type` - Typ podpisującego (musi być `turnkey`)
+- `api_public_key_env` - Zmienna środowiskowa zawierająca publiczny klucz API
+  Turnkey
+- `api_private_key_env` - Zmienna środowiskowa zawierająca prywatny klucz API
+  Turnkey
+- `organization_id_env` - Zmienna środowiskowa zawierająca identyfikator
+  organizacji Turnkey
+- `private_key_id_env` - Zmienna środowiskowa zawierająca identyfikator klucza
+  prywatnego Turnkey
+- `public_key_env` - Zmienna środowiskowa zawierająca klucz publiczny Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Podpisujący Privy
+
+[Privy](https://www.privy.io/) oferuje infrastrukturę wbudowanych portfeli z
+bezpiecznym zarządzaniem kluczami dla aplikacji Web3.
+
+### Wymagania wstępne
+
+Będziesz potrzebować **konta Privy**, aby korzystać z podpisującego Privy.
+Zarejestruj się na [privy.io](https://www.privy.io/)
+
+### Konfiguracja
+
+Będziesz potrzebować trzech kluczy, aby korzystać z podpisującego Privy:
+
+- Identyfikator aplikacji Privy
+- Klucz tajny aplikacji Privy
+- Identyfikator portfela Privy
+
+Pobierzmy je z Privy:
+
+#### 1. Identyfikator aplikacji Privy
+
+Z panelu sterowania wybierz aplikację, której chcesz używać dla Kora (lub
+kliknij "+ Nowa aplikacja", jeśli jeszcze jej nie masz).
+
+Wybierz "Pobierz klucze API" i kliknij "+ Nowy klucz tajny":
+
+![Portfele Privy](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Skopiuj swój "Identyfikator aplikacji" i "Klucz tajny aplikacji", a następnie
+zapisz je w zmiennych środowiskowych:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Portfel Privy
+
+Następnie musimy utworzyć nowy portfel dla Kora. Na pasku bocznym panelu
+sterowania kliknij "Portfele" w sekcji "Infrastruktura portfeli" i wybierz "Nowy
+portfel".
+
+Wybierz "Solana" jako blockchain i kliknij "Zapisz".
+
+Kliknij na portfel, aby wyświetlić szczegóły:
+
+![Portfele Privy](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Skopiuj "Identyfikator portfela" i zapisz go w zmiennych środowiskowych:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Będziesz musiał zasilić portfel tokenami SOL, aby opłacić opłaty transakcyjne.
+
+### Konfiguracja zmiennych środowiskowych
+
+Powinieneś teraz mieć następujące zmienne środowiskowe:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Zobacz [repozytorium Kora](https://github.com/solana-foundation/kora), aby
+znaleźć pełny plik `.env.example`.
+
+Aby uzyskać wsparcie dotyczące Privy, zobacz
+[dokumentację Privy](https://docs.privy.io/wallets/overview).
+
+### Konfiguracja Signer.toml
+
+Wymagane zmienne:
+
+- `name` - Nazwa podpisującego
+- `type` - Typ podpisującego (musi być `privy`)
+- `app_id_env` - Zmienna środowiskowa zawierająca identyfikator aplikacji Privy
+- `app_secret_env` - Zmienna środowiskowa zawierająca klucz tajny aplikacji
+  Privy
+- `wallet_id_env` - Zmienna środowiskowa zawierająca identyfikator portfela
+  Privy
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Brak Sygnatariusza
+
+Jeśli nie skonfigurowano sygnatariusza, Kora zgłosi błąd. Jeśli chcesz uruchomić
+Korę bez sygnatariusza, możesz to zrobić za pomocą flagi `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Należy pamiętać, że ograniczy to węzeł tylko do przetwarzania żądań, które nie
+wymagają sygnatariusza.
+
+## Rozwiązywanie Problemów
+
+### Skrócona Instrukcja
+
+| Komunikat Błędu                                                   | Typ Sygnatariusza   | Szybkie Rozwiązanie                                                           |
+| ----------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Dowolny             | Dodaj co najmniej jednego sygnatariusza do konfiguracji                       |
+| "Failed to read config file"                                      | Dowolny             | Sprawdź ścieżkę i zawartość pliku                                             |
+| "Failed to parse signers config TOML"                             | Dowolny             | Sprawdź format pliku i zawartość sygnatariuszy                                |
+| "Duplicate signer name"                                           | Dowolny             | Upewnij się, że każdy sygnatariusz ma unikalną nazwę                          |
+| "Invalid base58 string"                                           | Klucz Prywatny      | Sprawdź format klucza, usuń dodatkowe spacje                                  |
+| "Invalid private key length"                                      | Klucz Prywatny      | Użyj pełnego 64-bajtowego klucza Solana                                       |
+| "Turnkey \{key\} required"                                        | Turnkey             | Ustaw `TURNKEY_{key}`                                                         |
+| "Privy \{key\} required"                                          | Privy               | Ustaw `PRIVY_{key}`                                                           |
+| "Vault \{key\} required"                                          | Vault               | Ustaw `VAULT_{key}`                                                           |
+| "Failed to create Vault client"                                   | Vault               | Zweryfikuj dane uwierzytelniające Vault                                       |
+| "Failed to sign with \[service\]"                                 | Dowolny             | Sprawdź status usługi, dane uwierzytelniające i limity                        |
+| "Signer pool not initialized"                                     | Wiele Sygnatariuszy | Sprawdź ścieżkę i format `signers.toml`                                       |
+| "Cannot create empty signer pool"                                 | Wiele Sygnatariuszy | Dodaj co najmniej jednego sygnatariusza do konfiguracji                       |
+| "Signer with pubkey ... not found"                                | Wiele Sygnatariuszy | Sprawdź, czy wskazówka sygnatariusza odpowiada skonfigurowanym sygnatariuszom |
+| "Signers configuration is required unless using --no-load-signer" | Dowolny             | Dodaj plik konfiguracyjny sygnatariuszy                                       |
+
+### Ogólne wskazówki dotyczące debugowania
+
+#### Włącz szczegółowe logowanie
+
+Dodaj szczegółowe logowanie, aby zdiagnozować problemy:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Bezpieczeństwo i najlepsze praktyki
+
+### Ogólne zasady bezpieczeństwa
+
+- Używaj dedykowanych keypair dla Kora (nie używaj ponownie osobistych portfeli)
+- Finansuj tylko SOL, który jesteś gotów przeznaczyć na opłaty
+- Utrzymuj minimalny bilans operacyjny z automatycznym monitoringiem i
+  doładowaniami
+- Wdrożyj monitorowanie i alerty dla nietypowej aktywności
+- Wszystkie klucze prywatne i klucze API powinny być przechowywane w zmiennych
+  środowiskowych lub systemach zarządzania tajemnicami (Railway secrets, AWS
+  Secrets Manager itp.)
+
+## Określanie podpisującego (po stronie klienta)
+
+Klienci mogą określić preferowanego podpisującego w celu zapewnienia spójności w
+powiązanych operacjach:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Bez kluczy podpisującego, skonfigurowana strategia określa wybór podpisującego.
+Należy pamiętać, że klucze muszą być spójne we wszystkich wywołaniach związanych
+z tą samą transakcją (np. jeśli wygenerujesz transakcję z określonym kluczem
+podpisującego, musisz użyć tego samego klucza podpisującego dla wszystkich
+powiązanych wywołań).

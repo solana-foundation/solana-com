@@ -5,10 +5,10 @@ import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string = "en"): Metadata {
-  const { siteMetadata, siteUrl, siteIcon, social } = config;
+  const { siteMetadata, publicUrl, siteIcon, social } = config;
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(publicUrl),
     title: {
       default: siteMetadata.title,
       template: `%s | ${siteMetadata.title}`,
@@ -21,7 +21,7 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
     openGraph: {
       type: "website",
       locale,
-      url: siteUrl,
+      url: publicUrl,
       siteName: siteMetadata.title,
       title: siteMetadata.title,
       description: siteMetadata.description,
@@ -62,7 +62,7 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
       },
     },
     alternates: {
-      canonical: siteUrl,
+      canonical: publicUrl,
     },
     other: {
       language: locale,
@@ -71,14 +71,14 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
 }
 
 function getCanonicalUrl(path: string = "/") {
-  const siteUrl = new URL(config.siteUrl);
+  const siteUrl = new URL(config.publicUrl);
   const normalizedPath = path === "/" ? "" : path;
 
   return `${siteUrl.origin}${siteUrl.pathname}${normalizedPath}`;
 }
 
 function getLocalizedUrl(path: string, locale: string) {
-  const siteUrl = new URL(config.siteUrl);
+  const siteUrl = new URL(config.publicUrl);
   const normalizedPath = path === "/" ? "" : path;
 
   return `${siteUrl.origin}/${locale}${siteUrl.pathname}${normalizedPath}`;

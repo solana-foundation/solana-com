@@ -1,0 +1,542 @@
+---
+title: React Hooks
+description: Solana Commerce React 훅으로 커스텀 결제 UI 구축하기
+---
+
+`@solana-commerce/sdk` 패키지는 커스텀 Solana 결제 경험을 구축하기 위한 React
+훅을 제공합니다. 이 훅들은 내장된 상태 관리, 자동 재시도 로직, 오류 처리 및 UI
+헬퍼를 통해 SOL 및 SPL 토큰 전송에 대한 완전한 제어 기능을 제공합니다.
+
+내부적으로 이 SDK는 캐싱 및 상태 관리를 위해
+[TanStack Query](https://tanstack.com/query)를, Solana 프리미티브를 위해
+[@solana/kit](https://github.com/anza-xyz/kit)을 사용하며, 지갑 연결을 위해
+`@solana-commerce/connector`와 원활하게 통합됩니다.
+
+## 설치
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## 프로바이더 설정
+
+### `ArcProvider`
+
+`ArcProvider`는 Solana RPC 클라이언트를 초기화하고, 네트워크 구성을 관리하며,
+모든 훅에 블록체인 연결을 제공하는 루트 프로바이더입니다. SDK 훅을 사용하는 모든
+컴포넌트를 감싸야 합니다.
+
+#### Props
+
+- **`config`** (`ArcWebClientConfig`) - Arc 클라이언트 구성 객체
+- **`children`** (`ReactNode`) - 훅에 접근할 수 있는 자식 컴포넌트
+- **`queryClient`** (`QueryClient`, 선택사항) - 커스텀 TanStack Query
+  클라이언트. 제공되지 않으면 내부적으로 기본 인스턴스가 생성됩니다.
+
+#### `ArcWebClientConfig`
+
+RPC 연결 및 커밋 레벨을 제어하는 Arc 클라이언트 구성입니다.
+
+##### 필수 필드
+
+이 프로바이더는 `useConnectorClient` 훅을 통해 `@solana-commerce/connector`와
+자동으로 통합되므로, `ConnectorProvider` 내에서 사용할 경우 명시적인 커넥터
+구성이 필요하지 않습니다.
+
+##### 선택적 필드
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - 연결할 Solana 네트워크.
+  기본값: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - 커스텀 RPC 엔드포인트 URL. 제공되지 않으면 선택한
+  네트워크의 공개 엔드포인트를 사용합니다.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - 트랜잭션 확인
+  레벨. 기본값: `'confirmed'`.
+
+- **`debug`** (`boolean`) - 디버깅을 위한 상세 콘솔 로깅 활성화. 기본값:
+  `false`.
+
+- **`autoConnect`** (`boolean`) - 컴포넌트가 마운트될 때 지갑에 자동으로
+  연결합니다. 기본값: `true`.
+
+- **`storage`** (`Storage`) - 지갑 환경설정을 유지하기 위한 커스텀 스토리지
+  어댑터입니다. 다음을 구현해야 합니다:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  기본값: `window.localStorage`(브라우저 전용, 사용 가능한 경우). React
+  Native(`AsyncStorage`) 또는 커스텀 SSR 안전 스토리지에 사용하세요.
+
+#### `ConnectorProvider`와의 통합
+
+이 프로바이더는 `@solana-commerce/connector`의 `ConnectorProvider`와 통합됩니다.
+`ArcProvider`보다 먼저 항상 `ConnectorProvider`로 앱을 래핑하세요:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## 핵심 훅
+
+### `useTransferSOL`
+
+자동 재시도 로직, 상태 관리 및 UI 헬퍼 함수를 갖춘 SOL 전송용 훅입니다. 캐싱 및
+요청 중복 제거를 위해 TanStack Query 기반으로 구축되었습니다.
+
+#### 시그니처
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### 매개변수
+
+- **`initialToInput`** (`string`, 선택 사항) - 수신자 주소 입력의 초기값입니다.
+  양식 미리 채우기에 유용합니다.
+- **`initialAmountInput`** (`string`, 선택 사항) - SOL 단위 금액 입력의
+  초기값입니다. 양식 미리 채우기에 유용합니다.
+
+#### 반환값
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### 핵심 함수
+
+- **`transferSOL`** - SOL 전송을 시작합니다. 트랜잭션이 온체인에서 확인되면
+  해결되는 프로미스를 반환합니다.
+
+##### 상태 속성
+
+- **`isLoading`** (`boolean`) - 트랜잭션이 처리 중일 때(서명, 제출, 확인)
+  `true`입니다. 로딩 인디케이터와 버튼 상태에 사용하세요.
+
+- **`error`** (`Error | null`) - 트랜잭션이 어느 단계에서든 실패한 경우의 오류
+  객체입니다. 오류가 없을 때는 `null`입니다. 오류에는 지갑 거부, 잔액 부족,
+  네트워크 장애 등이 포함됩니다.
+
+- **`data`** (`TransferSOLResult | null`) - 트랜잭션이 성공했을 때의 결과
+  객체입니다. 시그니처, 주소, 금액 및 블록체인 메타데이터를 포함합니다. 첫 번째
+  성공적인 전송 전에는 `null`입니다.
+
+- **`reset`** (`() => void`) - `error`와 `data`를 지워 뮤테이션 상태를
+  재설정합니다. 재시도 플로우나 완료 후 양식 재설정에 유용합니다.
+
+##### UI 헬퍼 속성 및 메서드
+
+이 훅은 양식 입력을 위한 내장 상태 관리를 제공합니다:
+
+- **`toInput`** / **`setToInput`** - 수신자 주소 입력 필드를 위한 제어 상태
+
+- **`amountInput`** / **`setAmountInput`** - 금액 입력 필드를 위한 제어 상태
+  (lamport가 아닌 SOL 단위)
+
+- **`handleToInputChange`** - 수신자 입력을 위한 사전 바인딩된 onChange 핸들러:
+  `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - 금액 입력을 위한 사전 바인딩된 onChange
+  핸들러: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - 현재 `toInput` 및 `amountInput` 값을 사용하여 SOL을
+  전송하는 편의 메서드입니다. 자동으로 금액을 SOL에서 lamport로 변환합니다.
+
+- **`handleSubmit`** - `transferFromInputs()`를 호출하고 기본 폼 동작을 방지하는
+  폼 제출 핸들러입니다. `<form onSubmit={handleSubmit}>`와 함께 사용하세요.
+
+#### 옵션
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (필수) - 수신자 Solana 주소입니다. 문자열 또는 `@solana/kit`의
+  `Address` 타입이 될 수 있습니다.
+
+- **`amount`** (필수) - **lamport** 단위의 전송 금액입니다 (SOL이 아님).
+  `bigint`이어야 합니다. `BigInt()` 또는 리터럴 표기법을 사용하세요:
+  `1_000_000_000n` = 1 SOL.
+
+- **`from`** (선택) - 발신자 주소입니다. 제공되지 않으면 연결된 지갑의 주소를
+  사용합니다. 고급 사용 사례(예: 다른 계정에 대한 서명)에서만 필요합니다.
+
+#### 결과
+
+결과에는 전송 세부정보와 트랜잭션 서명을 포함한 트랜잭션 메타데이터가
+포함됩니다:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### 내부 아키텍처
+
+**트랜잭션 빌더:** 이 훅은 다음을 수행하는 공유 트랜잭션 빌더를 사용합니다:
+
+- 각 트랜잭션에 대해 최신 블록해시를 가져옴
+- 최소 수수료로 최적화된 트랜잭션 메시지를 구성
+- 연결된 지갑을 사용하여 트랜잭션에 서명
+- 단일 흐름으로 트랜잭션을 제출하고 확인
+
+**캐시 무효화:** 전송 성공 시 훅은 다음에 대한 TanStack Query 캐시를 자동으로
+무효화합니다:
+
+- 발신자 잔액 (`from` 주소)
+- 수신자 잔액 (`to` 주소)
+
+이를 통해 잔액을 표시하는 모든 컴포넌트(예: `useArcClient` 사용)가 수동 개입
+없이 자동으로 재조회하고 업데이트됩니다.
+
+**정확한 금액 변환:** `transferFromInputs()` 사용 시, 부동 소수점 정밀도 오류를
+방지하기 위해 문자열 기반 산술을 사용하여 금액을 SOL에서 lamport로 변환합니다.
+변환 과정:
+
+- 입력 형식 검증 (음수, 유효하지 않은 숫자 거부)
+- 최대 9자리 소수점 처리 (1 lamport = 0.000000001 SOL)
+- 필요에 따라 소수 값을 절삭하거나 채움
+- 유효하지 않은 입력에 대해 설명적인 오류 발생
+
+---
+
+### `useTransferToken`
+
+`useTransferSOL`와 마찬가지로, 이 훅은 SPL 토큰 전송에 사용됩니다. 전송 처리
+외에도 필요할 때 Associated Token Account (ATA) 자동 생성을 처리합니다.
+
+#### 시그니처
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### 매개변수
+
+- **`initialMintInput`** (`string`, 선택 사항) - 초기 토큰 민트 주소. 고정 토큰
+  전송에 유용합니다.
+- **`initialToInput`** (`string`, 선택 사항) - 초기 수신자 주소.
+- **`initialAmountInput`** (`string`, 선택 사항) - 토큰의 기본 단위로 표현한
+  초기 금액 (소수점 고려).
+
+#### 반환 값
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+반환 값은 `useTransferSOL`와 유사하지만 토큰 선택을 위한 추가 `mintInput` 상태가
+포함됩니다.
+
+#### 옵션
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### 필수 필드
+
+- **`mint`** - SPL 토큰 민트 주소. 예시:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - 수신자의 지갑 주소 (token account가 아님). 훅이 자동으로 올바른
+  associated token account를 도출합니다.
+
+- **`amount`** - 토큰의 **최소 단위**로 표현한 전송 금액. 토큰 소수점을 고려해야
+  함:
+  - USDC (6 소수점): `1_000_000n` = 1 USDC
+  - SOL 래핑 토큰 (9 소수점): `1_000_000_000n` = 1 토큰
+
+##### 선택적 필드
+
+- **`from`** - 발신자의 지갑 주소. 기본값은 연결된 지갑입니다.
+
+- **`createAccountIfNeeded`** (기본값: `true`) - 수신자가 해당 민트에 대한 token
+  account가 없는 경우, 트랜잭션의 일부로 자동으로 생성합니다. `false`인 경우,
+  수신자 계정이 존재하지 않으면 전송이 실패합니다.
+
+  _참고:_ 토큰 계정 생성 비용은 약 0.00203 SOL입니다. 이는 발신자가 지불합니다.
+
+- **`retryConfig`** - 블록해시 만료 시 자동 재시도 구성.
+  [재시도 구성](#retry-configuration)을 참조하세요.
+
+#### 결과
+
+결과에는 전송 세부 정보 및 트랜잭션 서명을 포함한 트랜잭션 메타데이터가
+포함됩니다:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### 재시도 구성
+
+이 훅은 네트워크 혼잡 중에 흔히 발생하는 블록해시 만료를 처리하기 위한 정교한
+재시도 로직을 포함합니다.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - 최대 트랜잭션 시도 횟수. 각 시도마다 새로운 블록해시를
+  가져옵니다. 기본값: `3`.
+
+- **`baseDelay`** - 첫 번째 재시도 전 지연 시간(밀리초). 기본값: `1000` (1초).
+
+- **`backoffMultiplier`** - 지수 백오프 승수. 각 재시도는
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` 밀리초를 대기합니다.
+  - `1` = 선형 백오프 (1초, 1초, 1초)
+  - `1.5` = 지수 백오프 (1초, 1.5초, 2.25초)
+  - `2` = 공격적 지수 백오프 (1초, 2초, 4초)
+
+**재시도 작동 방식:**
+
+1. **첫 번째 시도:** 현재 블록해시로 트랜잭션을 빌드하고 제출
+2. **블록해시 만료:** 확인 전에 블록해시가 만료되면 솔라나가 트랜잭션을 거부
+3. **자동 재시도:** 훅이 만료를 감지하고, 새로운 블록해시를 가져와 트랜잭션을
+   재빌드하고 재제출
+4. **지수 백오프:** 네트워크 혼잡을 피하기 위해 각 재시도마다 더 오래 대기
+5. **최종 실패:** `maxAttempts` 이후, 컨텍스트와 함께
+   `BlockhashExpirationError`를 발생시킴
+
+**재시도가 트리거되지 않는 경우:**
+
+- 블록해시가 아닌 오류(잔액 부족, 잘못된 계정 등)는 재시도 없이 즉시 발생
+- 블록해시 만료 오류만 재시도 메커니즘을 트리거
+
+#### 내부 아키텍처
+
+**ATA 관리:**
+
+- `findAssociatedTokenPda`를 사용하여 결정론적으로 Associated Token Accounts를
+  파생합니다 (_참고: 현재는 Token Program만 지원됩니다_)
+- 발신자가 token account를 보유하고 있는지 확인 (발신자가 토큰을 보유하지 않은
+  경우 빠르게 실패)
+- 수신자가 token account를 보유하고 있는지 확인 (필요한 경우
+  `createAccountIfNeeded: true`일 때 생성)
+- 재시도 중 불필요한 RPC 호출을 피하기 위해 계정 확인은 첫 번째 시도에서만 실행
+
+**캐시 무효화:** 성공 시, 다음에 대한 TanStack Query 캐시를 무효화합니다:
+
+- 이 민트에 대한 발신자의 토큰 잔액
+- 이 민트에 대한 수신자의 토큰 잔액
+- 관련 계정 데이터
+
+이를 통해 잔액을 표시하는 모든 UI 컴포넌트가 자동으로 동기화 상태를 유지합니다.
+
+### `useArcClient`
+
+기본 Solana RPC 클라이언트, 지갑 상태 및 네트워크 구성에 액세스하기 위한
+훅입니다. 직접적인 RPC 액세스가 필요한 고급 사용 사례를 위한 하위 수준 훅입니다.
+
+#### 시그니처
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### 반환 값
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### 상태
+
+`ArcClientSnapshot`는 `ArcWebClient`를 확장하며 다음에 대한 액세스를 제공합니다:
+
+- 지갑 상태 (주소, 서명자, 사용 가능한 지갑, 기능 및 지갑 상태)
+- 네트워크 구성 (RPC 엔드포인트, Solana 클러스터)
+
+#### 사용 사례
+
+**직접 RPC 쿼리:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**네트워크 인식 컴포넌트:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**지갑 기반 조건부 렌더링:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```
