@@ -79,6 +79,16 @@ const UPGRADES = [
     status: "Under Development",
     gradient: "from-purple-500 to-[#14F195]",
   },
+  {
+    id: "new-cryptography",
+    title: "New Cryptography Schemes",
+    description:
+      "Native syscalls for BN254 G2 and BLS12-381 curve operations, making modern zero-knowledge proofs and signature schemes cheaper to verify onchain.",
+    slug: "new-cryptography",
+    date: "TBD",
+    status: "Under Development",
+    gradient: "from-cyan-500 to-[#9945FF]",
+  },
 ];
 
 interface UpgradeCardProps {
