@@ -9,14 +9,15 @@ import {
 describe("developer route matching", () => {
   it("shows the developer nav on exact or nested developer routes", () => {
     expect(shouldShowDevelopersNav("/developers")).toBe(true);
+    expect(shouldShowDevelopersNav("/de/developers")).toBe(true);
     expect(shouldShowDevelopersNav("/docs")).toBe(true);
-    expect(shouldShowDevelopersNav("/data")).toBe(true);
-    expect(shouldShowDevelopersNav("/data/cluster")).toBe(true);
-    expect(shouldShowDevelopersNav("/de/data")).toBe(true);
+    expect(shouldShowDevelopersNav("/fr/docs/rpc")).toBe(true);
   });
 
   it("does not show the developer nav on unrelated paths containing the same text", () => {
     expect(shouldShowDevelopersNav("/developership")).toBe(false);
+    expect(shouldShowDevelopersNav("/data")).toBe(false);
+    expect(shouldShowDevelopersNav("/de/data")).toBe(false);
     expect(shouldShowDevelopersNav("/metadata")).toBe(false);
     expect(shouldShowDevelopersNav("/news/data")).toBe(false);
   });
@@ -28,10 +29,10 @@ describe("developer route matching", () => {
     expect(shouldShowDocsSidebarToggle("/data")).toBe(false);
   });
 
-  it("keeps theme support on docs developer routes and data", () => {
+  it("keeps theme support on docs developer routes", () => {
     expect(isThemeRoute("/docs/rpc")).toBe(true);
     expect(isThemeRoute("/developers/guides/getting-started")).toBe(true);
-    expect(isThemeRoute("/data")).toBe(true);
+    expect(isThemeRoute("/data")).toBe(false);
     expect(isThemeRoute("/database")).toBe(false);
   });
 });

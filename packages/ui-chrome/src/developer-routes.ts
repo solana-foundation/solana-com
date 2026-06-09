@@ -1,15 +1,4 @@
-import { locales } from "@workspace/i18n/config";
-
-function normalizePathname(pathname: string) {
-  const path = pathname.split(/[?#]/)[0];
-  const [, firstSegment, ...remainingSegments] = path.split("/");
-
-  if (locales.includes(firstSegment)) {
-    return `/${remainingSegments.join("/")}`;
-  }
-
-  return path;
-}
+import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 
 function matchesRouteSegment(
   pathname: string | null | undefined,
@@ -19,7 +8,7 @@ function matchesRouteSegment(
     return false;
   }
 
-  const path = normalizePathname(pathname);
+  const path = getPathnameWithoutLocale(pathname);
   return path === route || path.startsWith(`${route}/`);
 }
 
