@@ -62,6 +62,10 @@ To create a mint with permissioned burn and burn tokens:
 3. Create a token account and mint tokens.
 4. Burn with _rs`PermissionedBurnInstruction::BurnChecked`_ signed by both the
    token account owner and the burn authority.
+5. Optionally disable permissioned burning with _rs`SetAuthority`_ using
+   _rs`AuthorityType::PermissionedBurn`_ and a `None` authority, which
+   re-enables the standard burn instructions. The full code examples below show
+   this step.
 
 <ScrollyCoding>
 
@@ -479,6 +483,7 @@ import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
 import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
+  AuthorityType,
   extension,
   fetchMint,
   fetchToken,
@@ -490,6 +495,7 @@ import {
   getMintSize,
   getMintToCheckedInstruction,
   getPermissionedBurnCheckedInstruction,
+  getSetAuthorityInstruction,
   isExtension,
   TOKEN_2022_PROGRAM_ADDRESS
 } from "@solana-program/token-2022";
@@ -588,6 +594,26 @@ await client.sendTransaction([
   })
 ]);
 
+await client.sendTransaction([
+  // !mark(1:6)
+  getSetAuthorityInstruction({
+    owned: mint.address, // Mint with the permissioned burn configuration.
+    owner: burnAuthority, // Current burn authority signing the update.
+    authorityType: AuthorityType.PermissionedBurn, // Authority type to update.
+    newAuthority: null // Setting the authority to None disables permissioned burning.
+  })
+]);
+
+await client.sendTransaction([
+  getBurnCheckedInstruction({
+    account: sourceToken, // Token account to burn from.
+    mint: mint.address, // Mint with permissioned burning disabled.
+    authority: client.payer, // Token account owner signing the burn.
+    amount: 1n, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
+  })
+]);
+
 const sourceAccount = await fetchToken(client.rpc, sourceToken);
 const mintAccount = await fetchMint(client.rpc, mint.address);
 const permissionedBurnConfig = (
@@ -596,8 +622,8 @@ const permissionedBurnConfig = (
 
 console.log("Mint Address:", mint.address);
 console.log("Error From Failed Standard Burn:", standardBurnFailure);
-console.log("Source Amount After Burn:", sourceAccount.data.amount);
-console.log("Permissioned Burn Extension:", permissionedBurnConfig);
+console.log("Source Amount After Burns:", sourceAccount.data.amount);
+console.log("Extension After Disable:", permissionedBurnConfig);
 ```
 
 </CodeTabs>
@@ -624,7 +650,7 @@ use spl_token_2022_interface::{
         permissioned_burn::{instruction as permissioned_burn_ix, PermissionedBurnConfig},
         BaseStateWithExtensions, ExtensionType, StateWithExtensions,
     },
-    instruction::{burn_checked, initialize_mint, mint_to_checked},
+    instruction::{burn_checked, initialize_mint, mint_to_checked, set_authority, AuthorityType},
     state::{Account, Mint},
     ID as TOKEN_2022_PROGRAM_ID,
 };
@@ -766,6 +792,46 @@ async fn main() -> Result<()> {
         .send_and_confirm_transaction(&permissioned_burn_transaction)
         .await?;
 
+    let disable_authority_transaction = Transaction::new_signed_with_payer(
+        &[
+            // !mark(1:8)
+            set_authority(
+                &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
+                &mint.pubkey(), // Mint with the permissioned burn configuration.
+                None, // Setting the authority to None disables permissioned burning.
+                AuthorityType::PermissionedBurn, // Authority type to update.
+                &burn_authority.pubkey(), // Current burn authority signing the update.
+                &[], // Additional multisig signers.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &burn_authority],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&disable_authority_transaction)
+        .await?;
+
+    let standard_burn_after_disable_transaction = Transaction::new_signed_with_payer(
+        &[
+            burn_checked(
+                &TOKEN_2022_PROGRAM_ID, // Token program that processes the burn.
+                &source_token, // Token account to burn from.
+                &mint.pubkey(), // Mint with permissioned burning disabled.
+                &fee_payer.pubkey(), // Token account owner signing the burn.
+                &[&fee_payer.pubkey()], // Additional multisig signers.
+                1, // Token amount in base units.
+                0, // Decimals defined on the mint.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&standard_burn_after_disable_transaction)
+        .await?;
+
     let source_account = client.get_account(&source_token).await?;
     let source_state = StateWithExtensions::<Account>::unpack(&source_account.data)?;
     let mint_account = client.get_account(&mint.pubkey()).await?;
@@ -778,13 +844,10 @@ async fn main() -> Result<()> {
         standard_burn_failure
     );
     println!(
-        "Source Amount After Burn: {}",
+        "Source Amount After Burns: {}",
         u64::from(source_state.base.amount)
     );
-    println!(
-        "Permissioned Burn Extension: {:?}",
-        permissioned_burn_config
-    );
+    println!("Extension After Disable: {:?}", permissioned_burn_config);
 
     Ok(())
 }
