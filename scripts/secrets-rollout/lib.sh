@@ -4,10 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-MANIFEST_PATH="${SECRETS_MIGRATION_MANIFEST:-${SCRIPT_DIR}/projects.solana-apps.json}"
-VERCEL_SCOPE="${VERCEL_SCOPE:-solana-foundation}"
+MANIFEST_PATH="${SECRETS_ROLLOUT_MANIFEST:-${SCRIPT_DIR}/projects.solana-apps.json}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-WORK_DIR="${ROOT_DIR}/.secrets-migration"
+WORK_DIR="${ROOT_DIR}/.secrets-rollout"
 LOG_DIR="${WORK_DIR}/logs"
 TMP_DIR="${WORK_DIR}/tmp"
 LOG_FILE=""
@@ -54,12 +53,16 @@ setup_log() {
 manifest_projects() {
   if [[ -n "${PROJECT_FILTER:-}" ]]; then
     jq -c --arg project "${PROJECT_FILTER}" '
-      .projects[] | select(.vercel_project == $project)
+      .projects[] | select(.vercel_project == $project or .doppler_project == $project)
     ' "${MANIFEST_PATH}"
     return
   fi
 
   jq -c '.projects[]' "${MANIFEST_PATH}"
+}
+
+manifest_vercel_scope() {
+  jq -r '.vercel_scope // "solana-foundation"' "${MANIFEST_PATH}"
 }
 
 project_field() {
@@ -70,8 +73,9 @@ project_field() {
 
 latest_production_deployment_url() {
   local project="$1"
+  local scope="$2"
   vercel list "${project}" \
-    --scope "${VERCEL_SCOPE}" \
+    --scope "${scope}" \
     --environment production \
     --format json \
     | jq -r '.deployments[0].url'
@@ -79,16 +83,18 @@ latest_production_deployment_url() {
 
 redeploy_project() {
   local deployment_url="$1"
+  local scope="$2"
   local output
-  output="$(vercel redeploy "${deployment_url}" --scope "${VERCEL_SCOPE}" --target production --no-color)"
+  output="$(vercel redeploy "${deployment_url}" --scope "${scope}" --target production --no-color)"
   printf '%s\n' "${output}" >&2
   printf '%s\n' "${output}" | grep -Eo 'https://[^[:space:]]+' | tail -n 1
 }
 
 wait_for_deployment_ready() {
   local deployment_url="$1"
+  local scope="$2"
   local inspect_json
-  inspect_json="$(vercel inspect "${deployment_url}" --scope "${VERCEL_SCOPE}" --wait --timeout 20m --format json)"
+  inspect_json="$(vercel inspect "${deployment_url}" --scope "${scope}" --wait --timeout 20m --format json)"
 
   if [[ "$(jq -r '.readyState' <<< "${inspect_json}")" != "READY" ]]; then
     die "Deployment ${deployment_url} did not reach READY"
