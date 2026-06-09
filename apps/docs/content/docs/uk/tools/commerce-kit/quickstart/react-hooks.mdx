@@ -1,0 +1,569 @@
+---
+title: React Hooks
+description:
+  Створюйте власні платіжні інтерфейси за допомогою React hooks від Solana
+  Commerce
+---
+
+Пакет `@solana-commerce/sdk` надає React hooks для створення власних платіжних
+рішень на Solana. Ці hooks забезпечують повний контроль над SOL та SPL
+токен-переказами з вбудованим управлінням станом, автоматичною логікою повторних
+спроб, обробкою помилок та UI-помічниками.
+
+Під капотом SDK використовує [TanStack Query](https://tanstack.com/query) для
+кешування та управління станом, [@solana/kit](https://github.com/anza-xyz/kit)
+для примітивів Solana та безперешкодно інтегрується з
+`@solana-commerce/connector` для підключення гаманця.
+
+## Встановлення
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Налаштування провайдера
+
+### `ArcProvider`
+
+`ArcProvider` — це кореневий провайдер, який ініціалізує RPC-клієнт Solana,
+керує конфігурацією мережі та забезпечує підключення до блокчейну для всіх
+hooks. Він повинен обгортати будь-які компоненти, що використовують hooks SDK.
+
+#### Властивості
+
+- **`config`** (`ArcWebClientConfig`) - Об'єкт конфігурації для клієнта Arc
+- **`children`** (`ReactNode`) - Дочірні компоненти, які матимуть доступ до
+  hooks
+- **`queryClient`** (`QueryClient`, необов'язково) - Власний клієнт TanStack
+  Query. Якщо не вказано, автоматично створюється екземпляр за замовчуванням.
+
+#### `ArcWebClientConfig`
+
+Конфігурація для клієнта Arc, яка керує RPC-підключенням та рівнями
+підтвердження.
+
+##### Обов'язкові поля
+
+Провайдер автоматично інтегрується з `@solana-commerce/connector` через hook
+`useConnectorClient`, тому явна конфігурація коннектора не потрібна при
+використанні всередині `ConnectorProvider`.
+
+##### Необов'язкові поля
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Мережа Solana для
+  підключення. За замовчуванням: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - URL власної RPC-точки доступу. Якщо не вказано,
+  використовуються публічні точки доступу для обраної мережі.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - Рівень
+  підтвердження транзакції. За замовчуванням: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Увімкнення детального логування в консолі для
+  налагодження. За замовчуванням: `false`.
+
+- **`autoConnect`** (`boolean`) - Автоматично підключається до гаманця при
+  монтуванні компонента. За замовчуванням: `true`.
+
+- **`storage`** (`Storage`) - Користувацький адаптер сховища для збереження
+  налаштувань гаманця. Повинен реалізовувати:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  За замовчуванням: `window.localStorage`, коли доступний (тільки браузер).
+  Використовуйте для React Native (`AsyncStorage`) або користувацького
+  SSR-безпечного сховища.
+
+#### Інтеграція з `ConnectorProvider`
+
+Провайдер інтегрується з `ConnectorProvider` з `@solana-commerce/connector`.
+Завжди обгортайте ваш додаток за допомогою `ConnectorProvider` перед
+`ArcProvider`:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Основні хуки
+
+### `useTransferSOL`
+
+Хук для переказу SOL з автоматичною логікою повторних спроб, керуванням станом
+та допоміжними функціями UI. Побудований на TanStack Query для кешування та
+дедуплікації запитів.
+
+#### Сигнатура
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Параметри
+
+- **`initialToInput`** (`string`, необов'язковий) - Початкове значення для поля
+  введення адреси одержувача. Корисно для попереднього заповнення форм.
+- **`initialAmountInput`** (`string`, необов'язковий) - Початкове значення для
+  поля суми в SOL. Корисно для попереднього заповнення форм.
+
+#### Значення, що повертається
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Основна функція
+
+- **`transferSOL`** - Ініціює переказ SOL. Повертає проміс, який виконується,
+  коли транзакція підтверджена в блокчейні.
+
+##### Властивості стану
+
+- **`isLoading`** (`boolean`) - `true` під час обробки транзакції (підписання,
+  надсилання, підтвердження). Використовуйте для індикаторів завантаження та
+  станів кнопок.
+
+- **`error`** (`Error | null`) - Об'єкт помилки, якщо транзакція не вдалася на
+  будь-якому етапі. `null`, коли помилок немає. Помилки включають відхилення
+  гаманця, недостатній баланс, мережеві збої тощо.
+
+- **`data`** (`TransferSOLResult | null`) - Об'єкт результату, коли транзакція
+  успішна. Містить підпис, адреси, суми та метадані блокчейну. `null` до першого
+  успішного переказу.
+
+- **`reset`** (`() => void`) - Скидає стан мутації, очищуючи `error` та `data`.
+  Корисно для потоків повторних спроб або скидання форм після завершення.
+
+##### Допоміжні властивості та методи UI
+
+Хук надає вбудоване керування станом для полів форми:
+
+- **`toInput`** / **`setToInput`** - Керований стан для поля введення адреси
+  отримувача
+
+- **`amountInput`** / **`setAmountInput`** - Керований стан для поля введення
+  суми (в SOL, а не lamport)
+
+- **`handleToInputChange`** - Попередньо прив'язаний обробник onChange для
+  введення отримувача: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Попередньо прив'язаний обробник onChange для
+  введення суми: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Зручний метод для переказу SOL з використанням
+  поточних значень `toInput` та `amountInput`. Автоматично конвертує суму з SOL
+  у lamport.
+
+- **`handleSubmit`** - Обробник відправки форми, який викликає
+  `transferFromInputs()` і запобігає стандартній поведінці форми. Використовуйте
+  з `<form onSubmit={handleSubmit}>`.
+
+#### Параметри
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (обов'язково) - Solana-адреса отримувача. Може бути рядком або типом
+  `Address` з `@solana/kit`.
+
+- **`amount`** (обов'язково) - Сума переказу в **lamport** (не SOL). Має бути
+  типом `bigint`. Використовуйте `BigInt()` або літеральну нотацію:
+  `1_000_000_000n` = 1 SOL.
+
+- **`from`** (необов'язково) - Адреса відправника. Якщо не вказано,
+  використовується адреса з підключеного гаманця. Потрібна лише для складних
+  випадків використання (наприклад, підписання від імені іншого облікового
+  запису).
+
+#### Результат
+
+Результат включає метадані транзакції, зокрема деталі переказу та підпис
+транзакції:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### Внутрішня архітектура
+
+**Конструктор транзакцій:** Хук використовує спільний конструктор транзакцій,
+який:
+
+- Отримує свіжі блокхеші для кожної транзакції
+- Будує оптимізовані повідомлення транзакцій з мінімальними комісіями
+- Підписує транзакції за допомогою підключеного гаманця
+- Відправляє та підтверджує транзакції в єдиному потоці
+
+**Інвалідація кешу:** При успішному переказі хук автоматично інвалідує кеші
+TanStack Query для:
+
+- Балансу відправника (адреса `from`)
+- Балансу отримувача (адреса `to`)
+
+Це гарантує, що будь-які компоненти, які відображають баланси (наприклад, через
+`useArcClient`), автоматично повторно отримують і оновлюють дані без ручного
+втручання.
+
+**Точне перетворення суми:** При використанні `transferFromInputs()` сума
+перетворюється з SOL на лампорти за допомогою рядкової арифметики, щоб уникнути
+помилок точності чисел з рухомою комою. Перетворення:
+
+- Перевіряє формат введення (відхиляє від'ємні та недійсні числа)
+- Обробляє до 9 знаків після коми (1 лампорт = 0.000000001 SOL)
+- Обрізає або доповнює дробові значення за потреби
+- Видає описові помилки для недійсних даних
+
+---
+
+### `useTransferToken`
+
+Як і `useTransferSOL`, цей хук використовується для переказу SPL токенів. Окрім
+обробки переказів, хук також забезпечує автоматичне створення Associated Token
+Account (ATA) за потреби.
+
+#### Сигнатура
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Параметри
+
+- **`initialMintInput`** (`string`, необов'язково) - Початкова адреса mint
+  токена. Корисно для переказів фіксованого токена.
+- **`initialToInput`** (`string`, необов'язково) - Початкова адреса одержувача.
+- **`initialAmountInput`** (`string`, необов'язково) - Початкова сума в базових
+  одиницях токена (з урахуванням десяткових знаків).
+
+#### Повертає
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Повертає значення, аналогічне `useTransferSOL`, але з додатковим станом
+`mintInput` для вибору токена.
+
+#### Опції
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Обов'язкові поля
+
+- **`mint`** - Адреса mint SPL токена. Наприклад:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Адреса гаманця одержувача (а не його токен-акаунта). Хук
+  автоматично визначає правильний Associated Token Account.
+
+- **`amount`** - Сума переказу в **найменшій одиниці** токена. Має враховувати
+  десяткові знаки токена:
+  - USDC (6 десяткових знаків): `1_000_000n` = 1 USDC
+  - Токени з обгорткою SOL (9 десяткових знаків): `1_000_000_000n` = 1 токен
+
+##### Необов'язкові поля
+
+- **`from`** - Адреса гаманця відправника. За замовчуванням використовується
+  підключений гаманець.
+
+- **`createAccountIfNeeded`** (за замовчуванням: `true`) - Якщо одержувач не має
+  токен-акаунта для цього mint, автоматично створити його як частину транзакції.
+  Коли встановлено `false`, переказ не вдасться, якщо акаунт одержувача не
+  існує.
+
+  _Примітка:_ Створення токен-акаунта коштує ~0.00203 SOL. Це сплачує
+  відправник.
+
+- **`retryConfig`** - Налаштування автоматичного повтору при закінченні терміну
+  дії блокхешу. Див. [Налаштування повторів](#retry-configuration).
+
+#### Результат
+
+Результат включає метадані транзакції, зокрема деталі переказу та підпис
+транзакції:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Налаштування повторів
+
+Хук включає досконалу логіку повторів для обробки закінчення терміну дії
+блокхешу, що часто трапляється під час перевантаження мережі.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Максимальна кількість спроб виконання транзакції. Кожна
+  спроба отримує свіжий блокхеш. За замовчуванням: `3`.
+
+- **`baseDelay`** - Затримка в мілісекундах перед першим повтором. За
+  замовчуванням: `1000` (1 секунда).
+
+- **`backoffMultiplier`** - Множник експоненційної затримки. Кожен повтор очікує
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` мілісекунд.
+  - `1` = лінійна затримка (1с, 1с, 1с)
+  - `1.5` = експоненційна затримка (1с, 1,5с, 2,25с)
+  - `2` = агресивна експоненційна (1с, 2с, 4с)
+
+**Як працюють повтори:**
+
+1. **Перша спроба:** Транзакція будується з поточним блокхешем і надсилається
+2. **Блокхеш закінчується:** Якщо блокхеш застаріває до підтвердження, Solana
+   відхиляє транзакцію
+3. **Автоматичний повтор:** Хук виявляє закінчення терміну, отримує свіжий
+   блокхеш, перебудовує транзакцію та повторно надсилає
+4. **Експоненційна затримка:** Кожен повтор очікує довше, щоб уникнути
+   перевантаження мережі
+5. **Остаточна невдача:** Після `maxAttempts` викидає `BlockhashExpirationError`
+   з контекстом
+
+**Коли повтори не спрацьовують:**
+
+- Помилки, не пов'язані з блокхешем (недостатньо коштів, недійсні акаунти тощо),
+  викидаються негайно без повторів
+- Лише помилки закінчення терміну дії блокхешу запускають механізм повторів
+
+#### Внутрішня архітектура
+
+**Управління ATA:**
+
+- Детерміновано виводить associated token account за допомогою
+  `findAssociatedTokenPda` (_Примітка: наразі підтримується лише Token Program_)
+- Перевіряє, чи відправник має токен-акаунт (швидко завершується невдачею, якщо
+  відправник не володіє токеном)
+- Перевіряє, чи одержувач має токен-акаунт (створює за потреби та
+  `createAccountIfNeeded: true`)
+- Перевірки акаунтів виконуються лише при першій спробі, щоб уникнути зайвих
+  RPC-викликів під час повторів
+
+**Інвалідація кешу:** У разі успіху інвалідує кеші TanStack Query для:
+
+- Баланс токенів відправника для цього mint
+- Баланс токенів одержувача для цього mint
+- Пов'язані дані облікового запису
+
+Це автоматично підтримує синхронізацію всіх компонентів UI, що відображають
+баланси.
+
+### `useArcClient`
+
+Хук для доступу до базового RPC-клієнта Solana, стану гаманця та конфігурації
+мережі. Це хук нижчого рівня для просунутих сценаріїв використання, які
+потребують прямого доступу до RPC.
+
+#### Сигнатура
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Значення, що повертається
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### Стан
+
+`ArcClientSnapshot` розширює `ArcWebClient`, який надає доступ до:
+
+- стан гаманця (адреса, підписувач, доступні гаманці, функції та статус гаманця)
+- конфігурація мережі (RPC-ендпоінт, кластер Solana)
+
+#### Сценарії використання
+
+**Прямі RPC-запити:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Компоненти з урахуванням мережі:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Умовний рендеринг на основі гаманця:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

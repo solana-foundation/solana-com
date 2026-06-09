@@ -1,4 +1,4 @@
-import { config, localizedRouteUrl } from "@/config";
+import { config, publicLocalizedRouteUrl } from "@/config";
 import { homepageFaqItems } from "@/content/faq-page";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 
@@ -17,19 +17,19 @@ function asPlainTextMessage(value: unknown) {
 const TICKET_OFFERS: OfferSeed[] = [
   {
     name: "General Admission",
-    price: 350,
+    price: 450,
     url: GENERAL_ADMISSION_HREF,
   },
 ];
 
 export function buildBreakpointJsonLd(locale: string): JsonLd {
-  const { siteUrl, siteMetadata, event } = config;
-  const pageUrl = localizedRouteUrl(locale);
-  const socialImage = new URL(siteMetadata.socialShare, siteUrl).toString();
+  const { publicUrl, siteMetadata, event } = config;
+  const pageUrl = publicLocalizedRouteUrl(locale);
+  const socialImage = new URL(siteMetadata.socialShare, publicUrl).toString();
 
   const eventNode: JsonLd = {
     "@type": "Event",
-    "@id": `${siteUrl}#event`,
+    "@id": `${publicUrl}#event`,
     name: event.name,
     description: event.description,
     startDate: event.startDate,
@@ -50,7 +50,7 @@ export function buildBreakpointJsonLd(locale: string): JsonLd {
       },
     },
     organizer: {
-      "@id": `${siteUrl}#organization`,
+      "@id": `${publicUrl}#organization`,
     },
     offers: TICKET_OFFERS.map((offer) => ({
       "@type": "Offer",
@@ -65,7 +65,7 @@ export function buildBreakpointJsonLd(locale: string): JsonLd {
 
   const organizationNode: JsonLd = {
     "@type": "Organization",
-    "@id": `${siteUrl}#organization`,
+    "@id": `${publicUrl}#organization`,
     name: siteMetadata.author,
     url: "https://solana.com",
     logo: "https://solana.com/src/img/branding/solanaLogo.svg",

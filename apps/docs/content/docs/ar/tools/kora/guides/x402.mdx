@@ -1,0 +1,595 @@
+---
+title: تكامل x402 مع Kora
+description:
+  تعلم كيفية دمج بروتوكول الدفع x402 مع البنية التحتية للتوقيع بدون رسوم غاز من
+  Kora على سولانا، مما يتيح المدفوعات الصغيرة للوصول إلى واجهات برمجة التطبيقات
+  بدون أي رسوم غاز.
+---
+
+## ما الذي ستبنيه
+
+يرشدك هذا الدليل خلال تنفيذ تكامل كامل لبروتوكول x402 (HTTP 402 الدفع مطلوب) مع
+Kora، البنية التحتية للتوقيع بدون رسوم غاز على سولانا. بنهاية هذا الدليل، سيكون
+لديك نظام عمل حيث:
+
+- يمكن لواجهات برمجة التطبيقات فرض مدفوعات صغيرة للوصول باستخدام بروتوكول x402
+- يدفع المستخدمون بعملة USDC دون الحاجة إلى SOL لرسوم الغاز
+- تتعامل Kora مع جميع رسوم المعاملات كميسّر بدون رسوم غاز
+- يتم تسوية المدفوعات بشكل ذري على بلوكتشين سولانا
+
+النتيجة النهائية ستكون واجهة برمجة تطبيقات محمية بالدفع وعاملة بالكامل:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+X402 + KORA PAYMENT FLOW DEMONSTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing payment signer
+  → Network: solana-devnet
+  → Payer address: BYJV...TbBc
+  ✓ Signer initialized
+
+[2/4] Attempting to access protected endpoint without payment
+  → GET http://localhost:4021/protected
+  → Response: 402 Payment Required
+  ✅ Status code: 402
+
+[3/4] Accessing protected endpoint with x402 payment
+  → Using x402 fetch wrapper
+  → Payment will be processed via Kora facilitator
+  → Transaction submitted to Solana
+  ✅ Status code: 200
+
+[4/4] Processing response data
+  ✓ Payment response decoded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Payment completed and API accessed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response Data:
+{
+    "data": {
+        "message": "Protected endpoint accessed successfully",
+        "timestamp": "2025-09-25T20:14:04.242Z"
+    },
+    "status_code": 200,
+    "payment_response": {
+        "transaction": "5ULZpdeThaMAy6hcEGfAoMFqJqPpCtxdCxb6JYUV6nA4x8Lk2hKEuzofGUPoe1pop6BdWMSmF5oRPrXsbdWmpruf",
+        "success": true,
+        "network": "solana-devnet"
+    }
+}
+```
+
+## ما هو x402؟
+
+[x402](https://www.x402.org/) هو معيار دفع مفتوح يتيح مدفوعات صغيرة سلسة للوصول
+إلى واجهات برمجة التطبيقات. بدلاً من نماذج الاشتراك التقليدية أو مفاتيح واجهة
+برمجة التطبيقات، يسمح x402 للخوادم بفرض رسوم على استدعاءات واجهة برمجة التطبيقات
+الفردية، مما يخلق بنية تحتية حقيقية للدفع عند الاستخدام.
+
+الفوائد الرئيسية لـ x402:
+
+- **مدفوعات صغيرة فورية**: ادفع أجزاء من السنت لكل استدعاء لواجهة برمجة
+  التطبيقات
+- **تمكين عملاء الذكاء الاصطناعي من الدفع مقابل استدعاءات واجهة برمجة
+  التطبيقات**: ادفع مقابل استدعاءات واجهة برمجة التطبيقات باستخدام عملاء الذكاء
+  الاصطناعي
+- **بدون اشتراكات**: يدفع المستخدمون فقط مقابل ما يستخدمونه
+- **مدفوعات Web3**: مدفوعات شفافة وقابلة للتحقق على السلسلة
+- **HTTP قياسي**: يعمل مع البنية التحتية الحالية للويب باستخدام كود حالة HTTP
+  402 عندما يكون الدفع مطلوباً
+
+الخوادم التي تستخدم x402 لطلب مدفوعات صغيرة للوصول إلى واجهة برمجة التطبيقات
+ستعيد كود حالة HTTP 402 عندما يكون الدفع مطلوباً. للوصول إلى نقاط النهاية
+المحمية، يجب على العملاء تمرير دفعة صالحة إلى الخادم في رأس `X-PAYMENT`. يعتمد
+x402 على "الميسّرين" للتحقق من المعاملات وتسويتها بحيث لا تحتاج الخوادم إلى
+التفاعل مباشرة مع البنية التحتية للبلوكتشين.
+
+### فهم الميسرين
+
+الميسرون هم مكون حاسم في نظام x402 البيئي. يعملون كخدمات متخصصة تجرد مدفوعات
+البلوكشين نيابة عن خوادم API.
+
+**ما يقوم به الميسرون:**
+
+- **التحقق من المدفوعات**: التحقق من صحة حمولات الدفع الخاصة بالعميل وكفايتها
+- **تجريد التعقيد**: إزالة حاجة الخوادم للتفاعل المباشر مع البنية التحتية
+  للبلوكشين (التوقيع ودفع رسوم الشبكة)
+- **تسوية المعاملات**: إرسال المعاملات المتحقق منها إلى سولانا (أو شبكات أخرى)
+
+في العرض التوضيحي الخاص بنا، نقوم بإنشاء ميسر يستفيد من Kora للتحقق من المعاملات
+وتسويتها (مزيد من التفاصيل أدناه).
+
+## ما هو Kora؟
+
+Kora هو عقدة توقيع على سولانا توفر خدمات التوقيع والمعاملات بدون رسوم غاز. تمكن
+التطبيقات من تجريد رسوم الغاز، مما يسمح للمستخدمين بدفع تكاليف المعاملات بعملات
+بديلة غير SOL، أو رعاية الرسوم بالكامل.
+
+الميزات الرئيسية لـ Kora:
+
+- **معاملات بدون غاز**: لا يحتاج المستخدمون إلى SOL لتنفيذ المعاملات
+- **تجريد الرسوم**: دفع الرسوم بعملة USDC أو عملات SPL أخرى
+- **واجهة JSON-RPC**: واجهة برمجة تطبيقات HTTP بسيطة للتعامل مع المعاملات
+- **موقعون مرنون**: دعم لخلفيات موقعين متعددة (الذاكرة، Vault، Turnkey، Privy)
+- **محرك السياسات**: تحكم دقيق في التحقق من صحة المعاملات وسياسات الرسوم
+
+في سياق x402، يعمل Kora كخلفية مثالية للميسرين: فهو يتعامل مع رسوم الشبكة، ويوقع
+المعاملات، ويتحقق من صحة المعاملات. نظرًا لأن Kora يفحص كل معاملة قبل التوقيع،
+تقدم عقد Kora طبقة إضافية من الأمان وتحكمًا أكثر دقة في التحقق من صحة المعاملات
+وسياسات الرسوم.
+
+## نظرة عامة على البنية
+
+يتكون تكامل x402 + Kora لدينا من أربعة مكونات مترابطة مع دورة طلب/استجابة كاملة:
+
+تدفق الدفع الكامل:
+
+1. يطلب العميل موردًا محميًا ← ترجع واجهة برمجة التطبيقات 402 Payment Required
+2. ينشئ العميل معاملة دفع باستخدام غلاف x402 fetch (الذي يجمع معاملة سولانا مع
+   تعليمات الدفع)
+3. يرسل العميل الدفعة إلى المُيسِّر للتحقق
+4. يتحقق المُيسِّر عبر Kora، الذي يوقع ويرسل إلى سولانا
+5. يتم تأكيد المعاملة على السلسلة، يُخطر المُيسِّر واجهة برمجة التطبيقات
+6. ترجع واجهة برمجة التطبيقات المحتوى المحمي مع إيصال الدفع إلى العميل
+
+### تفصيل المكونات
+
+1. **خادم Kora RPC** (المنفذ 8080)
+   - خدمة المعاملات الأساسية بدون رسوم غاز
+   - يتولى توقيع المعاملات كدافع للرسوم
+   - يتحقق من صحة المعاملات وفقًا للسياسات المُكوَّنة
+
+2. **خادم غلاف/وكيل المُيسِّر** (المنفذ 3000)
+   - يُكيِّف Kora مع بروتوكول x402
+   - ينفذ نقاط النهاية `/verify` و `/settle` و `/supported`
+   - يترجم بين تنسيقات بيانات x402 و Kora
+
+3. **واجهة برمجة التطبيقات المحمية** (المنفذ 4021)
+   - خادم واجهة برمجة تطبيقات تجريبي مع نقاط نهاية محمية بالدفع
+   - يستخدم وسيط x402-express لمعالجة الدفع
+   - يُرجع البيانات فقط بعد نجاح الدفع
+
+4. **تطبيق العميل**
+   - يُوضح استخدام غلاف x402 fetch
+   - يوقع المعاملات بالمفتاح الخاص للمستخدم
+
+قد يبدو النهج متعدد المكونات معقدًا، لكنه يعكس أنظمة الإنتاج الحقيقية حيث تكون
+معالجة الدفع وخدمة واجهة برمجة التطبيقات وتطبيقات العميل مسؤوليات منفصلة.
+
+## المتطلبات الأساسية
+
+قبل البدء، تأكد من توفر ما يلي:
+
+- [**Rust**](https://www.rust-lang.org/tools/install) (أحدث إصدار مستقر)
+- [**Node.js**](https://nodejs.org/en/download) (إصدار LTS أو أحدث)
+- [**Kora CLI**](https://github.com/solana-foundation/kora/releases/latest)
+  (أحدث إصدار - `cargo install kora-cli`)
+- [**pnpm**](https://pnpm.io/installation) (أحدث إصدار)
+- فهم أساسي لـ [معاملات سولانا](https://solana.com/docs/core/transactions) و
+  [رموز SPL](https://solana.com/docs/tokens)
+
+## إعداد المشروع
+
+### الخطوة 1: استنساخ وبناء Kora
+
+> **مهم:** فرع `main` في Kora هو فرع تكامل وقد يحتوي على تغييرات لم تُصدر بعد أو
+> في مرحلة تجريبية. استخدم دائمًا أحدث إصدار مستقر. يمكنك العثور على أحدث إصدار
+> مستقر في
+> [صفحة إصدارات Kora](https://github.com/solana-foundation/kora/releases).
+
+```bash
+# Clone the repository
+git clone https://github.com/solana-foundation/kora.git
+cd kora
+
+# Checkout the latest stable tag
+git checkout v2.0.5
+
+# Build and install Kora
+just install
+```
+
+يؤدي هذا إلى تثبيت الملف التنفيذي `kora` على نظامك، والذي سنستخدمه لتشغيل خادم
+RPC.
+
+### الخطوة 2: الانتقال إلى دليل العرض التوضيحي
+
+```bash
+cd examples/x402/demo
+```
+
+### الخطوة 3: تثبيت التبعيات
+
+قم بتثبيت تبعيات Node.js لجميع مكونات العرض التوضيحي:
+
+```bash
+# Install dependencies for all components (facilitator, API, and client)
+pnpm run install:all
+```
+
+يقوم هذا السكريبت بتثبيت التبعيات لـ:
+
+- خدمة الغلاف الميسِّر
+- خادم API المحمي
+- تطبيق العرض التوضيحي للعميل
+
+### الخطوة 4: تكوين البيئة
+
+يتضمن العرض التوضيحي ملف `.env.example` يحتوي على متغيرات البيئة المطلوبة.
+أولاً، لنقم بإعداد التكوين الأساسي:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+تحتاج الآن إلى إنشاء أو توفير أزواج مفاتيح للعرض التوضيحي. قم بتشغيل الأمر
+التالي لإنشاء أزواج المفاتيح:
+
+```bash
+pnpm run setup
+```
+
+سيؤدي هذا إلى إنشاء أزواج المفاتيح وإضافتها إلى ملف `.env`:
+
+- `KORA_SIGNER_ADDRESS` - عنوان موقِّع Kora
+- `KORA_SIGNER_PRIVATE_KEY` - المفتاح الخاص لموقِّع Kora
+- `PAYER_ADDRESS` - عنوان الدافع الذي سيدفع للوصول إلى API المحمي
+- `PAYER_PRIVATE_KEY` - المفتاح الخاص للدافع
+
+### الخطوة 5: تحديث ملفات التكوين
+
+#### kora.toml
+
+يقوم ملف `kora/kora.toml` بتكوين خادم Kora RPC. لا ينبغي أن تحتاج إلى إجراء أي
+تغييرات على هذا الملف، ولكن يمكنك التحقق من الإعدادات التالية:
+
+1. **رمز الدفع**: تأكد من أن عملة USDC الخاصة بشبكة Devnet موجودة في قائمة
+   السماح:
+
+```toml
+allowed_tokens = [
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", # USDC devnet
+]
+```
+
+2. **مصادقة API**: يستخدم العرض التوضيحي مفتاح API للوصول إلى Kora. يجب أن
+   يتطابق هذا مع `KORA_API_KEY` في ملف `.env`:
+
+```toml
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+```
+
+3. **سياسة دافع الرسوم**: تم تكوينها لتقييد توقيع المعاملات غير المرغوب فيها
+   باستخدام ضوابط دقيقة:
+
+```toml
+[validation.fee_payer_policy.system]
+allow_transfer = false
+allow_assign = false
+allow_create_account = false
+allow_allocate = false
+
+[validation.fee_payer_policy.system.nonce]
+allow_initialize = false
+allow_advance = false
+allow_authorize = false
+allow_withdraw = false
+
+[validation.fee_payer_policy.spl_token]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+
+[validation.fee_payer_policy.token_2022]
+allow_transfer = false
+allow_burn = false
+allow_close_account = false
+allow_approve = false
+allow_revoke = false
+allow_set_authority = false
+allow_mint_to = false
+allow_initialize_mint = false
+allow_initialize_account = false
+allow_initialize_multisig = false
+allow_freeze_account = false
+allow_thaw_account = false
+```
+
+4. **البرامج المسموح بها**: تأكد من أن System Program وToken Program وبرنامج
+   الرمز المميز المرتبط وبرنامج ميزانية الحساب موجودة في القائمة المسموح بها:
+
+```toml
+allowed_programs = [
+    "11111111111111111111111111111111",             # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Token Program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", # Associated Token Program
+    "ComputeBudget111111111111111111111111111111",  # Compute Budget Program
+]
+```
+
+#### signers.toml
+
+يقوم ملف `kora/signers.toml` بتكوين موقّع Kora. لا يجب عليك إجراء أي تغييرات على
+هذا الملف، ولكن يمكنك التحقق من الإعدادات التالية:
+
+1. **متغير بيئة الموقّع**: تأكد من أن متغير بيئة الموقّع `private_key_env` مضبوط
+   على `KORA_SIGNER_PRIVATE_KEY` (مطابقاً لاسم متغير البيئة في ملف `.env`).
+
+```toml
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_SIGNER_PRIVATE_KEY"
+weight = 1
+```
+
+### الخطوة 6: تمويل الحسابات
+
+#### SOL على شبكة Devnet
+
+سيحتاج عنوان موقّع Kora الخاص بنا إلى SOL لدفع رسوم المعاملات. يمكنك إرسال SOL
+من شبكة devnet إلى عنوان موقّع Kora باستخدام واجهة سطر أوامر سولانا:
+
+```bash
+# Airdrop SOL
+solana airdrop 1 <KORA_SIGNER_ADDRESS> --url devnet
+```
+
+بدلاً من ذلك، يمكنك استخدام [Solana Faucet](https://faucet.solana.com/) لإرسال
+SOL إلى عنوان موقّع Kora.
+
+#### USDC على شبكة Devnet
+
+سيحتاج `PAYER_ADDRESS` المحدد في ملف `.env` إلى USDC لدفع رسوم المعاملات.
+
+احصل على USDC من شبكة Devnet من [Circle's Faucet](https://faucet.circle.com/).
+تأكد من اختيار "Solana Devnet" واستخدام `PAYER_ADDRESS` الخاص بك لطلب USDC.
+
+## تشغيل العرض التوضيحي
+
+ستحتاج إلى أربع نوافذ طرفية لتشغيل جميع المكونات من دليل `examples/x402/demo`.
+
+### الطرفية 1: تشغيل خادم Kora RPC
+
+قم بتشغيل الأمر التالي لبدء خادم Kora RPC:
+
+```bash
+pnpm run start:kora
+```
+
+يجب أن ترى سلسلة من السجلات تشير إلى أن خادم Kora RPC قيد التشغيل، بما في ذلك:
+
+```
+INFO kora_lib::rpc_server::server: RPC server started on 0.0.0.0:8080, port 8080
+```
+
+### الطرفية 2: تشغيل الميسّر
+
+قم بتشغيل الأمر التالي لبدء الميسّر:
+
+```bash
+pnpm run start:facilitator
+```
+
+يجب أن ترى:
+
+```
+Server listening at http://localhost:3000
+```
+
+### الطرفية 3: تشغيل واجهة برمجة التطبيقات المحمية
+
+قم بتشغيل الأمر التالي لبدء واجهة برمجة التطبيقات المحمية:
+
+```bash
+pnpm run start:api
+```
+
+يجب أن ترى:
+
+```
+Server listening at http://localhost:4021
+```
+
+### الطرفية 4: تشغيل العرض التوضيحي للعميل
+
+```bash
+pnpm run demo
+```
+
+## فهم التنفيذ
+
+إليك ما يحدث أثناء تدفق الدفع الناجح:
+
+1. **طلب العميل** ← تُرجع واجهة برمجة التطبيقات الرمز 402 مع متطلبات الدفع
+2. **إنشاء الدفعة** ← ينشئ العميل معاملة سولانا مع الدفعة
+3. **إرسال الدفعة** ← يرسل العميل طلباً إلى الخادم مع الدفعة في رأس `X-PAYMENT`
+4. **التحقق** ← يتحقق الوسيط عبر `signTransaction` من Kora
+5. **التسوية** ← يقوم الوسيط بالتسوية عبر `signAndSendTransaction` من Kora
+   (إرسال معاملة الدفع إلى سولانا)
+6. **منح الوصول** ← يُرجع الوسيط توقيع المعاملة وتُرجع واجهة برمجة التطبيقات
+   المحتوى المحمي مع إيصال الدفع
+
+![تدفق المعاملات](/assets/docs/tools/kora/x402-protocol-flow.png)
+
+_المصدر: [x402 GitHub](https://github.com/coinbase/x402/)_
+
+لنتعمق في كيفية عمل كل مكون:
+
+- **Kora RPC** (المنفذ 8080): يتعامل مع توقيع المعاملات بدون رسوم غاز
+- **الوسيط** (المنفذ 3000): يربط بروتوكول x402 مع Kora
+- **واجهة برمجة التطبيقات المحمية** (المنفذ 4021): نقطة نهاية واجهة برمجة
+  التطبيقات المدرة للدخل
+- **العميل**: يوضح تدفق الدفع التلقائي
+
+### خادم الوسيط الوكيل
+
+يعمل الوسيط على المنفذ 3000. هذا هو الخادم الذي يتعامل مع الاتصال بسولانا (في
+حالتنا، عبر Kora). يُستخدم للتحقق من مدفوعات x402 وتسويتها.
+
+الوسيط (`facilitator/src/facilitator.ts`) هو الجسر بين بروتوكول x402 وKora RPC.
+يُنفذ ثلاث نقاط نهاية رئيسية:
+
+#### 1. نقطة النهاية `/verify`
+
+تقوم نقطة النهاية هذه بـ:
+
+- استقبال حمولة دفع x402 من خادم واجهة برمجة التطبيقات المحمية
+- استخراج معاملة سولانا باستخدام أدوات مساعدة x402
+- استخدام `signTransaction` من Kora للتحقق من الصحة دون البث
+- إرجاع حالة التحقق، `isValid`
+
+#### 2. نقطة النهاية `/settle`
+
+تقوم نقطة النهاية هذه بما يلي:
+
+- تستقبل حمولة دفع x402 بعد التحقق من الدفع بواسطة نقطة النهاية `/verify`
+- تستخدم `signAndSendTransaction` من Kora للتوقيع على المعاملة وبثها
+- تُرجع توقيع المعاملة كإثبات على التسوية
+
+#### 3. نقطة النهاية `/supported`
+
+تُعلن نقطة النهاية هذه بشكل فعال عن قدرات المُسهّل، بما في ذلك:
+
+- إصدار x402 المدعوم
+- نظام الدفع (مدفوعات دقيقة)
+- الشبكة (solana-devnet)
+- عنوان دافع الرسوم الذي نسترجعه من Kora باستخدام طريقة `getPayerSigner`
+
+### واجهة برمجة التطبيقات المحمية
+
+يستخدم خادم واجهة برمجة التطبيقات (`api/src/api.ts`) البرمجية الوسيطة
+x402-express لحماية نقاط النهاية:
+
+```typescript
+app.use(
+  paymentMiddleware(
+    KORA_PAYER_ADDRESS, // Where payments should go
+    {
+      "GET /protected": {
+        price: "$0.0001", // Price in USD
+        network: NETWORK // solana-devnet
+      }
+    },
+    {
+      url: FACILITATOR_URL // Our facilitator wrapper
+    }
+  )
+);
+```
+
+تقوم البرمجية الوسيطة بما يلي:
+
+- تعترض الطلبات إلى نقاط النهاية المحمية (في حالتنا، نقطة النهاية `/protected`)
+- تُرجع حالة 402 إذا كان الدفع مفقوداً
+- تتحقق من صحة المدفوعات وتعالجها عبر المُسهّل
+- تسمح بالوصول بعد نجاح الدفع
+
+على الرغم من أننا نستخدم Express، إلا أن مكتبة x402 تتضمن دعم البرمجيات الوسيطة
+للعديد من الأطر الشائعة. راجع
+[حزم x402 لـ TypeScript](https://github.com/coinbase/x402/tree/main/typescript/packages)
+لمزيد من المعلومات.
+
+### تطبيق العميل
+
+يوضح العميل (`client/src/index.ts`) كيفية عمل x402 تلقائياً من خلال إرسال طلب
+باستخدام استدعاء `fetch` القياسي ثم إعادة محاولة الطلب مع غلاف الدفع:
+
+```typescript
+// Create a signer from private key
+const payer = await createSigner(NETWORK, PAYER_PRIVATE_KEY);
+
+// Wrap fetch with x402 payment capabilities
+const fetchWithPayment = wrapFetchWithPayment(fetch, payer);
+
+// First attempt: Regular fetch (will fail with 402)
+const expect402Response = await fetch(PROTECTED_API_URL);
+console.log(`Status: ${expect402Response.status}`); // 402
+
+// Second attempt: Fetch with payment wrapper (succeeds)
+const response = await fetchWithPayment(PROTECTED_API_URL);
+console.log(`Status: ${response.status}`); // 200
+```
+
+يقوم غلاف x402 fetch بما يلي:
+
+- يكتشف استجابات 402
+- ينشئ تلقائياً معاملة دفع بناءً على متطلبات الدفع لواجهة برمجة التطبيقات
+  المحمية
+- يوقّع باستخدام المفتاح الخاص للمستخدم
+- يرسل الدفع إلى المُسهّل للتحقق والمعالجة
+- يعيد محاولة الطلب مع إثبات الدفع في رأس `x-payment-response`
+- يُرجع استجابة ناجحة
+
+## الخلاصة
+
+تهانينا! 🔥 لقد نجحت في تنفيذ تدفق دفع x402 كامل باستخدام البنية التحتية لـ Kora
+الخالية من رسوم الغاز. يوضح هذا العرض التوضيحي كيف أن:
+
+- **بروتوكول x402** يتيح تحقيق الدخل من واجهات برمجة التطبيقات بسلاسة من خلال
+  المدفوعات الصغيرة
+- **Kora RPC** يعمل كوسيط لمدفوعات x402 من خلال التحقق من المعاملات وتسويتها
+- **المستخدمون** يمكنهم الدفع مقابل الوصول إلى واجهة برمجة التطبيقات دون الحاجة
+  لامتلاك SOL أو إدارة رسوم الغاز
+
+تُنشئ هذه البنية أساساً قوياً لـ:
+
+- أسواق وكلاء الذكاء الاصطناعي
+- واجهات برمجة التطبيقات بنظام الدفع مقابل الاستخدام
+- منصات المحتوى القائمة على المدفوعات الصغيرة
+- تسعير SaaS القائم على الاستخدام
+- أي خدمة تتطلب مدفوعات فورية وقابلة للتحقق
+
+يجلب مزيج x402 وKora قوة سولانا إلى البنية التحتية التقليدية للويب.
+
+### استمر في البناء
+
+- **تخصيص التسعير**: عدّل واجهة برمجة التطبيقات لفرض مبالغ مختلفة على نقاط نهاية
+  مختلفة
+- **إضافة رموز متعددة**: قم بتكوين Kora لقبول رموز SPL مختلفة كوسيلة للدفع
+- **النشر للإنتاج**: انشر على الشبكة الرئيسية باستخدام موقّعي الإنتاج (Vault أو
+  Turnkey أو Privy)
+- **أنشئ واجهة برمجة التطبيقات الخاصة بك**: قم بإنشاء خدمة حقيقية تحقق الدخل من
+  خلال مدفوعات x402
+
+## موارد إضافية
+
+#### بروتوكول x402
+
+- [وثائق x402](https://x402.gitbook.io/x402/)
+- [مستودع x402 على GitHub](https://github.com/coinbase/x402)
+- [حزمة x402 SDK للـ TypeScript](https://www.npmjs.com/package/x402)
+
+#### Kora
+
+- [دليل تكوين Kora](/docs/tools/kora/operators/configuration)
+- [دليل الموقّعين في Kora](/docs/tools/kora/operators/signers)
+- [مرجع واجهة برمجة التطبيقات لـ Kora](/docs/tools/kora/json-rpc-api)
+
+#### سولانا
+
+- [وثائق سولانا](https://solana.com/docs)
+- [Token Program من SPL](https://spl.solana.com/token)
+
+## الدعم
+
+هل تحتاج إلى مساعدة؟
+
+- اطرح أسئلتك على [Solana Stack Exchange](https://solana.stackexchange.com/)
+  باستخدام وسوم `kora` و `x402`
+- افتح مشكلات على
+  [مستودع Kora على GitHub](https://github.com/solana-foundation/kora)

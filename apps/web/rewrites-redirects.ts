@@ -157,6 +157,36 @@ export default {
         locale: false,
       },
       {
+        source: "/upgrade",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades",
+        destination: `${MEDIA_APP_URL}/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/upgrades/:path+`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrade",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades`,
+        locale: false,
+      },
+      {
+        source: "/:locale/upgrades/:path+",
+        destination: `${MEDIA_APP_URL}/:locale/upgrades/:path+`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
@@ -422,7 +452,7 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    // /upgrades now has its own dedicated page
+    // /upgrades is served by the media app
     { source: "/upgrade", destination: "/upgrades" },
     {
       source: "/upgrades/larger-transaction-size",
@@ -492,7 +522,7 @@ export default {
         "https://github.com/solana-foundation/solana-improvement-documents",
     },
     { source: "/disclaimer", destination: "/tos" },
-    { source: "/ecosystem(.*)", destination: "/" },
+    { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
     { source: "/solana-pay", destination: "https://solanapay.com/" },
     { source: "/solanapay", destination: "https://solanapay.com/" },
@@ -561,10 +591,6 @@ export default {
     {
       source: "/solutions/solana-permissioned-environments",
       destination: "https://launch.solana.com/products/contra",
-    },
-    {
-      source: "/enterprise",
-      destination: "/solutions/enterprise",
     },
     {
       source: "/2024-outlook",

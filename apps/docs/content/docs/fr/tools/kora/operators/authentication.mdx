@@ -1,0 +1,260 @@
+---
+title: Authentification
+description: Guide de référence de l'opérateur pour l'authentification
+---
+
+Kora prend en charge deux méthodes d'authentification optionnelles pour
+sécuriser votre point de terminaison RPC : l'authentification par clé API et
+l'authentification HMAC. Ce guide couvre la configuration, l'implémentation et
+les meilleures pratiques de sécurité.
+
+L'authentification est optionnelle mais **fortement recommandée** pour les
+déploiements en production. Sans authentification, toute personne qui découvre
+votre point de terminaison Kora peut soumettre des transactions et consommer
+votre solde SOL.
+
+| Méthode      | Niveau de sécurité | Cas d'utilisation                                | Complexité |
+| ------------ | ------------------ | ------------------------------------------------ | ---------- |
+| **Aucune**   | ⚠️ Aucune          | Développement, tests, tarification à forte marge | Aucune     |
+| **Clé API**  | De base            | Applications internes, clients de confiance      | Faible     |
+| **HMAC**     | Élevée             | API publiques, réseaux non fiables               | Moyenne    |
+| **Les deux** | Maximale           | Environnements de haute sécurité                 | Moyenne    |
+
+L'authentification Kora est configurée dans le fichier `kora.toml` dans la
+section `[kora.auth]`.
+
+Dans ce document :
+
+- [Authentification par clé API](#api-key-authentication)
+- [Authentification HMAC](#hmac-authentication)
+- [Authentification combinée](#combined-authentication)
+- [Meilleures pratiques de sécurité](#security-best-practices)
+- [Points de terminaison exemptés](#exempt-endpoints)
+- [Dépannage](#troubleshooting)
+
+## Authentification par clé API
+
+Authentification simple par secret partagé utilisant des en-têtes HTTP. Vous
+pouvez générer une nouvelle clé API en utilisant la commande `openssl` (ou une
+commande similaire) dans votre terminal :
+
+```bash
+openssl rand -hex 32
+```
+
+### Configuration du serveur
+
+- Ajoutez un `KORA_API_KEY` à votre fichier .env (variables d'environnement) (a
+  la priorité) ou
+- Ajoutez un `api_key` à votre `kora.toml` :
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"  # Use a strong, unique key
+```
+
+Cette clé sera globalement requise pour toutes les requêtes vers le point de
+terminaison RPC de Kora.
+
+### Implémentation côté client
+
+Incluez la clé API dans l'en-tête `x-api-key` avec chaque requête :
+
+**Exemple cURL :**
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: kora_live_sk_1234567890abcdef" \
+  -d '{"jsonrpc": "2.0", "method": "getConfig", "id": 1}'
+```
+
+**Exemple JavaScript utilisant le SDK Kora :**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Exemple JavaScript utilisant fetch :**
+
+```javascript
+async function callKora(method, params = []) {
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.KORA_API_KEY //'kora_live_sk_1234567890abcdef'
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+
+const config = await callKora("getConfig");
+console.log(config);
+```
+
+## Authentification HMAC
+
+Au lieu d'envoyer une clé API à chaque requête, HMAC crée une signature
+cryptographique unique qui prouve que vous connaissez un secret sans le révéler.
+Chaque signature inclut un horodatage et expire après 5 minutes, de sorte que
+les requêtes interceptées ne peuvent pas être rejouées. Les attaquants ne
+peuvent pas créer de nouvelles requêtes car ils ne possèdent pas votre clé
+secrète.
+
+### Configuration du serveur
+
+- Ajoutez `KORA_HMAC_SECRET` à votre fichier .env (variables d'environnement)
+  (prioritaire) ou
+- Ajoutez un `hmac_secret` global à votre `kora.toml` (minimum 32 caractères —
+  vous pouvez en générer un avec `openssl rand -hex 32` ou similaire) :
+
+```toml
+[kora.auth]
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+### Fonctionnement de HMAC
+
+1. Le client crée un message en concaténant : `{timestamp}{request_body}`
+2. Le client signe le message en utilisant HMAC-SHA256 avec le secret partagé
+3. Le client envoie la requête avec les en-têtes d'horodatage et de signature
+4. Le serveur valide la signature et l'horodatage (doit être dans les 5 minutes)
+
+### Implémentation côté client
+
+Pour utiliser HMAC côté client, vous pouvez utiliser le SDK Kora ou la
+bibliothèque `crypto` en JavaScript :
+
+1. Créez un horodatage
+2. Créez le corps de la requête
+3. Créez un message en concaténant l'horodatage et le corps (par exemple,
+   `message = timestamp + body`)
+4. Créez une signature en signant le message avec le secret HMAC (en utilisant
+   la méthode `crypto.createHmac`)
+5. Envoyez la requête avec les en-têtes d'horodatage (`x-timestamp`) et de
+   signature (`x-hmac-signature`)
+
+**Exemple JavaScript utilisant le SDK Kora :**
+
+Le SDK Kora abstrait le processus d'authentification HMAC, vous pouvez donc
+simplement appeler la méthode que vous souhaitez utiliser et le SDK gérera
+l'authentification pour vous.
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  hmacSecret: process.env.KORA_HMAC_SECRET
+});
+
+const config = await kora.getConfig();
+console.log(config);
+```
+
+**Exemple JavaScript utilisant la bibliothèque `crypto` :**
+
+```javascript
+async function callKoraHMAC(method, params = []) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method,
+    params,
+    id: 1
+  });
+
+  // Create HMAC signature
+  const message = timestamp + body;
+  const signature = crypto
+    .createHmac("sha256", process.env.KORA_HMAC_SECRET) // kora_hmac_your-strong-hmac-secret-key
+    .update(message)
+    .digest("hex");
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-timestamp": timestamp,
+      "x-hmac-signature": signature
+    },
+    body: body
+  });
+
+  return response.json();
+}
+
+const config = await callKoraHMAC("getConfig");
+console.log(config);
+```
+
+## Authentification combinée
+
+Vous pouvez activer simultanément les deux méthodes d'authentification pour une
+sécurité maximale :
+
+```toml
+[kora.auth]
+api_key = "kora_live_sk_1234567890abcdef"
+hmac_secret = "kora_hmac_your-strong-hmac-secret-key"
+```
+
+Lorsque les deux sont configurés, les clients doivent envoyer les en-têtes
+`x-api-key`, `x-timestamp` et `x-hmac-signature`.
+
+## Bonnes pratiques de sécurité
+
+- **Utilisez des clés fortes et aléatoires** : minimum 32 caractères avec une
+  entropie élevée
+- **Effectuez une rotation régulière** : changez les clés périodiquement
+  (mensuellement/trimestriellement)
+- **Stockage sécurisé** : utilisez des variables d'environnement ou une gestion
+  des secrets (secrets Railway, AWS Secrets Manager, etc.)
+- **Ne jamais coder en dur** : gardez les clés hors du code source et des
+  journaux
+- **Utilisez HTTPS** : utilisez toujours TLS en production pour protéger les
+  clés en transit
+- **Surveillez les accès** : surveillez les modèles d'authentification
+  inhabituels ou les échecs répétés
+
+## Points de terminaison exemptés
+
+Le point de terminaison `/liveness` est toujours exempté d'authentification pour
+permettre les vérifications de santé :
+
+```bash
+# This works even with authentication enabled
+curl http://localhost:8080/liveness
+```
+
+## Dépannage
+
+**401 Non autorisé avec clé API :**
+
+- Vérifiez que la clé API est correcte et correspond à la configuration du
+  serveur
+- Vérifiez que l'en-tête `x-api-key` est envoyé
+- Assurez-vous qu'il n'y a pas d'espace superflu dans la clé
+
+**401 Non autorisé avec HMAC :**
+
+- Vérifiez que l'horodatage est à jour (dans les 5 minutes)
+- Vérifiez que la construction du message correspond à : `{timestamp}{body}`
+- Assurez-vous que le secret HMAC correspond à la configuration du serveur
+- Vérifiez que la signature est en hexadécimal minuscule

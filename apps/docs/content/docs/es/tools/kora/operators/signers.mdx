@@ -1,0 +1,516 @@
+---
+title: Firmantes
+description: Configura y gestiona los firmantes de Kora
+---
+
+_Última actualización: 22/08/2025_
+
+## ¿Qué es un firmante?
+
+Un **firmante** es el par de claves criptográficas que tu nodo Kora utiliza para
+firmar transacciones de Solana como pagador de comisiones. Cuando los usuarios
+envían transacciones a tu nodo Kora, este las valida y las cofirma con la clave
+privada de tu firmante para cubrir las comisiones de transacción en SOL.
+
+**Nota**: Por defecto, las comisiones de pago en tokens se envían a la dirección
+del firmante. Sin embargo, puedes configurar un `payment_address` separado en tu
+`kora.toml` para recibir pagos en una dirección diferente mientras mantienes tu
+firmante separado. Consulta la
+[Guía de configuración](/docs/tools/kora/operators/configuration) para más
+detalles.
+
+Tu par de claves del firmante tiene acceso directo a tus fondos en SOL
+utilizados para pagar las comisiones de transacción. Si se ve comprometido, un
+atacante podría:
+
+- Vaciar tu saldo de SOL
+- Firmar transacciones no autorizadas
+- Interrumpir tu servicio de pagador
+
+## Configuración del firmante
+
+La CLI de Kora RPC requiere que se especifique un `signer.toml` mediante la
+bandera `--signers-config`. El archivo `singer.toml` te permite configurar
+el/los firmante(s) y la configuración del firmante para tu nodo. `signer.toml`
+tiene dos secciones:
+
+1. `[signer_pool]` - Configuración del grupo de firmantes
+2. `[[signers]]` - Configuración de cada firmante (se requiere al menos un
+   firmante a menos que se use la bandera `--no-load-signer`, que tiene
+   funcionalidad limitada)
+
+#### `[signer_pool]`
+
+La configuración del grupo de firmantes especifica atributos específicos del
+grupo de firmantes en su conjunto:
+
+- `strategy` - La estrategia de selección para elegir firmantes. Las estrategias
+  disponibles son:
+  - `round_robin` (predeterminado) - Recorre los firmantes en orden.
+  - `random` - Selecciona firmantes aleatoriamente.
+  - `weighted` - Selecciona firmantes según peso.
+
+#### `[[signers]]`
+
+Cada firmante se configura con:
+
+- un `name`: un identificador legible para el firmante que debe ser único dentro
+  del grupo de firmantes
+- un `weight` opcional: un número que especifica el peso del firmante si
+  `strategy` es `weighted`
+- un `type` y configuración específica del tipo (consulta
+  [Tipos de Firmantes](#signer-types))
+
+Se requiere un firmante a menos que se utilice la bandera `--no-load-signer` que
+tiene funcionalidad limitada. Para implementaciones en producción, se recomienda
+configurar múltiples firmantes para mejorar la confiabilidad y el rendimiento.
+
+### Ejemplo
+
+Aquí hay un ejemplo de archivo `signers.toml` que define un grupo de firmantes
+round-robin con tres firmantes (_nota: cubriremos los diferentes
+tipos/configuraciones de firmantes en la siguiente sección_):
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### Variables de Entorno
+
+Configura las variables de entorno para todos los firmantes configurados:
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### Inicia Kora con la Configuración de Firmantes
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## Tipos de Firmantes
+
+Kora admite cuatro tipos principales de firmantes, cada uno con diferentes
+características de seguridad y operacionales (y una opción sin firmante para
+pruebas limitadas):
+
+- [Clave Privada](#private-key-signer) - simple, autogestionada
+- [Turnkey](#turnkey-signer) - servicio de gestión de claves
+- [Privy](#privy-signer) - servicio de gestión de claves
+- Vault - integración con HashiCorp Vault
+- [Sin Firmante](#no-signer) - sin firmante (para pruebas limitadas)
+
+## Firmante de Clave Privada
+
+El enfoque más simple: almacena tu clave privada directamente en variables de
+entorno o pásala mediante banderas CLI. Kora acepta claves privadas en tres
+formatos:
+
+#### 1. Formato Base58 (Predeterminado)
+
+Clave privada estándar de Solana codificada en base58:
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. Formato U8Array
+
+Array de 64 bytes en formato JSON:
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. Ruta de Archivo JSON
+
+Ruta a un archivo JSON que contiene el keypair:
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+Donde `keypair.json` contiene:
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### Generar un Nuevo Keypair
+
+Puedes crear un nuevo keypair para tu nodo Kora usando la CLI de Solana:
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Configuración de Signer.toml
+
+Variables requeridas:
+
+- `name` - El nombre del firmante
+- `type` - El tipo de firmante (debe ser `memory`)
+- `private_key_env` - La variable de entorno que contiene la clave privada
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Firmante Turnkey
+
+[Turnkey](https://www.turnkey.com/) proporciona gestión de claves de nivel
+empresarial con módulos de seguridad de hardware (HSM) y controles de políticas.
+
+### Requisitos previos
+
+Necesitarás una **Cuenta Turnkey** para usar el firmante Turnkey. Regístrate en
+[turnkey.com](https://www.turnkey.com/)
+
+### Configuración
+
+Necesitarás cinco claves para usar el firmante Turnkey:
+
+- ID de organización de Turnkey
+- Clave pública de API de Turnkey
+- Clave privada de API de Turnkey
+- ID de clave privada de Turnkey
+- Clave pública de Turnkey
+
+Vamos a obtenerlas desde Turnkey:
+
+#### 1. Organización Turnkey
+
+Haz clic en el menú de usuario en la esquina superior derecha del panel de
+Turnkey y copia el ID de organización:
+
+![ID de Organización Turnkey](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+Almacena el ID de organización en una variable de entorno:
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Claves de API de Turnkey
+
+- Haz clic en el menú de usuario en la esquina superior derecha del panel de
+  Turnkey y haz clic en "Configuración de cuenta".
+- En "Claves de API", haz clic en "+ Crear clave de API".
+- Selecciona "Generar claves de API en el navegador"
+- Ingresa un nombre para la clave de API y haz clic en "Continuar"
+- Guarda las claves pública y privada y haz clic en "Aprobar"
+
+![Claves de API de Turnkey](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+Almacena las claves pública y privada de la API en variables de entorno:
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Claves de Billetera Turnkey
+
+Desde el menú principal, navega a
+["Wallets"](https://app.turnkey.com/dashboard/wallets) y haz clic en "Create
+Private Key".
+
+Vamos a crear una nueva clave privada ED25519 con tipo de dirección de activo
+"Solana":
+
+![Billeteras Turnkey](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+Haz clic en "Continue" y luego en "Approve".
+
+Desde tu página de billeteras, deberías ver tu nueva clave privada. Haz clic en
+ella para ver los detalles. Necesitarás copiar el "Private key ID" y la
+"Address" de la billetera. Guárdalos en variables de entorno:
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Detalles de Billetera Turnkey](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+Necesitarás fondear la billetera con SOL para pagar las tarifas de transacción.
+
+### Configurar Variables de Entorno
+
+Ahora deberías tener las siguientes variables de entorno:
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+Consulta el [repositorio de Kora](https://github.com/solana-foundation/kora)
+para ver un archivo `.env.example` completo.
+
+Para soporte con Turnkey, consulta la
+[documentación de Turnkey](https://docs.turnkey.com/embedded-wallets/overview).
+
+### Configuración de Signer.toml
+
+Variables requeridas:
+
+- `name` - El nombre del firmante
+- `type` - El tipo de firmante (debe ser `turnkey`)
+- `api_public_key_env` - La variable de entorno que contiene la clave pública de
+  la API de Turnkey
+- `api_private_key_env` - La variable de entorno que contiene la clave privada
+  de la API de Turnkey
+- `organization_id_env` - La variable de entorno que contiene el ID de
+  organización de Turnkey
+- `private_key_id_env` - La variable de entorno que contiene el ID de clave
+  privada de Turnkey
+- `public_key_env` - La variable de entorno que contiene la clave pública de
+  Turnkey
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Firmante Privy
+
+[Privy](https://www.privy.io/) ofrece infraestructura de billetera integrada con
+gestión segura de claves para aplicaciones Web3.
+
+### Requisitos Previos
+
+Necesitarás una **Cuenta de Privy** para usar el firmante Privy. Regístrate en
+[privy.io](https://www.privy.io/)
+
+### Configuración
+
+Necesitarás tres claves para usar el firmante Privy:
+
+- ID de aplicación de Privy
+- Secreto de aplicación de Privy
+- ID de billetera de Privy
+
+Vamos a obtenerlos desde Privy:
+
+#### 1. ID de aplicación de Privy
+
+Desde tu panel de control, selecciona la aplicación que deseas usar para Kora (o
+haz clic en "+ Nueva aplicación" si no tienes una).
+
+Selecciona "Recuperar claves de API" y haz clic en "+ Nuevo secreto":
+
+![Billeteras de Privy](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+Copia tu "ID de aplicación" y "Secreto de aplicación" y guárdalos en variables
+de entorno:
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Billetera de Privy
+
+A continuación, necesitaremos crear una nueva billetera para Kora. Desde la
+barra lateral de tu panel de control, haz clic en "Billeteras" bajo
+"Infraestructura de billeteras" y selecciona "Nueva billetera".
+
+Selecciona "Solana" como la blockchain y haz clic en "Guardar".
+
+Haz clic en la billetera para ver los detalles:
+
+![Billeteras de Privy](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+Copia el "ID de billetera" y guárdalo en variables de entorno:
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+Necesitarás fondear la billetera con SOL para pagar las tarifas de transacción.
+
+### Configurar variables de entorno
+
+Ahora deberías tener las siguientes variables de entorno:
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+Consulta el [repositorio de Kora](https://github.com/solana-foundation/kora)
+para ver un archivo `.env.example` completo.
+
+Para obtener soporte con Privy, consulta la
+[documentación de Privy](https://docs.privy.io/wallets/overview).
+
+### Configuración de Signer.toml
+
+Variables requeridas:
+
+- `name` - El nombre del firmante
+- `type` - El tipo de firmante (debe ser `privy`)
+- `app_id_env` - La variable de entorno que contiene el ID de aplicación de
+  Privy
+- `app_secret_env` - La variable de entorno que contiene el secreto de
+  aplicación de Privy
+- `wallet_id_env` - La variable de entorno que contiene el ID de billetera de
+  Privy
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## Sin Firmante
+
+Si no se configura ningún firmante, Kora generará un error. Si deseas ejecutar
+Kora sin un firmante, puedes ejecutarlo con la bandera `--no-signer`:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+Ten en cuenta que esto limitará tu nodo a procesar únicamente solicitudes que no
+requieran un firmante.
+
+## Resolución de Problemas
+
+### Referencia Rápida
+
+| Mensaje de Error                                                  | Tipo de Firmante | Solución Rápida                                                                 |
+| ----------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| "At least one signer must be configured"                          | Cualquiera       | Añade al menos un firmante a la configuración                                   |
+| "Failed to read config file"                                      | Cualquiera       | Verifica la ruta y el contenido del archivo                                     |
+| "Failed to parse signers config TOML"                             | Cualquiera       | Verifica el formato del archivo y el contenido del firmante                     |
+| "Duplicate signer name"                                           | Cualquiera       | Asegúrate de que cada firmante tenga un nombre único en la configuración        |
+| "Invalid base58 string"                                           | Clave Privada    | Verifica el formato de la clave, sin espacios adicionales                       |
+| "Invalid private key length"                                      | Clave Privada    | Usa una clave completa de Solana de 64 bytes                                    |
+| "Turnkey \{key\} required"                                        | Turnkey          | Establece `TURNKEY_{key}`                                                       |
+| "Privy \{key\} required"                                          | Privy            | Establece `PRIVY_{key}`                                                         |
+| "Vault \{key\} required"                                          | Vault            | Establece `VAULT_{key}`                                                         |
+| "Failed to create Vault client"                                   | Vault            | Verifica las credenciales de Vault                                              |
+| "Failed to sign with \[service\]"                                 | Cualquiera       | Verifica el estado del servicio, credenciales y límites de tasa                 |
+| "Signer pool not initialized"                                     | Multi-Firmante   | Verifica la ruta y el formato de `signers.toml`                                 |
+| "Cannot create empty signer pool"                                 | Multi-Firmante   | Añade al menos un firmante a la configuración                                   |
+| "Signer with pubkey ... not found"                                | Multi-Firmante   | Verifica que la sugerencia del firmante coincida con los firmantes configurados |
+| "Signers configuration is required unless using --no-load-signer" | Cualquiera       | Añade un archivo de configuración de firmantes                                  |
+
+### Consejos Generales de Depuración
+
+#### Habilitar Registro Detallado
+
+Añade registro detallado para diagnosticar problemas:
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## Seguridad y Mejores Prácticas
+
+### Seguridad General
+
+- Usa keypairs dedicados para Kora (no reutilices billeteras personales)
+- Financia únicamente con SOL que estés dispuesto a gastar en comisiones
+- Mantén un saldo operativo mínimo con monitoreo automatizado y recargas
+- Implementa monitoreo y alertas para actividad inusual
+- Todas las claves privadas y claves API deben almacenarse en variables de
+  entorno o sistemas de gestión de secretos (secretos de Railway, AWS Secrets
+  Manager, etc.)
+
+## Especificar un Firmante (Del Lado del Cliente)
+
+Los clientes pueden especificar un firmante preferido para mantener consistencia
+entre operaciones relacionadas:
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+Sin claves de firmante, la estrategia configurada determina la selección del
+firmante. Es importante tener en cuenta que las claves deben ser consistentes
+entre llamadas relacionadas con la misma transacción (por ejemplo, si generas
+una transacción con una clave de firmante especificada, debes usar la misma
+clave de firmante para todas las llamadas relacionadas).

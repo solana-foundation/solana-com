@@ -17,7 +17,7 @@ const HeaderList = () => {
   const { asPath } = useRouter();
   return (
     <NavigationMenu viewport={false} className="flex-1">
-      <NavigationMenuList className="flex-wrap gap-2 xl:items-center pl-0">
+      <NavigationMenuList className="flex-wrap gap-2 xl:gap-1 xl:items-center pl-0">
         {HEADER_SECTIONS.map(
           (
             {

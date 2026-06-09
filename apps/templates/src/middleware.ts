@@ -5,6 +5,8 @@ export default function middleware() {
 }
 
 export const config = {
-  matcher: ["/((?!api|opengraph|_next/static|_next/image|_vercel|.*\\..*).*)"],
+  matcher: [
+    "/((?!api|opengraph|_next/static|_next/image|templates-assets|_vercel|.*\\..*).*)",
+  ],
   runtime: "nodejs",
 };

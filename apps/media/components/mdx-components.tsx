@@ -4,7 +4,7 @@ import type { ReactNode, ElementType } from "react";
 import Image, { ImageProps } from "next/image";
 import { Video } from "./blocks/video";
 import { Mermaid } from "./blocks/mermaid";
-import { Tweet } from "react-tweet";
+import { SafeTweet } from "./safe-tweet";
 import { Gallery } from "./ui/gallery";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
@@ -331,11 +331,7 @@ export const components = {
 
     video: (props: VideoBlockData) => <Video data={props} />,
 
-    tweet: (props: { id: string }) => (
-      <div data-theme="dark">
-        <Tweet id={props.id} />
-      </div>
-    ),
+    tweet: (props: { id: string }) => <SafeTweet id={props.id} />,
 
     iframe: (props: {
       src: string;
@@ -442,11 +438,7 @@ export function preprocessMDX(source: string): string {
 // Component implementations for custom MDX blocks.
 // Capitalized names are passed via MDXRemote's components prop so MDX v3
 // resolves them from props.components during rendering.
-const TweetBlock = (props: { id: string }) => (
-  <div data-theme="dark">
-    <Tweet id={props.id} />
-  </div>
-);
+const TweetBlock = (props: { id: string }) => <SafeTweet id={props.id} />;
 
 const VideoBlock = (props: VideoBlockData) => <Video data={props} />;
 

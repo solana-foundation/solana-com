@@ -1,0 +1,174 @@
+---
+title: Kit 客户端集成
+description:
+  使用 createKitKoraClient 构建无 Gas 交易，利用 Kit 的插件架构自动处理费用。
+date: 2026-03-09
+---
+
+_最后更新：2026-03-09_
+
+## 您将构建什么
+
+Kit 客户端（`createKitKoraClient`）是将 Kora 集成到 Solana 应用程序的推荐方式。它将 Kora 的费用抽象封装到 Kit 的插件架构中，为您提供一个可自动处理以下功能的客户端：
+
+- 区块哈希管理
+- 费用估算和支付指令注入
+- 通过 Kora 进行交易签名
+- 交易提交和确认
+- 计算预算优化（基于模拟的 CU 估算）
+
+这意味着您可以使用 Kit 程序插件（如
+`tokenProgram()`），而让 Kora 在后台处理所有 Gas 费用的复杂性。
+
+## 前置条件
+
+- 已完成 [Kora 快速入门指南](/docs/tools/kora/getting-started/quick-start)
+  — 运行 Kora 服务器和本地验证器
+- 熟悉 [Solana Kit](https://www.solanakit.com/) 及其插件系统
+
+## 安装
+
+```bash
+pnpm add @solana/kora @solana/kit
+```
+
+对等依赖项（`@solana-program/token`、`@solana-program/compute-budget`、`@solana/kit-plugin-*`）会被大多数包管理器自动安装。如果需要手动安装，请参阅[安装说明](/docs/tools/kora/getting-started/installation)。
+
+## 创建客户端
+
+`createKitKoraClient` 将多个 Kit 插件组合成一个满足
+`ClientWithPayer`、`ClientWithTransactionPlanning` 和
+`ClientWithTransactionSending` 的客户端。
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080", // Kora RPC endpoint
+  rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
+  feePayerWallet: userSigner // TransactionSigner for fee payment
+});
+```
+
+`feePayerWallet` 必须是 `TransactionSigner`
+— 这是授权向 Kora 运营商支付 SPL 代币费用的钱包。Kora 运营商负责处理 SOL 网络费用。
+
+### 配置选项
+
+| 选项               | 必填 | 说明                                                                                  |
+| ------------------ | ---- | ------------------------------------------------------------------------------------- |
+| `endpoint`         | 是   | Kora RPC 端点 URL                                                                     |
+| `rpcUrl`           | 是   | Solana RPC URL（非 Kora 端点）— 用于计算单元模拟和程序插件兼容性                      |
+| `feeToken`         | 是   | 用于支付费用的 SPL 铸币地址（例如 USDC）                                              |
+| `feePayerWallet`   | 是   | 授权 SPL 费用支付的 `TransactionSigner`                                               |
+| `apiKey`           | 否   | 用于 Kora 身份验证的 API 密钥                                                         |
+| `hmacSecret`       | 否   | 用于基于签名身份验证的 HMAC 密钥                                                      |
+| `computeUnitLimit` | 否   | 固定的 CU 限制。如果省略，Kora 将模拟交易以估算最佳 CU（推荐）                        |
+| `computeUnitPrice` | 否   | 优先费用（以微 lamport 为单位）                                                       |
+| `tokenProgramId`   | 否   | 默认为 Token Program。对于 Token-2022 费用代币，请设置为 `TOKEN_2022_PROGRAM_ADDRESS` |
+
+## 与 Kit 程序插件配合使用
+
+Kit 客户端可与 Kit 程序插件组合使用。例如，使用 `tokenProgram()`：
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { tokenProgram } from "@solana-program/token";
+import { address } from "@solana/kit";
+
+const koraClient = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+  feePayerWallet: userSigner
+});
+
+// Compose with the token program plugin
+const client = koraClient.use(tokenProgram());
+
+// Use token program methods — Kora handles all fee abstraction
+await client.token.instructions
+  .transferToATA({
+    source: userTokenAccount,
+    destination: recipientAddress,
+    amount: 1_000_000n, // 1 USDC
+    authority: userSigner
+  })
+  .sendTransaction();
+```
+
+在幕后，Kit 客户端会：
+
+1. 使用 Kora 管理的区块哈希和计算预算指令规划交易
+2. 估算费用并向 Kora 运营商注入（或更新）SPL 支付指令
+3. 使用用户钱包对交易进行部分签名
+4. 将交易发送至 Kora 进行联合签名并提交到 Solana
+
+## 访问 Kora RPC 方法
+
+Kit 客户端还通过 `.kora` 命名空间（来自 `koraPlugin`）公开完整的 Kora API：
+
+```typescript
+// Get server configuration
+const config = await client.kora.getConfig();
+
+// Get supported fee tokens
+const { tokens } = await client.kora.getSupportedTokens();
+
+// Estimate fees for an arbitrary transaction
+const estimate = await client.kora.estimateTransactionFee({
+  transaction: base64EncodedTx,
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+```
+
+所有 `.kora`
+方法响应均使用 Kit 类型值（`Address`、`Blockhash`、`Signature`），而非原始字符串。
+
+## Token-2022 支持
+
+要使用 Token-2022 代币支付费用，请传递 `tokenProgramId` 选项：
+
+```typescript
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+const client = await createKitKoraClient({
+  endpoint: "http://localhost:8080",
+  rpcUrl: "http://127.0.0.1:8899",
+  feeToken: address("your-token-2022-mint"),
+  feePayerWallet: userSigner,
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## 计算预算
+
+默认情况下，Kit 客户端会针对 Solana
+RPC 模拟交易，以确定最优的计算单元限制。这可实现更精确的计算单元分配和更低的费用。
+
+要使用固定值覆盖：
+
+```typescript
+const client = await createKitKoraClient({
+  // ...
+  computeUnitLimit: 200_000,
+  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+});
+```
+
+## 何时使用各个客户端
+
+| 客户端                | 使用场景                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `createKitKoraClient` | **推荐。** 完整的 Kit 集成，具备自动费用处理功能。最适合使用 Kit 程序插件的应用程序。 |
+| `KoraClient`          | 当您需要完全控制交易构建、签名和提交时，可直接访问 RPC。                              |
+| `koraPlugin`          | 将 Kora 方法添加到您已与其他插件组合的现有 Kit 客户端中。                             |
+
+## 后续步骤
+
+- [完整交易流程](/docs/tools/kora/guides/full-demo) — 使用 `KoraClient`
+  的底层详细说明
+- [API 参考](/docs/tools/kora/json-rpc-api) — 所有可用的 RPC 方法
+- [Kora 配置](/docs/tools/kora/operators/configuration) — 服务器端配置选项

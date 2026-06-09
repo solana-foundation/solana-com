@@ -18,7 +18,6 @@ import rehypeSlug from "rehype-slug";
 import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { extractHeadings } from "@/lib/extract-headings";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
 
@@ -239,8 +238,8 @@ export async function generateStaticParams() {
     const publishedSlugs: string[] = [];
 
     for (const slug of slugs) {
-      const post = await reader.collections.posts.read(slug);
-      if (isPublishedPost(post)) {
+      const post = await fetchPublishedPostBySlug(slug);
+      if (post) {
         publishedSlugs.push(slug);
       }
     }

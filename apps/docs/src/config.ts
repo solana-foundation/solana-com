@@ -1,5 +1,7 @@
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
+const PUBLIC_SITE_URL = "https://solana.com";
+
 export const config = {
   siteMetadata: {
     title: `Solana`,
@@ -18,7 +20,9 @@ export const config = {
       ? `http://localhost:3000`
       : (process.env.VERCEL_ENV != "production" && !!process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
-          : `https://solana.com`) || `https://solana.com`,
+          : PUBLIC_SITE_URL) || PUBLIC_SITE_URL,
+
+  publicUrl: PUBLIC_SITE_URL,
 
   shareImageWidth: 1000,
   shareImageHeight: 523,

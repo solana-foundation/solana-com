@@ -1,26 +1,3 @@
-<!-- OPENSPEC:START -->
-
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big
-  performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 # Solana Accelerate - Event Landing Pages
 
 > See root `/CLAUDE.md` for monorepo-wide configuration and shared tooling.
@@ -31,7 +8,7 @@ Landing pages for Solana Accelerate events, starting with the Hong Kong APAC
 event. Built with Next.js 15, MDX, and Tailwind CSS for easy content management
 and responsive design.
 
-**Package name**: `solana-accelerate` **Default port**: 3004
+**Package name**: `solana-com-accelerate` **Default port**: 3004
 
 ## Tech Stack
 
@@ -77,7 +54,7 @@ apps/accelerate/
 
 ```bash
 # From monorepo root
-pnpm dev --filter solana-accelerate
+pnpm dev --filter solana-com-accelerate
 
 # Or from this directory
 pnpm dev

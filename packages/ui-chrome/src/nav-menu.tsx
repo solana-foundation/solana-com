@@ -75,25 +75,24 @@ function NavigationMenuTrigger({
       className={cn(
         navigationMenuTriggerStyle,
         "group",
-        "flex justify-between items-center w-full xl:w-auto py-1 px-4",
-        "text-[rgba(255,255,255,0.64)] text-[16px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
+        "flex justify-between items-center w-full xl:w-auto py-1.5 xl:py-1 px-4 xl:px-3.5",
+        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
         "border-0 rounded-full",
-        "hover:text-white focus:text-white hover:bg-[rgba(240,228,255,0.12)] focus:bg-[rgba(240,228,255,0.12)] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
+        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
         "relative",
         "transition-colors duration-200",
-        "before:transition-all before:duration-300 before:ease-out",
-        "data-[state=open]:text-white data-[state=open]:bg-[rgba(240,228,255,0.12)] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
+        "data-[state=open]:text-white data-[state=open]:bg-white/[0.08] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
         isActive && "text-white light:!text-black",
         className,
       )}
       {...props}
     >
-      {children}{" "}
+      {children}
       <AngleDown
-        className="relative top-[1px] ml-1 -mr-2 size-5"
+        className="relative top-px ml-0.5 -mr-1 size-4 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180"
         aria-hidden="true"
-        width={20}
-        height={20}
+        width={16}
+        height={16}
         viewBox="0 0 24 24"
       />
     </NavigationMenuPrimitive.Trigger>
@@ -131,7 +130,7 @@ function NavigationMenuContent({
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",
         // Visual styling
-        "min-w-[300px] bg-[rgba(25,24,27,0.90)] p-2 rounded-xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[16px] leading-[1.5] backdrop-blur-[12px]",
+        "min-w-[320px] bg-[rgba(25,24,27,0.92)] p-2 xl:p-4 rounded-2xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[15px] leading-[1.5] backdrop-blur-[20px] xl:border xl:border-white/[0.06] xl:shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
         className,
       )}
       {...props}

@@ -28,6 +28,8 @@ export function getImagePath(path: string): string {
 
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
+const PUBLIC_SITE_URL = "https://solana.com/accelerate";
+
 const getSiteUrl = () => {
   if (process.env.NODE_ENV === `development`) {
     return `http://localhost:3004`;
@@ -35,7 +37,7 @@ const getSiteUrl = () => {
   if (process.env.VERCEL_ENV !== "production" && !!process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  return `https://solana.com/accelerate`;
+  return PUBLIC_SITE_URL;
 };
 
 const siteUrl = getSiteUrl();
@@ -65,6 +67,7 @@ export const config = {
     author: `@solana`,
   },
   siteUrl,
+  publicUrl: PUBLIC_SITE_URL,
   social: {
     twitter: {
       name: `solana`,

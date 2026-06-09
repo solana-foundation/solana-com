@@ -1,0 +1,352 @@
+---
+title: Yeni Yapılandırma Seçenekleri (Beta)
+description:
+  Kora v2.2.0-beta'da tanıtılan yeni kora.toml yapılandırma bölümleri.
+---
+
+Bu yapılandırma seçenekleri `v2.2.0-beta.1` sürümünden itibaren kullanılabilir.
+Bunları mevcut `kora.toml` dosyanıza kararlı yapılandırmaların yanına ekleyin.
+
+## İşlem Eklentileri
+
+`[kora.plugins]` bölümü, imzalama akışları sırasında çalışan işlem eklentilerini
+yapılandırır. Eklentiler, Kora işlemleri imzalamadan önce işlemlerin yapısını ve
+içeriğini doğrular. `signTransaction`, `signAndSendTransaction`, `signBundle` ve
+`signAndSendBundle` için çalışırlar — ancak `estimateBundleFee` için
+**çalışmazlar**.
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+```
+
+| Seçenek   | Açıklama                                   | Gerekli mi             | Tür      |
+| --------- | ------------------------------------------ | ---------------------- | -------- |
+| `enabled` | Etkinleştirilmiş işlem eklentileri listesi | Hayır (varsayılan: []) | string[] |
+
+### `gas_swap` Eklentisi
+
+`gas_swap` eklentisi, gazsız token-SOL takas işlemleri için katı bir işlem
+yapısı uygular. Etkinleştirildiğinde, imzalama akışları üzerinden gönderilen her
+işlem tam olarak şunları içermelidir:
+
+1. **Bir SPL Token transferi** (SPL Token veya Token-2022) — ücret ödemeyenden
+   farklı bir sahipten
+2. **Bir System SOL transferi** (`Transfer` veya `TransferWithSeed`) — ücret
+   ödemeden
+
+İşlem Bütçesi talimatları (işlem birimi limitini/fiyatını ayarlama) iki gerekli
+talimatın yanında kullanılabilir. Herhangi bir ek veya takas dışı dış talimat
+reddedilir.
+
+#### Yapılandırma Gereksinimleri
+
+`gas_swap` eklentisi, başlangıçta yapılandırmanızı doğrular ve gereksinimler
+karşılanmazsa hata verir:
+
+- **System Program**, `allowed_programs` içinde olmalıdır
+- **En az bir token programı** (SPL Token veya Token-2022), `allowed_programs`
+  içinde olmalıdır
+- **En az bir token**, `allowed_tokens` içinde olmalıdır
+- **Fiyatlandırma modeli** `Free` olmamalıdır — bir marj veya sabit fiyat
+  belirleyin
+
+```toml
+[kora.plugins]
+enabled = ["gas_swap"]
+
+[validation]
+allowed_programs = [
+    "11111111111111111111111111111111",              # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # SPL Token Program
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  # Token-2022 Program
+]
+allowed_tokens = [
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+]
+
+[validation.price]
+type = "margin"
+margin = 0.0
+```
+
+> **Uyarı:** `gas_swap` eklentisini Sabit fiyatlandırma ile kullanırken,
+> gönderilen SOL'un alınan token'ı aşmasına yol açan bir tükenme durumundan
+> kaçınmak için sabit token ücretinin en az `max_allowed_lamports` değerinde
+> SOL'a eşit olduğundan emin olun.
+
+---
+
+## Bundle Yapılandırması
+
+`[kora.bundle]` bölümü, atomik çoklu işlem yürütmesi için Jito bundle desteğini
+etkinleştirir:
+
+```toml
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+| Seçenek   | Açıklama                          | Gerekli                   | Tür     |
+| --------- | --------------------------------- | ------------------------- | ------- |
+| `enabled` | Bundle işlevselliğini etkinleştir | Hayır (varsayılan: false) | boolean |
+
+### Jito Yapılandırması
+
+| Seçenek            | Açıklama                | Gerekli                                | Tür    |
+| ------------------ | ----------------------- | -------------------------------------- | ------ |
+| `block_engine_url` | Jito blok motoru URL'si | Evet (bundle'lar etkinleştirildiğinde) | string |
+
+Mevcut Jito blok motoru URL'leri:
+
+- **Mainnet (genel):** `https://mainnet.block-engine.jito.wtf`
+- **Mainnet (özel):** Erişim için Jito ile iletişime geçin
+
+> **Önemli:** Kora tarafından ödenen Jito bahşişleriyle bundle'ları kullanırken,
+> imzalayanın bahşiş için SOL transfer edebilmesine izin vermek için
+> `[validation.fee_payer_policy.system]` içinde `allow_transfer = true` değerini
+> ayarlayın.
+
+Kora ile Jito bundle'larının uygulanmasına ilişkin eksiksiz bir kılavuz için,
+[Jito Bundle Kılavuzu](/docs/tools/kora/beta/jito-guide)'na bakın.
+
+---
+
+## Lighthouse Ücret Ödeyici Koruması
+
+`[kora.lighthouse]` bölümü, Lighthouse ücret ödeyici korumasını etkinleştirir.
+Etkinleştirildiğinde, Kora işlemlere bakiye onaylama talimatları ekleyerek,
+ücret ödeyicinin bakiyesinin beklenen seviyelerin altına düşmediğini
+doğrulayarak ücret ödeyiciyi tüketme saldırılarına karşı korur.
+
+```toml
+[kora.lighthouse]
+enabled = true
+fail_if_transaction_size_overflow = true
+```
+
+| Seçenek                             | Açıklama                                                                                           | Gerekli                   | Tür     |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------- | ------- |
+| `enabled`                           | Ücret ödeyici koruması için Lighthouse onaylamalarını etkinleştir                                  | Hayır (varsayılan: false) | boolean |
+| `fail_if_transaction_size_overflow` | Onaylama eklemek boyut sınırını aşarsa işlemi reddet. False ise, onaylama eklemeyi sessizce atlar. | Hayır (varsayılan: true)  | boolean |
+
+### Nasıl Çalışır
+
+Lighthouse etkinleştirildiğinde, Kora ücret ödeyicinin mevcut bakiyesini alır ve
+işlem tamamlandığında bakiyenin `(current_balance - estimated_fee)` değerinin
+altına düşmediğini doğrulayan bir Lighthouse onaylama talimatı ekler. Bu, kötü
+niyetli işlemlerin ücret ödeyiciyi beklenen maliyetlerin ötesinde tüketmesini
+önler.
+
+### Yöntem Uyumluluğu
+
+Lighthouse koruması **yalnızca `signTransaction` ve `signBundle` ile çalışır**.
+`signAndSendTransaction` veya `signAndSendBundle` ile **ÇALIŞMAZ**.
+
+Lighthouse bir onaylama talimatı eklediğinde, işlem mesajını değiştirir. Bu,
+önceden mevcut olan istemci imzalarını geçersiz kılar. `signAndSend*` akışları
+şu nedenle başarısız olur:
+
+1. İstemci işlemi imzalar
+2. Kora, Lighthouse onaylaması ekler (mesajı değiştirir)
+3. İstemcinin orijinal imzası geçersiz hale gelir
+4. Ağ, "imza doğrulama hatası" ile reddeder
+
+**Lighthouse ile önerilen kalıp:**
+
+```
+signTransaction → client receives modified tx → client re-signs → client sends to network
+```
+
+### Yapılandırma Gereksinimleri
+
+Lighthouse'u etkinleştirirken, Lighthouse programını `allowed_programs`
+listenize ekleyin:
+
+```toml
+[validation]
+allowed_programs = [
+    # ... other programs ...
+    "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95",  # Lighthouse Program
+]
+```
+
+Kora bunu başlangıçta doğrular ve Lighthouse etkinse ancak program
+`allowed_programs` içinde değilse hata verir.
+
+> **Not:** `signAndSendTransaction` veya `signAndSendBundle`, Lighthouse ile
+> birlikte etkinleştirilirse, Kora bu yöntemlerin ücret ödeyici korumasına sahip
+> olmayacağına dair bir uyarı kaydeder.
+
+## reCAPTCHA Bot Koruması
+
+reCAPTCHA v3, hassas uç noktalar için görünmez bot koruması sağlar. Tüm
+istekleri doğrulayan API Anahtarı ve HMAC'ın aksine, reCAPTCHA yalnızca belirli
+yüksek riskli yöntemleri korur (varsayılan olarak imzalama yöntemleri).
+
+### Sunucu Yapılandırması
+
+Ortam değişkenlerinize `KORA_RECAPTCHA_SECRET` ekleyin (önceliğe sahiptir) veya
+`kora.toml` dosyanıza bir `recaptcha_secret` ekleyin:
+
+```toml
+[kora.auth]
+recaptcha_secret = "your-recaptcha-v3-secret-key"
+recaptcha_score_threshold = 0.5  # Optional: 0.0-1.0, default 0.5
+protected_methods = ["signTransaction", "signAndSendTransaction", "signBundle", "signAndSendBundle"]  # Optional
+```
+
+| Seçenek                     | Açıklama                                                           | Varsayılan          |
+| --------------------------- | ------------------------------------------------------------------ | ------------------- |
+| `recaptcha_secret`          | Google'dan aldığınız reCAPTCHA v3 gizli anahtarınız                | -                   |
+| `recaptcha_score_threshold` | Geçmek için minimum puan (0.0 = hepsi geçer, 1.0 = hiçbiri geçmez) | 0.5                 |
+| `protected_methods`         | Doğrulama gerektiren RPC yöntemleri                                | İmzalama yöntemleri |
+
+### Nasıl Çalışır
+
+1. İstemci, Google'ın reCAPTCHA v3 API'sinden bir reCAPTCHA jetonu alır
+2. İstemci, jetonu `x-recaptcha-token` başlığına dahil eder
+3. Sunucu, jetonu Google ile doğrular ve puanı kontrol eder
+4. Puan >= eşik değeriyse, istek devam eder; aksi takdirde 401 Yetkisiz döner
+
+reCAPTCHA, API Key/HMAC kimlik doğrulaması başarılı olduktan _sonra_ çalışır
+(yapılandırılmışsa). Korumasız metodlar reCAPTCHA doğrulamasını tamamen atlar.
+
+### İstemci Uygulaması
+
+**Kora SDK Kullanarak:**
+
+```javascript
+const { KoraClient } = require("@solana/kora");
+
+const kora = new KoraClient({
+  rpcUrl: "http://localhost:8080",
+  apiKey: process.env.KORA_API_KEY,
+  // Callback called for each request - return fresh token
+  getRecaptchaToken: async () => {
+    return await grecaptcha.execute("your-site-key", { action: "sign" });
+  }
+});
+
+// Token is automatically included for all requests
+const result = await kora.signTransaction({ transaction: "base64..." });
+```
+
+**fetch Kullanarak:**
+
+```javascript
+async function callKoraProtectedMethod(method, params = {}) {
+  const recaptchaToken = await grecaptcha.execute("your-site-key", {
+    action: "sign"
+  });
+
+  const response = await fetch("http://localhost:8080", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-recaptcha-token": recaptchaToken
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1
+    })
+  });
+
+  return response.json();
+}
+```
+
+### reCAPTCHA Anahtarlarını Alma
+
+1. [Google reCAPTCHA Yönetici Konsolu](https://www.google.com/recaptcha/admin)
+   adresine gidin
+2. **reCAPTCHA v3** ile yeni bir site oluşturun
+3. Ön yüzünüzde (istemci tarafı) **Site Anahtarını** kullanın
+4. Kora yapılandırmanızda (sunucu tarafı) **Gizli Anahtarı** kullanın
+
+## Kullanım Limitleri
+
+`[kora.usage_limit]` bölümü, kötüye kullanımı önlemek ve adil kullanımı sağlamak
+için cüzdan başına kullanım sınırlamasını yapılandırır. Bu ayrıca kullanıcıların
+işlem ücretlerini belirli bir limite kadar sübvanse etmek için ödül programları
+oluşturmak için de kullanılabilir.
+
+**Not**: Bu özellik, birden fazla Kora örneğinde etkinleştirildiğinde Redis
+gerektirir.
+
+```toml
+[kora.usage_limit]
+enabled = true
+cache_url = "redis://localhost:6379"
+fallback_if_unavailable = true
+```
+
+| Seçenek                   | Açıklama                                              | Gerekli                   | Tür     |
+| ------------------------- | ----------------------------------------------------- | ------------------------- | ------- |
+| `enabled`                 | Cüzdan başına kullanım sınırlamasını etkinleştir      | Hayır (varsayılan: false) | boolean |
+| `cache_url`               | Paylaşılan kullanım takibi için Redis bağlantı URL'si | Hayır                     | string  |
+| `fallback_if_unavailable` | Redis kullanılamıyorsa işlemlere izin ver             | Hayır (varsayılan: true)  | boolean |
+
+> _`fallback_if_unavailable` true olduğunda, sistem Redis geçici olarak
+> kullanılamıyorsa işlemlerin devam etmesine izin vererek hizmet kesintisini
+> önler._
+
+### Kullanım Limiti Kuralları
+
+Beta sürümü, ayrıntılı, kural tabanlı kullanım limitleri sunar. Tek bir
+`max_transactions` sayısı yerine, belirli işlem türlerini veya tek tek
+talimatları hedefleyen, isteğe bağlı zaman pencereleri olan birden fazla kural
+tanımlayabilirsiniz.
+
+```toml
+[[kora.usage_limit.rules]]
+type = "transaction"
+max = 100
+window_seconds = 86400  # 100 transactions per day
+
+[[kora.usage_limit.rules]]
+type = "instruction"
+program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+instruction = "Transfer"
+max = 50
+window_seconds = 3600  # 50 SPL transfers per hour
+```
+
+| Kural Alanı      | Açıklama                                                                                     | Gerekli |
+| ---------------- | -------------------------------------------------------------------------------------------- | ------- |
+| `type`           | `"transaction"` (tüm işlemleri sayar) veya `"instruction"` (belirli talimat türlerini sayar) | Evet    |
+| `max`            | Cüzdan engellenmeden önceki maksimum sayı                                                    | Evet    |
+| `window_seconds` | Saniye cinsinden zaman penceresi. Belirtilmezse, limit kalıcıdır.                            | Hayır   |
+| `program`        | Eşleştirilecek program adresi (`instruction` türü için gerekli)                              | Koşullu |
+| `instruction`    | Eşleştirilecek talimat adı, örn. `"Transfer"`, `"Burn"` (`instruction` türü için gerekli)    | Koşullu |
+
+`window_seconds` ayarlandığında, sayaç zaman aralığı sona erdikten sonra
+sıfırlanır. Bu ayar olmadan, limit kalıcıdır — bir kez ulaşıldığında, cüzdan
+Redis'ten manuel olarak temizlenene kadar engellenir.
+
+## Yeni Etkinleştirilen Metodlar
+
+`[kora.enabled_methods]`'e aşağıdaki metodlar eklenmiştir:
+
+```toml
+[kora.enabled_methods]
+get_version = true
+estimate_bundle_fee = true
+sign_bundle = false
+sign_and_send_bundle = false
+```
+
+| Metod                  | Açıklama                                    |
+| ---------------------- | ------------------------------------------- |
+| `get_version`          | Kora sunucu sürümünü döndürür               |
+| `estimate_bundle_fee`  | Bir işlem paketi için ücretleri tahmin eder |
+| `sign_bundle`          | Göndermeden bir işlem paketini imzalar      |
+| `sign_and_send_bundle` | İmzalar ve paketi Jito'ya gönderir          |
+
+Tam API dokümantasyonu için
+[Paket Metodları](/docs/tools/kora/beta/bundle-methods) bölümüne bakın.
