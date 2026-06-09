@@ -548,7 +548,7 @@ function InlineControl<T extends string | number>({
           className={cn(
             "border px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase transition-colors",
             option.value === value
-              ? "border-nd-primary bg-nd-primary text-nd-on-primary"
+              ? "border-nd-primary bg-nd-border-light/20 text-nd-high-em-text"
               : "border-nd-border-prominent text-nd-mid-em-text hover:bg-nd-border-light/20 hover:text-nd-high-em-text",
           )}
           key={option.value}
