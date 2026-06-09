@@ -1,5 +1,12 @@
 "use client";
 
+import { motion } from "framer-motion";
+import {
+  Activity,
+  ArrowLeftRight,
+  CircleDollarSign,
+  type LucideIcon,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
@@ -32,6 +39,18 @@ const tabOptions = [
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
+
+const tabIcons: Record<DashboardTab, LucideIcon> = {
+  overview: Activity,
+  stablecoins: CircleDollarSign,
+  defi: ArrowLeftRight,
+};
+
+const tabIndicatorSpring = {
+  damping: 32,
+  stiffness: 360,
+  type: "spring",
+} as const;
 
 const defaultProviders = new Set<ProviderName>(providers);
 const defaultRangeDays = 90;
@@ -152,10 +171,8 @@ export function SolanaDataDashboard() {
           })}
           className="mt-8 max-w-[720px]"
         >
-          <h2 className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
-            {activeTabContent.label}
-          </h2>
-          <p className="nd-body-m text-nd-mid-em-text mt-2">
+          <h2 className="sr-only">{activeTabContent.label}</h2>
+          <p className="nd-body-m text-nd-mid-em-text">
             {activeTabContent.description}
           </p>
         </section>
@@ -218,18 +235,12 @@ function DashboardControls({
   showProviderControls: boolean;
 }) {
   const t = useTranslations("dataDashboard");
-  const translatedTabOptions = tabOptions.map((option) => ({
-    label: t(option.labelKey),
-    value: option.value,
-  }));
 
   return (
-    <div className="px-5 md:px-8 xl:px-10 py-2.5 grid gap-2 xl:flex xl:items-center xl:justify-between">
-      <div className="-mx-1 flex items-center gap-x-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <InlineControl
-          ariaLabel={t("controls.tabsAriaLabel")}
-          options={translatedTabOptions}
-          value={activeTab}
+    <div className="px-5 md:px-8 xl:px-10 py-2 grid gap-2 xl:flex xl:items-center xl:justify-between">
+      <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <TabSwitcher
+          activeTab={activeTab}
           onChange={(value) => onUpdateQuery({ tab: value })}
         />
         <Separator />
@@ -250,6 +261,66 @@ function DashboardControls({
         />
       ) : null}
     </div>
+  );
+}
+
+function TabSwitcher({
+  activeTab,
+  onChange,
+}: {
+  activeTab: DashboardTab;
+  onChange: (_value: DashboardTab) => void;
+}) {
+  const t = useTranslations("dataDashboard");
+
+  return (
+    <div
+      aria-label={t("controls.tabsAriaLabel")}
+      className="flex shrink-0 items-center"
+      role="tablist"
+    >
+      {tabOptions.map((option) => {
+        const Icon = tabIcons[option.value];
+        const isActive = option.value === activeTab;
+
+        return (
+          <button
+            aria-selected={isActive}
+            className={cn(
+              "group relative flex shrink-0 items-center gap-2 px-3 py-2.5 font-brand-mono text-[12px] leading-none font-bold uppercase tracking-wide transition-colors",
+              "focus-visible:outline-none focus-visible:text-nd-high-em-text",
+              isActive
+                ? "text-nd-high-em-text"
+                : "text-nd-mid-em-text/60 hover:text-nd-high-em-text",
+            )}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            role="tab"
+            type="button"
+          >
+            <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.75} />
+            {t(option.labelKey)}
+            {isActive ? (
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-px bg-nd-high-em-text"
+                layoutId="dataTabUnderline"
+                transition={tabIndicatorSpring}
+              />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Separator() {
+  return (
+    <span
+      aria-hidden="true"
+      className="hidden h-3 w-px shrink-0 bg-nd-border-prominent md:inline-block"
+    />
   );
 }
 
@@ -513,15 +584,6 @@ function DataError({ error }: { error: Error }) {
       </h2>
       <p className="mt-3 nd-body-m text-nd-mid-em-text">{error.message}</p>
     </section>
-  );
-}
-
-function Separator() {
-  return (
-    <span
-      aria-hidden="true"
-      className="hidden md:inline-block h-3 w-px shrink-0 bg-nd-border-prominent"
-    />
   );
 }
 
