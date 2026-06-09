@@ -26,8 +26,7 @@ function matchesRouteSegment(
 export function shouldShowDevelopersNav(pathname: string | null | undefined) {
   return (
     matchesRouteSegment(pathname, "/developers") ||
-    matchesRouteSegment(pathname, "/docs") ||
-    matchesRouteSegment(pathname, "/data")
+    matchesRouteSegment(pathname, "/docs")
   );
 }
 
@@ -45,7 +44,6 @@ export function isThemeRoute(pathname: string | null | undefined) {
     matchesRouteSegment(pathname, "/docs") ||
     matchesRouteSegment(pathname, "/developers/cookbook") ||
     matchesRouteSegment(pathname, "/developers/guides") ||
-    matchesRouteSegment(pathname, "/developers/bootcamp") ||
-    matchesRouteSegment(pathname, "/data")
+    matchesRouteSegment(pathname, "/developers/bootcamp")
   );
 }
