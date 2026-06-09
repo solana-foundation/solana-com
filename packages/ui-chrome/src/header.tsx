@@ -27,10 +27,7 @@ function Header({
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
   const showSecondaryDevelopersNav =
-    pathname.includes("/developers") ||
-    pathname.includes("/docs") ||
-    pathname.endsWith("/data") ||
-    pathname.includes("/data/");
+    pathname.includes("/developers") || pathname.includes("/docs");
 
   return (
     <>
