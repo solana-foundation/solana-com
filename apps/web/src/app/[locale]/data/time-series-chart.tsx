@@ -49,6 +49,9 @@ const margin = {
   left: 62,
 };
 
+const coincidentDashPatterns = ["6 4", "2 4"] as const;
+const dimmedSeriesOpacity = 0.25;
+
 export function TimeSeriesChart({
   series,
   valueLabel,
@@ -57,10 +60,20 @@ export function TimeSeriesChart({
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
   const [disabledSeries, setDisabledSeries] = useState<Set<string>>(new Set());
+  const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
   const visibleSeries = useMemo(
     () => series.filter((item) => !disabledSeries.has(item.id)),
     [disabledSeries, series],
   );
+  const seriesDashPatterns = useMemo(
+    () => getSeriesDashPatterns(visibleSeries),
+    [visibleSeries],
+  );
+  const highlightedSeriesId = visibleSeries.some(
+    (item) => item.id === hoveredSeriesId,
+  )
+    ? hoveredSeriesId
+    : null;
 
   return (
     <div className="grid gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
@@ -78,6 +91,7 @@ export function TimeSeriesChart({
                   : "border-nd-border-prominent text-nd-high-em-text hover:bg-nd-border-light/20",
               )}
               key={item.id}
+              onBlur={() => setHoveredSeriesId(null)}
               onClick={() => {
                 setDisabledSeries((current) => {
                   const next = new Set(current);
@@ -91,6 +105,9 @@ export function TimeSeriesChart({
                   return next;
                 });
               }}
+              onFocus={() => setHoveredSeriesId(item.id)}
+              onMouseEnter={() => setHoveredSeriesId(item.id)}
+              onMouseLeave={() => setHoveredSeriesId(null)}
               type="button"
             >
               <span
@@ -112,8 +129,10 @@ export function TimeSeriesChart({
             {({ width, height: measuredHeight }) => (
               <ChartSvg
                 height={measuredHeight}
+                highlightedSeriesId={highlightedSeriesId}
                 locale={locale}
                 series={visibleSeries}
+                seriesDashPatterns={seriesDashPatterns}
                 valueLabel={valueLabel}
                 width={width}
               />
@@ -131,14 +150,18 @@ export function TimeSeriesChart({
 
 function ChartSvg({
   height,
+  highlightedSeriesId,
   locale,
   series,
+  seriesDashPatterns,
   valueLabel,
   width,
 }: {
   height: number;
+  highlightedSeriesId: string | null;
   locale: string;
   series: ChartSeries[];
+  seriesDashPatterns: ReadonlyMap<string, string>;
   valueLabel: string;
   width: number;
 }) {
@@ -224,9 +247,16 @@ function ChartSvg({
               defined={(point) => Number.isFinite(point.value)}
               key={item.id}
               stroke={item.color}
+              strokeDasharray={seriesDashPatterns.get(item.id)}
               strokeLinecap="round"
               strokeLinejoin="round"
+              strokeOpacity={
+                highlightedSeriesId && highlightedSeriesId !== item.id
+                  ? dimmedSeriesOpacity
+                  : 1
+              }
               strokeWidth={2}
+              style={{ transition: "stroke-opacity 150ms ease" }}
               x={(point) => xScale(point.date)}
               y={(point) => yScale(point.value)}
             />
@@ -355,6 +385,50 @@ function ChartSvg({
       ) : null}
     </>
   );
+}
+
+export function getSeriesDashPatterns(series: ChartSeries[]) {
+  const patterns = new Map<string, string>();
+
+  series.forEach((item, index) => {
+    const coincidentCount = series
+      .slice(0, index)
+      .filter((earlier) =>
+        arePointsCoincident(item.points, earlier.points),
+      ).length;
+
+    if (coincidentCount > 0) {
+      patterns.set(
+        item.id,
+        coincidentDashPatterns[
+          (coincidentCount - 1) % coincidentDashPatterns.length
+        ],
+      );
+    }
+  });
+
+  return patterns;
+}
+
+function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((pointA, index) => {
+    const pointB = b[index];
+
+    return (
+      pointA.date.getTime() === pointB.date.getTime() &&
+      areValuesClose(pointA.value, pointB.value)
+    );
+  });
+}
+
+function areValuesClose(a: number, b: number) {
+  const scale = Math.max(Math.abs(a), Math.abs(b));
+
+  return Math.abs(a - b) <= scale * 1e-9;
 }
 
 function getDateDomain(points: SeriesPoint[]): [Date, Date] {
