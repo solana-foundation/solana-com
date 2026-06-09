@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
-import { useRouter } from "@workspace/i18n/use-router";
+import { usePathname } from "@workspace/i18n/routing";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
@@ -22,11 +22,10 @@ function Header({
   showLanguage = true,
   showDevelopersNav = true,
 }) {
-  const router = useRouter();
+  const pathname = usePathname();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
-  const pathname = router.asPath.split(/[?#]/)[0];
   const showSecondaryDevelopersNav =
     pathname.includes("/developers") ||
     pathname.includes("/docs") ||
