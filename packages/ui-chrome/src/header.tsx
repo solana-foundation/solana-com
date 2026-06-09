@@ -11,6 +11,7 @@ import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
 import { InkeepChatButton } from "./inkeep-chat-button";
+import { shouldShowDevelopersNav } from "./developer-routes";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/icons/moon.inline.svg";
@@ -26,8 +27,7 @@ function Header({
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
-  const showSecondaryDevelopersNav =
-    pathname.includes("/developers") || pathname.includes("/docs");
+  const showSecondaryDevelopersNav = shouldShowDevelopersNav(pathname);
 
   return (
     <>

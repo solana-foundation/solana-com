@@ -14,6 +14,7 @@ import {
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
   DocsSidebarToggleIcon,
 } from "./docs-sidebar-toggle";
+import { shouldShowDocsSidebarToggle } from "./developer-routes";
 import type { ComponentProps } from "react";
 
 function NavLink(props: ComponentProps<typeof Link>) {
@@ -33,9 +34,7 @@ export function DevelopersNav({
   const t = useTranslations();
   const router = useRouter();
   const pathname = router.asPath.split(/[?#]/)[0];
-  const showSidebarToggleSlot = pathname
-    ? pathname.includes("/docs") || pathname.includes("/developers/cookbook")
-    : false;
+  const showSidebarToggleSlot = shouldShowDocsSidebarToggle(pathname);
 
   return (
     <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]">
