@@ -42,7 +42,9 @@ The CLI sets the approve policy with `--enable-confidential-transfers auto` or
 gates that behind approval from the confidential transfer authority (which
 defaults to the mint authority). The client paths take the same settings through
 the `ConfidentialTransferMint` parameters: an authority, the auto-approve flag,
-and an optional auditor key.
+and an optional auditor key. Both the approve policy and the auditor can be
+changed later (see [Configure an auditor](#configure-an-auditor)); only the
+presence of the extension itself is fixed at creation.
 
 <CodeTabs>
 
@@ -65,15 +67,51 @@ token
 ```
 
 ```ts !! title="create-confidential-mint.ts"
-import { getInitializeConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-// Run this before the InitializeMint instruction, in the same transaction.
-const ix = getInitializeConfidentialTransferMintInstruction({
-  mint,
-  authority, // confidential transfer authority
-  autoApproveNewAccounts: true, // false for a manual approve policy
-  auditorElgamalPubkey: null // an ElGamal pubkey (as an Address) to set an auditor
-});
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
 ```
 
 </CodeTabs>
@@ -90,6 +128,10 @@ The confidential transfer authority can set, rotate, or clear the auditor at any
 time. The same operation also updates the approve policy. On the CLI the auditor
 key is a base64 encoding of an ElGamal public key; pass `--auditor-pubkey none`
 to remove it and `--approve-policy auto|manual` to change the policy.
+
+Rotation only affects future transfers. Amounts in transactions already onchain
+stay encrypted to whichever auditor key was active when they executed, so retain
+old auditor keys if you need to decrypt historical activity.
 
 <CodeTabs>
 
@@ -321,8 +363,6 @@ zero first), and refresh the readable supply ciphertext with
   signature. To provision accounts for users smoothly, have them register an
   ElGamal key once and use the registry path, described in the
   [Integration Guide](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts).
-- **Network requirements.** Confidential operations need the ZK ElGamal Proof
-  Program enabled on the target cluster.
 - **Transaction count.** A confidential transfer currently spans a few dependent
   transactions because the proofs exceed today's transaction size limit.
   Transaction format v1 (landing with Agave v4.2) raises that limit and is
