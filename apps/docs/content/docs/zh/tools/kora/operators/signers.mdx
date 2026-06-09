@@ -1,0 +1,469 @@
+---
+title: 签名者
+description: 设置和管理 Kora 签名者
+---
+
+_最后更新：2025-08-22_
+
+## 什么是签名者？
+
+**签名者**是您的 Kora 节点用于作为费用支付者签署 Solana 交易的加密密钥对。当用户向您的 Kora 节点发送交易时，节点会验证这些交易，并使用您签名者的私钥联合签名，以支付 SOL 交易费用。
+
+**注意**：默认情况下，代币支付费用会发送到签名者的地址。但是，您可以在
+`kora.toml` 中配置单独的
+`payment_address`，以便在不同地址接收付款，同时保持签名者独立。详情请参阅[配置指南](/docs/tools/kora/operators/configuration)。
+
+您的签名者密钥对可以直接访问用于支付交易费用的 SOL 资金。如果遭到泄露，攻击者可能会：
+
+- 耗尽您的 SOL 余额
+- 签署未经授权的交易
+- 中断您的代付服务
+
+## 签名者配置
+
+Kora RPC CLI 需要通过 `--signers-config` 标志指定一个
+`signer.toml`。`singer.toml`
+文件允许您为节点配置签名者及签名者配置。`signer.toml` 包含两个部分：
+
+1. `[signer_pool]` - 签名者池的配置
+2. `[[signers]]` - 每个签名者的配置（至少需要一个签名者，除非使用功能受限的
+   `--no-load-signer` 标志）
+
+#### `[signer_pool]`
+
+签名者池配置指定了整个签名者池特有的属性：
+
+- `strategy` - 选择签名者的策略。可用策略包括：
+  - `round_robin`（默认）- 按顺序循环使用签名者。
+  - `random` - 随机选择签名者。
+  - `weighted` - 根据权重选择签名者。
+
+#### `[[signers]]`
+
+每个签名者的配置包括：
+
+- `name`：签名者的可读标识符，在签名者池中必须唯一
+- 可选的 `weight`：指定签名者权重的数字，当 `strategy` 为 `weighted` 时使用
+- `type` 和类型特定的配置（参见[签名者类型](#signer-types)）
+
+除非使用功能有限的 `--no-load-signer`
+标志，否则至少需要一个签名者。对于生产部署，建议配置多个签名者以提高可靠性和性能。
+
+### 示例
+
+以下是一个 `signers.toml`
+文件示例，定义了包含三个签名者的轮询签名者池（_注：我们将在下一节介绍不同的签名者类型/配置_）：
+
+```toml
+[signer_pool]
+# Selection strategy: round_robin, random, weighted
+strategy = "round_robin"
+
+# Primary memory signer
+[[signers]]
+name = "signer_1"
+type = "memory"
+private_key_env = "SIGNER_1_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Backup memory signer
+[[signers]]
+name = "signer_2"
+type = "memory"
+private_key_env = "SIGNER_2_PRIVATE_KEY"
+# weight = 1 # Not required if strategy is not weighted
+
+# Turnkey signer for high-value operations
+[[signers]]
+name = "signer_3_turnkey"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+# weight = 2  # Higher weight = selected more often
+```
+
+### 环境变量
+
+为所有已配置的签名者设置环境变量：
+
+```bash
+# Memory signers
+SIGNER_1_PRIVATE_KEY="your_base58_private_key_1"
+SIGNER_2_PRIVATE_KEY="your_base58_private_key_2"
+
+# Turnkey signer
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_ORG_ID="your_turnkey_organization_id"
+TURNKEY_PRIVATE_KEY_ID="your_turnkey_private_key_id"
+TURNKEY_PUBLIC_KEY="your_turnkey_public_key"
+```
+
+### 使用签名者配置启动 Kora
+
+```bash
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+## 签名者类型
+
+Kora 支持四种主要签名者类型，每种类型具有不同的安全性和操作特性（以及用于有限测试的无签名者选项）：
+
+- [私钥](#private-key-signer) - 简单、自管理
+- [Turnkey](#turnkey-signer) - 密钥管理服务
+- [Privy](#privy-signer) - 密钥管理服务
+- Vault - HashiCorp Vault 集成
+- [无签名者](#no-signer) - 无签名者（用于有限测试）
+
+## 私钥签名者
+
+最简单的方法 - 将私钥直接存储在环境变量中或通过 CLI 标志传递。Kora 接受三种格式的私钥：
+
+#### 1. Base58 格式（默认）
+
+标准 Solana base58 编码的私钥：
+
+```bash
+KORA_PRIVATE_KEY="5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht..."
+```
+
+#### 2. U8Array 格式
+
+JSON 格式的 64 字节数组：
+
+```bash
+KORA_PRIVATE_KEY="[174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56, 222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15, 185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121, 35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135]"
+```
+
+#### 3. JSON 文件路径
+
+包含密钥对的 JSON 文件的路径：
+
+```bash
+KORA_PRIVATE_KEY="/path/to/keypair.json"
+```
+
+其中 `keypair.json` 包含：
+
+```json
+[
+  174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,
+  222, 53, 138, 189, 224, 216, 117, 173, 10, 149, 53, 45, 73, 251, 237, 246, 15,
+  185, 186, 82, 177, 240, 148, 69, 241, 227, 167, 80, 141, 89, 240, 121, 121,
+  35, 172, 247, 68, 251, 226, 218, 48, 63, 176, 109, 168, 89, 238, 135
+]
+```
+
+### 生成新的密钥对
+
+您可以使用 Solana CLI 为您的 Kora 节点创建新的密钥对：
+
+```bash
+# Generate new keypair file
+solana-keygen new --outfile ~/.config/solana/kora-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/kora-keypair.json
+
+# Fund with SOL for transaction fees
+solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+```
+
+### Signer.toml 配置
+
+必需变量：
+
+- `name` - 签名者的名称
+- `type` - 签名者的类型（必须为 `memory`）
+- `private_key_env` - 包含私钥的环境变量
+
+```toml
+[[signers]]
+name = "my_memory_signer"
+type = "memory"
+private_key_env = "KORA_PRIVATE_KEY" # (or your environment variable name)
+```
+
+## Turnkey 签名者
+
+[Turnkey](https://www.turnkey.com/)
+提供企业级密钥管理服务，配备硬件安全模块 (HSM) 和策略控制。
+
+### 前置条件
+
+您需要一个 **Turnkey 账户**才能使用 Turnkey 签名者。请在
+[turnkey.com](https://www.turnkey.com/) 注册。
+
+### 设置
+
+使用 Turnkey 签名者需要五个密钥：
+
+- Turnkey 组织 ID
+- Turnkey API 公钥
+- Turnkey API 私钥
+- Turnkey 私钥 ID
+- Turnkey 公钥
+
+让我们从 Turnkey 获取这些密钥：
+
+#### 1. Turnkey 组织
+
+点击 Turnkey 控制台右上角的用户菜单并复制组织 ID：
+
+![Turnkey 组织 ID](/assets/docs/tools/kora/signers/turnkey-org.jpg)
+
+将组织 ID 存储在环境变量中：
+
+```bash
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+```
+
+#### 2. Turnkey API 密钥
+
+- 点击 Turnkey 控制台右上角的用户菜单，然后点击「账户设置」
+- 在「API 密钥」下，点击「+ 创建 API 密钥」
+- 选择「在浏览器中生成 API 密钥」
+- 为 API 密钥输入名称，然后点击「继续」
+- 保存公钥和私钥，然后点击「批准」
+
+![Turnkey API 密钥](/assets/docs/tools/kora/signers/turnkey-api.jpg)
+
+将 API 公钥和私钥存储在环境变量中：
+
+```bash
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+```
+
+#### 3. Turnkey 钱包密钥
+
+从主菜单导航至["钱包"](https://app.turnkey.com/dashboard/wallets)并点击"创建私钥"。
+
+我们将创建一个新的 ED25519 私钥，资产地址类型为"Solana"：
+
+![Turnkey 钱包](/assets/docs/tools/kora/signers/turnkey-pk.jpg)
+
+点击"继续"，然后点击"批准"。
+
+在您的钱包页面中，您应该能看到新创建的私钥。点击它以查看详细信息。您需要复制"私钥 ID"和钱包"地址"。将它们保存到环境变量中：
+
+```bash
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id" #7936...
+TURNKEY_PUBLIC_KEY="your_solana_address" # 4gBe...
+```
+
+![Turnkey 钱包详情](/assets/docs/tools/kora/signers/turnkey-pk2.jpg)
+
+您需要向该钱包充值 SOL 以支付交易费用。
+
+### 配置环境变量
+
+现在您应该拥有以下环境变量：
+
+```bash
+# .env file
+TURNKEY_ORGANIZATION_ID="your_organization_id"
+TURNKEY_API_PUBLIC_KEY="your_turnkey_api_public_key"
+TURNKEY_API_PRIVATE_KEY="your_turnkey_api_private_key"
+TURNKEY_PRIVATE_KEY_ID="your_private_key_id"
+TURNKEY_PUBLIC_KEY="your_solana_public_key"
+```
+
+完整的 `.env.example` 文件请参见
+[Kora 代码库](https://github.com/solana-foundation/kora)。
+
+如需获得 Turnkey 支持，请查看
+[Turnkey 文档](https://docs.turnkey.com/embedded-wallets/overview)。
+
+### Signer.toml 配置
+
+必需变量：
+
+- `name` - 签名器名称
+- `type` - 签名器类型（必须为 `turnkey`）
+- `api_public_key_env` - 包含 Turnkey API 公钥的环境变量
+- `api_private_key_env` - 包含 Turnkey API 私钥的环境变量
+- `organization_id_env` - 包含 Turnkey 组织 ID 的环境变量
+- `private_key_id_env` - 包含 Turnkey 私钥 ID 的环境变量
+- `public_key_env` - 包含 Turnkey 公钥的环境变量
+
+```toml
+[[signers]]
+name = "my_turnkey_signer"
+type = "turnkey"
+api_public_key_env = "TURNKEY_API_PUBLIC_KEY"
+api_private_key_env = "TURNKEY_API_PRIVATE_KEY"
+organization_id_env = "TURNKEY_ORG_ID"
+private_key_id_env = "TURNKEY_PRIVATE_KEY_ID"
+public_key_env = "TURNKEY_PUBLIC_KEY"
+```
+
+## Privy 签名器
+
+[Privy](https://www.privy.io/)
+为 Web3 应用程序提供嵌入式钱包基础设施和安全的密钥管理服务。
+
+### 前置要求
+
+使用 Privy 签名器需要一个 **Privy 账户**。请在 [privy.io](https://www.privy.io/)
+注册。
+
+### 设置
+
+使用 Privy 签名器需要三个密钥：
+
+- Privy App ID
+- Privy App Secret
+- Privy Wallet ID
+
+让我们从 Privy 获取这些信息：
+
+#### 1. Privy 应用 ID
+
+在你的仪表盘中，选择你想用于 Kora 的应用（如果还没有应用，请点击“+ 新建应用”）。
+
+选择“检索 API 密钥”并点击“+ 新建密钥”：
+
+![Privy 钱包](/assets/docs/tools/kora/signers/privy-app.jpg)
+
+复制你的“App ID”和“App Secret”，并将它们保存到环境变量中：
+
+```bash
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+```
+
+#### 2. Privy 钱包
+
+接下来，我们需要为 Kora 创建一个新钱包。在仪表盘侧边栏点击“Wallet
+Infrastructure”下的“钱包”，并选择“新建钱包”。
+
+选择“Solana”作为区块链，然后点击“保存”。
+
+点击该钱包以查看详细信息：
+
+![Privy 钱包](/assets/docs/tools/kora/signers/privy-wallet.jpg)
+
+复制“Wallet ID”（钱包 ID），并将其保存到环境变量中：
+
+```bash
+PRIVY_WALLET_ID="your_privy_wallet_id"
+```
+
+你需要为钱包充值 SOL 以支付交易手续费。
+
+### 配置环境变量
+
+你现在应该有如下环境变量：
+
+```bash
+# .env file
+PRIVY_APP_ID="your_privy_app_id"
+PRIVY_APP_SECRET="your_privy_app_secret"
+PRIVY_WALLET_ID="your_wallet_id"
+```
+
+查看 [Kora 仓库](https://github.com/solana-foundation/kora) 以获取完整的
+`.env.example` 文件示例。
+
+如需 Privy 相关支持，详见 [Privy 文档](https://docs.privy.io/wallets/overview)。
+
+### Signer.toml 配置
+
+必需变量：
+
+- `name` - 签名者名称
+- `type` - 签名者类型（必须为 `privy`）
+- `app_id_env` - 存储 Privy App ID 的环境变量
+- `app_secret_env` - 存储 Privy App Secret 的环境变量
+- `wallet_id_env` - 存储 Privy 钱包 ID 的环境变量
+
+```toml
+[[signers]]
+name = "my_privy_signer"
+type = "privy"
+app_id_env = "PRIVY_APP_ID"
+app_secret_env = "PRIVY_APP_SECRET"
+wallet_id_env = "PRIVY_WALLET_ID"
+```
+
+## 无签名器
+
+如果未配置签名器,Kora 将抛出错误。如果您想在没有签名器的情况下运行 Kora,可以使用
+`--no-signer` 标志运行:
+
+```bash
+kora --config path/to/kora.toml rpc start --no-signer
+```
+
+请注意,这将限制您的节点只能处理不需要签名器的请求。
+
+## 故障排除
+
+### 快速参考
+
+| 错误消息                                                          | 签名器类型 | 快速修复方法                           |
+| ----------------------------------------------------------------- | ---------- | -------------------------------------- |
+| "At least one signer must be configured"                          | 任意       | 在配置中至少添加一个签名器             |
+| "Failed to read config file"                                      | 任意       | 检查文件路径和内容                     |
+| "Failed to parse signers config TOML"                             | 任意       | 检查文件格式和签名器内容               |
+| "Duplicate signer name"                                           | 任意       | 确保配置中每个签名器的名称唯一         |
+| "Invalid base58 string"                                           | 私钥       | 检查密钥格式,不要有多余空格            |
+| "Invalid private key length"                                      | 私钥       | 使用完整的 64 字节 Solana 密钥         |
+| "Turnkey \{key\} required"                                        | Turnkey    | 设置 `TURNKEY_{key}`                   |
+| "Privy \{key\} required"                                          | Privy      | 设置 `PRIVY_{key}`                     |
+| "Vault \{key\} required"                                          | Vault      | 设置 `VAULT_{key}`                     |
+| "Failed to create Vault client"                                   | Vault      | 验证 Vault 凭据                        |
+| "Failed to sign with \[service\]"                                 | 任意       | 检查服务状态、凭据和速率限制           |
+| "Signer pool not initialized"                                     | 多签名器   | 检查 `signers.toml` 路径和格式         |
+| "Cannot create empty signer pool"                                 | 多签名器   | 在配置中至少添加一个签名器             |
+| "Signer with pubkey ... not found"                                | 多签名器   | 检查签名器提示是否与已配置的签名器匹配 |
+| "Signers configuration is required unless using --no-load-signer" | 任意       | 添加签名器配置文件                     |
+
+### 常规调试技巧
+
+#### 启用详细日志
+
+添加详细日志以诊断问题：
+
+```bash
+RUST_LOG=debug kora rpc --with-turnkey-signer
+```
+
+## 安全性与最佳实践
+
+### 通用安全性
+
+- 为 Kora 使用专用的 keypair（不要重复使用个人钱包）
+- 仅充入您愿意用于支付手续费的 SOL
+- 通过自动化监控和充值维持最低运营余额
+- 实施监控和告警机制以检测异常活动
+- 所有私钥和 API 密钥应存储在环境变量或密钥管理系统中（Railway secrets、AWS
+  Secrets Manager 等）
+
+## 指定签名者（客户端）
+
+客户端可以指定首选签名者，以确保相关操作的一致性：
+
+```typescript
+// Fetch the signers by calling getPayerSigner
+const { signer, payment_destination } = await client.getPayerSigner();
+console.log(signer, payment_destination);
+
+// Estimate with specific signer
+const estimate = await client.estimateTransactionFee({
+  transaction: tx,
+  signer_key: signer // Public key of preferred signer (one of the signers in the signer pool)
+});
+
+// Sign with same signer
+const signed = await client.signTransaction({
+  transaction: tx,
+  signer_key: signer // Same signer for consistency
+});
+```
+
+如果没有指定签名者密钥，将由配置的策略决定签名者选择。需要注意的是，与同一交易相关的调用中必须保持密钥的一致性（例如，如果您使用指定的签名者密钥生成交易，则必须在所有相关调用中使用相同的签名者密钥）。

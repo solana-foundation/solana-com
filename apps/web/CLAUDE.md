@@ -75,12 +75,6 @@ ANALYZE=true pnpm build
 
 ## Key Integrations
 
-### Builder.io CMS
-
-- Dynamic page content
-- URL redirects management (fetched at build time)
-- API Key: `NEXT_PUBLIC_BUILDER_API_KEY`
-
 ### External APIs
 
 - **Luma** - Events calendar (`LUMA_PRIVATE_API_KEY`)
@@ -101,11 +95,10 @@ ANALYZE=true pnpm build
 
 - All routes are under `[locale]` for i18n support
 - Uses Next.js App Router with layouts and route groups
-- Rewrites and redirects managed in `rewrites-redirects.mjs` + Builder.io
+- Rewrites and redirects managed in `rewrites-redirects.mjs`
 
 ## Key Dependencies (App-Specific)
 
-- `@builder.io/react` - Builder.io CMS integration
 - `@typeform/embed` - Typeform embeds
 - `gsap` - GreenSock animations (transpiled via next.config)
 - `react-slick` / `slick-carousel` - Carousels
@@ -128,26 +121,3 @@ pnpm test:watch    # Watch mode
 ```
 
 Tests located in `src/__tests__/` using Vitest and React Testing Library.
-
-<!-- OPENSPEC:START -->
-
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/apps/web/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big
-  performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/apps/web/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->

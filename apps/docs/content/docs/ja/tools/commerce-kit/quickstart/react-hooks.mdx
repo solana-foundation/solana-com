@@ -1,0 +1,526 @@
+---
+title: React フック
+description: Solana Commerce React フックでカスタム決済UIを構築
+---
+
+`@solana-commerce/sdk`
+パッケージは、カスタムSolana決済体験を構築するためのReactフックを提供します。これらのフックは、組み込みの状態管理、自動リトライロジック、エラーハンドリング、UIヘルパーを備えたSOLおよびSPLトークン転送の完全な制御を提供します。
+
+内部的には、SDKはキャッシングと状態管理に[TanStack Query](https://tanstack.com/query)を使用し、Solanaプリミティブに[@solana/kit](https://github.com/anza-xyz/kit)を使用し、ウォレット接続のために`@solana-commerce/connector`とシームレスに統合されています。
+
+## インストール
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## プロバイダーのセットアップ
+
+### `ArcProvider`
+
+`ArcProvider`は、Solana
+RPCクライアントを初期化し、ネットワーク設定を管理し、すべてのフックにブロックチェーン接続を提供するルートプロバイダーです。SDKフックを使用するすべてのコンポーネントをラップする必要があります。
+
+#### Props
+
+- **`config`** (`ArcWebClientConfig`) - Arcクライアントの設定オブジェクト
+- **`children`** (`ReactNode`) - フックにアクセスできる子コンポーネント
+- **`queryClient`** (`QueryClient`、オプション) - カスタムTanStack
+  Queryクライアント。提供されない場合、デフォルトインスタンスが内部的に作成されます。
+
+#### `ArcWebClientConfig`
+
+RPC接続とコミットメントレベルを制御するArcクライアントの設定。
+
+##### 必須フィールド
+
+プロバイダーは`useConnectorClient`フックを通じて`@solana-commerce/connector`と自動的に統合されるため、`ConnectorProvider`内で使用する場合、明示的なコネクタ設定は不要です。
+
+##### オプションフィールド
+
+- **`network`**
+  (`'mainnet' | 'devnet' | 'testnet'`) - 接続するSolanaネットワーク。デフォルト:
+  `'mainnet'`。
+
+- **`rpcUrl`**
+  (`string`) - カスタムRPCエンドポイントURL。提供されない場合、選択されたネットワークのパブリックエンドポイントを使用します。
+
+- **`commitment`**
+  (`'processed' | 'confirmed' | 'finalized'`) - トランザクション確認レベル。デフォルト:
+  `'confirmed'`。
+
+- **`debug`**
+  (`boolean`) - デバッグ用の詳細なコンソールログを有効にします。デフォルト:
+  `false`。
+
+- **`autoConnect`**
+  (`boolean`) - コンポーネントのマウント時にウォレットに自動接続します。デフォルト:
+  `true`。
+
+- **`storage`**
+  (`Storage`) - ウォレットの設定を永続化するためのカスタムストレージアダプター。以下の実装が必要です：
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  デフォルト：利用可能な場合は `window.localStorage`（ブラウザのみ）。React
+  Native（`AsyncStorage`）またはカスタムSSR対応ストレージの場合はこれを使用してください。
+
+#### `ConnectorProvider` との統合
+
+このプロバイダーは `@solana-commerce/connector` の `ConnectorProvider`
+と統合されます。常にアプリを `ConnectorProvider` でラップしてから `ArcProvider`
+を配置してください：
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## コアフック
+
+### `useTransferSOL`
+
+自動リトライロジック、状態管理、UI補助機能を備えたSOL転送用のフック。TanStack
+Queryをベースに構築され、キャッシングとリクエストの重複排除を実現します。
+
+#### シグネチャ
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### パラメーター
+
+- **`initialToInput`**（`string`、オプション）- 受取人アドレス入力の初期値。フォームの事前入力に便利です。
+- **`initialAmountInput`**（`string`、オプション）-
+  SOL単位での金額入力の初期値。フォームの事前入力に便利です。
+
+#### 戻り値
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### コア関数
+
+- **`transferSOL`** -
+  SOL転送を開始します。トランザクションがオンチェーンで確認されると解決されるPromiseを返します。
+
+##### 状態プロパティ
+
+- **`isLoading`**（`boolean`）- トランザクションの処理中（署名、送信、確認）は
+  `true`。ローディングインジケーターやボタンの状態に使用します。
+
+- **`error`**（`Error | null`）- トランザクションが何らかの段階で失敗した場合のエラーオブジェクト。エラーがない場合は
+  `null`。エラーには、ウォレットの拒否、残高不足、ネットワーク障害などが含まれます。
+
+- **`data`**（`TransferSOLResult | null`）- トランザクション成功時の結果オブジェクト。署名、アドレス、金額、ブロックチェーンメタデータを含みます。最初の転送成功前は
+  `null` です。
+
+- **`reset`**（`() => void`）- ミューテーションの状態をリセットし、`error` と
+  `data` をクリアします。リトライフローや完了後のフォームリセットに便利です。
+
+##### UI補助プロパティとメソッド
+
+このフックは、フォーム入力用の組み込み状態管理を提供します：
+
+- **`toInput`** /
+  **`setToInput`** - 受取人アドレス入力フィールドの制御された状態
+
+- **`amountInput`** /
+  **`setAmountInput`** - 金額入力フィールドの制御された状態（lamportではなくSOL単位）
+
+- **`handleToInputChange`** - 受取人入力用の事前バインドされたonChangeハンドラー：
+  `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - 金額入力用の事前バインドされたonChangeハンドラー：
+  `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - 現在の`toInput`と`amountInput`の値を使用してSOLを転送する便利なメソッド。金額を自動的にSOLからlamportに変換します。
+
+- **`handleSubmit`** -
+  `transferFromInputs()`を呼び出し、デフォルトのフォーム動作を防ぐフォーム送信ハンドラー。`<form onSubmit={handleSubmit}>`と併用してください。
+
+#### オプション
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`**（必須） - 受取人のSolanaアドレス。文字列または`@solana/kit`の`Address`型を指定できます。
+
+- **`amount`**（必須） -
+  **lamport**単位での転送金額（SOLではありません）。`bigint`である必要があります。`BigInt()`またはリテラル表記を使用してください：`1_000_000_000n`
+  = 1 SOL。
+
+- **`from`**（オプション） - 送信者アドレス。指定されない場合は、接続されたウォレットのアドレスが使用されます。高度なユースケース（例：別のアカウントへの署名）でのみ必要です。
+
+#### 結果
+
+結果には、転送の詳細とトランザクション署名を含むトランザクションメタデータが含まれます：
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### 内部アーキテクチャ
+
+**トランザクションビルダー：**
+このフックは、以下の機能を持つ共有トランザクションビルダーを使用します：
+
+- 各トランザクションに対して最新のブロックハッシュを取得
+- 最小限の手数料で最適化されたトランザクションメッセージを構築
+- 接続されたウォレットを使用してトランザクションに署名
+- 単一のフローでトランザクションを送信および確認
+
+**キャッシュの無効化：** 転送が成功すると、フックは以下のTanStack
+Queryキャッシュを自動的に無効化します：
+
+- 送信者の残高（`from`アドレス）
+- 受取人の残高（`to`アドレス）
+
+これにより、残高を表示するコンポーネント（例：`useArcClient`経由）は、手動での介入なしに自動的に再取得および更新されます。
+
+**正確な金額変換:**
+`transferFromInputs()`を使用する場合、金額はSOLからlamportに文字列ベースの演算を使用して変換され、浮動小数点の精度エラーを回避します。この変換では:
+
+- 入力形式を検証（負の数、無効な数値を拒否）
+- 最大9桁の小数点以下を処理（1 lamport = 0.000000001 SOL）
+- 必要に応じて小数値を切り捨てまたはパディング
+- 無効な入力に対して説明的なエラーをスロー
+
+---
+
+### `useTransferToken`
+
+`useTransferSOL`と同様に、このフックはSPLトークンの転送に使用されます。転送の処理に加えて、このフックは必要に応じて関連トークンアカウント（ATA）の自動作成も処理します。
+
+#### シグネチャ
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### パラメータ
+
+- **`initialMintInput`**（`string`、オプション） - 初期トークンミントアドレス。固定トークン転送に便利です。
+- **`initialToInput`**（`string`、オプション） - 初期受取人アドレス。
+- **`initialAmountInput`**（`string`、オプション） - トークンの基本単位での初期金額（小数点以下を考慮）。
+
+#### 戻り値
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+戻り値は`useTransferSOL`と似ていますが、トークン選択のための追加の`mintInput`状態が含まれます。
+
+#### オプション
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### 必須フィールド
+
+- **`mint`** - SPLトークンミントアドレス。例:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - 受取人のウォレットアドレス（トークンアカウントではありません）。フックは自動的に正しい関連トークンアカウントを導出します。
+
+- **`amount`** - トークンの**最小単位**での転送金額。トークンの小数点以下を考慮する必要があります:
+  - USDC（小数点以下6桁）: `1_000_000n` = 1 USDC
+  - SOLラップトークン（小数点以下9桁）: `1_000_000_000n` = 1トークン
+
+##### オプションフィールド
+
+- **`from`** - 送信者のウォレットアドレス。デフォルトは接続されたウォレット。
+
+- **`createAccountIfNeeded`**（デフォルト:
+  `true`） - 受取人がこのミントのトークンアカウントを持っていない場合、トランザクションの一部として自動的に作成します。`false`の場合、受取人アカウントが存在しないと転送は失敗します。
+
+  _注意:_ トークンアカウントの作成には約0.00203
+  SOLが必要です。これは送信者が負担します。
+
+- **`retryConfig`** - ブロックハッシュ期限切れ時の自動リトライ設定。
+  [リトライ設定](#retry-configuration)を参照してください。
+
+#### 結果
+
+結果には、送金の詳細とトランザクション署名を含むトランザクションメタデータが含まれます:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### リトライ設定
+
+このフックには、ネットワーク混雑時によく発生するブロックハッシュ期限切れに対応する高度なリトライロジックが含まれています。
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - トランザクションの最大試行回数。各試行で新しいブロックハッシュを取得します。デフォルト:
+  `3`。
+
+- **`baseDelay`** - 最初のリトライまでの遅延時間(ミリ秒)。デフォルト: `1000`
+  (1秒)。
+
+- **`backoffMultiplier`** - 指数バックオフ乗数。各リトライは`baseDelay * (backoffMultiplier ^ attemptNumber)`ミリ秒待機します。
+  - `1` = 線形バックオフ (1秒、1秒、1秒)
+  - `1.5` = 指数バックオフ (1秒、1.5秒、2.25秒)
+  - `2` = 積極的な指数バックオフ (1秒、2秒、4秒)
+
+**リトライの仕組み:**
+
+1. **初回試行:** 現在のブロックハッシュでトランザクションを構築し送信
+2. **ブロックハッシュ期限切れ:**
+   確認前にブロックハッシュが古くなると、Solanaがトランザクションを拒否
+3. **自動リトライ:**
+   フックが期限切れを検出し、新しいブロックハッシュを取得、トランザクションを再構築して再送信
+4. **指数バックオフ:**
+   ネットワーク混雑を回避するため、各リトライの待機時間が長くなる
+5. **最終的な失敗:**
+   `maxAttempts`回の試行後、コンテキストを含む`BlockhashExpirationError`をスロー
+
+**リトライがトリガーされない場合:**
+
+- ブロックハッシュ以外のエラー(残高不足、無効なアカウントなど)は、リトライせずに即座にスロー
+- ブロックハッシュ期限切れエラーのみがリトライメカニズムをトリガー
+
+#### 内部アーキテクチャ
+
+**ATA管理:**
+
+- `findAssociatedTokenPda`を使用してAssociated Token
+  Accountsを決定論的に導出(_注意: 現時点ではToken
+  Programのみがサポートされています_)
+- 送信者がトークンアカウントを持っているか確認(送信者がトークンを保有していない場合は即座に失敗)
+- 受信者がトークンアカウントを持っているか確認(必要な場合は`createAccountIfNeeded: true`で作成)
+- リトライ中の冗長なRPC呼び出しを避けるため、アカウントチェックは初回試行時のみ実行
+
+**キャッシュの無効化:** 成功時に、以下のTanStack Queryキャッシュを無効化します:
+
+- このミントに対する送信者のトークン残高
+- このミントに対する受信者のトークン残高
+- 関連するアカウントデータ
+
+これにより、残高を表示するすべてのUIコンポーネントが自動的に同期された状態を保ちます。
+
+### `useArcClient`
+
+基盤となるSolana
+RPCクライアント、ウォレットの状態、およびネットワーク設定にアクセスするためのフックです。これは、直接的なRPCアクセスが必要な高度なユースケース向けの低レベルフックです。
+
+#### シグネチャ
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### 戻り値
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### 状態
+
+`ArcClientSnapshot`は、`ArcWebClient`を拡張し、以下へのアクセスを提供します:
+
+- ウォレットの状態(アドレス、署名者、利用可能なウォレット、機能、ウォレットステータス)
+- ネットワーク設定(RPCエンドポイント、Solanaクラスター)
+
+#### ユースケース
+
+**直接的なRPCクエリ:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**ネットワーク対応コンポーネント:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**ウォレットに基づく条件付きレンダリング:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

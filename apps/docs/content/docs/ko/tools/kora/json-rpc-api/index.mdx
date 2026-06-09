@@ -1,0 +1,153 @@
+---
+title: JSON-RPC API 개요
+description:
+  Kora는 Solana에서 가스 없는 트랜잭션 처리를 위한 JSON-RPC 2.0 인터페이스를
+  구현합니다.
+---
+
+> **Kora v2.2.0-beta를 사용 중이신가요?** 새로운 번들 메서드 (`signBundle`,
+> `signAndSendBundle`, `estimateBundleFee`)와 `getVersion`에 대한
+> [베타 문서](/docs/tools/kora/beta/bundle-methods)를 참조하세요.
+
+## TypeScript SDK
+
+`@solana/kora` 패키지는 Kora 서버와 상호작용하기 위한 세 가지 클라이언트 옵션을
+제공합니다:
+
+### KoraClient (독립형)
+
+독립형 사용을 위해 `KoraClient`를 사용하세요. `@solana/kit` v5.0+와 호환됩니다.
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-server.com" });
+const config = await kora.getConfig();
+```
+
+### koraPlugin (Kit 조합형)
+
+기존 Kit 클라이언트에 Kora 메서드를 조합하려면 `koraPlugin()`를 사용하세요.
+`createEmptyClient().use()` 패턴을 위해 `@solana/kit` v5.4+ 이상이 필요합니다.
+
+```typescript
+import { createEmptyClient } from "@solana/kit";
+import { koraPlugin } from "@solana/kora";
+
+const client = createEmptyClient().use(
+  koraPlugin({ endpoint: "https://your-kora-server.com" })
+);
+
+const config = await client.kora.getConfig();
+```
+
+이 플러그인은 Kit 타입의 응답(`Address`, `Blockhash`,
+`Base64EncodedWireTransaction`)을 제공하며, 다른 플러그인과의 조합을 위해
+`KoraPlugin` 타입을 내보냅니다.
+
+### createKitKoraClient (Kit 클라이언트)
+
+자동 트랜잭션 계획, 수수료 추정, 결제 주입 및 실행 기능을 갖춘 완전한 Kit 통합을
+위해 `createKitKoraClient()`를 사용하세요. 이는 대부분의 애플리케이션에 권장되는
+방식입니다. `@solana/kit` v6.1+ 이상이 필요합니다.
+
+Kit 클라이언트는 Kora를 Kit의 플러그인 아키텍처(플래너, 실행자, 결제자
+플러그인)와 조합하므로 `tokenProgram()`와 같은 Kit program 플러그인을 직접
+사용할 수 있습니다.
+
+```typescript
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+
+const client = await createKitKoraClient({
+  endpoint: "https://your-kora-server.com",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: userSigner // TransactionSigner that authorizes SPL fee payment
+});
+
+// Compose with Kit program plugins
+const tokenClient = client.use(tokenProgram());
+
+// Send transactions — Kora handles blockhash, fee estimation,
+// payment instruction injection, signing, and submission
+await tokenClient.token.instructions
+  .transferToATA({
+    /* ... */
+  })
+  .sendTransaction();
+```
+
+**구성 옵션:**
+
+| 옵션               | 필수 여부 | 설명                                                                                   |
+| ------------------ | --------- | -------------------------------------------------------------------------------------- |
+| `endpoint`         | 예        | Kora RPC 엔드포인트 URL                                                                |
+| `rpcUrl`           | 예        | 컴퓨팅 유닛 추정 및 program 플러그인 호환성을 위한 Solana RPC URL                      |
+| `feeToken`         | 예        | 수수료 결제를 위한 SPL 민트 주소                                                       |
+| `feePayerWallet`   | 예        | SPL 수수료 결제를 승인하는 `TransactionSigner`                                         |
+| `apiKey`           | 아니요    | 인증을 위한 API 키                                                                     |
+| `hmacSecret`       | 아니요    | 서명 기반 인증을 위한 HMAC 시크릿                                                      |
+| `computeUnitLimit` | 아니요    | 고정 컴퓨팅 유닛 제한 (설정되지 않은 경우 시뮬레이션 기반 추정 사용)                   |
+| `computeUnitPrice` | 아니요    | 마이크로 램포트 단위의 우선순위 수수료                                                 |
+| `tokenProgramId`   | 아니요    | Token Program ID (기본값은 Token Program; Token-2022 토큰의 경우 Token-2022 주소 사용) |
+
+## 프로토콜
+
+- **표준**: JSON-RPC 2.0
+- **전송**: HTTP POST
+- **Content-Type**: application/json
+- **엔드포인트**: `http://your-kora-instance/`
+
+## 사용 가능한 메서드
+
+| 메서드                                                                            | 설명                                                                                                                    |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [estimateTransactionFee](/docs/tools/kora/json-rpc-api/estimate-transaction-fee)  | lamport 및 지정된 토큰 단위로 트랜잭션 수수료를 추정합니다.                                                             |
+| [getBlockhash](/docs/tools/kora/json-rpc-api/get-blockhash)                       | Kora 서버가 연결된 Solana RPC에서 최신 블록해시를 가져옵니다.                                                           |
+| [getConfig](/docs/tools/kora/json-rpc-api/get-config)                             | 현재 Kora 서버 구성을 조회합니다.                                                                                       |
+| [getPayerSigner](/docs/tools/kora/json-rpc-api/get-payer-signer)                  | Kora 서버에서 지불자 서명자와 지불 대상을 조회합니다.                                                                   |
+| [getPaymentInstruction](/docs/tools/kora/json-rpc-api/get-payment-instruction)    | Kora 페이마스터에 수수료를 지불하기 위해 트랜잭션에 추가할 지불 인스트럭션을 생성합니다.                                |
+| [getSupportedTokens](/docs/tools/kora/json-rpc-api/get-supported-tokens)          | 수수료 지불에 지원되는 토큰 목록을 조회합니다.                                                                          |
+| [signAndSendTransaction](/docs/tools/kora/json-rpc-api/sign-and-send-transaction) | 트랜잭션에 서명하고 즉시 Solana 네트워크에 브로드캐스트합니다.                                                          |
+| [signTransaction](/docs/tools/kora/json-rpc-api/sign-transaction)                 | 트랜잭션이 수수료 지불자에게 필요한 지불을 포함하는 경우, 브로드캐스트 없이 Kora 수수료 지불자로 트랜잭션에 서명합니다. |
+| [transferTransaction](/docs/tools/kora/json-rpc-api/transfer-transaction)         | Kora를 수수료 지불자로 하여 토큰 전송 트랜잭션을 생성합니다.                                                            |
+
+## 요청 형식
+
+모든 요청은 JSON-RPC 2.0 표준을 따릅니다:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "methodName",
+  "params": {}
+}
+```
+
+## 응답 형식
+
+성공 응답:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {}
+}
+```
+
+오류 응답:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid request"
+  }
+}
+```

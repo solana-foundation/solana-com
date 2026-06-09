@@ -1,0 +1,560 @@
+---
+title: React Hooks
+description:
+  Xây dựng giao diện thanh toán tùy chỉnh với các hook React của Solana Commerce
+---
+
+Gói `@solana-commerce/sdk` cung cấp các hook React để xây dựng trải nghiệm thanh
+toán Solana tùy chỉnh. Các hook này cho phép kiểm soát hoàn toàn việc chuyển SOL
+và token SPL với quản lý trạng thái tích hợp sẵn, logic thử lại tự động, xử lý
+lỗi và các công cụ hỗ trợ giao diện.
+
+Về cơ bản, SDK sử dụng [TanStack Query](https://tanstack.com/query) để đệm và
+quản lý trạng thái, [@solana/kit](https://github.com/anza-xyz/kit) cho các thành
+phần nguyên thủy của Solana, và tích hợp liền mạch với
+`@solana-commerce/connector` để kết nối ví.
+
+## Cài đặt
+
+```bash
+pnpm add @solana-commerce/sdk
+```
+
+## Thiết lập Provider
+
+### `ArcProvider`
+
+`ArcProvider` là provider gốc khởi tạo client RPC Solana, quản lý cấu hình mạng
+và cung cấp kết nối blockchain cho tất cả các hook. Nó phải bao bọc bất kỳ
+component nào sử dụng các hook của SDK.
+
+#### Props
+
+- **`config`** (`ArcWebClientConfig`) - Đối tượng cấu hình cho client Arc
+- **`children`** (`ReactNode`) - Các component con sẽ có quyền truy cập vào các
+  hook
+- **`queryClient`** (`QueryClient`, tùy chọn) - Client TanStack Query tùy chỉnh.
+  Nếu không được cung cấp, một instance mặc định sẽ được tạo bên trong.
+
+#### `ArcWebClientConfig`
+
+Cấu hình cho client Arc kiểm soát kết nối RPC và các mức độ xác nhận.
+
+##### Trường bắt buộc
+
+Provider tự động tích hợp với `@solana-commerce/connector` thông qua hook
+`useConnectorClient`, do đó không cần cấu hình connector rõ ràng khi sử dụng
+trong `ConnectorProvider`.
+
+##### Trường tùy chọn
+
+- **`network`** (`'mainnet' | 'devnet' | 'testnet'`) - Mạng Solana để kết nối
+  tới. Mặc định: `'mainnet'`.
+
+- **`rpcUrl`** (`string`) - URL endpoint RPC tùy chỉnh. Nếu không được cung cấp,
+  sẽ sử dụng các endpoint công khai cho mạng đã chọn.
+
+- **`commitment`** (`'processed' | 'confirmed' | 'finalized'`) - Mức độ xác nhận
+  giao dịch. Mặc định: `'confirmed'`.
+
+- **`debug`** (`boolean`) - Bật ghi log console chi tiết để gỡ lỗi. Mặc định:
+  `false`.
+
+- **`autoConnect`** (`boolean`) - Tự động kết nối với ví khi component được
+  mount. Mặc định: `true`.
+
+- **`storage`** (`Storage`) - Bộ chuyển đổi lưu trữ tùy chỉnh để duy trì các tùy
+  chọn ví. Phải triển khai:
+  - `getItem(key: string): string | null`
+  - `setItem(key: string, value: string): void`
+  - `removeItem(key: string): void`
+
+  Mặc định: `window.localStorage` khi khả dụng (chỉ trình duyệt). Sử dụng cho
+  React Native (`AsyncStorage`) hoặc lưu trữ tùy chỉnh tương thích SSR.
+
+#### Tích hợp với `ConnectorProvider`
+
+Provider tích hợp với `ConnectorProvider` từ `@solana-commerce/connector`. Luôn
+bọc ứng dụng của bạn với `ConnectorProvider` trước `ArcProvider`:
+
+```tsx
+import { ConnectorProvider } from "@solana-commerce/connector";
+import { ArcProvider } from "@solana-commerce/sdk";
+
+function App() {
+  return (
+    <ConnectorProvider config={{ autoConnect: true }}>
+      <ArcProvider config={{ network: "mainnet", commitment: "confirmed" }}>
+        <YourApp />
+      </ArcProvider>
+    </ConnectorProvider>
+  );
+}
+```
+
+## Hooks Cốt lõi
+
+### `useTransferSOL`
+
+Hook để chuyển SOL với logic thử lại tự động, quản lý trạng thái và các hàm hỗ
+trợ giao diện. Được xây dựng trên TanStack Query để lưu trữ bộ nhớ đệm và loại
+bỏ yêu cầu trùng lặp.
+
+#### Chữ ký
+
+```typescript
+function useTransferSOL(
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferSOLReturn;
+```
+
+#### Tham số
+
+- **`initialToInput`** (`string`, tùy chọn) - Giá trị khởi tạo cho trường nhập
+  địa chỉ người nhận. Hữu ích để điền trước vào biểu mẫu.
+- **`initialAmountInput`** (`string`, tùy chọn) - Giá trị khởi tạo cho trường
+  nhập số lượng tính bằng SOL. Hữu ích để điền trước vào biểu mẫu.
+
+#### Giá trị trả về
+
+```typescript
+interface UseTransferSOLReturn {
+  // Core transfer function
+  transferSOL: (options: TransferSOLOptions) => Promise<TransferSOLResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferSOLResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  toInput: string;
+  amountInput: string;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferSOLResult | undefined>;
+  transferFromInputs: () => Promise<TransferSOLResult | undefined>;
+}
+```
+
+##### Hàm cốt lõi
+
+- **`transferSOL`** - Khởi tạo giao dịch chuyển SOL. Trả về promise được giải
+  quyết khi giao dịch được xác nhận trên chuỗi.
+
+##### Thuộc tính trạng thái
+
+- **`isLoading`** (`boolean`) - `true` trong khi giao dịch đang được xử lý (ký,
+  gửi, xác nhận). Sử dụng cho các chỉ báo tải và trạng thái nút.
+
+- **`error`** (`Error | null`) - Đối tượng lỗi nếu giao dịch thất bại ở bất kỳ
+  giai đoạn nào. `null` khi không có lỗi. Lỗi bao gồm từ chối ví, số dư không
+  đủ, lỗi mạng, v.v.
+
+- **`data`** (`TransferSOLResult | null`) - Đối tượng kết quả khi giao dịch
+  thành công. Chứa chữ ký, địa chỉ, số lượng và siêu dữ liệu blockchain. `null`
+  trước lần chuyển thành công đầu tiên.
+
+- **`reset`** (`() => void`) - Đặt lại trạng thái mutation, xóa `error` và
+  `data`. Hữu ích cho luồng thử lại hoặc đặt lại biểu mẫu sau khi hoàn tất.
+
+##### Thuộc tính & Phương thức hỗ trợ giao diện
+
+Hook cung cấp quản lý trạng thái tích hợp sẵn cho các trường nhập biểu mẫu:
+
+- **`toInput`** / **`setToInput`** - Trạng thái được kiểm soát cho trường nhập
+  địa chỉ người nhận
+
+- **`amountInput`** / **`setAmountInput`** - Trạng thái được kiểm soát cho
+  trường nhập số lượng (tính bằng SOL, không phải lamport)
+
+- **`handleToInputChange`** - Trình xử lý onChange được liên kết trước cho
+  trường nhập người nhận: `<input onChange={handleToInputChange} />`
+
+- **`handleAmountInputChange`** - Trình xử lý onChange được liên kết trước cho
+  trường nhập số lượng: `<input onChange={handleAmountInputChange} />`
+
+- **`transferFromInputs`** - Phương thức tiện lợi để chuyển SOL sử dụng các giá
+  trị `toInput` và `amountInput` hiện tại. Tự động chuyển đổi số lượng từ SOL
+  sang lamport.
+
+- **`handleSubmit`** - Trình xử lý gửi biểu mẫu gọi `transferFromInputs()` và
+  ngăn chặn hành vi biểu mẫu mặc định. Sử dụng với
+  `<form onSubmit={handleSubmit}>`.
+
+#### Tùy chọn
+
+```typescript
+interface TransferSOLOptions {
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in lamports (1 SOL = 1,000,000,000 lamports)
+  from?: string | Address; // Optional sender address (defaults to connected wallet)
+}
+```
+
+- **`to`** (bắt buộc) - Địa chỉ Solana của người nhận. Có thể là chuỗi hoặc kiểu
+  `Address` từ `@solana/kit`.
+
+- **`amount`** (bắt buộc) - Số lượng chuyển tính bằng **lamport** (không phải
+  SOL). Phải là `bigint`. Sử dụng `BigInt()` hoặc ký hiệu theo nghĩa đen:
+  `1_000_000_000n` = 1 SOL.
+
+- **`from`** (tùy chọn) - Địa chỉ người gửi. Nếu không được cung cấp, sử dụng
+  địa chỉ từ ví đã kết nối. Chỉ bắt buộc cho các trường hợp sử dụng nâng cao (ví
+  dụ: ký cho một tài khoản khác).
+
+#### Kết quả
+
+Kết quả bao gồm siêu dữ liệu giao dịch bao gồm chi tiết chuyển tiền và chữ ký
+giao dịch:
+
+```typescript
+interface TransferSOLResult {
+  signature: string; // Transaction signature (base58)
+  amount: bigint; // Amount transferred in lamports
+  from: Address; // Sender address
+  to: Address; // Recipient address
+  blockTime?: number; // Unix timestamp when transaction was processed
+  slot?: number; // Slot number where transaction was confirmed
+}
+```
+
+#### Kiến trúc nội bộ
+
+**Trình tạo giao dịch:** Hook sử dụng trình tạo giao dịch được chia sẻ để:
+
+- Lấy blockhash mới cho mỗi giao dịch
+- Xây dựng thông điệp giao dịch được tối ưu hóa với phí tối thiểu
+- Ký giao dịch bằng ví đã kết nối
+- Gửi và xác nhận giao dịch trong một luồng duy nhất
+
+**Vô hiệu hóa bộ nhớ đệm:** Khi chuyển tiền thành công, hook tự động vô hiệu hóa
+bộ nhớ đệm TanStack Query cho:
+
+- Số dư của người gửi (địa chỉ `from`)
+- Số dư của người nhận (địa chỉ `to`)
+
+Điều này đảm bảo rằng bất kỳ component nào hiển thị số dư (ví dụ: thông qua
+`useArcClient`) sẽ tự động lấy lại và cập nhật mà không cần can thiệp thủ công.
+
+**Chuyển đổi số lượng chính xác:** Khi sử dụng `transferFromInputs()`, số lượng
+được chuyển đổi từ SOL sang lamport bằng phép tính số học dựa trên chuỗi để
+tránh lỗi độ chính xác số thực dấu phẩy động. Quá trình chuyển đổi:
+
+- Xác thực định dạng đầu vào (từ chối số âm, số không hợp lệ)
+- Xử lý tới 9 chữ số thập phân (1 lamport = 0.000000001 SOL)
+- Cắt bớt hoặc đệm các giá trị phân số khi cần thiết
+- Đưa ra lỗi mô tả chi tiết cho đầu vào không hợp lệ
+
+---
+
+### `useTransferToken`
+
+Giống như `useTransferSOL`, hook này được sử dụng để chuyển token SPL. Ngoài
+việc xử lý chuyển khoản, hook còn xử lý việc tạo Associated Token Account (ATA)
+tự động khi cần thiết.
+
+#### Chữ ký
+
+```typescript
+function useTransferToken(
+  initialMintInput?: string,
+  initialToInput?: string,
+  initialAmountInput?: string
+): UseTransferTokenReturn;
+```
+
+#### Tham số
+
+- **`initialMintInput`** (`string`, tùy chọn) - Địa chỉ mint token ban đầu. Hữu
+  ích cho các giao dịch chuyển token cố định.
+- **`initialToInput`** (`string`, tùy chọn) - Địa chỉ người nhận ban đầu.
+- **`initialAmountInput`** (`string`, tùy chọn) - Số lượng ban đầu tính theo đơn
+  vị cơ bản của token (xét đến số thập phân).
+
+#### Giá trị trả về
+
+```typescript
+interface UseTransferTokenReturn {
+  // Core transfer function
+  transferToken: (
+    options: TransferTokenOptions
+  ) => Promise<TransferTokenResult>;
+
+  // State
+  isLoading: boolean;
+  error: Error | null;
+  data: TransferTokenResult | null;
+  reset: () => void;
+
+  // UI Helpers
+  mintInput: string;
+  toInput: string;
+  amountInput: string;
+  setMintInput: (value: string) => void;
+  setToInput: (value: string) => void;
+  setAmountInput: (value: string) => void;
+  handleMintInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAmountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (event?: {
+    preventDefault?: () => void;
+  }) => Promise<TransferTokenResult | undefined>;
+  transferFromInputs: () => Promise<TransferTokenResult | undefined>;
+}
+```
+
+Giá trị trả về tương tự `useTransferSOL` nhưng bao gồm thêm trạng thái
+`mintInput` để chọn token.
+
+#### Tùy chọn
+
+```typescript
+interface TransferTokenOptions {
+  mint: string | Address; // Token mint address
+  to: string | Address; // Recipient wallet address
+  amount: bigint; // Amount in token's smallest unit
+  from?: string | Address; // Optional sender (defaults to connected wallet)
+  createAccountIfNeeded?: boolean; // Auto-create recipient's ATA (default: true)
+  retryConfig?: TransferRetryConfig; // Optional retry configuration
+}
+```
+
+##### Trường bắt buộc
+
+- **`mint`** - Địa chỉ mint token SPL. Ví dụ:
+  - USDC: `'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'`
+  - USDT: `'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'`
+
+- **`to`** - Địa chỉ ví của người nhận (không phải token account của họ). Hook
+  tự động tìm Associated Token Account chính xác.
+
+- **`amount`** - Số lượng chuyển tính theo **đơn vị nhỏ nhất** của token. Phải
+  tính đến số thập phân của token:
+  - USDC (6 số thập phân): `1_000_000n` = 1 USDC
+  - Token wrapped SOL (9 số thập phân): `1_000_000_000n` = 1 token
+
+##### Trường tùy chọn
+
+- **`from`** - Địa chỉ ví của người gửi. Mặc định là ví đã kết nối.
+
+- **`createAccountIfNeeded`** (mặc định: `true`) - Nếu người nhận chưa có token
+  account cho mint này, tự động tạo nó như một phần của giao dịch. Khi `false`,
+  giao dịch chuyển sẽ thất bại nếu tài khoản người nhận không tồn tại.
+
+  _Lưu ý:_ Việc tạo token account tốn ~0.00203 SOL. Chi phí này được trả bởi
+  người gửi.
+
+- **`retryConfig`** - Cấu hình cho việc tự động thử lại khi blockhash hết hạn.
+  Xem [Cấu Hình Thử Lại](#retry-configuration).
+
+#### Kết Quả
+
+Kết quả bao gồm metadata giao dịch bao gồm chi tiết chuyển khoản và chữ ký giao
+dịch:
+
+```typescript
+interface TransferTokenResult {
+  signature: string; // Transaction signature
+  mint: Address; // Token mint address
+  amount: bigint; // Amount transferred
+  from: Address; // Sender wallet address
+  to: Address; // Recipient wallet address
+  fromTokenAccount: Address; // Sender's token account
+  toTokenAccount: Address; // Recipient's token account
+  createdAccount?: boolean; // Whether recipient's ATA was created
+  blockTime?: number; // Transaction timestamp
+  slot?: number; // Block slot number
+}
+```
+
+#### Cấu Hình Thử Lại
+
+Hook bao gồm logic thử lại tinh vi để xử lý blockhash hết hạn, điều này thường
+xảy ra trong thời gian tắc nghẽn mạng.
+
+```typescript
+interface TransferRetryConfig {
+  maxAttempts?: number; // Max retry attempts (default: 3)
+  baseDelay?: number; // Base delay in ms (default: 1000)
+  backoffMultiplier?: number; // Backoff multiplier (default: 1)
+}
+```
+
+- **`maxAttempts`** - Số lần thử giao dịch tối đa. Mỗi lần thử sẽ lấy một
+  blockhash mới. Mặc định: `3`.
+
+- **`baseDelay`** - Độ trễ tính bằng mili giây trước lần thử lại đầu tiên. Mặc
+  định: `1000` (1 giây).
+
+- **`backoffMultiplier`** - Hệ số tăng theo cấp số nhân. Mỗi lần thử lại sẽ đợi
+  `baseDelay * (backoffMultiplier ^ attemptNumber)` mili giây.
+  - `1` = tăng tuyến tính (1s, 1s, 1s)
+  - `1.5` = tăng theo cấp số nhân (1s, 1.5s, 2.25s)
+  - `2` = tăng theo cấp số nhân mạnh (1s, 2s, 4s)
+
+**Cách Thức Hoạt Động Của Thử Lại:**
+
+1. **Lần Thử Đầu Tiên:** Giao dịch được xây dựng với blockhash hiện tại và gửi
+   đi
+2. **Blockhash Hết Hạn:** Nếu blockhash trở nên cũ trước khi xác nhận, Solana sẽ
+   từ chối giao dịch
+3. **Tự Động Thử Lại:** Hook phát hiện hết hạn, lấy blockhash mới, xây dựng lại
+   giao dịch và gửi lại
+4. **Tăng Theo Cấp Số Nhân:** Mỗi lần thử lại sẽ đợi lâu hơn để tránh tắc nghẽn
+   mạng
+5. **Thất Bại Cuối Cùng:** Sau `maxAttempts`, ném ra `BlockhashExpirationError`
+   với ngữ cảnh
+
+**Khi Nào Thử Lại Không Được Kích Hoạt:**
+
+- Các lỗi không liên quan đến blockhash (thiếu tiền, tài khoản không hợp lệ,
+  v.v.) sẽ ném ra ngay lập tức mà không thử lại
+- Chỉ có lỗi blockhash hết hạn mới kích hoạt cơ chế thử lại
+
+#### Kiến Trúc Nội Bộ
+
+**Quản Lý ATA:**
+
+- Suy ra Associated Token Accounts một cách xác định bằng cách sử dụng
+  `findAssociatedTokenPda` (_Lưu ý: hiện tại chỉ hỗ trợ Token Program_)
+- Kiểm tra xem người gửi có token account hay không (thất bại nhanh nếu người
+  gửi không nắm giữ token)
+- Kiểm tra xem người nhận có token account hay không (tạo nếu cần và
+  `createAccountIfNeeded: true`)
+- Kiểm tra tài khoản chỉ chạy ở lần thử đầu tiên để tránh các lệnh gọi RPC dư
+  thừa trong quá trình thử lại
+
+**Vô hiệu hóa Cache:** Khi thành công, vô hiệu hóa cache TanStack Query cho:
+
+- Số dư token của người gửi cho mint này
+- Số dư token của người nhận cho mint này
+- Dữ liệu tài khoản liên quan
+
+Điều này giúp tất cả các thành phần giao diện hiển thị số dư được đồng bộ tự
+động.
+
+### `useArcClient`
+
+Hook để truy cập RPC client Solana cơ bản, trạng thái ví và cấu hình mạng. Đây
+là hook cấp thấp hơn dành cho các trường hợp sử dụng nâng cao cần truy cập RPC
+trực tiếp.
+
+#### Chữ ký
+
+```typescript
+function useArcClient(): ArcClientSnapshot;
+```
+
+#### Giá trị trả về
+
+```typescript
+interface ArcClientSnapshot {
+  // Wallet State
+  wallet: {
+    address: Address | null;
+    signer: TransactionSigner | null;
+  };
+
+  // Network Configuration
+  network: {
+    cluster: "mainnet" | "devnet" | "testnet";
+    rpcUrl: string;
+  };
+
+  // Client Configuration
+  config: ArcWebClientConfig;
+
+  // Actions
+  select: (walletName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  selectAccount: (accountAddress: Address) => Promise<void>;
+}
+```
+
+##### Trạng thái
+
+`ArcClientSnapshot` mở rộng `ArcWebClient`, cung cấp quyền truy cập vào:
+
+- trạng thái ví (địa chỉ, người ký, các ví khả dụng, tính năng và trạng thái ví)
+- cấu hình mạng (điểm cuối RPC, Solana cluster)
+
+#### Các trường hợp sử dụng
+
+**Truy vấn RPC trực tiếp:**
+
+```tsx
+import { useArcClient } from "@solana-commerce/sdk";
+import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
+import { address } from "@solana/kit";
+
+function AccountBalance() {
+  const { network, wallet } = useArcClient();
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const rpc = getSharedRpc(network.rpcUrl);
+
+    async function fetchBalance() {
+      const result = await rpc.getBalance(wallet.address).send();
+      setBalance(result);
+    }
+
+    fetchBalance();
+  }, [wallet.address, network.rpcUrl]);
+
+  if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
+}
+```
+
+**Thành phần nhận biết mạng:**
+
+```tsx
+function NetworkIndicator() {
+  const { network } = useArcClient();
+
+  return (
+    <div>
+      <span>Network: {network.cluster}</span>
+      {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
+    </div>
+  );
+}
+```
+
+**Hiển thị có điều kiện dựa trên ví:**
+
+```tsx
+function SendButton() {
+  const { wallet } = useArcClient();
+  const { transferSOL, isLoading } = useTransferSOL();
+
+  if (!wallet.address) {
+    return <div>Connect wallet to send SOL</div>;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        transferSOL({
+          to: "recipient-address",
+          amount: BigInt(1_000_000_000)
+        })
+      }
+      disabled={isLoading}
+    >
+      {isLoading ? "Sending..." : "Send 1 SOL"}
+    </button>
+  );
+}
+```

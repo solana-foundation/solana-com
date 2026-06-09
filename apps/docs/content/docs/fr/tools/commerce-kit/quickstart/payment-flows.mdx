@@ -1,0 +1,477 @@
+---
+title: Flux de paiement sans interface
+description: Primitives de commerce sans interface pour n'importe quel framework
+---
+
+# Flux de paiement
+
+Le package `@solana-commerce/headless` fournit des fonctions indépendantes du
+framework pour créer des flux de paiement e-commerce. Ces outils aident à créer
+des objets de demande de paiement, générer des URL Solana Pay et vérifier les
+paiements on-chain. Le package est conçu pour fonctionner dans n'importe quel
+environnement JavaScript : React, Vue, Svelte, JavaScript vanilla, Node.js ou
+fonctions serverless.
+
+## Installation
+
+```bash
+pnpm add @solana-commerce/headless
+```
+
+## Fonctions de demande de paiement
+
+Ces fonctions créent des objets de demande de paiement standardisés pour
+différents modèles de commerce. Elles n'effectuent aucune opération blockchain —
+elles structurent simplement les données pour une utilisation dans les
+portefeuilles, les URL Solana Pay ou des interfaces de paiement personnalisées.
+
+### `createBuyNowRequest()`
+
+Crée une demande de paiement standardisée pour l'achat d'un seul produit.
+
+```typescript
+function createBuyNowRequest(
+  recipient: string,
+  product: any,
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Paramètres
+
+- **`recipient`** (`string`, requis) - Adresse du portefeuille du marchand (clé
+  publique Solana encodée en base58) qui recevra le paiement.
+
+- **`product`** (`any`, requis) - Objet produit contenant :
+  - `price` (nombre, requis) - Prix du produit. L'unité dépend du contexte (par
+    ex., lamports pour SOL, unités mineures pour les tokens).
+  - `currency` (chaîne, requis) - Devise de paiement. Peut être `'SOL'` ou une
+    adresse de mint de token.
+  - `name` (chaîne, requis) - Nom du produit, utilisé pour le mémo/label par
+    défaut s'il n'est pas fourni.
+  - Les champs supplémentaires (id, description, image, etc.) sont transmis dans
+    le tableau `products`.
+
+- **`options`** (objet, optionnel) - Options de personnalisation :
+  - `memo` (chaîne) - Mémo on-chain pour la transaction. Par défaut :
+    `"Purchase: {product.name}"`.
+  - `label` (chaîne) - Label d'affichage pour la demande de paiement (utilisé
+    dans Solana Pay). Par défaut : `product.name`.
+  - `message` (chaîne) - Message de succès affiché après le paiement. Par défaut
+    : `"Thank you for purchasing {product.name}!"`.
+
+#### Valeur de retour
+
+Un objet `PaymentRequest` contenant :
+
+- `recipient` - L'adresse du portefeuille du marchand
+- `amount` - Le prix du produit (copié depuis `product.price`)
+- `currency` - Devise de paiement (copiée depuis `product.currency`)
+- `products` - Tableau contenant le produit unique
+- `memo` - Mémo de transaction (option ou par défaut : « Achat : (product.name)
+  »)
+- `label` - Label de paiement (option ou par défaut : « product.name »)
+- `message` - Message de succès (option ou par défaut : « Merci d'avoir acheté
+  (product.name) ! »)
+
+**Exemple :**
+
+```typescript
+const payment = createBuyNowRequest(
+  "merchant-wallet-address",
+  {
+    id: "prod_123",
+    name: "Premium Subscription",
+    price: 50000000, // 0.05 SOL in lamports
+    currency: "SOL"
+  },
+  {
+    label: "Premium Subscription",
+    message: "Thank you for subscribing!"
+  }
+);
+```
+
+### `createCartRequest()`
+
+Crée une demande de paiement pour plusieurs produits dans un panier d'achat.
+
+```typescript
+function createCartRequest(
+  recipient: string,
+  products: any[],
+  options?: {
+    memo?: string;
+    label?: string;
+    message?: string;
+    currency?: string;
+  }
+): PaymentRequest;
+```
+
+#### Paramètres
+
+- **`recipient`** (`string`, requis) - Adresse du portefeuille du commerçant qui
+  recevra le paiement.
+
+- **`products`** (`any[]`, requis) - Tableau d'objets produit.
+
+- **`options`** (objet, facultatif) - Options de personnalisation :
+  - `currency` (chaîne) - Devise de paiement pour l'ensemble du panier.
+  - `memo` (chaîne) - Mémo on-chain. Par défaut :
+    `"Cart purchase (products.length items)"`.
+  - `label` (chaîne) - Libellé du paiement. Par défaut : `"Cart Checkout"`.
+  - `message` (chaîne) - Message de confirmation. Par défaut :
+    `"Thank you for your purchase!"`.
+
+#### Retour
+
+Un objet `PaymentRequest` avec :
+
+- `recipient` - L'adresse du portefeuille du commerçant
+- `amount` - Somme de tous les prix des produits
+  (`products.reduce((sum, p) => sum + p.price, 0)`)
+- `currency` - Devise de paiement (depuis les options, ou undefined)
+- `products` - Le tableau de produits
+- `memo`, `label`, `message` - Valeurs des options ou valeurs par défaut
+
+**Exemple :**
+
+```typescript
+const cart = createCartRequest(
+  "merchant-wallet-address",
+  [
+    { id: "1", name: "Product A", price: 25 },
+    { id: "2", name: "Product B", price: 15 },
+    { id: "3", name: "Product C", price: 10 }
+  ],
+  {
+    currency: "USDC",
+    label: "My Store Checkout",
+    message: "Thank you for your order!"
+  }
+);
+// cart.amount === 50 (sum of prices)
+```
+
+---
+
+### `createTipRequest()`
+
+Crée une demande de paiement pour des pourboires ou des dons avec un montant
+défini par l'utilisateur.
+
+```typescript
+function createTipRequest(
+  recipient: string,
+  amount: number,
+  options?: {
+    currency?: string;
+    memo?: string;
+    label?: string;
+    message?: string;
+  }
+): PaymentRequest;
+```
+
+#### Paramètres
+
+- **`recipient`** (`string`, requis) - Adresse du portefeuille du destinataire
+  du pourboire (créateur, streamer, organisme de bienfaisance, etc.).
+
+- **`amount`** (`number`, requis) - Montant du pourboire. L'unité dépend de la
+  devise (lamports pour SOL, unités mineures pour les jetons).
+
+- **`options`** (objet, facultatif) - Options de personnalisation :
+  - `currency` (chaîne) - Devise de paiement. Par défaut : undefined
+    (généralement traité comme SOL par les consommateurs).
+  - `memo` (chaîne) - Mémo on-chain. Par défaut :
+    `"Thank you for your support!"`.
+  - `label` (chaîne) - Libellé du paiement. Par défaut : `"Tip"`.
+  - `message` (chaîne) - Message de confirmation. Par défaut :
+    `"Thanks for the tip!"`.
+
+#### Retour
+
+Un objet `PaymentRequest` avec :
+
+- `recipient` - L'adresse du portefeuille du destinataire du pourboire
+- `amount` - Le montant du pourboire
+- `currency` - Devise de paiement (depuis les options, ou undefined)
+- `memo`, `label`, `message` - Valeurs des options ou valeurs par défaut
+
+**Exemple :**
+
+```typescript
+const tip = createTipRequest(
+  "creator-wallet-address",
+  5_000_000, // 0.005 SOL in lamports
+  {
+    currency: "SOL",
+    label: "Tip for Content Creator",
+    message: "Thanks for the support!"
+  }
+);
+```
+
+## Fonctions de vérification de paiement
+
+Ces fonctions interagissent avec Solana pour vérifier les transactions et
+attendre les confirmations. Elles nécessitent un client RPC Solana de la
+bibliothèque `gill`.
+
+### `verifyPayment()`
+
+Vérifie qu'une transaction existe on-chain et valide optionnellement le montant
+du paiement, le destinataire et le jeton.
+
+```typescript
+async function verifyPayment(
+  rpc: SolanaClient["rpc"],
+  signatureString: string,
+  expectedAmount?: number,
+  expectedRecipient?: string,
+  expectedMint?: string
+): Promise<PaymentVerificationResult>;
+```
+
+#### Paramètres
+
+- **`rpc`** (`SolanaClient['rpc']`, requis) - Client RPC de `gill`. Créer avec
+  `createSolanaClient(rpcUrl).rpc`.
+
+- **`signatureString`** (`string`, requis) - Signature de transaction (encodée
+  en base58) à vérifier.
+
+- **`expectedAmount`** (`number`, optionnel) - Montant de paiement attendu à
+  valider. L'unité doit correspondre à la devise :
+  - Pour SOL : lamports (1 SOL = 1 000 000 000 lamports)
+  - Pour les jetons SPL : unités mineures basées sur les décimales du jeton (par
+    exemple, l'USDC utilise 6 décimales)
+
+  Si non fourni, la validation du montant est ignorée.
+
+- **`expectedRecipient`** (`string`, optionnel) - Adresse de portefeuille du
+  destinataire attendu. Si fourni (avec `expectedAmount`), la fonction valide
+  que le destinataire a reçu au moins ce montant. Si non fourni, la validation
+  est ignorée.
+
+- **`expectedMint`** (`string`, optionnel) - Adresse de mint du jeton SPL.
+  Requis uniquement pour les transferts de jetons SPL. Si non fourni, la
+  fonction suppose un transfert SOL.
+
+#### Retour
+
+Un objet `Promise<PaymentVerificationResult>` :
+
+```typescript
+interface PaymentVerificationResult {
+  verified: boolean; // True if payment is valid
+  signature?: string; // Transaction signature (echoed back)
+  amount?: number; // Expected amount (echoed back)
+  recipient?: string; // Expected recipient (echoed back)
+  error?: string; // Error message if verification failed
+}
+```
+
+#### Logique de vérification
+
+La fonction effectue ces vérifications :
+
+1. **Validité de la signature :** Vérifie que la signature est valide.
+
+2. **Existence de la transaction :** Récupère la transaction en utilisant
+   `rpc.getTransaction()`. Si introuvable, retourne `verified: false`.
+
+3. **Statut de confirmation :** Vérifie que la transaction a été enregistrée
+   on-chain.
+
+4. **Validation du transfert SOL** (si `expectedRecipient` et `expectedAmount`
+   fournis, et aucun `expectedMint`) :
+   - Trouve l'index du compte du destinataire dans la transaction
+   - Compare `preBalances` et `postBalances` pour calculer le delta de solde
+   - Vérifie que le delta est au moins `expectedAmount`
+
+5. **Validation du transfert de jeton SPL** (si `expectedMint` fourni) :
+   - Dérive le compte de jetons associé (ATA) du destinataire pour le Token
+     Program et le Token-2022 Program
+   - Vérifie `postTokenBalances` pour un ATA correspondant avec le mint attendu
+   - Vérifie que le montant de jetons est au moins `expectedAmount`
+
+#### Considérations de sécurité
+
+- **Vérification côté client :** Cette fonction récupère les données de
+  transaction depuis le RPC. N'exposez pas votre URL RPC au client.
+- **Finalisation :** La fonction vérifie les transactions confirmées, mais pour
+  les paiements de grande valeur, envisagez d'attendre le statut `finalized`.
+
+**Exemple :**
+
+```typescript
+import { verifyPayment } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+const result = await verifyPayment(
+  client.rpc,
+  "transaction-signature-here",
+  50_000_000, // 0.05 SOL in lamports
+  "merchant-wallet-address"
+  // No mint = SOL transfer
+);
+
+if (result.verified) {
+  console.log("Payment confirmed!");
+} else {
+  console.error("Verification failed:", result.error);
+}
+```
+
+---
+
+### `waitForConfirmation()`
+
+Interroge la blockchain jusqu'à ce qu'une transaction atteigne le statut
+confirmé ou finalisé, ou expire.
+
+```typescript
+async function waitForConfirmation(
+  rpc: SolanaClient["rpc"],
+  signatureStr: string,
+  timeoutMs?: number
+): Promise<boolean>;
+```
+
+#### Paramètres
+
+- **`rpc`** (`SolanaClient['rpc']`, requis) - Client RPC depuis `gill`.
+
+- **`signatureStr`** (`string`, requis) - Signature de transaction à attendre.
+
+- **`timeoutMs`** (`number`, optionnel) - Temps d'attente maximum en
+  millisecondes. Par défaut : `30000` (30 secondes).
+
+#### Retour
+
+- `Promise<boolean>` - Retourne `true` si la transaction atteint le statut
+  `confirmed` ou `finalized` dans le délai imparti, `false` sinon.
+
+**Exemple :**
+
+```typescript
+import { waitForConfirmation } from "@solana-commerce/headless";
+import { createSolanaClient } from "gill";
+
+const client = createSolanaClient({
+  urlOrMoniker: "mainnet"
+});
+
+// After sending transaction
+const signature = await wallet.sendTransaction(transaction);
+
+// Wait for confirmation (30 second timeout)
+const confirmed = await waitForConfirmation(client.rpc, signature, 30000);
+
+if (confirmed) {
+  console.log("Transaction confirmed!");
+} else {
+  console.log("Timeout - transaction not confirmed within 30 seconds");
+}
+```
+
+## Fonctions Solana Pay
+
+Ces fonctions génèrent des URL [Solana Pay](https://docs.solanapay.com/) et des
+codes QR stylisés pour la numérisation par portefeuille mobile.
+
+### `createSolanaPayRequest()`
+
+Crée une URL Solana Pay et un code QR stylisé.
+
+```typescript
+async function createSolanaPayRequest(
+  request: TransferRequestURLFields,
+  options: SolanaPayRequestOptions
+): Promise<{ url: URL; qr: string }>;
+```
+
+#### Paramètres
+
+- **`request`** (`TransferRequestURLFields`, requis) - Champs de demande de
+  transfert Solana Pay :
+  - `recipient` - Clé publique du destinataire (utilisez
+    `createRecipient(address)` depuis `@solana-commerce/solana-pay`)
+  - `amount` - (optionnel) Montant du paiement en unités mineures (lamports pour
+    SOL)
+  - `splToken` (optionnel) - Clé publique du mint de jeton SPL (utilisez
+    `createSPLToken(address)`)
+  - `reference` (optionnel) - Clé publique de référence pour le suivi
+  - `label` (optionnel) - Nom du commerçant
+  - `message` (optionnel) - Message de succès
+  - `memo` (optionnel) - Mémo en chaîne
+
+- **`options`** (`SolanaPayRequestOptions`, requis) - Options de style du code
+  QR :
+  - `size` (number) - Largeur/hauteur du code QR en pixels. Par défaut : `256`.
+  - `background` (string) - Couleur de fond (hex/rgb). Par défaut : `'white'`.
+  - `color` (string) - Couleur du code QR (hex/rgb). Par défaut : `'black'`.
+  - `margin` (number) - Marge autour du code QR en modules.
+  - `errorCorrectionLevel` (`'L' | 'M' | 'Q' | 'H'`) - Niveau de correction
+    d'erreur. Des niveaux plus élevés permettent plus de dégradation mais créent
+    des codes plus denses.
+  - `logo` (string) - URL de l'image du logo à intégrer au centre du code QR.
+  - `logoSize` (number) - Taille du logo en pourcentage de la taille du code QR.
+  - `logoBackgroundColor` (string) - Couleur de fond derrière le logo.
+  - `logoMargin` (number) - Marge autour du logo.
+  - `dotStyle` (`'dots' | 'rounded' | 'square'`) - Forme des modules du code QR.
+  - `cornerStyle`
+    (`'square' | 'rounded' | 'extra-rounded' | 'full-rounded' | 'maximum-rounded'`) -
+    Forme des marqueurs de coin.
+
+#### Valeur de retour
+
+Une `Promise` qui se résout en un objet :
+
+- `url` (URL) - URL Solana Pay (par ex.,
+  `solana:recipient?amount=10&spl-token=...`)
+- `qr` (string) - URL de données encodée en Base64 de l'image du code QR (à
+  utiliser comme `<img src={qr} />`)
+
+**Exemple :**
+
+```typescript
+import {
+  createSolanaPayRequest,
+  createRecipient,
+  createSPLToken
+} from "@solana-commerce/solana-pay";
+
+const payment = await createSolanaPayRequest(
+  {
+    recipient: createRecipient("merchant-wallet-address"),
+    amount: 10_000_000, // 0.01 SOL in lamports
+    splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    label: "My Store",
+    message: "Thank you for your purchase!"
+  },
+  {
+    size: 400,
+    background: "#FFFFFF",
+    color: "#000000",
+    logo: "/logo.png",
+    logoSize: 20,
+    errorCorrectionLevel: "H"
+  }
+);
+
+// Display QR code
+document.getElementById("qr").src = payment.qr;
+console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+```

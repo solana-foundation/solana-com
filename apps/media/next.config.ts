@@ -3,26 +3,25 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+const assetPrefix = "/media-assets";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
-  assetPrefix: "/media-assets",
+  assetPrefix,
 
   env: {
     NEXT_PUBLIC_APP_NAME: "media",
   },
 
   images: {
+    path: `${assetPrefix}/_next/image`,
     localPatterns: [
       {
         pathname: "/uploads/**",
       },
       {
         pathname: "/media-assets/uploads/**",
-      },
-      {
-        pathname: "/builder/**",
       },
     ],
     remotePatterns: [

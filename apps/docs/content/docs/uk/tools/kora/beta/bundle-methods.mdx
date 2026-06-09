@@ -1,0 +1,385 @@
+---
+title: Bundle та нові RPC-методи
+description:
+  Нові RPC-методи в Kora v2.2.0-beta — Jito-бандли, версія та оцінка комісії
+  бандла.
+---
+
+Ці методи доступні, починаючи з `v2.2.0-beta.1`. Увімкніть їх у вашому
+`kora.toml` у розділі `[kora.enabled_methods]`.
+
+## getVersion
+
+Отримує інформацію про версію сервера Kora.
+
+### JSON-RPC запит
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getVersion",
+  "params": {}
+}
+```
+
+### JSON-RPC відповідь
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "version": "2.2.0-beta.7"
+  }
+}
+```
+
+### Приклад cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getVersion","params":{}}'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.getVersion();
+console.log("Kora version:", result.version);
+```
+
+### Конфігурація
+
+```toml
+[kora.enabled_methods]
+get_version = true
+```
+
+---
+
+## estimateBundleFee
+
+Розраховує сукупну комісію для кількох транзакцій у бандлі. Корисно для
+визначення загальної вартості перед підписанням та відправкою бандла.
+
+> **Примітка:** Плагіни транзакцій (наприклад, `gas_swap`) **не** виконуються
+> під час оцінки комісії. Плагіни запускаються лише під час процесів підписання
+> (`signBundle`, `signAndSendBundle`).
+
+### JSON-RPC запит
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "estimateBundleFee",
+  "params": {
+    "transactions": ["base64EncodedTransaction1", "base64EncodedTransaction2"],
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  }
+}
+```
+
+### Параметри
+
+| Параметр       | Тип      | Обов'язковий | Опис                                        |
+| -------------- | -------- | ------------ | ------------------------------------------- |
+| `transactions` | string[] | Так          | Масив транзакцій у форматі base64 (макс. 5) |
+| `fee_token`    | string   | Так          | Mint токена для розрахунку комісії          |
+
+### JSON-RPC відповідь
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "total_fee_in_lamports": "15000",
+    "total_fee_in_token": "150",
+    "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "transaction_fees": [
+      {
+        "fee_in_lamports": "5000",
+        "fee_in_token": "50"
+      },
+      {
+        "fee_in_lamports": "10000",
+        "fee_in_token": "100"
+      }
+    ]
+  }
+}
+```
+
+### Приклад cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "estimateBundleFee",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "fee_token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const estimate = await client.estimateBundleFee({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+});
+console.log("Total fee:", estimate.total_fee_in_lamports, "lamports");
+console.log("Total fee in token:", estimate.total_fee_in_token);
+```
+
+### Конфігурація
+
+```toml
+[kora.enabled_methods]
+estimate_bundle_fee = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signBundle
+
+Підписує декілька транзакцій як пакет без їх надсилання до мережі.
+Використовуйте цей метод, коли ви хочете самостійно обробити надсилання пакета
+до Jito.
+
+Цей метод захищений reCAPTCHA, якщо налаштовано. Додайте заголовок
+`x-recaptcha-token`, якщо на вашому сервері увімкнено reCAPTCHA.
+
+Коли увімкнено
+[плагіни транзакцій](/docs/tools/kora/beta/configuration#transaction-plugins)
+(наприклад, `gas_swap`), кожна транзакція в пакеті перевіряється на
+відповідність правилам плагіна перед підписанням.
+
+### Захист платника комісії Lighthouse
+
+Коли увімкнено
+[захист Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection),
+Kora додає інструкцію перевірки балансу до **останньої транзакції** у пакеті. Це
+захищає платника комісії від атак вичерпання, забезпечуючи, щоб баланс не впав
+нижче очікуваного рівня після завершення всіх транзакцій пакета.
+
+**Важливо:** Оскільки Lighthouse змінює повідомлення транзакції, будь-які
+існуючі підписи клієнта на останній транзакції стають недійсними. Клієнти
+повинні **перепідписати** після отримання зміненого пакета від Kora.
+
+```
+signBundle → client receives modified txs → client re-signs last tx → client sends bundle
+```
+
+### JSON-RPC запит
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Параметри
+
+| Параметр               | Тип      | Обов'язковий | Опис                                                                   |
+| ---------------------- | -------- | ------------ | ---------------------------------------------------------------------- |
+| `transactions`         | string[] | Так          | Масив транзакцій у форматі base64 (максимум 5)                         |
+| `signer_key`           | string   | Ні           | Конкретний підписувач для використання (за замовчуванням вибір з пулу) |
+| `transactions_to_sign` | number[] | Ні           | Індекси транзакцій для підпису (за замовчуванням всі)                  |
+
+### JSON-RPC відповідь
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Приклад cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const result = await client.signBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Signed transactions:", result.signed_transactions);
+```
+
+### Часткове підписання пакету
+
+Використовуйте `transactions_to_sign`, щоб підписати лише конкретні транзакції в
+пакеті:
+
+```typescript
+// Only sign transactions at index 0 and 2
+const result = await client.signBundle({
+  transactions: [tx1, tx2, tx3, tx4],
+  transactions_to_sign: [0, 2]
+});
+// tx1 and tx3 are signed by Kora, tx2 and tx4 remain unchanged
+```
+
+### Конфігурація
+
+```toml
+[kora.enabled_methods]
+sign_bundle = true
+
+[kora.bundle]
+enabled = true
+```
+
+---
+
+## signAndSendBundle
+
+Підписує та надсилає пакет до 5 транзакцій до блок-двигуна Jito. Усі транзакції
+в пакеті виконуються атомарно та послідовно — або всі успішні, або жодна.
+
+Цей метод захищено reCAPTCHA при налаштуванні. Додайте заголовок
+`x-recaptcha-token`, якщо на вашому сервері увімкнено reCAPTCHA.
+
+Коли увімкнено
+[плагіни транзакцій](/docs/tools/kora/beta/configuration#transaction-plugins)
+(наприклад, `gas_swap`), кожна транзакція в пакеті перевіряється відповідно до
+правил плагіна перед підписанням.
+
+> **Примітка:**
+> [Захист платника комісії Lighthouse](/docs/tools/kora/beta/configuration#lighthouse-fee-payer-protection)
+> **не** застосовується до цього методу. Оскільки пакети надсилаються негайно,
+> додавання твердження Lighthouse анулює існуючі підписи клієнта. Якщо вам
+> потрібен захист Lighthouse, використовуйте [`signBundle`](#signbundle) та
+> обробляйте надсилання Jito самостійно після повторного підписання.
+
+### JSON-RPC запит
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "signAndSendBundle",
+  "params": {
+    "transactions": [
+      "base64EncodedTransaction1",
+      "base64EncodedTransaction2",
+      "base64EncodedTransaction3"
+    ],
+    "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Параметри
+
+| Параметр               | Тип      | Обов'язковий | Опис                                                  |
+| ---------------------- | -------- | ------------ | ----------------------------------------------------- |
+| `transactions`         | string[] | Так          | Масив транзакцій у форматі base64 (макс. 5)           |
+| `signer_key`           | string   | Ні           | Конкретний підписувач (за замовчуванням вибір з пулу) |
+| `transactions_to_sign` | number[] | Ні           | Індекси транзакцій для підпису (за замовчуванням всі) |
+
+### JSON-RPC відповідь
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "bundle_uuid": "8f4a3b2c-1d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "signed_transactions": [
+      "base64EncodedSignedTransaction1",
+      "base64EncodedSignedTransaction2",
+      "base64EncodedSignedTransaction3"
+    ],
+    "signer_pubkey": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+  }
+}
+```
+
+### Приклад cURL
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "signAndSendBundle",
+    "params": {
+      "transactions": ["base64Tx1", "base64Tx2"],
+      "signer_key": "3Z1Ef7YaxK8oUMoi6exf7wYZjZKWJJsrzJXSt1c3qrDE"
+    }
+  }'
+```
+
+### TypeScript SDK
+
+```typescript
+const { bundle_uuid } = await client.signAndSendBundle({
+  transactions: [base64Tx1, base64Tx2, base64Tx3],
+  signer_key: koraSignerAddress
+});
+console.log("Bundle submitted:", bundle_uuid);
+```
+
+### Конфігурація
+
+```toml
+[kora.enabled_methods]
+sign_and_send_bundle = true
+
+[kora.bundle]
+enabled = true
+
+[kora.bundle.jito]
+block_engine_url = "https://mainnet.block-engine.jito.wtf"
+```
+
+> **Примітка:** Під час використання пакетів з чайовими Jito переконайтеся, що
+> `allow_transfer = true` встановлено в `[validation.fee_payer_policy.system]`,
+> щоб підписувач Kora міг сплатити чайові.

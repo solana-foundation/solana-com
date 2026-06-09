@@ -11,12 +11,14 @@ interface FooterCTAProps {
   translationPrefix?: string;
   backgroundImage?: string;
   lumaId?: string;
+  showCta?: boolean;
 }
 
 export function FooterCTA({
   translationPrefix = "accelerate.footerCta",
   backgroundImage = "/images/hk-characters.png",
   lumaId = "accelerate-miami",
+  showCta = true,
 }: FooterCTAProps = {}) {
   const t = useTranslations(translationPrefix);
 
@@ -132,34 +134,33 @@ export function FooterCTA({
             </motion.h2>
           </div>
 
-          {/* CTA block: Button + "Limited tickets available" */}
-          <div className="flex flex-col items-center gap-[30px] lg:gap-[61px]">
-            {/* CTA Button */}
-            <motion.div variants={fadeInUp}>
-              <LumaModal lumaId={lumaId}>
-                <button className="btn-cta group h-[56px] w-[320px] justify-between px-[20px] sm:h-[66px] sm:w-[480px] sm:px-[28px]">
-                  <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
-                    {t("requestToJoin")}
-                  </span>
-                  <Image
-                    src={getImagePath("/images/ticket-icon.svg")}
-                    alt=""
-                    width={18}
-                    height={12}
-                    className="flex-shrink-0"
-                  />
-                </button>
-              </LumaModal>
-            </motion.div>
+          {showCta && (
+            <div className="flex flex-col items-center gap-[30px] lg:gap-[61px]">
+              <motion.div variants={fadeInUp}>
+                <LumaModal lumaId={lumaId}>
+                  <button className="btn-cta group h-[56px] w-[320px] justify-between px-[20px] sm:h-[66px] sm:w-[480px] sm:px-[28px]">
+                    <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
+                      {t("requestToJoin")}
+                    </span>
+                    <Image
+                      src={getImagePath("/images/ticket-icon.svg")}
+                      alt=""
+                      width={18}
+                      height={12}
+                      className="flex-shrink-0"
+                    />
+                  </button>
+                </LumaModal>
+              </motion.div>
 
-            {/* "Limited tickets available" text */}
-            <motion.p
-              variants={fadeInUp}
-              className="text-lg text-accelerate-green font-normal leading-[1.1] sm:text-xl md:text-[32px]"
-            >
-              {t("limitedTickets")}
-            </motion.p>
-          </div>
+              <motion.p
+                variants={fadeInUp}
+                className="text-lg text-accelerate-green font-normal leading-[1.1] sm:text-xl md:text-[32px]"
+              >
+                {t("limitedTickets")}
+              </motion.p>
+            </div>
+          )}
         </motion.div>
       </div>
 

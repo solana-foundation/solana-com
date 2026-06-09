@@ -125,6 +125,11 @@ export default async function ReportPage({
                     }
                     portalId={String(report.hubspotForm.portalId)}
                     formId={String(report.hubspotForm.formId)}
+                    formUrl={
+                      report.hubspotForm.formUrl
+                        ? String(report.hubspotForm.formUrl)
+                        : undefined
+                    }
                     title={headline}
                   />
                 )}
