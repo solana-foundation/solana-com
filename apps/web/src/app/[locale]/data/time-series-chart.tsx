@@ -9,6 +9,7 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
 
@@ -53,6 +54,8 @@ export function TimeSeriesChart({
   valueLabel,
   height = 320,
 }: TimeSeriesChartProps) {
+  const locale = useLocale();
+  const t = useTranslations("dataDashboard");
   const [disabledSeries, setDisabledSeries] = useState<Set<string>>(new Set());
   const visibleSeries = useMemo(
     () => series.filter((item) => !disabledSeries.has(item.id)),
@@ -109,6 +112,7 @@ export function TimeSeriesChart({
             {({ width, height: measuredHeight }) => (
               <ChartSvg
                 height={measuredHeight}
+                locale={locale}
                 series={visibleSeries}
                 valueLabel={valueLabel}
                 width={width}
@@ -117,7 +121,7 @@ export function TimeSeriesChart({
           </ParentSize>
         ) : (
           <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-normal text-nd-mid-em-text">
-            Select at least one series
+            {t("empty.selectAtLeastOneSeries")}
           </div>
         )}
       </div>
@@ -127,11 +131,13 @@ export function TimeSeriesChart({
 
 function ChartSvg({
   height,
+  locale,
   series,
   valueLabel,
   width,
 }: {
   height: number;
+  locale: string;
   series: ChartSeries[];
   valueLabel: string;
   width: number;
@@ -185,7 +191,7 @@ function ChartSvg({
             hideTicks
             numTicks={4}
             scale={yScale}
-            tickFormat={(value) => formatCompactNumber(Number(value))}
+            tickFormat={(value) => formatCompactNumber(Number(value), locale)}
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -201,7 +207,7 @@ function ChartSvg({
             hideTicks
             numTicks={Math.max(2, Math.floor(innerWidth / 140))}
             scale={xScale}
-            tickFormat={(value) => formatDateTick(value as Date)}
+            tickFormat={(value) => formatDateTick(value as Date, locale)}
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -325,7 +331,7 @@ function ChartSvg({
           top={tooltipTop}
         >
           <div className="font-brand-mono text-[11px] font-bold uppercase tracking-normal text-nd-mid-em-text">
-            {formatTooltipDate(tooltipData.date)}
+            {formatTooltipDate(tooltipData.date, locale)}
           </div>
           <div className="mt-2 grid gap-1.5">
             {tooltipData.values.map((item) => (
@@ -340,7 +346,7 @@ function ChartSvg({
                 />
                 <span className="text-nd-mid-em-text">{item.label}</span>
                 <span className="font-medium tabular-nums text-nd-high-em-text">
-                  {formatValue(item.value, valueLabel)}
+                  {formatValue(item.value, valueLabel, locale)}
                 </span>
               </div>
             ))}
@@ -405,31 +411,31 @@ function getNearestDateValue(value: number, values: number[]) {
   return nearest;
 }
 
-function formatDateTick(value: Date) {
-  return new Intl.DateTimeFormat("en", {
+function formatDateTick(value: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
   }).format(value);
 }
 
-function formatTooltipDate(value: Date) {
-  return new Intl.DateTimeFormat("en", {
+function formatTooltipDate(value: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(value);
 }
 
-export function formatValue(value: number, valueLabel: string) {
+export function formatValue(value: number, valueLabel: string, locale = "en") {
   if (valueLabel === "USD") {
-    return `$${formatCompactNumber(value)}`;
+    return `$${formatCompactNumber(value, locale)}`;
   }
 
-  return formatCompactNumber(value);
+  return formatCompactNumber(value, locale);
 }
 
-function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en", {
+function formatCompactNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10 ? 1 : 2,
     notation: "compact",
   }).format(value);

@@ -373,21 +373,6 @@ export default {
         destination: `${DOCS_APP_URL}/developers/bootcamp/:path*`,
         locale: false,
       },
-      {
-        source: "/data",
-        destination: `${DOCS_APP_URL}/data`,
-        locale: false,
-      },
-      {
-        source: "/data/:path*",
-        destination: `${DOCS_APP_URL}/data/:path*`,
-        locale: false,
-      },
-      {
-        source: "/api/databricks/:path*",
-        destination: `${DOCS_APP_URL}/api/databricks/:path*`,
-        locale: false,
-      },
       // Docs app with locale
       {
         source: "/:locale/docs",
@@ -457,16 +442,6 @@ export default {
       {
         source: "/:locale/developers/bootcamp/:path*",
         destination: `${DOCS_APP_URL}/:locale/developers/bootcamp/:path*`,
-        locale: false,
-      },
-      {
-        source: "/:locale/data",
-        destination: `${DOCS_APP_URL}/:locale/data`,
-        locale: false,
-      },
-      {
-        source: "/:locale/data/:path*",
-        destination: `${DOCS_APP_URL}/:locale/data/:path*`,
         locale: false,
       },
     ],

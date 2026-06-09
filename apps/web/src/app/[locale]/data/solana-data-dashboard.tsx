@@ -1,8 +1,10 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import { useLocale, useTranslations } from "@workspace/i18n/client";
+import { usePathname, useRouter } from "@workspace/i18n/routing";
 
 import { cn } from "@/app/components/utils";
 
@@ -26,29 +28,10 @@ import {
 } from "./time-series-chart";
 
 const tabOptions = [
-  { label: "Overview", value: "overview" },
-  { label: "Stablecoins", value: "stablecoins" },
-  { label: "DeFi", value: "defi" },
-] as const satisfies readonly { label: string; value: DashboardTab }[];
-
-const tabContent: Record<DashboardTab, { description: string; label: string }> =
-  {
-    overview: {
-      label: "Overview",
-      description:
-        "Core Solana network activity, fee, price, and block production metrics.",
-    },
-    stablecoins: {
-      label: "Stablecoins",
-      description:
-        "Stablecoin supply, transfer, and active address metrics across data providers.",
-    },
-    defi: {
-      label: "DeFi",
-      description:
-        "DEX & Spot Trading metrics across data providers (Allium, Artemis, Blockworks, Dune, Token Terminal).",
-    },
-  };
+  { labelKey: "tabs.overview.label", value: "overview" },
+  { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
+  { labelKey: "tabs.defi.label", value: "defi" },
+] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
 const defaultProviders = new Set<ProviderName>(providers);
 const defaultRangeDays = 90;
@@ -77,7 +60,21 @@ type KpiItem = {
   value: number;
 };
 
+type DashboardTranslator = ReturnType<typeof useTranslations>;
+
+type DataFetchErrorMessages = {
+  defaultUnavailable: string;
+  invalidResponse: string;
+};
+
+type DataErrorPayload = {
+  detail?: string;
+  error?: string;
+};
+
 export function SolanaDataDashboard() {
+  const locale = useLocale();
+  const t = useTranslations("dataDashboard");
   const showProviderControls = useMinWidth("(min-width: 768px)");
   const {
     activeTab,
@@ -86,11 +83,22 @@ export function SolanaDataDashboard() {
     selectedProviders,
     updateQuery,
   } = useDashboardQueryState();
-  const activeTabContent = tabContent[activeTab];
+  const activeTabContent = getTabContent(t, activeTab);
   const dataUrl = `/api/databricks/data?days=${rangeDays}`;
+  const errorMessages = useMemo(
+    () => ({
+      defaultUnavailable: t("errors.defaultUnavailable"),
+      invalidResponse: t("errors.invalidResponse"),
+    }),
+    [t],
+  );
+  const fetchDashboardData = useCallback(
+    (url: string) => fetchData(url, errorMessages),
+    [errorMessages],
+  );
   const { data, error, isLoading, isValidating } = useSWR<DataApiResponse>(
     dataUrl,
-    fetchData,
+    fetchDashboardData,
     dataSWRConfig,
   );
   const rows = data?.rows ?? emptyRows;
@@ -116,18 +124,17 @@ export function SolanaDataDashboard() {
                 aria-hidden="true"
                 className="h-1.5 w-1.5 rounded-full bg-nd-highlight-green"
               />
-              Live network data
+              {t("header.eyebrow")}
             </span>
-            <h1 className="nd-heading-l mt-3">Solana data</h1>
+            <h1 className="nd-heading-l mt-3">{t("header.title")}</h1>
             <p className="nd-body-m text-nd-mid-em-text mt-3 max-w-[560px]">
-              Network, stablecoin, and DeFi metrics, sourced live from leading
-              on-chain providers.
+              {t("header.description")}
             </p>
           </div>
         </header>
 
         <nav
-          aria-label="Controls"
+          aria-label={t("controls.ariaLabel")}
           className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
@@ -140,7 +147,9 @@ export function SolanaDataDashboard() {
         </nav>
 
         <section
-          aria-label={`${activeTabContent.label} summary`}
+          aria-label={t("summaryAriaLabel", {
+            tab: activeTabContent.label,
+          })}
           className="mt-8 max-w-[720px]"
         >
           <h2 className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
@@ -176,16 +185,16 @@ export function SolanaDataDashboard() {
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
           <span>
             {selectedProviderList.length === providers.length
-              ? "All providers"
-              : selectedProviderList.join(" / ")}
+              ? t("footer.allProviders")
+              : selectedProviderList.join(t("footer.providerListSeparator"))}
             <span className="mx-3 text-nd-border-prominent">·</span>
-            Last {rangeDays} days
+            {t("footer.lastDays", { days: rangeDays })}
           </span>
           {data?.generatedAt ? (
             <span>
-              Updated{" "}
+              {t("footer.updated")}{" "}
               <span className="text-nd-high-em-text">
-                {formatTimestamp(data.generatedAt)}
+                {formatTimestamp(data.generatedAt, locale)}
               </span>
             </span>
           ) : null}
@@ -208,18 +217,24 @@ function DashboardControls({
   selectedProviders: Set<ProviderName>;
   showProviderControls: boolean;
 }) {
+  const t = useTranslations("dataDashboard");
+  const translatedTabOptions = tabOptions.map((option) => ({
+    label: t(option.labelKey),
+    value: option.value,
+  }));
+
   return (
     <div className="px-5 md:px-8 xl:px-10 py-2.5 grid gap-2 xl:flex xl:items-center xl:justify-between">
       <div className="-mx-1 flex items-center gap-x-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <InlineControl
-          ariaLabel="Data section"
-          options={tabOptions}
+          ariaLabel={t("controls.tabsAriaLabel")}
+          options={translatedTabOptions}
           value={activeTab}
           onChange={(value) => onUpdateQuery({ tab: value })}
         />
         <Separator />
         <InlineControl
-          ariaLabel="Date range"
+          ariaLabel={t("controls.rangeAriaLabel")}
           options={rangeOptions}
           value={rangeDays}
           onChange={(value) => onUpdateQuery({ days: value })}
@@ -245,14 +260,16 @@ function ProviderControls({
   onChange: (_providers: Set<ProviderName>) => void;
   selectedProviders: Set<ProviderName>;
 }) {
+  const t = useTranslations("dataDashboard");
+
   return (
     <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-        Providers
+        {t("controls.providersLabel")}
       </span>
       <ProviderToggle
         active={selectedProviders.size === providers.length}
-        label="All"
+        label={t("controls.allProviders")}
         onClick={() => onChange(new Set(providers))}
       />
       {providers.map((provider) => (
@@ -277,9 +294,12 @@ function KpiGrid({
   isRefreshing: boolean;
   kpis: KpiItem[];
 }) {
+  const locale = useLocale();
+  const t = useTranslations("dataDashboard");
+
   return (
     <section
-      aria-label="Key metrics"
+      aria-label={t("kpisAriaLabel")}
       className={cn(
         "mt-10 xl:mt-14 border-y border-nd-border-light relative",
         "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
@@ -297,9 +317,9 @@ function KpiGrid({
               delta={kpi.delta}
               index={index}
               key={kpi.chart.id}
-              label={kpi.chart.title}
-              unit={kpi.chart.valueLabel}
-              value={formatValue(kpi.value, kpi.chart.valueLabel)}
+              label={getChartTitle(t, kpi.chart)}
+              unit={getValueLabel(t, kpi.chart.valueLabel)}
+              value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
             />
           ))}
     </section>
@@ -323,9 +343,13 @@ function ChartGrid({
   selectedProviders: Set<ProviderName>;
   visibleCharts: readonly ChartDefinition[];
 }) {
+  const t = useTranslations("dataDashboard");
+
   return (
     <section
-      aria-label={`${activeTab} charts`}
+      aria-label={t("chartsAriaLabel", {
+        tab: getTabContent(t, activeTab).label,
+      })}
       className={cn(
         "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
         "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
@@ -334,7 +358,11 @@ function ChartGrid({
     >
       {isLoading
         ? activeCharts.map((chart, index) => (
-            <ChartSkeleton index={index} key={chart.id} title={chart.title} />
+            <ChartSkeleton
+              index={index}
+              key={chart.id}
+              title={getChartTitle(t, chart)}
+            />
           ))
         : visibleCharts.map((chart, index) => (
             <ChartCard
@@ -360,19 +388,21 @@ function ChartCard({
   rows: MetricRow[];
   selectedProviders: Set<ProviderName>;
 }) {
+  const t = useTranslations("dataDashboard");
   const series = useMemo(
     () => buildSeries(chart, rows, selectedProviders),
     [chart, rows, selectedProviders],
   );
+  const valueLabel = getValueLabel(t, chart.valueLabel);
 
   return (
     <article className="p-6 xl:p-8 flex flex-col gap-5">
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-          {chart.title}
+          {getChartTitle(t, chart)}
         </h2>
         <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-          {chart.valueLabel}
+          {valueLabel}
         </span>
       </div>
 
@@ -384,7 +414,7 @@ function ChartCard({
         />
       ) : (
         <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
-          No data for this selection
+          {t("empty.noDataForSelection")}
         </div>
       )}
 
@@ -406,6 +436,8 @@ function KpiCell({
   unit: string;
   value: string;
 }) {
+  const locale = useLocale();
+
   return (
     <article className={getKpiCellClassName(index)}>
       <div className="flex items-center justify-between gap-3">
@@ -426,7 +458,7 @@ function KpiCell({
             delta >= 0 ? "text-nd-highlight-green" : "text-nd-highlight-orange",
           )}
         >
-          {delta >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(delta))}
+          {delta >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(delta), locale)}
         </p>
       </div>
     </article>
@@ -469,13 +501,15 @@ function ChartOrdinal({ index }: { index: number }) {
 }
 
 function DataError({ error }: { error: Error }) {
+  const t = useTranslations("dataDashboard");
+
   return (
     <section
       className="mt-10 border border-nd-highlight-orange/40 bg-nd-highlight-orange/10 p-6 text-sm text-nd-high-em-text"
       role="alert"
     >
       <h2 className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-highlight-orange">
-        Data unavailable
+        {t("errors.title")}
       </h2>
       <p className="mt-3 nd-body-m text-nd-mid-em-text">{error.message}</p>
     </section>
@@ -833,40 +867,45 @@ function aggregate(sum: number, count: number, aggregation: Aggregation) {
   return aggregation === "avg" && count > 0 ? sum / count : sum;
 }
 
-async function fetchData(url: string) {
+async function fetchData(url: string, errorMessages: DataFetchErrorMessages) {
   const response = await fetch(url, { cache: "no-store" });
-  const payload = await readDataPayload(response);
+  const payload = await readDataPayload(response, errorMessages);
 
   if (!response.ok) {
-    throw new Error(
-      payload && "error" in payload && payload.error
-        ? payload.detail
-          ? `${payload.error} ${payload.detail}`
-          : payload.error
-        : "Solana data is unavailable right now.",
-    );
+    throw new Error(getDataFetchErrorMessage(payload, errorMessages));
   }
 
   if (!isDataApiResponse(payload)) {
-    throw new Error("Solana data returned an invalid response.");
+    throw new Error(errorMessages.invalidResponse);
   }
 
   return payload;
 }
 
-async function readDataPayload(response: Response) {
+async function readDataPayload(
+  response: Response,
+  errorMessages: DataFetchErrorMessages,
+) {
   try {
-    return (await response.json()) as
-      | { detail?: string; error?: string }
-      | DataApiResponse
-      | null;
+    return (await response.json()) as DataErrorPayload | DataApiResponse | null;
   } catch {
     if (response.ok) {
-      throw new Error("Solana data returned an invalid response.");
+      throw new Error(errorMessages.invalidResponse);
     }
 
     return null;
   }
+}
+
+function getDataFetchErrorMessage(
+  payload: DataErrorPayload | DataApiResponse | null,
+  errorMessages: DataFetchErrorMessages,
+) {
+  if (payload && "detail" in payload && payload.detail) {
+    return `${errorMessages.defaultUnavailable} ${payload.detail}`;
+  }
+
+  return errorMessages.defaultUnavailable;
 }
 
 function isDataApiResponse(value: unknown): value is DataApiResponse {
@@ -923,16 +962,44 @@ function isProviderName(value: string): value is ProviderName {
   return providers.includes(value as ProviderName);
 }
 
-function formatPercent(value: number) {
-  return new Intl.NumberFormat("en", {
+function formatPercent(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 1,
     style: "percent",
   }).format(value);
 }
 
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en", {
+function formatTimestamp(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function getTabContent(t: DashboardTranslator, tab: DashboardTab) {
+  return {
+    label: t(`tabs.${tab}.label`),
+    description: t(`tabs.${tab}.description`),
+  };
+}
+
+function getChartTitle(t: DashboardTranslator, chart: ChartDefinition) {
+  const titleKey = `charts.${chart.id}.title`;
+
+  return t.has(titleKey) ? t(titleKey) : chart.title;
+}
+
+function getValueLabel(t: DashboardTranslator, valueLabel: string) {
+  switch (valueLabel) {
+    case "Count":
+      return t("valueLabels.count");
+    case "Compute Units":
+      return t("valueLabels.computeUnits");
+    case "Fees (SOL)":
+      return t("valueLabels.feesSol");
+    case "USD":
+      return t("valueLabels.usd");
+    default:
+      return valueLabel;
+  }
 }

@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "@workspace/i18n/server";
 import { cn } from "@/app/components/utils";
 import { SolanaDataDashboard } from "./solana-data-dashboard";
 
 type Props = {
   params: Promise<{ locale: string }>;
 };
-
-const title = "Solana Data";
-const description =
-  "Explore live Solana network, stablecoin, and DeFi metrics.";
 
 export const revalidate = 3600;
 
@@ -57,10 +54,14 @@ function DataDashboardLoading() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "dataDashboard.metadata",
+  });
 
   return {
-    title,
-    description,
+    title: t("title"),
+    description: t("description"),
     alternates: getAlternates("/data", locale),
   };
 }

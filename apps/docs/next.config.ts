@@ -8,7 +8,6 @@ const frameAncestors = [
   "https://*.builder.io",
   "https://builder.io",
   "http://localhost:1234",
-  ...getDatabricksFrameAncestors(),
 ];
 
 const securityHeaders: Array<{ key: string; value: string }> = [
@@ -30,45 +29,6 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
 ];
 
-function getDatabricksFrameAncestors() {
-  const hostname = normalizeDatabricksHostname(
-    process.env.DATABRICKS_SERVER_HOSTNAME,
-  );
-
-  return hostname ? [`https://${hostname}`] : [];
-}
-
-function normalizeDatabricksHostname(value?: string) {
-  const rawValue = value?.trim();
-
-  if (!rawValue || isPlaceholderValue(rawValue)) {
-    return undefined;
-  }
-
-  try {
-    const url =
-      rawValue.startsWith("http://") || rawValue.startsWith("https://")
-        ? new URL(rawValue)
-        : new URL(`https://${rawValue}`);
-    const hostname = url.hostname;
-
-    return hostname.endsWith(".cloud.databricks.com") ? hostname : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isPlaceholderValue(value: string) {
-  const lowerValue = value.toLowerCase();
-
-  return (
-    value.startsWith("<") ||
-    lowerValue.startsWith("your_") ||
-    lowerValue === "changeme" ||
-    lowerValue === "todo"
-  );
-}
-
 if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   securityHeaders.push({
     key: "X-Robots-Tag",
@@ -82,7 +42,6 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   trailingSlash: false,
   assetPrefix: prefix,
-  serverExternalPackages: ["@databricks/sql", "lz4"],
 
   env: {
     NEXT_PUBLIC_APP_NAME: "docs",

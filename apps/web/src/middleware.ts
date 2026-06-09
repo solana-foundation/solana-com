@@ -14,6 +14,19 @@ export default async function middleware(req: NextRequest) {
     ? `/${pathSegments.slice(1).join("/")}`
     : pathname;
 
+  if (
+    normalizedPathname === "/developers/data" ||
+    normalizedPathname.startsWith("/developers/data/")
+  ) {
+    const dataPathSuffix = normalizedPathname.slice("/developers/data".length);
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = hasLocalePrefix
+      ? `/${pathSegments[0]}/data${dataPathSuffix}`
+      : `/data${dataPathSuffix}`;
+
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
@@ -24,8 +37,6 @@ export default async function middleware(req: NextRequest) {
     normalizedPathname.startsWith("/developers/cookbook") ||
     normalizedPathname.startsWith("/developers/guides") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
-    normalizedPathname === "/data" ||
-    normalizedPathname.startsWith("/data/") ||
     normalizedPathname.startsWith("/docs") ||
     normalizedPathname.startsWith("/learn") ||
     (normalizedPathname.startsWith("/news") &&
