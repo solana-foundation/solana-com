@@ -35,7 +35,7 @@ everyone and allows for more blockspace over the network.
 ### Votor
 
 Voting on Alpenglow will work with a new voting algorithm called Votor. It can
-handle 20% of adversial stake plus 20% of offline stake while still achieving
+handle 20% of adversarial stake plus 20% of offline stake while still achieving
 consensus across the network.
 
 TowerBFT needs a supermajority of greater than two-thirds of stake to achieve a
@@ -46,7 +46,7 @@ required to finalize a block.
 
 Alpenglow will no longer have vote transactions. State of votes is kept in a
 separate data structure called Pool and kept together in a service called
-Blockstor. There vote messages a validator can make:
+Blockstor. There are five vote messages a validator can make:
 
 - Notarization - Voting yes for the block
 - Notarization fallback - Voting yes for the previous block
@@ -68,8 +68,8 @@ Alpenglow creates quorum certificates from among the following:
 After running several tests for months, validators and the core development team
 are testing the new consensus algorithm on a community cluster. This will ensure
 a smooth migration from the old consensus protocol to the new one. There are
-already issues that were identified by the initiative and core devsare working
-ensure that the network does not experience downtime during the transition.
+already issues that were identified by the initiative and core devs are working
+to ensure that the network does not experience downtime during the transition.
 
 ### Further SIMDs
 
@@ -89,8 +89,7 @@ proposal:
 ## About This Upgrade
 
 Alpenglow is the biggest change to Solana in recent years. Not only does it
-improve on TowerBFT, but it makes the network is competitive while also being
-safe.
+improve on TowerBFT, but it makes the network competitive while also being safe.
 
 This is a collaborative effort on the part of validators and core developers to
 ensure that the chain continues to deliver for users.
