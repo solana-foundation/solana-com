@@ -20,7 +20,7 @@ with further SIMDs improving on the implementation details.
 | Expected Mainnet Activation Date | TBD |
 | Devnet Activation                | TBD |
 | Breaking Change?                 | Yes |
-| Indexing Changes Required?       | TBD |
+| Indexing Changes Required?       | Yes |
 
 ## Technical Details
 
