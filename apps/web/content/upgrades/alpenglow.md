@@ -1,4 +1,4 @@
-# Alpenglow Phase 1 (Votor)
+# Alpenglow Phase 1 - Votor
 
 **TBD** • Solana Foundation
 
@@ -17,7 +17,7 @@ scale and improve performance. This change aims to achieve block consensus in
 
 ## Technical Details
 
-### Votor
+### Votor, Voting and Certificates
 
 Voting on Alpenglow will work with a new voting algorithm called Votor. It can
 handle 20% of adversarial stake plus 20% of offline stake while still achieving
@@ -27,26 +27,32 @@ TowerBFT needs a supermajority of greater than two-thirds of stake to achieve a
 confirmed status. Alpenglow is a marked improvement in terms of the overhead
 required to finalize a block.
 
-### Votes and Certificates
-
 Alpenglow will no longer have vote transactions. State of votes is kept in a
 separate data structure called Pool and kept together in a service called
-Blockstor. There are five vote messages a validator can make:
+Blockstor. There are two rounds of voting. The first requires that >= 80% of
+stake vote yes to a block to finalize. This is the fast finalization path. If
+there is failure to vote yes right away, it goes to a second round where only >=
+60% of stake is required to vote yes to finalize the block.
 
-- Notarization - Voting yes for the block
-- Notarization fallback - Voting yes for the previous block
-- Skip - Voting skip for the current block
-- Skip fallback - Voting skip for the previous block
-- Final - Finalizing the block
+There are five vote messages a validator can make:
 
-Alpenglow creates quorum certificates from among the following:
+- Notarization - Voting yes
+- Notarization fallback - Voting yes during the second round
+- Skip - Voting skip
+- Skip fallback - Voting skip for second round
+- Final - Voting to finalize the block
 
-- Fast finalization - >= 80% of stake votes to notarize
-- Notarization - >= 60% of stake votes to notarize
-- Notarization fallback - >= 60% of stake votes to either notarize or notarize
-  the fallback block
-- Skip - >= 60% of stake votes to either skip or skip the fallback block
-- Finalization - >= 60% of stake votes to finalize the block
+As voting happens, validators aggregate votes to one of the following quorum
+certificates depending on the vote state:
+
+- Fast finalization - Received >= 80% of stake votes to notarize in first round.
+  Finalize.
+- Notarization - Received only >= 60% to < 80% of stake votes in first round.
+  Ready for second round.
+- Finalization - Received >= 60% of stake votes in the second round. Finalize.
+- Notarization fallback - Received >= 60% of stake votes that either vote
+  notarize or notarize fallback in the second round
+- Skip - >= 60% of stake votes to either skip in the first or second round
 
 ### Alpenglow community cluster
 
@@ -73,13 +79,14 @@ changes, clock behavior, leader handoff markers, and VAT implementation details.
 
 ---
 
-### Phase 2 (Rotor)
+### Phase 2 - Rotor
 
 Alpenglow in its next phase will replace Solana Turbine with a new block
 propagation service called Rotor. It uses the same erasure coding idea and
 validator stake-adjusted bandwith from Turbine. Rotor changes the block
 propagation plan from a tree of nodes to a single relay layer to minimize
-network latency.
+network latency. The plan is to make this upgrade at a later stage once Votor
+has already been adopted by the network.
 
 ## About This Upgrade
 
