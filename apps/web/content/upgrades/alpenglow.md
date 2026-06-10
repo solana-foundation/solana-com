@@ -1,19 +1,12 @@
-# Alpenglow
+# Alpenglow Phase 1 (Votor)
 
 **TBD** • Solana Foundation
 
-Solana is replacing its TowerBFT consensus algorithm with a new protocol called
-Alpenglow. It aims to simplify consensus on Solana given its scale and improve
-performance. This change hopes to achieve block consensus in 150ms compared to
-Solana's current confirmation times of 400ms and finality of 12.8ms.
-
-It was first
-[announced by Anza](https://www.anza.xyz/blog/alpenglow-a-new-consensus-for-solana)
-in May 19, 2025, and
-[announced further](https://www.youtube.com/watch?v=x1sxtm-dvyE) in Solana
-Accelerate 2025 Scale or Die. It was formally proposed in
-[SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/pull/326)
-with further SIMDs improving on the implementation details.
+Solana is replacing its consensus and block propagation protocols with a new
+protocol called Alpenglow. It aims to simplify consensus on Solana given its
+scale and improve performance. This change aims to achieve block consensus in
+150ms compared to Solana's current confirmation times of 400ms and finality of
+12.8ms.
 
 |                                  |     |
 | -------------------------------- | --- |
@@ -23,14 +16,6 @@ with further SIMDs improving on the implementation details.
 | Indexing Changes Required?       | Yes |
 
 ## Technical Details
-
-### Rotor
-
-Alpenglow replaces Solana Turbine with a new block distribution service called
-Rotor. It uses the same erasure coding idea behind Turbine, but adjusts its
-bandwidth based on validator stake. Validators with larger stake will be
-responsible for more of the outgoing bandwidth. This increases bandwidth for
-everyone and allows for more blockspace over the network.
 
 ### Votor
 
@@ -71,13 +56,15 @@ a smooth migration from the old consensus protocol to the new one. There are
 already issues that were identified by the initiative and core devs are working
 to ensure that the network does not experience downtime during the transition.
 
-### Further SIMDs
+### Alpenglow SIMDs
 
-The following SIMDs were added to further extend the original Alpenglow
-proposal:
+Alpenglow is defined across several SIMDs. The original proposal introduces the
+new consensus protocol, while the follow-up SIMDs cover migration, vote account
+changes, clock behavior, leader handoff markers, and VAT implementation details.
 
 |                                                                                         |                                            |
 | --------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/pull/326) | Alpenglow Consensus Protocol               |
 | [SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/pull/337) | Markers for Alpenglow Fast Leader Handover |
 | [SIMD-0357](https://github.com/solana-foundation/solana-improvement-documents/pull/357) | Alpenglow VAT implementation               |
 | [SIMD-0363](https://github.com/solana-foundation/solana-improvement-documents/pull/363) | Simple Alpenglow Clock                     |
@@ -85,6 +72,14 @@ proposal:
 | [SIMD-0387](https://github.com/solana-foundation/solana-improvement-documents/pull/387) | BLS Pubkey Management in Vote Account      |
 
 ---
+
+### Phase 2 (Rotor)
+
+Alpenglow in its next phase will replace Solana Turbine with a new block
+propagation service called Rotor. It uses the same erasure coding idea and
+validator stake-adjusted bandwith from Turbine. Rotor changes the block
+propagation plan from a tree of nodes to a single relay layer to minimize
+network latency.
 
 ## About This Upgrade
 
