@@ -53,6 +53,7 @@ const tabIndicatorSpring = {
 } as const;
 
 const defaultProviders = new Set<ProviderName>(providers);
+const emptyProvidersParam = "none";
 const defaultRangeDays = 90;
 const emptyRows: MetricRow[] = [];
 const kpiCount = 4;
@@ -919,10 +920,19 @@ function getAggregateSeriesValue(
   }
 
   if (seriesField === "provider") {
-    return values.reduce((sum, value) => sum + value, 0) / values.length;
+    return getMedian(values);
   }
 
   return values.reduce((sum, value) => sum + value, 0);
+}
+
+export function getMedian(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
 }
 
 function aggregate(sum: number, count: number, aggregation: Aggregation) {

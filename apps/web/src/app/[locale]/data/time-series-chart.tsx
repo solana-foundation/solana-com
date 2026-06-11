@@ -74,6 +74,7 @@ export function TimeSeriesChart({
   )
     ? hoveredSeriesId
     : null;
+  const allSeriesSelected = visibleSeries.length === series.length;
 
   return (
     <div className="grid gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
@@ -98,7 +99,7 @@ export function TimeSeriesChart({
 
                   if (next.has(item.id)) {
                     next.delete(item.id);
-                  } else if (next.size < series.length - 1) {
+                  } else {
                     next.add(item.id);
                   }
 
@@ -121,6 +122,23 @@ export function TimeSeriesChart({
             </button>
           );
         })}
+        {series.length > 1 ? (
+          <button
+            className="inline-flex items-center border border-nd-border-prominent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text transition-colors hover:bg-nd-border-light/20 hover:text-nd-high-em-text"
+            onClick={() => {
+              setDisabledSeries(
+                allSeriesSelected
+                  ? new Set(series.map((item) => item.id))
+                  : new Set(),
+              );
+            }}
+            type="button"
+          >
+            {allSeriesSelected
+              ? t("legend.deselectAll")
+              : t("legend.selectAll")}
+          </button>
+        ) : null}
       </div>
 
       <div className="relative" style={{ height }}>
