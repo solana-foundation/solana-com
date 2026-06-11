@@ -202,9 +202,7 @@ export function SolanaDataDashboard() {
 
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
           <span>
-            {selectedProviderList.length === providers.length
-              ? t("footer.allProviders")
-              : selectedProviderList.join(t("footer.providerListSeparator"))}
+            {getFooterProvidersLabel(t, selectedProviderList)}
             <span className="mx-3 text-nd-border-prominent">·</span>
             {t("footer.lastDays", { days: rangeDays })}
           </span>
@@ -333,17 +331,13 @@ function ProviderControls({
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
+  const allProvidersSelected = selectedProviders.size === providers.length;
 
   return (
     <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
         {t("controls.providersLabel")}
       </span>
-      <ProviderToggle
-        active={selectedProviders.size === providers.length}
-        label={t("controls.allProviders")}
-        onClick={() => onChange(new Set(providers))}
-      />
       {providers.map((provider) => (
         <ProviderToggle
           active={selectedProviders.has(provider)}
@@ -353,6 +347,17 @@ function ProviderControls({
           onClick={() => onChange(toggleProvider(selectedProviders, provider))}
         />
       ))}
+      <button
+        className="shrink-0 border border-nd-border-prominent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text transition-colors hover:bg-nd-border-light/20 hover:text-nd-high-em-text"
+        onClick={() =>
+          onChange(
+            allProvidersSelected ? new Set<ProviderName>() : new Set(providers),
+          )
+        }
+        type="button"
+      >
+        {allProvidersSelected ? t("legend.deselectAll") : t("legend.selectAll")}
+      </button>
     </div>
   );
 }
@@ -707,13 +712,15 @@ function applyQueryUpdates(params: URLSearchParams, updates: QueryUpdates) {
   }
 }
 
-function updateProvidersParam(
+export function updateProvidersParam(
   params: URLSearchParams,
   selectedProviders: Set<ProviderName>,
 ) {
   const nextProviders = getOrderedSelectedProviders(selectedProviders);
 
-  if (nextProviders.length === 0 || nextProviders.length === providers.length) {
+  if (nextProviders.length === 0) {
+    params.set("providers", emptyProvidersParam);
+  } else if (nextProviders.length === providers.length) {
     params.delete("providers");
   } else {
     params.set("providers", nextProviders.join(","));
@@ -738,11 +745,22 @@ function toggleProvider(
     nextProviders.add(provider);
   }
 
-  if (nextProviders.size === 0) {
-    nextProviders.add(provider);
+  return nextProviders;
+}
+
+function getFooterProvidersLabel(
+  t: DashboardTranslator,
+  selectedProviderList: ProviderName[],
+) {
+  if (selectedProviderList.length === providers.length) {
+    return t("footer.allProviders");
   }
 
-  return nextProviders;
+  if (selectedProviderList.length === 0) {
+    return t("footer.noProviders");
+  }
+
+  return selectedProviderList.join(t("footer.providerListSeparator"));
 }
 
 function getOrderedSelectedProviders(
@@ -1016,9 +1034,13 @@ function parseRangeDays(value: string | null) {
     : defaultRangeDays;
 }
 
-function parseProviders(value: string | null) {
+export function parseProviders(value: string | null) {
   if (!value) {
     return new Set(defaultProviders);
+  }
+
+  if (value === emptyProvidersParam) {
+    return new Set<ProviderName>();
   }
 
   const parsedProviders = value
