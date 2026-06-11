@@ -540,6 +540,10 @@ export async function fetchEpisodesFromRSSCached(
       if (scrapedEpisodes.length > 0) {
         return scrapedEpisodes;
       }
+
+      console.warn(
+        `Buzzsprout scraping returned no episodes for ${rssFeedUrl}, falling back to RSS feed`,
+      );
     }
 
     const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);
