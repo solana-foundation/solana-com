@@ -107,6 +107,35 @@ Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
 spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
 in the workspace.
 
+### Python
+
+1. Drop `packages/docs-examples/cookbook/<section>/<page>/python/main.py`.
+2. Wrap the rendered region in `# #region <name>` / `# #endregion <name>` — same
+   idea, just with `#` comment tokens.
+3. Add any new dep to `packages/docs-examples/requirements.txt`.
+4. Reference from MDX with
+   ` ```py !! title="Python" file=packages/docs-examples/cookbook/<section>/<page>/python/main.py#region=<name> `
+
+Run locally with `bash packages/docs-examples/scripts/run-python-examples.sh` —
+spawns surfpool and runs every `main.py` in the cookbook tree against it. Needs
+`pip install -r packages/docs-examples/requirements.txt` once and Python 3.10+
+on PATH.
+
+## Builder API
+
+The blog content located at `/news` and most of the landing pages under
+`/solutions` utilize Builder.io, a headless CMS integrated with our current
+Next.js project.
+
+```conf
+NEXT_PUBLIC_BUILDER_API_KEY=""
+NEXT_PUBLIC_BUILDER_NEWS_SETTINGS_ID=""
+```
+
+> Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key):
+> The Builder Public API Key is public, meaning that you don't have to keep it
+> private.
+
 ## RPC providers
 
 To be considered for listing on the https://solana.com/rpc page, providers must

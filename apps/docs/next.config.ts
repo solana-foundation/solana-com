@@ -175,11 +175,13 @@ const nextConfig: NextConfig = {
     "/[locale]/developers/cookbook/**/*": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
     "/[locale]/developers/cookbook/[...slug]": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
   },
