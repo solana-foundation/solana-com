@@ -1,0 +1,606 @@
+---
+title: Confidential Transfer Integration Guide
+description:
+  Learn how to integrate tokens that use the Confidential Transfer extension
+  into wallets, explorers, exchanges, and other applications.
+---
+
+# Supporting Confidential Transfers on Solana
+
+## Background
+
+The Confidential Transfer extension lets Token-2022 mints keep transfer amounts
+and account balances encrypted onchain. Balances are encrypted, so displaying
+them requires the owner's decryption keys, and sending requires generating
+zero-knowledge proofs on the client.
+
+This guide is for teams **integrating** confidential transfer tokens (wallets,
+explorers, exchanges, custodians, indexers) rather than issuers configuring a
+mint. If you are building the underlying flow from scratch, start with the
+step-by-step pages linked below; this guide focuses on what your product needs
+to do to support these tokens well.
+
+Account addresses, the mint, and the owner of each account stay **public**. Only
+amounts and balances are encrypted, so everything else, including who transacts
+with whom, remains visible. This gives confidentiality from public observers,
+not anonymity.
+
+### Resources
+
+- [Confidential Transfer overview and step-by-step guides](/docs/tokens/extensions/confidential-transfer)
+- [Extension Rust code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS client](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instructions, account state parsing, key derivation, and high-level
+  confidential transfer helpers)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (encryption primitives and proof data generation)
+- [`@solana-program/zk-elgamal-proof` JS client](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (proof verification instructions)
+- [`spl-token-client` Rust crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (high-level end-to-end helpers in Rust)
+
+## TL;DR
+
+- Every confidential token account still has a **public balance** plus an
+  encrypted **pending** and **available** balance. A token can move freely
+  between public and confidential states.
+- To **display** a confidential balance you need the owner's keys. The
+  recommended approach is to derive them from the owner's wallet, decrypt the
+  available balance with the AES key (fast), and decrypt pending amounts with
+  the ElGamal key when needed.
+- To **send** confidentially you generate ZK proofs on the client (equality,
+  ciphertext validity, range), usually placed in temporary **proof context state
+  accounts**, then submit the transfer. Both `@solana-program/token-2022` (JS)
+  and `spl-token-client` (Rust) provide high-level helpers that build the proofs
+  and sequence the transactions for you.
+- Confidential transfers currently span a few dependent transactions because the
+  proofs exceed today's transaction size limit. An upcoming change (transaction
+  format v1, landing with Agave v4.2) raises that limit and is expected to let a
+  confidential transfer execute in a single onchain transaction.
+- A wallet that adds no support still works: it shows the public balance and
+  standard transfers keep functioning. Confidential funds stay accessible to any
+  confidential-aware client with the owner's keys.
+
+## Terms
+
+- **ElGamal keypair**: per-account public-key keypair used to encrypt balances
+  and build ZK proofs. The public key is stored on the account.
+- **AES key**: per-account symmetric key used to encrypt the "decryptable
+  available balance" so the owner can read their available balance in constant
+  time, without solving a discrete log.
+- **Pending balance**: encrypted balance of funds received via deposits or
+  incoming transfers that have not yet been applied. Cannot be spent directly.
+- **Available balance**: encrypted balance that can be transferred or withdrawn.
+- **Apply**: the step that moves pending into available.
+- **Proof context state account**: a temporary onchain account holding a
+  pre-verified ZK proof, referenced by a confidential instruction and then
+  closed to reclaim rent.
+- **Auditor**: an optional global ElGamal key on the mint; when set, every
+  transfer additionally encrypts its amount under this key so a designated party
+  can decrypt it.
+
+## Account model and balances
+
+When an account is configured for confidential transfers, the
+`ConfidentialTransferAccount` extension stores (among other fields):
+
+- `elgamal_pubkey`: the account's ElGamal public key.
+- `pending_balance_lo` / `pending_balance_hi`: ElGamal ciphertexts of the
+  pending balance, split into low and high bits (decryption of the high bits is
+  more expensive, so they are kept separate).
+- `available_balance`: ElGamal ciphertext of the spendable balance.
+- `decryptable_available_balance`: an **AES** ciphertext of the same available
+  balance that the owner can decrypt instantly. This is the field to use for
+  display.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: whether the
+  account currently accepts incoming confidential or public credits.
+- `pending_balance_credit_counter` and `maximum_pending_balance_credit_counter`:
+  how many credits have accrued to the pending balance and the cap before an
+  apply is required.
+
+All of these fields are returned in parsed account state over standard RPC.
+Anyone can read the ciphertexts, but only key holders can recover the underlying
+amounts.
+
+## Key management
+
+Each confidential account uses two keys: an **ElGamal keypair** for encryption
+and proofs, and an **AES key** for fast balance decryption. How you produce and
+store those keys is an integration choice. A few common options:
+
+- **Derive from a wallet signature (recommended default).** The owner signs a
+  canonical, domain-separated message and the keys are derived from that
+  signature, so they are reproducible from the wallet alone and you do not have
+  to store them. The seed is deterministic per account: the JS helpers below
+  bind it to the `(owner, mint)` pair, while the Rust example seeds from the
+  token account address (for an associated token account these are equivalent,
+  since that address is itself derived from the owner and mint).
+- **Derive from independent key material.** For passkeys, secure enclaves, or
+  MPC setups, derive the keys from a WebAuthn PRF output or other input key
+  material so that the confidential keys are not tied to the account's signing
+  key. `@solana/zk-sdk` exposes `ConfidentialKeys.fromIkm` and
+  `ConfidentialKeys.fromPrf` for this.
+- **Generate and manage directly.** Custodial and MPC providers may prefer to
+  generate the keys and manage them like any other sensitive key material.
+
+The `@solana-program/token-2022` client ships helpers for the recommended path:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use spl_token_2022::solana_zk_sdk::encryption::{auth_encryption::AeKey, elgamal::ElGamalKeypair};
+
+// `signer` is the account owner; the token account address is the seed.
+let elgamal_keypair =
+    ElGamalKeypair::new_from_signer(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive ElGamal keypair");
+let aes_key = AeKey::new_from_signer(&signer, &token_account_pubkey.to_bytes())
+    .expect("Failed to derive AES key");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Confidential keys are decryption keys. Treat a request to sign the derivation
+  message like unlocking a private view of the user's balances. Prefer deriving
+  on demand over storing them; if you do store them (for example in a custodial
+  service), protect them with the same rigor as signing keys.
+</Callout>
+
+The derivation helpers return serialized key material. The high-level operation
+helpers (shown later) take WASM `ElGamalKeypair` and `AeKey` objects, so rebuild
+them from the bytes when you need them:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Creating and configuring accounts
+
+Before an account can hold a confidential balance it needs the
+`ConfidentialTransferAccount` extension, which adds roughly 295 bytes to the
+token account (on the order of 0.0015 SOL in extra rent). Setup is two steps:
+create the token account, then configure the extension.
+
+Configuring normally requires the **account owner** to sign and supply a proof
+that they own the ElGamal public key being set on the account. A wallet or
+exchange can create and fund the bare token account for a user, but it cannot
+configure the confidential extension on the user's behalf without that
+signature.
+
+Because of this, avoid silently provisioning confidential accounts for every
+user: it costs extra rent and still needs owner involvement. Configure on first
+use, or when the user opts into confidential transfers.
+
+The **ElGamal registry** removes the per-account owner step. A user registers
+their ElGamal public key once (signing a proof at registration), and the
+registry entry is reusable across every mint. After that, a third party can
+configure confidential accounts for the user with
+`ConfigureAccountWithRegistry`, which needs no owner signature or proof at
+configuration time, only a payer for rent. This is the mechanism to use if you
+want to provision confidential accounts for users smoothly.
+
+<Callout type="info">
+  Registry configuration is available in the Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) and the
+  `spl-elgamal-registry` program today. Equivalent helpers in the
+  `@solana-program/token-2022` JS client are not available yet, so JS
+  integrations that need the registry path should track that client's releases.
+</Callout>
+
+## Displaying balances
+
+A robust integration shows the public balance using the standard token balance,
+detects the confidential extension, and, when the user has unlocked their keys,
+decrypts and shows the available balance.
+
+The available balance is best read from `decryptable_available_balance` using
+the AES key, which is constant time. Decrypting the ElGamal `available_balance`
+directly requires solving a discrete log and should be avoided for routine
+display.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+When the user has not unlocked their keys, show the public balance and indicate
+that a confidential balance exists but is locked, rather than showing zero.
+
+## Receiving transfers
+
+Incoming deposits and transfers land in the **pending** balance and are not
+spendable until applied. Each credit increments
+`pending_balance_credit_counter`; once it reaches
+`maximum_pending_balance_credit_counter`, the account cannot receive more
+confidential credits until the owner applies the pending balance.
+
+Integrations that hold funds on behalf of users should:
+
+- Surface pending vs available separately so users understand why a
+  just-received amount is not yet spendable.
+- Apply the pending balance on the user's behalf at sensible times (for example
+  before a send) so balances do not get stuck.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+See the
+[Apply Pending Balance](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+page for the full flow.
+
+## Sending transfers
+
+A confidential transfer requires three zero-knowledge proofs generated on the
+client:
+
+- **Equality proof** that the sender's new balance ciphertext encrypts the same
+  value as a fresh commitment the sender can open.
+- **Ciphertext validity proof** that the transfer-amount ciphertexts are
+  well-formed under the source, destination, and (if set) auditor keys.
+- **Range proof** that the amount and the sender's remaining balance are valid
+  non-negative integers, which is what prevents minting value out of thin air.
+
+These proofs are larger than today's transaction size limit allows inline, so
+the usual pattern is to create **proof context state accounts**, verify each
+proof into them, reference them from the transfer instruction, then close them
+to reclaim rent. That spans a few dependent transactions. Transaction format v1
+(landing with Agave v4.2) raises the size limit and is expected to let a
+confidential transfer run in a single onchain transaction, which will simplify
+this flow.
+
+You do not have to assemble the proofs by hand. Both clients provide a
+high-level helper that builds the proofs and produces the instructions to
+submit:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+If you need finer control, the lower-level building blocks are available too:
+`@solana/zk-sdk` generates each proof's data
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` provides the
+proof verification instructions, and `@solana-program/token-2022` provides the
+`confidentialTransfer` and context state account instructions.
+
+See the
+[Transfer Tokens](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+page for the detailed instruction sequence.
+
+## Withdrawing
+
+Withdrawing moves funds from the confidential available balance back to the
+public balance, after which they behave like any normal token balance.
+Withdrawal also requires proofs (an equality and a range proof), exposed as
+`getConfidentialWithdrawInstructionPlan` in the JS client and
+`confidential_transfer_withdraw` in the Rust client. Apply any pending balance
+first so the full amount is available. See
+[Withdraw Tokens](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Related confidential extensions
+
+Two optional extensions build on confidential transfers. Both are mainly the
+issuer's responsibility, but each changes something an integrator should handle:
+
+- **Confidential transfer fees.** When a mint pairs confidential transfers with
+  a [transfer fee](/docs/tokens/extensions/transfer-fees), sends use a with-fee
+  transfer path (`confidential_transfer_transfer_with_fee` in the Rust client),
+  and the withheld fee is encrypted like the amount. Collecting withheld fees
+  (harvest and withdraw) is the fee authority's job, not the integrator's.
+- **Confidential mint and burn.** A mint with this extension issues and burns
+  supply confidentially, which disables the public deposit and withdraw path.
+  Tokens cannot move between the public and confidential balances on such a
+  mint, so do not surface deposit or withdraw for it.
+
+For the protocol-level details of both, see the
+[confidential balances documentation](https://www.solana-program.com/docs/confidential-balances).
+
+## Parsing confidential transfer transactions
+
+Explorers and indexers need to recognize and label confidential transfer
+activity without being able to read the amounts. The
+`@solana-program/token-2022` client exposes `identifyToken2022Instruction` to
+classify each Token-2022 instruction, plus per-instruction parsers (for example
+`parseConfidentialTransferInstruction`) to decode accounts and non-secret
+fields. The encrypted amounts stay ciphertexts: display them as confidential
+rather than rendering the bytes as a number.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Indexing limitations to plan for:
+
+- **No amounts for confidential transfers.** A `ConfidentialTransfer` carries
+  encrypted amounts, so volume, flow, and transfer-size analytics cannot be
+  computed from it. Mark these transfers as confidential rather than recording a
+  zero or a raw ciphertext.
+- **No balance deltas.** Confidential moves do not change the public token
+  balance, so the pre/post token balance diffing that drives most transfer
+  indexing does not capture them. The pending and available balances are
+  ciphertexts.
+- **Deposits and withdrawals are in the clear.** `ConfidentialDeposit` and
+  `ConfidentialWithdraw` carry cleartext amounts, so you can still index the
+  flow into and out of the confidential pool, just not the transfers within it.
+- **One transfer spans several transactions today.** Proof context state
+  accounts are created, used, and closed around the transfer, so correlate the
+  related transactions rather than treating each in isolation. This collapses
+  once single-transaction confidential transfers land (see above).
+- **Auditor mints are decryptable.** If a mint has a global auditor and you hold
+  the auditor key, you can decrypt transfer amounts for that mint (see below).
+
+## Auditors and compliance
+
+A mint may configure a **global auditor** ElGamal public key. When set, every
+confidential transfer must include the amount encrypted under the auditor key,
+so the holder of the auditor secret key can decrypt all transfer amounts for
+that mint. The validity proof covers the auditor ciphertext, so as an integrator
+you do not do anything special on the send path beyond passing the auditor key
+from the mint config (the high-level helpers read it for you).
+
+If your product is the auditor (for example a regulated issuer or a compliance
+provider), you decrypt transfer amounts with the auditor secret key the same way
+an owner decrypts their own balance. Owners can also selectively share their
+per-account keys with a specific party without exposing them publicly.
+
+### Transaction monitoring (KYT)
+
+For know-your-transaction and AML providers, confidential transfers change what
+is observable, not the overall model:
+
+- **Address and graph analysis is unaffected.** Senders, recipients, mints, and
+  account owners stay public, so address screening, sanctions matching, and
+  counterparty graph analysis work the same as for any token.
+- **Amount-based heuristics need the auditor key.** Structuring, threshold
+  reporting, and volume-based risk scoring cannot read confidential transfer
+  amounts on their own. Deposit and withdraw amounts stay in the clear, so the
+  size of flows entering and leaving the confidential pool is still visible.
+- **Coverage comes from the auditor model.** On mints that configure a global
+  auditor, a provider operating with the auditor key (or receiving selective
+  disclosure from the user or issuer) can recover transfer amounts. Issuers in
+  regulated contexts should plan to configure an auditor or support selective
+  disclosure so monitoring is possible.
+
+## Backwards compatibility
+
+- A confidential token account always has a public balance. Wallets and apps
+  that do not support the extension keep working and display the public balance.
+- Standard transfers still function for the public balance as long as the
+  destination allows non-confidential credits.
+- Confidential balances are not visible to non-supporting tooling, but the funds
+  are not lost: any confidential-aware client can access them with the owner's
+  keys.
+- Because amounts are encrypted, supply- and volume-level analytics that rely on
+  reading transfer amounts will not see confidential activity. Plan dashboards
+  and accounting around this.
+
+## Recommended Integration Priorities Per Platform
+
+### General Requirements
+
+| Requirement                   | Description                                                                                                                                                     | Priority |
+| :---------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Detect the extension          | Recognize the Confidential Transfer extension on mints and accounts and handle these tokens explicitly rather than assuming a public-only model.                | **P0**   |
+| Never lose confidential funds | Even without full support, surface that a confidential balance exists so users do not assume their account is empty.                                            | **P0**   |
+| Sound key management          | Choose a key strategy for ElGamal and AES keys. Deriving from the owner's wallet is the recommended default; if you store keys, protect them like signing keys. | **P0**   |
+
+---
+
+### Wallets
+
+| Requirement                          | Description                                                                                                          | Priority |
+| :----------------------------------- | :------------------------------------------------------------------------------------------------------------------- | :------- |
+| Display public balance               | Always show the public balance using standard token balance reads.                                                   | **P0**   |
+| Unlock and display available balance | Let the user unlock keys via a signature and show the decrypted available balance (via the AES decryptable balance). | **P0**   |
+| Show pending vs available            | Surface pending balances separately and prompt to apply when funds are received.                                     | **P1**   |
+| Apply pending automatically          | Apply pending balances at sensible moments (e.g. before a send) so funds do not get stuck.                           | **P1**   |
+| Send confidentially                  | Support deposit, transfer, and withdraw flows with client-side proof generation.                                     | **P1**   |
+| Locked-state UX                      | When keys are not unlocked, clearly indicate a confidential balance exists rather than showing zero.                 | **P1**   |
+| Onboarding / education               | Help users understand what stays private (amounts and balances) and the key-unlock step.                             | **P2**   |
+
+---
+
+### Explorers and Indexers
+
+| Requirement                                 | Description                                                                                                     | Priority |
+| :------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- | :------- |
+| Label confidential accounts and mints       | Clearly mark accounts and mints that use the extension, and show the public balance.                            | **P0**   |
+| Parse confidential instructions             | Decode configure, deposit, apply, transfer, and withdraw instructions and display their type (not the amounts). | **P0**   |
+| Do not display encrypted amounts as numbers | Never render ciphertext fields as if they were plaintext balances; show them as confidential.                   | **P0**   |
+| Index public deposit/withdraw flows         | Record the cleartext amounts on deposit and withdraw to track flow in and out of the confidential pool.         | **P1**   |
+| Correlate multi-transaction transfers       | Group the proof setup, transfer, and cleanup transactions that make up one confidential transfer.               | **P1**   |
+| Show auditor configuration                  | Surface whether a mint has a global auditor configured.                                                         | **P1**   |
+| Proof account lifecycle                     | Recognize proof context state account creation and closing so transactions read sensibly.                       | **P2**   |
+
+---
+
+### Exchanges and Custodians
+
+| Requirement                         | Description                                                                                                                                                            | Priority |
+| :---------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Track public and confidential state | Account for both public and confidential balances when crediting deposits and computing holdings.                                                                      | **P0**   |
+| Apply pending on deposits           | Apply pending balances when confidential deposits arrive so credited amounts are accurate.                                                                             | **P0**   |
+| Secure key handling                 | If holding confidential funds custodially, manage ElGamal/AES keys with the same rigor as signing keys.                                                                | **P0**   |
+| Account provisioning via registry   | To set up confidential accounts for users, have users register an ElGamal key once and provision with the registry path rather than requiring a signature per account. | **P1**   |
+| Withdrawals to users                | Support confidential or public withdrawals depending on the destination account configuration.                                                                         | **P1**   |
+| Compliance / auditor support        | Where required, use auditor keys or selective disclosure to meet reporting obligations.                                                                                | **P1**   |
+| Internal accounting on raw amounts  | Reconcile against decrypted amounts at the edge and store them; do not attempt to aggregate ciphertexts.                                                               | **P1**   |
+
+---
+
+### Compliance and KYT Providers
+
+| Requirement                   | Description                                                                                                      | Priority |
+| :---------------------------- | :--------------------------------------------------------------------------------------------------------------- | :------- |
+| Address and graph screening   | Screen senders, recipients, mints, and owners and run counterparty graph analysis; these stay public.            | **P0**   |
+| Track public deposit/withdraw | Monitor cleartext deposit and withdraw amounts as the observable entry and exit points of the confidential pool. | **P0**   |
+| Auditor-key amount visibility | For auditor-enabled mints, decrypt transfer amounts using the auditor key to support amount-based detection.     | **P1**   |
+| Selective disclosure intake   | Support amount disclosures shared by users or issuers via per-account keys.                                      | **P2**   |
