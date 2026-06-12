@@ -452,6 +452,12 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    // /upgrades is served by the media app
+    { source: "/upgrade", destination: "/upgrades" },
+    {
+      source: "/upgrades/larger-transaction-size",
+      destination: "/upgrades/larger-transaction-sizes",
+    },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
