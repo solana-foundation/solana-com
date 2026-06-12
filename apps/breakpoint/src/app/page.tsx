@@ -4,6 +4,7 @@ import { CookieConsentBanner } from "@solana-com/ui-chrome";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import HomePage from "./[locale]/page";
 import { getBaseMetadata } from "./metadata";
+import { FabMenu } from "@/components/FabMenu";
 import { loadBreakpointMessages } from "@/i18n/request";
 
 const displayFont = localFont({
@@ -61,6 +62,7 @@ export default async function RootPage() {
     >
       <NextIntlClientProvider locale="en" messages={messages}>
         <HomePage params={Promise.resolve({ locale: "en" })} />
+        <FabMenu />
         <CookieConsentBanner />
       </NextIntlClientProvider>
     </div>

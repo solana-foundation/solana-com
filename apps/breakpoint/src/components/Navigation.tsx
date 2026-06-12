@@ -34,6 +34,7 @@ declare global {
 
 const NAV_ITEMS = [
   { label: "Travel", href: "/travel" },
+  { label: "Sponsors", href: "/sponsors" },
   { label: "FAQ", href: "/faq" },
 ] as const;
 

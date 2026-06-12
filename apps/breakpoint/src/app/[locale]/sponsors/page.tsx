@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import ComingSoonPage from "@/components/pages/ComingSoonPage";
+import SponsorsPage from "@/components/pages/sponsors/SponsorsPage";
 import { getPageMetadata } from "@/app/metadata";
 
 const pageMetadata = {
   path: "/sponsors",
   title: "Sponsors",
   description:
-    "Breakpoint 2026 sponsor announcements are coming soon for the London conference.",
+    "Meet the teams sponsoring Breakpoint 2026 in London — reach 7,000+ high-intent builders, investors, and institutions shaping Solana.",
 };
 
 export async function generateMetadata({
@@ -19,10 +19,5 @@ export async function generateMetadata({
 }
 
 export default function LocaleSponsorsPage() {
-  return (
-    <ComingSoonPage
-      title="Sponsors"
-      description="Sponsor announcements are coming soon. Check back for the teams supporting Breakpoint 2026 in London."
-    />
-  );
+  return <SponsorsPage />;
 }

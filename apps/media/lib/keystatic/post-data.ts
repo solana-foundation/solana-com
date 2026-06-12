@@ -20,8 +20,23 @@ export interface LatestPostsResponse {
   };
 }
 
+type PostEntry = Awaited<ReturnType<typeof reader.collections.posts.read>>;
+
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values));
+}
+
+export async function readPostBySlug(
+  slug: string,
+  context?: string,
+): Promise<PostEntry | null> {
+  try {
+    return await reader.collections.posts.read(slug);
+  } catch (error) {
+    const suffix = context ? ` in ${context}` : "";
+    console.error(`Failed to read post "${slug}"${suffix}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -29,7 +44,7 @@ function dedupeStrings(values: string[]): string[] {
  */
 async function transformPost(
   slug: string,
-  post: Awaited<ReturnType<typeof reader.collections.posts.read>>,
+  post: PostEntry,
 ): Promise<PostItem | null> {
   if (!post) return null;
 
@@ -166,7 +181,7 @@ export const fetchLatestPosts = async (
     const postsWithDates: Array<{
       slug: string;
       date: Date | null;
-      post: Awaited<ReturnType<typeof reader.collections.posts.read>>;
+      post: PostEntry;
     }> = [];
 
     for (const slug of allSlugs) {
@@ -303,9 +318,9 @@ export interface FeaturedPostResponse {
   post: PostItem | null;
 }
 
-export async function fetchPublishedPostBySlug(slug: string) {
-  const post = await reader.collections.posts.read(slug);
-  return isPublishedPost(post) ? post : null;
+export async function fetchPublishedPostBySlug(slug: string, now?: Date) {
+  const post = await readPostBySlug(slug, "fetchPublishedPostBySlug");
+  return isPublishedPost(post, now) ? post : null;
 }
 
 /**
@@ -319,7 +334,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
     const featuredCandidates: Array<{
       slug: string;
       date: Date | null;
-      post: Awaited<ReturnType<typeof reader.collections.posts.read>>;
+      post: PostEntry;
     }> = [];
 
     for (const slug of allSlugs) {

@@ -2,248 +2,35 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import {
-  getCompany,
-  getCompanyLogo,
-  resolveImportedAssetSrc,
-  type CompanyId,
-  type CompanyRecord,
-} from "@workspace/ecosystem-data";
+import { type CompanyRecord } from "@workspace/ecosystem-data";
 import Button from "@/components/Button";
+import GlitchOverlay, {
+  getGlitchIntensityStyle,
+  type GlitchCssProperties,
+} from "@/components/GlitchOverlay";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
 import { SPONSOR_FORM_HREF } from "@/content/links";
+import {
+  sponsorTiers,
+  type SponsorLogo,
+  type SponsorTier,
+} from "@/content/sponsors";
+import { resolveSponsorLogo } from "@/lib/sponsors";
 
-const SPONSOR_LOGO_ID = "breakpoint-2026-white";
-
-type SponsorLogo = {
-  companyId: CompanyId;
-  width: number;
-  height: number;
-};
-
-type SponsorTier = {
-  title: string;
-  mobileColumns: string;
-  mobileLogoScale: number;
-  columns: string;
-  cellAspect: string;
-  sponsors: SponsorLogo[];
-  emptyCells?: number;
-};
-
-const platinumSponsors = [
-  {
-    companyId: "solflare",
-    width: 230.648,
-    height: 55.2,
-  },
-  {
-    companyId: "phantom",
-    width: 279.68,
-    height: 55.2,
-  },
-  {
-    companyId: "galaxy",
-    width: 203.262,
-    height: 58.075,
-  },
-  {
-    companyId: "syndica",
-    width: 274,
-    height: 55.2,
-  },
-  {
-    companyId: "render-network",
-    width: 173.158,
-    height: 140.691,
-  },
-] satisfies SponsorLogo[];
-
-const diamondSponsors = [
-  {
-    companyId: "altitude",
-    width: 181.818,
-    height: 32,
-  },
-  {
-    companyId: "allnodes",
-    width: 196,
-    height: 40,
-  },
-  {
-    companyId: "pancakeswap",
-    width: 218.182,
-    height: 40,
-  },
-  {
-    companyId: "trojan",
-    width: 200.941,
-    height: 56,
-  },
-  {
-    companyId: "bonk",
-    width: 199.046,
-    height: 64,
-  },
-  {
-    companyId: "walrus",
-    width: 153.931,
-    height: 36,
-  },
-  {
-    companyId: "sanctum",
-    width: 204.615,
-    height: 40,
-  },
-  {
-    companyId: "monke-dao",
-    width: 167.565,
-    height: 64,
-  },
-  {
-    companyId: "kast",
-    width: 191.781,
-    height: 40,
-  },
-  {
-    companyId: "dmcc",
-    width: 167.377,
-    height: 48,
-  },
-  {
-    companyId: "flash-trade",
-    width: 195.652,
-    height: 72,
-  },
-] satisfies SponsorLogo[];
-
-const goldSponsors = [
-  {
-    companyId: "yala",
-    width: 95.143,
-    height: 36,
-  },
-  {
-    companyId: "d3",
-    width: 137.143,
-    height: 48,
-  },
-  {
-    companyId: "solpay",
-    width: 123.221,
-    height: 31.5,
-  },
-  {
-    companyId: "doublezero",
-    width: 168.75,
-    height: 27,
-  },
-  {
-    companyId: "listing-help",
-    width: 148.718,
-    height: 36,
-  },
-  {
-    companyId: "dawn",
-    width: 152.219,
-    height: 24,
-  },
-  {
-    companyId: "walletconnect",
-    width: 166.213,
-    height: 18,
-  },
-  {
-    companyId: "orbitflare",
-    width: 138.909,
-    height: 24,
-  },
-  {
-    companyId: "alchemy",
-    width: 140,
-    height: 30,
-  },
-  {
-    companyId: "drpc",
-    width: 111.13,
-    height: 36,
-  },
-  {
-    companyId: "reap",
-    width: 118.607,
-    height: 27,
-  },
-  {
-    companyId: "ryder",
-    width: 117.728,
-    height: 39,
-  },
-  {
-    companyId: "xbit",
-    width: 104.157,
-    height: 30,
-  },
-] satisfies SponsorLogo[];
-
-const sponsorTiers = [
-  {
-    title: "Platinum",
-    mobileColumns: "grid-cols-1",
-    mobileLogoScale: 0.6,
-    columns: "md:grid-cols-3",
-    cellAspect: "aspect-[442/221]",
-    sponsors: platinumSponsors,
-    emptyCells: 1,
-  },
-  {
-    title: "Diamond",
-    mobileColumns: "grid-cols-2",
-    mobileLogoScale: 0.512,
-    columns: "md:grid-cols-4",
-    cellAspect: "aspect-[326/163]",
-    sponsors: diamondSponsors,
-    emptyCells: 1,
-  },
-  {
-    title: "Gold",
-    mobileColumns: "grid-cols-2",
-    mobileLogoScale: 0.64,
-    columns: "md:grid-cols-5",
-    cellAspect: "aspect-[256/128]",
-    sponsors: goldSponsors,
-    emptyCells: 1,
-  },
-] satisfies SponsorTier[];
-
-function getSponsorCompany(companyId: CompanyId) {
-  const company = getCompany(companyId);
-
-  if (!company) {
-    throw new Error(`Missing Breakpoint sponsor company: ${companyId}`);
-  }
-
-  return company;
-}
+const SPONSOR_MODAL_GLITCH_MS = 650;
+const SPONSOR_MODAL_GLITCH_INTENSITY = 0.76;
 
 function getLogo(sponsor: SponsorLogo) {
-  const company = getSponsorCompany(sponsor.companyId);
-  const logo =
-    getCompanyLogo(sponsor.companyId, { id: SPONSOR_LOGO_ID }) ??
-    getCompanyLogo(sponsor.companyId, { treatment: "monotone" });
-  const src = logo ? resolveImportedAssetSrc(logo.source) : undefined;
-
-  if (!src) {
-    throw new Error(`Missing Breakpoint sponsor logo: ${sponsor.companyId}`);
-  }
+  const resolved = resolveSponsorLogo(sponsor);
 
   return {
-    company,
-    alt: company.name,
-    src,
+    company: resolved.company,
+    alt: resolved.alt,
+    src: resolved.src,
   };
 }
 
@@ -417,6 +204,108 @@ function getSponsorTags(company: CompanyRecord) {
   return Array.from(new Set(tags));
 }
 
+function SponsorModalBody({
+  company,
+  decorative = false,
+  description,
+  descriptionId,
+  logo,
+  modalLogoStyle,
+  socialLinks,
+  tags,
+  titleId,
+}: {
+  company: CompanyRecord;
+  decorative?: boolean;
+  description?: string;
+  descriptionId?: string;
+  logo: ReturnType<typeof getLogo>;
+  modalLogoStyle: CSSProperties;
+  socialLinks: SponsorSocialLink[];
+  tags: string[];
+  titleId?: string;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-start md:gap-l md:p-l">
+      <div className="flex h-[246px] w-full shrink-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:p-[10px]">
+        <span
+          className="block w-[min(var(--modal-logo-width-mobile),62%)] max-w-[72%] md:w-[min(var(--modal-logo-width),68%)]"
+          style={{
+            ...modalLogoStyle,
+            aspectRatio: "var(--modal-logo-ratio)",
+          }}
+        >
+          <img
+            src={publicAssetPath(logo.src)}
+            alt=""
+            aria-hidden="true"
+            className="block h-full w-full object-contain brightness-0 invert"
+          />
+        </span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col px-xs pb-xs pt-s md:mt-[42px] md:h-[356px] md:w-[430px] md:flex-none md:px-0 md:pb-0 md:pt-0">
+        <div className="flex flex-col items-start gap-2xs">
+          <h2
+            id={decorative ? undefined : titleId}
+            className="type-h5 text-white"
+          >
+            {company.name}
+          </h2>
+
+          {socialLinks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-s">
+              {socialLinks.map((link) =>
+                decorative ? (
+                  <span
+                    key={link.label}
+                    className="inline-flex size-5 items-center justify-center text-white"
+                  >
+                    {link.icon}
+                  </span>
+                ) : (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${company.name} ${link.label}`}
+                    className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  >
+                    {link.icon}
+                  </a>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+
+        {description && (
+          <p
+            id={decorative ? undefined : descriptionId}
+            className="type-paragraph mt-s min-h-0 flex-1 overflow-y-auto text-white md:mt-m md:h-[182px] md:flex-none"
+          >
+            {description}
+          </p>
+        )}
+
+        {tags.length > 0 && (
+          <div className="mt-s flex flex-wrap items-start gap-3xs md:mt-m">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="border border-stroke-primary px-3xs py-3xs font-mono text-button font-bold uppercase text-text-secondary"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SponsorCard({
   sponsor,
   cellAspect,
@@ -472,9 +361,9 @@ function SponsorTierSection({
   return (
     <section
       aria-labelledby={`${tier.title.toLowerCase()}-sponsors`}
-      className={`px-xs md:px-m ${first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}`}
+      className={first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}
     >
-      <div className="mx-auto max-w-[1376px]">
+      <div className="container">
         <h2
           id={`${tier.title.toLowerCase()}-sponsors`}
           className="type-h3 text-white"
@@ -518,6 +407,7 @@ function SponsorModal({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const [showOpenGlitch, setShowOpenGlitch] = useState(false);
 
   useEffect(() => {
     if (!sponsor) return;
@@ -568,6 +458,23 @@ function SponsorModal({
     };
   }, [onClose, sponsor]);
 
+  useEffect(() => {
+    if (!sponsor) {
+      setShowOpenGlitch(false);
+      return;
+    }
+
+    setShowOpenGlitch(true);
+
+    const glitchTimer = window.setTimeout(() => {
+      setShowOpenGlitch(false);
+    }, SPONSOR_MODAL_GLITCH_MS);
+
+    return () => {
+      window.clearTimeout(glitchTimer);
+    };
+  }, [sponsor]);
+
   if (!sponsor) return null;
 
   const logo = getLogo(sponsor);
@@ -583,6 +490,10 @@ function SponsorModal({
     "--modal-logo-width-mobile": `${sponsor.width * 0.64}px`,
     "--modal-logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
+  const modalGlitchStyle: GlitchCssProperties = {
+    "--bp-glitch-duration": `${SPONSOR_MODAL_GLITCH_MS}ms`,
+    ...getGlitchIntensityStyle(SPONSOR_MODAL_GLITCH_INTENSITY),
+  };
 
   return (
     <div
@@ -595,7 +506,10 @@ function SponsorModal({
     >
       <div
         ref={dialogRef}
-        className="relative flex h-[calc(100dvh-48px)] max-h-[635px] w-full max-w-[328px] flex-col overflow-hidden border border-stroke-primary bg-black md:h-[536px] md:max-h-[calc(100dvh-48px)] md:max-w-[1014px]"
+        className={`relative flex h-[calc(100dvh-48px)] max-h-[635px] w-full max-w-[328px] flex-col overflow-hidden border border-stroke-primary bg-black md:h-[536px] md:max-h-[calc(100dvh-48px)] md:max-w-[1014px] ${
+          showOpenGlitch ? "bp-glitch-jitter" : ""
+        }`}
+        style={modalGlitchStyle}
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -603,87 +517,54 @@ function SponsorModal({
           type="button"
           onClick={onClose}
           aria-label="Close sponsor details"
-          className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-purple text-black transition-colors hover:bg-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
+          className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
         >
           <CloseIcon />
         </button>
 
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row md:items-start md:gap-l md:p-l">
-          <div className="flex h-[246px] w-full shrink-0 items-center justify-center overflow-hidden bg-white/[0.05] p-[6px] md:size-[440px] md:p-[10px]">
-            <span
-              className="block w-[min(var(--modal-logo-width-mobile),62%)] max-w-[72%] md:w-[min(var(--modal-logo-width),68%)]"
-              style={{
-                ...modalLogoStyle,
-                aspectRatio: "var(--modal-logo-ratio)",
-              }}
-            >
-              <img
-                src={publicAssetPath(logo.src)}
-                alt=""
-                aria-hidden="true"
-                className="block h-full w-full object-contain brightness-0 invert"
-              />
+        <SponsorModalBody
+          company={company}
+          description={description}
+          descriptionId={descriptionId}
+          logo={logo}
+          modalLogoStyle={modalLogoStyle}
+          socialLinks={socialLinks}
+          tags={tags}
+          titleId={titleId}
+        />
+
+        <GlitchOverlay
+          active={showOpenGlitch}
+          durationMs={SPONSOR_MODAL_GLITCH_MS}
+          intensity={SPONSOR_MODAL_GLITCH_INTENSITY}
+          size="lg"
+        >
+          <div className="relative flex h-full w-full flex-col overflow-hidden bg-black">
+            <span className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-purple text-black md:right-[15px] md:top-[15px]">
+              <CloseIcon />
             </span>
+            <SponsorModalBody
+              company={company}
+              decorative
+              description={description}
+              logo={logo}
+              modalLogoStyle={modalLogoStyle}
+              socialLinks={socialLinks}
+              tags={tags}
+            />
           </div>
-
-          <div className="flex min-h-0 flex-1 flex-col px-xs pb-xs pt-s md:mt-[42px] md:h-[356px] md:w-[430px] md:flex-none md:px-0 md:pb-0 md:pt-0">
-            <div className="flex flex-col items-start gap-2xs">
-              <h2 id={titleId} className="type-h5 text-white">
-                {company.name}
-              </h2>
-
-              {socialLinks.length > 0 && (
-                <div className="flex flex-wrap items-center gap-s">
-                  {socialLinks.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`${company.name} ${link.label}`}
-                      className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
-                    >
-                      {link.icon}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {description && (
-              <p
-                id={descriptionId}
-                className="type-paragraph mt-s min-h-0 flex-1 overflow-y-auto text-white md:mt-m md:h-[182px] md:flex-none"
-              >
-                {description}
-              </p>
-            )}
-
-            {tags.length > 0 && (
-              <div className="mt-s flex flex-wrap items-start gap-3xs md:mt-m">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="border border-stroke-primary px-3xs py-3xs font-mono text-button font-bold uppercase text-text-secondary"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        </GlitchOverlay>
       </div>
     </div>
   );
 }
 
 function SponsorsIntro() {
-  const introText = `<span class="text-purple">7,300+</span> high-signal <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to the teams shaping Solana's next chapter in London's financial hub. Your brand, their attention.`;
+  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
 
   return (
-    <section className="bg-black px-xs pt-l md:px-m md:pt-xl">
-      <div className="mx-auto flex max-w-[1376px] flex-col gap-m md:flex-row md:items-start md:justify-between">
+    <section className="bg-black pt-l md:pt-xl">
+      <div className="container flex flex-col gap-m md:flex-row md:items-start md:justify-between">
         <WordReveal
           as="p"
           className="type-eyebrow text-white"
@@ -705,7 +586,7 @@ function SponsorsIntro() {
             arrow
             className="mt-s"
             href={SPONSOR_FORM_HREF}
-            label="Reach out"
+            label="Contact us"
             variant="primary"
           />
         </div>
@@ -721,14 +602,16 @@ export default function SponsorsPage() {
     <PageShell contentId="breakpoint-sponsors-content">
       <SubpageHero title="Sponsors" heroImage="sponsors" />
       <SponsorsIntro />
-      {sponsorTiers.map((tier, index) => (
-        <SponsorTierSection
-          key={tier.title}
-          tier={tier}
-          first={index === 0}
-          onSponsorClick={setActiveSponsor}
-        />
-      ))}
+      <div className="pb-xl md:pb-2xl">
+        {sponsorTiers.map((tier, index) => (
+          <SponsorTierSection
+            key={tier.title}
+            tier={tier}
+            first={index === 0}
+            onSponsorClick={setActiveSponsor}
+          />
+        ))}
+      </div>
       <Footer />
       <SponsorModal
         sponsor={activeSponsor}
