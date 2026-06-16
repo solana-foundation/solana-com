@@ -580,7 +580,7 @@ function KpiCell({
           </h2>
           <KpiSummaryTooltip label={label} summary={summary} />
         </div>
-        <span className="font-brand-mono text-[10px] leading-[1.42] uppercase text-nd-mid-em-text/60 tracking-normal shrink-0">
+        <span className="font-brand-mono text-[10px] leading-5 uppercase text-nd-mid-em-text/60 tracking-normal shrink-0">
           {unit}
         </span>
       </div>
