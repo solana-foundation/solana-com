@@ -11,10 +11,13 @@ import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
 import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
+import { blockzero } from "./records/blockzero";
 import { bonk } from "./records/bonk";
+import { brave } from "./records/brave";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
+import { cherryServers } from "./records/cherry-servers";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
 import { comicbook } from "./records/comicbook";
@@ -23,6 +26,7 @@ import { dabba } from "./records/dabba";
 import { delorean } from "./records/delorean";
 import { darkresearch } from "./records/darkresearch";
 import { dawn } from "./records/dawn";
+import { dfdv } from "./records/dfdv";
 import { dmcc } from "./records/dmcc";
 import { doublezero } from "./records/doublezero";
 import { drpc } from "./records/drpc";
@@ -43,6 +47,7 @@ import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
 import { meta } from "./records/meta";
+import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
@@ -52,6 +57,7 @@ import { pancakeswap } from "./records/pancakeswap";
 import { phantom } from "./records/phantom";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
+import { pyth } from "./records/pyth";
 import { quicknode } from "./records/quicknode";
 import { ramp } from "./records/ramp";
 import { reap } from "./records/reap";
@@ -70,6 +76,7 @@ import { spi } from "./records/spi";
 import { squads } from "./records/squads";
 import { stateStreet } from "./records/state-street";
 import { stripe } from "./records/stripe";
+import { streamflow } from "./records/streamflow";
 import { sunrise } from "./records/sunrise";
 import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
@@ -78,8 +85,10 @@ import { tala } from "./records/tala";
 import { theGraph } from "./records/the-graph";
 import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
+import { unclaimedSol } from "./records/unclaimed-sol";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
+import { vybeNetwork } from "./records/vybe-network";
 import { walletconnect } from "./records/walletconnect";
 import { walrus } from "./records/walrus";
 import { wyoming } from "./records/wyoming";
@@ -100,10 +109,13 @@ export const companies = [
   atxp,
   bhutan,
   blackrock,
+  blockzero,
   bonk,
+  brave,
   bridge,
   bydfi,
   byreal,
+  cherryServers,
   citi,
   coinbase,
   comicbook,
@@ -112,6 +124,7 @@ export const companies = [
   delorean,
   darkresearch,
   dawn,
+  dfdv,
   dmcc,
   doublezero,
   drpc,
@@ -132,6 +145,7 @@ export const companies = [
   mantle,
   mantleByreal,
   meta,
+  metaplex,
   monkeDao,
   morganStanley,
   openmined,
@@ -141,6 +155,7 @@ export const companies = [
   phantom,
   pipeNetwork,
   playSolana,
+  pyth,
   quicknode,
   ramp,
   reap,
@@ -159,6 +174,7 @@ export const companies = [
   squads,
   stateStreet,
   stripe,
+  streamflow,
   sunrise,
   superteamUsa,
   switchboard,
@@ -167,8 +183,10 @@ export const companies = [
   theGraph,
   trojan,
   triton,
+  unclaimedSol,
   veliaNet,
   visa,
+  vybeNetwork,
   walletconnect,
   walrus,
   wyoming,

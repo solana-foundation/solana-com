@@ -31,6 +31,21 @@ const githubStorage: GitHubConfig["storage"] = {
   pathPrefix: "apps/media",
 };
 
+const DEFAULT_AUTHOR = "solana-foundation";
+
+const defaultAuthorRelationship = () => {
+  const author = fields.relationship({
+    label: "Author",
+    collection: "authors",
+    validation: { isRequired: true },
+  });
+
+  return {
+    ...author,
+    defaultValue: () => DEFAULT_AUTHOR,
+  };
+};
+
 // Background options for section blocks (exported for use in components)
 export const backgroundOptions = [
   { label: "Default", value: "bg-default" },
@@ -94,10 +109,7 @@ export default config({
             "Required for SEO. Used as meta description, og:description, and twitter:description",
           multiline: true,
         }),
-        author: fields.relationship({
-          label: "Author",
-          collection: "authors",
-        }),
+        author: defaultAuthorRelationship(),
         publishedAt: fields.datetime({
           label: "Publish Date",
           description:
@@ -229,10 +241,7 @@ export default config({
           directory: "public/uploads/upgrades",
           publicPath: "/uploads/upgrades",
         }),
-        author: fields.relationship({
-          label: "Author",
-          collection: "authors",
-        }),
+        author: defaultAuthorRelationship(),
         publishedAt: fields.datetime({
           label: "Publish Date",
           description:

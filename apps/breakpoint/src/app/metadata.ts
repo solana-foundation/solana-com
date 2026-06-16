@@ -4,7 +4,7 @@ import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 import { getTranslations } from "@workspace/i18n/server";
-import { config, localizedRouteUrl } from "@/config";
+import { config, publicLocalizedRouteUrl } from "@/config";
 
 const socialImageAlt =
   "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
@@ -17,9 +17,9 @@ type PageMetadataConfig = {
 
 const getLanguageAlternates = (path: string) => {
   const languages: Record<string, string> = Object.fromEntries(
-    locales.map((l) => [l, localizedRouteUrl(l, path)]),
+    locales.map((l) => [l, publicLocalizedRouteUrl(l, path)]),
   );
-  languages["x-default"] = localizedRouteUrl(defaultLocale, path);
+  languages["x-default"] = publicLocalizedRouteUrl(defaultLocale, path);
 
   return languages;
 };
@@ -29,7 +29,7 @@ export async function getBaseMetadata(
   path: string = "/",
 ): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
-  const { siteOrigin, siteMetadata, social } = config;
+  const { publicSiteOrigin, siteMetadata, social } = config;
 
   const title = t("title");
   const titleTemplate = t("titleTemplate");
@@ -42,11 +42,11 @@ export async function getBaseMetadata(
     .map((k) => k.trim())
     .filter(Boolean);
 
-  const canonical = localizedRouteUrl(locale, path);
+  const canonical = publicLocalizedRouteUrl(locale, path);
   const languages = getLanguageAlternates(path);
 
   return {
-    metadataBase: new URL(siteOrigin),
+    metadataBase: new URL(publicSiteOrigin),
     alternates: { canonical, languages },
     title: { default: title, template: titleTemplate },
     description,

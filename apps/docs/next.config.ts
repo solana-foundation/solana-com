@@ -5,6 +5,7 @@ import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const frameAncestors = [
+  "'self'",
   "https://*.builder.io",
   "https://builder.io",
   "http://localhost:1234",
@@ -101,10 +102,6 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.lu.ma",
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.builder.io",
       },
       {
         protocol: "https",

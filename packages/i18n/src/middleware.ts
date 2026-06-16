@@ -66,7 +66,7 @@ export function buildSharedLocaleCookie(locale: string) {
   ].join("; ");
 }
 
-function getEffectiveOrigin(req: NextRequest) {
+export function getEffectiveOrigin(req: NextRequest) {
   const url = req.nextUrl.clone();
   const forwardedHost = req.headers.get("x-forwarded-host");
   const forwardedProto = req.headers.get("x-forwarded-proto");
@@ -80,6 +80,36 @@ function getEffectiveOrigin(req: NextRequest) {
   }
 
   return url;
+}
+
+export function getFixedProxiedLocation({
+  currentHost,
+  forwardedHost,
+  forwardedProto,
+  location,
+}: {
+  currentHost: string;
+  forwardedHost: string;
+  forwardedProto?: string | null;
+  location: string;
+}) {
+  try {
+    const locationUrl = new URL(location);
+
+    if (locationUrl.host !== currentHost) {
+      return location;
+    }
+
+    locationUrl.host = forwardedHost;
+
+    if (forwardedProto) {
+      locationUrl.protocol = `${forwardedProto}:`;
+    }
+
+    return locationUrl.toString();
+  } catch {
+    return location.replace(currentHost, forwardedHost);
+  }
 }
 
 function getResponseLocale(req: NextRequest, response: Response) {
@@ -178,7 +208,12 @@ export function createMiddleware<
 
     // Fix redirect URL if present
     if (location) {
-      const fixedLocation = location.replace(currentHost, forwardedHost);
+      const fixedLocation = getFixedProxiedLocation({
+        currentHost,
+        forwardedHost,
+        forwardedProto: req.headers.get("x-forwarded-proto"),
+        location,
+      });
       fixedResponse.headers.set("location", fixedLocation);
     }
 

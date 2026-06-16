@@ -2,7 +2,7 @@ import { Feed } from "feed";
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
-import { isPublishedPost } from "@/lib/keystatic/post-status";
+import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { parsePublishedAt } from "@/lib/keystatic/publishing";
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
@@ -41,8 +41,8 @@ async function buildNewsFeed(feedUrl: string) {
   }> = [];
 
   for (const slug of allSlugs) {
-    const post = await reader.collections.posts.read(slug);
-    if (isPublishedPost(post)) {
+    const post = await fetchPublishedPostBySlug(slug);
+    if (post) {
       postsWithDates.push({
         slug,
         date: parsePublishedAt(post.publishedAt),
