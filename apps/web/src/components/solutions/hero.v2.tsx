@@ -30,6 +30,8 @@ export type SolutionHeroProps = {
   onEmailClick?: () => void;
   extraCta?: string;
   extraCtaHref?: string;
+  secondaryCta?: string;
+  secondaryCtaHref?: string;
   stats?: SolutionHeroStat[];
   reportImgSrc?: string;
   bgJsonFilePath?: string;
@@ -69,6 +71,8 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   onEmailClick,
   extraCta,
   extraCtaHref,
+  secondaryCta,
+  secondaryCtaHref,
   stats,
   reportImgSrc,
   bgJsonFilePath,
@@ -139,22 +143,41 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             {subtitle}
           </p>
 
-          {extraCta && extraCtaHref && (
-            <div className="mt-[32px] xl:mt-[64px]">
-              <Button
-                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-                size="lg"
-                asChild
-              >
-                <a
-                  href={extraCtaHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={extraCta}
+          {((extraCta && extraCtaHref) ||
+            (secondaryCta && secondaryCtaHref)) && (
+            <div className="mt-[32px] xl:mt-[64px] flex flex-wrap items-center gap-3">
+              {extraCta && extraCtaHref && (
+                <Button
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  size="lg"
+                  asChild
                 >
-                  {extraCta}
-                </a>
-              </Button>
+                  <a
+                    href={extraCtaHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={extraCta}
+                  >
+                    {extraCta}
+                  </a>
+                </Button>
+              )}
+              {secondaryCta && secondaryCtaHref && (
+                <Button
+                  className="rounded-full text-base md:text-lg px-5 bg-transparent border border-nd-border-prominent text-white hover:!bg-white/10 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  size="lg"
+                  asChild
+                >
+                  <a
+                    href={secondaryCtaHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={secondaryCta}
+                  >
+                    {secondaryCta}
+                  </a>
+                </Button>
+              )}
             </div>
           )}
 

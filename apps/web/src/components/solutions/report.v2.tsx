@@ -1,4 +1,5 @@
 import React from "react";
+import type { ComponentType } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine, ChevronRight } from "lucide-react";
@@ -18,6 +19,11 @@ export type SolutionReportProps = {
   links?: SolutionReportLink[];
   linksTitle?: string;
   bgJsonFilePath?: string;
+  CtaIcon?: ComponentType<{
+    className?: string;
+    strokeWidth?: number;
+    "aria-hidden"?: boolean;
+  }>;
 };
 
 /**
@@ -58,6 +64,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   links,
   linksTitle,
   bgJsonFilePath,
+  CtaIcon = ArrowDownToLine,
 }) => {
   if (!emailCta || !onEmailClick) {
     return null;
@@ -114,7 +121,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                   aria-label={emailCta}
                   onClick={onEmailClick}
                 >
-                  <ArrowDownToLine
+                  <CtaIcon
                     aria-hidden={true}
                     className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
                     strokeWidth={3}

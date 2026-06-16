@@ -469,10 +469,6 @@ export default {
       destination: "https://discord.gg/kBbATFA7PW",
     },
     {
-      source: "/skyline",
-      destination: "https://lu.ma/solana-nyc",
-    },
-    {
       source: "/solana_token_extensions_paper",
       destination:
         "https://drive.google.com/file/d/13u20-ItOcNXQpqlO3JHrC1eYhtz1PilE/view?usp=sharing",
