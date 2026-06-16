@@ -313,6 +313,29 @@ Total = 1232 bytes
 
 ![Διάγραμμα διαδικασίας μεταφοράς SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
 
+<Callout type="warn" title="Επαληθεύστε τον παραλήπτη πριν στείλετε SOL">
+
+Μια μεταφορά System Program προσθέτει lamports σε **οποιονδήποτε** λογαριασμό.
+Δεν υπάρχει έλεγχος σε επίπεδο πρωτοκόλλου που να διασφαλίζει ότι ο παραλήπτης
+μπορεί να μετακινήσει το SOL πίσω. Τα lamports μπορούν να μετακινηθούν μόνο από
+το πρόγραμμα που κατέχει τον λογαριασμό, επομένως η αποστολή SOL σε ένα
+[token mint](/docs/tokens/basics/create-mint), ένα πρόγραμμα, ή ένα
+[PDA](/docs/core/pda) που δεν ελέγχετε **εγκυμονεί κίνδυνο μόνιμης απώλειας
+κεφαλαίων** — μόνο μια αρχή που ορίζεται από το κατέχον πρόγραμμα μπορεί να τα
+επιστρέψει. Το SOL που αποστέλλεται σε ένα
+[token account](/docs/tokens/basics/create-token-account) μπορεί να ανακτηθεί
+μόνο από τον κάτοχο αυτού του λογαριασμού, ποτέ από τον αποστολέα.
+
+Οι μεταφορές SPL **token** είναι μερικώς αυτοπροστατευόμενες: το Token Program
+απορρίπτει μια μεταφορά της οποίας οι λογαριασμοί δεν αντιστοιχούν στο
+αναμενόμενο mint. Οι μεταφορές εγγενούς **SOL** δεν διαθέτουν τέτοια προστασία,
+επομένως ο αποστολέας πρέπει να επαληθεύσει τον παραλήπτη πριν υπογράψει.
+Ανατρέξτε στο
+[Επαλήθευση Διεύθυνσης](/docs/payments/send-payments/verify-address) για την
+πλήρη λογική ταξινόμησης.
+
+</Callout>
+
 Το παρακάτω παράδειγμα δείχνει τον κώδικα που σχετίζεται με τα παραπάνω
 διαγράμματα. Δείτε τη
 [συνάρτηση `transfer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
@@ -533,8 +556,8 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Το ακόλουθο παράδειγμα δείχνει τη δομή μιας συναλλαγής που περιέχει μία εντολή
-μεταφοράς SOL.
+Το παρακάτω παράδειγμα δείχνει τη δομή μιας συναλλαγής που περιέχει μία μόνο
+εντολή μεταφοράς SOL.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -683,9 +706,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Ο παρακάτω κώδικας δείχνει το αποτέλεσμα από τα προηγούμενα αποσπάσματα κώδικα.
-Η μορφή διαφέρει μεταξύ των SDK,
-αλλά παρατηρήστε ότι κάθε εντολή περιέχει τις ίδιες απαιτούμενες πληροφορίες.
+Ο παρακάτω κώδικας δείχνει την έξοδο από τα προηγούμενα αποσπάσματα κώδικα.
+Η μορφή διαφέρει ανάλογα με το SDK,
+ωστόσο παρατηρήστε ότι κάθε εντολή περιέχει τις ίδιες απαιτούμενες πληροφορίες.
 
 <CodeTabs storage="sol-transfer">
 
@@ -790,14 +813,83 @@ async fn main() -> Result<()> {
 </CodeTabs>
 </WithMentions>
 
-## Ανάκτηση λεπτομερειών συναλλαγής
+### Επαληθεύστε τον παραλήπτη πριν από τη μεταφορά
+
+Επειδή μια μεταφορά SOL επιτυγχάνει σε οποιονδήποτε λογαριασμό, ελέγξτε τον
+παραλήπτη πριν υπογράψετε. Ανακτήστε τον λογαριασμό και στείλτε μόνο σε ένα
+πορτοφόλι System Program (ή σε μια αναξιοποίητη διεύθυνση
+[on-curve](/docs/payments/send-payments/verify-address#on-curve-addresses))·
+απορρίψτε mints, token accounts, προγράμματα και PDAs που δεν ελέγχετε.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  Αυτό το απόσπασμα ελέγχει τους παραλήπτες εγγενούς SOL. Για την πλήρη
+  ταξινόμηση που διαχειρίζεται επίσης αποστολές SPL token (token accounts, ATAs,
+  Token-2022), δείτε [Επαλήθευση
+  Διεύθυνσης](/docs/payments/send-payments/verify-address).
+</Callout>
+
+## Λήψη λεπτομερειών συναλλαγής
 
 Μετά την υποβολή, ανακτήστε τις λεπτομέρειες της συναλλαγής χρησιμοποιώντας την
-υπογραφή της συναλλαγής και τη μέθοδο RPC
+υπογραφή συναλλαγής και τη μέθοδο RPC
 [getTransaction](/docs/rpc/http/gettransaction).
 
 <Callout>
-  Μπορείτε επίσης να βρείτε τη συναλλαγή χρησιμοποιώντας το [Solana
+  Μπορείτε επίσης να βρείτε τη συναλλαγή χρησιμοποιώντας τον [Solana
   Explorer](https://explorer.solana.com).
 </Callout>
 

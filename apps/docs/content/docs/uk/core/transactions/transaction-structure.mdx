@@ -308,7 +308,27 @@ Total = 1232 bytes
 
 ![Діаграма процесу переказу SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-Приклад нижче показує код, що стосується наведених вище діаграм. Див.
+<Callout type="warn" title="Перевірте отримувача перед надсиланням SOL">
+
+Переказ через System Program додає lamport до **будь-якого** акаунту. На рівні
+протоколу немає перевірки того, чи зможе отримувач вивести SOL назад. Lamport
+можуть бути переміщені лише програмою-власником акаунту, тому надсилання SOL на
+[mint токена](/docs/tokens/basics/create-mint), програму або
+[PDA](/docs/core/pda), який ви не контролюєте, **загрожує безповоротною втратою
+коштів** — повернути їх може лише авторитет, визначений програмою-власником.
+SOL, надісланий на [token account](/docs/tokens/basics/create-token-account),
+може бути повернутий лише власником цього акаунту, але не відправником.
+
+Перекази SPL **токенів** частково захищені самі по собі: Token Program відхиляє
+переказ, якщо акаунти не відповідають очікуваному mint. Перекази нативного
+**SOL** не мають такого захисту, тому відправник повинен перевірити отримувача
+перед підписанням. Дивіться
+[Перевірка адреси](/docs/payments/send-payments/verify-address) для ознайомлення
+з повною логікою класифікації.
+
+</Callout>
+
+Приклад нижче демонструє код, що відповідає наведеним вище діаграмам. Дивіться
 [функцію `transfer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
 System Program.
 
@@ -677,9 +697,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Код нижче показує результат виконання попередніх фрагментів коду.
-Формат відрізняється між SDK,
-але зверніть увагу, що кожна інструкція містить однакову необхідну інформацію.
+Код нижче відображає вивід попередніх фрагментів коду.
+Формат відрізняється залежно від SDK,
+проте зверніть увагу, що кожна інструкція містить однакову необхідну інформацію.
 
 <CodeTabs storage="sol-transfer">
 
@@ -784,10 +804,78 @@ async fn main() -> Result<()> {
 </CodeTabs>
 </WithMentions>
 
+### Перевірте отримувача перед переказом
+
+Оскільки переказ SOL успішно виконується на будь-який акаунт, перевірте
+отримувача перед підписанням. Отримайте інформацію про акаунт і надсилайте кошти
+лише на гаманець System Program (або на незафондовану
+[адресу на кривій](/docs/payments/send-payments/verify-address#on-curve-addresses));
+відхиляйте mint'и, token account'и, програми та PDA, які ви не контролюєте.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  Цей фрагмент перевіряє отримувачів нативного SOL. Для повної класифікації, яка
+  також обробляє відправлення токенів SPL (token account, ATA, Token-2022),
+  дивіться [Перевірка адреси](/docs/payments/send-payments/verify-address).
+</Callout>
+
 ## Отримання деталей транзакції
 
-Після відправки отримайте деталі транзакції, використовуючи підпис транзакції та
-RPC-метод [getTransaction](/docs/rpc/http/gettransaction).
+Після відправлення отримайте деталі транзакції за допомогою підпису транзакції
+та RPC-методу [getTransaction](/docs/rpc/http/gettransaction).
 
 <Callout>
   Ви також можете знайти транзакцію за допомогою [Solana
