@@ -232,7 +232,9 @@ function ChartSvg({
             hideTicks
             numTicks={4}
             scale={yScale}
-            tickFormat={(value) => formatCompactNumber(Number(value), locale)}
+            tickFormat={(value) =>
+              formatAxisValue(Number(value), valueLabel, locale)
+            }
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -523,6 +525,18 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
     return `$${formatCompactNumber(value, locale)}`;
   }
 
+  if (valueLabel === "Percent") {
+    return `${formatStandardNumber(value, locale)}%`;
+  }
+
+  return formatCompactNumber(value, locale);
+}
+
+function formatAxisValue(value: number, valueLabel: string, locale: string) {
+  if (valueLabel === "Percent") {
+    return `${formatStandardNumber(value, locale)}%`;
+  }
+
   return formatCompactNumber(value, locale);
 }
 
@@ -530,5 +544,11 @@ function formatCompactNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10 ? 1 : 2,
     notation: "compact",
+  }).format(value);
+}
+
+function formatStandardNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: value >= 10 ? 1 : 2,
   }).format(value);
 }

@@ -11,11 +11,14 @@ export const providers = [
   "Blockworks",
   "DefiLama",
   "Dune",
+  "RWA",
+  "Stakewiz",
   "Token Terminal",
+  "Validators App",
 ] as const;
 
 export type ProviderName = (typeof providers)[number];
-export type DashboardTab = "stablecoins" | "overview" | "defi";
+export type DashboardTab = "stablecoins" | "overview" | "network" | "defi";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
 
@@ -51,7 +54,10 @@ export const providerColors: Record<ProviderName, string> = {
   Blockworks: "#00D4FF",
   DefiLama: "#DC1FFF",
   Dune: "#CFF15E",
+  RWA: "#FF6B6B",
+  Stakewiz: "#F97316",
   "Token Terminal": "#FFB000",
+  "Validators App": "#38BDF8",
 };
 
 const dexVolumeProviders = [
@@ -70,12 +76,42 @@ const dexActivityProviders = [
 const dexCountProviders = [
   "Allium",
   "Blockworks",
+  "DefiLama",
   "Dune",
+] as const satisfies readonly ProviderName[];
+
+const stablecoinCountProviders = [
+  "Allium",
+  "Dune",
+] as const satisfies readonly ProviderName[];
+
+const networkStakeProviders = [
+  "Blockworks",
+  "Stakewiz",
+  "Validators App",
+] as const satisfies readonly ProviderName[];
+
+const networkValidatorProviders = [
+  "Stakewiz",
+  "Validators App",
+] as const satisfies readonly ProviderName[];
+
+const networkPriceProviders = [
+  "Blockworks",
+  "Validators App",
+] as const satisfies readonly ProviderName[];
+
+const networkAsnProviders = [
+  "Stakewiz",
+  "Validators App",
 ] as const satisfies readonly ProviderName[];
 
 export const metricColors: Record<string, string> = {
   "Base Fees": "#9945FF",
+  Fees: "#9945FF",
   "Priority Fees": "#14F195",
+  "Non Vote Transaction Count (Success)": "#14F195",
+  "Non Vote Transaction Count (Failed)": "#DC1FFF",
   "Successful Transactions": "#14F195",
   "Failed Transactions": "#DC1FFF",
 };
@@ -118,18 +154,28 @@ export const chartDefinitions = [
     seriesField: "provider",
   },
   {
+    id: "stablecoin-count",
+    tab: "stablecoins",
+    title: "Stablecoin Count",
+    valueLabel: "Count",
+    metrics: ["Stablecoin Count"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: stablecoinCountProviders,
+  },
+  {
     id: "transaction-count",
     tab: "overview",
-    title: "Transaction Count",
+    title: "Transaction Count (Total)",
     valueLabel: "Count",
-    metrics: ["Transaction Count"],
+    metrics: ["Transaction Count (Total)"],
     aggregation: "avg",
     seriesField: "provider",
   },
   {
     id: "sol-price",
     tab: "overview",
-    title: "SOL Price (USD)",
+    title: "SOL Price",
     valueLabel: "USD",
     metrics: ["SOL Price"],
     aggregation: "avg",
@@ -138,43 +184,52 @@ export const chartDefinitions = [
   {
     id: "avg-cost-units",
     tab: "overview",
-    title: "Avg Cost Units per Block",
+    title: "Compute Units",
     valueLabel: "Compute Units",
-    metrics: ["Average Cost Units"],
+    metrics: ["Compute Units"],
     aggregation: "avg",
     seriesField: "provider",
   },
   {
     id: "daily-fees",
     tab: "overview",
-    title: "Daily Fees (SOL)",
-    valueLabel: "Fees (SOL)",
-    metrics: ["Base Fees", "Priority Fees"],
+    title: "Fees",
+    valueLabel: "SOL",
+    metrics: ["Fees"],
     aggregation: "avg",
-    seriesField: "metric",
+    seriesField: "provider",
   },
   {
-    id: "success-fail",
+    id: "successful-transactions",
     tab: "overview",
-    title: "Successful vs Failed Transactions",
+    title: "Non Vote Transaction Count (Success)",
     valueLabel: "Count",
-    metrics: ["Successful Transactions", "Failed Transactions"],
+    metrics: ["Non Vote Transaction Count (Success)"],
     aggregation: "avg",
-    seriesField: "metric",
+    seriesField: "provider",
+  },
+  {
+    id: "failed-transactions",
+    tab: "overview",
+    title: "Non Vote Transaction Count (Failed)",
+    valueLabel: "Count",
+    metrics: ["Non Vote Transaction Count (Failed)"],
+    aggregation: "avg",
+    seriesField: "provider",
   },
   {
     id: "vote-transactions",
     tab: "overview",
-    title: "Vote Transactions",
+    title: "Transaction Count (Vote)",
     valueLabel: "Count",
-    metrics: ["Vote Transactions"],
+    metrics: ["Transaction Count (Vote)"],
     aggregation: "avg",
     seriesField: "provider",
   },
   {
     id: "slots",
     tab: "overview",
-    title: "Slots per Day",
+    title: "Slots",
     valueLabel: "Count",
     metrics: ["Slots"],
     aggregation: "avg",
@@ -188,6 +243,46 @@ export const chartDefinitions = [
     metrics: ["Fee Payers"],
     aggregation: "avg",
     seriesField: "provider",
+  },
+  {
+    id: "total-stake",
+    tab: "network",
+    title: "Total Stake",
+    valueLabel: "SOL",
+    metrics: ["Total Stake"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: networkStakeProviders,
+  },
+  {
+    id: "validator-count",
+    tab: "network",
+    title: "Validator Count",
+    valueLabel: "Count",
+    metrics: ["Validator Count"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: networkValidatorProviders,
+  },
+  {
+    id: "top-asn-share",
+    tab: "network",
+    title: "Top 3 ASN Share",
+    valueLabel: "Percent",
+    metrics: ["Top 3 ASN Share"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: networkAsnProviders,
+  },
+  {
+    id: "sol-price-network",
+    tab: "network",
+    title: "SOL Price (Network)",
+    valueLabel: "USD",
+    metrics: ["SOL Price (Network)"],
+    aggregation: "avg",
+    seriesField: "provider",
+    providers: networkPriceProviders,
   },
   {
     id: "dex-volume",

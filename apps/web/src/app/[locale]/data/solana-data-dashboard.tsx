@@ -5,6 +5,11 @@ import {
   Activity,
   ArrowLeftRight,
   CircleDollarSign,
+  ExternalLink,
+  Github,
+  Info,
+  Loader2,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -13,6 +18,13 @@ import useSWR from "swr";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { usePathname, useRouter } from "@workspace/i18n/routing";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipPortal,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/utils";
 
 import {
@@ -36,12 +48,14 @@ import {
 
 const tabOptions = [
   { labelKey: "tabs.overview.label", value: "overview" },
+  { labelKey: "tabs.network.label", value: "network" },
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
 const tabIcons: Record<DashboardTab, LucideIcon> = {
   overview: Activity,
+  network: Network,
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
 };
@@ -58,8 +72,9 @@ const defaultRangeDays = 90;
 const emptyRows: MetricRow[] = [];
 const kpiCount = 4;
 const chartHeight = 320;
-const dataRefreshIntervalMs = 10 * 60 * 1000;
+const dataRefreshIntervalMs = 24 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
+const sourceRepositoryUrl = "https://github.com/solana-foundation/solana-com";
 const dataSWRConfig = {
   dedupingInterval: dataDedupingIntervalMs,
   keepPreviousData: true,
@@ -159,6 +174,7 @@ export function SolanaDataDashboard() {
         >
           <DashboardControls
             activeTab={activeTab}
+            isRefreshing={isRefreshing}
             rangeDays={rangeDays}
             selectedProviders={selectedProviders}
             showProviderControls={showProviderControls}
@@ -200,20 +216,33 @@ export function SolanaDataDashboard() {
           </>
         ) : null}
 
-        <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
+        <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
           <span>
             {getFooterProvidersLabel(t, selectedProviderList)}
             <span className="mx-3 text-nd-border-prominent">·</span>
             {t("footer.lastDays", { days: rangeDays })}
           </span>
-          {data?.generatedAt ? (
-            <span>
-              {t("footer.updated")}{" "}
-              <span className="text-nd-high-em-text">
-                {formatTimestamp(data.generatedAt, locale)}
+          <span className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+            <span>{t("footer.refreshCadence")}</span>
+            {data?.generatedAt ? (
+              <span>
+                {t("footer.updated")}{" "}
+                <span className="text-nd-high-em-text">
+                  {formatTimestamp(data.generatedAt, locale)}
+                </span>
               </span>
-            </span>
-          ) : null}
+            ) : null}
+            <a
+              className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+              href={sourceRepositoryUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <Github aria-hidden="true" className="h-3.5 w-3.5" />
+              {t("footer.source")}
+              <ExternalLink aria-hidden="true" className="h-3 w-3" />
+            </a>
+          </span>
         </footer>
       </div>
     </main>
@@ -222,12 +251,14 @@ export function SolanaDataDashboard() {
 
 function DashboardControls({
   activeTab,
+  isRefreshing,
   onUpdateQuery,
   rangeDays,
   selectedProviders,
   showProviderControls,
 }: {
   activeTab: DashboardTab;
+  isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
   rangeDays: number;
   selectedProviders: Set<ProviderName>;
@@ -236,7 +267,7 @@ function DashboardControls({
   const t = useTranslations("dataDashboard");
 
   return (
-    <div className="px-5 md:px-8 xl:px-10 py-2 grid gap-2 xl:flex xl:items-center xl:justify-between">
+    <div className="px-5 md:px-8 xl:px-10 py-2 grid gap-2">
       <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <TabSwitcher
           activeTab={activeTab}
@@ -251,14 +282,34 @@ function DashboardControls({
         />
       </div>
 
-      {showProviderControls ? (
-        <ProviderControls
-          selectedProviders={selectedProviders}
-          onChange={(nextProviders) =>
-            onUpdateQuery({ providers: nextProviders })
-          }
-        />
+      {isRefreshing || showProviderControls ? (
+        <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-x-4">
+          {isRefreshing ? <RefreshingIndicator /> : null}
+          {showProviderControls ? (
+            <ProviderControls
+              selectedProviders={selectedProviders}
+              onChange={(nextProviders) =>
+                onUpdateQuery({ providers: nextProviders })
+              }
+            />
+          ) : null}
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+function RefreshingIndicator() {
+  const t = useTranslations("dataDashboard");
+
+  return (
+    <div
+      aria-live="polite"
+      className="inline-flex shrink-0 items-center gap-2 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text"
+      role="status"
+    >
+      <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+      <span>{t("loading.refreshing")}</span>
     </div>
   );
 }
@@ -375,31 +426,34 @@ function KpiGrid({
   const t = useTranslations("dataDashboard");
 
   return (
-    <section
-      aria-label={t("kpisAriaLabel")}
-      className={cn(
-        "mt-10 xl:mt-14 border-y border-nd-border-light relative",
-        "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
-        "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
-        "[&>*]:border-nd-border-light",
-        isRefreshing ? "opacity-75" : "",
-      )}
-    >
-      {isLoading
-        ? Array.from({ length: kpiCount }).map((_, index) => (
-            <KpiSkeleton index={index} key={index} />
-          ))
-        : kpis.map((kpi, index) => (
-            <KpiCell
-              delta={kpi.delta}
-              index={index}
-              key={kpi.chart.id}
-              label={getChartTitle(t, kpi.chart)}
-              unit={getValueLabel(t, kpi.chart.valueLabel)}
-              value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
-            />
-          ))}
-    </section>
+    <TooltipProvider delayDuration={100}>
+      <section
+        aria-label={t("kpisAriaLabel")}
+        className={cn(
+          "mt-10 xl:mt-14 border-y border-nd-border-light relative",
+          "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
+          "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
+          "[&>*]:border-nd-border-light",
+          isRefreshing ? "opacity-75" : "",
+        )}
+      >
+        {isLoading
+          ? Array.from({ length: kpiCount }).map((_, index) => (
+              <KpiSkeleton index={index} key={index} />
+            ))
+          : kpis.map((kpi, index) => (
+              <KpiCell
+                delta={kpi.delta}
+                index={index}
+                key={kpi.chart.id}
+                label={getChartTitle(t, kpi.chart)}
+                summary={getKpiSummary(t, kpi.chart)}
+                unit={getValueLabel(t, kpi.chart.valueLabel)}
+                value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
+              />
+            ))}
+      </section>
+    </TooltipProvider>
   );
 }
 
@@ -504,12 +558,14 @@ function KpiCell({
   delta,
   index,
   label,
+  summary,
   unit,
   value,
 }: {
   delta: number;
   index: number;
   label: string;
+  summary: string;
   unit: string;
   value: string;
 }) {
@@ -518,9 +574,12 @@ function KpiCell({
   return (
     <article className={getKpiCellClassName(index)}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
-          {label}
-        </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+            {label}
+          </h2>
+          <KpiSummaryTooltip label={label} summary={summary} />
+        </div>
         <span className="font-brand-mono text-[10px] leading-none uppercase text-nd-mid-em-text/60 tracking-normal">
           {unit}
         </span>
@@ -539,6 +598,38 @@ function KpiCell({
         </p>
       </div>
     </article>
+  );
+}
+
+function KpiSummaryTooltip({
+  label,
+  summary,
+}: {
+  label: string;
+  summary: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          aria-label={summary}
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
+          type="button"
+        >
+          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          <span className="sr-only">{summary}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipPortal>
+        <TooltipContent
+          className="max-w-[260px] border-nd-border-prominent bg-[#1D1D20] px-3 py-2 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-high-em-text"
+          side="top"
+        >
+          <span className="sr-only">{label}: </span>
+          {summary}
+        </TooltipContent>
+      </TooltipPortal>
+    </Tooltip>
   );
 }
 
@@ -793,6 +884,22 @@ function getKpis(
   }));
 }
 
+function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
+  if (chart.seriesField === "provider") {
+    return t("kpis.providerTooltip");
+  }
+
+  if (chart.metrics.length > 1) {
+    return t("kpis.compositeTooltip", {
+      metrics: chart.metrics.join(t("kpis.metricListSeparator")),
+    });
+  }
+
+  return t("kpis.metricTooltip", {
+    metric: chart.metrics[0] ?? getChartTitle(t, chart),
+  });
+}
+
 function getKpiCellClassName(index: number) {
   return cn(
     "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
@@ -1024,7 +1131,9 @@ function useMinWidth(query: string) {
 }
 
 function parseTab(value: string | null): DashboardTab {
-  return value === "stablecoins" || value === "defi" ? value : "overview";
+  return value === "network" || value === "stablecoins" || value === "defi"
+    ? value
+    : "overview";
 }
 
 function parseRangeDays(value: string | null) {
@@ -1091,6 +1200,10 @@ function getValueLabel(t: DashboardTranslator, valueLabel: string) {
       return t("valueLabels.computeUnits");
     case "Fees (SOL)":
       return t("valueLabels.feesSol");
+    case "Percent":
+      return t("valueLabels.percent");
+    case "SOL":
+      return t("valueLabels.sol");
     case "USD":
       return t("valueLabels.usd");
     default:

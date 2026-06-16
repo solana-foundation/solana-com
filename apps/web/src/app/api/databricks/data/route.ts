@@ -18,9 +18,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATABRICKS_CACHE_SECONDS = 6 * 60 * 60;
+const DATABRICKS_CACHE_SECONDS = 24 * 60 * 60;
 const BROWSER_CACHE_SECONDS = 60;
-const EDGE_STALE_SECONDS = 6 * 60 * 60;
+const EDGE_STALE_SECONDS = 24 * 60 * 60;
 const DEFAULT_RANGE_DAYS = 90;
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
