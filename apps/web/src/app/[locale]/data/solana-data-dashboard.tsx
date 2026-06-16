@@ -573,14 +573,14 @@ function KpiCell({
 
   return (
     <article className={getKpiCellClassName(index)}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-1.5">
           <h2 className="font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
             {label}
           </h2>
           <KpiSummaryTooltip label={label} summary={summary} />
         </div>
-        <span className="font-brand-mono text-[10px] leading-none uppercase text-nd-mid-em-text/60 tracking-normal">
+        <span className="font-brand-mono text-[10px] leading-[1.42] uppercase text-nd-mid-em-text/60 tracking-normal shrink-0">
           {unit}
         </span>
       </div>
