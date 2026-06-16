@@ -38,7 +38,7 @@ export const FAQ_ITEMS = [
   },
   {
     key: "custody",
-    link: null,
+    link: "/docs/tools/keychain",
   },
   {
     key: "compliance",
@@ -63,6 +63,11 @@ export const RESOURCES = [
   {
     key: "token-extensions",
     href: "/docs/tokens/extensions",
+    external: false,
+  },
+  {
+    key: "keychain",
+    href: "/docs/tools/keychain",
     external: false,
   },
   {
