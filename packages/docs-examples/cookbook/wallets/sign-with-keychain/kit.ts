@@ -1,15 +1,14 @@
 // #region sign
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
-import { createKeychainSigner } from "@solana/keychain";
+import { createMemorySigner } from "@solana/keychain-memory";
 import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropSigner, signer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
 
-// One factory, one config shape for every backend. Swap `backend: "memory"`
-// for "aws-kms", "vault", "turnkey", ... and the rest of this file is
-// identical — each backend returns the same `SolanaSigner` interface.
-const keychainSigner = await createKeychainSigner({
-  backend: "memory",
+// Every Keychain backend returns the same `SolanaSigner`. Swap this in-memory
+// signer for `createAwsKmsSigner`, `createVaultSigner`, ... and the rest of
+// this file is identical.
+const keychainSigner = await createMemorySigner({
   privateKey: crypto.getRandomValues(new Uint8Array(32)),
 });
 
