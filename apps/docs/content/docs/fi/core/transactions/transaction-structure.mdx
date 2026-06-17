@@ -309,8 +309,29 @@ päivittää molempien tilien lamportti-saldon.
 
 ![SOL-siirtoprosessikaavio](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-Alla oleva esimerkki näyttää yllä oleviin kaavioihin liittyvän koodin. Katso
-System Programin
+<Callout type="warn" title="Tarkista vastaanottaja ennen SOL:n lähettämistä">
+
+System Program -siirto lisää lamports-yksiköitä **mihin tahansa** tilille.
+Protokollatasolla ei ole tarkistusta sille, että vastaanottaja pystyy siirtämään
+SOL:n takaisin ulos. Lamports-yksiköitä voi siirtää ulos ainoastaan tilin
+omistava ohjelma, joten SOL:n lähettäminen
+[token mint](/docs/tokens/basics/create-mint) -osoitteeseen, ohjelmaan tai
+[PDA:han](/docs/core/pda), jota et hallitse, **vaarantaa varojen pysyvän
+menetyksen** — aino­astaan omistavan ohjelman määrittelemä auktoriteetti voi
+palauttaa ne. token account -tilille lähetetty SOL on palautettavissa ainoastaan
+kyseisen tilin omistajan toimesta, ei koskaan lähettäjän.
+
+SPL **token** -siirrot ovat osittain itsensä suojaavia: Token Program hylkää
+siirron, jonka tilit eivät vastaa odotettua minttausta. Natiiveilla
+**SOL**-siirroilla ei ole tällaista suojaa, joten lähettäjän täytyy tarkistaa
+vastaanottaja ennen allekirjoittamista. Katso
+[Verify Address](/docs/payments/send-payments/verify-address) täydellisen
+luokittelulogiikan osalta.
+
+</Callout>
+
+Alla oleva esimerkki näyttää yllä olevien kaavioiden kannalta oleellisen koodin.
+Katso System Program:n
 [`transfer`-funktio](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210).
 
 <CodeTabs storage="sol-transfer" flags="r">
@@ -528,8 +549,8 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Seuraava esimerkki näyttää transaktion rakenteen, joka sisältää yhden
-SOL-siirto-ohjeen.
+Seuraava esimerkki näyttää yhden SOL-siirtokäskyn sisältävän transaktion
+rakenteen.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -678,9 +699,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Alla oleva koodi näyttää edellisten koodiesimerkkien tulosteen.
-Muoto vaihtelee SDK:iden välillä,
-mutta huomaa, että jokainen ohje sisältää samat vaaditut tiedot.
+Alla oleva koodi näyttää edellisten koodinäytteiden tulosteen.
+Formaatti vaihtelee SDK:iden välillä,
+mutta huomaa, että jokainen käsky sisältää samat vaaditut tiedot.
 
 <CodeTabs storage="sol-transfer">
 
@@ -785,14 +806,83 @@ mutta huomaa, että jokainen ohje sisältää samat vaaditut tiedot.
 </CodeTabs>
 </WithMentions>
 
-## Transaktiotietojen hakeminen
+### Tarkista vastaanottaja ennen siirtoa
 
-Lähetyksen jälkeen hae transaktiotiedot käyttämällä transaktioallekirjoitusta ja
-[getTransaction](/docs/rpc/http/gettransaction) RPC-metodia.
+Koska SOL-siirto onnistuu mille tahansa tilille, tarkista vastaanottaja ennen
+allekirjoittamista. Hae tilitiedot ja lähetä vain System Program -lompakkoon
+(tai rahoittamattomaan
+[käyrällä olevaan](/docs/payments/send-payments/verify-address#on-curve-addresses)
+osoitteeseen); hylkää mintit, token accountit, ohjelmat ja PDA:t, joita et
+hallitse.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
 
 <Callout>
-  Voit myös löytää transaktion käyttämällä [Solana
-  Exploreria](https://explorer.solana.com).
+  Tämä koodinpätkä tarkistaa natiivin SOL-vastaanottajat. Täydellinen
+  luokittelu, joka käsittelee myös SPL-tokenien lähetyksen (token account,
+  ATA:t, Token-2022), löytyy täältä: [Vahvista
+  osoite](/docs/payments/send-payments/verify-address).
+</Callout>
+
+## Tapahtuman tietojen hakeminen
+
+Lähetyksen jälkeen voit hakea tapahtuman tiedot käyttämällä tapahtuman
+allekirjoitusta ja [getTransaction](/docs/rpc/http/gettransaction)-RPC-metodia.
+
+<Callout>
+  Voit myös etsiä tapahtuman [Solana Explorerista](https://explorer.solana.com).
 </Callout>
 
 ```json title="Transaction Data"
