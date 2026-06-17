@@ -149,10 +149,10 @@ SELECT
   p.name AS provider_name,
   CAST(mv.value AS DOUBLE) AS value
 FROM
-  dev.mlh.metrics_values mv
-    JOIN dev.mlh.metrics m
+  prod.solana_com.metrics_values mv
+    JOIN prod.solana_com.metrics m
       ON mv.metric_id = m.id
-    JOIN dev.mlh.providers p
+    JOIN prod.solana_com.providers p
       ON mv.provider_id = p.id
 WHERE
   m.name IN (${uniqueMetricNames.map(toSqlStringLiteral).join(", ")})

@@ -49,14 +49,14 @@ export type DataApiResponse = {
 };
 
 export const providerColors: Record<ProviderName, string> = {
-  Allium: "#9945FF",
+  Allium: "#DFA3DA",
   Artemis: "#14F195",
-  Blockworks: "#00D4FF",
-  DefiLama: "#DC1FFF",
-  Dune: "#CFF15E",
-  RWA: "#FF6B6B",
-  Stakewiz: "#F97316",
-  "Token Terminal": "#FFB000",
+  Blockworks: "#E32EE9",
+  DefiLama: "#3B8CFF",
+  Dune: "#F75F47",
+  RWA: "#A1B9E3",
+  Stakewiz: "#f6b486",
+  "Token Terminal": "#45A88E",
   "Validators App": "#38BDF8",
 };
 
