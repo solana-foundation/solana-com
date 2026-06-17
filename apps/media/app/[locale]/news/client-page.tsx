@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useMemo, useEffect, useState } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ErrorBoundary from "@/components/error-boundary";
@@ -12,8 +12,10 @@ import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
 import uniqBy from "lodash/uniqBy";
 import {
+  CASE_STUDIES_FILTER_SLUG,
   filterPostsByNewsFilter,
-  getNewsFilterOptions,
+  isCaseStudiesFilter,
+  newsFilterToPath,
 } from "@/lib/news-filters";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -27,13 +29,19 @@ interface PostsClientPageProps {
   featuredPost: PostItem | null;
   latestPosts: PostItem[];
   initialPageInfo?: PageInfo;
+  initialFilter?: string | null;
+  filterOptions: string[];
 }
 
 export default function PostsClientPage(props: PostsClientPageProps) {
-  const { featuredPost, latestPosts, initialPageInfo } = props;
-  const [selectedFilter, setSelectedFilter] = React.useState<string | null>(
-    null,
-  );
+  const {
+    featuredPost,
+    latestPosts,
+    initialPageInfo,
+    initialFilter,
+    filterOptions,
+  } = props;
+  const selectedFilter = initialFilter ?? null;
 
   const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -42,7 +50,6 @@ export default function PostsClientPage(props: PostsClientPageProps) {
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
-  // Load more posts via API
   const handleLoadMore = useCallback(async () => {
     if (!pageInfo?.hasNextPage || isLoadingMore) return;
 
@@ -52,6 +59,13 @@ export default function PostsClientPage(props: PostsClientPageProps) {
       const cursor = currentCursor || pageInfo.endCursor;
       const params = new URLSearchParams({ limit: "13" });
       if (cursor) params.set("cursor", cursor);
+      if (selectedFilter) {
+        if (isCaseStudiesFilter(selectedFilter)) {
+          params.set("tag", CASE_STUDIES_FILTER_SLUG);
+        } else {
+          params.set("category", selectedFilter);
+        }
+      }
 
       const res = await fetch(`/api/posts/latest?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch posts");
@@ -60,61 +74,44 @@ export default function PostsClientPage(props: PostsClientPageProps) {
       const newPosts = response.posts;
 
       if (newPosts.length > 0) {
-        // Append older posts to the end
         setPosts((prev) => uniqBy([...prev, ...newPosts], "id"));
 
-        // Update the cursor to the last (oldest) edge
         const lastEdge = newPosts[newPosts.length - 1];
         if (lastEdge?.cursor) {
           setCurrentCursor(lastEdge.cursor);
         }
       }
 
-      // Always update pageInfo to track pagination state
       setPageInfo(response.pageInfo ?? DEFAULT_PAGE_INFO);
     } catch (error) {
       console.error("Failed to load more posts:", error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [pageInfo.hasNextPage, pageInfo.endCursor, isLoadingMore, currentCursor]);
+  }, [
+    pageInfo.hasNextPage,
+    pageInfo.endCursor,
+    isLoadingMore,
+    currentCursor,
+    selectedFilter,
+  ]);
 
-  // Extract regular posts from postsData
   useEffect(() => {
-    // Remove featured post from latest posts if it exists
     setPosts(
       featuredPost
         ? latestPosts?.filter((post) => post?.id !== featuredPost?.id) || []
         : latestPosts || [],
     );
 
-    // Set the cursor from the last (oldest) post edge
     const lastPost = latestPosts[latestPosts.length - 1];
     if (lastPost?.cursor) {
       setCurrentCursor(lastPost.cursor);
     }
   }, [latestPosts, featuredPost]);
 
-  const filterOptions = useMemo(() => getNewsFilterOptions(posts), [posts]);
-
   const filteredPosts = useMemo(() => {
     return filterPostsByNewsFilter(posts, selectedFilter);
   }, [posts, selectedFilter]);
-
-  // const handleCopyLink = useCallback(() => {
-  //   if (
-  //     !featuredPost ||
-  //     typeof window === "undefined" ||
-  //     !navigator.clipboard
-  //   ) {
-  //     return;
-  //   }
-
-  //   const articleUrl = `${window.location.origin}${featuredPost.url}`;
-  //   navigator.clipboard.writeText(articleUrl).catch(() => {
-  //     /* no-op */
-  //   });
-  // }, [featuredPost]);
 
   return (
     <ErrorBoundary>
@@ -184,31 +181,34 @@ export default function PostsClientPage(props: PostsClientPageProps) {
             </div>
           )}
           <div className="px-4 md:px-6 lg:px-0">
-            {/* Filter Button Group */}
             {filterOptions.length > 0 && (
               <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full mb-6">
                 <span className="text-sm font-medium text-muted-foreground">
                   Filter by category:
                 </span>
                 <Button
+                  asChild
                   variant={selectedFilter === null ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setSelectedFilter(null)}
                   className="capitalize"
                 >
-                  All
+                  <Link href="/news" scroll={false}>
+                    All
+                  </Link>
                 </Button>
                 {filterOptions.map((category) => (
                   <Button
+                    asChild
                     key={category}
                     variant={
                       selectedFilter === category ? "default" : "secondary"
                     }
                     size="sm"
-                    onClick={() => setSelectedFilter(category)}
                     className="capitalize"
                   >
-                    {category}
+                    <Link href={newsFilterToPath(category)} scroll={false}>
+                      {category}
+                    </Link>
                   </Button>
                 ))}
               </div>
@@ -222,8 +222,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
               </div>
             )}
 
-            {/* Show message when no posts match the filter */}
-            {filteredPosts.length === 0 && selectedFilter && (
+            {filteredPosts.length === 0 && selectedFilter && !featuredPost && (
               <div className="text-center py-12 max-w-6xl mx-auto w-full">
                 <p className="text-muted-foreground">
                   No posts found for &quot;{selectedFilter}&quot;.
@@ -231,8 +230,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
               </div>
             )}
 
-            {/* Only show LoadMoreStatus when there are posts and no filter is active */}
-            {posts.length > 0 && !selectedFilter && (
+            {posts.length > 0 && (
               <LoadMoreStatus
                 isLoading={isLoadingMore}
                 hasMore={pageInfo.hasNextPage}
