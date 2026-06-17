@@ -1,20 +1,12 @@
 "use client";
 
 import { EmailModal } from "@/components/solutions/EmailModal";
-import { Products } from "@/components/solutions/products.v2";
-import { Projects } from "@/components/solutions/projects.v2";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
-import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  LOGOS,
-  PRODUCTS,
-  PROJECTS,
-  VIDEOS,
-} from "@/data/solutions/tokenization";
+import { VIDEOS } from "@/data/solutions/tokenization";
 import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
@@ -26,14 +18,24 @@ import {
   LedgerIcon,
   StepsIcon,
 } from "@solana-com/ui-chrome/icons";
+import { LogoStrip } from "@/components/solutions/tokenization/logo-strip";
+import { CaseStudies } from "@/components/solutions/tokenization/case-studies";
+import { AssetTable } from "@/components/solutions/tokenization/asset-table";
+import { Liquidity } from "@/components/solutions/tokenization/liquidity";
+import { IssuanceStack } from "@/components/solutions/tokenization/issuance-stack";
+import { Permissioning } from "@/components/solutions/tokenization/permissioning";
+import { DevBand } from "@/components/solutions/tokenization/dev-band";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
+import type { TokenizedAsset } from "@/lib/tokens/assets";
 
 type SolutionsTokenizationPageProps = {
   news: NewsItem[];
+  assets: TokenizedAsset[];
 };
 
 export function SolutionsTokenizationPage({
   news,
+  assets,
 }: SolutionsTokenizationPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -42,21 +44,25 @@ export function SolutionsTokenizationPage({
     {
       value: t("icm.hero.stats.0.value"),
       label: t("icm.hero.stats.0.label"),
+      delta: t("icm.hero.stats.0.delta"),
       Icon: TokenIcon,
-    },
-    {
-      value: t("icm.hero.stats.2.value"),
-      label: t("icm.hero.stats.2.label"),
-      Icon: CoinsIcon,
-    },
-    {
-      value: t("icm.hero.stats.3.value"),
-      label: t("icm.hero.stats.3.label"),
-      Icon: LedgerIcon,
     },
     {
       value: t("icm.hero.stats.1.value"),
       label: t("icm.hero.stats.1.label"),
+      delta: t("icm.hero.stats.1.delta"),
+      Icon: CoinsIcon,
+    },
+    {
+      value: t("icm.hero.stats.2.value"),
+      label: t("icm.hero.stats.2.label"),
+      delta: t("icm.hero.stats.2.delta"),
+      Icon: LedgerIcon,
+    },
+    {
+      value: t("icm.hero.stats.3.value"),
+      label: t("icm.hero.stats.3.label"),
+      delta: t("icm.hero.stats.3.delta"),
       Icon: StepsIcon,
     },
   ];
@@ -71,64 +77,43 @@ export function SolutionsTokenizationPage({
           subtitle={t("icm.hero.subtitle")}
           reportEyebrow={t("icm.hero.reportEyebrow")}
           reportDescription={t("icm.hero.reportDescription")}
-          emailCta={t("icm.hero.emailCta")}
-          onEmailClick={() => setEmailModalOpen(true)}
+          extraCta={t("icm.hero.extraCta")}
+          extraCtaHref="#assets"
           stats={stats}
           reportImgSrc="/src/img/solutions/icm/hero-download.webp"
           bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
         />
 
-        <Divider />
-
-        <WhatIsIt
-          title={t.rich("icm.features.title", {
-            light: (chunks) => (
-              <span className="font-light">
-                {chunks}
-                <br />
-              </span>
-            ),
-          })}
-          description={t.rich("icm.features.description", {
-            promiseLink: (chunks) => (
-              <a
-                href="https://x.com/akshaybd/status/1861225525265735749"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-primary"
-              >
-                {chunks}
-              </a>
-            ),
-          })}
-          highlightColor="#CA9FF5"
-          imageSrc="/src/img/solutions/icm/what-is.webp"
-        />
-
-        {/* EcoProjects Section */}
-        <Projects
-          title={t.rich("icm.projects.title", {
-            light: (chunks) => <span className="font-light">{chunks}</span>,
-            br: () => <br />,
-          })}
-          projects={PROJECTS}
-          translationBase="icm.projects"
-          logos={LOGOS}
-          bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
-        />
+        {/* In production with */}
+        <LogoStrip />
 
         <Divider />
 
-        {/* Products Section */}
-        <Products
-          className="z-[1]"
-          title={t("icm.products.title")}
-          description={t("icm.products.description")}
-          products={PRODUCTS}
-          translationBase="icm.products"
-          imageSrc="/src/img/solutions/icm/toolkit.svg"
-          highlightColor="#CA9FF5"
-        />
+        {/* Case studies (tabbed) */}
+        <CaseStudies />
+
+        <Divider />
+
+        {/* Live asset registry (tokens.xyz) */}
+        <AssetTable assets={assets} />
+
+        <Divider />
+
+        {/* Liquidity & allocators */}
+        <Liquidity />
+
+        <Divider />
+
+        {/* Solutions & partners */}
+        <IssuanceStack />
+
+        <Divider />
+
+        {/* Permissioning & privacy */}
+        <Permissioning />
+
+        {/* Developer CTA band */}
+        <DevBand />
 
         <Decor imageSrc="/src/img/solutions/icm/bg-1.webp" />
 
