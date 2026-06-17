@@ -1,0 +1,624 @@
+---
+title: Hướng Dẫn Tích Hợp Chuyển Khoản Bảo Mật
+description:
+  Tìm hiểu cách tích hợp các token sử dụng extension Chuyển Khoản Bảo Mật vào
+  ví, trình khám phá, sàn giao dịch và các ứng dụng khác.
+---
+
+# Hỗ Trợ Chuyển Khoản Bảo Mật trên Solana
+
+## Tổng Quan
+
+Extension Chuyển Khoản Bảo Mật cho phép các mint Token-2022 giữ số tiền giao
+dịch và số dư tài khoản được mã hóa trên chuỗi. Số dư được mã hóa, vì vậy để
+hiển thị chúng cần có khóa giải mã của chủ sở hữu, và việc gửi yêu cầu tạo các
+bằng chứng không tiết lộ thông tin (zero-knowledge proofs) trên client.
+
+Hướng dẫn này dành cho các nhóm **tích hợp** token chuyển khoản bảo mật (ví,
+trình khám phá, sàn giao dịch, tổ chức lưu ký, bộ lập chỉ mục) thay vì các tổ
+chức phát hành đang cấu hình mint. Nếu bạn đang xây dựng luồng cơ bản từ đầu,
+hãy bắt đầu với các trang hướng dẫn từng bước được liên kết bên dưới; hướng dẫn
+này tập trung vào những gì sản phẩm của bạn cần thực hiện để hỗ trợ các token
+này một cách tốt nhất.
+
+Địa chỉ tài khoản, mint và chủ sở hữu của mỗi tài khoản vẫn **công khai**. Chỉ
+сố tiền và số dư được mã hóa, vì vậy mọi thứ khác, bao gồm cả việc ai giao dịch
+với ai, vẫn hiển thị công khai. Điều này mang lại tính bảo mật trước những người
+quan sát bên ngoài, chứ không phải ẩn danh.
+
+### Tài Nguyên
+
+- [Tổng quan về Chuyển Khoản Bảo Mật và hướng dẫn từng bước](/docs/tokens/extensions/confidential-transfer)
+- [Mã nguồn Rust của Extension](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS client](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (hướng dẫn, phân tích trạng thái tài khoản, dẫn xuất khóa và các trình trợ
+  giúp chuyển khoản bảo mật cấp cao)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (các nguyên thủy mã hóa và tạo dữ liệu bằng chứng)
+- [`@solana-program/zk-elgamal-proof` JS client](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (hướng dẫn xác minh bằng chứng)
+- [`spl-token-client` Rust crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (các trình trợ giúp end-to-end cấp cao bằng Rust)
+
+## Tóm Tắt
+
+- Mỗi token account bảo mật vẫn có **số dư công khai** cộng với số dư **đang chờ
+  xử lý** và **khả dụng** được mã hóa. Một token có thể di chuyển tự do giữa
+  trạng thái công khai và bảo mật.
+- Để **hiển thị** số dư bảo mật, bạn cần có khóa của chủ sở hữu. Cách tiếp cận
+  được khuyến nghị là dẫn xuất chúng từ ví của chủ sở hữu, giải mã số dư khả
+  dụng bằng khóa AES (nhanh), và giải mã số tiền đang chờ xử lý bằng khóa
+  ElGamal khi cần.
+- Để **gửi** bảo mật, bạn tạo các bằng chứng ZK trên client (bằng chứng bình
+  đẳng, tính hợp lệ của bản mã, phạm vi), thường được đặt trong các **tài khoản
+  trạng thái ngữ cảnh bằng chứng** tạm thời, sau đó gửi giao dịch. Cả
+  `@solana-program/token-2022` (JS) và `spl-token-client` (Rust) đều cung cấp
+  các trình trợ giúp cấp cao để xây dựng bằng chứng và sắp xếp trình tự các giao
+  dịch cho bạn.
+- Các giao dịch chuyển khoản bảo mật hiện trải dài trên một vài giao dịch phụ
+  thuộc vì các bằng chứng vượt quá giới hạn kích thước giao dịch hiện tại. Một
+  thay đổi sắp tới (định dạng giao dịch v1, ra mắt cùng Agave v4.2) sẽ nâng giới
+  hạn đó và dự kiến sẽ cho phép một giao dịch chuyển khoản bảo mật thực hiện
+  trong một giao dịch onchain duy nhất.
+- Một ví không thêm bất kỳ hỗ trợ nào vẫn hoạt động: nó hiển thị số dư công khai
+  và các giao dịch tiêu chuẩn vẫn hoạt động bình thường. Các khoản tiền bảo mật
+  vẫn có thể truy cập với bất kỳ client nào hỗ trợ bảo mật và có khóa của chủ sở
+  hữu.
+
+## Thuật ngữ
+
+- **ElGamal keypair**: keypair khóa công khai theo từng tài khoản dùng để mã hóa
+  số dư và xây dựng các bằng chứng ZK. Khóa công khai được lưu trữ trên tài
+  khoản.
+- **Khóa AES**: khóa đối xứng theo từng tài khoản dùng để mã hóa "số dư khả dụng
+  có thể giải mã" để chủ sở hữu có thể đọc số dư khả dụng của mình trong thời
+  gian không đổi, mà không cần giải bài toán logarithm rời rạc.
+- **Số dư chờ xử lý**: số dư được mã hóa của các khoản tiền nhận qua tiền gửi
+  hoặc chuyển khoản đến chưa được áp dụng. Không thể chi tiêu trực tiếp.
+- **Số dư khả dụng**: số dư được mã hóa có thể được chuyển hoặc rút.
+- **Áp dụng**: bước chuyển số dư chờ xử lý sang số dư khả dụng.
+- **Tài khoản trạng thái ngữ cảnh bằng chứng**: một tài khoản onchain tạm thời
+  lưu giữ một bằng chứng ZK đã được xác minh trước, được tham chiếu bởi một lệnh
+  bảo mật và sau đó được đóng lại để thu hồi rent.
+- **Kiểm toán viên**: một khóa ElGamal toàn cục tùy chọn trên mint; khi được
+  thiết lập, mọi lần chuyển khoản sẽ mã hóa thêm số tiền dưới khóa này để một
+  bên được chỉ định có thể giải mã.
+
+## Mô hình tài khoản và số dư
+
+Khi một tài khoản được cấu hình cho các giao dịch bảo mật, tiện ích mở rộng
+`ConfidentialTransferAccount` lưu trữ (trong số các trường khác):
+
+- `elgamal_pubkey`: khóa công khai ElGamal của tài khoản.
+- `pending_balance_lo` / `pending_balance_hi`: các bản mã ElGamal của số dư chờ
+  xử lý, được chia thành các bit thấp và cao (giải mã các bit cao tốn kém hơn,
+  vì vậy chúng được giữ riêng biệt).
+- `available_balance`: bản mã ElGamal của số dư có thể chi tiêu.
+- `decryptable_available_balance`: bản mã **AES** của cùng số dư khả dụng mà chủ
+  sở hữu có thể giải mã ngay lập tức. Đây là trường cần dùng để hiển thị.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: liệu tài
+  khoản hiện có chấp nhận các khoản tín dụng bảo mật hoặc công khai đến hay
+  không.
+- `pending_balance_credit_counter` và `maximum_pending_balance_credit_counter`:
+  số lượng tín dụng đã tích lũy vào số dư chờ xử lý và giới hạn trước khi cần
+  thực hiện áp dụng.
+
+Tất cả các trường này được trả về trong trạng thái tài khoản đã được phân tích
+qua RPC tiêu chuẩn. Bất kỳ ai cũng có thể đọc các bản mã, nhưng chỉ những người
+nắm giữ khóa mới có thể khôi phục các số tiền thực sự.
+
+## Quản lý khóa
+
+Mỗi tài khoản bảo mật sử dụng hai khóa: một **keypair ElGamal** để mã hóa và tạo
+bằng chứng, và một **khóa AES** để giải mã số dư nhanh. Cách bạn tạo và lưu trữ
+các khóa đó là một lựa chọn tích hợp. Một số tùy chọn phổ biến:
+
+- **Dẫn xuất từ chữ ký ví (mặc định được khuyến nghị).** Chủ sở hữu ký một thông
+  điệp chuẩn, được phân tách theo miền và các khóa được dẫn xuất từ chữ ký đó,
+  vì vậy chúng có thể tái tạo chỉ từ ví và bạn không cần lưu trữ chúng. seed
+  mang tính xác định theo từng tài khoản: các trình trợ giúp JS bên dưới gắn kết
+  nó với cặp `(owner, mint)`, trong khi ví dụ Rust sử dụng seed từ địa chỉ token
+  account (đối với một associated token account, chúng tương đương nhau, vì địa
+  chỉ đó được dẫn xuất từ chủ sở hữu và mint).
+- **Dẫn xuất từ tài liệu khóa độc lập.** Đối với passkey, enclave bảo mật, hoặc
+  các thiết lập MPC, hãy dẫn xuất các khóa từ đầu ra WebAuthn PRF hoặc tài liệu
+  khóa đầu vào khác để các khóa bảo mật không bị ràng buộc với khóa ký của tài
+  khoản. `@solana/zk-sdk` cung cấp `ConfidentialKeys.fromIkm` và
+  `ConfidentialKeys.fromPrf` cho mục đích này.
+- **Tạo và quản lý trực tiếp.** Các nhà cung cấp dịch vụ lưu ký và MPC có thể
+  muốn tạo các khóa và quản lý chúng như bất kỳ tài liệu khóa nhạy cảm nào khác.
+
+Client `@solana-program/token-2022` cung cấp các trình trợ giúp cho con đường
+được khuyến nghị:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Khóa bảo mật là khóa giải mã. Hãy xem một yêu cầu ký thông điệp dẫn xuất như
+  việc mở khóa chế độ xem riêng tư về số dư của người dùng. Ưu tiên dẫn xuất
+  theo yêu cầu thay vì lưu trữ chúng; nếu bạn có lưu trữ chúng (ví dụ trong một
+  dịch vụ lưu ký), hãy bảo vệ chúng với mức độ nghiêm ngặt tương tự như khóa ký.
+</Callout>
+
+Các hàm hỗ trợ dẫn xuất trả về tài liệu khóa đã được tuần tự hóa. Các hàm hỗ trợ
+thao tác cấp cao (được trình bày sau) nhận các đối tượng WASM `ElGamalKeypair`
+và `AeKey`, vì vậy hãy khôi phục chúng từ các byte khi cần:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Tạo và cấu hình tài khoản
+
+Trước khi một token account có thể lưu số dư bảo mật, nó cần có extension
+`ConfidentialTransferAccount`, bổ sung khoảng 295 byte vào token account (tương
+đương khoảng 0.0015 SOL tiền rent thêm). Quá trình thiết lập gồm hai bước: tạo
+token account, sau đó cấu hình extension.
+
+Việc cấu hình thông thường yêu cầu **chủ sở hữu tài khoản** ký tên và cung cấp
+bằng chứng rằng họ sở hữu khóa công khai ElGamal được thiết lập trên tài khoản.
+Ví hoặc sàn giao dịch có thể tạo và nạp tiền cho token account cơ bản của người
+dùng, nhưng không thể cấu hình extension bảo mật thay mặt người dùng nếu không
+có chữ ký đó.
+
+Vì lý do này, hãy tránh tự động tạo tài khoản bảo mật cho mọi người dùng: điều
+này tốn thêm rent và vẫn cần sự tham gia của chủ sở hữu. Hãy cấu hình khi lần
+đầu sử dụng, hoặc khi người dùng chọn tham gia chuyển khoản bảo mật.
+
+**Sổ đăng ký ElGamal** loại bỏ bước xác nhận của chủ sở hữu cho từng tài khoản.
+Người dùng đăng ký khóa công khai ElGamal của họ một lần (ký bằng chứng khi đăng
+ký), và bản ghi trong sổ đăng ký có thể tái sử dụng trên mọi mint. Sau đó, bên
+thứ ba có thể cấu hình các tài khoản bảo mật cho người dùng bằng
+`ConfigureAccountWithRegistry`, không cần chữ ký của chủ sở hữu hay bằng chứng
+khi cấu hình, chỉ cần một người trả phí cho rent. Đây là cơ chế nên dùng nếu bạn
+muốn tạo tài khoản bảo mật cho người dùng một cách liền mạch.
+
+<Callout type="info">
+  Cấu hình sổ đăng ký hiện có trong Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) và chương
+  trình `spl-elgamal-registry`. Các hàm hỗ trợ tương đương trong JS client
+  `@solana-program/token-2022` hiện chưa có, vì vậy các tích hợp JS cần đường
+  dẫn sổ đăng ký nên theo dõi các bản phát hành của client đó.
+</Callout>
+
+## Hiển thị số dư
+
+Một tích hợp hoàn chỉnh hiển thị số dư công khai bằng cách sử dụng số dư token
+tiêu chuẩn, phát hiện phần mở rộng bảo mật, và khi người dùng đã mở khóa khóa
+của họ, giải mã và hiển thị số dư khả dụng.
+
+Số dư khả dụng nên được đọc từ `decryptable_available_balance` bằng khóa AES,
+vốn có thời gian không đổi. Giải mã ElGamal `available_balance` trực tiếp đòi
+hỏi phải giải logarit rời rạc và nên tránh cho việc hiển thị thông thường.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Khi người dùng chưa mở khóa khóa của họ, hãy hiển thị số dư công khai và chỉ ra
+rằng số dư bảo mật tồn tại nhưng đang bị khóa, thay vì hiển thị số không.
+
+## Nhận chuyển khoản
+
+Các khoản tiền gửi và chuyển khoản đến sẽ nằm trong số dư **chờ xử lý** và không
+thể chi tiêu cho đến khi được áp dụng. Mỗi khoản ghi có sẽ tăng
+`pending_balance_credit_counter`; khi đạt đến
+`maximum_pending_balance_credit_counter`, tài khoản không thể nhận thêm các
+khoản ghi có bảo mật cho đến khi chủ sở hữu áp dụng số dư chờ xử lý.
+
+Các tích hợp nắm giữ tài sản thay mặt người dùng nên:
+
+- Hiển thị riêng biệt số dư chờ xử lý và số dư khả dụng để người dùng hiểu tại
+  sao số tiền vừa nhận chưa thể chi tiêu.
+- Áp dụng số dư chờ xử lý thay mặt người dùng vào những thời điểm hợp lý (ví dụ
+  trước khi gửi) để số dư không bị kẹt.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Xem trang
+[Áp Dụng Số Dư Chờ Xử Lý](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+để biết toàn bộ quy trình.
+
+## Gửi chuyển khoản
+
+Một giao dịch chuyển khoản bảo mật yêu cầu ba bằng chứng không tiết lộ thông tin
+được tạo ra ở phía khách hàng:
+
+- **Bằng chứng bằng nhau** rằng bản mã số dư mới của người gửi mã hóa cùng giá
+  trị với một cam kết mới mà người gửi có thể mở.
+- **Bằng chứng hợp lệ bản mã** rằng các bản mã số tiền chuyển khoản được hình
+  thành đúng đắn dưới các khóa nguồn, đích và (nếu được đặt) khóa kiểm toán.
+- **Bằng chứng phạm vi** rằng số tiền và số dư còn lại của người gửi là các số
+  nguyên không âm hợp lệ, đây là điều ngăn chặn việc tạo ra giá trị từ không
+  khí.
+
+Các bằng chứng này có kích thước lớn hơn giới hạn kích thước giao dịch hiện tại
+cho phép nội tuyến, vì vậy mô hình thông thường là tạo **tài khoản trạng thái
+ngữ cảnh bằng chứng**, xác minh từng bằng chứng vào chúng, tham chiếu chúng từ
+lệnh chuyển khoản, rồi đóng chúng để lấy lại rent. Điều này trải dài qua một vài
+giao dịch phụ thuộc. Định dạng giao dịch v1 (ra mắt cùng Agave v4.2) nâng giới
+hạn kích thước và dự kiến cho phép một giao dịch chuyển khoản bảo mật chạy trong
+một giao dịch onchain duy nhất, điều này sẽ đơn giản hóa quy trình này.
+
+Bạn không cần phải tự tay lắp ráp các bằng chứng. Cả hai client đều cung cấp một
+trình trợ giúp cấp cao để xây dựng các bằng chứng và tạo ra các lệnh để gửi:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Nếu bạn cần kiểm soát chi tiết hơn, các thành phần xây dựng cấp thấp hơn cũng có
+sẵn: `@solana/zk-sdk` tạo dữ liệu của từng bằng chứng
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` cung cấp các
+lệnh xác minh bằng chứng, và `@solana-program/token-2022` cung cấp các lệnh tài
+khoản `confidentialTransfer` và tài khoản trạng thái ngữ cảnh.
+
+Xem trang
+[Chuyển Token](/docs/tokens/extensions/confidential-transfer/transfer-tokens) để
+biết trình tự lệnh chi tiết.
+
+## Rút tiền
+
+Rút tiền chuyển vốn từ số dư khả dụng bảo mật trở lại số dư công khai, sau đó
+chúng hoạt động như bất kỳ số dư token thông thường nào. Việc rút tiền cũng yêu
+cầu các bằng chứng (một bằng chứng bằng nhau và một bằng chứng phạm vi), được
+hiển thị là `getConfidentialWithdrawInstructionPlan` trong JS client và
+`confidential_transfer_withdraw` trong Rust client. Áp dụng bất kỳ số dư đang
+chờ xử lý trước để toàn bộ số tiền đều khả dụng. Xem
+[Rút Token](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Các tiện ích mở rộng bảo mật liên quan
+
+Hai tiện ích mở rộng tùy chọn xây dựng dựa trên các giao dịch bảo mật. Cả hai
+chủ yếu là trách nhiệm của nhà phát hành, nhưng mỗi tiện ích thay đổi điều gì đó
+mà người tích hợp cần xử lý:
+
+- **Phí chuyển khoản bảo mật.** Khi một mint kết hợp các giao dịch bảo mật với
+  một [phí chuyển khoản](/docs/tokens/extensions/transfer-fees), các lần gửi sử
+  dụng đường dẫn chuyển khoản có phí (`confidential_transfer_transfer_with_fee`
+  trong Rust client), và phí bị khấu giữ được mã hóa như số tiền. Việc thu phí
+  bị khấu giữ (thu hoạch và rút) là công việc của cơ quan phí, không phải của
+  người tích hợp.
+- **Mint và burn bảo mật.** Một mint với tiện ích mở rộng này phát hành và đốt
+  nguồn cung một cách bảo mật, điều này vô hiệu hóa đường dẫn nạp và rút công
+  khai. Token không thể di chuyển giữa số dư công khai và số dư bảo mật trên một
+  mint như vậy, vì vậy không hiển thị tính năng nạp hoặc rút cho nó.
+
+Để biết chi tiết ở cấp độ giao thức của cả hai, hãy xem
+[tài liệu về số dư bảo mật](https://www.solana-program.com/docs/confidential-balances).
+
+## Phân tích các giao dịch chuyển tiền bảo mật
+
+Các trình khám phá và bộ lập chỉ mục cần nhận dạng và gắn nhãn hoạt động chuyển
+tiền bảo mật mà không cần đọc được số tiền. Client `@solana-program/token-2022`
+cung cấp `identifyToken2022Instruction` để phân loại từng lệnh Token-2022, cùng
+với các bộ phân tích cú pháp theo từng lệnh (ví dụ
+`parseConfidentialTransferInstruction`) để giải mã các tài khoản và các trường
+không bảo mật. Số tiền được mã hóa vẫn là các bản mã: hãy hiển thị chúng là bảo
+mật thay vì hiển thị các byte dưới dạng số.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Các hạn chế lập chỉ mục cần lưu ý:
+
+- **Không có số tiền cho các giao dịch chuyển tiền bảo mật.** Một
+  `ConfidentialTransfer` chứa số tiền đã mã hóa, do đó khối lượng, luồng và phân
+  tích kích thước giao dịch không thể được tính toán từ đó. Hãy đánh dấu các
+  giao dịch này là bảo mật thay vì ghi lại số không hoặc bản mã thô.
+- **Không có chênh lệch số dư.** Các lệnh chuyển tiền bảo mật không thay đổi số
+  dư token công khai, do đó việc so sánh số dư token trước/sau vốn là cơ sở của
+  hầu hết các lập chỉ mục giao dịch sẽ không ghi lại chúng. Số dư đang chờ xử lý
+  và số dư khả dụng đều là các bản mã.
+- **Nạp tiền và rút tiền là công khai.** `ConfidentialDeposit` và
+  `ConfidentialWithdraw` chứa số tiền rõ ràng, vì vậy bạn vẫn có thể lập chỉ mục
+  luồng vào và ra khỏi pool bảo mật, chỉ là không phải các giao dịch chuyển tiền
+  bên trong nó.
+- **Một giao dịch chuyển tiền trải dài trên nhiều giao dịch hiện tại.** Các tài
+  khoản trạng thái ngữ cảnh bằng chứng được tạo, sử dụng và đóng xung quanh giao
+  dịch chuyển tiền, vì vậy hãy liên kết các giao dịch liên quan thay vì xử lý
+  từng giao dịch riêng lẻ. Điều này sẽ được đơn giản hóa khi các giao dịch
+  chuyển tiền bảo mật đơn lẻ được triển khai (xem ở trên).
+- **Các mint có kiểm toán viên có thể giải mã được.** Nếu một mint có kiểm toán
+  viên toàn cục và bạn nắm giữ khóa kiểm toán viên, bạn có thể giải mã số tiền
+  giao dịch chuyển tiền cho mint đó (xem bên dưới).
+
+## Kiểm toán viên và tuân thủ
+
+Một mint có thể cấu hình một **kiểm toán viên toàn cục** bằng khóa công khai
+ElGamal. Khi được thiết lập, mọi giao dịch chuyển khoản bảo mật đều phải bao gồm
+số tiền được mã hóa bằng khóa kiểm toán viên, để người nắm giữ khóa bí mật của
+kiểm toán viên có thể giải mã tất cả các số tiền chuyển khoản của mint đó. Bằng
+chứng hợp lệ bao gồm bản mã của kiểm toán viên, vì vậy với tư cách là người tích
+hợp, bạn không cần thực hiện bất kỳ thao tác đặc biệt nào trên đường dẫn gửi
+ngoài việc truyền khóa kiểm toán viên từ cấu hình mint (các trình trợ giúp cấp
+cao đọc thông tin đó cho bạn).
+
+Nếu sản phẩm của bạn là kiểm toán viên (ví dụ: một tổ chức phát hành được quản
+lý hoặc nhà cung cấp tuân thủ), bạn giải mã số tiền chuyển khoản bằng khóa bí
+mật của kiểm toán viên theo cách tương tự như chủ sở hữu giải mã số dư của họ.
+Chủ sở hữu cũng có thể chia sẻ có chọn lọc các khóa theo tài khoản của họ với
+một bên cụ thể mà không tiết lộ công khai.
+
+### Giám sát giao dịch (KYT)
+
+Đối với các nhà cung cấp xác minh giao dịch (KYT) và chống rửa tiền (AML), các
+giao dịch chuyển khoản bảo mật thay đổi những gì có thể quan sát được, chứ không
+phải mô hình tổng thể:
+
+- **Phân tích địa chỉ và đồ thị không bị ảnh hưởng.** Người gửi, người nhận, các
+  mint và chủ sở hữu tài khoản vẫn công khai, vì vậy việc sàng lọc địa chỉ, khớp
+  lệnh trừng phạt và phân tích đồ thị đối tác hoạt động tương tự như với bất kỳ
+  token nào.
+- **Các phương pháp phân tích dựa trên số tiền cần có khóa kiểm toán viên.**
+  Phát hiện cơ cấu giao dịch, báo cáo ngưỡng và chấm điểm rủi ro dựa trên khối
+  lượng không thể tự đọc số tiền chuyển khoản bảo mật. Số tiền nạp và rút vẫn ở
+  dạng rõ ràng, vì vậy quy mô dòng tiền vào và ra khỏi pool bảo mật vẫn hiển
+  thị.
+- **Phạm vi bảo phủ đến từ mô hình kiểm toán viên.** Đối với các mint cấu hình
+  kiểm toán viên toàn cục, một nhà cung cấp hoạt động với khóa kiểm toán viên
+  (hoặc nhận tiết lộ có chọn lọc từ người dùng hoặc tổ chức phát hành) có thể
+  khôi phục số tiền chuyển khoản. Các tổ chức phát hành trong bối cảnh được quản
+  lý nên lên kế hoạch cấu hình kiểm toán viên hoặc hỗ trợ tiết lộ có chọn lọc để
+  có thể thực hiện giám sát.
+
+## Khả năng tương thích ngược
+
+- Một token account bảo mật luôn có số dư công khai. Ví và ứng dụng không hỗ trợ
+  extension vẫn hoạt động bình thường và hiển thị số dư công khai.
+- Các giao dịch chuyển tiền tiêu chuẩn vẫn hoạt động với số dư công khai miễn là
+  địa chỉ đích cho phép các khoản ghi có không bảo mật.
+- Số dư bảo mật không hiển thị với các công cụ không hỗ trợ, nhưng tài sản không
+  bị mất: bất kỳ client nào hỗ trợ bảo mật đều có thể truy cập chúng bằng khóa
+  của chủ sở hữu.
+- Vì các khoản tiền được mã hóa, các phân tích về nguồn cung và khối lượng dựa
+  trên việc đọc số tiền giao dịch sẽ không thấy hoạt động bảo mật. Hãy lên kế
+  hoạch cho bảng điều khiển và kế toán xung quanh điều này.
+
+## Ưu tiên tích hợp được khuyến nghị theo từng nền tảng
+
+### Yêu cầu chung
+
+| Yêu cầu                       | Mô tả                                                                                                                                                                  | Ưu tiên |
+| :---------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ |
+| Phát hiện extension           | Nhận diện extension Confidential Transfer trên các mint và tài khoản, đồng thời xử lý các token này một cách rõ ràng thay vì giả định mô hình chỉ công khai.           | **P0**  |
+| Không bao giờ mất quỹ bảo mật | Ngay cả khi không hỗ trợ đầy đủ, hãy hiển thị rằng có số dư bảo mật để người dùng không cho rằng tài khoản của họ trống.                                               | **P0**  |
+| Quản lý khóa an toàn          | Chọn chiến lược khóa cho các khóa ElGamal và AES. Việc dẫn xuất từ ví của chủ sở hữu là mặc định được khuyến nghị; nếu bạn lưu trữ khóa, hãy bảo vệ chúng như khóa ký. | **P0**  |
+
+---
+
+### Ví
+
+| Yêu cầu                             | Mô tả                                                                                                               | Ưu tiên |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------------------------ | :------ |
+| Hiển thị số dư công khai            | Luôn hiển thị số dư công khai bằng cách đọc số dư token tiêu chuẩn.                                                 | **P0**  |
+| Mở khóa và hiển thị số dư khả dụng  | Cho phép người dùng mở khóa bằng chữ ký và hiển thị số dư khả dụng đã giải mã (thông qua số dư có thể giải mã AES). | **P0**  |
+| Hiển thị số dư đang chờ và khả dụng | Hiển thị số dư đang chờ riêng biệt và nhắc áp dụng khi nhận được tiền.                                              | **P1**  |
+| Tự động áp dụng số dư đang chờ      | Áp dụng số dư đang chờ vào những thời điểm hợp lý (ví dụ: trước khi gửi) để tiền không bị kẹt.                      | **P1**  |
+| Gửi bảo mật                         | Hỗ trợ các luồng nạp tiền, chuyển tiền và rút tiền với việc tạo bằng chứng phía client.                             | **P1**  |
+| UX khi ở trạng thái khóa            | Khi các khóa chưa được mở, hãy chỉ rõ rằng có số dư bảo mật thay vì hiển thị số không.                              | **P1**  |
+| Hướng dẫn / giáo dục người dùng     | Giúp người dùng hiểu những gì được giữ riêng tư (số tiền và số dư) và bước mở khóa.                                 | **P2**  |
+
+---
+
+### Trình Khám Phá và Bộ Lập Chỉ Mục
+
+| Yêu cầu                                        | Mô tả                                                                                                          | Ưu tiên |
+| :--------------------------------------------- | :------------------------------------------------------------------------------------------------------------- | :------ |
+| Gắn nhãn tài khoản và mint bảo mật             | Đánh dấu rõ ràng các tài khoản và mint sử dụng extension, đồng thời hiển thị số dư công khai.                  | **P0**  |
+| Phân tích lệnh bảo mật                         | Giải mã các lệnh configure, deposit, apply, transfer và withdraw, hiển thị loại lệnh (không hiển thị số tiền). | **P0**  |
+| Không hiển thị số tiền đã mã hóa dưới dạng số  | Không bao giờ hiển thị các trường ciphertext như thể chúng là số dư plaintext; hiển thị chúng là bảo mật.      | **P0**  |
+| Lập chỉ mục luồng nạp/rút công khai            | Ghi lại số tiền cleartext khi nạp và rút để theo dõi luồng vào và ra khỏi pool bảo mật.                        | **P1**  |
+| Liên kết các giao dịch chuyển khoản nhiều bước | Nhóm các giao dịch thiết lập bằng chứng, chuyển khoản và dọn dẹp tạo thành một lần chuyển khoản bảo mật.       | **P1**  |
+| Hiển thị cấu hình auditor                      | Hiển thị liệu một mint có auditor toàn cục được cấu hình hay không.                                            | **P1**  |
+| Vòng đời tài khoản bằng chứng                  | Nhận biết việc tạo và đóng tài khoản trạng thái proof context để các giao dịch dễ hiểu hơn.                    | **P2**  |
+
+---
+
+### Sàn Giao Dịch và Tổ Chức Lưu Ký
+
+| Yêu cầu                                  | Mô tả                                                                                                                                                                           | Ưu tiên |
+| :--------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------ |
+| Theo dõi trạng thái công khai và bảo mật | Tính toán cả số dư công khai và bảo mật khi ghi có tiền nạp và tính toán số dư nắm giữ.                                                                                         | **P0**  |
+| Áp dụng số dư chờ khi nạp tiền           | Áp dụng số dư chờ khi các khoản nạp bảo mật đến để đảm bảo số tiền ghi có chính xác.                                                                                            | **P0**  |
+| Xử lý khóa an toàn                       | Nếu lưu ký tài sản bảo mật, hãy quản lý các khóa ElGamal/AES với mức độ nghiêm ngặt tương tự như khóa ký.                                                                       | **P0**  |
+| Cấp phát tài khoản qua registry          | Để thiết lập tài khoản bảo mật cho người dùng, hãy yêu cầu người dùng đăng ký khóa ElGamal một lần và cấp phát qua đường dẫn registry thay vì yêu cầu chữ ký cho mỗi tài khoản. | **P1**  |
+| Rút tiền cho người dùng                  | Hỗ trợ rút tiền bảo mật hoặc công khai tùy thuộc vào cấu hình tài khoản đích.                                                                                                   | **P1**  |
+| Hỗ trợ tuân thủ / auditor                | Khi cần thiết, sử dụng khóa auditor hoặc công khai có chọn lọc để đáp ứng các nghĩa vụ báo cáo.                                                                                 | **P1**  |
+| Kế toán nội bộ trên số tiền thực         | Đối chiếu với số tiền đã giải mã tại điểm biên và lưu trữ chúng; không cố gắng tổng hợp các ciphertext.                                                                         | **P1**  |
+
+---
+
+### Nhà Cung Cấp Tuân Thủ và KYT
+
+| Yêu cầu                             | Mô tả                                                                                                                           | Độ ưu tiên |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :--------- |
+| Sàng lọc địa chỉ và đồ thị          | Sàng lọc người gửi, người nhận, người mint và chủ sở hữu, đồng thời chạy phân tích đồ thị đối tác; các thông tin này công khai. | **P0**     |
+| Theo dõi nạp/rút công khai          | Giám sát số tiền nạp và rút dạng văn bản rõ như là các điểm vào và ra có thể quan sát được của pool bảo mật.                    | **P0**     |
+| Hiển thị số tiền qua khóa kiểm toán | Đối với các lần mint có bật kiểm toán, giải mã số tiền chuyển bằng khóa kiểm toán để hỗ trợ phát hiện dựa trên số tiền.         | **P1**     |
+| Tiếp nhận tiết lộ có chọn lọc       | Hỗ trợ tiết lộ số tiền được chia sẻ bởi người dùng hoặc tổ chức phát hành thông qua khóa theo từng tài khoản.                   | **P2**     |
