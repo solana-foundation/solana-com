@@ -1,0 +1,303 @@
+---
+title: Create Program Derived Accounts
+description:
+  Learn how the Anchor starter creates a counter account at a Program Derived
+  Address and validates that address in the program and test.
+h1: Create Program Derived Accounts
+---
+
+In the starter program, the counter is stored in a Program Derived Address
+(PDA). A PDA is a deterministic account address derived from seeds and the
+program address. This lets the program and clients find the same account without
+storing the address elsewhere.
+
+This page continues from
+[Build Your First Program](/docs/intro/quick-start/build-first-program).
+
+## Counter state
+
+The `state.rs` file defines the data stored in the counter account.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/state.rs"
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[account\]/] account
+#[account]
+// !tooltip[/InitSpace/] initSpace
+#[derive(InitSpace)]
+pub struct Counter {
+    // !tooltip[/count/] count
+    pub count: u64,
+    // !tooltip[/authority/] authority
+    pub authority: Pubkey,
+}
+```
+
+### !account
+
+`#[account]` tells Anchor this struct is account data owned by the program.
+Anchor adds an 8-byte discriminator before the serialized fields so it can
+identify the account type.
+
+### !initSpace
+
+`InitSpace` lets Anchor calculate the number of bytes needed for the fields in
+`Counter`.
+
+### !count
+
+`count` stores the current counter value.
+
+### !authority
+
+`authority` stores the signer allowed to increment the counter.
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="constants.rs" -w
+use anchor_lang::prelude::*;
+
+#[constant]
+// !mark
+pub const COUNTER_SEED: &[u8] = b"counter";
+```
+
+### !right
+
+```rust title="state.rs" -w
+use anchor_lang::prelude::*;
+
+#[account]
+#[derive(InitSpace)]
+pub struct Counter {
+    // !mark(1:2)
+    pub count: u64,
+    pub authority: Pubkey,
+}
+```
+
+</SideBySide>
+
+The seed decides where the counter account lives. The state type decides what
+data the account stores.
+
+## Initialize account constraints
+
+The `Initialize` account struct tells Anchor which accounts the instruction
+expects and how the counter PDA should be created.
+
+<ScrollyCoding>
+
+## !!steps Payer
+
+The payer must sign because it pays to create the counter account. The `mut`
+constraint lets the transaction deduct lamports from the payer.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // !focus(1:2)
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Init
+
+The `init` constraint tells Anchor to create the counter account if it does not
+exist yet.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        // !focus
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Space
+
+The `space` constraint allocates enough bytes for the account data. The first 8
+bytes are the Anchor discriminator, and `Counter::INIT_SPACE` is the space
+required by the `Counter` fields.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        // !focus
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Seeds
+
+The `seeds` and `bump` constraints tell Anchor the expected PDA address. When
+the instruction runs, Anchor verifies that the provided `counter` account
+matches this derived address.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        // !focus(1:2)
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps System Program
+
+The System Program creates new accounts. Anchor needs this account because the
+`init` constraint creates the counter account during the instruction.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub system_program: Program<'info, System>,
+}
+```
+
+</ScrollyCoding>
+
+## PDA in the test
+
+The test derives the same PDA before sending the `initialize` instruction. The
+program and the test use the same seed, so they agree on the counter address.
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[account(
+    init,
+    payer = payer,
+    space = 8 + Counter::INIT_SPACE,
+    // !mark(1:2)
+    seeds = [COUNTER_SEED],
+    bump
+)]
+pub counter: Account<'info, Counter>,
+```
+
+### !right
+
+```rust title="test_initialize.rs" -w
+let program_id = my_program::id();
+
+// !mark(1:4)
+let counter = Pubkey::find_program_address(
+    &[my_program::constants::COUNTER_SEED],
+    &program_id,
+)
+.0;
+```
+
+</SideBySide>
+
+The left side is program validation. The right side is client-side address
+derivation in the test.
+
+## Increment uses the same PDA
+
+The `Increment` instruction does not create the account. It expects the existing
+counter PDA and checks that the signer matches the stored authority.
+
+```rust title="programs/my-program/src/instructions/increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, seeds = [COUNTER_SEED], bump)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+Run the test again after reading the PDA flow:
+
+```terminal
+$ anchor test
+```
+
+The test initializes the counter at the PDA, increments it, then deserializes
+the account data and checks that `count` changed from `0` to `1`.
