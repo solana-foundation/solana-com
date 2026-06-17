@@ -1,0 +1,101 @@
+---
+title: Indexing
+description:
+  How to build a production indexer for a Token-2022 mint. Streaming gRPC
+  architectures and RPC polling architectures, when to use each, and the
+  reconciliation patterns that keep both honest.
+url: /docs/tokens/indexing
+type: conceptual
+prerequisites:
+  - /docs/tokens
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/indexing/streaming
+  - /docs/tokens/indexing/polling
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/pausable
+  - /docs/tokens/extensions/confidential-transfer
+---
+
+A Token-2022 indexer turns onchain activity for a mint into a query-friendly
+event store. Issuers, custodians, and exchanges use it to detect deposits, audit
+administrative actions, attest to supply, and report flows to regulators.
+
+This section covers two architectures with different tradeoffs.
+
+<Cards>
+  <Card title="Streaming Indexer" href="/docs/tokens/indexing/streaming">
+    Sub-second latency via Yellowstone gRPC, RPC reconciliation, and a cold
+    archive. The standard shape for regulated issuers and high-throughput mints.
+  </Card>
+  <Card title="Polling-Only Indexer" href="/docs/tokens/indexing/polling">
+    No streaming dependency. A single worker polls
+    `getSignaturesForAddress(MINT)`, ingests new transactions, and reconciles on
+    a schedule. Fits when streaming infrastructure is not available.
+  </Card>
+</Cards>
+
+## Why Token-2022 indexing differs from SPL Token
+
+A vanilla SPL Token indexer covers most of what a Token-2022 mint does, but
+several Token-2022 extensions change the indexing surface. The administrative
+event surface is wider, transfers can have side effects, and the mint account is
+referenced more often.
+
+| Concern          | SPL Token                                     | Token-2022                                                                                                          |
+| ---------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Program ID       | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`                                                                       |
+| Pause            | not supported                                 | [`Pausable`](/docs/tokens/extensions/pausable) extension; transfers fail when paused                                |
+| Fees             | none                                          | [`TransferFee`](/docs/tokens/extensions/transfer-fees) withholds basis points; fees claimable later                 |
+| Hooks            | none                                          | `TransferHook` CPIs into a user program on every transfer                                                           |
+| Privacy          | amounts cleartext                             | [`ConfidentialTransfer`](/docs/tokens/extensions/confidential-transfer) encrypts amounts                            |
+| Delegation       | owner-set delegate                            | [`PermanentDelegate`](/docs/tokens/extensions/permanent-delegate) can move tokens from any token account            |
+| Metadata         | external                                      | `MetadataPointer` plus on-mint `TokenMetadata`                                                                      |
+| Default state    | open                                          | [`DefaultAccountState`](/docs/tokens/extensions/default-state) can force `frozen` on creation                       |
+| Cosmetic balance | none                                          | `ScaledUiAmount` or [`InterestBearing`](/docs/tokens/extensions/interest-bearing-tokens) apply a multiplier or rate |
+
+Operationally this means an issuer indexer must:
+
+- Decode every administrative instruction, not only `MintTo`, `Burn`, and
+  `SetAuthority`. Extension instructions are first-class admin events.
+- Branch on confidential vs cleartext transfers when reporting volume.
+  ConfidentialTransfer instructions emit ciphertext; plaintext volume is unknown
+  without the auditor's ElGamal key.
+- Watch the transfer hook program when one is configured. A failed CPI in the
+  hook fails the parent transfer, and that itself is a meaningful event.
+
+## Choosing an architecture
+
+| If you need...                                                       | Use                                           |
+| -------------------------------------------------------------------- | --------------------------------------------- |
+| Sub-second latency for deposit detection or withdrawal SLAs          | [Streaming](/docs/tokens/indexing/streaming)  |
+| Network-wide visibility over the mint with reconciliation guarantees | [Streaming](/docs/tokens/indexing/streaming)  |
+| A single-worker indexer with no streaming infrastructure             | [Polling-only](/docs/tokens/indexing/polling) |
+| Coverage when validator-side filtering is unavailable                | [Polling-only](/docs/tokens/indexing/polling) |
+| The simplest first version that can graduate to streaming later      | [Polling-only](/docs/tokens/indexing/polling) |
+
+Both architectures share the same event store schema, the same reconciliation
+loop, and the same supply-attestation check. Switching from polling to streaming
+later is mostly a matter of adding an ingestion source, not re-modeling the
+data.
+
+## Common ground
+
+Whichever architecture you start with, these defaults hold:
+
+- Use [`@solana/kit`](https://github.com/solana-foundation/framework-kit) and
+  the typed `@solana-program/token-2022` decoders for new indexer code. Avoid
+  legacy `@solana/web3.js` v1.
+- Key the event store on `(signature, ix_index, inner_index)`. Order by slot,
+  never by `block_time` (validator-reported, not monotonic across forks at
+  `confirmed`).
+- Use `confirmed` for ingestion and promote rows to `finalized` before any
+  action that affects ledgers, accounting, or customer-facing UI. Do not act on
+  `processed`.
+- Detect mint extensions at bootstrap with `getExtensionTypes` and branch
+  decoding for `Pausable`, `TransferFee`, `ConfidentialTransfer`,
+  `TransferHook`, `PermanentDelegate`, `DefaultAccountState`, and
+  `MetadataPointer`.
+- Run a reconciliation loop. Streams drop, RPC indexers occasionally lag, and
+  forks roll back at `confirmed`. Treat any single source as a hint and
+  reconcile against the chain.
