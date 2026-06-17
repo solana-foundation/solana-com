@@ -1,47 +1,38 @@
 // #region sign
-import { createMemorySignerFromBytes } from "@solana/keychain-memory";
-import {
-  appendTransactionMessageInstruction,
-  createSolanaRpc,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners,
-} from "@solana/kit";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { createKeychainSigner } from "@solana/keychain";
+import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
+import { airdropSigner, signer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
 
-// Create a Keychain signer. Swap `createMemorySignerFromBytes` for any backend
-// (AWS KMS, Vault, Fireblocks, Turnkey, ...) and the signing code below is the
-// same — every backend returns the same `SolanaSigner` interface.
-const signer = await createMemorySignerFromBytes(
-  crypto.getRandomValues(new Uint8Array(32)),
-);
+// One factory, one config shape for every backend. Swap `backend: "memory"`
+// for "aws-kms", "vault", "turnkey", ... and the rest of this file is
+// identical — each backend returns the same `SolanaSigner` interface.
+const keychainSigner = await createKeychainSigner({
+  backend: "memory",
+  privateKey: crypto.getRandomValues(new Uint8Array(32)),
+});
 
 const recipient = await generateKeyPairSigner();
 
-const rpc = createSolanaRpc("http://localhost:8899");
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const client = await createClient()
+  .use(signer(keychainSigner))
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900",
+    }),
+  )
+  .use(rpcAirdrop())
+  .use(airdropSigner(lamports(1_000_000_000n)));
 
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (m) => setTransactionMessageFeePayerSigner(signer, m),
-  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
-  (m) =>
-    appendTransactionMessageInstruction(
-      getTransferSolInstruction({
-        source: signer,
-        destination: recipient.address,
-        amount: lamports(10_000_000n),
-      }),
-      m,
-    ),
-);
+const { context } = await client.sendTransaction([
+  getTransferSolInstruction({
+    source: keychainSigner,
+    destination: recipient.address,
+    amount: lamports(10_000_000n),
+  }),
+]);
 
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-console.log("Signature:", getSignatureFromTransaction(signedTransaction));
+console.log("Signature:", context.signature);
 // #endregion sign
