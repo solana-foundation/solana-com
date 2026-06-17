@@ -277,8 +277,23 @@ Program 扣除 lamport。发送方和接收方账户都必须可写，以便其 
 
 ![SOL 转账处理流程图](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-下方示例展示了与上述图示相关的代码。参见 System
-Program 的[`transfer` 函数](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)。
+<Callout type="warn" title="发送 SOL 前请验证收款方">
+
+System
+Program 转账会向**任意**账户添加 lamport。协议层面不会检查收款方是否能将 SOL 转出。lamport 只能由账户的所属程序转出，因此将 SOL 发送至[代币 mint](/docs/tokens/basics/create-mint)、某个程序或您不控制的
+[PDA](/docs/core/pda) 存在**永久损失资金的风险**
+—— 只有所属程序指定的授权方才能将其取回。发送至
+[token account](/docs/tokens/basics/create-token-account)
+的 SOL 只能由该账户的所有者取回，发送方无法找回。
+
+SPL **token** 转账具有一定的自我保护机制：Token
+Program 会拒绝账户与预期 mint 不匹配的转账请求。原生 **SOL**
+转账则没有此类保护，因此发送方在签名前必须验证收款方。完整的分类逻辑请参阅[验证地址](/docs/payments/send-payments/verify-address)。
+
+</Callout>
+
+以下示例展示了与上述图表相关的代码。请参阅 System Program 的
+[`transfer` 函数](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)。
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -495,7 +510,7 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-下方示例展示了包含单个 SOL 转账指令的交易结构。
+以下示例展示了包含单条 SOL 转账指令的交易结构。
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -644,9 +659,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-下面的代码展示了前面代码片段的输出结果。
-不同 SDK 的格式可能有所不同，
-但请注意，每个指令都包含相同的必要信息。
+以下代码展示了前述代码片段的输出结果。
+不同 SDK 的格式有所差异，
+但请注意每条指令均包含相同的必要信息。
 
 <CodeTabs storage="sol-transfer">
 
@@ -751,13 +766,79 @@ async fn main() -> Result<()> {
 </CodeTabs>
 </WithMentions>
 
-## 获取交易详情
+### 转账前验证收款方
 
-提交后，可以使用交易签名和 [getTransaction](/docs/rpc/http/gettransaction)
-RPC 方法来获取交易详情。
+由于 SOL 转账可成功发送至任意账户，请在签名前核实收款方。获取账户信息，仅向 System
+Program 钱包（或未充值的[链上曲线地址](/docs/payments/send-payments/verify-address#on-curve-addresses)）发送；拒绝向您不控制的 mint、token
+account、程序及 PDA 转账。
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
 
 <Callout>
-  你也可以通过 [Solana Explorer](https://explorer.solana.com) 查找该交易。
+  此代码片段用于检查原生 SOL 收款方。如需完整分类（包括处理 SPL 代币转账、token
+  account、ATA 及 Token-2022），请参阅
+  [验证地址](/docs/payments/send-payments/verify-address)。
+</Callout>
+
+## 获取交易详情
+
+提交后，可使用交易签名和 [getTransaction](/docs/rpc/http/gettransaction)
+RPC 方法检索交易详情。
+
+<Callout>
+  您也可以通过 [Solana Explorer](https://explorer.solana.com) 查找该交易。
 </Callout>
 
 ```json title="Transaction Data"
