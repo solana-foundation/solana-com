@@ -1,0 +1,347 @@
+---
+title: 機密転送発行者ガイド
+description: 承認ポリシー、監査人、手数料、機密ミントおよびバーンを含む、機密転送エクステンションを使用するトークンの発行と運用方法について説明します。
+---
+
+# Solanaでの機密転送トークンの発行
+
+このガイドは**発行者**向けです：Token-2022ミントを作成・運用するチームで、機密転送エクステンションを使用するチームを対象としています。ミント作成時に行う決定と、ミントのライフサイクル全体にわたって実行する操作について説明します。ホルダー側のフロー（デポジット、適用、転送、出金）については、ステップバイステップのページを参照してください。また、製品でこれらのトークンをサポートする方法については、[インテグレーションガイド](/docs/tokens/extensions/confidential-transfer/integration-guide)を参照してください。
+
+機密転送は、アカウントアドレス、ミント、およびオーナーを公開したまま、転送金額とアカウント残高を暗号化した状態に保ちます。オンチェーンのプルーフ検証にはZK
+ElGamal Proof
+Programを利用するため、そのプログラムが有効になっているクラスター上でのみミントを使用できます。
+
+<Callout type="warn" title="利用可能性">
+  機密転送にはToken-2022
+  [`program@v11.0.0`](https://github.com/solana-program/token-2022/releases/tag/program%40v11.0.0)
+  以降が必要です。現在devnetで利用可能であり、2026年6月にmainnetで有効化される予定です。Token
+  Extensions
+  Programは各クラスターに個別にデプロイされるため、対象クラスターへのデプロイを確認してください。
+</Callout>
+
+## 作成時に行う決定
+
+機密転送エクステンションはミントが初期化される前に初期化する必要があり、後から追加することはできません。作成時に以下を決定します：
+
+- **承認ポリシー**: アカウントがパーミッションなしで機密転送にオプトインできるか（`auto`）、またはミントの機密転送オーソリティによる承認が必要か（`manual`）。
+- **監査人**: 指定された当事者がミントのすべての転送金額を復号できるよう、グローバルな監査人ElGamal公開鍵を設定するかどうか。任意であり、後から変更可能です。
+- **オプションのコンパニオンエクステンション**: 機密転送手数料（転送手数料エクステンションとペアリング）および機密ミント/バーンは、いずれも以下で説明します。これらもまた、作成時に初期化する必要があります。
+
+## 機密ミントの作成
+
+CLIは承認ポリシーを`--enable-confidential-transfers auto`または`manual`で設定します。`auto`を指定すると各ホルダーが自分のアカウントを自由に設定できますが、`manual`を指定すると機密転送オーソリティ（デフォルトではミントオーソリティ）による承認が必要になります。クライアント側のパスでも、`ConfidentialTransferMint`パラメータを通じて同じ設定（オーソリティ、自動承認フラグ、およびオプションの監査人キー）を指定できます。承認ポリシーと監査人はいずれも後から変更可能です（[監査人の設定](#configure-an-auditor)を参照）。変更できないのは、拡張機能自体の存在のみで、これは作成時に固定されます。
+
+<CodeTabs>
+
+```terminal !! title="create-confidential-mint.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --enable-confidential-transfers auto
+```
+
+```rust !! title="create-confidential-mint.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+let extensions = vec![ExtensionInitializationParams::ConfidentialTransferMint {
+    authority: Some(authority.pubkey().into()),
+    auto_approve_new_accounts: true, // false for a manual approve policy
+    auditor_elgamal_pubkey: None,    // Some(pubkey) to set a global auditor
+}];
+
+token
+    .create_mint(&mint_authority, freeze_authority.as_ref(), extensions, &[&mint_keypair])
+    .await?;
+```
+
+```ts !! title="create-confidential-mint.ts"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
+```
+
+</CodeTabs>
+
+## 監査人の設定
+
+グローバル監査人とは、ミントに保存されたElGamal公開鍵のことです。設定されている場合、すべての機密転送はその金額をこのキーでも追加暗号化するため、対応する秘密鍵を持つ者はそのミントのすべての転送金額を復号できます。これにより、機密転送が監査およびコンプライアンス要件と両立できます。一般には何も見えず、監査人にはすべてが見える仕組みです。
+
+機密転送オーソリティは、いつでも監査人の設定・ローテーション・削除を行えます。同じ操作で承認ポリシーも更新されます。CLIでは監査人キーはElGamal公開鍵のBase64エンコードで指定します。削除するには`--auditor-pubkey none`を渡し、ポリシーを変更するには`--approve-policy auto|manual`を使用します。
+
+ローテーションは将来の転送にのみ影響します。すでにオンチェーンに記録されたトランザクションの金額は、実行時に有効だった監査人キーで暗号化されたままとなるため、過去のアクティビティを復号する必要がある場合は古い監査人キーを保管しておいてください。
+
+<CodeTabs>
+
+```terminal !! title="update-confidential-settings.sh"
+$ spl-token update-confidential-transfer-settings <MINT_PUBKEY> --auditor-pubkey <AUDITOR_ELGAMAL_PUBKEY>
+```
+
+```rust !! title="update-confidential-settings.rs"
+token
+    .confidential_transfer_update_mint(
+        &authority,
+        true,                         // auto_approve_new_account
+        Some(auditor_elgamal_pubkey), // None to clear the auditor
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="update-confidential-settings.ts"
+import { getUpdateConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+
+const ix = getUpdateConfidentialTransferMintInstruction({
+  mint,
+  authority, // confidential transfer authority (signer)
+  autoApproveNewAccounts: true,
+  auditorElgamalPubkey // an ElGamal pubkey Address, or null to clear
+});
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  監査人の秘密鍵は、そのミントのすべての転送金額を復号できます。署名鍵と同等の厳格さで管理し、ローテーション計画を立ててください。監査人を`None`に設定すると、アカウント所有者本人を除く全員に対して金額の可視性が無効になります。
+</Callout>
+
+## アカウントの承認（手動ポリシー）
+
+手動承認ポリシーを使用する場合、機密転送用に設定されたアカウントは、機密転送権限がそれを承認するまで機密取引を行うことができません。これにより、発行者はホワイトリストに登録された参加者やKYC済み参加者に対してゲートを設けることができます。CLIには承認コマンドが用意されていないため、承認はクライアントを通じて行います。
+
+<CodeTabs>
+
+```rust !! title="approve-account.rs"
+token
+    .confidential_transfer_approve_account(
+        &token_account,
+        &authority,
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="approve-account.ts"
+import { getApproveConfidentialTransferAccountInstruction } from "@solana-program/token-2022";
+
+const ix = getApproveConfidentialTransferAccountInstruction({
+  token, // the token account to approve
+  mint,
+  authority // confidential transfer authority (signer)
+});
+```
+
+</CodeTabs>
+
+## 機密転送手数料
+
+ミントが[転送手数料](/docs/tokens/extensions/transfer-fees)を徴収し、かつ転送が機密である場合、手数料も機密として保留される必要があります。`ConfidentialTransferFeeConfig`拡張機能がこれを処理し、転送手数料拡張機能および機密転送拡張機能と併せて、ミント作成時に初期化されます。
+
+保留された手数料は受取人アカウント上で暗号化されたまま蓄積され、ミントに収集された後、保留引き出し権限者によって引き出されます。すべての手数料金額は処理全体を通じて暗号化されたままです。これらの操作はCLIを通じて公開されていません。保留引き出し権限者のElGamal秘密鍵は保留手数料額を復号できるため、公開手数料パラメーターと組み合わせると転送金額に関する情報が明らかになる可能性があります。そのため、この鍵は機密情報として取り扱ってください。
+
+### 手数料設定の初期化
+
+これを`ConfidentialTransferMint`および転送手数料設定と一緒に、同じミント作成時に含めてください。
+
+<CodeTabs>
+
+```rust !! title="init-confidential-fee.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+ExtensionInitializationParams::ConfidentialTransferFeeConfig {
+    authority: Some(authority.pubkey().into()),
+    withdraw_withheld_authority_elgamal_pubkey: withdraw_withheld_elgamal_pubkey,
+};
+```
+
+```ts !! title="init-confidential-fee.ts"
+import { getInitializeConfidentialTransferFeeInstruction } from "@solana-program/token-2022";
+
+const ix = getInitializeConfidentialTransferFeeInstruction({
+  mint,
+  authority, // authority allowed to change the withdraw withheld ElGamal key
+  withdrawWithheldAuthorityElGamalPubkey // ElGamal pubkey Address
+});
+```
+
+</CodeTabs>
+
+### 保留手数料の収集と引き出し
+
+収集はアカウントから暗号化された保留手数料をミントに移動し、引き出しはミントから指定アカウントへ移動します。2つの権限が関与しており、いずれもミント権限とは異なる場合があります。
+
+- **機密転送手数料権限**（`ConfidentialTransferFeeConfig`に設定された`authority`）は収集を有効または無効にします。
+- **保留引き出し権限**（転送手数料拡張機能の`TransferFeeConfig`）は収集された手数料をミントから引き出します。
+
+出金には等式証明と範囲証明が必要で、インラインで提供するか、コンテキスト状態アカウントに検証して格納します。
+
+<CodeTabs>
+
+```rust !! title="harvest-withdraw-fees.rs"
+// Permissionless: move withheld fees from accounts into the mint.
+token
+    .confidential_transfer_harvest_withheld_tokens_to_mint(&[&source_account])
+    .await?;
+
+// Withdraw withheld fees from the mint (requires the withdraw withheld authority).
+token
+    .confidential_transfer_withdraw_withheld_tokens_from_mint(
+        &destination_account,
+        &withdraw_withheld_authority,
+        None, // proof context state account, supplied inline if None
+        None, // withheld tokens info, fetched if None
+        &withdraw_withheld_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        &new_decryptable_available_balance,
+        &[&withdraw_withheld_authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="harvest-withdraw-fees.ts"
+import {
+  getEnableHarvestToMintInstruction,
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction
+} from "@solana-program/token-2022";
+
+// Allow accounts to harvest their withheld fees to the mint, signed by the
+// confidential transfer fee authority.
+const enableIx = getEnableHarvestToMintInstruction({ mint, authority });
+
+// Permissionless: move withheld fees from accounts into the mint.
+const harvestIx =
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction({
+    mint,
+    sources: [sourceAccount]
+  });
+```
+
+</CodeTabs>
+
+JSクライアントでは、ミントからハーベストされた手数料を出金する（`getWithdrawWithheldTokensFromMintForConfidentialTransferFeeInstruction`）際にも、コンテキスト状態アカウントに検証された等式証明と範囲証明が必要となるため、コンフィデンシャル転送と同じ証明アカウントパターンに従います。
+
+## コンフィデンシャルミントとバーン
+
+`ConfidentialMintBurn`
+拡張機能を使用すると、ミント権限者がコンフィデンシャル残高に対して直接供給量の発行およびバーンを行えるため、総供給量を暗号化した状態に保てます。この拡張機能を持つミントでは、トークンは常にコンフィデンシャルな形でのみ存在するため、パブリックな入金・出金パスは無効化されます。完全なモデルについては[プロトコルドキュメント](https://www.solana-program.com/docs/confidential-balances)を参照してください。
+
+<Callout type="info">
+  コンフィデンシャルミント／バーンは、Rust の `spl-token-client`
+  を使用するのが最も簡単です。必要な証明を生成し、トランザクションのシーケンスを自動的に処理してくれます。`@solana-program/token-2022`
+  JS
+  クライアントは低レベルの命令ビルダー（`getConfidentialMintInstruction`、`getConfidentialBurnInstruction`
+  など）を提供していますが、証明を構築する高レベルのヘルパーや CLI
+  コマンドはないため、以下の例は Rust のみとなります。
+</Callout>
+
+ミント作成時に拡張機能を初期化し、その後ミント、バーン、および供給量の調整を行います。ミントは暗号化された量を受信者のコンフィデンシャル残高に発行し、バーンは暗号化された量を保留中のバーンとして削除し、後で供給量に統合されます。どちらも、コンフィデンシャル転送と同様に証明を生成します。
+
+<CodeTabs>
+
+```rust !! title="confidential-mint-burn.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+// 1. Initialize at creation (alongside ConfidentialTransferMint).
+ExtensionInitializationParams::ConfidentialMintBurn {
+    supply_elgamal_pubkey, // encrypts the confidential supply
+    decryptable_supply,    // AES ciphertext of the initial supply (zero)
+};
+
+// 2. Mint an encrypted amount into a recipient's confidential balance.
+token
+    .confidential_transfer_mint(
+        &mint_authority,
+        &destination_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        mint_amount,
+        &supply_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &supply_aes_key,
+        None, // supply account info, fetched if None
+        &[&mint_authority_keypair],
+    )
+    .await?;
+
+// 3. Burn an encrypted amount from a holder's confidential balance into the
+//    mint's pending burn. Generates proofs like a confidential transfer.
+token
+    .confidential_transfer_burn(
+        &owner,
+        &source_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        burn_amount,
+        &source_elgamal_keypair,
+        &supply_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &source_aes_key,
+        None, // burn account info, fetched if None
+        &[&owner_keypair],
+    )
+    .await?;
+
+// 4. Fold the accumulated pending burn into the confidential supply.
+token
+    .confidential_transfer_apply_pending_burn(&mint_authority, &[&mint_authority_keypair])
+    .await?;
+```
+
+</CodeTabs>
+
+`confidential_transfer_rotate_supply_elgamal_pubkey`
+を使用して供給量の暗号化キーをローテーションし（事前に保留中のバーンをゼロにする必要があります）、`confidential_transfer_update_decrypt_supply`
+で読み取り可能な供給量の暗号文を更新します。
+
+## 運用およびコンプライアンスに関する考慮事項
+
+- **監査人キーの管理。**
+  監査人を設定する場合、監査人の秘密鍵は高価値の復号化キーとなります。慎重に保管・ローテーションし、組織内のどの担当者（または規制当局）が保持するかを決定してください。
+- **コンプライアンス方針。**
+  アドレスはパブリックなまま維持されるため、アドレスのスクリーニングと取引相手のグラフ分析は引き続き機能します。金額ベースの監視は、監査人キーまたはアカウントオーナーによる選択的開示に依存します。ローンチ前にアプローチを決定してください。
+- **ホルダーのオンボーディング。**
+  コンフィデンシャルアカウントの設定にはオーナーの署名が必要です。ユーザーのアカウントをスムーズにプロビジョニングするには、ElGamal キーを一度登録してもらい、[統合ガイド](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts)に記載されているレジストリパスを使用してください。
+- **トランザクション数。**
+  コンフィデンシャル転送は現在、証明が現在のトランザクションサイズ制限を超えるため、複数の依存トランザクションにまたがります。トランザクションフォーマット v1（Agave
+  v4.2 とともにリリース予定）ではその制限が引き上げられ、単一のオンチェーントランザクションが可能になる見込みです。
