@@ -60,17 +60,21 @@ pub struct Transaction {
 进行 Ed25519 算法签名（64 字节），由签名账户的私钥签署。每个交易指令中引用的
 [签名账户](#account-addresses) 都需要一个签名。
 
-数组中的第一个签名属于
-**手续费支付者**，即支付交易[基础手续费和优先级手续费](/docs/core/fees/fee-structure#base-fee)的账户。这个首个签名也作为**交易 ID**，用于在网络上查询该交易。交易 ID 通常也被称为**交易签名**。
+每个签名均由私钥生成。该密钥的存储位置——本地 keypair、云端 HSM 或 KMS，还是托管钱包服务——属于生产环境的设计决策。请参阅
+[生产环境中的签名](/docs/core/transactions/signing-in-production)。
 
-费用支付账户要求：
+数组中的第一个签名属于**费用支付方**，即支付交易
+[基础费用和优先费用](/docs/core/fees/fee-structure#base-fee)的账户。此第一个签名同时作为**交易 ID**，用于在网络上查询该交易。交易 ID 通常被称为
+**交易签名**。
 
-- 必须是消息中的第一个账户（索引为 0），并且是签名者。
-- 必须是 System Program 拥有的账户或 nonce 账户（由
+费用支付方的要求：
+
+- 必须是消息中的第一个账户（索引 0）且为签名者。
+- 必须是由系统程序拥有的账户或 nonce 账户（由
   [`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)
   验证）。
-- 必须持有足够的 lamports 以支付 `rent_exempt_minimum + total_fee`；否则交易将因
-  _rs`InsufficientFundsForFee`_ 失败。
+- 必须持有足够的 lamport 以支付 `rent_exempt_minimum + total_fee`；否则交易将以
+  _rs`InsufficientFundsForFee`_ 错误失败。
 
 ## 消息
 
@@ -80,12 +84,12 @@ pub struct Transaction {
 
 <WithMentions>
 
-- [`header`](mention:message-header)：消息的 [header](#header)
-- [`account_keys`](mention:account-addresses)：交易指令所需的
-  [账户地址](#account-addresses) 数组
-- [`recent_blockhash`](mention:recent-blockhash)：作为交易时间戳的
-  [blockhash](#recent-blockhash)
-- [`instructions`](mention:instructions)： [指令](#instructions) 数组
+- [`header`](mention:message-header): 消息[头部](#header)
+- [`account_keys`](mention:account-addresses): 一个包含交易指令所需
+  [账户地址](#account-addresses)的数组
+- [`recent_blockhash`](mention:recent-blockhash): 一个作为交易时间戳的
+  [区块哈希](#recent-blockhash)
+- [`instructions`](mention:instructions): 一个[指令](#instructions)数组
 
 ```rust title="Message"
 pub struct Message {
@@ -118,11 +122,11 @@ pub struct Message {
 
 `header` 字段是一个
 [`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
-结构体，包含三个 `u8` 字段，用于将 `account_keys` 数组划分为权限组：
+结构体，包含三个 `u8` 字段，用于将 `account_keys` 数组划分为不同权限组：
 
-- [`num_required_signatures`](mention:num_required_signatures)：交易所需的签名总数。
-- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts)：只读签名账户的数量。
-- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts)：只读未签名账户的数量。
+- [`num_required_signatures`](mention:num_required_signatures): 交易所需签名的总数。
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): 只读的已签名账户数量。
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts): 只读的未签名账户数量。
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -146,12 +150,12 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![显示消息头三部分的示意图](/assets/docs/core/transactions/message_header.png)
+![显示消息头部三个组成部分的示意图](/assets/docs/core/transactions/message_header.png)
 
 ### 账户地址
 
 [`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
-字段是一个经过紧凑编码的公钥数组。每个条目标识至少被交易某个指令使用的账户。该数组必须包含所有账户，并且必须遵循以下严格顺序：
+字段是一个紧凑编码的公钥数组。每个条目标识至少被交易中一条指令使用的账户。该数组必须包含所有账户，并且必须遵循以下严格排序：
 
 1. 签名者 + 可写
 2. 签名者 + 只读
@@ -159,45 +163,43 @@ pub struct MessageHeader {
 4. 非签名者 + 只读
 
 <Callout>
-  这种严格的顺序允许将 `account_keys` 数组与消息头中的三个计数
-  [`header`](#header) 结合，
-  从而无需为每个账户存储元数据标志即可确定每个账户的权限。头部计数
-  将数组划分为上述四个权限组。
+  这种严格的排序方式使得 `account_keys`
+  数组能够与消息[报头](#header)中的三个计数值相结合，从而在无需为每个账户单独存储权限标志的情况下，确定每个账户的权限。报头中的计数值将数组划分为上述四个权限组。
 </Callout>
 
-![展示账户地址数组顺序的图示](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+![显示账户地址数组顺序的示意图](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### 最近区块哈希
 
-`recent_blockhash` 字段是一个 32 字节的哈希值，具有两个作用：
+`recent_blockhash` 字段是一个 32 字节的哈希值，具有两个用途：
 
-1. **时间戳**：证明该交易是最近创建的。
+1. **时间戳**：证明该交易是近期创建的。
 2. **去重**：防止同一笔交易被重复处理。
 
-区块哈希在 150 个 slot 后失效。如果交易到达时区块哈希已失效，则会被以
-_rs`BlockhashNotFound`_ 拒绝，除非它是有效的
-[持久随机数交易](/docs/core/transactions/durable-nonces)。
+区块哈希在 150 个 slot 后过期。如果交易到达时区块哈希已失效，该交易将被拒绝并返回
+_rs`BlockhashNotFound`_，除非它是一笔有效的[持久 nonce 交易](/docs/core/transactions/durable-nonces)。
 
 <Callout>
-  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC 方法
-  可用于获取当前区块哈希以及该区块哈希有效的最后区块高度。
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC
+  方法允许您获取当前的区块哈希以及该区块哈希有效的最后区块高度。
 </Callout>
 
 ### 指令
 
 [`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)
-字段是一个经过紧凑编码的数组，包含多个
+字段是一个紧凑编码的
 [`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)
-结构体。每个 _rs`CompiledInstruction`_ 通过索引引用 `account_keys`
-数组中的账户，而不是完整公钥。其包含：
+结构体数组。每个 _rs`CompiledInstruction`_ 通过索引引用 `account_keys`
+数组中的账户，而非使用完整的公钥。它包含：
 
 <WithMentions>
 
-1. [`program_id_index`](mention:program-id-index)：在 `account_keys`
+1. [`program_id_index`](mention:program-id-index)：`account_keys`
    中的索引，用于标识要调用的程序。
-2. [`accounts`](mention:account-indexes)：在 `account_keys`
-   中的索引数组，指定要传递给程序的账户。
-3. [`data`](mention:instruction-data)：包含指令判别符和序列化参数的字节数组。
+2. [`accounts`](mention:account-indexes)：`account_keys`
+   中的索引数组，用于指定传递给程序的账户。
+3. [`data`](mention:instruction-data)：字节数组，包含 instruction
+   data 的判别符及序列化参数。
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -221,36 +223,36 @@ pub struct CompiledInstruction {
 
 ## 交易二进制格式
 
-交易采用紧凑编码方案进行序列化。所有变长数组（签名、账户密钥、指令）都以紧凑型 u16 长度编码作为前缀。对于 0-127 的值使用 1 字节，对于更大的值使用 2-3 字节。
+交易使用紧凑编码方案进行序列化。所有可变长度数组（签名、账户密钥、指令）均以紧凑 u16 长度编码作为前缀。该格式对 0-127 的值使用 1 个字节，对较大的值使用 2-3 个字节。
 
-**传统交易布局**（线上传输）：
+**旧版交易格式**（链上传输格式）：
 
-| 字段                      | 大小                         | 描述                             |
-| ------------------------- | ---------------------------- | -------------------------------- |
-| `num_signatures`          | 1-3 字节（紧凑型 u16）       | 签名数量                         |
-| `signatures`              | `num_signatures` × 64 字节   | Ed25519 签名                     |
-| `num_required_signatures` | 1 字节                       | `MessageHeader` 字段 1           |
-| `num_readonly_signed`     | 1 字节                       | `MessageHeader` 字段 2           |
-| `num_readonly_unsigned`   | 1 字节                       | `MessageHeader` 字段 3           |
-| `num_account_keys`        | 1-3 字节（紧凑型 u16）       | 静态账户密钥数量                 |
-| `account_keys`            | `num_account_keys` × 32 字节 | 公钥                             |
-| `recent_blockhash`        | 32 字节                      | 区块哈希                         |
-| `num_instructions`        | 1-3 字节（紧凑型 u16）       | 指令数量                         |
-| `instructions`            | 可变                         | [已编译指令](#instructions) 数组 |
+| 字段                      | 大小                         | 描述                            |
+| ------------------------- | ---------------------------- | ------------------------------- |
+| `num_signatures`          | 1-3 字节 (compact-u16)       | 签名数量                        |
+| `signatures`              | `num_signatures` x 64 字节   | Ed25519 签名                    |
+| `num_required_signatures` | 1 字节                       | `MessageHeader` 字段 1          |
+| `num_readonly_signed`     | 1 字节                       | `MessageHeader` 字段 2          |
+| `num_readonly_unsigned`   | 1 字节                       | `MessageHeader` 字段 3          |
+| `num_account_keys`        | 1-3 字节 (compact-u16)       | 静态账户密钥数量                |
+| `account_keys`            | `num_account_keys` x 32 字节 | 公钥                            |
+| `recent_blockhash`        | 32 字节                      | 区块哈希                        |
+| `num_instructions`        | 1-3 字节 (compact-u16)       | 指令数量                        |
+| `instructions`            | 可变长度                     | [已编译指令](#instructions)数组 |
 
-每条已编译指令会被序列化为：
+每条已编译指令的序列化格式如下：
 
-| 字段               | 大小                    | 描述                    |
-| ------------------ | ----------------------- | ----------------------- |
-| `program_id_index` | 1 字节                  | 账户密钥索引            |
-| `num_accounts`     | 1-3 字节（紧凑型 u16）  | 账户索引数量            |
-| `account_indices`  | `num_accounts` × 1 字节 | 账户密钥索引            |
-| `data_len`         | 1-3 字节（紧凑型 u16）  | instruction data 长度   |
-| `data`             | `data_len` 字节         | 不透明 instruction data |
+| 字段               | 大小                    | 描述                      |
+| ------------------ | ----------------------- | ------------------------- |
+| `program_id_index` | 1 字节                  | 账户密钥索引              |
+| `num_accounts`     | 1-3 字节 (compact-u16)  | 账户索引数量              |
+| `account_indices`  | `num_accounts` x 1 字节 | 账户密钥索引列表          |
+| `data_len`         | 1-3 字节 (compact-u16)  | instruction data 的长度   |
+| `data`             | `data_len` 字节         | 不透明的 instruction data |
 
 ### 大小计算
 
-假设 _rs`PACKET_DATA_SIZE`_ = 1,232 字节，可用空间可以这样计算：
+给定 _rs`PACKET_DATA_SIZE`_ = 1,232 字节，可用空间的计算方式如下：
 
 ```
 Total = 1232 bytes
@@ -266,33 +268,37 @@ Total = 1232 bytes
 
 ## 示例：SOL 转账交易
 
-下图展示了交易和指令如何协同工作，使用户能够与网络交互。在本例中，SOL 从一个账户转账到另一个账户。
+下图展示了交易与指令如何协同工作，从而使用户能够与网络进行交互。在此示例中，SOL 从一个账户转账至另一个账户。
 
-发送方账户的[元数据](/docs/core/instructions/instruction-structure#account-metadata)表明它必须为该交易签名。这允许 System
-Program 扣除 lamport。发送方和接收方账户都必须可写，以便其 lamport 余额发生变化。为执行此指令，发送方钱包会发送包含其签名的交易，以及包含 SOL 转账指令的消息。
+发送方账户的
+[元数据](/docs/core/instructions/instruction-structure#account-metadata)
+表明它必须为该交易签名。这允许 System
+Program 扣除 lamport。发送方和接收方账户都必须是可写的，以便其 lamport 余额发生变化。执行此指令时，发送方的钱包会发送包含其签名的交易，以及包含 SOL 转账指令的消息。
 
 ![SOL 转账示意图](/assets/docs/core/transactions/sol-transfer.svg)
 
-交易发送后，System Program 会处理转账指令，并更新两个账户的 lamport 余额。
+交易发送后，System Program 处理转账指令并更新两个账户的 lamport 余额。
 
-![SOL 转账处理流程图](/assets/docs/core/transactions/sol-transfer-process.svg)
+![SOL 转账流程示意图](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-<Callout type="warn" title="发送 SOL 前请验证收款方">
+<Callout type="warn" title="发送 SOL 前请验证接收方">
 
 System
-Program 转账会向**任意**账户添加 lamport。协议层面不会检查收款方是否能将 SOL 转出。lamport 只能由账户的所属程序转出，因此将 SOL 发送至[代币 mint](/docs/tokens/basics/create-mint)、某个程序或您不控制的
-[PDA](/docs/core/pda) 存在**永久损失资金的风险**
-—— 只有所属程序指定的授权方才能将其取回。发送至
+Program 转账会向**任意**账户添加 lamport。协议层面不会检查接收方是否能将 SOL 转回。lamport 只能由账户的所属程序转出，因此向
+[token mint](/docs/tokens/basics/create-mint)、某个程序或您不控制的
+[PDA](/docs/core/pda) 发送 SOL **存在永久资金损失的风险**
+—— 只有所属程序指定的权限方才能将其取回。发送至
 [token account](/docs/tokens/basics/create-token-account)
-的 SOL 只能由该账户的所有者取回，发送方无法找回。
+的 SOL 只能由该账户的所有者取回，发送方无法取回。
 
 SPL **token** 转账具有一定的自我保护机制：Token
-Program 会拒绝账户与预期 mint 不匹配的转账请求。原生 **SOL**
-转账则没有此类保护，因此发送方在签名前必须验证收款方。完整的分类逻辑请参阅[验证地址](/docs/payments/send-payments/verify-address)。
+Program 会拒绝账户与预期 mint 不匹配的转账。原生 **SOL**
+转账没有此类保护，因此发送方在签名前必须验证接收方。完整的分类逻辑请参阅
+[验证地址](/docs/payments/send-payments/verify-address)。
 
 </Callout>
 
-以下示例展示了与上述图表相关的代码。请参阅 System Program 的
+以下示例展示了与上述示意图相关的代码。请参阅 System Program 的
 [`transfer` 函数](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)。
 
 <CodeTabs storage="sol-transfer" flags="r">
@@ -659,9 +665,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-以下代码展示了前述代码片段的输出结果。
+以下代码展示了前面代码片段的输出结果。
 不同 SDK 的格式有所差异，
-但请注意每条指令均包含相同的必要信息。
+但请注意，每条指令都包含相同的必要信息。
 
 <CodeTabs storage="sol-transfer">
 
@@ -768,9 +774,9 @@ async fn main() -> Result<()> {
 
 ### 转账前验证收款方
 
-由于 SOL 转账可成功发送至任意账户，请在签名前核实收款方。获取账户信息，仅向 System
-Program 钱包（或未充值的[链上曲线地址](/docs/payments/send-payments/verify-address#on-curve-addresses)）发送；拒绝向您不控制的 mint、token
-account、程序及 PDA 转账。
+由于 SOL 转账可以成功发送到任意账户，请在签名前核实收款方身份。获取该账户信息，仅向 System
+Program 钱包（或未充值的[链上曲线地址](/docs/payments/send-payments/verify-address#on-curve-addresses)）发送转账；拒绝向铸币账户、token
+account、程序账户以及您不控制的 PDA 发送。
 
 <CodeTabs flags="r">
 
@@ -827,8 +833,8 @@ await assertSafeSolRecipient(
 </CodeTabs>
 
 <Callout>
-  此代码片段用于检查原生 SOL 收款方。如需完整分类（包括处理 SPL 代币转账、token
-  account、ATA 及 Token-2022），请参阅
+  此代码片段用于检查原生 SOL 收款方。如需完整的分类逻辑（同时处理 SPL
+  代币发送，包括 token account、ATA 及 Token-2022），请参阅
   [验证地址](/docs/payments/send-payments/verify-address)。
 </Callout>
 
