@@ -15,7 +15,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import useSWR from "swr";
 import { Link } from "@solana-com/ui-chrome/link";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
@@ -238,6 +245,19 @@ export function SolanaDataDashboard() {
   );
   const isInitialLoading = isLoading && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
+  const footerMetaItems = [
+    <span key="cadence">{t("footer.refreshCadence")}</span>,
+    data?.generatedAt ? (
+      <span key="refreshed">
+        {t("footer.lastRefreshed")}{" "}
+        <span className="text-nd-high-em-text">
+          {formatTimestamp(data.generatedAt, locale)}
+        </span>
+      </span>
+    ) : null,
+    <span key="lag">{t("footer.lagNotice")}</span>,
+    <span key="backfill">{t("footer.backfillCadence")}</span>,
+  ].filter((item): item is React.ReactElement => item !== null);
 
   return (
     <main className="relative bg-nd-inverse text-nd-high-em-text font-brand">
@@ -309,44 +329,54 @@ export function SolanaDataDashboard() {
           </>
         ) : null}
 
-        <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between font-brand-mono text-[12px] md:text-[14px] leading-[1.42] uppercase text-nd-mid-em-text">
-          <span>
-            {getFooterProvidersLabel(t, selectedProviderList)}
-            <span className="mx-3 text-nd-border-prominent">·</span>
-            {t("footer.lastDays", { days: rangeDays })}
-          </span>
-          <span className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-            <span>{t("footer.refreshCadence")}</span>
-            {data?.generatedAt ? (
-              <span>
-                {t("footer.lastRefreshed")}{" "}
-                <span className="text-nd-high-em-text">
-                  {formatTimestamp(data.generatedAt, locale)}
-                </span>
-              </span>
-            ) : null}
-            <span>{t("footer.lagNotice")}</span>
-            <a
-              className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-              href={dataAggregatorRepositoryUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <Github aria-hidden="true" className="h-3.5 w-3.5" />
-              {t("footer.source")}
-              <ExternalLink aria-hidden="true" className="h-3 w-3" />
-            </a>
-            <a
-              className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-              href={backfillRequestsUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {t("footer.backfillRequests")}
-              <ExternalLink aria-hidden="true" className="h-3 w-3" />
-            </a>
-            <span>{t("footer.backfillCadence")}</span>
-          </span>
+        <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-5 font-brand-mono text-[12px] md:text-[13px] leading-[1.42] uppercase text-nd-mid-em-text">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-nd-high-em-text">
+              {getFooterProvidersLabel(t, selectedProviderList)}
+              <span
+                aria-hidden="true"
+                className="h-1 w-1 rounded-full bg-nd-border-prominent"
+              />
+              {t("footer.lastDays", { days: rangeDays })}
+            </span>
+            <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
+              <a
+                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                href={dataAggregatorRepositoryUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Github aria-hidden="true" className="h-3.5 w-3.5" />
+                {t("footer.source")}
+                <ExternalLink aria-hidden="true" className="h-3 w-3" />
+              </a>
+              <a
+                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                href={backfillRequestsUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {t("footer.backfillRequests")}
+                <ExternalLink aria-hidden="true" className="h-3 w-3" />
+              </a>
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5 text-[11px] leading-[1.5] text-nd-mid-em-text/55 sm:flex-row sm:flex-wrap sm:items-center">
+            {footerMetaItems.map((item, index) => (
+              <Fragment key={item.key}>
+                {index > 0 ? (
+                  <span
+                    aria-hidden="true"
+                    className="mx-3 hidden text-nd-border-prominent sm:inline"
+                  >
+                    ·
+                  </span>
+                ) : null}
+                {item}
+              </Fragment>
+            ))}
+          </div>
         </footer>
       </div>
     </main>
