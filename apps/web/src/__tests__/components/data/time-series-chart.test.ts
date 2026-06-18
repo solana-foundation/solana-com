@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  compareTooltipValues,
   getSeriesDashPatterns,
   type ChartSeries,
 } from "@/app/[locale]/data/time-series-chart";
@@ -69,5 +70,30 @@ describe("getSeriesDashPatterns", () => {
     const patterns = getSeriesDashPatterns([a, b]);
 
     expect(patterns.size).toBe(0);
+  });
+});
+
+describe("compareTooltipValues", () => {
+  it("sorts tooltip rows by value descending", () => {
+    const values = [
+      { color: "#FFFFFF", label: "Allium", value: 15.4 },
+      { color: "#FFFFFF", label: "Artemis", value: 16.1 },
+      { color: "#FFFFFF", label: "Blockworks", value: 17 },
+    ];
+
+    expect(values.sort(compareTooltipValues).map((item) => item.label)).toEqual(
+      ["Blockworks", "Artemis", "Allium"],
+    );
+  });
+
+  it("sorts equal values by label", () => {
+    const values = [
+      { color: "#FFFFFF", label: "Dune", value: 15.6 },
+      { color: "#FFFFFF", label: "DefiLama", value: 15.6 },
+    ];
+
+    expect(values.sort(compareTooltipValues).map((item) => item.label)).toEqual(
+      ["DefiLama", "Dune"],
+    );
   });
 });

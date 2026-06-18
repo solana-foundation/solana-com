@@ -358,7 +358,8 @@ function ChartSvg({
                     value,
                   };
                 })
-                .filter((item): item is TooltipValue => Boolean(item));
+                .filter((item): item is TooltipValue => Boolean(item))
+                .sort(compareTooltipValues);
 
               showTooltip({
                 tooltipData: {
@@ -428,6 +429,10 @@ export function getSeriesDashPatterns(series: ChartSeries[]) {
   });
 
   return patterns;
+}
+
+export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
+  return b.value - a.value || a.label.localeCompare(b.label);
 }
 
 function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
