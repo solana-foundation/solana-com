@@ -192,6 +192,11 @@ export function SolanaDataDashboard() {
           <p className="nd-body-m text-nd-mid-em-text">
             {activeTabContent.description}
           </p>
+          {activeTabContent.clarification ? (
+            <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
+              {activeTabContent.clarification}
+            </p>
+          ) : null}
         </section>
 
         {error ? <DataError error={error} /> : null}
@@ -1183,7 +1188,14 @@ function getTabContent(t: DashboardTranslator, tab: DashboardTab) {
   return {
     label: t(`tabs.${tab}.label`),
     description: t(`tabs.${tab}.description`),
+    clarification: getTabClarification(t, tab),
   };
+}
+
+function getTabClarification(t: DashboardTranslator, tab: DashboardTab) {
+  const clarificationKey = `tabs.${tab}.clarification`;
+
+  return t.has(clarificationKey) ? t(clarificationKey) : undefined;
 }
 
 function getChartTitle(t: DashboardTranslator, chart: ChartDefinition) {
