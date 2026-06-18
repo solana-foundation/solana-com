@@ -96,7 +96,7 @@ use solana_pubkey::Pubkey;
 use solana_signer::Signer;
 use solana_transaction::Transaction;
 use solana_zk_sdk::encryption::{
-    auth_encryption::AeKey,
+    auth_encryption::{AeCiphertext, AeKey},
     elgamal::{ElGamalCiphertext, ElGamalKeypair},
 };
 use solana_zk_sdk_pod::encryption::auth_encryption::PodAeCiphertext;
@@ -138,7 +138,8 @@ fn main() -> Result<()> {
     let account = StateWithExtensions::<TokenAccount>::unpack(&account_data.data)?;
     let ct_extension = account.get_extension::<ConfidentialTransferAccount>()?;
 
-    // Decrypt the pending (lo/hi) and available balances.
+    // The pending balance is split into low (16 bits) and high parts, each small
+    // enough to recover with ElGamal's bounded decrypt_u32.
     let pending_lo: ElGamalCiphertext = ct_extension
         .pending_balance_lo
         .try_into()
@@ -147,27 +148,29 @@ fn main() -> Result<()> {
         .pending_balance_hi
         .try_into()
         .map_err(|e| anyhow::anyhow!("pending_balance_hi: {e:?}"))?;
-    let available_balance: ElGamalCiphertext = ct_extension
-        .available_balance
-        .try_into()
-        .map_err(|e| anyhow::anyhow!("available_balance: {e:?}"))?;
-
     let pending_lo_amount = pending_lo
         .decrypt_u32(elgamal_keypair.secret())
-        .context("decrypt pending_balance_lo")?;
+        .context("decrypt pending_balance_lo")? as u64;
     let pending_hi_amount = pending_hi
         .decrypt_u32(elgamal_keypair.secret())
-        .context("decrypt pending_balance_hi")?;
-    let current_available = available_balance
-        .decrypt_u32(elgamal_keypair.secret())
-        .context("decrypt available_balance")?;
-
-    // The pending balance is split into low (16 bits) and high parts.
+        .context("decrypt pending_balance_hi")? as u64;
     let pending_total = pending_lo_amount + (pending_hi_amount << 16);
+
+    // Read the current available balance from the AES-encrypted decryptable
+    // balance. ElGamal's decrypt_u32 only recovers values up to 2^32 raw units,
+    // so it fails for realistic balances; the AES field has no such limit.
+    let decryptable_balance: AeCiphertext = ct_extension
+        .decryptable_available_balance
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("decryptable_available_balance: {e:?}"))?;
+    let current_available = decryptable_balance
+        .decrypt(&aes_key)
+        .context("decrypt available balance")?;
+
     let new_available = current_available + pending_total;
 
     // Re-encrypt the new available balance with the AES key for fast reads.
-    let new_decryptable: PodAeCiphertext = aes_key.encrypt(new_available as u64).into();
+    let new_decryptable: PodAeCiphertext = aes_key.encrypt(new_available).into();
 
     // The expected counter guards against pending credits that arrive between
     // building and processing this instruction.
