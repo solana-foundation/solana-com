@@ -1,0 +1,159 @@
+---
+title: Batch
+description:
+  Bundle multiple Token Program instructions into a single Batch CPI from an
+  on-chain program to reduce cross-program invocation overhead.
+url: /docs/tokens/advanced/batch
+type: reference
+related:
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+## What Does Batch Do?
+
+The _rs`Batch`_ instruction executes several Token Program instructions inside a
+single program invocation. From an on-chain program you reach it through one
+[Cross Program Invocation (CPI)](/docs/core/cpi) into the Token Program. Each
+CPI carries a fixed compute cost, so running several token operations in one
+batch CPI uses fewer [compute units](/docs/core/fees/compute-budget) than
+issuing a separate CPI per operation — see the
+[CPI cost model](/docs/core/cpi/cpi-cost-model) for how per-CPI costs add up.
+
+Lower compute usage reduces the [priority fees](/docs/core/fees) a transaction
+pays per compute unit and improves its chance of landing — which matters most
+for programs that perform many token operations in a single instruction.
+
+Common uses include fanning out a transfer to many recipients, or running a
+multi-step token flow (for example sync, transfer, and close) in a single CPI.
+
+<Callout type="info">
+
+_rs`Batch`_ only accepts Token Program instructions as children, and a batch
+cannot contain another batch. For the operations that move tokens (such as
+transfers, mints, and burns), the program verifies that the affected accounts
+are owned by the Token Program before executing them.
+
+</Callout>
+
+### Source Reference
+
+| Item                | Description                                | Source                                                                                               |
+| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | The Batch instruction (discriminator 255). | [Source](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | Batch processor logic.                     | [Source](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+## Calling Batch via CPI
+
+The [`pinocchio-token`](https://crates.io/crates/pinocchio-token) crate exposes
+a _rs`Batch`_ builder under _rs`pinocchio_token::instructions::Batch`_. You
+stage each child instruction into the batch's buffers and then issue a single
+CPI with _rs`invoke`_.
+
+A _rs`Batch`_ is backed by three caller-provided buffers: one for the serialized
+instruction data, one for the per-child instruction account metas, and one for
+the account views passed to the CPI. Construct them as _rs`MaybeUninit`_ slices,
+hand them to _rs`Batch::new`_, append children, then invoke:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Buffers sized for the two child transfers: each contributes 3 accounts
+    // and a 2-byte header plus 9 bytes of data, after the 1-byte discriminator.
+    let mut data_buf = [MaybeUninit::uninit(); 64];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); 6];
+    let mut accounts_buf = [MaybeUninit::uninit(); 6];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_ writes the batch discriminator into the first byte of the data
+buffer and returns a _rs`Batch`_ that tracks how much of each buffer has been
+used. Every Token Program instruction builder (such as _rs`Transfer`_,
+_rs`TransferChecked`_, _rs`MintTo`_, and _rs`Burn`_) implements the
+_rs`IntoBatch`_ trait, so _rs`into_batch`_ appends that instruction's data,
+account metas, and account views to the batch. Calling _rs`invoke`_ issues the
+assembled batch as one CPI into the Token Program.
+
+The buffers bound the batch's capacity. Size the data buffer to
+`1 + Σ(2 + child_data_len)` bytes (the discriminator, plus a 2-byte header and
+the serialized data for each child) and each account buffer to the total number
+of accounts across all children. If a child does not fit, _rs`into_batch`_
+returns _rs`ProgramError::InvalidArgument`_. For reference,
+_rs`Batch::MAX_DATA_LEN`_ is 10 KiB and _rs`Batch::MAX_ACCOUNTS_LEN`_ equals the
+runtime's maximum CPI account count.
+
+For batches whose size is only known at runtime, enable the crate's `alloc`
+feature and use _rs`BatchState::new(accounts_len, data_len)`_ to allocate the
+buffers on the heap, then call _rs`as_batch`_ to obtain a _rs`Batch`_.
+
+When a child instruction's authority is a PDA owned by your program, sign the
+CPI with _rs`invoke_signed`_ instead of _rs`invoke`_, passing the PDA seeds as
+_rs`Signer`_ entries.
+
+## Instruction Data Layout
+
+A batch encodes its children one after another behind the `255` discriminator.
+All accounts are passed flat, in order, and sliced by `num_accounts` for each
+child. The builder produces exactly this wire format:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+A batch's capacity is bounded by the buffers passed to _rs`Batch::new`_: the
+data buffer must hold the discriminator plus every child's header and data, and
+the account buffers must hold every child's accounts. Size them for the largest
+batch you build, or use _rs`BatchState`_ (with the `alloc` feature) to size them
+at runtime. The combined CPI is still subject to the transaction's account and
+size limits, so for very large fan-outs use Address Lookup Tables to fit more
+accounts.
+
+</Callout>
