@@ -425,39 +425,56 @@ serde_json = "1.0"
 
 <CodeTabs>
 
-```ts !! title="confidential-apply.ts"
+```ts !! title="index.ts"
+// !collapse(1:25) collapsed
+// Imports: dependencies used by this example.
 import {
   deriveAeKeyForOwnerMint,
   deriveElGamalKeypairForOwnerMint,
-  getApplyConfidentialPendingBalanceInstructionFromToken
+  getApplyConfidentialPendingBalanceInstructionFromToken,
+  getCreateConfidentialTransferAccountInstructionPlan
 } from "@solana-program/token-2022/confidential";
 import {
+  TOKEN_2022_PROGRAM_ADDRESS,
   fetchToken,
   findAssociatedTokenPda,
-  TOKEN_2022_PROGRAM_ADDRESS
+  getConfidentialDepositInstruction,
+  getCreateMintInstructionPlan,
+  getMintToInstruction
 } from "@solana-program/token-2022";
-import { AeKey, ElGamalSecretKey } from "@solana/zk-sdk/bundler";
-import { address } from "@solana/kit";
+import { createClient, generateKeyPairSigner, some } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { signerFromFile } from "@solana/kit-plugin-signer";
+import {
+  AeKey,
+  ElGamalKeypair,
+  ElGamalSecretKey
+} from "@solana/zk-sdk/bundler";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
-// `owner` is your wallet signer (a @solana/kit `KeyPairSigner`) and `client` is
-// a @solana/kit client.
-const mint = address("REPLACE_WITH_YOUR_MINT_ADDRESS");
-const [token] = await findAssociatedTokenPda({
-  owner: owner.address,
-  mint,
-  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
-});
+const client = await createClient()
+  .use(signerFromFile(join(homedir(), ".config/solana/id.json")))
+  .use(
+    solanaRpc({
+      rpcUrl: "https://api.devnet.solana.com"
+    })
+  );
+
+// The Solana CLI default keypair, used as fee payer, mint authority, and
+// token account owner.
+const owner = client.payer;
+const amount = 100n;
+const decimals = 2;
+
+// Setup: create a confidential account with a pending balance.
+const mint = await createConfidentialMint(client, owner, decimals);
+const token = await createConfidentialTokenAccount(client, owner, mint);
+await mintPublicTokens(client, owner, mint, token, amount);
+await depositTokens(client, owner, mint, token, amount, decimals);
 
 // Derive the owner's keys to decrypt the current balances.
-const derived = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const elgamalSecretKey = ElGamalSecretKey.fromBytes(derived.secretKey);
-const aesKey = AeKey.fromBytes(
-  await deriveAeKeyForOwnerMint({ signer: owner, owner: owner.address, mint })
-);
+const { elgamalSecretKey, aesKey } = await deriveConfidentialKeys(owner, mint);
 
 // The helper decrypts the pending and available balances, re-encrypts the new
 // available balance, and builds the ApplyPendingBalance instruction. No proof
@@ -473,21 +490,148 @@ const applyInstruction = getApplyConfidentialPendingBalanceInstructionFromToken(
   }
 );
 
-await client.sendTransaction([applyInstruction]);
+const result = await client.sendTransaction([applyInstruction]);
+console.log(
+  `Applied pending balance. New available: ${amount}. Tx: ${result.context.signature}`
+);
+
+// !collapse(1:1000) collapsed
+// Setup: helper functions to create and fund the confidential token account.
+async function createConfidentialMint(
+  kitClient: typeof client,
+  payer: typeof owner,
+  decimals: number
+) {
+  const mint = await generateKeyPairSigner();
+  const auditor = await deriveElGamalKeypairForOwnerMint({
+    signer: payer,
+    owner: payer.address,
+    mint: mint.address
+  });
+
+  const plan = getCreateMintInstructionPlan({
+    payer,
+    newMint: mint,
+    decimals,
+    mintAuthority: payer,
+    extensions: [
+      {
+        __kind: "ConfidentialTransferMint",
+        authority: some(payer.address),
+        autoApproveNewAccounts: true,
+        auditorElgamalPubkey: some(auditor.elgamalPubkey)
+      }
+    ]
+  });
+
+  await kitClient.sendTransaction(plan);
+
+  return mint.address;
+}
+
+async function createConfidentialTokenAccount(
+  kitClient: typeof client,
+  accountOwner: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>
+) {
+  const [token] = await findAssociatedTokenPda({
+    owner: accountOwner.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+    mint
+  });
+  const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(
+    accountOwner,
+    mint
+  );
+
+  const plan = await getCreateConfidentialTransferAccountInstructionPlan({
+    rpc: kitClient.rpc,
+    payer: accountOwner,
+    owner: accountOwner,
+    mint,
+    elgamalKeypair,
+    aesKey
+  });
+
+  await kitClient.sendTransaction(plan);
+
+  return token;
+}
+
+async function mintPublicTokens(
+  kitClient: typeof client,
+  mintAuthority: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
+  token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>,
+  amount: bigint
+) {
+  await kitClient.sendTransaction([
+    getMintToInstruction({
+      mint,
+      token,
+      mintAuthority,
+      amount
+    })
+  ]);
+}
+
+async function depositTokens(
+  kitClient: typeof client,
+  authority: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
+  token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>,
+  amount: bigint,
+  decimals: number
+) {
+  await kitClient.sendTransaction([
+    getConfidentialDepositInstruction({
+      token,
+      mint,
+      authority,
+      amount,
+      decimals
+    })
+  ]);
+}
+
+async function deriveConfidentialKeys(
+  accountOwner: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>
+) {
+  const derivedElGamal = await deriveElGamalKeypairForOwnerMint({
+    signer: accountOwner,
+    owner: accountOwner.address,
+    mint
+  });
+  const elgamalSecretKey = ElGamalSecretKey.fromBytes(derivedElGamal.secretKey);
+  const elgamalKeypair = ElGamalKeypair.fromSecretKey(elgamalSecretKey);
+  const aesKey = AeKey.fromBytes(
+    await deriveAeKeyForOwnerMint({
+      signer: accountOwner,
+      owner: accountOwner.address,
+      mint
+    })
+  );
+
+  return { elgamalKeypair, elgamalSecretKey, aesKey };
+}
 ```
 
 ```json !! title="package.json"
 {
   "name": "confidential-apply",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "dependencies": {
+    "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "^0.12.0",
     "@solana/kit": "^6.10.0",
+    "@solana/kit-plugin-rpc": "^0.11.1",
+    "@solana/kit-plugin-signer": "^0.10.0",
     "@solana/zk-sdk": "^0.4.2"
   },
   "devDependencies": {
+    "@types/node": "^24.10.0",
     "typescript": "^5.8.3"
   }
 }

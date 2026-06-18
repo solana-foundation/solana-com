@@ -545,23 +545,51 @@ serde_json = "1.0"
 
 <CodeTabs>
 
-```ts !! title="confidential-account.ts"
+```ts !! title="index.ts"
+// !collapse(1:21) collapsed
+// Imports: dependencies used by this example.
 import {
   deriveAeKeyForOwnerMint,
   deriveElGamalKeypairForOwnerMint,
   getCreateConfidentialTransferAccountInstructionPlan
 } from "@solana-program/token-2022/confidential";
 import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getCreateMintInstructionPlan
+} from "@solana-program/token-2022";
+import { createClient, generateKeyPairSigner, some } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { signerFromFile } from "@solana/kit-plugin-signer";
+import {
   AeKey,
   ElGamalKeypair,
   ElGamalSecretKey
 } from "@solana/zk-sdk/bundler";
-import { address } from "@solana/kit";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
-// `owner` is your wallet signer (a @solana/kit `KeyPairSigner`), and `client`
-// is a @solana/kit client configured to send instruction plans. The mint must
-// already have the ConfidentialTransferMint extension (see "Create a Mint").
-const mint = address("REPLACE_WITH_YOUR_MINT_ADDRESS");
+const client = await createClient()
+  .use(signerFromFile(join(homedir(), ".config/solana/id.json")))
+  .use(
+    solanaRpc({
+      rpcUrl: "https://api.devnet.solana.com"
+    })
+  );
+
+// The Solana CLI default keypair, used as fee payer, mint authority, and
+// token account owner.
+const owner = client.payer;
+const decimals = 2;
+
+// Setup: create a confidential mint for the token account.
+const mint = await createConfidentialMint(client, owner, decimals);
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  owner: owner.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+  mint
+});
 
 // Derive recoverable ElGamal and AES keys bound to (owner, mint). Re-deriving
 // from the same wallet always yields the same keys, so the owner can recover
@@ -590,21 +618,61 @@ const plan = await getCreateConfidentialTransferAccountInstructionPlan({
   aesKey
 });
 
-await client.sendTransaction(plan);
+const result = await client.sendTransaction(plan);
+console.log(
+  `Configured token account ${tokenAccount} for confidential transfers: ${result.context.signature}`
+);
+
+// !collapse(1:1000) collapsed
+// Setup: helper function to create the confidential mint.
+async function createConfidentialMint(
+  kitClient: typeof client,
+  payer: typeof owner,
+  decimals: number
+) {
+  const mint = await generateKeyPairSigner();
+  const auditor = await deriveElGamalKeypairForOwnerMint({
+    signer: payer,
+    owner: payer.address,
+    mint: mint.address
+  });
+
+  const plan = getCreateMintInstructionPlan({
+    payer,
+    newMint: mint,
+    decimals,
+    mintAuthority: payer,
+    extensions: [
+      {
+        __kind: "ConfidentialTransferMint",
+        authority: some(payer.address),
+        autoApproveNewAccounts: true,
+        auditorElgamalPubkey: some(auditor.elgamalPubkey)
+      }
+    ]
+  });
+
+  await kitClient.sendTransaction(plan);
+
+  return mint.address;
+}
 ```
 
 ```json !! title="package.json"
 {
   "name": "confidential-account",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "dependencies": {
+    "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "^0.12.0",
     "@solana/kit": "^6.10.0",
+    "@solana/kit-plugin-rpc": "^0.11.1",
+    "@solana/kit-plugin-signer": "^0.10.0",
     "@solana/zk-sdk": "^0.4.2"
   },
   "devDependencies": {
+    "@types/node": "^24.10.0",
     "typescript": "^5.8.3"
   }
 }
