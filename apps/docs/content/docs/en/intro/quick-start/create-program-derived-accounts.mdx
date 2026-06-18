@@ -14,6 +14,45 @@ storing the address elsewhere.
 This page continues from
 [Build Your First Program](/docs/intro/quick-start/build-first-program).
 
+## Shared constants
+
+Read `constants.rs` before the instruction files. The starter uses constants for
+values that are shared by program validation, instruction logic, and tests.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/constants.rs"
+use anchor_lang::prelude::*;
+
+// !tooltip[/COUNTER_SEED/] counterSeed
+#[constant]
+pub const COUNTER_SEED: &[u8] = b"counter";
+
+// !tooltip[/HELLO_WORLD_LAMPORTS/] helloWorldLamports
+#[constant]
+pub const HELLO_WORLD_LAMPORTS: u64 = 1;
+
+// !tooltip[/MAX_COUNT/] maxCount
+#[constant]
+pub const MAX_COUNT: u64 = 10;
+```
+
+### !counterSeed
+
+`COUNTER_SEED` is the seed used to derive the counter PDA. The program and the
+test both use this value so they derive the same address.
+
+### !helloWorldLamports
+
+`HELLO_WORLD_LAMPORTS` is the amount transferred during the CPI in `initialize`.
+
+### !maxCount
+
+`MAX_COUNT` is the highest value the counter can reach before `increment`
+returns an error.
+
+</WithNotes>
+
 ## Counter state
 
 The `state.rs` file defines the data stored in the counter account.
@@ -262,14 +301,53 @@ let counter = Pubkey::find_program_address(
 The left side is program validation. The right side is client-side address
 derivation in the test.
 
-## Increment uses the same PDA
+## Error codes
+
+The `error.rs` file defines custom errors used by the instruction handlers.
+
+<WithMentions>
+
+- [`Unauthorized`](mention:unauthorized) is returned when the signer is not the
+  counter authority.
+- [`CounterOverflow`](mention:counter-overflow) is returned when the counter has
+  already reached `MAX_COUNT`.
+
+```rust title="programs/my-program/src/error.rs"
+use anchor_lang::prelude::*;
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Only the counter authority can update this counter")]
+    // !mention unauthorized
+    Unauthorized,
+    #[msg("Counter has reached the maximum value")]
+    // !mention counter-overflow
+    CounterOverflow,
+}
+```
+
+</WithMentions>
+
+## Increment the counter
 
 The `Increment` instruction does not create the account. It expects the existing
-counter PDA and checks that the signer matches the stored authority.
+counter PDA and checks that the signer matches the stored authority before
+updating the account.
 
-```rust title="programs/my-program/src/instructions/increment.rs"
+<ScrollyCoding>
+
+## !!steps Accounts
+
+The `counter` account must be mutable because `increment` changes
+`counter.count`. The same seed constraint verifies that the provided account is
+the counter PDA.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
 #[derive(Accounts)]
 pub struct Increment<'info> {
+    // !focus(1:2)
     #[account(mut, seeds = [COUNTER_SEED], bump)]
     pub counter: Account<'info, Counter>,
     pub authority: Signer<'info>,
@@ -293,11 +371,110 @@ pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
 }
 ```
 
-Run the test again after reading the PDA flow:
+## !!steps Authority
 
-```terminal
-$ anchor test
+The `authority` account must sign the transaction. The handler compares the
+signer's address to the `authority` stored in the counter account.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, seeds = [COUNTER_SEED], bump)]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // !focus(1:5)
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
 ```
 
-The test initializes the counter at the PDA, increments it, then deserializes
-the account data and checks that `count` changed from `0` to `1`.
+## !!steps Limit
+
+The `require!` macro stops the instruction if the counter has reached
+`MAX_COUNT`. Returning an error makes the whole transaction fail.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, seeds = [COUNTER_SEED], bump)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+
+    // !focus(1:4)
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps Update
+
+After validation passes, the handler increments the stored count and logs the
+new value.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, seeds = [COUNTER_SEED], bump)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    // !focus(1:2)
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+</ScrollyCoding>
+
+The next page returns to `initialize.rs` and walks through the CPI that invokes
+the System Program.
