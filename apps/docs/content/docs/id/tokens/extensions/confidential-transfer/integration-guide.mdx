@@ -1,0 +1,627 @@
+---
+title: Panduan Integrasi Confidential Transfer
+description:
+  Pelajari cara mengintegrasikan token yang menggunakan ekstensi Confidential
+  Transfer ke dalam dompet, penjelajah, bursa, dan aplikasi lainnya.
+---
+
+# Mendukung Confidential Transfer di Solana
+
+## Latar Belakang
+
+Ekstensi Confidential Transfer memungkinkan mint Token-2022 menjaga jumlah
+transfer dan saldo akun tetap terenkripsi di onchain. Saldo dienkripsi, sehingga
+untuk menampilkannya diperlukan kunci dekripsi pemilik, dan pengiriman
+memerlukan pembuatan bukti zero-knowledge di sisi klien.
+
+Panduan ini ditujukan bagi tim yang **mengintegrasikan** token confidential
+transfer (dompet, penjelajah, bursa, kustodian, pengindeks), bukan bagi penerbit
+yang mengonfigurasi mint. Jika Anda membangun alur dasarnya dari awal, mulailah
+dengan halaman langkah demi langkah yang ditautkan di bawah; panduan ini
+berfokus pada apa yang perlu dilakukan produk Anda untuk mendukung token-token
+ini dengan baik.
+
+Alamat akun, mint, dan pemilik setiap token account tetap **publik**. Hanya
+jumlah dan saldo yang dienkripsi, sehingga semua hal lainnya, termasuk siapa
+yang bertransaksi dengan siapa, tetap terlihat. Ini memberikan kerahasiaan dari
+pengamat publik, bukan anonimitas.
+
+### Sumber Daya
+
+- [Ikhtisar Confidential Transfer dan panduan langkah demi langkah](/docs/tokens/extensions/confidential-transfer)
+- [Kode Rust ekstensi](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` klien JS](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instruksi, penguraian state akun, derivasi kunci, dan helper confidential
+  transfer tingkat tinggi)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (primitif enkripsi dan pembuatan data bukti)
+- [`@solana-program/zk-elgamal-proof` klien JS](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (instruksi verifikasi bukti)
+- [`spl-token-client` Rust crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (helper end-to-end tingkat tinggi dalam Rust)
+
+## TL;DR
+
+- Setiap token account confidential masih memiliki **saldo publik** ditambah
+  saldo **tertunda** dan **tersedia** yang terenkripsi. Token dapat berpindah
+  secara bebas antara state publik dan confidential.
+- Untuk **menampilkan** saldo confidential, Anda memerlukan kunci pemilik.
+  Pendekatan yang direkomendasikan adalah menurunkannya dari dompet pemilik,
+  mendekripsi saldo tersedia dengan kunci AES (cepat), dan mendekripsi jumlah
+  tertunda dengan kunci ElGamal bila diperlukan.
+- Untuk **mengirim** secara confidential, Anda membuat bukti ZK di sisi klien
+  (kesetaraan, validitas ciphertext, rentang), biasanya ditempatkan di **akun
+  state konteks bukti** sementara, lalu mengirimkan transfer. Baik
+  `@solana-program/token-2022` (JS) maupun `spl-token-client` (Rust) menyediakan
+  helper tingkat tinggi yang membangun bukti dan mengurutkan transaksi untuk
+  Anda.
+- Confidential transfer saat ini mencakup beberapa transaksi dependen karena
+  ukuran bukti melebihi batas ukuran transaksi saat ini. Perubahan yang akan
+  datang (format transaksi v1, hadir bersama Agave v4.2) meningkatkan batas
+  tersebut dan diharapkan memungkinkan confidential transfer dieksekusi dalam
+  satu transaksi onchain.
+- Dompet yang tidak menambahkan dukungan apa pun tetap dapat berfungsi: dompet
+  menampilkan saldo publik dan transfer standar tetap berjalan. Dana
+  confidential tetap dapat diakses oleh klien yang mendukung confidential dengan
+  kunci pemilik.
+
+## Istilah
+
+- **ElGamal keypair**: keypair kunci publik per-akun yang digunakan untuk
+  mengenkripsi saldo dan membangun bukti ZK. Kunci publik disimpan di akun.
+- **Kunci AES**: kunci simetris per-akun yang digunakan untuk mengenkripsi
+  "saldo tersedia yang dapat didekripsi" sehingga pemilik dapat membaca saldo
+  tersedia mereka dalam waktu konstan, tanpa memecahkan logaritma diskret.
+- **Saldo tertunda**: saldo terenkripsi dari dana yang diterima melalui setoran
+  atau transfer masuk yang belum diterapkan. Tidak dapat dibelanjakan secara
+  langsung.
+- **Saldo tersedia**: saldo terenkripsi yang dapat ditransfer atau ditarik.
+- **Terapkan**: langkah yang memindahkan saldo tertunda ke saldo tersedia.
+- **Akun status konteks bukti**: akun onchain sementara yang menyimpan bukti ZK
+  yang telah diverifikasi sebelumnya, direferensikan oleh instruksi rahasia dan
+  kemudian ditutup untuk mengklaim kembali rent.
+- **Auditor**: kunci ElGamal global opsional pada mint; jika diatur, setiap
+  transfer secara tambahan mengenkripsi jumlahnya menggunakan kunci ini sehingga
+  pihak yang ditunjuk dapat mendekripsinya.
+
+## Model akun dan saldo
+
+Ketika sebuah akun dikonfigurasi untuk transfer rahasia, ekstensi
+`ConfidentialTransferAccount` menyimpan (antara lain):
+
+- `elgamal_pubkey`: kunci publik ElGamal milik akun.
+- `pending_balance_lo` / `pending_balance_hi`: ciphertext ElGamal dari saldo
+  tertunda, dibagi menjadi bit rendah dan tinggi (dekripsi bit tinggi lebih
+  mahal, sehingga keduanya dipisahkan).
+- `available_balance`: ciphertext ElGamal dari saldo yang dapat dibelanjakan.
+- `decryptable_available_balance`: ciphertext **AES** dari saldo tersedia yang
+  sama yang dapat didekripsi secara instan oleh pemilik. Ini adalah kolom yang
+  digunakan untuk ditampilkan.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: apakah akun
+  saat ini menerima kredit rahasia atau kredit publik yang masuk.
+- `pending_balance_credit_counter` dan `maximum_pending_balance_credit_counter`:
+  berapa banyak kredit yang telah terakumulasi ke saldo tertunda dan batas
+  sebelum penerapan diperlukan.
+
+Semua field ini dikembalikan dalam status akun yang telah diurai melalui RPC
+standar. Siapa pun dapat membaca ciphertext, tetapi hanya pemegang kunci yang
+dapat memulihkan jumlah yang mendasarinya.
+
+## Manajemen kunci
+
+Setiap akun rahasia menggunakan dua kunci: **ElGamal keypair** untuk enkripsi
+dan bukti, serta **kunci AES** untuk dekripsi saldo yang cepat. Cara Anda
+membuat dan menyimpan kunci-kunci tersebut adalah pilihan integrasi. Beberapa
+opsi umum:
+
+- **Turunkan dari tanda tangan wallet (default yang direkomendasikan).** Pemilik
+  menandatangani pesan yang bersifat kanonik dan dipisahkan per domain, lalu
+  kunci diturunkan dari tanda tangan tersebut, sehingga dapat direproduksi hanya
+  dari wallet dan Anda tidak perlu menyimpannya. seed bersifat deterministik per
+  akun: helper JS di bawah mengikatnya ke pasangan `(owner, mint)`, sementara
+  contoh Rust menggunakan seed dari alamat token account (untuk associated token
+  account keduanya setara, karena alamat tersebut diturunkan dari pemilik dan
+  mint).
+- **Turunkan dari material kunci independen.** Untuk passkey, secure enclave,
+  atau pengaturan MPC, turunkan kunci dari output WebAuthn PRF atau material
+  kunci input lainnya sehingga kunci rahasia tidak terikat pada kunci
+  penandatanganan akun. `@solana/zk-sdk` mengekspos `ConfidentialKeys.fromIkm`
+  dan `ConfidentialKeys.fromPrf` untuk keperluan ini.
+- **Buat dan kelola secara langsung.** Penyedia kustodial dan MPC mungkin lebih
+  memilih untuk membuat kunci dan mengelolanya seperti material kunci sensitif
+  lainnya.
+
+Klien `@solana-program/token-2022` dilengkapi dengan helper untuk jalur yang
+direkomendasikan:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Kunci rahasia adalah kunci dekripsi. Perlakukan permintaan untuk
+  menandatangani pesan derivasi seperti membuka tampilan privat saldo pengguna.
+  Lebih disarankan untuk menurunkan kunci saat dibutuhkan daripada menyimpannya;
+  jika Anda menyimpannya (misalnya dalam layanan kustodial), lindungi dengan
+  keamanan yang sama ketatnya seperti kunci penandatanganan.
+</Callout>
+
+Helper derivasi mengembalikan material kunci yang telah diserialisasi. Helper
+operasi tingkat tinggi (ditunjukkan nanti) menerima objek WASM `ElGamalKeypair`
+dan `AeKey`, jadi bangun ulang objek tersebut dari byte saat Anda
+membutuhkannya:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Membuat dan mengonfigurasi akun
+
+Sebelum sebuah akun dapat menyimpan saldo rahasia, akun tersebut memerlukan
+ekstensi `ConfidentialTransferAccount`, yang menambahkan sekitar 295 byte pada
+token account (sekitar 0,0015 SOL dalam rent tambahan). Penyiapannya terdiri
+dari dua langkah: buat token account, lalu konfigurasikan ekstensi tersebut.
+
+Konfigurasi biasanya mengharuskan **pemilik akun** untuk menandatangani dan
+memberikan bukti bahwa mereka memiliki pubkey ElGamal yang ditetapkan pada akun
+tersebut. Wallet atau bursa dapat membuat dan mendanai token account dasar untuk
+pengguna, tetapi tidak dapat mengonfigurasi ekstensi rahasia atas nama pengguna
+tanpa tanda tangan tersebut.
+
+Oleh karena itu, hindari penyediaan akun rahasia secara diam-diam untuk setiap
+pengguna: hal ini membutuhkan rent tambahan dan tetap memerlukan keterlibatan
+pemilik. Konfigurasikan pada penggunaan pertama, atau ketika pengguna memilih
+untuk menggunakan transfer rahasia.
+
+**Registri ElGamal** menghapus langkah pemilik per akun. Pengguna mendaftarkan
+pubkey ElGamal mereka sekali saja (menandatangani bukti saat pendaftaran), dan
+entri registri dapat digunakan kembali di setiap mint. Setelah itu, pihak ketiga
+dapat mengonfigurasi akun rahasia untuk pengguna dengan
+`ConfigureAccountWithRegistry`, yang tidak memerlukan tanda tangan pemilik atau
+bukti pada saat konfigurasi, hanya pembayar untuk rent. Inilah mekanisme yang
+digunakan jika Anda ingin menyediakan akun rahasia untuk pengguna secara mulus.
+
+<Callout type="info">
+  Konfigurasi registri tersedia di Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) dan program
+  `spl-elgamal-registry` saat ini. Helper yang setara di klien JS
+  `@solana-program/token-2022` belum tersedia, sehingga integrasi JS yang
+  memerlukan jalur registri sebaiknya memantau rilis klien tersebut.
+</Callout>
+
+## Menampilkan saldo
+
+Integrasi yang andal menampilkan saldo publik menggunakan saldo token standar,
+mendeteksi ekstensi rahasia, dan ketika pengguna telah membuka kunci mereka,
+mendekripsi dan menampilkan saldo yang tersedia.
+
+Saldo yang tersedia paling baik dibaca dari `decryptable_available_balance`
+menggunakan kunci AES, yang berjalan dalam waktu konstan. Mendekripsi
+`available_balance` ElGamal secara langsung memerlukan penyelesaian logaritma
+diskret dan sebaiknya dihindari untuk tampilan rutin.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Ketika pengguna belum membuka kunci mereka, tampilkan saldo publik dan tunjukkan
+bahwa saldo rahasia ada tetapi terkunci, daripada menampilkan angka nol.
+
+## Menerima transfer
+
+Setoran dan transfer masuk mendarat di saldo **tertunda** dan tidak dapat
+dibelanjakan hingga diterapkan. Setiap kredit menambah
+`pending_balance_credit_counter`; setelah mencapai
+`maximum_pending_balance_credit_counter`, akun tidak dapat menerima lebih banyak
+kredit rahasia hingga pemilik menerapkan saldo tertunda.
+
+Integrasi yang menyimpan dana atas nama pengguna harus:
+
+- Menampilkan saldo tertunda dan tersedia secara terpisah agar pengguna memahami
+  mengapa jumlah yang baru diterima belum dapat dibelanjakan.
+- Menerapkan saldo tertunda atas nama pengguna pada waktu yang tepat (misalnya
+  sebelum pengiriman) agar saldo tidak tertahan.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Lihat halaman
+[Terapkan Saldo Tertunda](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+untuk alur lengkapnya.
+
+## Mengirim transfer
+
+Transfer rahasia memerlukan tiga bukti zero-knowledge yang dibuat di sisi klien:
+
+- **Bukti kesetaraan** bahwa ciphertext saldo baru pengirim mengenkripsi nilai
+  yang sama dengan komitmen baru yang dapat dibuka oleh pengirim.
+- **Bukti validitas ciphertext** bahwa ciphertext jumlah transfer terbentuk
+  dengan baik di bawah kunci sumber, tujuan, dan (jika disetel) auditor.
+- **Bukti rentang** bahwa jumlah dan saldo tersisa pengirim adalah bilangan
+  bulat non-negatif yang valid, yang mencegah penciptaan nilai dari ketiadaan.
+
+Bukti-bukti ini lebih besar dari batas ukuran transaksi saat ini yang
+mengizinkan penyisipan secara inline, sehingga pola yang umum digunakan adalah
+membuat **akun state konteks bukti**, memverifikasi setiap bukti ke dalamnya,
+merujuknya dari instruksi transfer, lalu menutupnya untuk mengambil kembali
+rent. Proses ini mencakup beberapa transaksi yang saling bergantung. Format
+transaksi v1 (hadir bersama Agave v4.2) meningkatkan batas ukuran dan diharapkan
+memungkinkan transfer rahasia berjalan dalam satu transaksi onchain, yang akan
+menyederhanakan alur ini.
+
+Anda tidak perlu menyusun bukti-bukti secara manual. Kedua klien menyediakan
+helper tingkat tinggi yang membangun bukti dan menghasilkan instruksi untuk
+diajukan:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Jika Anda memerlukan kontrol yang lebih detail, blok pembangun tingkat rendah
+juga tersedia: `@solana/zk-sdk` menghasilkan data setiap bukti
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` menyediakan
+instruksi verifikasi bukti, dan `@solana-program/token-2022` menyediakan
+`confidentialTransfer` dan instruksi akun state konteks.
+
+Lihat halaman
+[Transfer Token](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+untuk urutan instruksi secara terperinci.
+
+## Penarikan
+
+Penarikan memindahkan dana dari saldo tersedia yang bersifat rahasia kembali ke
+saldo publik, setelah itu dana tersebut berperilaku seperti saldo token normal.
+Penarikan juga memerlukan bukti (bukti kesetaraan dan bukti rentang), yang
+diekspos sebagai `getConfidentialWithdrawInstructionPlan` di klien JS dan
+`confidential_transfer_withdraw` di klien Rust. Terapkan saldo tertunda terlebih
+dahulu agar jumlah penuh tersedia. Lihat
+[Tarik Token](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Ekstensi rahasia terkait
+
+Dua ekstensi opsional dibangun di atas transfer rahasia. Keduanya terutama
+merupakan tanggung jawab penerbit, tetapi masing-masing mengubah sesuatu yang
+harus ditangani oleh integrator:
+
+- **Biaya transfer rahasia.** Ketika sebuah mint menggabungkan transfer rahasia
+  dengan [biaya transfer](/docs/tokens/extensions/transfer-fees), pengiriman
+  menggunakan jalur transfer with-fee (`confidential_transfer_transfer_with_fee`
+  di klien Rust), dan biaya yang ditahan dienkripsi seperti jumlahnya.
+  Mengumpulkan biaya yang ditahan (harvest dan withdraw) adalah tugas otoritas
+  biaya, bukan integrator.
+- **Mint dan burn rahasia.** Sebuah mint dengan ekstensi ini menerbitkan dan
+  membakar pasokan secara rahasia, yang menonaktifkan jalur deposit dan withdraw
+  publik. Token tidak dapat berpindah antara saldo publik dan rahasia pada mint
+  semacam itu, jadi jangan tampilkan deposit atau withdraw untuk mint tersebut.
+
+Untuk detail tingkat protokol dari keduanya, lihat
+[dokumentasi saldo rahasia](https://www.solana-program.com/docs/confidential-balances).
+
+## Mengurai transaksi transfer rahasia
+
+Penjelajah dan pengindeks perlu mengenali dan memberi label pada aktivitas
+transfer rahasia tanpa dapat membaca jumlahnya. Klien
+`@solana-program/token-2022` mengekspos `identifyToken2022Instruction` untuk
+mengklasifikasikan setiap instruksi Token-2022, ditambah parser per-instruksi
+(misalnya `parseConfidentialTransferInstruction`) untuk mendekode akun dan kolom
+yang tidak bersifat rahasia. Jumlah terenkripsi tetap berupa ciphertext:
+tampilkan sebagai rahasia alih-alih merender byte sebagai angka.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Keterbatasan pengindeksan yang perlu direncanakan:
+
+- **Tidak ada jumlah untuk transfer rahasia.** Sebuah `ConfidentialTransfer`
+  membawa jumlah terenkripsi, sehingga analitik volume, aliran, dan ukuran
+  transfer tidak dapat dihitung darinya. Tandai transfer ini sebagai rahasia
+  daripada mencatat nol atau ciphertext mentah.
+- **Tidak ada delta saldo.** Perpindahan rahasia tidak mengubah saldo token
+  publik, sehingga perbedaan saldo token sebelum/sesudah yang mendorong sebagian
+  besar pengindeksan transfer tidak dapat menangkapnya. Saldo tertunda dan
+  tersedia berupa ciphertext.
+- **Deposit dan penarikan bersifat transparan.** `ConfidentialDeposit` dan
+  `ConfidentialWithdraw` membawa jumlah dalam teks jelas, sehingga Anda masih
+  dapat mengindeks aliran masuk dan keluar dari pool rahasia, hanya saja bukan
+  transfer di dalamnya.
+- **Satu transfer mencakup beberapa transaksi saat ini.** Akun status konteks
+  bukti dibuat, digunakan, dan ditutup di sekitar transfer, sehingga korelasikan
+  transaksi terkait daripada memperlakukan masing-masing secara terpisah. Ini
+  akan menyatu setelah transfer rahasia satu transaksi tersedia (lihat di atas).
+- **Mint auditor dapat didekripsi.** Jika sebuah mint memiliki auditor global
+  dan Anda memegang kunci auditor, Anda dapat mendekripsi jumlah transfer untuk
+  mint tersebut (lihat di bawah).
+
+## Auditor dan kepatuhan
+
+Sebuah mint dapat mengonfigurasi **auditor global** pubkey ElGamal. Jika diatur,
+setiap transfer rahasia harus menyertakan jumlah yang dienkripsi menggunakan
+kunci auditor, sehingga pemegang kunci rahasia auditor dapat mendekripsi semua
+jumlah transfer untuk mint tersebut. Bukti validitas mencakup ciphertext
+auditor, sehingga sebagai integrator Anda tidak perlu melakukan sesuatu yang
+istimewa di jalur pengiriman selain meneruskan kunci auditor dari konfigurasi
+mint (helper tingkat tinggi membacanya untuk Anda).
+
+Jika produk Anda adalah auditor (misalnya penerbit yang diregulasi atau penyedia
+kepatuhan), Anda mendekripsi jumlah transfer dengan kunci rahasia auditor dengan
+cara yang sama seperti pemilik mendekripsi saldo mereka sendiri. Pemilik juga
+dapat berbagi kunci per-akun mereka secara selektif dengan pihak tertentu tanpa
+mengeksposnya secara publik.
+
+### Pemantauan transaksi (KYT)
+
+Untuk penyedia know-your-transaction dan AML, transfer rahasia mengubah apa yang
+dapat diamati, bukan model keseluruhannya:
+
+- **Analisis alamat dan graf tidak terpengaruh.** Pengirim, penerima, mint, dan
+  pemilik akun tetap bersifat publik, sehingga penyaringan alamat, pencocokan
+  sanksi, dan analisis graf pihak lawan bekerja sama seperti token lainnya.
+- **Heuristik berbasis jumlah memerlukan kunci auditor.** Structuring, pelaporan
+  ambang batas, dan penilaian risiko berbasis volume tidak dapat membaca jumlah
+  transfer rahasia secara mandiri. Jumlah deposit dan penarikan tetap terlihat
+  jelas, sehingga ukuran aliran yang masuk dan keluar dari pool rahasia masih
+  dapat dipantau.
+- **Cakupan berasal dari model auditor.** Pada mint yang mengonfigurasi auditor
+  global, penyedia yang beroperasi dengan kunci auditor (atau menerima
+  pengungkapan selektif dari pengguna atau penerbit) dapat memulihkan jumlah
+  transfer. Penerbit dalam konteks yang diregulasi sebaiknya merencanakan untuk
+  mengonfigurasi auditor atau mendukung pengungkapan selektif agar pemantauan
+  dapat dilakukan.
+
+## Kompatibilitas mundur
+
+- Sebuah token account selalu memiliki saldo publik. Dompet dan aplikasi yang
+  tidak mendukung ekstensi ini tetap berfungsi dan menampilkan saldo publik.
+- Transfer standar tetap berfungsi untuk saldo publik selama tujuan mengizinkan
+  kredit non-rahasia.
+- Saldo rahasia tidak terlihat oleh alat yang tidak mendukungnya, tetapi dana
+  tidak hilang: klien mana pun yang mendukung kerahasiaan dapat mengaksesnya
+  dengan kunci pemilik.
+- Karena jumlah dienkripsi, analitik tingkat pasokan dan volume yang
+  mengandalkan pembacaan jumlah transfer tidak akan melihat aktivitas rahasia.
+  Rencanakan dasbor dan pembukuan dengan mempertimbangkan hal ini.
+
+## Prioritas Integrasi yang Direkomendasikan Per Platform
+
+### Persyaratan Umum
+
+| Persyaratan                           | Deskripsi                                                                                                                                                                                 | Prioritas |
+| :------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Deteksi ekstensi                      | Kenali ekstensi Confidential Transfer pada mint dan akun, serta tangani token ini secara eksplisit daripada mengasumsikan model publik saja.                                              | **P0**    |
+| Jangan pernah kehilangan dana rahasia | Meskipun tanpa dukungan penuh, tampilkan bahwa saldo rahasia ada sehingga pengguna tidak mengira akun mereka kosong.                                                                      | **P0**    |
+| Manajemen kunci yang baik             | Pilih strategi kunci untuk kunci ElGamal dan AES. Menurunkan dari dompet pemilik adalah default yang direkomendasikan; jika Anda menyimpan kunci, lindungi seperti kunci penandatanganan. | **P0**    |
+
+---
+
+### Dompet
+
+| Persyaratan                             | Deskripsi                                                                                                                                         | Prioritas |
+| :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ | :-------- |
+| Tampilkan saldo publik                  | Selalu tampilkan saldo publik menggunakan pembacaan saldo token standar.                                                                          | **P0**    |
+| Buka kunci dan tampilkan saldo tersedia | Biarkan pengguna membuka kunci melalui tanda tangan dan tampilkan saldo tersedia yang telah didekripsi (melalui saldo yang dapat didekripsi AES). | **P0**    |
+| Tampilkan tertunda vs tersedia          | Tampilkan saldo tertunda secara terpisah dan dorong untuk diterapkan saat dana diterima.                                                          | **P1**    |
+| Terapkan tertunda secara otomatis       | Terapkan saldo tertunda pada momen yang tepat (misalnya sebelum pengiriman) agar dana tidak macet.                                                | **P1**    |
+| Kirim secara rahasia                    | Dukung alur deposit, transfer, dan penarikan dengan pembuatan bukti di sisi klien.                                                                | **P1**    |
+| UX status terkunci                      | Saat kunci belum dibuka, tunjukkan dengan jelas bahwa saldo rahasia ada daripada menampilkan nol.                                                 | **P1**    |
+| Orientasi / edukasi                     | Bantu pengguna memahami apa yang tetap privat (jumlah dan saldo) serta langkah buka kunci.                                                        | **P2**    |
+
+---
+
+### Penjelajah dan Pengindeks
+
+| Persyaratan                                       | Deskripsi                                                                                                       | Prioritas |
+| :------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- | :-------- |
+| Beri label akun dan mint yang bersifat rahasia    | Tandai dengan jelas akun dan mint yang menggunakan ekstensi, serta tampilkan saldo publik.                      | **P0**    |
+| Urai instruksi rahasia                            | Dekode instruksi configure, deposit, apply, transfer, dan withdraw, serta tampilkan jenisnya (bukan jumlahnya). | **P0**    |
+| Jangan tampilkan jumlah terenkripsi sebagai angka | Jangan pernah merender kolom ciphertext seolah-olah berupa saldo plaintext; tampilkan sebagai rahasia.          | **P0**    |
+| Indeks alur deposit/penarikan publik              | Catat jumlah cleartext pada deposit dan penarikan untuk melacak alur masuk dan keluar dari pool rahasia.        | **P1**    |
+| Korelasikan transfer multi-transaksi              | Kelompokkan transaksi persiapan bukti, transfer, dan pembersihan yang membentuk satu transfer rahasia.          | **P1**    |
+| Tampilkan konfigurasi auditor                     | Tunjukkan apakah suatu mint memiliki auditor global yang dikonfigurasi.                                         | **P1**    |
+| Siklus hidup akun bukti                           | Kenali pembuatan dan penutupan akun status konteks bukti agar transaksi dapat dibaca dengan wajar.              | **P2**    |
+
+---
+
+### Bursa dan Kustodian
+
+| Persyaratan                                  | Deskripsi                                                                                                                                                                         | Prioritas |
+| :------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Lacak status publik dan rahasia              | Perhitungkan saldo publik maupun rahasia saat mengkreditkan deposit dan menghitung kepemilikan.                                                                                   | **P0**    |
+| Terapkan pending saat deposit                | Terapkan saldo pending ketika deposit rahasia tiba agar jumlah yang dikreditkan akurat.                                                                                           | **P0**    |
+| Penanganan kunci yang aman                   | Jika menyimpan dana rahasia secara kustodial, kelola kunci ElGamal/AES dengan tingkat ketelitian yang sama seperti kunci penandatanganan.                                         | **P0**    |
+| Penyediaan akun melalui registri             | Untuk menyiapkan akun rahasia bagi pengguna, minta pengguna mendaftarkan kunci ElGamal sekali dan lakukan penyediaan melalui jalur registri, bukan meminta tanda tangan per akun. | **P1**    |
+| Penarikan kepada pengguna                    | Dukung penarikan rahasia atau publik tergantung pada konfigurasi akun tujuan.                                                                                                     | **P1**    |
+| Dukungan kepatuhan / auditor                 | Jika diperlukan, gunakan kunci auditor atau pengungkapan selektif untuk memenuhi kewajiban pelaporan.                                                                             | **P1**    |
+| Akuntansi internal berdasarkan jumlah mentah | Rekonsiliasi terhadap jumlah yang didekripsi di titik tepi dan simpan; jangan mencoba mengagregasi ciphertext.                                                                    | **P1**    |
+
+---
+
+### Penyedia Kepatuhan dan KYT
+
+| Persyaratan                      | Deskripsi                                                                                                                         | Prioritas |
+| :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Pemeriksaan alamat dan grafik    | Periksa pengirim, penerima, mint, dan pemilik serta jalankan analisis grafik pihak lawan; ini tetap bersifat publik.              | **P0**    |
+| Lacak deposit/penarikan publik   | Pantau jumlah deposit dan penarikan teks jelas sebagai titik masuk dan keluar yang dapat diamati dari pool rahasia.               | **P0**    |
+| Visibilitas jumlah kunci auditor | Untuk mint yang mengaktifkan auditor, dekripsi jumlah transfer menggunakan kunci auditor untuk mendukung deteksi berbasis jumlah. | **P1**    |
+| Intake pengungkapan selektif     | Dukung pengungkapan jumlah yang dibagikan oleh pengguna atau penerbit melalui kunci per-akun.                                     | **P2**    |
