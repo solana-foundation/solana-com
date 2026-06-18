@@ -9,7 +9,7 @@ export const providers = [
   "Allium",
   "Artemis",
   "Blockworks",
-  "DefiLama",
+  "DeFiLlama",
   "Dune",
   "RWA",
   "Stakewiz",
@@ -22,6 +22,11 @@ export type DashboardTab = "stablecoins" | "overview" | "network" | "defi";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
 
+export type MethodologyComment = {
+  provider: ProviderName;
+  description: string;
+};
+
 export type ChartDefinition = {
   id: string;
   tab: DashboardTab;
@@ -31,6 +36,7 @@ export type ChartDefinition = {
   aggregation: Aggregation;
   seriesField: SeriesField;
   providers?: readonly ProviderName[];
+  methodology?: readonly MethodologyComment[];
 };
 
 export type MetricRow = {
@@ -52,13 +58,22 @@ export const providerColors: Record<ProviderName, string> = {
   Allium: "#DFA3DA",
   Artemis: "#14F195",
   Blockworks: "#E32EE9",
-  DefiLama: "#3B8CFF",
+  DeFiLlama: "#3B8CFF",
   Dune: "#F75F47",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
   "Token Terminal": "#45A88E",
   "Validators App": "#38BDF8",
 };
+
+const providerAliases: Record<string, ProviderName> = {
+  DefiLama: "DeFiLlama",
+  DefiLlama: "DeFiLlama",
+};
+
+export function normalizeProviderName(value: string) {
+  return providerAliases[value] ?? value;
+}
 
 const dexVolumeProviders = [
   "Allium",
@@ -76,7 +91,7 @@ const dexActivityProviders = [
 const dexCountProviders = [
   "Allium",
   "Blockworks",
-  "DefiLama",
+  "DeFiLlama",
   "Dune",
 ] as const satisfies readonly ProviderName[];
 
@@ -125,6 +140,28 @@ export const chartDefinitions = [
     metrics: ["Supply"],
     aggregation: "avg",
     seriesField: "provider",
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Net mints minus burns, excluding treasury and locked balances.",
+      },
+      {
+        provider: "DeFiLlama",
+        description:
+          "Bridge-aware circulating supply, priced and aggregated across stablecoins and peg types.",
+      },
+      {
+        provider: "Token Terminal",
+        description:
+          "Circulating supply excludes issuer treasury and pre-minted, not-yet-issued balances.",
+      },
+      {
+        provider: "RWA",
+        description:
+          "Net minted supply minus burned supply and treasury or premint address balances.",
+      },
+    ],
   },
   {
     id: "stablecoin-transfer-count",
@@ -143,6 +180,23 @@ export const chartDefinitions = [
     metrics: ["Active Addresses"],
     aggregation: "avg",
     seriesField: "provider",
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Unique stablecoin transfer senders and receivers, excluding inorganic activity.",
+      },
+      {
+        provider: "Blockworks",
+        description:
+          "Unique signer addresses that execute a transaction involving a stablecoin.",
+      },
+      {
+        provider: "RWA",
+        description:
+          "Count of token accounts sending a stablecoin transfer, unique per token.",
+      },
+    ],
   },
   {
     id: "stablecoin-transfer-volume",
@@ -152,6 +206,22 @@ export const chartDefinitions = [
     metrics: ["Transfer Volume"],
     aggregation: "avg",
     seriesField: "provider",
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "USD transfer volume, deduplicated and filtered per Visa methodology.",
+      },
+      {
+        provider: "DeFiLlama",
+        description:
+          "USD value of stablecoin transfers using adjusted single-direction transfer methodologies.",
+      },
+      {
+        provider: "RWA",
+        description: "No filtering applied to volume.",
+      },
+    ],
   },
   {
     id: "stablecoin-count",
@@ -293,6 +363,22 @@ export const chartDefinitions = [
     aggregation: "avg",
     seriesField: "provider",
     providers: dexVolumeProviders,
+    methodology: [
+      {
+        provider: "Allium",
+        description: "USD notional value of all Solana spot DEX trades.",
+      },
+      {
+        provider: "DeFiLlama",
+        description:
+          "Daily USD DEX trade value, sourced from adapters after bad-volume filtering.",
+      },
+      {
+        provider: "Token Terminal",
+        description:
+          "DEX trade volume varies by indexed venues, pricing, and filtering methodology.",
+      },
+    ],
   },
   {
     id: "dex-transactions",
@@ -303,6 +389,13 @@ export const chartDefinitions = [
     aggregation: "avg",
     seriesField: "provider",
     providers: dexActivityProviders,
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Unique Solana DEX swap transactions; multi-hop swaps count once.",
+      },
+    ],
   },
   {
     id: "dex-count",
@@ -313,6 +406,22 @@ export const chartDefinitions = [
     aggregation: "avg",
     seriesField: "provider",
     providers: dexCountProviders,
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Unique Solana DEX protocols by project and protocol version.",
+      },
+      {
+        provider: "Blockworks",
+        description: "Top spot DEXs that aggregators route to.",
+      },
+      {
+        provider: "DeFiLlama",
+        description:
+          "Spot DEX protocols with volume adapters and non-zero Solana trading activity.",
+      },
+    ],
   },
   {
     id: "dex-traders",
@@ -323,6 +432,13 @@ export const chartDefinitions = [
     aggregation: "avg",
     seriesField: "provider",
     providers: dexActivityProviders,
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Unique Solana DEX swap initiators; no bot filter applied.",
+      },
+    ],
   },
 ] as const satisfies readonly ChartDefinition[];
 

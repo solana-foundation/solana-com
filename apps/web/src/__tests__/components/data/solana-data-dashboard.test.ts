@@ -70,4 +70,10 @@ describe("provider query state", () => {
   it("falls back to all providers for unknown values", () => {
     expect(parseProviders("NotAProvider").size).toBe(providers.length);
   });
+
+  it("normalizes legacy DeFiLlama provider spellings", () => {
+    expect(parseProviders("DefiLama")).toEqual(
+      new Set<ProviderName>(["DeFiLlama"]),
+    );
+  });
 });

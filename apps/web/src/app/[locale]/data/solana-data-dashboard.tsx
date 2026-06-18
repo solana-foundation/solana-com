@@ -33,6 +33,7 @@ import { cn } from "@/app/components/utils";
 import {
   chartDefinitions,
   metricColors,
+  normalizeProviderName,
   providerColors,
   providers,
   rangeOptions,
@@ -40,6 +41,7 @@ import {
   type ChartDefinition,
   type DashboardTab,
   type DataApiResponse,
+  type MethodologyComment,
   type MetricRow,
   type ProviderName,
 } from "./data-config";
@@ -77,10 +79,13 @@ const kpiCount = 4;
 const chartHeight = 320;
 const dataRefreshIntervalMs = 24 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
-const sourceRepositoryUrl = "https://github.com/solana-foundation/solana-com";
+const dataAggregatorRepositoryUrl =
+  "https://github.com/solana-foundation/solana-data-aggregator";
+const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
 const resourceCardStepFallback = 460;
 const resourceCards = [
   {
+    analyticsId: "sdp",
     backgroundClassName: "rotate-180 scale-[1.08]",
     backgroundSrc: "/src/img/solutions/sdp/feat-bg-1.jpg",
     ctaKey: "buildSection.cards.sdp.cta",
@@ -90,6 +95,57 @@ const resourceCards = [
     titleKey: "buildSection.cards.sdp.title",
   },
   {
+    analyticsId: "solana-data-aggregator",
+    backgroundClassName: "",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-2.jpg",
+    ctaKey: "buildSection.cards.aggregator.cta",
+    descriptionKey: "buildSection.cards.aggregator.description",
+    href: dataAggregatorRepositoryUrl,
+    nodeId: "21:105",
+    titleKey: "buildSection.cards.aggregator.title",
+  },
+  {
+    analyticsId: "allium",
+    backgroundClassName: "-scale-y-100 rotate-180",
+    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
+    ctaKey: "buildSection.cards.allium.cta",
+    descriptionKey: "buildSection.cards.allium.description",
+    href: "https://www.allium.so/solana",
+    nodeId: "25:113",
+    titleKey: "buildSection.cards.allium.title",
+  },
+  {
+    analyticsId: "tokens",
+    backgroundClassName: "rotate-180 scale-[1.08]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.jpg",
+    ctaKey: "buildSection.cards.tokens.cta",
+    descriptionKey: "buildSection.cards.tokens.description",
+    href: "https://tokens.xyz",
+    nodeId: "25:134",
+    titleKey: "buildSection.cards.tokens.title",
+  },
+  {
+    analyticsId: "lightspeed",
+    backgroundClassName: "-scale-y-100",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.jpg",
+    ctaKey: "buildSection.cards.lightspeed.cta",
+    descriptionKey: "buildSection.cards.lightspeed.description",
+    href: "https://solanalightspeed.com/dashboards/",
+    nodeId: "25:127",
+    titleKey: "buildSection.cards.lightspeed.title",
+  },
+  {
+    analyticsId: "dune",
+    backgroundClassName: "scale-[1.18]",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg",
+    ctaKey: "buildSection.cards.dune.cta",
+    descriptionKey: "buildSection.cards.dune.description",
+    href: "https://docs.dune.com/data-catalog/solana/overview",
+    nodeId: "25:120",
+    titleKey: "buildSection.cards.dune.title",
+  },
+  {
+    analyticsId: "pay-sh",
     backgroundClassName: "-scale-y-100",
     backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
     ctaKey: "buildSection.cards.pay.cta",
@@ -99,6 +155,7 @@ const resourceCards = [
     titleKey: "buildSection.cards.pay.title",
   },
   {
+    analyticsId: "x402",
     backgroundClassName: "",
     backgroundSrc: "/src/img/data-dashboard/x402-card-bg.png",
     ctaKey: "buildSection.cards.x402.cta",
@@ -106,51 +163,6 @@ const resourceCards = [
     href: "/x402",
     nodeId: "8:171",
     titleKey: "buildSection.cards.x402.title",
-  },
-  {
-    backgroundClassName: "rotate-180 scale-[1.08]",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.jpg",
-    ctaKey: "buildSection.cards.tokens.cta",
-    descriptionKey: "buildSection.cards.tokens.description",
-    href: "/docs/tokens",
-    nodeId: "25:134",
-    titleKey: "buildSection.cards.tokens.title",
-  },
-  {
-    backgroundClassName: "translate-y-6",
-    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-2.jpg",
-    ctaKey: "buildSection.cards.aggregator.cta",
-    descriptionKey: "buildSection.cards.aggregator.description",
-    href: sourceRepositoryUrl,
-    nodeId: "21:105",
-    titleKey: "buildSection.cards.aggregator.title",
-  },
-  {
-    backgroundClassName: "-scale-y-100 rotate-180",
-    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
-    ctaKey: "buildSection.cards.allium.cta",
-    descriptionKey: "buildSection.cards.allium.description",
-    href: "https://www.allium.so/",
-    nodeId: "25:113",
-    titleKey: "buildSection.cards.allium.title",
-  },
-  {
-    backgroundClassName: "scale-[1.18] -translate-y-10",
-    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg",
-    ctaKey: "buildSection.cards.dune.cta",
-    descriptionKey: "buildSection.cards.dune.description",
-    href: "https://dune.com/browse/dashboards?q=solana",
-    nodeId: "25:120",
-    titleKey: "buildSection.cards.dune.title",
-  },
-  {
-    backgroundClassName: "-scale-y-100 translate-y-6",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.jpg",
-    ctaKey: "buildSection.cards.lightspeed.cta",
-    descriptionKey: "buildSection.cards.lightspeed.description",
-    href: "https://blockworks.com/podcast/lightspeed",
-    nodeId: "25:127",
-    titleKey: "buildSection.cards.lightspeed.title",
   },
 ] as const;
 const dataSWRConfig = {
@@ -283,11 +295,7 @@ export function SolanaDataDashboard() {
 
         {!error ? (
           <>
-            <KpiGrid
-              isLoading={isInitialLoading}
-              isRefreshing={isRefreshing}
-              kpis={kpis}
-            />
+            <KpiGrid isLoading={isInitialLoading} kpis={kpis} />
 
             <ChartGrid
               activeCharts={activeCharts}
@@ -311,15 +319,16 @@ export function SolanaDataDashboard() {
             <span>{t("footer.refreshCadence")}</span>
             {data?.generatedAt ? (
               <span>
-                {t("footer.updated")}{" "}
+                {t("footer.lastRefreshed")}{" "}
                 <span className="text-nd-high-em-text">
                   {formatTimestamp(data.generatedAt, locale)}
                 </span>
               </span>
             ) : null}
+            <span>{t("footer.lagNotice")}</span>
             <a
               className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-              href={sourceRepositoryUrl}
+              href={dataAggregatorRepositoryUrl}
               rel="noopener noreferrer"
               target="_blank"
             >
@@ -327,6 +336,16 @@ export function SolanaDataDashboard() {
               {t("footer.source")}
               <ExternalLink aria-hidden="true" className="h-3 w-3" />
             </a>
+            <a
+              className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+              href={backfillRequestsUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {t("footer.backfillRequests")}
+              <ExternalLink aria-hidden="true" className="h-3 w-3" />
+            </a>
+            <span>{t("footer.backfillCadence")}</span>
           </span>
         </footer>
       </div>
@@ -498,15 +517,7 @@ function ProviderControls({
   );
 }
 
-function KpiGrid({
-  isLoading,
-  isRefreshing,
-  kpis,
-}: {
-  isLoading: boolean;
-  isRefreshing: boolean;
-  kpis: KpiItem[];
-}) {
+function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
 
@@ -519,7 +530,6 @@ function KpiGrid({
           "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
           "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
           "[&>*]:border-nd-border-light",
-          isRefreshing ? "opacity-75" : "",
         )}
       >
         {isLoading
@@ -562,34 +572,36 @@ function ChartGrid({
   const t = useTranslations("dataDashboard");
 
   return (
-    <section
-      aria-label={t("chartsAriaLabel", {
-        tab: getTabContent(t, activeTab).label,
-      })}
-      className={cn(
-        "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
-        "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
-        isRefreshing ? "opacity-75" : "",
-      )}
-    >
-      {isLoading
-        ? activeCharts.map((chart, index) => (
-            <ChartSkeleton
-              index={index}
-              key={chart.id}
-              title={getChartTitle(t, chart)}
-            />
-          ))
-        : visibleCharts.map((chart, index) => (
-            <ChartCard
-              chart={chart}
-              index={index}
-              key={chart.id}
-              rows={rows}
-              selectedProviders={selectedProviders}
-            />
-          ))}
-    </section>
+    <TooltipProvider delayDuration={100}>
+      <section
+        aria-label={t("chartsAriaLabel", {
+          tab: getTabContent(t, activeTab).label,
+        })}
+        className={cn(
+          "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
+          "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
+        )}
+      >
+        {isLoading
+          ? activeCharts.map((chart, index) => (
+              <ChartSkeleton
+                index={index}
+                key={chart.id}
+                title={getChartTitle(t, chart)}
+              />
+            ))
+          : visibleCharts.map((chart, index) => (
+              <ChartCard
+                chart={chart}
+                index={index}
+                isRefreshing={isRefreshing}
+                key={chart.id}
+                rows={rows}
+                selectedProviders={selectedProviders}
+              />
+            ))}
+      </section>
+    </TooltipProvider>
   );
 }
 
@@ -745,6 +757,10 @@ function DataResourceCard({
   index: number;
 }) {
   const t = useTranslations("dataDashboard");
+  const title = t(card.titleKey);
+  const description = t(card.descriptionKey);
+  const href = getResourceAnalyticsHref(card.href, card.analyticsId);
+  const cardRef = useDataResourceImpression(card.analyticsId, title, href);
 
   return (
     <article
@@ -753,12 +769,13 @@ function DataResourceCard({
         index > 0 ? "border-l border-nd-border-light" : "",
       )}
       data-node-id={card.nodeId}
+      ref={cardRef}
     >
       <img
         alt=""
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70",
+          "pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-70",
           card.backgroundClassName,
         )}
         src={card.backgroundSrc}
@@ -770,21 +787,119 @@ function DataResourceCard({
 
       <div className="relative flex min-w-0 flex-col gap-3">
         <h3 className="text-[20px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text">
-          {t(card.titleKey)}
+          {title}
         </h3>
-        <p className="nd-body-s max-w-[390px] text-[#ABABBA]">
-          {t(card.descriptionKey)}
-        </p>
+        <p className="nd-body-s max-w-[390px] text-[#ABABBA]">{description}</p>
       </div>
 
       <Link
         className="relative inline-flex min-h-[31px] items-center justify-center border border-white/55 px-3 py-2 font-brand-mono text-[11px] leading-none font-bold uppercase text-nd-high-em-text transition-colors hover:border-white hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-        href={card.href}
+        href={href}
+        onClick={() =>
+          trackDataResourceEvent("data_resource_click", {
+            destinationUrl: href,
+            resourceId: card.analyticsId,
+            resourceTitle: title,
+          })
+        }
+        rel="noopener noreferrer"
+        target="_blank"
       >
         {t(card.ctaKey)}
       </Link>
     </article>
   );
+}
+
+function getResourceAnalyticsHref(href: string, resourceId: string) {
+  if (!/^https?:\/\//i.test(href)) {
+    return href;
+  }
+
+  const url = new URL(href);
+
+  url.searchParams.set("utm_source", "solana.com");
+  url.searchParams.set("utm_medium", "data_dashboard");
+  url.searchParams.set("utm_campaign", "solana_data_resources");
+  url.searchParams.set("utm_content", resourceId);
+
+  return url.toString();
+}
+
+function useDataResourceImpression(
+  resourceId: string,
+  resourceTitle: string,
+  destinationUrl: string,
+) {
+  const cardRef = useRef<HTMLElement>(null);
+  const hasTrackedRef = useRef(false);
+
+  useEffect(() => {
+    const card = cardRef.current;
+
+    if (!card || hasTrackedRef.current) {
+      return;
+    }
+
+    if (!("IntersectionObserver" in window)) {
+      hasTrackedRef.current = true;
+      trackDataResourceEvent("data_resource_view", {
+        destinationUrl,
+        resourceId,
+        resourceTitle,
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting || entry.intersectionRatio < 0.5) {
+          return;
+        }
+
+        hasTrackedRef.current = true;
+        trackDataResourceEvent("data_resource_view", {
+          destinationUrl,
+          resourceId,
+          resourceTitle,
+        });
+        observer.disconnect();
+      },
+      { threshold: [0.5] },
+    );
+
+    observer.observe(card);
+
+    return () => observer.disconnect();
+  }, [destinationUrl, resourceId, resourceTitle]);
+
+  return cardRef;
+}
+
+function trackDataResourceEvent(
+  eventName: "data_resource_click" | "data_resource_view",
+  {
+    destinationUrl,
+    resourceId,
+    resourceTitle,
+  }: {
+    destinationUrl: string;
+    resourceId: string;
+    resourceTitle: string;
+  },
+) {
+  if (typeof window === "undefined" || typeof window.gtag === "undefined") {
+    return;
+  }
+
+  window.gtag("event", eventName, {
+    destination_url: destinationUrl,
+    event_category: "Solana Data",
+    event_label: resourceTitle,
+    origin_path: `${window.location.pathname}${window.location.search}`,
+    resource_id: resourceId,
+    resource_title: resourceTitle,
+  });
 }
 
 function DataResourceDecorGrid() {
@@ -819,11 +934,13 @@ function DataResourceDecorGrid() {
 function ChartCard({
   chart,
   index,
+  isRefreshing,
   rows,
   selectedProviders,
 }: {
   chart: ChartDefinition;
   index: number;
+  isRefreshing: boolean;
   rows: MetricRow[];
   selectedProviders: Set<ProviderName>;
 }) {
@@ -833,13 +950,20 @@ function ChartCard({
     [chart, rows, selectedProviders],
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
+  const title = getChartTitle(t, chart);
+  const methodologyNotes = getMethodologyNotes(chart, selectedProviders);
 
   return (
-    <article className="p-6 xl:p-8 flex flex-col gap-5">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-          {getChartTitle(t, chart)}
-        </h2>
+    <article className="relative p-6 xl:p-8 flex flex-col gap-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-2">
+          <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+            {title}
+          </h2>
+          {methodologyNotes.length > 0 ? (
+            <MethodologyTooltip label={title} notes={methodologyNotes} />
+          ) : null}
+        </div>
         <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
           {valueLabel}
         </span>
@@ -858,7 +982,68 @@ function ChartCard({
       )}
 
       <ChartOrdinal index={index} />
+      {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
+  );
+}
+
+function ChartRefreshingOverlay() {
+  const t = useTranslations("dataDashboard");
+
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/10"
+      role="status"
+    >
+      <Loader2
+        aria-hidden="true"
+        className="h-8 w-8 animate-spin text-nd-high-em-text/80"
+      />
+      <span className="sr-only">{t("loading.refreshing")}</span>
+    </div>
+  );
+}
+
+function MethodologyTooltip({
+  label,
+  notes,
+}: {
+  label: string;
+  notes: MethodologyComment[];
+}) {
+  const t = useTranslations("dataDashboard");
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          aria-label={t("methodology.ariaLabel", { metric: label })}
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
+          type="button"
+        >
+          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      </TooltipTrigger>
+      <TooltipPortal>
+        <TooltipContent
+          className="max-w-[340px] border-nd-border-prominent bg-[#1D1D20] px-3 py-2.5 text-xs leading-[1.45] text-nd-high-em-text"
+          side="top"
+        >
+          <span className="sr-only">{label}: </span>
+          <div className="grid gap-2">
+            {notes.map((note) => (
+              <div className="grid gap-0.5" key={note.provider}>
+                <span className="font-brand-mono text-[11px] font-bold uppercase text-nd-mid-em-text">
+                  {note.provider}
+                </span>
+                <span>{note.description}</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </TooltipPortal>
+    </Tooltip>
   );
 }
 
@@ -1295,6 +1480,15 @@ function getChartProviders(chart: ChartDefinition) {
   return chart.providers ?? providers;
 }
 
+function getMethodologyNotes(
+  chart: ChartDefinition,
+  selectedProviders: ReadonlySet<ProviderName>,
+) {
+  return (chart.methodology ?? []).filter((note) =>
+    selectedProviders.has(note.provider),
+  );
+}
+
 function isChartDataRow(
   row: MetricRow,
   metricSet: ReadonlySet<string>,
@@ -1462,6 +1656,7 @@ export function parseProviders(value: string | null) {
 
   const parsedProviders = value
     .split(",")
+    .map((provider) => normalizeProviderName(provider))
     .filter((provider): provider is ProviderName => isProviderName(provider));
 
   return parsedProviders.length > 0

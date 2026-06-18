@@ -89,11 +89,11 @@ describe("compareTooltipValues", () => {
   it("sorts equal values by label", () => {
     const values = [
       { color: "#FFFFFF", label: "Dune", value: 15.6 },
-      { color: "#FFFFFF", label: "DefiLama", value: 15.6 },
+      { color: "#FFFFFF", label: "DeFiLlama", value: 15.6 },
     ];
 
     expect(values.sort(compareTooltipValues).map((item) => item.label)).toEqual(
-      ["DefiLama", "Dune"],
+      ["DeFiLlama", "Dune"],
     );
   });
 });
