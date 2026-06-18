@@ -264,7 +264,7 @@ instruction itself. For implementation details, see:
 
 </Callout>
 
-### Example Code
+## Example Code
 
 The following code creates an associated token account and configures it for
 confidential transfers against an existing confidential mint.
@@ -276,9 +276,13 @@ Run the example against one of those (the code uses devnet) with a funded payer,
 and replace the mint placeholder with a mint created per
 [Create a Mint](/docs/tokens/extensions/confidential-transfer/create-mint).
 
+### Rust
+
 <CodeTabs>
 
 ```rust !! title="main.rs"
+// !collapse(1:36) collapsed
+// Imports: dependencies used by this example.
 use anyhow::{Context, Result};
 use solana_address::Address;
 use solana_client::rpc_client::RpcClient;
@@ -294,19 +298,23 @@ use solana_zk_elgamal_proof_interface::{
     state::ProofContextState,
 };
 use solana_zk_sdk::{
-    encryption::{auth_encryption::AeKey, elgamal::ElGamalKeypair},
+    encryption::{derivation::derive_confidential_keys, elgamal::ElGamalKeypair},
     zk_elgamal_proof_program::pubkey_validity::build_pubkey_validity_proof_data,
 };
-use solana_zk_sdk_pod::encryption::auth_encryption::PodAeCiphertext;
+use solana_zk_sdk_pod::encryption::{auth_encryption::PodAeCiphertext, elgamal::PodElGamalPubkey};
 use spl_associated_token_account::{
     get_associated_token_address_with_program_id, instruction::create_associated_token_account,
 };
 use spl_token_2022::{
     extension::{
-        confidential_transfer::instruction::{configure_account, PubkeyValidityProofData},
+        confidential_transfer::instruction::{
+            configure_account, initialize_mint as initialize_confidential_transfer_mint,
+            PubkeyValidityProofData,
+        },
         ExtensionType,
     },
-    instruction::reallocate,
+    instruction::{initialize_mint as initialize_mint_base, reallocate},
+    state::Mint,
 };
 use spl_token_confidential_transfer_proof_extraction::instruction::ProofLocation;
 use std::mem::size_of;
@@ -322,14 +330,13 @@ fn main() -> Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    // The Solana CLI default keypair, used as both fee payer and account owner.
+    // The Solana CLI default keypair, used as fee payer, mint authority, and
+    // token account owner.
     let payer = load_keypair()?;
+    let decimals: u8 = 2;
 
-    // A mint already created with the ConfidentialTransferMint extension
-    // (see "Create a Mint"). Replace with your mint address.
-    let mint: Pubkey = "REPLACE_WITH_YOUR_MINT_ADDRESS"
-        .parse()
-        .context("invalid mint address")?;
+    // Setup: create a confidential mint for the token account.
+    let mint = create_confidential_mint(&rpc_client, &payer, decimals)?;
 
     let token_account = get_associated_token_address_with_program_id(
         &payer.pubkey(),
@@ -358,14 +365,12 @@ fn main() -> Result<()> {
     // 3. Derive the owner's ElGamal keypair and AES key from a signature over
     //    the token account address. The same signer and address always derive
     //    the same keys, so the owner can recover them from their wallet.
-    let elgamal_keypair = ElGamalKeypair::new_from_signer(&payer, &token_account.to_bytes())
-        .map_err(|e| anyhow::anyhow!("derive ElGamal keypair: {e}"))?;
-    let aes_key = AeKey::new_from_signer(&payer, &token_account.to_bytes())
-        .map_err(|e| anyhow::anyhow!("derive AES key: {e}"))?;
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(&payer, &token_account.to_bytes())
+        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     // Initial decryptable available balance of 0, encrypted with the AES key.
     let decryptable_balance: PodAeCiphertext = aes_key.encrypt(0).into();
-    let maximum_pending_balance_credit_counter: u64 = 65536;
+    let maximum_pending_balance_credit_counter: u64 = 65_536;
 
     // 4. Generate the pubkey-validity proof, then pre-verify it into a context
     //    state account owned by the ZK ElGamal Proof program. configure_account
@@ -429,9 +434,65 @@ fn main() -> Result<()> {
     );
 
     let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
-    println!("Configured token account for confidential transfers: {signature}");
+    println!("Configured token account {token_account} for confidential transfers: {signature}");
 
     Ok(())
+}
+
+// !collapse(1:1000) collapsed
+// Setup: helper function to create the confidential mint.
+fn create_confidential_mint(rpc_client: &RpcClient, payer: &Keypair, decimals: u8) -> Result<Pubkey> {
+    let mint = Keypair::new();
+
+    // Allocate space for a mint that carries the ConfidentialTransferMint
+    // extension, then fund it for rent exemption.
+    let space = ExtensionType::try_calculate_account_len::<Mint>(&[
+        ExtensionType::ConfidentialTransferMint,
+    ])?;
+    let rent = rpc_client.get_minimum_balance_for_rent_exemption(space)?;
+
+    // The auditor ElGamal key lets the issuer decrypt transfer amounts for
+    // compliance. Persist this key. Pass `None` to create a mint with no auditor.
+    let auditor = ElGamalKeypair::new_rand();
+    let auditor_pubkey: PodElGamalPubkey = (*auditor.pubkey()).into();
+
+    let create_account_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &mint.pubkey(),
+        rent,
+        space as u64,
+        &spl_token_2022::id(),
+    );
+
+    // The confidential-transfer extension must be initialized before the base
+    // mint and cannot be added later.
+    let init_confidential_ix = initialize_confidential_transfer_mint(
+        &spl_token_2022::id(),
+        &mint.pubkey(),
+        Some(payer.pubkey()), // authority that can update confidential settings
+        true,                 // auto-approve new accounts
+        Some(auditor_pubkey),
+    )?;
+
+    let init_mint_ix = initialize_mint_base(
+        &spl_token_2022::id(),
+        &mint.pubkey(),
+        &payer.pubkey(), // mint authority
+        None,            // freeze authority
+        decimals,
+    )?;
+
+    let blockhash = rpc_client.get_latest_blockhash()?;
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_ix, init_confidential_ix, init_mint_ix],
+        Some(&payer.pubkey()),
+        &[payer, &mint],
+        blockhash,
+    );
+    let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
+    println!("Created confidential mint {}: {signature}", mint.pubkey());
+
+    Ok(mint.pubkey())
 }
 
 // Load the Solana CLI default keypair (~/.config/solana/id.json).
@@ -466,17 +527,23 @@ solana-transaction = "3.1"
 solana-commitment-config = "3.1.1"
 solana-system-interface = { version = "3.2.0", features = ["bincode"] }
 solana-address = "2.6"
-solana-zk-sdk = "6.0.1"
+solana-zk-sdk = "7.0.1"
 solana-zk-sdk-pod = "0.1.2"
 solana-zk-elgamal-proof-interface = "0.1.2"
 spl-token-2022 = { version = "11.0.0", features = ["zk-ops"] }
 spl-associated-token-account = "8.0.0"
-spl-token-confidential-transfer-proof-extraction = "0.6.0"
+spl-token-confidential-transfer-proof-extraction = "0.6.1"
 
 anyhow = "1.0"
 dirs = "6.0.0"
 serde_json = "1.0"
 ```
+
+</CodeTabs>
+
+### Typescript
+
+<CodeTabs>
 
 ```ts !! title="confidential-account.ts"
 import {
@@ -524,6 +591,23 @@ const plan = await getCreateConfidentialTransferAccountInstructionPlan({
 });
 
 await client.sendTransaction(plan);
+```
+
+```json !! title="package.json"
+{
+  "name": "confidential-account",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@solana-program/token-2022": "^0.12.0",
+    "@solana/kit": "^6.10.0",
+    "@solana/zk-sdk": "^0.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
 ```
 
 </CodeTabs>
