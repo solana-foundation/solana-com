@@ -659,7 +659,7 @@ function DataResourceCarousel() {
   return (
     <section
       aria-labelledby="data-resource-carousel-title"
-      className="mt-10 -mx-5 bg-black px-5 py-10 md:-mx-8 md:px-8 xl:-mx-10 xl:px-[125px] xl:py-11"
+      className="mt-10 -mx-5 bg-black px-5 py-10 md:-mx-8 md:px-8 xl:-mx-10 xl:px-10 xl:py-11"
       data-node-id="2:1090"
     >
       <div className="border border-nd-border-light bg-black">
