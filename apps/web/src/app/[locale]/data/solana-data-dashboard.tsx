@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import {
   Activity,
   ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   ExternalLink,
   Github,
@@ -13,8 +15,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import { Link } from "@solana-com/ui-chrome/link";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { usePathname, useRouter } from "@workspace/i18n/routing";
 
@@ -75,6 +78,81 @@ const chartHeight = 320;
 const dataRefreshIntervalMs = 24 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
 const sourceRepositoryUrl = "https://github.com/solana-foundation/solana-com";
+const resourceCardStepFallback = 460;
+const resourceCards = [
+  {
+    backgroundClassName: "rotate-180 scale-[1.08]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-1.jpg",
+    ctaKey: "buildSection.cards.sdp.cta",
+    descriptionKey: "buildSection.cards.sdp.description",
+    href: "/solutions/sdp",
+    nodeId: "3:1096",
+    titleKey: "buildSection.cards.sdp.title",
+  },
+  {
+    backgroundClassName: "-scale-y-100",
+    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
+    ctaKey: "buildSection.cards.pay.cta",
+    descriptionKey: "buildSection.cards.pay.description",
+    href: "https://pay.sh",
+    nodeId: "8:165",
+    titleKey: "buildSection.cards.pay.title",
+  },
+  {
+    backgroundClassName: "",
+    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.png",
+    ctaKey: "buildSection.cards.x402.cta",
+    descriptionKey: "buildSection.cards.x402.description",
+    href: "/x402",
+    nodeId: "8:171",
+    titleKey: "buildSection.cards.x402.title",
+  },
+  {
+    backgroundClassName: "rotate-180 scale-[1.08]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.jpg",
+    ctaKey: "buildSection.cards.tokens.cta",
+    descriptionKey: "buildSection.cards.tokens.description",
+    href: "/docs/tokens",
+    nodeId: "25:134",
+    titleKey: "buildSection.cards.tokens.title",
+  },
+  {
+    backgroundClassName: "translate-y-6",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-2.jpg",
+    ctaKey: "buildSection.cards.aggregator.cta",
+    descriptionKey: "buildSection.cards.aggregator.description",
+    href: sourceRepositoryUrl,
+    nodeId: "21:105",
+    titleKey: "buildSection.cards.aggregator.title",
+  },
+  {
+    backgroundClassName: "-scale-y-100 rotate-180",
+    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
+    ctaKey: "buildSection.cards.allium.cta",
+    descriptionKey: "buildSection.cards.allium.description",
+    href: "https://www.allium.so/",
+    nodeId: "25:113",
+    titleKey: "buildSection.cards.allium.title",
+  },
+  {
+    backgroundClassName: "scale-[1.18] -translate-y-10",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg",
+    ctaKey: "buildSection.cards.dune.cta",
+    descriptionKey: "buildSection.cards.dune.description",
+    href: "https://dune.com/browse/dashboards?q=solana",
+    nodeId: "25:120",
+    titleKey: "buildSection.cards.dune.title",
+  },
+  {
+    backgroundClassName: "-scale-y-100 translate-y-6",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.jpg",
+    ctaKey: "buildSection.cards.lightspeed.cta",
+    descriptionKey: "buildSection.cards.lightspeed.description",
+    href: "https://blockworks.com/podcast/lightspeed",
+    nodeId: "25:127",
+    titleKey: "buildSection.cards.lightspeed.title",
+  },
+] as const;
 const dataSWRConfig = {
   dedupingInterval: dataDedupingIntervalMs,
   keepPreviousData: true,
@@ -198,6 +276,8 @@ export function SolanaDataDashboard() {
             </p>
           ) : null}
         </section>
+
+        <DataResourceCarousel />
 
         {error ? <DataError error={error} /> : null}
 
@@ -510,6 +590,229 @@ function ChartGrid({
             />
           ))}
     </section>
+  );
+}
+
+function DataResourceCarousel() {
+  const t = useTranslations("dataDashboard");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
+
+  const updateScrollState = useCallback(() => {
+    const scrollElement = scrollRef.current;
+
+    if (!scrollElement) {
+      return;
+    }
+
+    const maxScrollLeft = scrollElement.scrollWidth - scrollElement.clientWidth;
+    const nextScrollState = {
+      canScrollLeft: scrollElement.scrollLeft > 1,
+      canScrollRight: scrollElement.scrollLeft < maxScrollLeft - 1,
+    };
+
+    setScrollState((currentScrollState) =>
+      currentScrollState.canScrollLeft === nextScrollState.canScrollLeft &&
+      currentScrollState.canScrollRight === nextScrollState.canScrollRight
+        ? currentScrollState
+        : nextScrollState,
+    );
+  }, []);
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+
+    updateScrollState();
+    window.addEventListener("resize", updateScrollState);
+    scrollElement?.addEventListener("scroll", updateScrollState, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("resize", updateScrollState);
+      scrollElement?.removeEventListener("scroll", updateScrollState);
+    };
+  }, [updateScrollState]);
+
+  const scrollCards = useCallback((direction: -1 | 1) => {
+    const scrollElement = scrollRef.current;
+
+    if (!scrollElement) {
+      return;
+    }
+
+    const scrollStep = Math.max(
+      resourceCardStepFallback,
+      scrollElement.clientWidth,
+    );
+
+    scrollElement.scrollBy({
+      behavior: "smooth",
+      left: direction * scrollStep,
+      top: 0,
+    });
+  }, []);
+
+  return (
+    <section
+      aria-labelledby="data-resource-carousel-title"
+      className="mt-10 -mx-5 bg-black px-5 py-10 md:-mx-8 md:px-8 xl:-mx-10 xl:px-[125px] xl:py-11"
+      data-node-id="2:1090"
+    >
+      <div className="border border-nd-border-light bg-black">
+        <div className="flex items-stretch border-b border-nd-border-light">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 px-6 py-7 md:px-9">
+            <h2
+              className="text-[28px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text md:text-[32px]"
+              id="data-resource-carousel-title"
+            >
+              {t("buildSection.title")}
+            </h2>
+            <p className="nd-body-s max-w-[670px] text-nd-mid-em-text">
+              {t("buildSection.description")}
+            </p>
+          </div>
+
+          <div className="hidden shrink-0 items-center gap-3 bg-white/[0.02] px-6 py-6 sm:flex md:px-9">
+            <DataResourceNavButton
+              ariaLabel={t("buildSection.previous")}
+              disabled={!scrollState.canScrollLeft}
+              icon={<ChevronLeft aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => scrollCards(-1)}
+            />
+            <DataResourceNavButton
+              ariaLabel={t("buildSection.next")}
+              disabled={!scrollState.canScrollRight}
+              icon={<ChevronRight aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => scrollCards(1)}
+            />
+          </div>
+        </div>
+
+        <div
+          className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          ref={scrollRef}
+        >
+          <div className="flex min-w-max xl:min-w-0">
+            {resourceCards.map((card, index) => (
+              <DataResourceCard card={card} index={index} key={card.titleKey} />
+            ))}
+          </div>
+        </div>
+
+        <DataResourceDecorGrid />
+      </div>
+    </section>
+  );
+}
+
+function DataResourceNavButton({
+  ariaLabel,
+  disabled,
+  icon,
+  onClick,
+}: {
+  ariaLabel: string;
+  disabled: boolean;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={ariaLabel}
+      className={cn(
+        "inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] text-nd-high-em-text transition-colors",
+        "hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+        disabled ? "cursor-not-allowed opacity-50 hover:bg-white/[0.08]" : "",
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+    </button>
+  );
+}
+
+function DataResourceCard({
+  card,
+  index,
+}: {
+  card: (typeof resourceCards)[number];
+  index: number;
+}) {
+  const t = useTranslations("dataDashboard");
+
+  return (
+    <article
+      className={cn(
+        "relative flex min-h-[186px] shrink-0 basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-6 py-7 md:basis-[460px] md:px-9 xl:basis-1/3",
+        index > 0 ? "border-l border-nd-border-light" : "",
+      )}
+      data-node-id={card.nodeId}
+    >
+      <img
+        alt=""
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-70",
+          card.backgroundClassName,
+        )}
+        src={card.backgroundSrc}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/45"
+      />
+
+      <div className="relative flex min-w-0 flex-col gap-3">
+        <h3 className="text-[20px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text">
+          {t(card.titleKey)}
+        </h3>
+        <p className="nd-body-s max-w-[390px] text-[#ABABBA]">
+          {t(card.descriptionKey)}
+        </p>
+      </div>
+
+      <Link
+        className="relative inline-flex min-h-[31px] items-center justify-center border border-white/55 px-3 py-2 font-brand-mono text-[11px] leading-none font-bold uppercase text-nd-high-em-text transition-colors hover:border-white hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+        href={card.href}
+      >
+        {t(card.ctaKey)}
+      </Link>
+    </article>
+  );
+}
+
+function DataResourceDecorGrid() {
+  return (
+    <div
+      aria-hidden="true"
+      className="hidden h-14 grid-rows-2 border-t border-nd-border-light md:grid"
+    >
+      {Array.from({ length: 2 }).map((_, rowIndex) => (
+        <div
+          className={cn(
+            "grid grid-cols-[minmax(80px,180px)_1fr_minmax(80px,180px)]",
+            rowIndex > 0 ? "border-t border-nd-border-light" : "",
+          )}
+          key={rowIndex}
+        >
+          {Array.from({ length: 3 }).map((__, columnIndex) => (
+            <span
+              className={cn(
+                "border-nd-border-light",
+                columnIndex < 2 ? "border-r" : "",
+              )}
+              key={columnIndex}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
