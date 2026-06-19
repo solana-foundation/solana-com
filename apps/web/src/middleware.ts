@@ -14,6 +14,11 @@ export default async function middleware(req: NextRequest) {
     ? `/${pathSegments.slice(1).join("/")}`
     : pathname;
 
+  // Skip i18n for the temporary design lab
+  if (pathname.startsWith("/design-lab")) {
+    return NextResponse.next();
+  }
+
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (

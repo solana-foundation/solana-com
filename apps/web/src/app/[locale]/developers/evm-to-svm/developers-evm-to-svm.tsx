@@ -1,20 +1,31 @@
 "use client";
 
+import { ResponsiveBox } from "@/component-library/responsive-box";
 import { CardDeck, Heading, Hero } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import {
-  HERO_BUTTONS,
   PRIMARY_CARD_DECK,
   SECONDARY_CARD_DECK,
 } from "@/data/developers/evm-to-svm";
 
 export function DevelopersEvmToSvmPage() {
   const t = useTranslations("developers-evm-to-svm");
+  const blockSpacing = { large: { marginTop: "48px" } };
 
-  const heroButtons = HERO_BUTTONS.map((button, index) => ({
-    ...button,
-    label: t(`hero.buttons.${index}.label`),
-  }));
+  const heroButtons = [
+    {
+      hierarchy: "primary",
+      size: "md",
+      url: "/developers/migrate-to-solana/complete-guide",
+      label: t("evmGuidesHeading.buttons.0.label"),
+    },
+    {
+      hierarchy: "outline",
+      size: "md",
+      url: "https://rareskills.io/solana-tutorial",
+      label: t("evmGuidesHeading.buttons.1.label"),
+    },
+  ];
 
   const primaryCards = PRIMARY_CARD_DECK.cards.map((card, index) => ({
     ...card,
@@ -36,15 +47,17 @@ export function DevelopersEvmToSvmPage() {
 
   return (
     <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-        buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
-      />
+      <ResponsiveBox responsiveStyles={blockSpacing}>
+        <Hero
+          headingAs="h1"
+          centered={false}
+          newsLetter={false}
+          eyebrow={t("evmGuidesHeading.eyebrow")}
+          headline={t("evmGuidesHeading.headline")}
+          body={t.raw("evmGuidesHeading.body")}
+          buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
+        />
+      </ResponsiveBox>
 
       <CardDeck
         cards={primaryCards as React.ComponentProps<typeof CardDeck>["cards"]}
@@ -56,11 +69,13 @@ export function DevelopersEvmToSvmPage() {
         featured={PRIMARY_CARD_DECK.featured}
       />
 
-      <Heading
-        eyebrow={t("heading.eyebrow")}
-        headline={t("heading.headline")}
-        body={t("heading.body")}
-      />
+      <ResponsiveBox responsiveStyles={blockSpacing}>
+        <Heading
+          eyebrow={t("heading.eyebrow")}
+          headline={t("heading.headline")}
+          body={t("heading.body")}
+        />
+      </ResponsiveBox>
 
       <CardDeck
         cards={secondaryCards as React.ComponentProps<typeof CardDeck>["cards"]}

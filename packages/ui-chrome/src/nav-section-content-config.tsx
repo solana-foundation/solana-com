@@ -1,6 +1,7 @@
 import NewspaperIcon from "./assets/nav/build/newspaper.inline.svg";
 import ApiConnectionBuildIcon from "./assets/nav/build/api-connection.inline.svg";
 import TemplatesIcon from "./assets/nav/build/templates.inline.svg";
+import EthereumIcon from "./assets/nav/build/ethereum.inline.svg";
 import SchoolIcon from "./assets/nav/build/school.inline.svg";
 import HandIcon from "./assets/nav/build/hand.inline.svg";
 import MaintenanceIcon from "./assets/nav/build/maintenance.inline.svg";
@@ -170,6 +171,12 @@ export const buildResourceItems: NavItemDefinition[] = [
     titleKey: "nav.build.resources.items.cookbook.title",
     href: "/developers/cookbook",
     icon: NewspaperIcon,
+  },
+  {
+    id: "build-chain-migration",
+    titleKey: "nav.developers.tutorials.chain-migration",
+    href: "/developers/migrate-to-solana",
+    icon: EthereumIcon,
   },
   {
     id: "build-templates",
