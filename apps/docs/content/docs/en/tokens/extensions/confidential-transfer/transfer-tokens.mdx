@@ -625,7 +625,7 @@ serde_json = "1.0"
 <CodeTabs>
 
 ```ts !! title="index.ts"
-// !collapse(1:43) collapsed
+// !collapse(1:45) collapsed
 // Imports: dependencies used by this example.
 import {
   deriveAeKeyForOwnerMint,
@@ -636,6 +636,7 @@ import {
 } from "@solana-program/token-2022/confidential";
 import {
   TOKEN_2022_PROGRAM_ADDRESS,
+  fetchMint,
   fetchToken,
   findAssociatedTokenPda,
   getConfidentialDepositInstruction,
@@ -651,6 +652,7 @@ import {
   createTransactionPlanner,
   extendClient,
   generateKeyPairSigner,
+  isSome,
   pipe,
   sendAndConfirmTransactionFactory,
   setTransactionMessageFeePayerSigner,
@@ -729,6 +731,7 @@ const decimals = 2;
 
 // Setup: create source and destination confidential accounts, then fund source.
 const mint = await createConfidentialMint(client, owner, decimals);
+const auditorElgamalPubkey = await getAuditorElgamalPubkey(client, mint);
 const sourceToken = await createConfidentialTokenAccount(client, owner, mint);
 const destinationToken = await createConfidentialTokenAccount(
   client,
@@ -743,7 +746,8 @@ await applyPendingBalance(client, owner, mint, sourceToken);
 const { elgamalKeypair: sourceElgamalKeypair, aesKey } =
   await deriveConfidentialKeys(owner, mint);
 
-// The helper reads the recipient and auditor keys from these on-chain accounts.
+// The helper reads the recipient key from the destination account; pass the
+// configured auditor key so the proof matches the mint configuration.
 const sourceTokenAccount = (await fetchToken(client.rpc, sourceToken)).data;
 const destinationTokenAccount = (await fetchToken(client.rpc, destinationToken))
   .data;
@@ -759,6 +763,7 @@ const plan = await getConfidentialTransferInstructionPlan({
   sourceTokenAccount,
   destinationToken,
   destinationTokenAccount,
+  auditorElgamalPubkey,
   amount,
   sourceElgamalKeypair,
   aesKey
@@ -773,6 +778,28 @@ console.log(`Transferred ${amount} tokens confidentially: ${signature}`);
 
 // !collapse(1:1000) collapsed
 // Setup: helper functions to create and fund confidential token accounts.
+async function getAuditorElgamalPubkey(
+  kitClient: typeof client,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>
+) {
+  const mintAccount = (await fetchMint(kitClient.rpc, mint)).data;
+  if (!isSome(mintAccount.extensions)) {
+    return undefined;
+  }
+
+  const confidentialTransferMint = mintAccount.extensions.value.find(
+    (extension) => extension.__kind === "ConfidentialTransferMint"
+  );
+  if (
+    confidentialTransferMint?.__kind !== "ConfidentialTransferMint" ||
+    !isSome(confidentialTransferMint.auditorElgamalPubkey)
+  ) {
+    return undefined;
+  }
+
+  return confidentialTransferMint.auditorElgamalPubkey.value;
+}
+
 async function createConfidentialMint(
   kitClient: typeof client,
   payer: typeof owner,
