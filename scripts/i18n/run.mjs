@@ -69,6 +69,8 @@ function runDocsContent() {
 
 const [, , target, app] = process.argv;
 
+run("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
+
 switch (target) {
   case "all":
     runUi();
