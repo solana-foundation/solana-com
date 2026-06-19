@@ -632,7 +632,7 @@ serde_json = "1.0"
 <CodeTabs>
 
 ```ts !! title="index.ts"
-// !collapse(1:31) collapsed
+// !collapse(1:43) collapsed
 // Imports: dependencies used by this example.
 import {
   deriveAeKeyForOwnerMint,
@@ -650,8 +650,19 @@ import {
   getMintToInstruction
 } from "@solana-program/token-2022";
 import {
+  assertIsSendableTransaction,
+  assertIsTransactionWithBlockhashLifetime,
   createClient,
+  createTransactionMessage,
+  createTransactionPlanExecutor,
+  createTransactionPlanner,
+  extendClient,
   generateKeyPairSigner,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
   some,
   summarizeTransactionPlanResult
 } from "@solana/kit";
@@ -662,6 +673,7 @@ import {
   ElGamalKeypair,
   ElGamalSecretKey
 } from "@solana/zk-sdk/bundler";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -672,7 +684,48 @@ const client = await createClient()
       rpcUrl: "https://api.devnet.solana.com",
       maxConcurrency: 1
     })
-  );
+  )
+  // Temporary custom plugin to skip the default compute-budget estimate
+  // so proof instructions fit within the transaction message cap.
+  // !collapse(1:38) collapsed
+  .use((client) =>
+    extendClient(client, {
+      // A planner that builds a bare versioned message with no provisory
+      // compute-unit-limit instruction.
+      transactionPlanner: createTransactionPlanner({
+        createTransactionMessage: () =>
+          pipe(createTransactionMessage({ version: 0 }), (tx) =>
+            setTransactionMessageFeePayerSigner(client.payer, tx)
+          )
+      }),
+      // An executor that sets the blockhash, signs, and sends, but never
+      // estimates or sets a compute-unit limit. The default RPC executor would
+      // re-add that instruction after planning validated the size.
+      transactionPlanExecutor: createTransactionPlanExecutor({
+        executeTransactionMessage: async (_context, message) => {
+          const { value: latestBlockhash } = await client.rpc
+            .getLatestBlockhash()
+            .send();
+          const transaction = await pipe(
+            setTransactionMessageLifetimeUsingBlockhash(
+              latestBlockhash,
+              message
+            ),
+            (tx) => signTransactionMessageWithSigners(tx)
+          );
+          assertIsSendableTransaction(transaction);
+          assertIsTransactionWithBlockhashLifetime(transaction);
+          await sendAndConfirmTransactionFactory(client)(transaction, {
+            commitment: "confirmed"
+          });
+          return transaction;
+        }
+      })
+    })
+  )
+  // Re-wire sendTransaction(s) so they capture the client with the overridden
+  // planner and executor above.
+  .use(planAndSendTransactions());
 
 // The Solana CLI default keypair, used as fee payer, mint authority, and sender.
 const owner = client.payer;
@@ -888,6 +941,7 @@ async function pauseForPublicRpc() {
     "@solana-program/system": "^0.12.2",
     "@solana-program/token-2022": "^0.12.0",
     "@solana/kit": "^6.10.0",
+    "@solana/kit-plugin-instruction-plan": "^0.10.0",
     "@solana/kit-plugin-rpc": "^0.11.1",
     "@solana/kit-plugin-signer": "^0.10.0",
     "@solana/zk-sdk": "^0.4.2"
