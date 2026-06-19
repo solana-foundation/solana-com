@@ -13,50 +13,67 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
-    key: "franklinTempleton",
-    href: "https://www.tokens.xyz/benji",
-  },
-  {
-    src: "/src/img/logos-eco/vaneck.png",
-    key: "vaneck",
-    href: "https://www.tokens.xyz/vbill",
-  },
-  {
-    src: "/src/img/logos-eco/blackrock.png",
-    key: "blackrock",
-    href: "https://www.tokens.xyz/ishares-core-us-aggregate-bond-etf",
-  },
-  {
-    src: "/src/img/logos-eco/apollo.webp",
-    key: "apollo",
-    href: "https://securitize.io/",
-  },
-  {
-    src: "/src/img/logos-eco/hamilton-lane.webp",
-    key: "hamiltonLane",
-    href: "https://securitize.io/",
-  },
-  {
     src: "/src/img/logos-eco/jupiter.svg",
     key: "jupiter",
-    href: "https://jup.ag",
+    href: "/news/solana-ecosystem-roundup-april-2026",
   },
   {
     src: "/src/img/logos-eco/kamino.svg",
     key: "kamino",
-    href: "https://app.kamino.finance",
+    href: "/news/state-of-solana-february-2026",
+  },
+  {
+    src: "/src/img/logos-eco/raydium.svg",
+    key: "raydium",
+    href: "/news/case-study-xstocks",
+  },
+  {
+    src: "/src/img/logos-eco/loopscale.svg",
+    key: "loopscale",
+    href: "/news/solana-ecosystem-roundup-march-2026",
+  },
+  {
+    src: "/src/img/logos-eco/franklin-templeton.webp",
+    key: "franklinTempleton",
+    href: "/news/state-of-solana-breakpoint-2024",
+  },
+  {
+    src: "/src/img/logos-eco/blackrock.png",
+    key: "blackrock",
+    href: "/news/state-of-solana-february-2026",
+  },
+  {
+    src: "/src/img/logos-eco/apollo.webp",
+    key: "apollo",
+    href: "/news/solana-ecosystem-roundup-march-2026",
+  },
+  {
+    src: "/src/img/logos-eco/hamilton-lane.webp",
+    key: "hamiltonLane",
+    href: "/news/rwas-libre-on-solana",
   },
 ];
 
 export const LOGOS = [
   {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
-    alt: "Franklin Templeton",
+    src: "/src/img/logos-eco/jupiter.svg",
+    alt: "Jupiter",
   },
   {
-    src: "/src/img/logos-eco/vaneck.png",
-    alt: "VanEck",
+    src: "/src/img/logos-eco/kamino.svg",
+    alt: "Kamino",
+  },
+  {
+    src: "/src/img/logos-eco/raydium.svg",
+    alt: "Raydium",
+  },
+  {
+    src: "/src/img/logos-eco/loopscale.svg",
+    alt: "Loopscale",
+  },
+  {
+    src: "/src/img/logos-eco/franklin-templeton.webp",
+    alt: "Franklin Templeton",
   },
   {
     src: "/src/img/logos-eco/blackrock.png",
@@ -74,41 +91,33 @@ export const LOGOS = [
     src: "/src/img/logos-eco/brevan-howard.png",
     alt: "Brevan Howard",
   },
-  {
-    src: "/src/img/logos-eco/jupiter.svg",
-    alt: "Jupiter",
-  },
-  {
-    src: "/src/img/logos-eco/kamino.svg",
-    alt: "Kamino",
-  },
 ];
 
 export const PRODUCTS = [
   {
-    key: "treasuries",
-    Icon: LedgerIcon,
-    href: "https://www.tokens.xyz/?category=rwas",
+    key: "equities",
+    Icon: ChartIcon,
+    href: "/news/case-study-xstocks",
   },
   {
     key: "etfs",
     Icon: ChartIcon,
-    href: "https://www.tokens.xyz/?category=etfs",
+    href: "/news/ondo-global-markets-tokenized-stocks-etfs-solana",
   },
   {
     key: "metals",
     Icon: CoinsIcon,
-    href: "https://www.tokens.xyz/?category=metals",
+    href: "/news/matrixdock-xaum-launch",
   },
   {
-    key: "stocks",
-    Icon: ChartIcon,
-    href: "https://www.tokens.xyz/?category=stocks",
+    key: "treasuries",
+    Icon: LedgerIcon,
+    href: "/news/wisdomtree-tokenization-solana",
   },
   {
-    key: "api",
+    key: "marketData",
     Icon: TokenIcon,
-    href: "https://www.tokens.xyz/assets-api",
+    href: "/news/inside-tokens-xyz",
   },
 ];
 
