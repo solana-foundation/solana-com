@@ -1,31 +1,146 @@
 ---
-title: Batch
+title: Calling the Token Program via CPI
 description:
-  Bundle multiple Token Program instructions into a single Batch CPI from an
-  on-chain program to reduce cross-program invocation overhead.
-url: /docs/tokens/advanced/batch
-type: reference
+  Invoke the Token Program from an on-chain program with a Cross Program
+  Invocation (CPI) — transfer, mint, and burn tokens, sign with a PDA authority,
+  and batch several token instructions into a single CPI.
+url: /docs/tokens/advanced/cpi
+type: tutorial
 related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
   - /docs/tokens/advanced/withdraw-excess-lamports
   - /docs/tokens/advanced/unwrap-lamports
 ---
 
-## What Does Batch Do?
+On-chain programs move tokens by issuing a
+[Cross Program Invocation (CPI)](/docs/core/cpi) into the Token Program. Your
+program builds a Token Program instruction, supplies the accounts it needs, and
+calls _rs`invoke`_ (or _rs`invoke_signed`_ when a Program Derived Address
+signs). The Token Program then runs that instruction with the privileges your
+program extends to it.
+
+This page covers the token-specific side of that flow. For the CPI mechanism
+itself — how _rs`invoke`_ and _rs`invoke_signed`_ work, how signer and writable
+privileges propagate, and the
+[per-CPI cost model](/docs/core/cpi/cpi-cost-model) — see
+[Cross Program Invocation](/docs/core/cpi).
+
+## Common patterns
+
+Most token CPIs follow the same shape: build the instruction, pass the token
+accounts and an authority, and invoke. The example below transfers tokens with
+_rs`TransferChecked`_, which verifies the mint and decimals as part of the
+transfer.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token::{transfer_checked, Mint, Token, TokenAccount, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: Account<'info, TokenAccount>,
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Minting, burning, and closing accounts follow the same pattern with a different
+instruction — _rs`MintTo`_, _rs`Burn`_, and _rs`CloseAccount`_ in Anchor's
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+module, or the matching builders in
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token). For complete,
+runnable programs that CPI into the Token Program in both Anchor and native
+Rust, see the [token program examples](/docs/programs/examples#tokens) — in
+particular the "Transfer Tokens" example.
+
+## Signing with a PDA authority
+
+When the authority on a token account is a
+[Program Derived Address](/docs/core/pda) owned by your program, the program
+signs the CPI itself with _rs`invoke_signed`_, passing the PDA seeds as signer
+seeds. In Anchor, use _rs`CpiContext::new_with_signer`_ with the seeds instead
+of _rs`CpiContext::new`_. The instruction is otherwise identical to the examples
+above. See [CPIs with PDA Signers](/docs/core/cpi/cpi-with-pda) for the full
+mechanics.
+
+## Batching
 
 The _rs`Batch`_ instruction executes several Token Program instructions inside a
-single program invocation. From an on-chain program you reach it through one
-[Cross Program Invocation (CPI)](/docs/core/cpi) into the Token Program. Each
-CPI carries a fixed compute cost, so running several token operations in one
-batch CPI uses fewer [compute units](/docs/core/fees/compute-budget) than
-issuing a separate CPI per operation — see the
-[CPI cost model](/docs/core/cpi/cpi-cost-model) for how per-CPI costs add up.
+single program invocation. Because each CPI carries a fixed compute cost,
+running several token operations in one batch CPI uses fewer
+[compute units](/docs/core/fees/compute-budget) than issuing a separate CPI per
+operation — see the [CPI cost model](/docs/core/cpi/cpi-cost-model) for how
+per-CPI costs add up.
 
 Lower compute usage reduces the [priority fees](/docs/core/fees) a transaction
 pays per compute unit and improves its chance of landing — which matters most
-for programs that perform many token operations in a single instruction.
-
-Common uses include fanning out a transfer to many recipients, or running a
-multi-step token flow (for example sync, transfer, and close) in a single CPI.
+for programs that perform many token operations in a single instruction. Common
+uses include fanning out a transfer to many recipients, or running a multi-step
+token flow (for example sync, transfer, and close) in a single CPI.
 
 <Callout type="info">
 
@@ -36,14 +151,14 @@ are owned by the Token Program before executing them.
 
 </Callout>
 
-### Source Reference
+### Source reference
 
 | Item                | Description                                | Source                                                                                               |
 | ------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | _rs`Batch`_         | The Batch instruction (discriminator 255). | [Source](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
 | _rs`process_batch`_ | Batch processor logic.                     | [Source](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
 
-## Calling Batch via CPI
+### Calling Batch via CPI
 
 The [`pinocchio-token`](https://crates.io/crates/pinocchio-token) crate exposes
 a _rs`Batch`_ builder under _rs`pinocchio_token::instructions::Batch`_. You
@@ -132,7 +247,7 @@ When a child instruction's authority is a PDA owned by your program, sign the
 CPI with _rs`invoke_signed`_ instead of _rs`invoke`_, passing the PDA seeds as
 _rs`Signer`_ entries.
 
-## Instruction Data Layout
+### Instruction data layout
 
 A batch encodes its children one after another behind the `255` discriminator.
 All accounts are passed flat, in order, and sliced by `num_accounts` for each
