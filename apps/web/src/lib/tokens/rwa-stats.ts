@@ -104,17 +104,23 @@ export const fetchRwaStats = async (): Promise<RwaStats> => {
       volume24hUSD: sum((asset) => asset.stats?.volume24hUSD),
     };
 
-    // Guard against a partial/empty payload leaving a field at zero.
+    // Guard against a partial/empty payload: if no relevant assets surfaced,
+    // all derived aggregates would be zero/stale so fall back entirely.
+    if (stats.totalAssets === 0) {
+      return FALLBACK_STATS;
+    }
+
     return {
       treasuries: stats.treasuries || FALLBACK_STATS.treasuries,
       etfs: stats.etfs || FALLBACK_STATS.etfs,
       commodities: stats.commodities || FALLBACK_STATS.commodities,
       stocks: stats.stocks || FALLBACK_STATS.stocks,
-      totalAssets: stats.totalAssets || FALLBACK_STATS.totalAssets,
+      totalAssets: stats.totalAssets,
       totalValueUSD: stats.totalValueUSD || FALLBACK_STATS.totalValueUSD,
-      volume24hUSD: stats.volume24hUSD || FALLBACK_STATS.volume24hUSD,
+      volume24hUSD: stats.volume24hUSD,
     };
-  } catch {
+  } catch (err) {
+    console.error("[fetchRwaStats] failed, using fallback stats:", err);
     return FALLBACK_STATS;
   } finally {
     clearTimeout(timeout);
