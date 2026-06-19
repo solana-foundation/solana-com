@@ -18,6 +18,7 @@ export type SolutionReportProps = {
   links?: SolutionReportLink[];
   linksTitle?: string;
   bgJsonFilePath?: string;
+  bgTintColor?: string;
 };
 
 /**
@@ -33,6 +34,7 @@ export type SolutionReportProps = {
  * @param {SolutionReportLink[]} props.links - The links to display in the report.
  * @param {string} props.linksTitle - The title of the links.
  * @param {string} props.bgJsonFilePath - The path to the background JSON file.
+ * @param {string} props.bgTintColor - Optional color tint layered over the background scene.
  *
  * @example
  * <SolutionReport
@@ -58,6 +60,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   links,
   linksTitle,
   bgJsonFilePath,
+  bgTintColor,
 }) => {
   if (!emailCta || !onEmailClick) {
     return null;
@@ -78,6 +81,16 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           production={true}
           onError={(error) => console.error("UnicornScene error:", error)}
         />
+        {bgTintColor && (
+          <div
+            aria-hidden={true}
+            className="pointer-events-none absolute inset-0 rounded-xl"
+            style={{
+              backgroundColor: bgTintColor,
+              mixBlendMode: "color",
+            }}
+          />
+        )}
       </div>
       <div className="py-[64px] md:py-[112px] xl:py-[160px] relative">
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">

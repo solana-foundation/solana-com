@@ -1,14 +1,16 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import type { SolutionNewsQuery } from "@/lib/media/solution-news";
 import {
-  ActivityIcon,
-  ChartIcon,
-  CoinsIcon,
-  GlobeIcon,
-  LedgerIcon,
-  TokenIcon,
-  UsersIcon,
-} from "@solana-com/ui-chrome/icons";
+  BadgeCheck,
+  CandlestickChart,
+  DatabaseZap,
+  Gem,
+  Landmark,
+  Layers3,
+  LockKeyhole,
+  ShieldCheck,
+  UserCheck,
+} from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -46,11 +48,6 @@ export const PROJECTS = [
     src: "/src/img/logos-eco/apollo.webp",
     key: "apollo",
     href: "/news/solana-ecosystem-roundup-march-2026",
-  },
-  {
-    src: "/src/img/logos-eco/hamilton-lane.webp",
-    key: "hamiltonLane",
-    href: "/news/rwas-libre-on-solana",
   },
 ];
 
@@ -96,27 +93,27 @@ export const LOGOS = [
 export const PRODUCTS = [
   {
     key: "equities",
-    Icon: ChartIcon,
+    Icon: CandlestickChart,
     href: "/news/case-study-xstocks",
   },
   {
     key: "etfs",
-    Icon: ChartIcon,
+    Icon: Layers3,
     href: "/news/ondo-global-markets-tokenized-stocks-etfs-solana",
   },
   {
     key: "metals",
-    Icon: CoinsIcon,
+    Icon: Gem,
     href: "/news/matrixdock-xaum-launch",
   },
   {
     key: "treasuries",
-    Icon: LedgerIcon,
+    Icon: Landmark,
     href: "/news/wisdomtree-tokenization-solana",
   },
   {
     key: "marketData",
-    Icon: TokenIcon,
+    Icon: DatabaseZap,
     href: "/news/inside-tokens-xyz",
   },
 ];
@@ -124,22 +121,22 @@ export const PRODUCTS = [
 export const COMPLIANCE = [
   {
     key: "tokenExtensions",
-    Icon: LedgerIcon,
+    Icon: BadgeCheck,
     href: "/solutions/token-extensions",
   },
   {
     key: "permissioned",
-    Icon: GlobeIcon,
+    Icon: ShieldCheck,
     href: "/solutions/solana-permissioned-environments",
   },
   {
     key: "identity",
-    Icon: UsersIcon,
+    Icon: UserCheck,
     href: "/solutions/token-extensions",
   },
   {
     key: "confidential",
-    Icon: ActivityIcon,
+    Icon: LockKeyhole,
     href: "/solutions/token-extensions",
   },
 ];

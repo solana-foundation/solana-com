@@ -93,6 +93,7 @@ export function SolutionsRealWorldAssetsPage({
           stats={heroStats}
           reportImgSrc="/src/img/solutions/icm/hero-download.webp"
           bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
+          bgTintColor="rgba(163, 255, 18, 0.55)"
         />
 
         <Divider />
@@ -135,6 +136,7 @@ export function SolutionsRealWorldAssetsPage({
           projects={PROJECTS}
           translationBase="real-world-assets-solution.projects"
           logos={LOGOS}
+          controlsAlign="right"
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
         />
 
@@ -146,7 +148,6 @@ export function SolutionsRealWorldAssetsPage({
           description={t("real-world-assets-solution.products.description")}
           products={PRODUCTS}
           translationBase="real-world-assets-solution.products"
-          imageSrc="/src/img/solutions/icm/toolkit.svg"
           highlightColor="#A3FF12"
         />
 
@@ -207,6 +208,7 @@ export function SolutionsRealWorldAssetsPage({
             },
           ]}
           bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
+          bgTintColor="rgba(163, 255, 18, 0.55)"
         />
       </div>
 
