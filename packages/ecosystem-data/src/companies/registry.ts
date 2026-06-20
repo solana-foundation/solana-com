@@ -51,6 +51,7 @@ import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
+import { orbis } from "./records/orbis";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
@@ -149,6 +150,7 @@ export const companies = [
   monkeDao,
   morganStanley,
   openmined,
+  orbis,
   orbitflare,
   osl,
   pancakeswap,
