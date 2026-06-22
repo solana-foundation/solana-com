@@ -5,19 +5,7 @@ export const rangeOptions = [
   { label: "1Y", value: 365 },
 ] as const;
 
-export const providers = [
-  "Allium",
-  "Artemis",
-  "Blockworks",
-  "DeFiLlama",
-  "Dune",
-  "RWA",
-  "Stakewiz",
-  "Token Terminal",
-  "Validators App",
-] as const;
-
-export type ProviderName = (typeof providers)[number];
+export type ProviderName = string;
 export type DashboardTab = "stablecoins" | "overview" | "network" | "defi";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
@@ -35,7 +23,6 @@ export type ChartDefinition = {
   metrics: readonly string[];
   aggregation: Aggregation;
   seriesField: SeriesField;
-  providers?: readonly ProviderName[];
   methodology?: readonly MethodologyComment[];
 };
 
@@ -54,7 +41,7 @@ export type DataApiResponse = {
   rows: MetricRow[];
 };
 
-export const providerColors: Record<ProviderName, string> = {
+export const providerColors: Record<string, string> = {
   Allium: "#DFA3DA",
   Artemis: "#14F195",
   Blockworks: "#E32EE9",
@@ -74,53 +61,6 @@ const providerAliases: Record<string, ProviderName> = {
 export function normalizeProviderName(value: string) {
   return providerAliases[value] ?? value;
 }
-
-const dexVolumeProviders = [
-  "Allium",
-  "Artemis",
-  "Blockworks",
-  "Dune",
-  "Token Terminal",
-] as const satisfies readonly ProviderName[];
-
-const dexActivityProviders = [
-  "Allium",
-  "Dune",
-] as const satisfies readonly ProviderName[];
-
-const dexCountProviders = [
-  "Allium",
-  "Blockworks",
-  "DeFiLlama",
-  "Dune",
-] as const satisfies readonly ProviderName[];
-
-const stablecoinCountProviders = [
-  "Allium",
-  "DeFiLlama",
-  "Dune",
-] as const satisfies readonly ProviderName[];
-
-const networkStakeProviders = [
-  "Blockworks",
-  "Stakewiz",
-  "Validators App",
-] as const satisfies readonly ProviderName[];
-
-const networkValidatorProviders = [
-  "Stakewiz",
-  "Validators App",
-] as const satisfies readonly ProviderName[];
-
-const networkPriceProviders = [
-  "Blockworks",
-  "Validators App",
-] as const satisfies readonly ProviderName[];
-
-const networkAsnProviders = [
-  "Stakewiz",
-  "Validators App",
-] as const satisfies readonly ProviderName[];
 
 export const metricColors: Record<string, string> = {
   "Base Fees": "#9945FF",
@@ -232,7 +172,6 @@ export const chartDefinitions = [
     metrics: ["Stablecoin Count"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: stablecoinCountProviders,
   },
   {
     id: "transaction-count",
@@ -323,7 +262,6 @@ export const chartDefinitions = [
     metrics: ["Total Stake"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: networkStakeProviders,
   },
   {
     id: "validator-count",
@@ -333,7 +271,6 @@ export const chartDefinitions = [
     metrics: ["Validator Count"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: networkValidatorProviders,
   },
   {
     id: "top-asn-share",
@@ -343,7 +280,6 @@ export const chartDefinitions = [
     metrics: ["Top 3 ASN Share"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: networkAsnProviders,
   },
   {
     id: "sol-price-network",
@@ -353,7 +289,6 @@ export const chartDefinitions = [
     metrics: ["SOL Price (Network)"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: networkPriceProviders,
   },
   {
     id: "dex-volume",
@@ -363,7 +298,6 @@ export const chartDefinitions = [
     metrics: ["DEX Volume"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: dexVolumeProviders,
     methodology: [
       {
         provider: "Allium",
@@ -389,7 +323,6 @@ export const chartDefinitions = [
     metrics: ["DEX Transactions"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: dexActivityProviders,
     methodology: [
       {
         provider: "Allium",
@@ -406,7 +339,6 @@ export const chartDefinitions = [
     metrics: ["DEX Count"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: dexCountProviders,
     methodology: [
       {
         provider: "Allium",
@@ -432,7 +364,6 @@ export const chartDefinitions = [
     metrics: ["DEX Traders"],
     aggregation: "avg",
     seriesField: "provider",
-    providers: dexActivityProviders,
     methodology: [
       {
         provider: "Allium",

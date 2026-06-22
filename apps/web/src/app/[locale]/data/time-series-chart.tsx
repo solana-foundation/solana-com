@@ -42,13 +42,14 @@ type TooltipData = {
   values: TooltipValue[];
 };
 
-const margin = {
+const baseMargin = {
   top: 16,
   right: 20,
   bottom: 36,
   left: 62,
 };
 
+const compactChartMaxWidth = 767;
 const coincidentDashPatterns = ["6 4", "2 4"] as const;
 const dimmedSeriesOpacity = 0.25;
 
@@ -77,8 +78,8 @@ export function TimeSeriesChart({
   const allSeriesSelected = visibleSeries.length === series.length;
 
   return (
-    <div className="grid gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
-      <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+    <div className="flex min-w-0 flex-col gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
+      <div className="flex min-h-6 w-full flex-wrap items-center gap-1.5">
         {series.map((item) => {
           const disabled = disabledSeries.has(item.id);
 
@@ -191,6 +192,10 @@ function ChartSvg({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
+  const margin =
+    width <= compactChartMaxWidth
+      ? { top: 16, right: 12, bottom: 32, left: 52 }
+      : baseMargin;
   const innerWidth = Math.max(width - margin.left - margin.right, 0);
   const innerHeight = Math.max(height - margin.top - margin.bottom, 0);
   const points = series.flatMap((item) => item.points);

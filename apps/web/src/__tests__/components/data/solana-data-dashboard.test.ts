@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+import type { MetricRow, ProviderName } from "@/app/[locale]/data/data-config";
 import {
-  chartDefinitions,
-  providers,
-  type ProviderName,
-} from "@/app/[locale]/data/data-config";
-import {
+  getAvailableProviders,
   getMedian,
+  getSelectedProviderList,
   parseProviders,
   updateProvidersParam,
 } from "@/app/[locale]/data/solana-data-dashboard";
+
+const availableProviders: ProviderName[] = [
+  "Allium",
+  "DeFiLlama",
+  "Dune",
+  "New Provider",
+];
 
 describe("getMedian", () => {
   it("returns the middle value for an odd count", () => {
@@ -41,7 +46,11 @@ describe("provider query state", () => {
   it("drops the param when all providers are selected", () => {
     const params = new URLSearchParams("providers=Allium");
 
-    updateProvidersParam(params, new Set<ProviderName>(providers));
+    updateProvidersParam(
+      params,
+      new Set<ProviderName>(availableProviders),
+      availableProviders,
+    );
 
     expect(params.has("providers")).toBe(false);
   });
@@ -49,7 +58,7 @@ describe("provider query state", () => {
   it("persists an empty selection as none", () => {
     const params = new URLSearchParams();
 
-    updateProvidersParam(params, new Set<ProviderName>());
+    updateProvidersParam(params, new Set<ProviderName>(), availableProviders);
 
     expect(params.get("providers")).toBe("none");
   });
@@ -59,35 +68,91 @@ describe("provider query state", () => {
   });
 
   it("parses a missing param as all providers", () => {
-    expect(parseProviders(null).size).toBe(providers.length);
+    expect(parseProviders(null, availableProviders)).toEqual(
+      new Set(availableProviders),
+    );
   });
 
   it("round-trips a partial selection", () => {
     const params = new URLSearchParams();
     const selection = new Set<ProviderName>(["Dune", "Allium"]);
 
-    updateProvidersParam(params, selection);
+    updateProvidersParam(params, selection, availableProviders);
 
-    expect(parseProviders(params.get("providers"))).toEqual(selection);
+    expect(parseProviders(params.get("providers"), availableProviders)).toEqual(
+      selection,
+    );
   });
 
   it("falls back to all providers for unknown values", () => {
-    expect(parseProviders("NotAProvider").size).toBe(providers.length);
+    expect(parseProviders("NotAProvider", availableProviders)).toEqual(
+      new Set(availableProviders),
+    );
   });
 
   it("normalizes legacy DeFiLlama provider spellings", () => {
-    expect(parseProviders("DefiLama")).toEqual(
+    expect(parseProviders("DefiLama", availableProviders)).toEqual(
       new Set<ProviderName>(["DeFiLlama"]),
     );
   });
-});
 
-describe("chart provider config", () => {
-  it("shows DeFiLlama for Stablecoin Count when source data exists", () => {
-    const stablecoinCountChart = chartDefinitions.find(
-      (chart) => chart.id === "stablecoin-count",
+  it("keeps provider params before SQL rows are available", () => {
+    expect(parseProviders("New Provider")).toEqual(
+      new Set<ProviderName>(["New Provider"]),
+    );
+  });
+
+  it("keeps parsed provider labels visible before SQL rows are available", () => {
+    const selectedProviders = parseProviders("New Provider,Dune");
+
+    expect(getSelectedProviderList(selectedProviders, [])).toEqual([
+      "Dune",
+      "New Provider",
+    ]);
+  });
+
+  it("orders selected provider labels by available SQL providers once loaded", () => {
+    const selectedProviders = parseProviders(
+      "New Provider,Dune",
+      availableProviders,
     );
 
-    expect(stablecoinCountChart?.providers).toContain("DeFiLlama");
+    expect(
+      getSelectedProviderList(selectedProviders, availableProviders),
+    ).toEqual(["Dune", "New Provider"]);
+  });
+});
+
+describe("available providers", () => {
+  it("derives provider names from SQL rows", () => {
+    const rows: MetricRow[] = [
+      {
+        date: "2026-06-01",
+        metricName: "Supply",
+        providerName: "Dune",
+        unit: "USD",
+        value: 1,
+      },
+      {
+        date: "2026-06-01",
+        metricName: "Supply",
+        providerName: "Brand New Provider",
+        unit: "USD",
+        value: 1,
+      },
+      {
+        date: "2026-06-01",
+        metricName: "Supply",
+        providerName: "DefiLama",
+        unit: "USD",
+        value: 1,
+      },
+    ];
+
+    expect(getAvailableProviders(rows)).toEqual([
+      "Brand New Provider",
+      "DeFiLlama",
+      "Dune",
+    ]);
   });
 });
