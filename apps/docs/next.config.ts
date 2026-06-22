@@ -4,13 +4,6 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const frameAncestors = [
-  "'self'",
-  "https://*.builder.io",
-  "https://builder.io",
-  "http://localhost:1234",
-];
-
 const securityHeaders: Array<{ key: string; value: string }> = [
   {
     key: "X-Frame-Options",
@@ -26,7 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value: `frame-ancestors ${frameAncestors.join(" ")}`,
+    value: `frame-ancestors 'self'`,
   },
 ];
 
