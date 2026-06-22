@@ -196,7 +196,7 @@ function ChartSvg({
   } = useTooltip<TooltipData>();
 
   const margin = compact
-    ? { top: 16, right: 12, bottom: 32, left: 42 }
+    ? { top: 16, right: 12, bottom: 32, left: 52 }
     : baseMargin;
   const innerWidth = Math.max(width - margin.left - margin.right, 0);
   const innerHeight = Math.max(height - margin.top - margin.bottom, 0);
