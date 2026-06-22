@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATABRICKS_CACHE_REVALIDATE_SECONDS = 24 * 60 * 60;
+const DATABRICKS_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
 const BROWSER_CACHE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
 const DEFAULT_RANGE_DAYS = 90;
@@ -27,8 +27,8 @@ const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DATA_REFRESH_TIME_ZONE = "America/New_York";
-// Source jobs run around 9 AM Eastern; roll dashboard caches at 10 AM Eastern.
-const DATA_REFRESH_HOUR = 10;
+// Source jobs run around 9 AM and 9 PM Eastern; roll dashboard caches an hour later.
+const DATA_REFRESH_HOURS = [10, 22] as const;
 const DATA_UNAVAILABLE_ERROR =
   "Solana data is unavailable right now. Try again in a moment.";
 
@@ -153,16 +153,19 @@ function getDatabricksCacheKey(config: DatabricksConfig, rangeDays: number) {
 
 function getDatabricksRefreshCacheKey(now = new Date()) {
   const parts = getTimeZoneDateTimeParts(now, DATA_REFRESH_TIME_ZONE);
+  const latestRefreshHour = getLatestScheduledRefreshHour(parts.hour);
+  const refreshHour =
+    latestRefreshHour ?? DATA_REFRESH_HOURS[DATA_REFRESH_HOURS.length - 1];
   const refreshDate = new Date(
     Date.UTC(
       parts.year,
       parts.month - 1,
-      parts.day +
-        (hasPassedScheduledRefresh(parts, DATA_REFRESH_HOUR) ? 0 : -1),
+      parts.day + (latestRefreshHour === undefined ? -1 : 0),
+      refreshHour,
     ),
   );
 
-  return refreshDate.toISOString().slice(0, 10);
+  return `${refreshDate.toISOString().slice(0, 10)}-${String(refreshHour).padStart(2, "0")}`;
 }
 
 function getSuccessCacheControl(now = new Date()) {
@@ -190,23 +193,26 @@ function getScheduledRefreshDate(
   parts: ReturnType<typeof getTimeZoneDateTimeParts>,
   now: Date,
 ) {
-  const dayOffset = hasPassedScheduledRefresh(parts, DATA_REFRESH_HOUR) ? 1 : 0;
+  const nextRefreshHour = getNextScheduledRefreshHour(parts.hour);
+  const refreshHour = nextRefreshHour ?? DATA_REFRESH_HOURS[0];
+  const dayOffset = nextRefreshHour === undefined ? 1 : 0;
 
   return zonedTimeToUtc(
     parts.year,
     parts.month,
     parts.day + dayOffset,
-    DATA_REFRESH_HOUR,
+    refreshHour,
     DATA_REFRESH_TIME_ZONE,
     now,
   );
 }
 
-function hasPassedScheduledRefresh(
-  parts: ReturnType<typeof getTimeZoneDateTimeParts>,
-  hour: number,
-) {
-  return parts.hour >= hour;
+function getLatestScheduledRefreshHour(hour: number) {
+  return DATA_REFRESH_HOURS.findLast((refreshHour) => hour >= refreshHour);
+}
+
+function getNextScheduledRefreshHour(hour: number) {
+  return DATA_REFRESH_HOURS.find((refreshHour) => hour < refreshHour);
 }
 
 function zonedTimeToUtc(

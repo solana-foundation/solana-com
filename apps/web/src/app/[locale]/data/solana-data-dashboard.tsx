@@ -84,7 +84,7 @@ const defaultRangeDays = 90;
 const emptyRows: MetricRow[] = [];
 const kpiCount = 4;
 const chartHeight = 320;
-const dataRefreshIntervalMs = 24 * 60 * 60 * 1000;
+const dataRefreshIntervalMs = 12 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
