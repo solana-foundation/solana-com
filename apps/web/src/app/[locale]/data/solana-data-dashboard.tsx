@@ -94,7 +94,7 @@ const resourceCards = [
   {
     analyticsId: "sdp",
     backgroundClassName: "rotate-180 scale-[1.08]",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-1.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-1.webp",
     ctaKey: "buildSection.cards.sdp.cta",
     descriptionKey: "buildSection.cards.sdp.description",
     href: "/solutions/sdp",
@@ -104,7 +104,7 @@ const resourceCards = [
   {
     analyticsId: "solana-data-aggregator",
     backgroundClassName: "",
-    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-2.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-2.webp",
     ctaKey: "buildSection.cards.aggregator.cta",
     descriptionKey: "buildSection.cards.aggregator.description",
     href: dataAggregatorRepositoryUrl,
@@ -114,7 +114,7 @@ const resourceCards = [
   {
     analyticsId: "allium",
     backgroundClassName: "-scale-y-100 rotate-180",
-    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.webp",
     ctaKey: "buildSection.cards.allium.cta",
     descriptionKey: "buildSection.cards.allium.description",
     href: "https://www.allium.so/solana",
@@ -124,7 +124,7 @@ const resourceCards = [
   {
     analyticsId: "tokens",
     backgroundClassName: "rotate-180 scale-[1.08]",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
     ctaKey: "buildSection.cards.tokens.cta",
     descriptionKey: "buildSection.cards.tokens.description",
     href: "https://tokens.xyz",
@@ -134,7 +134,7 @@ const resourceCards = [
   {
     analyticsId: "lightspeed",
     backgroundClassName: "-scale-y-100",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.webp",
     ctaKey: "buildSection.cards.lightspeed.cta",
     descriptionKey: "buildSection.cards.lightspeed.description",
     href: "https://solanalightspeed.com/dashboards/",
@@ -144,7 +144,7 @@ const resourceCards = [
   {
     analyticsId: "dune",
     backgroundClassName: "scale-[1.18]",
-    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/ai-advantages-visual-bg-1.webp",
     ctaKey: "buildSection.cards.dune.cta",
     descriptionKey: "buildSection.cards.dune.description",
     href: "https://docs.dune.com/data-catalog/solana/overview",
@@ -154,7 +154,7 @@ const resourceCards = [
   {
     analyticsId: "pay-sh",
     backgroundClassName: "-scale-y-100",
-    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.jpg",
+    backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.webp",
     ctaKey: "buildSection.cards.pay.cta",
     descriptionKey: "buildSection.cards.pay.description",
     href: "https://pay.sh",
@@ -164,7 +164,7 @@ const resourceCards = [
   {
     analyticsId: "x402",
     backgroundClassName: "",
-    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.png",
+    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.webp",
     ctaKey: "buildSection.cards.x402.cta",
     descriptionKey: "buildSection.cards.x402.description",
     href: "/x402",
