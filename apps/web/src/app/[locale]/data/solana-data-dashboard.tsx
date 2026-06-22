@@ -43,7 +43,6 @@ import {
   metricColors,
   normalizeProviderName,
   providerColors,
-  providers,
   rangeOptions,
   type Aggregation,
   type ChartDefinition,
@@ -79,12 +78,21 @@ const tabIndicatorSpring = {
   type: "spring",
 } as const;
 
-const defaultProviders = new Set<ProviderName>(providers);
 const emptyProvidersParam = "none";
 const defaultRangeDays = 90;
 const emptyRows: MetricRow[] = [];
 const kpiCount = 4;
 const chartHeight = 320;
+const fallbackProviderColors = [
+  "#FACC15",
+  "#FB7185",
+  "#2DD4BF",
+  "#A78BFA",
+  "#60A5FA",
+  "#F97316",
+  "#84CC16",
+  "#F472B6",
+] as const;
 const dataRefreshIntervalMs = 12 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
 const dataAggregatorRepositoryUrl =
@@ -209,13 +217,7 @@ export function SolanaDataDashboard() {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
   const showProviderControls = useMinWidth("(min-width: 768px)");
-  const {
-    activeTab,
-    rangeDays,
-    selectedProviderList,
-    selectedProviders,
-    updateQuery,
-  } = useDashboardQueryState();
+  const { activeTab, providerParam, rangeDays } = useDashboardQueryParams();
   const activeTabContent = getTabContent(t, activeTab);
   const dataUrl = `/api/databricks/data?days=${rangeDays}`;
   const errorMessages = useMemo(
@@ -235,6 +237,16 @@ export function SolanaDataDashboard() {
     dataSWRConfig,
   );
   const rows = data?.rows ?? emptyRows;
+  const availableProviders = useMemo(() => getAvailableProviders(rows), [rows]);
+  const selectedProviders = useMemo(
+    () => parseProviders(providerParam, availableProviders),
+    [availableProviders, providerParam],
+  );
+  const selectedProviderList = useMemo(
+    () => getOrderedSelectedProviders(selectedProviders, availableProviders),
+    [availableProviders, selectedProviders],
+  );
+  const updateQuery = useDashboardQueryUpdater(availableProviders);
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const visibleCharts = useMemo(
     () => getVisibleCharts(activeCharts, rows),
@@ -262,7 +274,7 @@ export function SolanaDataDashboard() {
 
   return (
     <main className="relative bg-nd-inverse text-nd-high-em-text font-brand">
-      <div className="max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-10 xl:py-16">
+      <div className="max-w-screen-2xl w-full mx-auto px-4 md:px-8 xl:px-10 py-8 md:py-10 xl:py-16">
         <header>
           <div>
             <span className="font-brand-mono text-[11px] md:text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text inline-flex items-center gap-2">
@@ -281,10 +293,11 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
-          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-5 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}
+            availableProviders={availableProviders}
             isRefreshing={isRefreshing}
             rangeDays={rangeDays}
             selectedProviders={selectedProviders}
@@ -333,7 +346,12 @@ export function SolanaDataDashboard() {
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-5 font-brand-mono text-[12px] md:text-[13px] leading-[1.42] uppercase text-nd-mid-em-text">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-nd-high-em-text">
-              {getFooterProvidersLabel(t, selectedProviderList)}
+              {getFooterProvidersLabel(
+                t,
+                selectedProviderList,
+                availableProviders,
+                providerParam,
+              )}
               <span
                 aria-hidden="true"
                 className="h-1 w-1 rounded-full bg-nd-border-prominent"
@@ -386,6 +404,7 @@ export function SolanaDataDashboard() {
 
 function DashboardControls({
   activeTab,
+  availableProviders,
   isRefreshing,
   onUpdateQuery,
   rangeDays,
@@ -393,6 +412,7 @@ function DashboardControls({
   showProviderControls,
 }: {
   activeTab: DashboardTab;
+  availableProviders: ProviderName[];
   isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
   rangeDays: number;
@@ -402,26 +422,38 @@ function DashboardControls({
   const t = useTranslations("dataDashboard");
 
   return (
-    <div className="px-5 md:px-8 xl:px-10 py-2 grid gap-2">
-      <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <TabSwitcher
-          activeTab={activeTab}
-          onChange={(value) => onUpdateQuery({ tab: value })}
-        />
+    <div className="px-4 md:px-8 xl:px-10 py-2 grid gap-2">
+      <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-x-3">
+        <div className="relative -mx-1 min-w-0 md:mx-0">
+          <div className="flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-0">
+            <TabSwitcher
+              activeTab={activeTab}
+              onChange={(value) => onUpdateQuery({ tab: value })}
+            />
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-nd-inverse to-transparent md:hidden"
+          />
+        </div>
         <Separator />
-        <InlineControl
-          ariaLabel={t("controls.rangeAriaLabel")}
-          options={rangeOptions}
-          value={rangeDays}
-          onChange={(value) => onUpdateQuery({ days: value })}
-        />
+        <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+          <InlineControl
+            ariaLabel={t("controls.rangeAriaLabel")}
+            options={rangeOptions}
+            value={rangeDays}
+            onChange={(value) => onUpdateQuery({ days: value })}
+          />
+        </div>
       </div>
 
-      {isRefreshing || showProviderControls ? (
+      {isRefreshing ||
+      (showProviderControls && availableProviders.length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-x-4">
           {isRefreshing ? <RefreshingIndicator /> : null}
-          {showProviderControls ? (
+          {showProviderControls && availableProviders.length > 0 ? (
             <ProviderControls
+              availableProviders={availableProviders}
               selectedProviders={selectedProviders}
               onChange={(nextProviders) =>
                 onUpdateQuery({ providers: nextProviders })
@@ -510,24 +542,29 @@ function Separator() {
 }
 
 function ProviderControls({
+  availableProviders,
   onChange,
   selectedProviders,
 }: {
+  availableProviders: ProviderName[];
   onChange: (_providers: Set<ProviderName>) => void;
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
-  const allProvidersSelected = selectedProviders.size === providers.length;
+  const allProvidersSelected = hasAllProvidersSelected(
+    selectedProviders,
+    availableProviders,
+  );
 
   return (
     <div className="-mx-1 flex items-center gap-x-3 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
         {t("controls.providersLabel")}
       </span>
-      {providers.map((provider) => (
+      {availableProviders.map((provider) => (
         <ProviderToggle
           active={selectedProviders.has(provider)}
-          color={providerColors[provider]}
+          color={getProviderColor(provider)}
           key={provider}
           label={provider}
           onClick={() => onChange(toggleProvider(selectedProviders, provider))}
@@ -537,7 +574,9 @@ function ProviderControls({
         className="shrink-0 border border-nd-border-prominent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text transition-colors hover:bg-nd-border-light/20 hover:text-nd-high-em-text"
         onClick={() =>
           onChange(
-            allProvidersSelected ? new Set<ProviderName>() : new Set(providers),
+            allProvidersSelected
+              ? new Set<ProviderName>()
+              : new Set(availableProviders),
           )
         }
         type="button"
@@ -559,7 +598,7 @@ function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
         className={cn(
           "mt-10 xl:mt-14 border-y border-nd-border-light relative",
           "before:absolute before:top-0 before:left-0 before:h-full before:w-px before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]",
-          "grid grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
+          "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 divide-nd-border-light",
           "[&>*]:border-nd-border-light",
         )}
       >
@@ -702,12 +741,12 @@ function DataResourceCarousel() {
   return (
     <section
       aria-labelledby="data-resource-carousel-title"
-      className="mt-10 -mx-5 bg-black px-5 py-10 md:-mx-8 md:px-8 xl:-mx-10 xl:px-10 xl:py-11"
+      className="mt-10 -mx-4 bg-black px-4 py-8 md:-mx-8 md:px-8 md:py-10 xl:-mx-10 xl:px-10 xl:py-11"
       data-node-id="2:1090"
     >
       <div className="border border-nd-border-light bg-black">
         <div className="flex items-stretch border-b border-nd-border-light">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 px-6 py-7 md:px-9">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-6 md:px-9 md:py-7">
             <h2
               className="text-[28px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text md:text-[32px]"
               id="data-resource-carousel-title"
@@ -796,7 +835,7 @@ function DataResourceCard({
   return (
     <article
       className={cn(
-        "relative flex min-h-[186px] shrink-0 basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-6 py-7 md:basis-[460px] md:px-9 xl:basis-1/3",
+        "relative flex min-h-[186px] shrink-0 basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
         index > 0 ? "border-l border-nd-border-light" : "",
       )}
       data-node-id={card.nodeId}
@@ -985,7 +1024,7 @@ function ChartCard({
   const methodologyNotes = getMethodologyNotes(chart, selectedProviders);
 
   return (
-    <article className="relative p-6 xl:p-8 flex flex-col gap-5">
+    <article className="relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-2">
           <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
@@ -1124,17 +1163,17 @@ function KpiCell({
           </h2>
           <KpiSummaryTooltip label={label} summary={summary} />
         </div>
-        <span className="font-brand-mono text-[10px] leading-5 uppercase text-nd-mid-em-text/60 tracking-normal shrink-0">
+        <span className="hidden md:inline font-brand-mono text-[10px] leading-5 uppercase text-nd-mid-em-text/60 tracking-normal shrink-0">
           {unit}
         </span>
       </div>
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-col items-start gap-1 md:flex-row md:items-end md:justify-between md:gap-2">
         <p className="text-[28px] xl:text-[40px] leading-[1.0] font-light uppercase tabular-nums tracking-normal text-nd-high-em-text">
           {value}
         </p>
         <p
           className={cn(
-            "font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase tabular-nums",
+            "shrink-0 whitespace-nowrap font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase tabular-nums",
             delta >= 0 ? "text-nd-highlight-green" : "text-nd-highlight-orange",
           )}
         >
@@ -1188,7 +1227,7 @@ function KpiSkeleton({ index }: { index: number }) {
 
 function ChartSkeleton({ index, title }: { index: number; title: string }) {
   return (
-    <article className="p-6 xl:p-8 flex flex-col gap-5">
+    <article className="p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
       <div className="flex items-baseline justify-between gap-4">
         <div className="h-5 w-40 rounded-sm bg-nd-border-light animate-pulse">
           <span className="sr-only">{title}</span>
@@ -1300,40 +1339,37 @@ function ProviderToggle({
   );
 }
 
-function useDashboardQueryState() {
-  const router = useRouter();
-  const pathname = usePathname();
+function useDashboardQueryParams() {
   const searchParams = useSearchParams();
-  const providerParam = searchParams.get("providers");
-  const selectedProviders = useMemo(
-    () => parseProviders(providerParam),
-    [providerParam],
-  );
-  const selectedProviderList = useMemo(
-    () => getOrderedSelectedProviders(selectedProviders),
-    [selectedProviders],
-  );
-
-  const updateQuery = useCallback(
-    (updates: QueryUpdates) => {
-      const params = new URLSearchParams(searchParams.toString());
-
-      applyQueryUpdates(params, updates);
-      router.replace(getDashboardUrl(pathname, params), { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
 
   return {
     activeTab: parseTab(searchParams.get("tab")),
+    providerParam: searchParams.get("providers"),
     rangeDays: parseRangeDays(searchParams.get("days")),
-    selectedProviderList,
-    selectedProviders,
-    updateQuery,
   };
 }
 
-function applyQueryUpdates(params: URLSearchParams, updates: QueryUpdates) {
+function useDashboardQueryUpdater(availableProviders: readonly ProviderName[]) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  return useCallback(
+    (updates: QueryUpdates) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      applyQueryUpdates(params, updates, availableProviders);
+      router.replace(getDashboardUrl(pathname, params), { scroll: false });
+    },
+    [availableProviders, pathname, router, searchParams],
+  );
+}
+
+function applyQueryUpdates(
+  params: URLSearchParams,
+  updates: QueryUpdates,
+  availableProviders: readonly ProviderName[],
+) {
   if (updates.tab) {
     params.set("tab", updates.tab);
   }
@@ -1343,19 +1379,23 @@ function applyQueryUpdates(params: URLSearchParams, updates: QueryUpdates) {
   }
 
   if (updates.providers) {
-    updateProvidersParam(params, updates.providers);
+    updateProvidersParam(params, updates.providers, availableProviders);
   }
 }
 
 export function updateProvidersParam(
   params: URLSearchParams,
   selectedProviders: Set<ProviderName>,
+  availableProviders: readonly ProviderName[],
 ) {
-  const nextProviders = getOrderedSelectedProviders(selectedProviders);
+  const nextProviders = getOrderedSelectedProviders(
+    selectedProviders,
+    availableProviders,
+  );
 
   if (nextProviders.length === 0) {
     params.set("providers", emptyProvidersParam);
-  } else if (nextProviders.length === providers.length) {
+  } else if (hasAllProvidersSelected(selectedProviders, availableProviders)) {
     params.delete("providers");
   } else {
     params.set("providers", nextProviders.join(","));
@@ -1386,13 +1426,15 @@ function toggleProvider(
 function getFooterProvidersLabel(
   t: DashboardTranslator,
   selectedProviderList: ProviderName[],
+  availableProviders: readonly ProviderName[],
+  providerParam: string | null,
 ) {
-  if (selectedProviderList.length === providers.length) {
-    return t("footer.allProviders");
+  if (selectedProviderList.length === 0) {
+    return providerParam ? t("footer.noProviders") : t("footer.allProviders");
   }
 
-  if (selectedProviderList.length === 0) {
-    return t("footer.noProviders");
+  if (selectedProviderList.length === availableProviders.length) {
+    return t("footer.allProviders");
   }
 
   return selectedProviderList.join(t("footer.providerListSeparator"));
@@ -1400,8 +1442,11 @@ function getFooterProvidersLabel(
 
 function getOrderedSelectedProviders(
   selectedProviders: ReadonlySet<ProviderName>,
+  availableProviders: readonly ProviderName[],
 ) {
-  return providers.filter((provider) => selectedProviders.has(provider));
+  return availableProviders.filter((provider) =>
+    selectedProviders.has(provider),
+  );
 }
 
 function getChartsForTab(tab: DashboardTab) {
@@ -1446,18 +1491,19 @@ function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
 
 function getKpiCellClassName(index: number) {
   return cn(
-    "py-6 px-5 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
-    index > 0 ? "border-l" : "",
-    index >= 2 ? "border-t xl:border-t-0" : "",
-    index === 2 ? "xl:border-l" : "",
+    "py-5 px-4 md:py-8 md:px-8 xl:py-10 xl:px-10 flex flex-col gap-5 border-nd-border-light",
+    index > 0 ? "border-t" : "",
+    index === 1 ? "sm:border-t-0" : "",
+    index % 2 === 1 ? "sm:border-l" : "",
+    index >= 2 ? "xl:border-t-0" : "",
+    index > 0 ? "xl:border-l" : "",
   );
 }
 
 function hasChartSourceData(chart: ChartDefinition, rows: MetricRow[]) {
   const metricSet = new Set<string>(chart.metrics);
-  const chartProviderSet = new Set<ProviderName>(getChartProviders(chart));
 
-  return rows.some((row) => isChartDataRow(row, metricSet, chartProviderSet));
+  return rows.some((row) => isChartDataRow(row, metricSet));
 }
 
 function buildSeries(
@@ -1466,27 +1512,27 @@ function buildSeries(
   selectedProviders: Set<ProviderName>,
 ): ChartSeries[] {
   const metricSet = new Set<string>(chart.metrics);
-  const chartProviders = getChartProviders(chart);
-  const chartProviderSet = new Set<ProviderName>(chartProviders);
   const buckets = new Map<
     string,
     Map<string, { color: string; count: number; label: string; sum: number }>
   >();
 
   for (const row of rows) {
+    const providerName = getRowProviderName(row);
+
     if (
-      !isChartDataRow(row, metricSet, chartProviderSet) ||
-      !selectedProviders.has(row.providerName)
+      !isChartDataRow(row, metricSet) ||
+      !selectedProviders.has(providerName)
     ) {
       continue;
     }
 
     const seriesId =
-      chart.seriesField === "provider" ? row.providerName : row.metricName;
+      chart.seriesField === "provider" ? providerName : row.metricName;
     const seriesLabel = seriesId;
     const color =
       chart.seriesField === "provider"
-        ? providerColors[row.providerName]
+        ? getProviderColor(providerName)
         : (metricColors[row.metricName] ?? "#A78BFA");
     const seriesBucket = buckets.get(seriesId) ?? new Map();
     const bucket = seriesBucket.get(row.date) ?? {
@@ -1504,7 +1550,7 @@ function buildSeries(
 
   const orderedSeriesIds =
     chart.seriesField === "provider"
-      ? chartProviders.filter((provider) => buckets.has(provider))
+      ? getOrderedProviderNames(Array.from(buckets.keys()))
       : chart.metrics.filter((metric) => buckets.has(metric));
 
   return orderedSeriesIds.map((seriesId) => {
@@ -1514,8 +1560,8 @@ function buildSeries(
       id: seriesId,
       label: seriesId,
       color:
-        chart.seriesField === "provider" && isProviderName(seriesId)
-          ? providerColors[seriesId]
+        chart.seriesField === "provider"
+          ? getProviderColor(seriesId)
           : (metricColors[seriesId] ?? "#A78BFA"),
       points: Array.from(seriesBucket.entries())
         .map(([date, bucket]) => ({
@@ -1525,10 +1571,6 @@ function buildSeries(
         .sort((a, b) => a.date.getTime() - b.date.getTime()),
     };
   });
-}
-
-function getChartProviders(chart: ChartDefinition) {
-  return chart.providers ?? providers;
 }
 
 function getMethodologyNotes(
@@ -1543,13 +1585,8 @@ function getMethodologyNotes(
 function isChartDataRow(
   row: MetricRow,
   metricSet: ReadonlySet<string>,
-  chartProviderSet: ReadonlySet<ProviderName>,
 ): row is MetricRow & { providerName: ProviderName } {
-  return (
-    metricSet.has(row.metricName) &&
-    isProviderName(row.providerName) &&
-    chartProviderSet.has(row.providerName)
-  );
+  return metricSet.has(row.metricName) && getRowProviderName(row).length > 0;
 }
 
 function getKpiValue(
@@ -1696,27 +1733,83 @@ function parseRangeDays(value: string | null) {
     : defaultRangeDays;
 }
 
-export function parseProviders(value: string | null) {
+export function getAvailableProviders(rows: readonly MetricRow[]) {
+  return getOrderedProviderNames(rows.map((row) => row.providerName));
+}
+
+function getRowProviderName(row: MetricRow) {
+  return normalizeProviderName(row.providerName).trim();
+}
+
+function getOrderedProviderNames(providerNames: Iterable<string>) {
+  const providerSet = new Set<ProviderName>();
+
+  for (const providerName of providerNames) {
+    const normalizedProviderName = normalizeProviderName(providerName).trim();
+
+    if (normalizedProviderName) {
+      providerSet.add(normalizedProviderName);
+    }
+  }
+
+  return Array.from(providerSet).sort((a, b) => a.localeCompare(b));
+}
+
+export function parseProviders(
+  value: string | null,
+  availableProviders: readonly ProviderName[] = [],
+) {
   if (!value) {
-    return new Set(defaultProviders);
+    return new Set(availableProviders);
   }
 
   if (value === emptyProvidersParam) {
     return new Set<ProviderName>();
   }
 
-  const parsedProviders = value
-    .split(",")
-    .map((provider) => normalizeProviderName(provider))
-    .filter((provider): provider is ProviderName => isProviderName(provider));
+  const parsedProviders = getOrderedProviderNames(value.split(","));
 
-  return parsedProviders.length > 0
-    ? new Set(parsedProviders)
-    : new Set(defaultProviders);
+  if (parsedProviders.length === 0 || availableProviders.length === 0) {
+    return new Set(
+      parsedProviders.length > 0 ? parsedProviders : availableProviders,
+    );
+  }
+
+  const availableProviderSet = new Set(availableProviders);
+  const selectedProviders = parsedProviders.filter((provider) =>
+    availableProviderSet.has(provider),
+  );
+
+  return selectedProviders.length > 0
+    ? new Set(selectedProviders)
+    : new Set(availableProviders);
 }
 
-function isProviderName(value: string): value is ProviderName {
-  return providers.includes(value as ProviderName);
+function hasAllProvidersSelected(
+  selectedProviders: ReadonlySet<ProviderName>,
+  availableProviders: readonly ProviderName[],
+) {
+  return (
+    availableProviders.length > 0 &&
+    availableProviders.every((provider) => selectedProviders.has(provider))
+  );
+}
+
+function getProviderColor(providerName: ProviderName) {
+  return (
+    providerColors[providerName] ??
+    fallbackProviderColors[getStableColorIndex(providerName)]
+  );
+}
+
+function getStableColorIndex(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash % fallbackProviderColors.length;
 }
 
 function formatPercent(value: number, locale: string) {

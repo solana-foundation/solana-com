@@ -8,7 +8,7 @@ import { ParentSize } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
@@ -42,7 +42,7 @@ type TooltipData = {
   values: TooltipValue[];
 };
 
-const margin = {
+const baseMargin = {
   top: 16,
   right: 20,
   bottom: 36,
@@ -59,6 +59,7 @@ export function TimeSeriesChart({
 }: TimeSeriesChartProps) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
+  const compact = useIsCompactViewport();
   const [disabledSeries, setDisabledSeries] = useState<Set<string>>(new Set());
   const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
   const visibleSeries = useMemo(
@@ -77,8 +78,8 @@ export function TimeSeriesChart({
   const allSeriesSelected = visibleSeries.length === series.length;
 
   return (
-    <div className="grid gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
-      <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+    <div className="flex min-w-0 flex-col gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
+      <div className="flex min-h-6 w-full flex-wrap items-center gap-1.5">
         {series.map((item) => {
           const disabled = disabledSeries.has(item.id);
 
@@ -146,6 +147,7 @@ export function TimeSeriesChart({
           <ParentSize>
             {({ width, height: measuredHeight }) => (
               <ChartSvg
+                compact={compact}
                 height={measuredHeight}
                 highlightedSeriesId={highlightedSeriesId}
                 locale={locale}
@@ -167,6 +169,7 @@ export function TimeSeriesChart({
 }
 
 function ChartSvg({
+  compact,
   height,
   highlightedSeriesId,
   locale,
@@ -175,6 +178,7 @@ function ChartSvg({
   valueLabel,
   width,
 }: {
+  compact: boolean;
   height: number;
   highlightedSeriesId: string | null;
   locale: string;
@@ -191,6 +195,9 @@ function ChartSvg({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
+  const margin = compact
+    ? { top: 16, right: 12, bottom: 32, left: 42 }
+    : baseMargin;
   const innerWidth = Math.max(width - margin.left - margin.right, 0);
   const innerHeight = Math.max(height - margin.top - margin.bottom, 0);
   const points = series.flatMap((item) => item.points);
@@ -406,6 +413,22 @@ function ChartSvg({
       ) : null}
     </>
   );
+}
+
+function useIsCompactViewport() {
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateMatches = () => setCompact(mediaQuery.matches);
+
+    updateMatches();
+    mediaQuery.addEventListener("change", updateMatches);
+
+    return () => mediaQuery.removeEventListener("change", updateMatches);
+  }, []);
+
+  return compact;
 }
 
 export function getSeriesDashPatterns(series: ChartSeries[]) {
