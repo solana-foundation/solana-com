@@ -1,0 +1,494 @@
+---
+title: Confidential Transfer統合ガイド
+description:
+  ウォレット、エクスプローラー、取引所、その他のアプリケーションにConfidential
+  Transfer拡張機能を使用するトークンを統合する方法を学びます。
+---
+
+# SolanaでのConfidential Transferのサポート
+
+## 背景
+
+Confidential
+Transfer拡張機能により、Token-2022のミントはオンチェーンで送金額とアカウント残高を暗号化した状態に保つことができます。残高は暗号化されているため、表示するにはオーナーの復号鍵が必要であり、送金にはクライアント側でゼロ知識証明を生成する必要があります。
+
+このガイドは、Confidential
+Transferトークンを**統合する**チーム（ウォレット、エクスプローラー、取引所、カストディアン、インデクサー）を対象としており、ミントを設定する発行者向けではありません。基盤となるフローをゼロから構築する場合は、以下にリンクされているステップバイステップのページから始めてください。このガイドは、これらのトークンを適切にサポートするためにプロダクトが行うべきことに焦点を当てています。
+
+各アカウントのアドレス、ミント、オーナーは**公開**されたままです。暗号化されるのは送金額と残高のみであるため、誰が誰と取引するかを含む他のすべての情報は引き続き公開されます。これにより、匿名性ではなく、一般の観察者からの機密性が確保されます。
+
+### リソース
+
+- [Confidential Transferの概要とステップバイステップガイド](/docs/tokens/extensions/confidential-transfer)
+- [拡張機能のRustコード](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JSクライアント](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instructions、アカウント状態のパース、鍵の導出、高レベルのConfidential
+  Transferヘルパー)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (暗号化プリミティブとプルーフデータの生成)
+- [`@solana-program/zk-elgamal-proof` JSクライアント](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (プルーフ検証instructions)
+- [`spl-token-client` Rustクレート](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (Rustによる高レベルのエンドツーエンドヘルパー)
+
+## 要約
+
+- すべてのConfidentialのtoken
+  accountは、**公開残高**に加えて、暗号化された**ペンディング**残高と**利用可能**残高を保持しています。トークンは公開状態と機密状態の間を自由に移動できます。
+- 機密残高を**表示**するにはオーナーの鍵が必要です。推奨されるアプローチは、オーナーのウォレットから鍵を導出し、AES鍵で利用可能残高を復号（高速）し、必要に応じてElGamal鍵でペンディング金額を復号することです。
+- **機密送金**を行うには、クライアント側でZK証明（等価性、暗号文の有効性、範囲）を生成し、通常は一時的な**プルーフコンテキスト状態アカウント**に配置してから送金を送信します。`@solana-program/token-2022`（JS）と`spl-token-client`（Rust）はどちらも、証明を構築してトランザクションをシーケンスする高レベルのヘルパーを提供しています。
+- 機密転送は、証明が現在のトランザクションサイズ制限を超えるため、現在は複数の依存トランザクションにまたがっています。近日公開予定の変更（トランザクションフォーマットv1、Agave
+  v4.2とともにリリース予定）によりこの制限が引き上げられ、機密転送が単一のオンチェーントランザクションで実行できるようになる見込みです。
+- サポートを追加しないウォレットも引き続き機能します。公開残高が表示され、標準的な送金も機能し続けます。機密資金は、オーナーの鍵を持つConfidential対応クライアントからいつでもアクセスできます。
+
+## 用語
+
+- **ElGamal
+  keypair**: 残高を暗号化し、ZKプルーフを構築するために使用される、アカウントごとの公開鍵keypair。公開鍵はアカウントに保存されます。
+- **AESキー**: 「復号可能な利用可能残高」を暗号化するために使用される、アカウントごとの対称鍵。これにより、オーナーは離散対数を解くことなく、定数時間で利用可能残高を確認できます。
+- **保留中残高**: 入金または受信した送金によって受け取った資金の暗号化残高で、まだ適用されていないもの。直接使用することはできません。
+- **利用可能残高**: 送金または出金が可能な暗号化残高。
+- **適用（Apply）**: 保留中残高を利用可能残高に移行するステップ。
+- **プルーフコンテキストステートアカウント**: 事前検証済みのZKプルーフを保持する一時的なオンチェーンアカウント。コンフィデンシャルinstructionsから参照された後、rentを回収するためにクローズされます。
+- **監査者（Auditor）**: ミント上のオプションのグローバルElGamalキー。設定されている場合、すべての送金において指定された当事者が復号できるよう、その金額がこのキーで追加暗号化されます。
+
+## アカウントモデルと残高
+
+アカウントがコンフィデンシャル転送用に設定されている場合、`ConfidentialTransferAccount`
+拡張機能は（その他のフィールドに加えて）以下を保存します：
+
+- `elgamal_pubkey`: アカウントのElGamal公開鍵。
+- `pending_balance_lo` /
+  `pending_balance_hi`: 保留中残高のElGamal暗号文。低ビットと高ビットに分割されています（高ビットの復号はコストが高いため、分けて管理されます）。
+- `available_balance`: 使用可能残高のElGamal暗号文。
+- `decryptable_available_balance`: オーナーが即座に復号できる、同じ利用可能残高の**AES**暗号文。表示用に使用するフィールドです。
+- `allow_confidential_credits` /
+  `allow_non_confidential_credits`: アカウントが現在、コンフィデンシャルまたはパブリックの入金を受け入れるかどうか。
+- `pending_balance_credit_counter` および
+  `maximum_pending_balance_credit_counter`: 保留中残高に積み上げられたクレジット数と、適用が必要になるまでの上限。
+
+これらのフィールドはすべて、標準RPCを通じてパース済みのアカウント状態として返されます。暗号文は誰でも読むことができますが、基になる金額を復元できるのは鍵の保有者のみです。
+
+## 鍵の管理
+
+各コンフィデンシャルアカウントは2つの鍵を使用します。暗号化とプルーフのための**ElGamal
+keypair**と、残高の高速復号化のための**AESキー**です。これらの鍵の生成と保管方法はインテグレーション側の選択に委ねられています。一般的なオプションをいくつか示します：
+
+- **ウォレット署名からの導出（推奨デフォルト）。**
+  オーナーが正規のドメイン分離メッセージに署名し、その署名から鍵が導出されます。これによりウォレット単体から再現可能となり、保管の必要がありません。seedはアカウントごとに決定論的です。以下のJSヘルパーでは`(owner, mint)`ペアにバインドされ、Rustサンプルではtoken
+  accountアドレスをseedとして使用します（associated token
+  accountの場合、そのアドレス自体がオーナーとミントから導出されるため、これらは同等です）。
+- **独立した鍵素材からの導出。**
+  パスキー、セキュアエンクレーブ、またはMPCセットアップの場合、WebAuthn
+  PRFの出力やその他の入力鍵素材からコンフィデンシャルキーを導出することで、アカウントの署名鍵に依存しない構成が可能です。`@solana/zk-sdk`はこのために`ConfidentialKeys.fromIkm`と`ConfidentialKeys.fromPrf`を公開しています。
+- **直接生成して管理する。**
+  カストディアルおよびMPCプロバイダーは、他の機密鍵素材と同様に鍵を生成・管理することを好む場合があります。
+
+`@solana-program/token-2022`クライアントには推奨パス用のヘルパーが付属しています：
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  コンフィデンシャルキーは復号化キーです。導出メッセージへの署名リクエストは、ユーザーの残高のプライベートビューを解除するものとして取り扱ってください。保管するよりもオンデマンドでの導出を優先してください。やむを得ず保管する場合（例：カストディアルサービス）は、署名鍵と同等の厳格な保護を施してください。
+</Callout>
+
+導出ヘルパーはシリアライズされた鍵素材を返します。高レベルの操作ヘルパー（後述）はWASMの
+`ElGamalKeypair` と `AeKey`
+オブジェクトを受け取るため、必要に応じてバイト列からそれらを再構築してください：
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## アカウントの作成と設定
+
+アカウントがコンフィデンシャル残高を保持するには、`ConfidentialTransferAccount`
+拡張機能が必要です。この拡張機能はtoken
+accountに約295バイトを追加し（追加のrentとしておよそ0.0015
+SOL相当）、セットアップは2ステップです：token
+accountを作成し、次に拡張機能を設定します。
+
+設定には通常、**アカウントオーナー**の署名と、アカウントに設定されるElGamal公開鍵の所有証明が必要です。ウォレットや取引所はユーザーのためにtoken
+accountの作成と資金調達を行うことができますが、その署名なしにユーザーに代わってコンフィデンシャル拡張機能を設定することはできません。
+
+このため、すべてのユーザーに対してコンフィデンシャルアカウントを自動的にプロビジョニングすることは避けてください：余分なrentがかかる上、オーナーの関与も必要です。初回利用時、またはユーザーがコンフィデンシャル転送を選択した際に設定してください。
+
+**ElGamalレジストリ**により、アカウントごとのオーナー手順が不要になります。ユーザーは一度ElGamal公開鍵を登録し（登録時に証明に署名）、そのレジストリエントリはすべてのミントにわたって再利用可能です。その後、サードパーティは
+`ConfigureAccountWithRegistry`
+を使用してユーザーのコンフィデンシャルアカウントを設定できます。この操作には設定時にオーナーの署名や証明は不要で、rentの支払者のみが必要です。ユーザーのコンフィデンシャルアカウントをスムーズにプロビジョニングしたい場合は、このメカニズムを使用してください。
+
+<Callout type="info">
+  レジストリ設定は現在、Rustの `spl-token-client`
+  （`confidential_transfer_configure_token_account_with_registry`）および
+  `spl-elgamal-registry` プログラムで利用可能です。 `@solana-program/token-2022`
+  JSクライアントには同等のヘルパーがまだ実装されていないため、レジストリパスが必要なJS連携については、そのクライアントのリリースを追跡してください。
+</Callout>
+
+## 残高の表示
+
+堅牢な統合では、標準のトークン残高を使用して公開残高を表示し、機密拡張機能を検出します。また、ユーザーが鍵のロックを解除している場合は、利用可能な残高を復号化して表示します。
+
+利用可能な残高は、AES鍵を使用して`decryptable_available_balance`から読み取るのが最適です。これは定数時間で処理されます。ElGamal
+`available_balance`を直接復号化するには離散対数を解く必要があり、通常の表示には使用しないことを推奨します。
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+ユーザーが鍵のロックを解除していない場合は、公開残高を表示し、機密残高が存在するがロックされていることを示してください。ゼロを表示するのではなく、残高がロックされている旨を明示することが重要です。
+
+## 送金の受け取り
+
+入金および送金は**保留中**の残高に反映され、適用されるまでは使用できません。クレジットのたびに`pending_balance_credit_counter`がインクリメントされ、`maximum_pending_balance_credit_counter`に達すると、オーナーが保留残高を適用するまで、アカウントはそれ以上の機密クレジットを受け取ることができなくなります。
+
+ユーザーに代わって資金を管理するインテグレーションは、以下を実施してください：
+
+- 受け取ったばかりの金額がまだ使用できない理由をユーザーが理解できるよう、保留中の残高と利用可能な残高を別々に表示する。
+- 残高が滞留しないよう、適切なタイミング（例：送金前）でユーザーに代わって保留残高を適用する。
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+完全なフローについては、
+[保留残高の適用](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+ページをご覧ください。
+
+## 送金の送信
+
+機密送金には、クライアント側で生成される3つのゼロ知識証明が必要です：
+
+- **等価性証明**：送信者の新しい残高暗号文が、送信者が開示できる新鮮なコミットメントと同じ値を暗号化していることを証明する。
+- **暗号文有効性証明**：送金額の暗号文が、送信元・送信先・（設定されている場合は）監査者の鍵のもとで正しく形成されていることを証明する。
+- **範囲証明**：金額および送信者の残余残高が有効な非負整数であることを証明するもので、これにより無から価値が生み出されることを防ぐ。
+
+これらの証明は、現在のトランザクションサイズ制限ではインラインに含めることができないため、通常のパターンとしては、**証明コンテキストステートアカウント**を作成し、各証明をそこへ検証し、転送instructionsからそれらを参照した後、rentを回収するためにアカウントを閉じます。この処理は複数の依存トランザクションにまたがります。トランザクションフォーマット v1（Agave
+v4.2 とともにリリース予定）はサイズ制限を引き上げ、コンフィデンシャル転送を単一のオンチェーントランザクションで実行できるようになる見込みで、このフローが簡略化されます。
+
+証明を手動で組み立てる必要はありません。両クライアントとも、証明を構築して送信するinstructionsを生成する高レベルのヘルパーを提供しています：
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+より細かい制御が必要な場合は、低レベルの構成要素も利用できます：`@solana/zk-sdk`
+は各証明のデータ（`CiphertextCommitmentEqualityProofData`、`BatchedGroupedCiphertext3HandlesValidityProofData`、`BatchedRangeProofU128Data`）を生成し、`@solana-program/zk-elgamal-proof`
+は証明検証instructionsを提供し、`@solana-program/token-2022`
+は`confidentialTransfer`
+およびコンテキストステートアカウントのinstructionsを提供します。
+
+詳細なinstruction手順については、
+[トークンの転送](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+ページをご覧ください。
+
+## 引き出し
+
+引き出しは、コンフィデンシャルな利用可能残高から公開残高に資金を移動させ、その後は通常のトークン残高と同様に扱われます。引き出しにも証明（等価証明および範囲証明）が必要で、JSクライアントでは`getConfidentialWithdrawInstructionPlan`、Rustクライアントではたとえ残高が一致しないため
+`confidential_transfer_withdraw`
+として公開されています。全額を利用可能にするため、事前に保留中の残高を適用してください。詳細は[トークンの引き出し](/docs/tokens/extensions/confidential-transfer/withdraw-tokens)をご参照ください。
+
+## 関連するコンフィデンシャル拡張機能
+
+2つのオプション拡張機能がコンフィデンシャル転送を基盤として構築されています。どちらも主に発行者の責任ですが、それぞれインテグレーターが対応すべき変更点があります：
+
+- **コンフィデンシャル転送手数料。**
+  ミントがコンフィデンシャル転送と[転送手数料](/docs/tokens/extensions/transfer-fees)を組み合わせている場合、送金には手数料付き転送パス（Rustクライアントの`confidential_transfer_transfer_with_fee`）が使用され、差し引かれた手数料は金額と同様に暗号化されます。差し引かれた手数料の回収（ハーベストおよび引き出し）は手数料権限者の役割であり、インテグレーターの責任ではありません。
+- **コンフィデンシャルのミントとバーン。**
+  この拡張機能を持つミントは、供給をコンフィデンシャルに発行および焼却し、公開デポジットおよび引き出しパスを無効化します。このようなミントでは、トークンを公開残高とコンフィデンシャル残高の間で移動させることができないため、デポジットや引き出し機能をユーザーに提供しないでください。
+
+両方のプロトコルレベルの詳細については、
+[機密残高のドキュメント](https://www.solana-program.com/docs/confidential-balances)を参照してください。
+
+## 機密転送トランザクションの解析
+
+エクスプローラーやインデクサーは、金額を読み取ることなく機密転送のアクティビティを認識してラベル付けする必要があります。
+`@solana-program/token-2022` クライアントは、各 Token-2022
+instructions を分類するための `identifyToken2022Instruction`
+を公開しており、さらにアカウントと非秘密フィールドをデコードするための instructions ごとのパーサー（例:
+`parseConfidentialTransferInstruction`）も提供しています。暗号化された金額は暗号文のまま保持されます。バイトを数値としてレンダリングするのではなく、機密情報として表示してください。
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+計画しておくべきインデックス作成の制限事項:
+
+- **機密転送の金額は取得不可。** `ConfidentialTransfer`
+  には暗号化された金額が含まれるため、取引量、資金フロー、転送サイズの分析はそこから算出できません。ゼロや生の暗号文を記録するのではなく、これらの転送を機密として記録してください。
+- **残高差分は取得不可。**
+  機密移動はパブリックトークン残高を変更しないため、ほとんどの転送インデックス作成で使用される転送前後のトークン残高の差分計算ではキャプチャできません。保留中および利用可能な残高は暗号文です。
+- **入金と出金は平文。** `ConfidentialDeposit` と `ConfidentialWithdraw`
+  は平文の金額を持つため、機密プール内の転送ではなく、機密プールへの入出金フローはインデックス作成が可能です。
+- **現在、1 回の転送が複数のトランザクションにまたがる。**
+  証明コンテキストのステートアカウントは転送の前後で作成・使用・クローズされるため、各トランザクションを独立して扱うのではなく、関連するトランザクションを相関付けてください。シングルトランザクションの機密転送が実装されれば（上記参照）、この問題は解消されます。
+- **監査人ミントは復号可能。**
+  ミントにグローバル監査人が設定されており、監査人キーを保持している場合、そのミントの転送金額を復号できます（以下参照）。
+
+## 監査人とコンプライアンス
+
+ミントは**グローバル監査人** ElGamal
+pubkeyを設定できます。設定されている場合、すべての秘密転送には監査人キーで暗号化された金額を含める必要があり、監査人の秘密鍵の保持者はそのミントのすべての転送金額を復号化できます。有効性証明は監査人の暗号文をカバーしているため、インテグレーターとして送信パスで特別な操作を行う必要はなく、ミント設定から監査人キーを渡すだけで済みます（高レベルのヘルパーが自動的に読み取ります）。
+
+あなたのプロダクトが監査人である場合（例：規制を受けた発行者やコンプライアンスプロバイダー）、監査人の秘密鍵を使用して転送金額を復号化する方法は、所有者が自身の残高を復号化する方法と同じです。所有者はまた、アカウントごとのキーを公開することなく、特定の相手に選択的に共有することもできます。
+
+### トランザクションモニタリング（KYT）
+
+KYT（トランザクション把握）およびAMLプロバイダーにとって、秘密転送によって変わるのは観測可能な内容であり、全体的なモデルではありません：
+
+- **アドレスおよびグラフ分析は影響を受けません。**
+  送信者、受信者、ミント、およびアカウント所有者は公開されたままであるため、アドレスのスクリーニング、制裁マッチング、および取引相手のグラフ分析はあらゆるトークンと同様に機能します。
+- **金額ベースのヒューリスティックには監査人キーが必要です。**
+  構造化取引、閾値報告、およびボリュームベースのリスクスコアリングは、秘密転送の金額を単独で読み取ることができません。預入および引出の金額は平文のままであるため、秘密プールへの入出金フローのサイズは引き続き可視です。
+- **カバレッジは監査人モデルから得られます。**
+  グローバル監査人を設定したミントでは、監査人キーを持って運用するプロバイダー（またはユーザーや発行者から選択的開示を受けるプロバイダー）が転送金額を復元できます。規制された環境の発行者は、モニタリングが可能となるよう、監査人の設定または選択的開示のサポートを計画する必要があります。
+
+## 後方互換性
+
+- confidential token
+  accountには常にパブリック残高があります。この拡張機能をサポートしていないウォレットやアプリも引き続き動作し、パブリック残高を表示します。
+- 送金先がノンコンフィデンシャルな入金を許可している限り、標準の送金はパブリック残高に対して引き続き機能します。
+- コンフィデンシャル残高は対応していないツールには表示されませんが、資金が失われることはありません。コンフィデンシャルに対応したクライアントであれば、所有者の鍵を使ってアクセスできます。
+- 金額は暗号化されているため、送金額の読み取りに依存するサプライ・ボリューム分析では、コンフィデンシャルな取引は検出されません。ダッシュボードや会計処理はこの点を考慮して設計してください。
+
+## プラットフォーム別の推奨インテグレーション優先事項
+
+### 共通要件
+
+| 要件                             | 説明                                                                                                                                                     | 優先度 |
+| :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :----- |
+| 拡張機能の検出                   | ミントおよびアカウント上のConfidential Transfer拡張機能を認識し、パブリックのみのモデルを前提とせず、これらのトークンを明示的に処理する。                | **P0** |
+| コンフィデンシャル資金の損失防止 | 完全なサポートがない場合でも、コンフィデンシャル残高が存在することをユーザーに表示し、アカウントが空だと誤解させない。                                   | **P0** |
+| 適切な鍵管理                     | ElGamalおよびAES鍵の鍵戦略を選択する。所有者のウォレットから導出することが推奨されるデフォルトです。鍵を保存する場合は、署名鍵と同様に保護してください。 | **P0** |
+
+---
+
+### ウォレット
+
+| 要件                               | 説明                                                                                                          | 優先度 |
+| :--------------------------------- | :------------------------------------------------------------------------------------------------------------ | :----- |
+| パブリック残高の表示               | 標準のトークン残高読み取りを使用して、常にパブリック残高を表示する。                                          | **P0** |
+| 利用可能残高のロック解除と表示     | 署名によってユーザーが鍵をアンロックできるようにし、復号された利用可能残高（AES復号可能残高経由）を表示する。 | **P0** |
+| 保留中残高と利用可能残高の区別表示 | 保留中の残高を個別に表示し、資金を受け取った際に適用を促す。                                                  | **P1** |
+| 保留中残高の自動適用               | 資金が滞らないよう、適切なタイミング（送金前など）で保留中の残高を自動的に適用する。                          | **P1** |
+| コンフィデンシャル送金             | クライアント側の証明生成を伴うデポジット・送金・出金フローをサポートする。                                    | **P1** |
+| ロック状態のUX                     | 鍵がアンロックされていない場合、ゼロを表示するのではなく、コンフィデンシャル残高が存在することを明示する。    | **P1** |
+| オンボーディング／教育             | プライバシーが保護される情報（金額と残高）および鍵のアンロック手順についてユーザーが理解できるよう支援する。  | **P2** |
+
+---
+
+### エクスプローラーとインデクサー
+
+| 要件                                       | 説明                                                                                                              | 優先度 |
+| :----------------------------------------- | :---------------------------------------------------------------------------------------------------------------- | :----- |
+| 機密アカウントとミントのラベル付け         | 拡張機能を使用するアカウントとミントを明確にマークし、公開残高を表示する。                                        | **P0** |
+| 機密instructionsの解析                     | configure、deposit、apply、transfer、withdrawのinstructionsをデコードし、その種別を表示する（金額は表示しない）。 | **P0** |
+| 暗号化された金額を数値として表示しない     | 暗号文フィールドを平文の残高であるかのようにレンダリングしない。機密情報として表示する。                          | **P0** |
+| 公開デポジット／出金フローのインデックス化 | デポジットおよび出金時の平文金額を記録し、機密プールへの流入・流出を追跡する。                                    | **P1** |
+| 複数トランザクション送金の関連付け         | 1件の機密送金を構成する証明セットアップ、送金、クリーンアップのトランザクションをグループ化する。                 | **P1** |
+| 監査人設定の表示                           | ミントにグローバル監査人が設定されているかどうかを表示する。                                                      | **P1** |
+| 証明アカウントのライフサイクル             | 証明コンテキストのステートアカウントの作成とクローズを認識し、トランザクションが適切に読めるようにする。          | **P2** |
+
+---
+
+### 取引所とカストディアン
+
+| 要件                                       | 説明                                                                                                                                                                        | 優先度 |
+| :----------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----- |
+| 公開・機密状態の追跡                       | デポジットの入金および保有残高の計算において、公開残高と機密残高の両方を考慮する。                                                                                          | **P0** |
+| デポジット時の保留残高の適用               | 機密デポジットが到着したら保留残高を適用し、入金金額が正確になるようにする。                                                                                                | **P0** |
+| 安全な鍵管理                               | 機密資金をカストディアルで保有する場合、ElGamal／AES鍵を署名鍵と同等の厳格さで管理する。                                                                                    | **P0** |
+| レジストリによるアカウントプロビジョニング | ユーザーの機密アカウントをセットアップするには、ユーザーに一度ElGamal鍵を登録させ、アカウントごとに署名を要求するのではなく、レジストリパスを使ってプロビジョニングを行う。 | **P1** |
+| ユーザーへの出金                           | 宛先アカウントの設定に応じて、機密または公開の出金をサポートする。                                                                                                          | **P1** |
+| コンプライアンス／監査人サポート           | 必要に応じて、監査人キーまたは選択的開示を使用してレポート義務を果たす。                                                                                                    | **P1** |
+| 実金額による内部会計                       | エッジで復号化した金額に対して照合し保存する。暗号文の集計は試みない。                                                                                                      | **P1** |
+
+---
+
+### コンプライアンスおよびKYTプロバイダー
+
+| 要件                                 | 説明                                                                                                                             | 優先度 |
+| :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- | :----- |
+| アドレスおよびグラフスクリーニング   | 送信者、受信者、ミント、オーナーをスクリーニングし、カウンターパーティグラフ分析を実行します。これらは公開されたままになります。 | **P0** |
+| 公開デポジット/ウィズドローの追跡    | コンフィデンシャルプールの観測可能な入出金ポイントとして、平文のデポジットおよびウィズドロー金額を監視します。                   | **P0** |
+| 監査者キーによる金額の可視化         | 監査者が有効化されたミントに対して、監査者キーを使用して送金金額を復号化し、金額ベースの検知をサポートします。                   | **P1** |
+| セレクティブディスクロージャーの受付 | アカウントごとのキーを通じてユーザーまたは発行者が共有する金額開示をサポートします。                                             | **P2** |

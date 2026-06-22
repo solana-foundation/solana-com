@@ -1,0 +1,440 @@
+---
+title: Guide de l'émetteur de transferts confidentiels
+description:
+  Découvrez comment émettre et gérer un token utilisant l'extension de transfert
+  confidentiel, notamment la politique d'approbation, les auditeurs, les frais,
+  et le mint et burn confidentiels.
+---
+
+# Émission de tokens à transfert confidentiel sur Solana
+
+Ce guide est destiné aux **émetteurs** : les équipes qui créent et exploitent un
+mint Token-2022 utilisant l'extension de transfert confidentiel. Il couvre les
+décisions prises lors de la création du mint et les opérations effectuées tout
+au long de sa durée de vie. Pour le processus côté détenteur (dépôt,
+application, transfert, retrait), consultez les pages pas à pas, et pour
+l'intégration de ces tokens dans un produit, consultez le
+[Guide d'intégration](/docs/tokens/extensions/confidential-transfer/integration-guide).
+
+Les transferts confidentiels maintiennent les montants des transferts et les
+soldes des comptes chiffrés, tout en laissant les adresses des comptes, le mint
+et les propriétaires publics. Ils s'appuient sur le ZK ElGamal Proof Program
+pour la vérification des preuves on-chain, de sorte que le mint est utilisable
+sur les clusters où ce programme est activé.
+
+<Callout type="warn" title="Disponibilité">
+  Les transferts confidentiels nécessitent le Token-2022
+  [`program@v11.0.0`](https://github.com/solana-program/token-2022/releases/tag/program%40v11.0.0)
+  ou une version ultérieure. Ils sont disponibles sur devnet aujourd'hui et sont
+  prévus pour être activés sur mainnet en juin 2026. Le Token Extensions Program
+  est déployé séparément sur chaque cluster ; confirmez donc le déploiement sur
+  le cluster que vous ciblez.
+</Callout>
+
+## Décisions prises à la création
+
+L'extension de transfert confidentiel doit être initialisée avant le mint et ne
+peut pas être ajoutée ultérieurement. Lors de la création, vous décidez :
+
+- **Politique d'approbation** : si les comptes peuvent opter pour les transferts
+  confidentiels sans permission (`auto`) ou doivent être approuvés par
+  l'autorité de transfert confidentiel du mint (`manual`).
+- **Auditeur** : si vous souhaitez définir une clé publique ElGamal d'auditeur
+  global afin qu'une partie désignée puisse déchiffrer chaque montant de
+  transfert pour le mint. Facultatif, et modifiable ultérieurement.
+- **Extensions complémentaires optionnelles** : les frais de transfert
+  confidentiels (associés à l'extension de frais de transfert) et le mint/burn
+  confidentiel, tous deux décrits ci-dessous. Ces extensions doivent également
+  être initialisées à la création.
+
+## Créer un mint confidentiel
+
+Le CLI définit la politique d'approbation avec
+`--enable-confidential-transfers auto` ou `manual` ; `auto` permet à tout
+détenteur de configurer son propre compte, tandis que `manual` conditionne cela
+à l'approbation de l'autorité de transfert confidentiel (qui correspond par
+défaut à l'autorité du mint). Les chemins client utilisent les mêmes paramètres
+via les paramètres `ConfidentialTransferMint` : une autorité, l'indicateur
+d'approbation automatique, et une clé d'auditeur optionnelle. La politique
+d'approbation et l'auditeur peuvent tous deux être modifiés ultérieurement (voir
+[Configurer un auditeur](#configure-an-auditor)) ; seule la présence de
+l'extension elle-même est fixée à la création.
+
+<CodeTabs>
+
+```terminal !! title="create-confidential-mint.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --enable-confidential-transfers auto
+```
+
+```rust !! title="create-confidential-mint.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+let extensions = vec![ExtensionInitializationParams::ConfidentialTransferMint {
+    authority: Some(authority.pubkey().into()),
+    auto_approve_new_accounts: true, // false for a manual approve policy
+    auditor_elgamal_pubkey: None,    // Some(pubkey) to set a global auditor
+}];
+
+token
+    .create_mint(&mint_authority, freeze_authority.as_ref(), extensions, &[&mint_keypair])
+    .await?;
+```
+
+```ts !! title="create-confidential-mint.ts"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
+```
+
+</CodeTabs>
+
+## Configurer un auditeur
+
+Un auditeur global est une clé publique ElGamal stockée sur le mint. Lorsqu'il
+est défini, chaque transfert confidentiel chiffre également son montant avec
+cette clé, de sorte que quiconque détient la clé secrète correspondante peut
+déchiffrer tous les montants de transfert pour le mint. C'est ainsi que les
+transferts confidentiels restent compatibles avec les exigences d'audit et de
+conformité : le public ne voit rien, l'auditeur voit tout.
+
+L'autorité de transfert confidentiel peut définir, faire pivoter ou supprimer
+l'auditeur à tout moment. La même opération met également à jour la politique
+d'approbation. Dans le CLI, la clé d'auditeur est un encodage base64 d'une clé
+publique ElGamal ; passez `--auditor-pubkey none` pour la supprimer et
+`--approve-policy auto|manual` pour modifier la politique.
+
+La rotation n'affecte que les transferts futurs. Les montants des transactions
+déjà enregistrées sur la chaîne restent chiffrés avec la clé d'auditeur active
+au moment de leur exécution ; conservez donc les anciennes clés d'auditeur si
+vous avez besoin de déchiffrer l'historique des activités.
+
+<CodeTabs>
+
+```terminal !! title="update-confidential-settings.sh"
+$ spl-token update-confidential-transfer-settings <MINT_PUBKEY> --auditor-pubkey <AUDITOR_ELGAMAL_PUBKEY>
+```
+
+```rust !! title="update-confidential-settings.rs"
+token
+    .confidential_transfer_update_mint(
+        &authority,
+        true,                         // auto_approve_new_account
+        Some(auditor_elgamal_pubkey), // None to clear the auditor
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="update-confidential-settings.ts"
+import { getUpdateConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+
+const ix = getUpdateConfidentialTransferMintInstruction({
+  mint,
+  authority, // confidential transfer authority (signer)
+  autoApproveNewAccounts: true,
+  auditorElgamalPubkey // an ElGamal pubkey Address, or null to clear
+});
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  La clé secrète de l'auditeur peut déchiffrer tous les montants de transfert
+  pour le mint. Conservez-la avec la même rigueur qu'une clé de signature, et
+  prévoyez une rotation. Définir l'auditeur sur `None` désactive la visibilité
+  des montants pour tout le monde, à l'exception des propriétaires de compte
+  eux-mêmes.
+</Callout>
+
+## Approuver les comptes (politique manuelle)
+
+Avec une politique d'approbation manuelle, un compte configuré pour les
+transferts confidentiels ne peut pas effectuer de transactions confidentielles
+tant que l'autorité de transfert confidentiel ne l'approuve pas. Cela offre aux
+émetteurs un contrôle d'accès pour les participants figurant sur liste autorisée
+ou ayant passé la vérification KYC. La CLI n'expose pas de commande
+d'approbation, l'approbation s'effectue donc via un client.
+
+<CodeTabs>
+
+```rust !! title="approve-account.rs"
+token
+    .confidential_transfer_approve_account(
+        &token_account,
+        &authority,
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="approve-account.ts"
+import { getApproveConfidentialTransferAccountInstruction } from "@solana-program/token-2022";
+
+const ix = getApproveConfidentialTransferAccountInstruction({
+  token, // the token account to approve
+  mint,
+  authority // confidential transfer authority (signer)
+});
+```
+
+</CodeTabs>
+
+## Frais de transfert confidentiels
+
+Si votre mint facture des
+[frais de transfert](/docs/tokens/extensions/transfer-fees) et que les
+transferts sont confidentiels, les frais doivent également être retenus de
+manière confidentielle. L'extension `ConfidentialTransferFeeConfig` gère cela et
+est initialisée lors de la création du mint, aux côtés des extensions de frais
+de transfert et de transfert confidentiel.
+
+Les frais retenus s'accumulent de manière chiffrée sur les comptes des
+destinataires, sont collectés vers le mint, puis retirés par l'autorité de
+retrait des frais retenus. Chaque montant de frais reste chiffré tout au long du
+processus. Rien de tout cela n'est exposé via la CLI. La clé secrète ElGamal de
+l'autorité de retrait des frais retenus peut déchiffrer les montants de frais
+retenus, ce qui, combinée aux paramètres de frais publics, peut révéler des
+informations sur les montants des transferts ; traitez donc cette clé comme
+sensible.
+
+### Initialiser la configuration des frais
+
+Incluez ceci aux côtés de `ConfidentialTransferMint` et de la configuration des
+frais de transfert dans la même création de mint.
+
+<CodeTabs>
+
+```rust !! title="init-confidential-fee.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+ExtensionInitializationParams::ConfidentialTransferFeeConfig {
+    authority: Some(authority.pubkey().into()),
+    withdraw_withheld_authority_elgamal_pubkey: withdraw_withheld_elgamal_pubkey,
+};
+```
+
+```ts !! title="init-confidential-fee.ts"
+import { getInitializeConfidentialTransferFeeInstruction } from "@solana-program/token-2022";
+
+const ix = getInitializeConfidentialTransferFeeInstruction({
+  mint,
+  authority, // authority allowed to change the withdraw withheld ElGamal key
+  withdrawWithheldAuthorityElGamalPubkey // ElGamal pubkey Address
+});
+```
+
+</CodeTabs>
+
+### Collecter et retirer les frais retenus
+
+La collecte déplace les frais retenus chiffrés des comptes vers le mint ; le
+retrait les transfère hors du mint vers un compte choisi. Deux autorités sont
+impliquées, et chacune peut différer de l'autorité du mint :
+
+- L'**autorité des frais de transfert confidentiels** (le `authority` défini sur
+  `ConfidentialTransferFeeConfig`) active ou désactive la collecte.
+- L'**autorité de retrait des frais retenus** (issue de l'extension de frais de
+  transfert `TransferFeeConfig`) retire les frais collectés hors du mint.
+
+Les retraits nécessitent une preuve d'égalité et une preuve de plage, fournies
+en ligne ou vérifiées dans des comptes d'état de contexte.
+
+<CodeTabs>
+
+```rust !! title="harvest-withdraw-fees.rs"
+// Permissionless: move withheld fees from accounts into the mint.
+token
+    .confidential_transfer_harvest_withheld_tokens_to_mint(&[&source_account])
+    .await?;
+
+// Withdraw withheld fees from the mint (requires the withdraw withheld authority).
+token
+    .confidential_transfer_withdraw_withheld_tokens_from_mint(
+        &destination_account,
+        &withdraw_withheld_authority,
+        None, // proof context state account, supplied inline if None
+        None, // withheld tokens info, fetched if None
+        &withdraw_withheld_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        &new_decryptable_available_balance,
+        &[&withdraw_withheld_authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="harvest-withdraw-fees.ts"
+import {
+  getEnableHarvestToMintInstruction,
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction
+} from "@solana-program/token-2022";
+
+// Allow accounts to harvest their withheld fees to the mint, signed by the
+// confidential transfer fee authority.
+const enableIx = getEnableHarvestToMintInstruction({ mint, authority });
+
+// Permissionless: move withheld fees from accounts into the mint.
+const harvestIx =
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction({
+    mint,
+    sources: [sourceAccount]
+  });
+```
+
+</CodeTabs>
+
+Dans le client JS, le retrait des frais collectés depuis le mint
+(`getWithdrawWithheldTokensFromMintForConfidentialTransferFeeInstruction`)
+nécessite également une preuve d'égalité et une preuve de plage vérifiées dans
+des comptes d'état de contexte. Il suit donc le même schéma de compte de preuve
+qu'un transfert confidentiel.
+
+## Émission et destruction confidentielles
+
+L'extension `ConfidentialMintBurn` permet à l'autorité d'émission d'émettre et
+de détruire des jetons directement sur des soldes confidentiels, en maintenant
+l'offre totale chiffrée. Un mint doté de cette extension désactive les chemins
+de dépôt et de retrait publics, car les jetons n'existent que sous forme
+confidentielle. Consultez la
+[documentation du protocole](https://www.solana-program.com/docs/confidential-balances)
+pour le modèle complet.
+
+<Callout type="info">
+  L'émission/destruction confidentielle est plus facile via le
+  `spl-token-client` Rust, qui génère les preuves requises et séquence les
+  transactions pour vous. Le client JS `@solana-program/token-2022` fournit les
+  constructeurs d'instructions de bas niveau (`getConfidentialMintInstruction`,
+  `getConfidentialBurnInstruction`, et autres), mais aucun assistant de haut
+  niveau pour construire les preuves, et il n'existe pas de commandes CLI. Les
+  exemples ci-dessous sont donc uniquement en Rust.
+</Callout>
+
+Initialisez l'extension lors de la création du mint, puis émettez, détruisez et
+réconciliez l'offre au fil du temps. L'émission inscrit un montant chiffré dans
+le solde confidentiel d'un destinataire ; la destruction retire un montant
+chiffré dans une destruction en attente qui est ensuite intégrée à l'offre. Les
+deux génèrent des preuves comme pour un transfert confidentiel.
+
+<CodeTabs>
+
+```rust !! title="confidential-mint-burn.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+// 1. Initialize at creation (alongside ConfidentialTransferMint).
+ExtensionInitializationParams::ConfidentialMintBurn {
+    supply_elgamal_pubkey, // encrypts the confidential supply
+    decryptable_supply,    // AES ciphertext of the initial supply (zero)
+};
+
+// 2. Mint an encrypted amount into a recipient's confidential balance.
+token
+    .confidential_transfer_mint(
+        &mint_authority,
+        &destination_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        mint_amount,
+        &supply_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &supply_aes_key,
+        None, // supply account info, fetched if None
+        &[&mint_authority_keypair],
+    )
+    .await?;
+
+// 3. Burn an encrypted amount from a holder's confidential balance into the
+//    mint's pending burn. Generates proofs like a confidential transfer.
+token
+    .confidential_transfer_burn(
+        &owner,
+        &source_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        burn_amount,
+        &source_elgamal_keypair,
+        &supply_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &source_aes_key,
+        None, // burn account info, fetched if None
+        &[&owner_keypair],
+    )
+    .await?;
+
+// 4. Fold the accumulated pending burn into the confidential supply.
+token
+    .confidential_transfer_apply_pending_burn(&mint_authority, &[&mint_authority_keypair])
+    .await?;
+```
+
+</CodeTabs>
+
+Faites pivoter la clé de chiffrement de l'offre avec
+`confidential_transfer_rotate_supply_elgamal_pubkey` (la destruction en attente
+doit d'abord être nulle), et actualisez le texte chiffré de l'offre lisible avec
+`confidential_transfer_update_decrypt_supply`.
+
+## Considérations opérationnelles et de conformité
+
+- **Conservation de la clé d'auditeur.** Si vous définissez un auditeur, la clé
+  secrète de l'auditeur est une clé de déchiffrement à haute valeur. Stockez-la
+  et renouvelez-la soigneusement, et décidez qui au sein de votre organisation
+  (ou quel régulateur) la détient.
+- **Posture de conformité.** Le filtrage des adresses et l'analyse du graphe des
+  contreparties continuent de fonctionner car les adresses restent publiques. La
+  surveillance basée sur les montants dépend de la clé d'auditeur ou de la
+  divulgation sélective par les titulaires de comptes. Définissez votre approche
+  avant le lancement.
+- **Intégration des détenteurs.** La configuration d'un compte confidentiel
+  nécessite la signature du propriétaire. Pour provisionner des comptes pour les
+  utilisateurs sans friction, demandez-leur d'enregistrer une clé ElGamal une
+  seule fois et d'utiliser le chemin du registre, décrit dans le
+  [Guide d'intégration](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts).
+- **Nombre de transactions.** Un transfert confidentiel couvre actuellement
+  plusieurs transactions dépendantes car les preuves dépassent la limite de
+  taille de transaction actuelle. Le format de transaction v1 (déployé avec
+  Agave v4.2) relève cette limite et devrait permettre une seule transaction
+  on-chain.

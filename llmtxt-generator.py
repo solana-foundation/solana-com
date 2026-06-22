@@ -24,6 +24,7 @@ CURATED_SECTIONS = {
     "Core Concepts": [
         ("Accounts", "docs/core/accounts", "How Solana stores data in accounts"),
         ("Transactions", "docs/core/transactions", "The fundamental building blocks for interacting with Solana"),
+        ("Signing in Production", "docs/core/transactions/signing-in-production", "Where signing keys live in production and how to choose a backend"),
         ("Programs", "docs/core/programs", "Smart contracts on Solana"),
         ("Program Derived Addresses", "docs/core/pda", "Deterministic addresses for program-controlled accounts"),
         ("Cross Program Invocation", "docs/core/cpi", "How programs invoke other programs"),
@@ -71,6 +72,7 @@ CURATED_SECTIONS = {
         ("Tools", "docs/tools", "Developer tool documentation"),
         ("Kora", "docs/tools/kora", "Solana signing infrastructure"),
         ("Keychain", "docs/tools/keychain", "Unified Solana signing across key management backends"),
+        ("Choosing a Signing Backend", "docs/tools/keychain/choosing-a-backend", "Compare custody models and pick a Keychain backend"),
         ("Commerce Kit", "docs/tools/commerce-kit", "Commerce primitives for Solana payment experiences"),
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),

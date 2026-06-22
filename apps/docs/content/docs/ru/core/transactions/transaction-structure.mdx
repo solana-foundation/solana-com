@@ -312,9 +312,30 @@ Total = 1232 bytes
 
 ![Диаграмма процесса перевода SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-Пример ниже показывает код, относящийся к приведённым выше диаграммам. См.
-функцию System Program
-[`transfer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210).
+<Callout type="warn" title="Проверьте получателя перед отправкой SOL">
+
+Перевод через System Program добавляет lamport на **любой** аккаунт. На уровне
+протокола не предусмотрено проверки того, сможет ли получатель вывести SOL
+обратно. Lamport могут быть выведены только программой-владельцем аккаунта,
+поэтому отправка SOL на [mint токена](/docs/tokens/basics/create-mint),
+программу или [PDA](/docs/core/pda), которым вы не управляете, **грозит
+безвозвратной потерей средств** — вернуть их сможет только полномочный орган,
+указанный программой-владельцем. SOL, отправленный на
+[token account](/docs/tokens/basics/create-token-account), может быть получен
+только владельцем этого аккаунта, но не отправителем.
+
+Переводы SPL **токенов** частично защищены от ошибок: Token Program отклоняет
+перевод, если аккаунты не соответствуют ожидаемому mint. Переводы нативного
+**SOL** лишены подобной защиты, поэтому отправитель обязан проверить получателя
+перед подписанием транзакции. Полную логику классификации см. в разделе
+[Проверка адреса](/docs/payments/send-payments/verify-address).
+
+</Callout>
+
+В примере ниже приведён код, соответствующий приведённым выше диаграммам. См.
+функцию
+[`transfer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
+System Program.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -531,8 +552,8 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Следующий пример показывает структуру транзакции, содержащей одну инструкцию
-перевода SOL.
+В следующем примере показана структура транзакции, содержащей единственную
+инструкцию перевода SOL.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -681,9 +702,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Ниже приведён вывод предыдущих фрагментов кода.
+Код ниже демонстрирует вывод из предыдущих фрагментов кода.
 Формат отличается в зависимости от SDK,
-но обратите внимание, что каждая инструкция содержит одну и ту же необходимую информацию.
+однако обратите внимание, что каждая инструкция содержит одинаковую необходимую информацию.
 
 <CodeTabs storage="sol-transfer">
 
@@ -788,13 +809,82 @@ async fn main() -> Result<()> {
 </CodeTabs>
 </WithMentions>
 
-## Получение информации о транзакции
+### Проверьте получателя перед переводом
 
-После отправки получите детали транзакции, используя подпись транзакции и
-RPC-метод [getTransaction](/docs/rpc/http/gettransaction).
+Поскольку перевод SOL проходит успешно на любой аккаунт, проверяйте получателя
+перед подписанием. Получите данные аккаунта и отправляйте средства только на
+кошелёк System Program (или на незафондированный адрес
+[на кривой](/docs/payments/send-payments/verify-address#on-curve-addresses));
+отклоняйте mint'ы, token account'ы, программы и PDA, которыми вы не управляете.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
 
 <Callout>
-  Найти транзакцию также можно через [Solana
+  Этот фрагмент проверяет получателей нативного SOL. Полную классификацию,
+  которая также обрабатывает отправку SPL-токенов (token accounts, ATA,
+  Token-2022), см. в разделе [Проверка
+  адреса](/docs/payments/send-payments/verify-address).
+</Callout>
+
+## Получение деталей транзакции
+
+После отправки получите детали транзакции, используя подпись транзакции и метод
+RPC [getTransaction](/docs/rpc/http/gettransaction).
+
+<Callout>
+  Также найти транзакцию можно с помощью [Solana
   Explorer](https://explorer.solana.com).
 </Callout>
 
