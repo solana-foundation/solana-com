@@ -17,6 +17,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import {
   Fragment,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -999,21 +1000,41 @@ function ChartCard({
         </span>
       </div>
 
-      {series.length > 0 ? (
-        <TimeSeriesChart
-          height={chartHeight}
-          series={series}
-          valueLabel={chart.valueLabel}
-        />
-      ) : (
-        <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
-          {t("empty.noDataForSelection")}
-        </div>
-      )}
+      <ChartWatermarkFrame>
+        {series.length > 0 ? (
+          <TimeSeriesChart
+            height={chartHeight}
+            series={series}
+            valueLabel={chart.valueLabel}
+          />
+        ) : (
+          <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
+            {t("empty.noDataForSelection")}
+          </div>
+        )}
+      </ChartWatermarkFrame>
 
       <ChartOrdinal index={index} />
       {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
+  );
+}
+
+function ChartWatermarkFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex h-[320px] items-center justify-center overflow-hidden"
+      >
+        <img
+          alt=""
+          className="h-auto w-[45%] min-w-[220px] max-w-[300px] opacity-[0.1] mix-blend-screen brightness-0 invert"
+          src="/src/img/branding/solanaLogo.svg"
+        />
+      </div>
+      <div className="relative z-[1]">{children}</div>
+    </div>
   );
 }
 
