@@ -556,8 +556,6 @@ export default {
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
-    { source: "/developers/data", destination: "/data" },
-    { source: "/developers/data/:path*", destination: "/data/:path*" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
       source: "/solutions/token22",
