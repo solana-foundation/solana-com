@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "@workspace/i18n/routing";
+import { isThemeRoute } from "./developer-routes";
 
 type Theme = "dark" | "light";
 
@@ -19,12 +20,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
-  const isThemePage = pathname
-    ? pathname.startsWith("/docs") ||
-      pathname.startsWith("/developers/cookbook") ||
-      pathname.startsWith("/developers/guides") ||
-      pathname.startsWith("/developers/bootcamp")
-    : false;
+  const isThemePage = isThemeRoute(pathname);
   const [theme, setTheme] = useState<Theme>("dark"); // Initial theme state; will be updated by useEffect.
 
   useEffect(() => {
