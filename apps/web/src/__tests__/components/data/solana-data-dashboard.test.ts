@@ -4,6 +4,7 @@ import type { MetricRow, ProviderName } from "@/app/[locale]/data/data-config";
 import {
   getAvailableProviders,
   getMedian,
+  getSelectedProviderList,
   parseProviders,
   updateProvidersParam,
 } from "@/app/[locale]/data/solana-data-dashboard";
@@ -99,6 +100,26 @@ describe("provider query state", () => {
     expect(parseProviders("New Provider")).toEqual(
       new Set<ProviderName>(["New Provider"]),
     );
+  });
+
+  it("keeps parsed provider labels visible before SQL rows are available", () => {
+    const selectedProviders = parseProviders("New Provider,Dune");
+
+    expect(getSelectedProviderList(selectedProviders, [])).toEqual([
+      "Dune",
+      "New Provider",
+    ]);
+  });
+
+  it("orders selected provider labels by available SQL providers once loaded", () => {
+    const selectedProviders = parseProviders(
+      "New Provider,Dune",
+      availableProviders,
+    );
+
+    expect(
+      getSelectedProviderList(selectedProviders, availableProviders),
+    ).toEqual(["Dune", "New Provider"]);
   });
 });
 

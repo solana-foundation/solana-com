@@ -243,7 +243,7 @@ export function SolanaDataDashboard() {
     [availableProviders, providerParam],
   );
   const selectedProviderList = useMemo(
-    () => getOrderedSelectedProviders(selectedProviders, availableProviders),
+    () => getSelectedProviderList(selectedProviders, availableProviders),
     [availableProviders, selectedProviders],
   );
   const updateQuery = useDashboardQueryUpdater(availableProviders);
@@ -1438,6 +1438,15 @@ function getFooterProvidersLabel(
   }
 
   return selectedProviderList.join(t("footer.providerListSeparator"));
+}
+
+export function getSelectedProviderList(
+  selectedProviders: ReadonlySet<ProviderName>,
+  availableProviders: readonly ProviderName[],
+) {
+  return availableProviders.length > 0
+    ? getOrderedSelectedProviders(selectedProviders, availableProviders)
+    : getOrderedProviderNames(selectedProviders);
 }
 
 function getOrderedSelectedProviders(

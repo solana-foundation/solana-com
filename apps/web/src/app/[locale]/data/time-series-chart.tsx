@@ -8,7 +8,7 @@ import { ParentSize } from "@visx/responsive";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
@@ -49,6 +49,7 @@ const baseMargin = {
   left: 62,
 };
 
+const compactChartMaxWidth = 767;
 const coincidentDashPatterns = ["6 4", "2 4"] as const;
 const dimmedSeriesOpacity = 0.25;
 
@@ -59,7 +60,6 @@ export function TimeSeriesChart({
 }: TimeSeriesChartProps) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
-  const compact = useIsCompactViewport();
   const [disabledSeries, setDisabledSeries] = useState<Set<string>>(new Set());
   const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
   const visibleSeries = useMemo(
@@ -147,7 +147,6 @@ export function TimeSeriesChart({
           <ParentSize>
             {({ width, height: measuredHeight }) => (
               <ChartSvg
-                compact={compact}
                 height={measuredHeight}
                 highlightedSeriesId={highlightedSeriesId}
                 locale={locale}
@@ -169,7 +168,6 @@ export function TimeSeriesChart({
 }
 
 function ChartSvg({
-  compact,
   height,
   highlightedSeriesId,
   locale,
@@ -178,7 +176,6 @@ function ChartSvg({
   valueLabel,
   width,
 }: {
-  compact: boolean;
   height: number;
   highlightedSeriesId: string | null;
   locale: string;
@@ -195,9 +192,10 @@ function ChartSvg({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const margin = compact
-    ? { top: 16, right: 12, bottom: 32, left: 52 }
-    : baseMargin;
+  const margin =
+    width <= compactChartMaxWidth
+      ? { top: 16, right: 12, bottom: 32, left: 52 }
+      : baseMargin;
   const innerWidth = Math.max(width - margin.left - margin.right, 0);
   const innerHeight = Math.max(height - margin.top - margin.bottom, 0);
   const points = series.flatMap((item) => item.points);
@@ -413,22 +411,6 @@ function ChartSvg({
       ) : null}
     </>
   );
-}
-
-function useIsCompactViewport() {
-  const [compact, setCompact] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateMatches = () => setCompact(mediaQuery.matches);
-
-    updateMatches();
-    mediaQuery.addEventListener("change", updateMatches);
-
-    return () => mediaQuery.removeEventListener("change", updateMatches);
-  }, []);
-
-  return compact;
 }
 
 export function getSeriesDashPatterns(series: ChartSeries[]) {
