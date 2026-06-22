@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { providers, type ProviderName } from "@/app/[locale]/data/data-config";
+import {
+  chartDefinitions,
+  providers,
+  type ProviderName,
+} from "@/app/[locale]/data/data-config";
 import {
   getMedian,
   parseProviders,
@@ -75,5 +79,15 @@ describe("provider query state", () => {
     expect(parseProviders("DefiLama")).toEqual(
       new Set<ProviderName>(["DeFiLlama"]),
     );
+  });
+});
+
+describe("chart provider config", () => {
+  it("shows DeFiLlama for Stablecoin Count when source data exists", () => {
+    const stablecoinCountChart = chartDefinitions.find(
+      (chart) => chart.id === "stablecoin-count",
+    );
+
+    expect(stablecoinCountChart?.providers).toContain("DeFiLlama");
   });
 });

@@ -97,6 +97,7 @@ const dexCountProviders = [
 
 const stablecoinCountProviders = [
   "Allium",
+  "DeFiLlama",
   "Dune",
 ] as const satisfies readonly ProviderName[];
 
