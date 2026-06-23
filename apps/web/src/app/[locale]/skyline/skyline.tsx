@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Mail } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -201,7 +200,7 @@ export function SkylinePage({ events }: SkylinePageProps) {
               }))}
             />
             <div className="mt-12 xl:mt-16 pt-8 xl:pt-12 border-t border-nd-border-light">
-              <h3 className="nd-heading-s mb-6">
+              <h3 className="nd-heading-s pb-6">
                 {t("skyline.membership.perksTitle")}
               </h3>
               <ul className="p-0 m-0 list-none md:columns-2 md:gap-x-16">
@@ -428,10 +427,8 @@ export function SkylinePage({ events }: SkylinePageProps) {
           eyebrow={t("skyline.cta.title")}
           description={t("skyline.cta.description")}
           emailCta={t("skyline.cta.button")}
-          onEmailClick={() => {
-            window.location.href = LINKS.contactEmail;
-          }}
-          CtaIcon={Mail}
+          ctaHref={LINKS.contactEmail}
+          CtaIcon={UsersIcon}
           imgSrc="/src/img/skyline/logo.webp"
           linksTitle={t("skyline.cta.linksTitle")}
           links={[
