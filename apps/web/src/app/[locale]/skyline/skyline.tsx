@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -34,6 +35,7 @@ import {
   LINKS,
   MEMBERSHIP_TIERS,
   PERK_COUNT,
+  QUICK_LINKS,
   SPACES,
   VENUE_DETAIL_COUNT,
   VENUE_FEATURE_COUNT,
@@ -55,6 +57,8 @@ const PlusGlyph = ({ className }: { className?: string }) => (
     <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
   </svg>
 );
+
+const isExternalHref = (href: string) => href.startsWith("http");
 
 type SkylinePageProps = {
   events: CalendarEvent[];
@@ -115,12 +119,68 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <SkylineHero
           title={t("skyline.hero.title")}
           subtitle={t("skyline.hero.subtitle")}
-          primaryCta={t("skyline.hero.secondaryCta")}
-          primaryCtaHref={LINKS.eventsCalendar}
+          primaryCta={t("skyline.hero.primaryCta")}
+          primaryCtaHref={LINKS.fridayCoworking}
+          secondaryCta={t("skyline.hero.secondaryCta")}
+          secondaryCtaHref={LINKS.eventsCalendar}
           stats={stats}
           imageSrc="/src/img/skyline/hero-skyline.webp"
           bgJsonFilePath="/src/img/skyline/hero-bg.json"
         />
+
+        {/* Quick Links Section */}
+        <section className="relative bg-[#f7f5ef] text-black text-left">
+          <Container className="py-[48px] md:py-[64px] xl:py-[80px]">
+            <div className="max-w-3xl mb-8 xl:mb-10">
+              <p className="nd-body-m uppercase text-black/60 mb-3">
+                {t("skyline.quickLinks.eyebrow")}
+              </p>
+              <h2 className="nd-heading-m mb-0">
+                {t("skyline.quickLinks.title")}
+              </h2>
+              <p className="nd-body-l text-black/65 mt-3 mb-0">
+                {t("skyline.quickLinks.description")}
+              </p>
+            </div>
+
+            <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 p-0 m-0 list-none">
+              {QUICK_LINKS.map(({ key, href, Icon }) => {
+                const external = isExternalHref(href);
+                const LinkIcon = external ? ArrowUpRight : ArrowRight;
+
+                return (
+                  <li key={key} className="min-h-[188px]">
+                    <a
+                      href={href}
+                      target={external ? "_blank" : undefined}
+                      rel={external ? "noopener noreferrer" : undefined}
+                      className="group flex h-full flex-col rounded-lg border border-black/10 bg-white p-5 md:p-6 text-black transition-colors hover:border-black/30 hover:bg-[#fdfcf7]"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <Icon
+                          aria-hidden={true}
+                          className="size-5 text-black/80"
+                        />
+                        <LinkIcon
+                          aria-hidden={true}
+                          className="size-5 text-black/40 transition-transform group-hover:translate-x-1 group-hover:text-black"
+                        />
+                      </div>
+                      <div className="mt-auto pt-10">
+                        <h3 className="nd-heading-s mb-2">
+                          {t(`skyline.quickLinks.items.${key}.title`)}
+                        </h3>
+                        <p className="nd-body-m text-black/65 mb-0">
+                          {t(`skyline.quickLinks.items.${key}.description`)}
+                        </p>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </Container>
+        </section>
 
         <Divider />
 
@@ -141,7 +201,10 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <Divider />
 
         {/* Coworking Section */}
-        <section className="relative bg-black text-white text-left">
+        <section
+          id="coworking"
+          className="relative bg-black text-white text-left"
+        >
           <Container className="py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row gap-8 xl:gap-16">
             <div className="w-full xl:w-1/2">
               <h2 className="nd-heading-l mb-0">
@@ -177,7 +240,10 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <Divider />
 
         {/* Membership Section */}
-        <section className="relative z-[1] bg-black text-white text-left">
+        <section
+          id="membership"
+          className="relative z-[1] bg-black text-white text-left"
+        >
           <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
             <div className="max-w-xl mb-8 xl:mb-12">
               <h2 className="nd-heading-l mb-0">
@@ -224,7 +290,10 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <Decor imageSrc="/src/img/skyline/decor.webp" />
 
         {/* Spaces Section */}
-        <section className="relative z-[1] bg-black text-white text-left">
+        <section
+          id="spaces"
+          className="relative z-[1] bg-black text-white text-left"
+        >
           <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
             <div className="max-w-xl mb-8 xl:mb-12">
               <h2 className="nd-heading-l mb-0">
@@ -271,7 +340,10 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <Divider />
 
         {/* Host Your Event Section */}
-        <section className="relative bg-black text-white text-left">
+        <section
+          id="host-events"
+          className="relative bg-black text-white text-left"
+        >
           <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
             <div className="flex flex-col xl:flex-row xl:items-center gap-8 xl:gap-16">
               <div className="w-full xl:w-2/5 max-xl:order-2">

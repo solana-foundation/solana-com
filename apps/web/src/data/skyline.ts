@@ -1,5 +1,7 @@
 import {
+  CalendarDays,
   Coffee,
+  DoorOpen,
   Laptop,
   Mic,
   MonitorPlay,
@@ -27,6 +29,13 @@ export const MEMBERSHIP_TIERS = [
   { key: "fridays", href: LINKS.fridayCoworking },
   { key: "partTime", href: LINKS.membershipApplication },
   { key: "fullTime", href: LINKS.membershipApplication },
+];
+
+export const QUICK_LINKS = [
+  { key: "cowork", href: "#coworking", Icon: Laptop },
+  { key: "visit", href: LINKS.contactEmail, Icon: DoorOpen },
+  { key: "events", href: LINKS.eventsCalendar, Icon: CalendarDays },
+  { key: "host", href: "#host-events", Icon: Presentation },
 ];
 
 export const SPACES = [

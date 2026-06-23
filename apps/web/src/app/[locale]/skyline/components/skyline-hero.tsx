@@ -78,7 +78,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
   return (
     <section
       id="hero"
-      className="relative overflow-hidden bg-black text-white text-left"
+      className="relative overflow-hidden bg-[#dcecf7] text-white text-left"
       aria-labelledby="hero-title"
     >
       {/* Cityscape photo — full-bleed, anchored low so the skyline reads at every
@@ -89,13 +89,13 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
         fill
         priority
         sizes="100vw"
-        className="absolute inset-0 z-0 object-cover object-[center_78%] md:object-[center_60%] brightness-[1.04] contrast-[1.18] saturate-[0.5]"
+        className="absolute inset-0 z-0 object-cover object-[center_78%] md:object-[center_60%] brightness-[1.12] contrast-[1.05] saturate-[0.85]"
       />
 
       {/* Animated atmosphere, screen-blended into the sky */}
       {bgJsonFilePath && (
         <UnicornScene
-          className="!absolute inset-0 z-[1] mix-blend-screen opacity-70"
+          className="!absolute inset-0 z-[1] mix-blend-screen opacity-35"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
@@ -112,7 +112,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
           the scene toward the logo palette and deepen contrast. */}
       <div
         aria-hidden={true}
-        className="absolute inset-0 z-[2] mix-blend-overlay opacity-80"
+        className="absolute inset-0 z-[2] mix-blend-overlay opacity-25"
         style={{
           backgroundImage:
             "linear-gradient(120deg, #9945FF 0%, #6570ED 26%, #00D4FF 52%, #0AE99F 78%, #14F195 100%)",
@@ -121,7 +121,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
       {/* A softer second pass adds saturation in the highlights without flattening. */}
       <div
         aria-hidden={true}
-        className="absolute inset-0 z-[2] mix-blend-soft-light opacity-50"
+        className="absolute inset-0 z-[2] mix-blend-soft-light opacity-20"
         style={{
           backgroundImage:
             "linear-gradient(160deg, #9945FF 0%, transparent 50%, #14F195 100%)",
@@ -131,23 +131,23 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
       {/* Scrims: soft top wash for the headline, strong bottom fade into the page */}
       <div
         aria-hidden={true}
-        className="absolute inset-0 z-[3] bg-gradient-to-b from-black/50 via-black/10 to-black md:from-black/35 md:via-transparent md:to-black"
+        className="absolute inset-0 z-[3] bg-gradient-to-b from-white/10 via-transparent to-black/70 md:from-white/5 md:to-black/75"
       />
       <div
         aria-hidden={true}
-        className="absolute inset-0 z-[3] bg-gradient-to-r from-black/55 via-black/10 to-transparent"
+        className="absolute inset-0 z-[3] bg-gradient-to-r from-black/40 via-black/5 to-transparent"
       />
 
-      <div className="relative z-10 max-w-[1440px] mx-auto flex flex-col min-h-[760px] md:min-h-[920px] xl:min-h-[1040px] justify-between">
+      <div className="relative z-10 max-w-[1440px] mx-auto flex flex-col min-h-[680px] md:min-h-[760px] xl:min-h-[840px] justify-between">
         {/* Hero Content */}
-        <div className="px-[20px] md:px-[32px] xl:px-[40px] pt-[72px] md:pt-[120px] xl:pt-[160px] pb-12 max-w-5xl">
+        <div className="px-[20px] md:px-[32px] xl:px-[40px] pt-[84px] md:pt-[120px] xl:pt-[136px] pb-12 max-w-5xl">
           <h1
             id="hero-title"
-            className="m-0 font-brand font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px] [text-shadow:0_2px_24px_rgba(0,0,0,0.35)]"
+            className="m-0 font-brand font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] [text-shadow:0_2px_24px_rgba(0,0,0,0.35)]"
           >
             {titleNodes}
           </h1>
-          <p className="text-white/80 text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33] [text-shadow:0_1px_16px_rgba(0,0,0,0.4)]">
+          <p className="text-white/88 text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl leading-[1.33] [text-shadow:0_1px_16px_rgba(0,0,0,0.4)]">
             {subtitle}
           </p>
 
@@ -156,7 +156,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
             <div className="mt-[32px] xl:mt-[48px] flex flex-wrap items-center gap-3">
               {primaryCta && primaryCtaHref && (
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90"
                   size="lg"
                   asChild
                 >
@@ -172,7 +172,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
               )}
               {secondaryCta && secondaryCtaHref && (
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white/10 border border-white/25 text-white backdrop-blur-md hover:!bg-white/20 tracking-[-0.16px] md:tracking-[-0.18px]"
+                  className="rounded-full text-base md:text-lg px-5 bg-white/10 border border-white/25 text-white backdrop-blur-md hover:!bg-white/20"
                   size="lg"
                   asChild
                 >
