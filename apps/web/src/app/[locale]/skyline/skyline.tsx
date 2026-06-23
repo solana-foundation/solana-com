@@ -16,7 +16,8 @@ import {
   UsersIcon,
 } from "@solana-com/ui-chrome/icons";
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
+import type { SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { SkylineHero } from "./components/skyline-hero";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
@@ -111,13 +112,13 @@ export function SkylinePage({ events }: SkylinePageProps) {
       <SelectionColor selectionColor={ACCENT} selectionTextColor="#000000" />
 
       <div id="skyline-page" className="bg-black">
-        <SolutionHero
+        <SkylineHero
           title={t("skyline.hero.title")}
           subtitle={t("skyline.hero.subtitle")}
-          extraCta={t("skyline.hero.secondaryCta")}
-          extraCtaHref={LINKS.eventsCalendar}
+          primaryCta={t("skyline.hero.secondaryCta")}
+          primaryCtaHref={LINKS.eventsCalendar}
           stats={stats}
-          showDownloadCard={false}
+          imageSrc="/src/img/skyline/hero-skyline.webp"
           bgJsonFilePath="/src/img/skyline/hero-bg.json"
         />
 
