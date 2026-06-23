@@ -115,10 +115,8 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <SolutionHero
           title={t("skyline.hero.title")}
           subtitle={t("skyline.hero.subtitle")}
-          extraCta={t("skyline.hero.primaryCta")}
-          extraCtaHref={LINKS.fridayCoworking}
-          secondaryCta={t("skyline.hero.secondaryCta")}
-          secondaryCtaHref={LINKS.eventsCalendar}
+          extraCta={t("skyline.hero.secondaryCta")}
+          extraCtaHref={LINKS.eventsCalendar}
           stats={stats}
           showDownloadCard={false}
           bgJsonFilePath="/src/img/skyline/hero-bg.json"
@@ -206,9 +204,12 @@ export function SkylinePage({ events }: SkylinePageProps) {
               <h3 className="nd-heading-s mb-6">
                 {t("skyline.membership.perksTitle")}
               </h3>
-              <ul className="p-0 m-0 list-none grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4">
+              <ul className="p-0 m-0 list-none md:columns-2 md:gap-x-16">
                 {Array.from({ length: PERK_COUNT }, (_, i) => (
-                  <li key={i} className="flex items-start gap-4">
+                  <li
+                    key={i}
+                    className="flex items-start gap-4 mb-4 last:mb-0 break-inside-avoid"
+                  >
                     <PlusGlyph className="shrink-0 mt-[5px]" />
                     <span className="nd-body-m text-nd-mid-em-text">
                       {t(`skyline.membership.perks.${i}`)}
