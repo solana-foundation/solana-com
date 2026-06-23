@@ -19,6 +19,7 @@ import {
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 import type { SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { SkylineHero } from "./components/skyline-hero";
+import { SkylineGallery } from "./components/skyline-gallery";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
@@ -36,6 +37,7 @@ import {
   MEMBERSHIP_TIERS,
   PERK_COUNT,
   QUICK_LINKS,
+  SKYLINE_GALLERY_IMAGES,
   SPACES,
   VENUE_DETAIL_COUNT,
   VENUE_FEATURE_COUNT,
@@ -196,6 +198,12 @@ export function SkylinePage({ events }: SkylinePageProps) {
           description={t("skyline.whatIs.description")}
           highlightColor={ACCENT}
           imageSrc="/src/img/skyline/what-is.webp"
+        />
+
+        <SkylineGallery
+          title={t("skyline.gallery.title")}
+          description={t("skyline.gallery.description")}
+          images={SKYLINE_GALLERY_IMAGES}
         />
 
         <Divider />
