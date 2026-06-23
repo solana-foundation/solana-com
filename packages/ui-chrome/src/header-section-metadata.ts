@@ -45,7 +45,6 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/privacy" },
     ],
     contentAlign: "left",
-    contentClassName: "xl:overflow-y-auto xl:max-h-[90vh]",
   },
   {
     id: "products",
@@ -93,6 +92,5 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/solutions/request-for-startups" },
     ],
     contentAlign: "center",
-    contentClassName: "xl:overflow-y-auto xl:max-h-[90vh]",
   },
 ];
