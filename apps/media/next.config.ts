@@ -65,6 +65,11 @@ const nextConfig: NextConfig = {
         hostname: "img.transistor.fm",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "media.rss.com",
+        port: "",
+      },
     ],
   },
 
