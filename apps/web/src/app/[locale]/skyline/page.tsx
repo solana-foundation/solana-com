@@ -1,11 +1,10 @@
 import { SkylinePage } from "./skyline";
-import { getAlternates } from "@workspace/i18n/routing";
-import { getTranslations } from "next-intl/server";
+import { getIndexMetadata } from "@/app/metadata";
 import {
   fetchCalendarEvents,
   CalendarEvent,
 } from "@/lib/events/fetchCalendarEvents";
-import { SKYLINE_CALENDAR_ID } from "@/data/skyline";
+import { META, SKYLINE_CALENDAR_ID } from "@/data/skyline";
 
 export const revalidate = 60;
 
@@ -33,10 +32,17 @@ export default async function Page(_props: Props) {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations("skyline");
+  const base = await getIndexMetadata({
+    titleKey: "skyline.meta.title",
+    descriptionKey: "skyline.meta.description",
+    path: "/skyline",
+    locale,
+  });
   return {
-    title: t("meta.title"),
-    description: t("meta.description"),
-    alternates: getAlternates("/skyline", locale),
+    ...base,
+    openGraph: {
+      ...base.openGraph,
+      images: [META.seoImage],
+    },
   };
 }

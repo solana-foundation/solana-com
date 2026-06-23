@@ -15,6 +15,10 @@ export const LINKS = {
   contactEmail: "mailto:skyline@solana.org",
 };
 
+export const META = {
+  seoImage: "/src/img/skyline/solana-skyline-social.webp",
+} as const;
+
 /** Luma calendar api id for https://luma.com/solana-nyc (Skyline / Solana NYC) */
 export const SKYLINE_CALENDAR_ID = "cal-xIDT6vXOhDyC4FM";
 
