@@ -78,7 +78,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
   return (
     <section
       id="hero"
-      className="relative overflow-hidden bg-[#dcecf7] text-white text-left"
+      className="relative overflow-hidden bg-nd-bg text-nd-high-em-text text-left"
       aria-labelledby="hero-title"
     >
       {/* Cityscape photo — full-bleed, anchored low so the skyline reads at every
@@ -95,7 +95,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
       {/* Animated atmosphere, screen-blended into the sky */}
       {bgJsonFilePath && (
         <UnicornScene
-          className="!absolute inset-0 z-[1] mix-blend-screen opacity-35"
+          className="!absolute inset-0 z-[4] pointer-events-none mix-blend-screen opacity-95"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
@@ -147,7 +147,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
           >
             {titleNodes}
           </h1>
-          <p className="text-white/88 text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl leading-[1.33] [text-shadow:0_1px_16px_rgba(0,0,0,0.4)]">
+          <p className="nd-body-xl text-nd-mid-em-text-alpha font-medium mt-[12px] xl:mt-[24px] mb-0 max-w-xl [text-shadow:0_1px_16px_rgba(0,0,0,0.4)]">
             {subtitle}
           </p>
 
@@ -156,7 +156,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
             <div className="mt-[32px] xl:mt-[48px] flex flex-wrap items-center gap-3">
               {primaryCta && primaryCtaHref && (
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90"
+                  className="rounded-full nd-body-m px-6 py-3 bg-nd-cta text-nd-on-cta-high-em-text hover:!bg-nd-primary-hovered"
                   size="lg"
                   asChild
                 >
@@ -172,7 +172,7 @@ export const SkylineHero: React.FC<SkylineHeroProps> = ({
               )}
               {secondaryCta && secondaryCtaHref && (
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white/10 border border-white/25 text-white backdrop-blur-md hover:!bg-white/20"
+                  className="rounded-full nd-body-m px-6 py-3 bg-nd-high-em-text/[0.08] border border-nd-border-prominent text-nd-high-em-text backdrop-blur-md hover:!bg-nd-high-em-text/[0.14]"
                   size="lg"
                   asChild
                 >

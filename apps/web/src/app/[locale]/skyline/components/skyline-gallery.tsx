@@ -25,7 +25,7 @@ export function SkylineGallery({
   images,
 }: SkylineGalleryProps) {
   return (
-    <section className="relative overflow-hidden bg-black text-white text-left">
+    <section className="relative overflow-hidden bg-nd-bg text-nd-high-em-text text-left">
       <Container className="pt-[48px] md:pt-[72px] xl:pt-[96px] pb-8 xl:pb-12">
         <div className="max-w-3xl">
           <h2 className="nd-heading-l mb-0">{title}</h2>
@@ -38,11 +38,11 @@ export function SkylineGallery({
       <div className="relative pb-[64px] md:pb-[112px] xl:pb-[160px]">
         <div
           aria-hidden={true}
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 md:w-32 bg-gradient-to-r from-black to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 md:w-32 bg-gradient-to-r from-nd-bg to-transparent"
         />
         <div
           aria-hidden={true}
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 md:w-32 bg-gradient-to-l from-black to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 md:w-32 bg-gradient-to-l from-nd-bg to-transparent"
         />
 
         <Marquee className="w-full" speed={42}>
@@ -50,7 +50,7 @@ export function SkylineGallery({
             <div
               key={image.src}
               className={cn(
-                "relative mr-3 md:mr-4 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]",
+                "mr-3 md:mr-4 shrink-0 overflow-hidden rounded-xl border border-nd-border-light bg-nd-high-em-text/[0.04]",
                 "h-[220px] md:h-[320px] xl:h-[380px]",
                 imageWidthClassNames[image.variant],
               )}
@@ -58,9 +58,10 @@ export function SkylineGallery({
               <Image
                 src={image.src}
                 alt={image.alt}
-                fill
+                width={image.width}
+                height={image.height}
                 sizes="(min-width: 1280px) 760px, (min-width: 768px) 640px, 380px"
-                className="object-cover"
+                className="h-full w-full object-cover"
                 loading="lazy"
               />
             </div>

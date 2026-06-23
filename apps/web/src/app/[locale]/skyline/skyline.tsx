@@ -121,26 +121,24 @@ export function SkylinePage({ events }: SkylinePageProps) {
         <SkylineHero
           title={t("skyline.hero.title")}
           subtitle={t("skyline.hero.subtitle")}
-          primaryCta={t("skyline.hero.primaryCta")}
-          primaryCtaHref={LINKS.fridayCoworking}
-          secondaryCta={t("skyline.hero.secondaryCta")}
-          secondaryCtaHref={LINKS.eventsCalendar}
+          primaryCta={t("skyline.hero.secondaryCta")}
+          primaryCtaHref={LINKS.eventsCalendar}
           stats={stats}
           imageSrc="/src/img/skyline/hero-skyline.webp"
           bgJsonFilePath="/src/img/skyline/hero-bg.json"
         />
 
         {/* Quick Links Section */}
-        <section className="relative bg-[#f7f5ef] text-black text-left">
+        <section className="relative bg-nd-bg text-nd-high-em-text text-left">
           <Container className="py-[48px] md:py-[64px] xl:py-[80px]">
             <div className="max-w-3xl mb-8 xl:mb-10">
-              <p className="nd-body-m uppercase text-black/60 mb-3">
+              <p className="nd-body-m uppercase text-nd-mid-em-text mb-3">
                 {t("skyline.quickLinks.eyebrow")}
               </p>
               <h2 className="nd-heading-m mb-0">
                 {t("skyline.quickLinks.title")}
               </h2>
-              <p className="nd-body-l text-black/65 mt-3 mb-0">
+              <p className="nd-body-l text-nd-mid-em-text mt-3 mb-0">
                 {t("skyline.quickLinks.description")}
               </p>
             </div>
@@ -156,23 +154,23 @@ export function SkylinePage({ events }: SkylinePageProps) {
                       href={href}
                       target={external ? "_blank" : undefined}
                       rel={external ? "noopener noreferrer" : undefined}
-                      className="group flex h-full flex-col rounded-lg border border-black/10 bg-white p-5 md:p-6 text-black transition-colors hover:border-black/30 hover:bg-[#fdfcf7]"
+                      className="group flex h-full flex-col rounded-xl border border-nd-border-light bg-nd-high-em-text/[0.04] p-5 md:p-6 text-nd-high-em-text transition-colors hover:border-nd-border-hovered hover:bg-nd-high-em-text/[0.08]"
                     >
                       <div className="flex items-center justify-between gap-4">
                         <Icon
                           aria-hidden={true}
-                          className="size-5 text-black/80"
+                          className="size-5 text-nd-mid-em-text transition-colors group-hover:text-nd-high-em-text"
                         />
                         <LinkIcon
                           aria-hidden={true}
-                          className="size-5 text-black/40 transition-transform group-hover:translate-x-1 group-hover:text-black"
+                          className="size-5 text-nd-mid-em-text transition-transform group-hover:translate-x-1 group-hover:text-nd-high-em-text"
                         />
                       </div>
                       <div className="mt-auto pt-10">
                         <h3 className="nd-heading-s mb-2">
                           {t(`skyline.quickLinks.items.${key}.title`)}
                         </h3>
-                        <p className="nd-body-m text-black/65 mb-0">
+                        <p className="nd-body-m text-nd-mid-em-text mb-0">
                           {t(`skyline.quickLinks.items.${key}.description`)}
                         </p>
                       </div>
@@ -199,6 +197,8 @@ export function SkylinePage({ events }: SkylinePageProps) {
           highlightColor={ACCENT}
           imageSrc="/src/img/skyline/what-is.webp"
         />
+
+        <Divider />
 
         <SkylineGallery
           title={t("skyline.gallery.title")}
