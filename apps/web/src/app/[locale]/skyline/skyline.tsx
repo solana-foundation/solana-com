@@ -35,6 +35,8 @@ import {
   MEMBERSHIP_TIERS,
   PERK_COUNT,
   SPACES,
+  VENUE_DETAIL_COUNT,
+  VENUE_FEATURE_COUNT,
 } from "@/data/skyline";
 
 const ACCENT = "#CA9FF5";
@@ -62,6 +64,11 @@ export function SkylinePage({ events }: SkylinePageProps) {
   const t = useTranslations();
 
   const { ref: spacesRef, isIntersecting: spacesVisible } =
+    useIntersectionObserver<HTMLUListElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
+  const { ref: venueRef, isIntersecting: venueVisible } =
     useIntersectionObserver<HTMLUListElement>({
       threshold: 0.2,
       triggerOnce: true,
@@ -264,32 +271,88 @@ export function SkylinePage({ events }: SkylinePageProps) {
 
         {/* Host Your Event Section */}
         <section className="relative bg-black text-white text-left">
-          <Container className="py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row xl:items-center gap-8 xl:gap-16">
-            <div className="w-full xl:w-2/5 max-xl:order-2">
-              <Image
-                src="/src/img/skyline/host-event.webp"
-                alt=""
-                width={1000}
-                height={1356}
-                className="w-full h-auto max-h-[560px] object-cover rounded-xl"
-                loading="lazy"
-              />
-            </div>
-            <div className="w-full xl:w-3/5 max-xl:order-1">
-              <h2 className="nd-heading-l mb-0">
-                {t.rich("skyline.host.title", { light })}
-              </h2>
-              <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0 max-w-2xl">
-                {t("skyline.host.description")}
-              </p>
-              <div className="mt-8 xl:mt-12">
-                <a
-                  href={LINKS.contactEmail}
-                  className="inline-flex items-center rounded-full bg-white text-black px-5 py-2.5 nd-body-m font-medium hover:bg-white/90 transition-colors"
-                >
-                  {t("skyline.host.cta")}
-                </a>
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
+            <div className="flex flex-col xl:flex-row xl:items-center gap-8 xl:gap-16">
+              <div className="w-full xl:w-2/5 max-xl:order-2">
+                <Image
+                  src="/src/img/skyline/host-event.webp"
+                  alt=""
+                  width={1000}
+                  height={1356}
+                  className="w-full h-auto max-h-[560px] object-cover rounded-xl"
+                  loading="lazy"
+                />
               </div>
+              <div className="w-full xl:w-3/5 max-xl:order-1">
+                <h2 className="nd-heading-l mb-0">
+                  {t.rich("skyline.host.title", { light })}
+                </h2>
+                <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0 max-w-2xl">
+                  {t("skyline.host.description")}
+                </p>
+                <div className="mt-8 xl:mt-12">
+                  <a
+                    href={LINKS.contactEmail}
+                    className="inline-flex items-center rounded-full bg-white text-black px-5 py-2.5 nd-body-m font-medium hover:bg-white/90 transition-colors"
+                  >
+                    {t("skyline.host.cta")}
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 xl:mt-16 pt-8 xl:pt-12 border-t border-nd-border-light">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] gap-8 xl:gap-16">
+                <div>
+                  <h3 className="nd-heading-m mb-3">
+                    {t("skyline.host.detailsTitle")}
+                  </h3>
+                  <p className="nd-body-l text-nd-mid-em-text mb-0 max-w-2xl">
+                    {t("skyline.host.detailsDescription")}
+                  </p>
+                </div>
+
+                <ul className="p-0 m-0 list-none divide-y divide-white/10">
+                  {Array.from({ length: VENUE_FEATURE_COUNT }, (_, i) => (
+                    <li key={i} className="flex items-start gap-4 py-3">
+                      <PlusGlyph className="shrink-0 mt-[5px]" />
+                      <span className="nd-body-m text-nd-mid-em-text">
+                        {t(`skyline.host.features.${i}`)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <ul
+                ref={venueRef}
+                className="p-0 mt-8 xl:mt-12 mb-0 list-none grid grid-cols-2 xl:grid-cols-4 border border-nd-border-light rounded-xl overflow-hidden"
+              >
+                {Array.from({ length: VENUE_DETAIL_COUNT }, (_, i) => (
+                  <li
+                    key={i}
+                    className={
+                      "min-h-[144px] p-5 xl:p-6 flex flex-col justify-between border-r border-b border-nd-border-light last:border-r-0 even:border-r-0 xl:even:border-r xl:[&:nth-child(4n)]:border-r-0 [&:nth-last-child(-n+2)]:border-b-0 xl:[&:nth-last-child(-n+4)]:border-b-0" +
+                      (venueVisible ? " animate-fade-in-up" : "")
+                    }
+                    style={
+                      venueVisible
+                        ? { animationDelay: `${0.1 + i * 0.1}s` }
+                        : { opacity: 0 }
+                    }
+                  >
+                    <span
+                      className="nd-heading-m font-light"
+                      style={{ color: ACCENT }}
+                    >
+                      {t(`skyline.host.details.${i}.value`)}
+                    </span>
+                    <span className="nd-body-s text-nd-mid-em-text mt-6">
+                      {t(`skyline.host.details.${i}.label`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </Container>
         </section>

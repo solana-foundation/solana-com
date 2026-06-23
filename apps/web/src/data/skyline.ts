@@ -36,4 +36,6 @@ export const SPACES = [
 
 export const AMENITY_COUNT = 7;
 export const PERK_COUNT = 5;
+export const VENUE_DETAIL_COUNT = 4;
+export const VENUE_FEATURE_COUNT = 5;
 export const FAQ_COUNT = 8;
