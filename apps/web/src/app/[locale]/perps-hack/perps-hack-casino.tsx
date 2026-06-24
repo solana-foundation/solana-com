@@ -373,15 +373,6 @@ export function PerpsHackCasino({
         Math.round(activeViewersRef.current + (Math.random() - 0.48) * 16),
       );
       totalViewsRef.current += Math.floor(Math.random() * 7) + 1;
-      // push a new SOL/USD candle
-      const cs = solCandlesRef.current;
-      const last = cs[cs.length - 1];
-      const o = last.c;
-      const c = o * (1 + (Math.random() - 0.46) * 0.05);
-      const h = Math.max(o, c) * (1 + Math.random() * 0.02);
-      const l = Math.min(o, c) * (1 - Math.random() * 0.02);
-      cs.push({ o, h, l, c, v: Math.random() * 0.8 + 0.25 });
-      if (cs.length > 90) cs.shift();
       // registrations slowly tick up
       regCountRef.current += Math.random() * 2.4 + 0.2;
       if (Math.random() < 0.6) {
@@ -401,6 +392,69 @@ export function PerpsHackCasino({
   useEffect(() => {
     return () => {
       if (spinTimer.current) clearInterval(spinTimer.current);
+    };
+  }, []);
+
+  // real SOL/USD candles from CoinGecko (falls back to the synthetic series)
+  useEffect(() => {
+    let cancelled = false;
+
+    // OHLC history: [time, open, high, low, close]; days=1 → ~30-min candles
+    const loadHistory = async () => {
+      try {
+        const res = await fetch(
+          "https://api.coingecko.com/api/v3/coins/solana/ohlc?vs_currency=usd&days=1",
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const raw: number[][] = await res.json();
+        if (cancelled || !Array.isArray(raw) || raw.length < 2) return;
+        const candles: Candle[] = raw.slice(-90).map(([, o, h, l, c]) => ({
+          o,
+          h,
+          l,
+          c,
+          // OHLC endpoint has no volume; approximate from the candle range
+          v: Math.max(0.05, Math.abs(h - l) / (o || 1)),
+        }));
+        solCandlesRef.current = candles;
+        setFrame((f) => f + 1);
+      } catch {
+        /* keep whatever candles we already have */
+      }
+    };
+
+    // live last price: nudges the most recent candle between history refreshes
+    const loadPrice = async () => {
+      try {
+        const res = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const px = data?.solana?.usd;
+        if (cancelled || typeof px !== "number") return;
+        const cs = solCandlesRef.current;
+        const last = cs[cs.length - 1];
+        if (!last) return;
+        last.c = px;
+        if (px > last.h) last.h = px;
+        if (px < last.l) last.l = px;
+        setFrame((f) => f + 1);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    loadHistory();
+    loadPrice();
+    const hist = setInterval(loadHistory, 5 * 60 * 1000);
+    const price = setInterval(loadPrice, 20 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(hist);
+      clearInterval(price);
     };
   }, []);
 
