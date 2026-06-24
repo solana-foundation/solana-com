@@ -1664,7 +1664,7 @@ function aggregate(sum: number, count: number, aggregation: Aggregation) {
 }
 
 async function fetchData(url: string, errorMessages: DataFetchErrorMessages) {
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url);
   const payload = await readDataPayload(response, errorMessages);
 
   if (!response.ok) {
