@@ -308,10 +308,31 @@ hesabın lamport bakiyesini günceller.
 
 ![SOL transfer işlem diyagramı](/assets/docs/core/transactions/sol-transfer-process.svg)
 
+<Callout type="warn" title="SOL göndermeden önce alıcıyı doğrulayın">
+
+Bir System Program transferi, **herhangi bir** hesaba lamport ekler. Alıcının
+SOL'u geri çıkarabilmesine dair protokol düzeyinde bir kontrol yoktur.
+Lamport'lar yalnızca hesabın sahibi olan program tarafından çıkarılabilir; bu
+nedenle bir [token mint](/docs/tokens/basics/create-mint)'e, bir programa veya
+kontrol etmediğiniz bir [PDA](/docs/core/pda)'ya SOL göndermek **kalıcı fon
+kaybı riskini** beraberinde getirir — bunları yalnızca sahibi olan program
+tarafından belirlenen bir yetkili iade edebilir. Bir
+[token account](/docs/tokens/basics/create-token-account)'a gönderilen SOL,
+yalnızca o hesabın sahibi tarafından geri alınabilir; gönderen tarafından asla
+alınamaz.
+
+SPL **token** transferleri kısmen kendi kendini koruyucu niteliktedir: Token
+Program, hesapları beklenen mint ile eşleşmeyen bir transferi reddeder. Yerel
+**SOL** transferlerinde böyle bir güvence yoktur; bu nedenle gönderenin
+imzalamadan önce alıcıyı doğrulaması gerekir. Tam sınıflandırma mantığı için
+bkz. [Adres Doğrulama](/docs/payments/send-payments/verify-address).
+
+</Callout>
+
 Aşağıdaki örnek, yukarıdaki diyagramlarla ilgili kodu göstermektedir. System
 Program'ın
-[`transfer` fonksiyonuna](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
-bakın.
+[`transfer` işlevi](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)'ne
+bakabilirsiniz.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -678,9 +699,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Aşağıdaki kod, önceki kod parçacıklarından elde edilen çıktıyı gösterir.
-Format SDK'lar arasında farklılık gösterir,
-ancak her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
+Aşağıdaki kod, önceki kod parçacıklarının çıktısını göstermektedir.
+Format SDK'lar arasında farklılık gösterse de
+her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
 
 <CodeTabs storage="sol-transfer">
 
@@ -785,14 +806,83 @@ ancak her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
 </CodeTabs>
 </WithMentions>
 
-## İşlem detaylarını getirme
+### Transfer öncesinde alıcıyı doğrulayın
 
-Gönderimden sonra, işlem imzasını ve
-[getTransaction](/docs/rpc/http/gettransaction) RPC metodunu kullanarak işlem
-detaylarını alın.
+Bir SOL transferi herhangi bir hesaba başarıyla gerçekleşebildiğinden,
+imzalamadan önce alıcıyı kontrol edin. Hesabı sorgulayın ve yalnızca bir System
+Program cüzdanına (veya fonlanmamış bir
+[eğri üzeri](/docs/payments/send-payments/verify-address#on-curve-addresses)
+adresine) gönderin; kontrol etmediğiniz mint'leri, token account'ları,
+programları ve PDA'ları reddedin.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
 
 <Callout>
-  İşlemi [Solana Explorer](https://explorer.solana.com) kullanarak da
+  Bu kod parçacığı yerel SOL alıcılarını kontrol eder. SPL token gönderimleri
+  (token account'lar, ATA'lar, Token-2022) dahil tam sınıflandırma için bkz.
+  [Adres Doğrulama](/docs/payments/send-payments/verify-address).
+</Callout>
+
+## İşlem ayrıntılarını getirme
+
+Gönderdikten sonra, işlem imzasını ve
+[getTransaction](/docs/rpc/http/gettransaction) RPC metodunu kullanarak işlem
+ayrıntılarını alın.
+
+<Callout>
+  İşlemi [Solana Explorer](https://explorer.solana.com) aracılığıyla da
   bulabilirsiniz.
 </Callout>
 

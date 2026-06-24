@@ -299,9 +299,28 @@ Total = 1232 bytes
 
 ![SOL 전송 프로세스 다이어그램](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-아래 예시는 위 다이어그램과 관련된 코드를 보여줍니다. System Program의
+<Callout type="warn" title="SOL을 전송하기 전에 수신자를 확인하세요">
+
+System Program 전송은 **모든** 계정에 lamport를 추가합니다. 수신자가 SOL을 다시
+꺼낼 수 있는지에 대한 프로토콜 수준의 검사는 없습니다. lamport는 계정의 소유
+프로그램에 의해서만 이동할 수 있으므로,
+[토큰 민트](/docs/tokens/basics/create-mint), 프로그램, 또는 직접 제어하지 않는
+[PDA](/docs/core/pda)로 SOL을 전송하면 **영구적인 자금 손실의 위험**이 있습니다
+— 소유 프로그램이 지정한 권한자만이 이를 반환할 수 있습니다.
+[token account](/docs/tokens/basics/create-token-account)로 전송된 SOL은 해당
+계정의 소유자만 회수할 수 있으며, 발신자는 회수할 수 없습니다.
+
+SPL **토큰** 전송은 부분적으로 자체 보호 기능이 있습니다. Token Program은 계정이
+예상한 민트와 일치하지 않는 전송을 거부합니다. 네이티브 **SOL** 전송에는 이러한
+보호 장치가 없으므로, 서명 전에 발신자가 수신자를 직접 확인해야 합니다. 전체
+분류 로직은 [주소 확인](/docs/payments/send-payments/verify-address)을
+참고하세요.
+
+</Callout>
+
+아래 예제는 위 다이어그램과 관련된 코드를 보여줍니다. System Program의
 [`transfer` 함수](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)를
-참조하세요.
+참고하세요.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -518,7 +537,7 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-다음 예시는 단일 SOL 전송 명령어를 포함하는 트랜잭션의 구조를 보여줍니다.
+다음 예제는 단일 SOL 전송 명령어를 포함하는 트랜잭션의 구조를 보여줍니다.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -667,9 +686,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-아래 코드는 이전 코드 스니펫의 출력을 보여줍니다.
+아래 코드는 이전 코드 스니펫의 출력 결과를 보여줍니다.
 SDK마다 형식은 다르지만,
-각 인스트럭션에 동일한 필수 정보가 포함되어 있음을 확인할 수 있습니다.
+각 명령어에는 동일한 필수 정보가 포함되어 있다는 점에 주목하세요.
 
 <CodeTabs storage="sol-transfer">
 
@@ -774,14 +793,82 @@ SDK마다 형식은 다르지만,
 </CodeTabs>
 </WithMentions>
 
+### 전송 전에 수신자를 확인하세요
+
+SOL 전송은 모든 계정으로 성공적으로 이루어지기 때문에, 서명 전에 수신자를
+확인해야 합니다. 계정을 조회하고 System Program 지갑(또는 자금이 없는
+[온커브](/docs/payments/send-payments/verify-address#on-curve-addresses)
+주소)으로만 전송하세요. 민트, token account, 프로그램, 그리고 직접 제어하지 않는
+PDA로의 전송은 거부해야 합니다.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  이 코드 조각은 네이티브 SOL 수신자를 확인합니다. SPL 토큰 전송(token account,
+  ATA, Token-2022)도 처리하는 전체 분류 방법은 [주소
+  확인](/docs/payments/send-payments/verify-address)을 참조하세요.
+</Callout>
+
 ## 트랜잭션 세부 정보 가져오기
 
 제출 후, 트랜잭션 서명과 [getTransaction](/docs/rpc/http/gettransaction) RPC
 메서드를 사용하여 트랜잭션 세부 정보를 조회할 수 있습니다.
 
 <Callout>
-  [Solana Explorer](https://explorer.solana.com)를 사용하여 트랜잭션을 찾을 수도
-  있습니다.
+  [Solana Explorer](https://explorer.solana.com)를 사용하여 트랜잭션을 조회할
+  수도 있습니다.
 </Callout>
 
 ```json title="Transaction Data"

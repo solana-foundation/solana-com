@@ -178,6 +178,12 @@ export const buildResourceItems: NavItemDefinition[] = [
     icon: TemplatesIcon,
   },
   {
+    id: "build-data",
+    titleKey: "nav.build.resources.items.data.title",
+    href: "/data",
+    icon: PulseIcon,
+  },
+  {
     id: "build-rpc-docs",
     titleKey: "nav.build.resources.items.rpcDocs.title",
     href: "/docs/rpc",

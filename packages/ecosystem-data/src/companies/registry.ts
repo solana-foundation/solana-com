@@ -47,6 +47,7 @@ import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
 import { meta } from "./records/meta";
+import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { openmined } from "./records/openmined";
@@ -144,6 +145,7 @@ export const companies = [
   mantle,
   mantleByreal,
   meta,
+  metaplex,
   monkeDao,
   morganStanley,
   openmined,

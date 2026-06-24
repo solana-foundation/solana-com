@@ -1,0 +1,639 @@
+---
+title: Guia de Integração de Transferências Confidenciais
+description:
+  Saiba como integrar tokens que utilizam a extensão de Transferência
+  Confidencial em carteiras, exploradores, exchanges e outras aplicações.
+---
+
+# Suporte a Transferências Confidenciais no Solana
+
+## Contexto
+
+A extensão de Transferência Confidencial permite que os mints do Token-2022
+mantenham os valores das transferências e os saldos das contas encriptados na
+blockchain. Os saldos são encriptados, portanto, para os exibir é necessário as
+chaves de desencriptação do proprietário, e o envio requer a geração de provas
+de conhecimento zero no cliente.
+
+Este guia destina-se a equipas **a integrar** tokens de transferência
+confidencial (carteiras, exploradores, exchanges, custodiantes, indexadores) e
+não a emissores que configuram um mint. Se estiver a construir o fluxo
+subjacente do zero, comece pelas páginas passo a passo indicadas abaixo; este
+guia foca-se no que o seu produto precisa de fazer para suportar estes tokens
+corretamente.
+
+Os endereços das contas, o mint e o proprietário de cada token account
+permanecem **públicos**. Apenas os valores e saldos são encriptados, pelo que
+todo o resto, incluindo quem transaciona com quem, permanece visível. Isto
+confere confidencialidade face a observadores públicos, não anonimato.
+
+### Recursos
+
+- [Visão geral das Transferências Confidenciais e guias passo a passo](/docs/tokens/extensions/confidential-transfer)
+- [Código Rust da extensão](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` Cliente JS](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instruções, análise do estado da conta, derivação de chaves e auxiliares de
+  transferência confidencial de alto nível)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (primitivas de encriptação e geração de dados de prova)
+- [`@solana-program/zk-elgamal-proof` Cliente JS](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (instruções de verificação de provas)
+- [`spl-token-client` Crate Rust](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (auxiliares de alto nível de ponta a ponta em Rust)
+
+## Resumo
+
+- Cada token account confidencial ainda possui um **saldo público** mais um
+  saldo **pendente** e **disponível** encriptado. Um token pode transitar
+  livremente entre os estados público e confidencial.
+- Para **exibir** um saldo confidencial, são necessárias as chaves do
+  proprietário. A abordagem recomendada é derivá-las da carteira do
+  proprietário, desencriptar o saldo disponível com a chave AES (rápido) e
+  desencriptar os valores pendentes com a chave ElGamal quando necessário.
+- Para **enviar** de forma confidencial, geram-se provas ZK no cliente
+  (igualdade, validade de texto cifrado, intervalo), normalmente colocadas em
+  **contas de estado de contexto de prova** temporárias, e depois submete-se a
+  transferência. Tanto o `@solana-program/token-2022` (JS) como o
+  `spl-token-client` (Rust) fornecem auxiliares de alto nível que constroem as
+  provas e sequenciam as transações automaticamente.
+- As transferências confidenciais abrangem atualmente algumas transações
+  dependentes porque as provas excedem o limite de tamanho de transação atual.
+  Uma alteração futura (formato de transação v1, incluída no Agave v4.2) aumenta
+  esse limite e deverá permitir que uma transferência confidencial seja
+  executada numa única transação onchain.
+- Uma carteira sem qualquer suporte adicional continua a funcionar: mostra o
+  saldo público e as transferências padrão continuam a operar. Os fundos
+  confidenciais permanecem acessíveis a qualquer cliente com suporte a
+  confidencialidade que possua as chaves do proprietário.
+
+## Termos
+
+- **ElGamal keypair**: keypair de chave pública por conta, utilizado para cifrar
+  saldos e construir provas ZK. A chave pública é armazenada na conta.
+- **Chave AES**: chave simétrica por conta utilizada para cifrar o "saldo
+  disponível decifrável", permitindo ao proprietário consultar o seu saldo
+  disponível em tempo constante, sem resolver um logaritmo discreto.
+- **Saldo pendente**: saldo cifrado de fundos recebidos via depósitos ou
+  transferências recebidas que ainda não foram aplicados. Não pode ser gasto
+  diretamente.
+- **Saldo disponível**: saldo cifrado que pode ser transferido ou levantado.
+- **Aplicar**: o passo que move o saldo pendente para o disponível.
+- **Conta de estado de contexto de prova**: uma conta temporária onchain que
+  contém uma prova ZK pré-verificada, referenciada por uma instrução
+  confidencial e depois encerrada para recuperar o rent.
+- **Auditor**: uma chave ElGamal global opcional na mint; quando definida, cada
+  transferência cifra adicionalmente o seu montante com esta chave, permitindo
+  que uma parte designada o decifre.
+
+## Modelo de conta e saldos
+
+Quando uma conta está configurada para transferências confidenciais, a extensão
+`ConfidentialTransferAccount` armazena (entre outros campos):
+
+- `elgamal_pubkey`: a chave pública ElGamal da conta.
+- `pending_balance_lo` / `pending_balance_hi`: textos cifrados ElGamal do saldo
+  pendente, divididos em bits baixos e altos (a decifragem dos bits altos é mais
+  dispendiosa, por isso são mantidos separados).
+- `available_balance`: texto cifrado ElGamal do saldo disponível para gasto.
+- `decryptable_available_balance`: um texto cifrado **AES** do mesmo saldo
+  disponível que o proprietário pode decifrar instantaneamente. Este é o campo a
+  utilizar para apresentação.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: se a conta
+  aceita atualmente créditos confidenciais ou públicos recebidos.
+- `pending_balance_credit_counter` e `maximum_pending_balance_credit_counter`:
+  quantos créditos foram acumulados no saldo pendente e o limite antes de ser
+  necessário um apply.
+
+Todos esses campos são retornados no estado de conta analisado via RPC padrão.
+Qualquer pessoa pode ler os textos cifrados, mas apenas os detentores das chaves
+conseguem recuperar os valores subjacentes.
+
+## Gerenciamento de chaves
+
+Cada conta confidencial utiliza duas chaves: um **keypair ElGamal** para
+criptografia e provas, e uma **chave AES** para descriptografia rápida do saldo.
+A forma como você gera e armazena essas chaves é uma decisão de integração.
+Algumas opções comuns:
+
+- **Derivar a partir de uma assinatura de carteira (padrão recomendado).** O
+  proprietário assina uma mensagem canônica com separação de domínio e as chaves
+  são derivadas dessa assinatura, tornando-as reproduzíveis apenas a partir da
+  carteira, sem necessidade de armazená-las. O seed é determinístico por conta:
+  os helpers JS abaixo o vinculam ao par `(owner, mint)`, enquanto o exemplo em
+  Rust usa como seed o endereço do token account (para um associated token
+  account, esses são equivalentes, pois esse endereço é derivado do proprietário
+  e do mint).
+- **Derivar a partir de material de chave independente.** Para passkeys,
+  enclaves seguros ou configurações de MPC, derive as chaves a partir de uma
+  saída PRF do WebAuthn ou outro material de chave de entrada, de modo que as
+  chaves confidenciais não estejam vinculadas à chave de assinatura da conta.
+  `@solana/zk-sdk` expõe `ConfidentialKeys.fromIkm` e `ConfidentialKeys.fromPrf`
+  para isso.
+- **Gerar e gerenciar diretamente.** Provedores custodiantes e de MPC podem
+  preferir gerar as chaves e gerenciá-las como qualquer outro material de chave
+  sensível.
+
+O cliente `@solana-program/token-2022` inclui helpers para o caminho
+recomendado:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Chaves confidenciais são chaves de descriptografia. Trate uma solicitação para
+  assinar a mensagem de derivação como se fosse desbloquear uma visualização
+  privada dos saldos do usuário. Prefira derivar sob demanda em vez de
+  armazená-las; caso precise armazená-las (por exemplo, em um serviço
+  custodiante), proteja-as com o mesmo rigor aplicado às chaves de assinatura.
+</Callout>
+
+Os auxiliares de derivação retornam material de chave serializado. Os auxiliares
+de operação de alto nível (mostrados mais adiante) recebem objetos WASM
+`ElGamalKeypair` e `AeKey`, portanto reconstrua-os a partir dos bytes quando
+precisar deles:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Criando e configurando contas
+
+Antes que uma conta possa manter um saldo confidencial, ela precisa da extensão
+`ConfidentialTransferAccount`, que adiciona aproximadamente 295 bytes ao token
+account (na ordem de 0,0015 SOL em rent extra). A configuração é feita em duas
+etapas: criar o token account e, em seguida, configurar a extensão.
+
+A configuração normalmente exige que o **proprietário da conta** assine e
+forneça uma prova de que ele possui a chave pública ElGamal definida na conta.
+Uma carteira ou exchange pode criar e financiar o token account básico para um
+usuário, mas não pode configurar a extensão confidencial em nome do usuário sem
+essa assinatura.
+
+Por isso, evite provisionar silenciosamente contas confidenciais para todos os
+usuários: isso custa rent extra e ainda requer o envolvimento do proprietário.
+Configure no primeiro uso ou quando o usuário optar por transferências
+confidenciais.
+
+O **registro ElGamal** elimina a etapa de proprietário por conta. Um usuário
+registra sua chave pública ElGamal uma vez (assinando uma prova no momento do
+registro), e a entrada do registro pode ser reutilizada em todos os mints.
+Depois disso, um terceiro pode configurar contas confidenciais para o usuário
+com `ConfigureAccountWithRegistry`, o que não requer assinatura do proprietário
+nem prova no momento da configuração, apenas um pagador para o rent. Este é o
+mecanismo a ser usado quando se deseja provisionar contas confidenciais para
+usuários de forma transparente.
+
+<Callout type="info">
+  A configuração do registro está disponível no Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) e no programa
+  `spl-elgamal-registry` atualmente. Auxiliares equivalentes no cliente JS
+  `@solana-program/token-2022` ainda não estão disponíveis, portanto integrações
+  JS que precisam do caminho do registro devem acompanhar os lançamentos desse
+  cliente.
+</Callout>
+
+## Exibindo saldos
+
+Uma integração robusta exibe o saldo público usando o saldo de token padrão,
+detecta a extensão confidencial e, quando o usuário desbloqueou suas chaves,
+descriptografa e exibe o saldo disponível.
+
+O saldo disponível é melhor lido a partir de `decryptable_available_balance`
+usando a chave AES, que é de tempo constante. Descriptografar o ElGamal
+`available_balance` diretamente requer a resolução de um logaritmo discreto e
+deve ser evitado para exibição rotineira.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Quando o usuário não desbloqueou suas chaves, exiba o saldo público e indique
+que existe um saldo confidencial, mas que está bloqueado, em vez de mostrar
+zero.
+
+## Recebendo transferências
+
+Depósitos e transferências recebidos chegam ao saldo **pendente** e não são
+gastáveis até serem aplicados. Cada crédito incrementa
+`pending_balance_credit_counter`; quando esse valor atingir
+`maximum_pending_balance_credit_counter`, a conta não poderá receber mais
+créditos confidenciais até que o titular aplique o saldo pendente.
+
+Integrações que mantêm fundos em nome de usuários devem:
+
+- Exibir o saldo pendente e o disponível separadamente, para que os usuários
+  entendam por que um valor recém-recebido ainda não é gastável.
+- Aplicar o saldo pendente em nome do usuário em momentos adequados (por
+  exemplo, antes de um envio) para que os saldos não fiquem travados.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Consulte a página
+[Aplicar Saldo Pendente](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+para o fluxo completo.
+
+## Enviando transferências
+
+Uma transferência confidencial requer três provas de conhecimento zero geradas
+no cliente:
+
+- **Prova de igualdade** de que o novo texto cifrado de saldo do remetente
+  criptografa o mesmo valor que um novo compromisso que o remetente pode abrir.
+- **Prova de validade do texto cifrado** de que os textos cifrados do valor da
+  transferência estão bem formados sob as chaves de origem, destino e (se
+  definida) do auditor.
+- **Prova de intervalo** de que o valor e o saldo restante do remetente são
+  inteiros não negativos válidos, o que impede a criação de valor do nada.
+
+Essas provas são maiores do que o limite de tamanho de transação atual permite
+de forma inline, por isso o padrão usual é criar **contas de estado de contexto
+de prova**, verificar cada prova nelas, referenciá-las a partir da instrução de
+transferência e, em seguida, fechá-las para recuperar o rent. Isso abrange
+algumas transações dependentes. O formato de transação v1 (disponível com o
+Agave v4.2) aumenta o limite de tamanho e espera-se que permita que uma
+transferência confidencial seja executada em uma única transação onchain, o que
+simplificará esse fluxo.
+
+Você não precisa montar as provas manualmente. Ambos os clientes fornecem um
+auxiliar de alto nível que constrói as provas e produz as instruções para envio:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Se você precisar de um controle mais refinado, os blocos de construção de nível
+mais baixo também estão disponíveis: `@solana/zk-sdk` gera os dados de cada
+prova (`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` fornece as
+instruções de verificação de prova e `@solana-program/token-2022` fornece as
+instruções de `confidentialTransfer` e de conta de estado de contexto.
+
+Consulte a página
+[Transferir Tokens](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+para a sequência detalhada de instruções.
+
+## Saque
+
+O saque move fundos do saldo confidencial disponível de volta para o saldo
+público, após o qual eles se comportam como qualquer saldo de token normal. O
+saque também requer provas (uma prova de igualdade e uma prova de intervalo),
+expostas como `getConfidentialWithdrawInstructionPlan` no cliente JS e
+`confidential_transfer_withdraw` no cliente Rust. Aplique primeiro qualquer
+saldo pendente para que o valor total esteja disponível. Consulte
+[Sacar Tokens](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Extensões confidenciais relacionadas
+
+Duas extensões opcionais são construídas sobre transferências confidenciais.
+Ambas são principalmente responsabilidade do emissor, mas cada uma altera algo
+que um integrador deve tratar:
+
+- **Taxas de transferência confidencial.** Quando um mint combina transferências
+  confidenciais com uma
+  [taxa de transferência](/docs/tokens/extensions/transfer-fees), os envios
+  utilizam um caminho de transferência com taxa
+  (`confidential_transfer_transfer_with_fee` no cliente Rust), e a taxa retida é
+  criptografada como o valor. A coleta de taxas retidas (coleta e saque) é
+  responsabilidade da autoridade de taxas, não do integrador.
+- **Mint e queima confidenciais.** Um mint com esta extensão emite e queima
+  supply de forma confidencial, o que desativa o caminho público de depósito e
+  saque. Os tokens não podem ser movidos entre os saldos público e confidencial
+  em tal mint, portanto, não exiba depósito ou saque para ele.
+
+Para os detalhes ao nível do protocolo de ambos, consulte a
+[documentação de saldos confidenciais](https://www.solana-program.com/docs/confidential-balances).
+
+## Analisando transações de transferência confidencial
+
+Exploradores e indexadores precisam reconhecer e identificar a atividade de
+transferência confidencial sem conseguir ler os valores. O cliente
+`@solana-program/token-2022` expõe `identifyToken2022Instruction` para
+classificar cada instrução Token-2022, além de parsers por instrução (por
+exemplo, `parseConfidentialTransferInstruction`) para decodificar contas e
+campos não secretos. Os valores encriptados permanecem como textos cifrados:
+exiba-os como confidenciais em vez de renderizar os bytes como um número.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Limitações de indexação a considerar:
+
+- **Sem valores para transferências confidenciais.** Um `ConfidentialTransfer`
+  carrega valores encriptados, portanto volume, fluxo e análises de tamanho de
+  transferência não podem ser calculados a partir dele. Marque essas
+  transferências como confidenciais em vez de registrar um zero ou um texto
+  cifrado bruto.
+- **Sem deltas de saldo.** Movimentações confidenciais não alteram o saldo
+  público do token, portanto a diferenciação de saldo pré/pós que impulsiona a
+  maior parte da indexação de transferências não as captura. Os saldos pendentes
+  e disponíveis são textos cifrados.
+- **Depósitos e saques estão em texto claro.** `ConfidentialDeposit` e
+  `ConfidentialWithdraw` carregam valores em texto claro, portanto ainda é
+  possível indexar o fluxo para dentro e fora do pool confidencial, apenas não
+  as transferências dentro dele.
+- **Uma transferência abrange várias transações atualmente.** Contas de estado
+  de contexto de prova são criadas, utilizadas e encerradas em torno da
+  transferência, portanto correlacione as transações relacionadas em vez de
+  tratar cada uma isoladamente. Isso se simplifica quando as transferências
+  confidenciais em transação única estiverem disponíveis (veja acima).
+- **Mints com auditor são descriptografáveis.** Se um mint possui um auditor
+  global e você possui a chave do auditor, é possível descriptografar os valores
+  de transferência desse mint (veja abaixo).
+
+## Auditores e conformidade
+
+Um mint pode configurar uma chave pública ElGamal de **auditor global**. Quando
+definida, cada transferência confidencial deve incluir o valor encriptado com a
+chave do auditor, para que o titular da chave secreta do auditor possa
+desencriptar todos os valores de transferência desse mint. A prova de validade
+cobre o texto cifrado do auditor, portanto, como integrador, você não precisa
+fazer nada especial no caminho de envio além de passar a chave do auditor da
+configuração do mint (os auxiliares de alto nível a leem automaticamente).
+
+Se o seu produto é o auditor (por exemplo, um emissor regulamentado ou um
+fornecedor de conformidade), você desencripta os valores de transferência com a
+chave secreta do auditor da mesma forma que um titular desencripta o seu próprio
+saldo. Os titulares também podem compartilhar seletivamente as suas chaves por
+conta com uma parte específica sem as expor publicamente.
+
+### Monitoramento de transações (KYT)
+
+Para provedores de know-your-transaction e AML, as transferências confidenciais
+alteram o que é observável, mas não o modelo geral:
+
+- **A análise de endereços e grafos não é afetada.** Remetentes, destinatários,
+  mints e proprietários de contas permanecem públicos, portanto, a triagem de
+  endereços, a correspondência de sanções e a análise de grafos de contrapartes
+  funcionam da mesma forma que para qualquer token.
+- **As heurísticas baseadas em valores precisam da chave do auditor.**
+  Estruturação, relatórios de limites e pontuação de risco baseada em volume não
+  conseguem ler os valores de transferências confidenciais por conta própria. Os
+  valores de depósito e saque permanecem em texto claro, portanto, o volume dos
+  fluxos que entram e saem do pool confidencial ainda é visível.
+- **A cobertura provém do modelo de auditor.** Nos mints que configuram um
+  auditor global, um provedor que opere com a chave do auditor (ou que receba
+  divulgação seletiva do usuário ou emissor) pode recuperar os valores de
+  transferência. Os emissores em contextos regulamentados devem planejar a
+  configuração de um auditor ou o suporte à divulgação seletiva para que o
+  monitoramento seja possível.
+
+## Compatibilidade com versões anteriores
+
+- Um token account confidencial sempre possui um saldo público. Carteiras e
+  aplicativos que não suportam a extensão continuam funcionando e exibem o saldo
+  público.
+- Transferências padrão ainda funcionam para o saldo público, desde que o
+  destino permita créditos não confidenciais.
+- Saldos confidenciais não são visíveis para ferramentas sem suporte, mas os
+  fundos não são perdidos: qualquer cliente com suporte a confidencialidade pode
+  acessá-los com as chaves do proprietário.
+- Como os valores são criptografados, análises de fornecimento e volume que
+  dependem da leitura dos valores de transferência não verão atividades
+  confidenciais. Planeje dashboards e contabilidade levando isso em
+  consideração.
+
+## Prioridades de Integração Recomendadas por Plataforma
+
+### Requisitos Gerais
+
+| Requisito                         | Descrição                                                                                                                                                                    | Prioridade |
+| :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Detectar a extensão               | Reconhecer a extensão de Transferência Confidencial em mints e contas e tratar esses tokens explicitamente, em vez de assumir um modelo somente público.                     | **P0**     |
+| Nunca perder fundos confidenciais | Mesmo sem suporte completo, indicar que existe um saldo confidencial para que os usuários não assumam que a conta está vazia.                                                | **P0**     |
+| Gerenciamento seguro de chaves    | Escolher uma estratégia de chaves para ElGamal e AES. Derivar da carteira do proprietário é o padrão recomendado; se armazenar chaves, proteja-as como chaves de assinatura. | **P0**     |
+
+---
+
+### Carteiras
+
+| Requisito                             | Descrição                                                                                                                                              | Prioridade |
+| :------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Exibir saldo público                  | Sempre mostrar o saldo público usando leituras padrão de saldo de token.                                                                               | **P0**     |
+| Desbloquear e exibir saldo disponível | Permitir que o usuário desbloqueie as chaves por meio de uma assinatura e exiba o saldo disponível descriptografado (via saldo descriptografável AES). | **P0**     |
+| Mostrar pendente vs. disponível       | Exibir saldos pendentes separadamente e solicitar a aplicação quando fundos forem recebidos.                                                           | **P1**     |
+| Aplicar pendências automaticamente    | Aplicar saldos pendentes em momentos adequados (ex.: antes de um envio) para evitar que os fundos fiquem bloqueados.                                   | **P1**     |
+| Enviar de forma confidencial          | Suportar fluxos de depósito, transferência e saque com geração de prova no lado do cliente.                                                            | **P1**     |
+| UX com chaves bloqueadas              | Quando as chaves não estiverem desbloqueadas, indicar claramente que existe um saldo confidencial em vez de mostrar zero.                              | **P1**     |
+| Integração / educação                 | Ajudar os usuários a entender o que permanece privado (valores e saldos) e a etapa de desbloqueio de chaves.                                           | **P2**     |
+
+---
+
+### Exploradores e Indexadores
+
+| Requisito                                            | Descrição                                                                                                                            | Prioridade |
+| :--------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Identificar contas e mints confidenciais             | Marcar claramente as contas e mints que utilizam a extensão e exibir o saldo público.                                                | **P0**     |
+| Interpretar instruções confidenciais                 | Decodificar instruções de configuração, depósito, aplicação, transferência e saque e exibir seu tipo (não os valores).               | **P0**     |
+| Não exibir valores criptografados como números       | Nunca renderizar campos de texto cifrado como se fossem saldos em texto simples; exibi-los como confidenciais.                       | **P0**     |
+| Indexar fluxos públicos de depósito/saque            | Registrar os valores em texto simples nos depósitos e saques para rastrear o fluxo de entrada e saída do pool confidencial.          | **P1**     |
+| Correlacionar transferências de múltiplas transações | Agrupar as transações de configuração de prova, transferência e limpeza que compõem uma transferência confidencial.                  | **P1**     |
+| Exibir configuração do auditor                       | Indicar se um mint possui um auditor global configurado.                                                                             | **P1**     |
+| Ciclo de vida da conta de prova                      | Reconhecer a criação e o encerramento de contas de estado de contexto de prova para que as transações sejam exibidas de forma clara. | **P2**     |
+
+---
+
+### Exchanges e Custodiantes
+
+| Requisito                                  | Descrição                                                                                                                                                                                | Prioridade |
+| :----------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Rastrear saldos públicos e confidenciais   | Considerar tanto os saldos públicos quanto os confidenciais ao registrar depósitos e calcular posições.                                                                                  | **P0**     |
+| Aplicar saldo pendente nos depósitos       | Aplicar os saldos pendentes quando depósitos confidenciais chegarem para que os valores creditados sejam precisos.                                                                       | **P0**     |
+| Gerenciamento seguro de chaves             | Se mantiver fundos confidenciais sob custódia, gerenciar as chaves ElGamal/AES com o mesmo rigor aplicado às chaves de assinatura.                                                       | **P0**     |
+| Provisionamento de contas via registro     | Para configurar contas confidenciais para usuários, solicitar que registrem uma chave ElGamal uma única vez e provisionar pelo caminho do registro, sem exigir uma assinatura por conta. | **P1**     |
+| Saques para usuários                       | Suportar saques confidenciais ou públicos dependendo da configuração da conta de destino.                                                                                                | **P1**     |
+| Conformidade / suporte a auditores         | Quando necessário, utilizar chaves de auditor ou divulgação seletiva para cumprir obrigações de reporte.                                                                                 | **P1**     |
+| Contabilidade interna sobre valores brutos | Reconciliar com base nos valores descriptografados na borda e armazená-los; não tentar agregar textos cifrados.                                                                          | **P1**     |
+
+---
+
+### Provedores de Conformidade e KYT
+
+| Requisito                                     | Descrição                                                                                                                                            | Prioridade |
+| :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Rastreio de endereços e grafos                | Rastrear remetentes, destinatários, emissores e proprietários e executar análise de grafo de contrapartes; estes permanecem públicos.                | **P0**     |
+| Monitorar depósitos/saques públicos           | Monitorar valores de depósito e saque em texto claro como pontos de entrada e saída observáveis do pool confidencial.                                | **P0**     |
+| Visibilidade de valores pela chave do auditor | Para emissões habilitadas com auditor, descriptografar valores de transferência usando a chave do auditor para suportar detecção baseada em valores. | **P1**     |
+| Recebimento de divulgação seletiva            | Suportar divulgações de valores compartilhadas por usuários ou emissores via chaves por conta.                                                       | **P2**     |

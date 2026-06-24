@@ -306,9 +306,30 @@ memperbarui saldo lamport dari kedua akun.
 
 ![SOL transfer process diagram](/assets/docs/core/transactions/sol-transfer-process.svg)
 
+<Callout type="warn" title="Verifikasi penerima sebelum mengirim SOL">
+
+Transfer System Program menambahkan lamport ke akun **mana pun**. Tidak ada
+pemeriksaan di tingkat protokol bahwa penerima dapat memindahkan SOL kembali
+keluar. Lamport hanya dapat dipindahkan keluar oleh program pemilik akun,
+sehingga mengirim SOL ke [token mint](/docs/tokens/basics/create-mint), sebuah
+program, atau [PDA](/docs/core/pda) yang tidak Anda kendalikan **berisiko
+kehilangan dana secara permanen** — hanya otoritas yang ditentukan oleh program
+pemilik yang dapat mengembalikannya. SOL yang dikirim ke
+[token account](/docs/tokens/basics/create-token-account) hanya dapat dipulihkan
+oleh pemilik akun tersebut, tidak pernah oleh pengirim.
+
+Transfer **token** SPL sebagian bersifat melindungi diri sendiri: Token Program
+menolak transfer yang akunnya tidak cocok dengan mint yang diharapkan. Transfer
+**SOL** asli tidak memiliki perlindungan semacam itu, sehingga pengirim harus
+memverifikasi penerima sebelum menandatangani. Lihat
+[Verifikasi Alamat](/docs/payments/send-payments/verify-address) untuk logika
+klasifikasi lengkapnya.
+
+</Callout>
+
 Contoh di bawah ini menunjukkan kode yang relevan dengan diagram di atas. Lihat
 [fungsi `transfer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
-System Program.
+milik System Program.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -675,9 +696,9 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Kode di bawah ini menampilkan output dari cuplikan kode sebelumnya.
+Kode di bawah ini menunjukkan output dari cuplikan kode sebelumnya.
 Formatnya berbeda antar SDK,
-namun perhatikan bahwa setiap instruksi berisi informasi wajib yang sama.
+namun perhatikan bahwa setiap instruksi mengandung informasi yang sama dan diperlukan.
 
 <CodeTabs storage="sol-transfer">
 
@@ -782,10 +803,79 @@ namun perhatikan bahwa setiap instruksi berisi informasi wajib yang sama.
 </CodeTabs>
 </WithMentions>
 
+### Verifikasi penerima sebelum mentransfer
+
+Karena transfer SOL berhasil ke akun mana pun, periksa penerima sebelum
+menandatangani. Ambil akun tersebut dan hanya kirim ke dompet System Program
+(atau alamat
+[pada kurva](/docs/payments/send-payments/verify-address#on-curve-addresses)
+yang tidak didanai); tolak mint, token account, program, dan PDA yang tidak Anda
+kendalikan.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  Cuplikan ini memeriksa penerima SOL native. Untuk klasifikasi lengkap yang
+  juga menangani pengiriman token SPL (token account, ATA, Token-2022), lihat
+  [Verifikasi Alamat](/docs/payments/send-payments/verify-address).
+</Callout>
+
 ## Mengambil detail transaksi
 
-Setelah pengiriman, ambil detail transaksi menggunakan signature transaksi dan
-metode RPC [getTransaction](/docs/rpc/http/gettransaction).
+Setelah pengiriman, ambil detail transaksi menggunakan tanda tangan transaksi
+dan metode RPC [getTransaction](/docs/rpc/http/gettransaction).
 
 <Callout>
   Anda juga dapat menemukan transaksi menggunakan [Solana
