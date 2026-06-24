@@ -85,9 +85,9 @@ changes, clock behavior, leader handoff markers, and VAT implementation details.
 
 ### Phase 2 - Rotor
 
-Alpenglow in its next phase will replace Solana Turbine with a new block
-propagation service called Rotor. It uses the same erasure coding idea and
-validator stake-adjusted bandwith from Turbine. Rotor changes the block
+Alpenglow in its next phase is expected to replace Solana Turbine with a new
+block propagation service called Rotor. It uses the same erasure coding idea and
+validator stake-adjusted bandwidth from Turbine. Rotor changes the block
 propagation plan from a tree of nodes to a single relay layer to minimize
 network latency. The plan is to make this upgrade at a later stage once Votor
 has already been adopted by the network.
