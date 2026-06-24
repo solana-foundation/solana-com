@@ -19,7 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value: "frame-ancestors 'self'",
+    value: `frame-ancestors 'self'`,
   },
 ];
 

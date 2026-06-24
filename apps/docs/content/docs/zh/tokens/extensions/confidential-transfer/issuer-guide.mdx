@@ -1,0 +1,359 @@
+---
+title: 机密转账发行者指南
+description: 了解如何发行和操作使用机密转账扩展的代币，包括审批策略、审计员、费用以及机密铸造和销毁。
+---
+
+# 在 Solana 上发行机密转账代币
+
+本指南面向**发行者**：负责创建和运营使用机密转账扩展的 Token-2022 铸币账户的团队。内容涵盖您在创建铸币账户时需要做出的决策，以及在铸币账户生命周期内需要执行的操作。有关持有者端流程（存入、应用、转账、提取），请参阅分步说明页面；有关在产品中支持这些代币，请参阅
+[集成指南](/docs/tokens/extensions/confidential-transfer/integration-guide)。
+
+机密转账在加密转账金额和账户余额的同时，保持账户地址、铸币账户和所有者公开可见。该功能依赖 ZK
+ElGamal 证明程序进行链上证明验证，因此铸币账户可在已启用该程序的集群上使用。
+
+<Callout type="warn" title="可用性">
+  机密转账需要 Token-2022
+  [`program@v11.0.0`](https://github.com/solana-program/token-2022/releases/tag/program%40v11.0.0)
+  或更高版本。目前已在开发网上可用，计划于 2026 年 6 月在主网上启用。Token
+  Extensions Program 分别独立部署到各个集群，请确认您目标集群上的部署情况。
+</Callout>
+
+## 创建时需做出的决策
+
+机密转账扩展必须在铸币账户初始化之前完成初始化，且初始化后无法追加添加。在创建时，您需要决定：
+
+- **审批策略**：账户是否可以无需许可地选择启用机密转账（`auto`），或必须由铸币账户的机密转账授权方审批（`manual`）。
+- **审计员**：是否设置全局审计员 ElGamal 公钥，以便指定方可解密该铸币账户的每笔转账金额。此项为可选配置，后续可更改。
+- **可选配套扩展**：机密转账费用（与转账费用扩展配合使用）和机密铸造/销毁，相关内容见下文。这些扩展也必须在创建时完成初始化。
+
+## 创建机密铸币
+
+CLI 通过 `--enable-confidential-transfers auto` 或 `manual` 设置审批策略；`auto`
+允许任意持有者自行配置其账户，而 `manual`
+则要求获得机密转账权限机构的审批（该机构默认为铸币权限机构）。客户端路径通过
+`ConfidentialTransferMint`
+参数传入相同的设置：一个权限机构、自动审批标志以及可选的审计员密钥。审批策略和审计员均可在之后更改（参见
+[配置审计员](#configure-an-auditor)）；唯一固定的是扩展本身的存在，创建后不可更改。
+
+<CodeTabs>
+
+```terminal !! title="create-confidential-mint.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --enable-confidential-transfers auto
+```
+
+```rust !! title="create-confidential-mint.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+let extensions = vec![ExtensionInitializationParams::ConfidentialTransferMint {
+    authority: Some(authority.pubkey().into()),
+    auto_approve_new_accounts: true, // false for a manual approve policy
+    auditor_elgamal_pubkey: None,    // Some(pubkey) to set a global auditor
+}];
+
+token
+    .create_mint(&mint_authority, freeze_authority.as_ref(), extensions, &[&mint_keypair])
+    .await?;
+```
+
+```ts !! title="create-confidential-mint.ts"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
+```
+
+</CodeTabs>
+
+## 配置审计员
+
+全局审计员是存储在铸币上的 ElGamal 公钥。设置后，每笔机密转账都会额外使用该密钥对转账金额进行加密，因此持有对应私钥的人可以解密该铸币的所有转账金额。这正是机密转账与审计及合规要求保持兼容的方式：公众一无所知，审计员洞悉一切。
+
+机密转账权限机构可随时设置、轮换或清除审计员。同一操作也会更新审批策略。在 CLI 中，审计员密钥是 ElGamal 公钥的 base64 编码；传入
+`--auditor-pubkey none` 可将其移除，传入 `--approve-policy auto|manual`
+可更改策略。
+
+轮换仅影响未来的转账。已上链交易中的金额仍以执行时生效的审计员密钥加密，因此如需解密历史活动，请妥善保留旧的审计员密钥。
+
+<CodeTabs>
+
+```terminal !! title="update-confidential-settings.sh"
+$ spl-token update-confidential-transfer-settings <MINT_PUBKEY> --auditor-pubkey <AUDITOR_ELGAMAL_PUBKEY>
+```
+
+```rust !! title="update-confidential-settings.rs"
+token
+    .confidential_transfer_update_mint(
+        &authority,
+        true,                         // auto_approve_new_account
+        Some(auditor_elgamal_pubkey), // None to clear the auditor
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="update-confidential-settings.ts"
+import { getUpdateConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+
+const ix = getUpdateConfidentialTransferMintInstruction({
+  mint,
+  authority, // confidential transfer authority (signer)
+  autoApproveNewAccounts: true,
+  auditorElgamalPubkey // an ElGamal pubkey Address, or null to clear
+});
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  审计员私钥可解密该铸币的所有转账金额。请以与签名密钥
+  同等严格的标准保管，并制定轮换计划。将审计员设置为 `None`
+  将对除账户所有者本人之外的所有人禁用金额可见性。
+</Callout>
+
+## 批准账户（手动策略）
+
+在手动批准策略下，配置为机密转账的账户在机密转账授权机构批准之前，无法进行机密交易。这为发行方提供了一个针对白名单或已完成 KYC 验证参与者的访问控制门。CLI 未提供批准命令，因此批准操作须通过客户端完成。
+
+<CodeTabs>
+
+```rust !! title="approve-account.rs"
+token
+    .confidential_transfer_approve_account(
+        &token_account,
+        &authority,
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="approve-account.ts"
+import { getApproveConfidentialTransferAccountInstruction } from "@solana-program/token-2022";
+
+const ix = getApproveConfidentialTransferAccountInstruction({
+  token, // the token account to approve
+  mint,
+  authority // confidential transfer authority (signer)
+});
+```
+
+</CodeTabs>
+
+## 机密转账手续费
+
+如果您的铸币账户收取[转账手续费](/docs/tokens/extensions/transfer-fees)且转账为机密转账，则手续费也必须以机密方式扣留。`ConfidentialTransferFeeConfig`
+扩展负责处理此功能，并在铸币创建时与转账手续费扩展和机密转账扩展一同初始化。
+
+扣留的手续费以加密形式累积在收款方账户中，随后被归集至铸币账户，再由提取扣留授权机构进行提取。整个过程中所有手续费金额始终保持加密状态。此流程不通过 CLI 暴露。提取扣留授权机构的 ElGamal 私钥可解密扣留的手续费金额，结合公开的手续费参数，可能揭示转账金额相关信息，因此请将该密钥视为敏感信息妥善保管。
+
+### 初始化手续费配置
+
+请将此配置与 `ConfidentialTransferMint`
+及转账手续费配置一并包含在同一次铸币创建操作中。
+
+<CodeTabs>
+
+```rust !! title="init-confidential-fee.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+ExtensionInitializationParams::ConfidentialTransferFeeConfig {
+    authority: Some(authority.pubkey().into()),
+    withdraw_withheld_authority_elgamal_pubkey: withdraw_withheld_elgamal_pubkey,
+};
+```
+
+```ts !! title="init-confidential-fee.ts"
+import { getInitializeConfidentialTransferFeeInstruction } from "@solana-program/token-2022";
+
+const ix = getInitializeConfidentialTransferFeeInstruction({
+  mint,
+  authority, // authority allowed to change the withdraw withheld ElGamal key
+  withdrawWithheldAuthorityElGamalPubkey // ElGamal pubkey Address
+});
+```
+
+</CodeTabs>
+
+### 归集与提取扣留手续费
+
+归集操作将账户中加密的扣留手续费转移至铸币账户；提取操作则将其从铸币账户转移至指定账户。此过程涉及两个授权机构，两者均可与铸币授权机构不同：
+
+- **机密转账手续费授权机构**（在 `ConfidentialTransferFeeConfig` 上设置的
+  `authority`）负责启用或禁用归集功能。
+- **提取扣留授权机构**（来自转账手续费扩展的
+  `TransferFeeConfig`）负责将归集后的手续费从铸币账户中提取。
+
+提款需要提供一个等式证明和一个范围证明，可以内联提供或验证到上下文状态账户中。
+
+<CodeTabs>
+
+```rust !! title="harvest-withdraw-fees.rs"
+// Permissionless: move withheld fees from accounts into the mint.
+token
+    .confidential_transfer_harvest_withheld_tokens_to_mint(&[&source_account])
+    .await?;
+
+// Withdraw withheld fees from the mint (requires the withdraw withheld authority).
+token
+    .confidential_transfer_withdraw_withheld_tokens_from_mint(
+        &destination_account,
+        &withdraw_withheld_authority,
+        None, // proof context state account, supplied inline if None
+        None, // withheld tokens info, fetched if None
+        &withdraw_withheld_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        &new_decryptable_available_balance,
+        &[&withdraw_withheld_authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="harvest-withdraw-fees.ts"
+import {
+  getEnableHarvestToMintInstruction,
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction
+} from "@solana-program/token-2022";
+
+// Allow accounts to harvest their withheld fees to the mint, signed by the
+// confidential transfer fee authority.
+const enableIx = getEnableHarvestToMintInstruction({ mint, authority });
+
+// Permissionless: move withheld fees from accounts into the mint.
+const harvestIx =
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction({
+    mint,
+    sources: [sourceAccount]
+  });
+```
+
+</CodeTabs>
+
+在 JS 客户端中，从铸币账户（`getWithdrawWithheldTokensFromMintForConfidentialTransferFeeInstruction`）中提取已收取的费用，同样需要将等式证明和范围证明验证到上下文状态账户中，因此它遵循与机密转账相同的证明账户模式。
+
+## 机密铸造与销毁
+
+`ConfidentialMintBurn`
+扩展允许铸币权限方直接针对机密余额发行和销毁供应量，同时保持总供应量加密。启用此扩展的铸币账户将禁用公开存款和提款路径，因为代币始终以机密形式存在。完整模型请参阅[协议文档](https://www.solana-program.com/docs/confidential-balances)。
+
+<Callout type="info">
+  机密铸造/销毁通过 Rust `spl-token-client`
+  最为便捷，它会自动生成所需证明并为您编排交易序列。`@solana-program/token-2022`
+  JS
+  客户端提供了底层指令构建器（`getConfidentialMintInstruction`、`getConfidentialBurnInstruction`
+  等），但不包含用于构建证明的高级辅助函数，也没有 CLI
+  命令，因此以下示例仅适用于 Rust。
+</Callout>
+
+在铸币账户创建时初始化扩展，然后随时间推移进行铸造、销毁和供应量对账。铸造会将加密金额发行到接收方的机密余额中；销毁会将加密金额移入待销毁池，随后折算入总供应量。两者均会像机密转账一样生成证明。
+
+<CodeTabs>
+
+```rust !! title="confidential-mint-burn.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+// 1. Initialize at creation (alongside ConfidentialTransferMint).
+ExtensionInitializationParams::ConfidentialMintBurn {
+    supply_elgamal_pubkey, // encrypts the confidential supply
+    decryptable_supply,    // AES ciphertext of the initial supply (zero)
+};
+
+// 2. Mint an encrypted amount into a recipient's confidential balance.
+token
+    .confidential_transfer_mint(
+        &mint_authority,
+        &destination_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        mint_amount,
+        &supply_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &supply_aes_key,
+        None, // supply account info, fetched if None
+        &[&mint_authority_keypair],
+    )
+    .await?;
+
+// 3. Burn an encrypted amount from a holder's confidential balance into the
+//    mint's pending burn. Generates proofs like a confidential transfer.
+token
+    .confidential_transfer_burn(
+        &owner,
+        &source_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        burn_amount,
+        &source_elgamal_keypair,
+        &supply_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &source_aes_key,
+        None, // burn account info, fetched if None
+        &[&owner_keypair],
+    )
+    .await?;
+
+// 4. Fold the accumulated pending burn into the confidential supply.
+token
+    .confidential_transfer_apply_pending_burn(&mint_authority, &[&mint_authority_keypair])
+    .await?;
+```
+
+</CodeTabs>
+
+使用 `confidential_transfer_rotate_supply_elgamal_pubkey`
+轮换供应量加密密钥（待销毁金额必须首先清零），并使用
+`confidential_transfer_update_decrypt_supply` 刷新可读的供应量密文。
+
+## 运营与合规注意事项
+
+- **审计员密钥保管。**
+  如果您设置了审计员，审计员私钥是一个高价值的解密密钥。请妥善存储和轮换，并明确由组织内哪个人员（或哪个监管机构）持有。
+- **合规立场。**
+  地址筛查和交易对手图谱分析仍可正常运作，因为地址保持公开。基于金额的监控依赖于审计员密钥或账户所有者的选择性披露。请在上线前确定您的处理方式。
+- **用户引导。**
+  配置机密账户需要所有者签名。为顺畅地为用户配置账户，请让他们注册一次 ElGamal 密钥并使用注册表路径，详情请参阅[集成指南](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts)。
+- **交易数量。**
+  由于证明超出了当前交易大小限制，一笔机密转账目前需要跨越数笔相关交易。交易格式 v1（随 Agave
+  v4.2 上线）将提高该限制，预计可支持单笔链上交易完成。

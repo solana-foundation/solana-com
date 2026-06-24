@@ -30,6 +30,15 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("footer");
   });
 
+  it("uses English web defaults when locale files do not include new messages", async () => {
+    const messages = await loadMergedMessages({ app: "web", locale: "fr" });
+
+    expect(messages).toHaveProperty(
+      "dataDashboard.header.title",
+      "Solana data",
+    );
+  });
+
   it("inherits shared web messages for media", async () => {
     const messages = await loadMergedMessages({ app: "media", locale: "fr" });
 

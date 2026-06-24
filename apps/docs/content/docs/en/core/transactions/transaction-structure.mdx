@@ -65,6 +65,11 @@ values. Each `Signature` is a 64-byte Ed25519 signature of the serialized
 required for every [signer account](#account-addresses) referenced by the
 transaction's instructions.
 
+Each signature is produced by a private key. Where that key lives — a local
+keypair, a cloud HSM or KMS, or a managed wallet service — is a production
+design decision. See
+[Signing in Production](/docs/core/transactions/signing-in-production).
+
 The first signature in the array belongs to the **fee payer**, the account that
 pays the transaction
 [base fee and prioritization fee](/docs/core/fees/fee-structure#base-fee). This
@@ -308,6 +313,25 @@ After the transaction is sent, the System Program processes the transfer
 instruction and updates the lamport balance of both accounts.
 
 ![SOL transfer process diagram](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+<Callout type="warn" title="Verify the recipient before sending SOL">
+
+A System Program transfer adds lamports to **any** account. There is no
+protocol-level check that the recipient can move the SOL back out. Lamports can
+only be moved out by the account's owning program, so sending SOL to a
+[token mint](/docs/tokens/basics/create-mint), a program, or a
+[PDA](/docs/core/pda) you don't control **risks permanent loss of funds** — only
+an authority specified by the owning program can return them. SOL sent to a
+[token account](/docs/tokens/basics/create-token-account) is recoverable only by
+that account's owner, never by the sender.
+
+SPL **token** transfers are partly self-protecting: the Token Program rejects a
+transfer whose accounts don't match the expected mint. Native **SOL** transfers
+have no such guard, so the sender must verify the recipient before signing. See
+[Verify Address](/docs/payments/send-payments/verify-address) for the full
+classification logic.
+
+</Callout>
 
 The example below shows the code relevant to the above diagrams. See the System
 Program's
@@ -784,6 +808,74 @@ but notice that each instruction contains the same required information.
 
 </CodeTabs>
 </WithMentions>
+
+### Verify the recipient before transferring
+
+Because a SOL transfer succeeds into any account, check the recipient before
+signing. Fetch the account and only send to a System Program wallet (or an
+unfunded
+[on-curve](/docs/payments/send-payments/verify-address#on-curve-addresses)
+address); reject mints, token accounts, programs, and PDAs you don't control.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  This snippet checks native SOL recipients. For the full classification that
+  also handles SPL token sends (token accounts, ATAs, Token-2022), see [Verify
+  Address](/docs/payments/send-payments/verify-address).
+</Callout>
 
 ## Fetching transaction details
 

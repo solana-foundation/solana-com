@@ -92,6 +92,16 @@ const goldSponsors = [
     width: 226,
     height: 49,
   },
+  {
+    companyId: "metaplex",
+    width: 268,
+    height: 26,
+  },
+  {
+    companyId: "streamflow",
+    width: 1118.91,
+    height: 150,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -118,7 +128,6 @@ export const sponsorTiers = [
     columns: "md:grid-cols-5",
     cellAspect: "aspect-[256/128]",
     sponsors: goldSponsors,
-    emptyCells: 2,
   },
 ] satisfies SponsorTier[];
 
@@ -135,13 +144,13 @@ export const sponsorMarqueeRows = [
     direction: "right",
     density: "standard",
     duration: "92s",
-    sponsors: goldSponsors.slice(0, 4),
+    sponsors: goldSponsors.slice(0, 5),
   },
   {
     title: "Gold",
     direction: "left",
     density: "standard",
     duration: "104s",
-    sponsors: [...goldSponsors.slice(4), ...activationSponsors],
+    sponsors: [...goldSponsors.slice(5), ...activationSponsors],
   },
 ] satisfies SponsorMarqueeRow[];

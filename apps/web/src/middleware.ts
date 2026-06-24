@@ -1,6 +1,7 @@
 import { createMiddleware, routing } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 
 // The main web app uses routing with locale detection enabled
 // and doesn't need preserveProxiedLocaleCookie since it's the source of truth
@@ -9,10 +10,7 @@ const handleI18nRouting = createMiddleware(routing);
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const pathSegments = pathname.split("/").filter(Boolean);
-  const hasLocalePrefix = locales.includes(pathSegments[0] ?? "");
-  const normalizedPathname = hasLocalePrefix
-    ? `/${pathSegments.slice(1).join("/")}`
-    : pathname;
+  const normalizedPathname = getPathnameWithoutLocale(pathname);
 
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
