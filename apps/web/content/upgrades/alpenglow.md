@@ -75,12 +75,11 @@ changes, clock behavior, leader handoff markers, and VAT implementation details.
 
 |                                                                                         |                                            |
 | --------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/pull/326) | Alpenglow Consensus Protocol               |
-| [SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/pull/337) | Markers for Alpenglow Fast Leader Handover |
-| [SIMD-0357](https://github.com/solana-foundation/solana-improvement-documents/pull/357) | Alpenglow VAT implementation               |
-| [SIMD-0363](https://github.com/solana-foundation/solana-improvement-documents/pull/363) | Simple Alpenglow Clock                     |
-| [SIMD-0384](https://github.com/solana-foundation/solana-improvement-documents/pull/384) | Alpenglow Migration                        |
-| [SIMD-0387](https://github.com/solana-foundation/solana-improvement-documents/pull/387) | BLS Pubkey Management in Vote Account      |
+| [SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md) | Alpenglow Consensus Protocol               |
+| [SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0337-parent-ready-update-marker.md) | Markers for Alpenglow Fast Leader Handover |
+| [SIMD-0357](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0357-alpenglow_validator_admission_ticket.md) | Alpenglow Validator Admission Ticket       |
+| [SIMD-0384](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0384-alpenglow-migration.md) | Alpenglow Migration                        |
+| [SIMD-0387](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0387-bls-pubkey-management-in-vote-account.md) | BLS Pubkey Management in Vote Account      |
 
 ---
 
