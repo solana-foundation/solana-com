@@ -59,7 +59,7 @@ certificates depending on the vote state:
   notarize or notarize fallback in the second round
 - Skip - >= 60% of stake votes to either skip in the first or second round
 
-### Alpenglow community cluster
+### Alpenglow Community Cluster
 
 After running several tests for months, validators and the core development team
 are testing the new consensus algorithm on a community cluster. This will ensure
