@@ -30,12 +30,14 @@ TowerBFT needs a supermajority of greater than two-thirds of stake to achieve a
 confirmed status. Alpenglow is a marked improvement in terms of the overhead
 required to finalize a block.
 
-Alpenglow will no longer have vote transactions. State of votes is kept in a
-separate data structure called Pool and kept together in a service called
-Blockstor. There are two rounds of voting. The first requires that >= 80% of
-stake vote yes to a block to finalize. This is the fast finalization path. If
-there is failure to vote yes right away, it goes to a second round where only >=
-60% of stake is required to vote yes to finalize the block.
+Alpenglow will no longer use vote transactions. Votes are sent directly between
+validators, and observed votes and certificates are managed in a separate data
+structure called Pool, informing Votor and stored with Blokstor.
+
+Voting proceeds in two rounds. In the fast path, a block can be finalized after
+one round if at least 80% of stake votes to notarize it. If that threshold is
+not reached, the protocol can continue into a second round, where certificates
+based on 60% stake thresholds determine notarization, finalization, or skipping.
 
 There are five vote messages a validator can make:
 
