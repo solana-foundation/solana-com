@@ -27,9 +27,6 @@ const DATABRICKS_CACHE_KEY_VERSION = "solana-data-databricks-metric-rows-v4";
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const DATA_REFRESH_TIME_ZONE = "America/New_York";
-// Source jobs run around 9 AM and 9 PM Eastern; roll dashboard caches an hour later.
-const DATA_REFRESH_HOURS = [10, 22] as const;
 const DATA_UNAVAILABLE_ERROR =
   "Solana data is unavailable right now. Try again in a moment.";
 
@@ -113,13 +110,8 @@ function getDatabricksData(config: DatabricksConfig) {
 }
 
 function getCachedDatabricksData(config: DatabricksConfig) {
-  const refreshCacheKey = getDatabricksRefreshCacheKey();
   const dataCacheKey = getDatabricksCacheKey(config);
-  const cacheKeyParts = [
-    DATABRICKS_CACHE_KEY_VERSION,
-    refreshCacheKey,
-    dataCacheKey,
-  ];
+  const cacheKeyParts = [DATABRICKS_CACHE_KEY_VERSION, dataCacheKey];
 
   return unstable_cache(
     () => getInMemoryCachedDatabricksData(config, cacheKeyParts.join("|")),
@@ -188,24 +180,7 @@ function getDatabricksCacheKey(config: DatabricksConfig) {
   ].join("|");
 }
 
-function getDatabricksRefreshCacheKey(now = new Date()) {
-  const parts = getTimeZoneDateTimeParts(now, DATA_REFRESH_TIME_ZONE);
-  const latestRefreshHour = getLatestScheduledRefreshHour(parts.hour);
-  const refreshHour =
-    latestRefreshHour ?? DATA_REFRESH_HOURS[DATA_REFRESH_HOURS.length - 1];
-  const refreshDate = new Date(
-    Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day + (latestRefreshHour === undefined ? -1 : 0),
-      refreshHour,
-    ),
-  );
-
-  return `${refreshDate.toISOString().slice(0, 10)}-${String(refreshHour).padStart(2, "0")}`;
-}
-
-function getSuccessCacheControl(now = new Date()) {
+function getSuccessCacheControl() {
   if (!IS_PRODUCTION) {
     return NO_STORE_CACHE_CONTROL;
   }
@@ -213,104 +188,9 @@ function getSuccessCacheControl(now = new Date()) {
   return [
     "public",
     "max-age=0",
-    `s-maxage=${getSecondsUntilNextScheduledRefresh(now)}`,
+    `s-maxage=${DATABRICKS_CACHE_REVALIDATE_SECONDS}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
-}
-
-function getSecondsUntilNextScheduledRefresh(now = new Date()) {
-  const parts = getTimeZoneDateTimeParts(now, DATA_REFRESH_TIME_ZONE);
-  const nextRefresh = getScheduledRefreshDate(parts, now);
-  const seconds = Math.ceil((nextRefresh.getTime() - now.getTime()) / 1000);
-
-  return Math.max(1, seconds);
-}
-
-function getScheduledRefreshDate(
-  parts: ReturnType<typeof getTimeZoneDateTimeParts>,
-  now: Date,
-) {
-  const nextRefreshHour = getNextScheduledRefreshHour(parts.hour);
-  const refreshHour = nextRefreshHour ?? DATA_REFRESH_HOURS[0];
-  const dayOffset = nextRefreshHour === undefined ? 1 : 0;
-
-  return zonedTimeToUtc(
-    parts.year,
-    parts.month,
-    parts.day + dayOffset,
-    refreshHour,
-    DATA_REFRESH_TIME_ZONE,
-    now,
-  );
-}
-
-function getLatestScheduledRefreshHour(hour: number) {
-  return DATA_REFRESH_HOURS.findLast((refreshHour) => hour >= refreshHour);
-}
-
-function getNextScheduledRefreshHour(hour: number) {
-  return DATA_REFRESH_HOURS.find((refreshHour) => hour < refreshHour);
-}
-
-function zonedTimeToUtc(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  timeZone: string,
-  referenceDate: Date,
-) {
-  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour));
-  const firstPass = new Date(
-    utcGuess.getTime() - getTimeZoneOffsetMs(utcGuess, timeZone),
-  );
-  const secondPass = new Date(
-    utcGuess.getTime() - getTimeZoneOffsetMs(firstPass, timeZone),
-  );
-
-  return Math.abs(secondPass.getTime() - referenceDate.getTime()) <
-    DAY_IN_MS * 2
-    ? secondPass
-    : firstPass;
-}
-
-function getTimeZoneOffsetMs(date: Date, timeZone: string) {
-  const parts = getTimeZoneDateTimeParts(date, timeZone);
-  const zonedAsUtc = Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-    parts.second,
-  );
-
-  return zonedAsUtc - date.getTime();
-}
-
-function getTimeZoneDateTimeParts(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
-    minute: "2-digit",
-    month: "2-digit",
-    second: "2-digit",
-    timeZone,
-    year: "numeric",
-  }).formatToParts(date);
-  const valueByType = new Map(
-    parts.map((part) => [part.type, Number(part.value)]),
-  );
-
-  return {
-    day: valueByType.get("day") ?? 1,
-    hour: valueByType.get("hour") ?? 0,
-    minute: valueByType.get("minute") ?? 0,
-    month: valueByType.get("month") ?? 1,
-    second: valueByType.get("second") ?? 0,
-    year: valueByType.get("year") ?? 1970,
-  };
 }
 
 function getConfigErrorResponse(
