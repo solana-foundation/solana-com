@@ -6,25 +6,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
  * PERPS HACK — CASINO screen
  * Ported from the Claude Design "PERPS HACK.dc.html" casino mode.
  * Modifications from source:
- *   - top ticker shows Solana-ecosystem tokens only (no BTC / ETH)
+ *   - top ticker shows live hackathon stats (viewers, views, registrations,
+ *     "just registered" pings, SOL price) instead of a token list
  *   - the candlestick chart is SOL / USD
  * ------------------------------------------------------------------ */
 
 const SUBMISSION_TARGET = Date.UTC(2026, 6, 22, 23, 59, 0); // Jul 22 2026 23:59 UTC
-
-// SOL-only: Solana-ecosystem tokens for the top ticker
-const SYMS = [
-  { s: "SOL", p: 172.4 },
-  { s: "JUP", p: 1.04 },
-  { s: "BONK", p: 0.000031 },
-  { s: "WIF", p: 2.11 },
-  { s: "PYTH", p: 0.55 },
-  { s: "JTO", p: 3.18 },
-  { s: "RAY", p: 4.82 },
-  { s: "ORCA", p: 3.91 },
-  { s: "DRIFT", p: 1.12 },
-  { s: "JLP", p: 4.36 },
-];
 
 const PROBLEMS = [
   "an undercollateralized perp",
@@ -367,7 +354,9 @@ export function PerpsHackCasino({
   const [checks, setChecks] = useState([false, false, false, false, false]);
 
   // simulation state kept in refs; a frame counter forces re-render
-  const symsRef = useRef(SYMS.map((o) => ({ ...o, d: 0 })));
+  const activeViewersRef = useRef(142);
+  const totalViewsRef = useRef(48213);
+  const lastRegRef = useRef(HANDLES[1]);
   const solCandlesRef = useRef<Candle[]>(genCandlesAt(80, 178));
   const signupsRef = useRef<Signup[]>(
     Array.from({ length: 12 }, () => newSignup()),
@@ -378,11 +367,12 @@ export function PerpsHackCasino({
   // live data tick
   useEffect(() => {
     const tk = setInterval(() => {
-      symsRef.current.forEach((o) => {
-        const v = (Math.random() - 0.47) * 0.022;
-        o.d = v;
-        o.p = Math.max(0.0000001, o.p * (1 + v));
-      });
+      // live "people on the site" counters
+      activeViewersRef.current = Math.max(
+        60,
+        Math.round(activeViewersRef.current + (Math.random() - 0.48) * 16),
+      );
+      totalViewsRef.current += Math.floor(Math.random() * 7) + 1;
       // push a new SOL/USD candle
       const cs = solCandlesRef.current;
       const last = cs[cs.length - 1];
@@ -395,7 +385,9 @@ export function PerpsHackCasino({
       // registrations slowly tick up
       regCountRef.current += Math.random() * 2.4 + 0.2;
       if (Math.random() < 0.6) {
-        signupsRef.current = [newSignup(), ...signupsRef.current].slice(0, 12);
+        const su = newSignup();
+        lastRegRef.current = su.handle;
+        signupsRef.current = [su, ...signupsRef.current].slice(0, 12);
       }
       setFrame((f) => f + 1);
     }, 850);
@@ -547,24 +539,82 @@ export function PerpsHackCasino({
 
   const checkDone = checks.filter(Boolean).length;
 
-  // scrolling ticker (SOL-only)
-  const tickerItems = symsRef.current;
+  const activeViewers = activeViewersRef.current;
+  const totalViews = totalViewsRef.current;
+
+  // live hackathon stats ticker (replaces the old token marquee)
+  type TickerItem = {
+    icon: string;
+    label: string;
+    value: string;
+    color: string;
+  };
+  const tickerItems: TickerItem[] = [
+    {
+      icon: "🎉",
+      label: `${lastRegRef.current} just registered`,
+      value: "",
+      color: "#ffd700",
+    },
+    {
+      icon: "👀",
+      label: "WATCHING NOW",
+      value: String(activeViewers),
+      color: "#2bffd4",
+    },
+    {
+      icon: "📊",
+      label: "TOTAL VIEWS",
+      value: totalViews.toLocaleString(),
+      color: "#e7d6ff",
+    },
+    {
+      icon: "⚡",
+      label: "REGISTERED",
+      value: regCount.toLocaleString(),
+      color: "#ffd700",
+    },
+    {
+      icon: "◎",
+      label: "SOL",
+      value: `${solPrice} ${solChgTxt}`,
+      color: solChgColor,
+    },
+    {
+      icon: "📦",
+      label: "SUBMISSIONS",
+      value: submitted.toLocaleString(),
+      color: "#2bffd4",
+    },
+    { icon: "💰", label: "PRIZE POOL", value: "$1,000,000", color: "#ffd700" },
+    {
+      icon: "⏳",
+      label: "TO SUBMIT",
+      value: `${cdD}d ${cdH}h`,
+      color: "#ff4d8d",
+    },
+    { icon: "🤝", label: "SPONSORS", value: "3", color: "#ff4d8d" },
+    {
+      icon: "🌍",
+      label: "REMOTE · FREE · TEAMS ≤4",
+      value: "",
+      color: "#e7d6ff",
+    },
+  ];
   const tickerRow = (keyPrefix: string) =>
-    tickerItems.map((o, i) => (
+    tickerItems.map((it, i) => (
       <span
         key={keyPrefix + i}
         style={{
           display: "inline-flex",
-          gap: 7,
+          gap: 6,
           alignItems: "baseline",
-          marginRight: 30,
+          marginRight: 34,
         }}
       >
-        <b style={{ fontWeight: 700 }}>{o.s}</b>
-        <span>{fmt(o.p)}</span>
-        <span style={{ color: o.d >= 0 ? SOL_THEME.up : SOL_THEME.down }}>
-          {(o.d >= 0 ? "▲" : "▼") + Math.abs((o.d || 0) * 100).toFixed(2) + "%"}
-        </span>
+        <span>{it.icon}</span>
+        <b style={{ fontWeight: 700, color: it.color }}>{it.label}</b>
+        {it.value ? <span style={{ color: "#fff" }}>{it.value}</span> : null}
       </span>
     ));
 
