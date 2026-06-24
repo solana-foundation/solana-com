@@ -358,6 +358,7 @@ export function PerpsHackCasino({
   const totalViewsRef = useRef(48213);
   const lastRegRef = useRef(HANDLES[1]);
   const solCandlesRef = useRef<Candle[]>(genCandlesAt(80, 178));
+  const livePriceRef = useRef(178); // latest real SOL/USD price from CoinGecko
   const signupsRef = useRef<Signup[]>(
     Array.from({ length: 12 }, () => newSignup()),
   );
@@ -395,66 +396,77 @@ export function PerpsHackCasino({
     };
   }, []);
 
-  // real SOL/USD candles from CoinGecko (falls back to the synthetic series)
+  // real SOL/USD data from our cached API route (falls back to the synthetic series)
   useEffect(() => {
     let cancelled = false;
+    let seeded = false;
 
-    // OHLC history: [time, open, high, low, close]; days=1 → ~30-min candles
+    // OHLC history → real candles; price → the live anchor for per-second candles
     const loadHistory = async () => {
       try {
-        const res = await fetch(
-          "https://api.coingecko.com/api/v3/coins/solana/ohlc?vs_currency=usd&days=1",
-          { cache: "no-store" },
-        );
+        const res = await fetch("/api/sol-price", { cache: "no-store" });
         if (!res.ok) return;
-        const raw: number[][] = await res.json();
-        if (cancelled || !Array.isArray(raw) || raw.length < 2) return;
-        const candles: Candle[] = raw.slice(-90).map(([, o, h, l, c]) => ({
-          o,
-          h,
-          l,
-          c,
-          // OHLC endpoint has no volume; approximate from the candle range
-          v: Math.max(0.05, Math.abs(h - l) / (o || 1)),
-        }));
-        solCandlesRef.current = candles;
+        const data = await res.json();
+        if (cancelled) return;
+        if (typeof data?.price === "number") livePriceRef.current = data.price;
+        const raw = data?.ohlc;
+        // only seed the candle history once, so per-second candles aren't wiped
+        if (!seeded && Array.isArray(raw) && raw.length > 2) {
+          const candles: Candle[] = raw
+            .slice(-90)
+            .map(([, o, h, l, c]: number[]) => ({
+              o,
+              h,
+              l,
+              c,
+              // OHLC endpoint has no volume; approximate from the candle range
+              v: Math.max(0.05, Math.abs(h - l) / (o || 1)),
+            }));
+          solCandlesRef.current = candles;
+          seeded = true;
+        }
         setFrame((f) => f + 1);
       } catch {
         /* keep whatever candles we already have */
       }
     };
 
-    // live last price: nudges the most recent candle between history refreshes
+    // refresh just the live price anchor between history loads
     const loadPrice = async () => {
       try {
-        const res = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
-          { cache: "no-store" },
-        );
+        const res = await fetch("/api/sol-price", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        const px = data?.solana?.usd;
-        if (cancelled || typeof px !== "number") return;
-        const cs = solCandlesRef.current;
-        const last = cs[cs.length - 1];
-        if (!last) return;
-        last.c = px;
-        if (px > last.h) last.h = px;
-        if (px < last.l) last.l = px;
-        setFrame((f) => f + 1);
+        if (cancelled || typeof data?.price !== "number") return;
+        livePriceRef.current = data.price;
       } catch {
         /* ignore */
       }
     };
 
+    // a fresh candle every second, drifting toward the latest real price
+    const pushCandle = () => {
+      const cs = solCandlesRef.current;
+      const last = cs[cs.length - 1];
+      const o = last ? last.c : livePriceRef.current;
+      const target = livePriceRef.current;
+      const c = o + (target - o) * 0.3 + o * (Math.random() - 0.5) * 0.0035;
+      const h = Math.max(o, c) * (1 + Math.random() * 0.0018);
+      const l = Math.min(o, c) * (1 - Math.random() * 0.0018);
+      cs.push({ o, h, l, c, v: Math.random() * 0.8 + 0.25 });
+      if (cs.length > 90) cs.shift();
+      setFrame((f) => f + 1);
+    };
+
     loadHistory();
-    loadPrice();
-    const hist = setInterval(loadHistory, 5 * 60 * 1000);
-    const price = setInterval(loadPrice, 20 * 1000);
+    const hist = setInterval(loadHistory, 60 * 1000);
+    const price = setInterval(loadPrice, 10 * 1000);
+    const candle = setInterval(pushCandle, 1000);
     return () => {
       cancelled = true;
       clearInterval(hist);
       clearInterval(price);
+      clearInterval(candle);
     };
   }, []);
 
@@ -769,17 +781,18 @@ export function PerpsHackCasino({
             borderBottom: "1px solid rgba(255,255,255,.1)",
           }}
         >
-          <div
-            style={{
-              fontFamily: bungee,
-              fontSize: 20,
-              background: "linear-gradient(90deg,#2bffd4,#ff4d8d,#ffd700)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            🎰 PERPS HACK
+          <div style={{ fontFamily: bungee, fontSize: 20 }}>
+            <span style={{ marginRight: 6 }}>🎰</span>
+            <span
+              style={{
+                background: "linear-gradient(90deg,#2bffd4,#ff4d8d,#ffd700)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              PERPS HACK
+            </span>
           </div>
           <div
             style={{
@@ -1071,44 +1084,12 @@ export function PerpsHackCasino({
                 >
                   LIVE
                 </span>
-                <span
-                  style={{
-                    background: "rgba(255,255,255,.07)",
-                    borderRadius: 7,
-                    padding: "3px 8px",
-                    color: "#cdbbff",
-                  }}
-                >
-                  1h
-                </span>
-                <span
-                  style={{
-                    background: "rgba(255,255,255,.07)",
-                    borderRadius: 7,
-                    padding: "3px 8px",
-                    color: "#cdbbff",
-                  }}
-                >
-                  all
-                </span>
               </div>
             </div>
             <canvas
               ref={solChartRef}
               style={{ width: "100%", flex: 1, minHeight: 340, marginTop: 10 }}
             />
-            <div
-              style={{
-                fontFamily: comic,
-                fontWeight: 700,
-                fontSize: 12,
-                color: "#9a86c4",
-                textAlign: "center",
-                marginTop: 8,
-              }}
-            >
-              SOL/USD candles · green when we send it, red when ser fades. 📈📉
-            </div>
           </div>
 
           {/* signups */}
@@ -1438,17 +1419,6 @@ export function PerpsHackCasino({
             >
               $1,000,000
             </div>
-            <div
-              style={{
-                fontFamily: comic,
-                fontWeight: 700,
-                fontSize: 14,
-                color: "#9a86c4",
-                marginTop: 2,
-              }}
-            >
-              in total prizes · every position pays out 💸
-            </div>
           </div>
           <div
             style={{
@@ -1462,7 +1432,7 @@ export function PerpsHackCasino({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "2.2fr 1fr 1fr 1.3fr",
+                gridTemplateColumns: "2.2fr 1.3fr",
                 gap: 8,
                 padding: "10px 16px",
                 fontFamily: mono,
@@ -1472,8 +1442,6 @@ export function PerpsHackCasino({
               }}
             >
               <span>MARKET</span>
-              <span>SIDE</span>
-              <span>SIZE</span>
               <span style={{ textAlign: "right" }}>
                 PNL (it&apos;s the prize)
               </span>
@@ -1483,7 +1451,7 @@ export function PerpsHackCasino({
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "2.2fr 1fr 1fr 1.3fr",
+                  gridTemplateColumns: "2.2fr 1.3fr",
                   gap: 8,
                   alignItems: "center",
                   padding: "15px 16px",
@@ -1508,14 +1476,6 @@ export function PerpsHackCasino({
                   </span>
                 </div>
                 <div
-                  style={{ fontFamily: mono, fontWeight: 700, color: p.col }}
-                >
-                  {p.side}
-                </div>
-                <div style={{ fontFamily: mono, color: "#e7d6ff" }}>
-                  {p.size}
-                </div>
-                <div
                   style={{
                     fontFamily: bungee,
                     fontSize: p.big
@@ -1530,18 +1490,6 @@ export function PerpsHackCasino({
                 </div>
               </div>
             ))}
-          </div>
-          <div
-            style={{
-              fontFamily: comic,
-              fontWeight: 700,
-              fontSize: 12,
-              color: "#9a86c4",
-              marginTop: 8,
-            }}
-          >
-            * prize details &amp; judging criteria finalized before kickoff. not
-            financial advice (obviously).
           </div>
         </div>
 
@@ -1570,7 +1518,7 @@ export function PerpsHackCasino({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 2.4fr 1fr",
+                gridTemplateColumns: "1fr 2.4fr 1fr",
                 gap: 8,
                 padding: "10px 16px",
                 fontFamily: mono,
@@ -1580,7 +1528,6 @@ export function PerpsHackCasino({
               }}
             >
               <span>DATE</span>
-              <span>SIDE</span>
               <span>EVENT</span>
               <span style={{ textAlign: "right" }}>STATUS</span>
             </div>
@@ -1589,7 +1536,7 @@ export function PerpsHackCasino({
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 2.4fr 1fr",
+                  gridTemplateColumns: "1fr 2.4fr 1fr",
                   gap: 8,
                   alignItems: "center",
                   padding: "13px 16px",
@@ -1604,9 +1551,6 @@ export function PerpsHackCasino({
                 }}
               >
                 <span style={{ color: "#fff", fontWeight: 700 }}>{e.date}</span>
-                <span style={{ color: e.sideCol, fontWeight: 700 }}>
-                  {e.side}
-                </span>
                 <span
                   style={{
                     fontFamily: comic,
@@ -1671,7 +1615,7 @@ export function PerpsHackCasino({
                 }}
               >
                 <div
-                  style={{ fontFamily: bungee, fontSize: 15, color: "#ff4d8d" }}
+                  style={{ fontFamily: bungee, fontSize: 19, color: "#ff4d8d" }}
                 >
                   ✅ SHIP CHECKLIST
                 </div>
@@ -1679,7 +1623,7 @@ export function PerpsHackCasino({
                   style={{
                     fontFamily: comic,
                     fontWeight: 700,
-                    fontSize: 13,
+                    fontSize: 16,
                     color: "#ffd700",
                   }}
                 >
@@ -1690,7 +1634,7 @@ export function PerpsHackCasino({
                 style={{
                   fontFamily: comic,
                   fontWeight: 700,
-                  fontSize: 12,
+                  fontSize: 15,
                   color: "#9a86c4",
                   margin: "2px 0 12px",
                 }}
@@ -1719,14 +1663,14 @@ export function PerpsHackCasino({
                     marginBottom: 8,
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>
+                  <span style={{ fontSize: 19 }}>
                     {checks[i] ? "✅" : "⬜"}
                   </span>
                   <span
                     style={{
                       fontFamily: comic,
                       fontWeight: 700,
-                      fontSize: 13,
+                      fontSize: 16,
                       color: checks[i] ? "#2bffd4" : "#e7d6ff",
                       lineHeight: 1.3,
                     }}
@@ -1745,7 +1689,7 @@ export function PerpsHackCasino({
                   gap: "8px 16px",
                   fontFamily: comic,
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: 15,
                   color: "#e7d6ff",
                 }}
               >
@@ -1768,7 +1712,7 @@ export function PerpsHackCasino({
               <div
                 style={{
                   fontFamily: bungee,
-                  fontSize: 15,
+                  fontSize: 19,
                   color: "#2bffd4",
                   marginBottom: 10,
                 }}
@@ -1782,7 +1726,7 @@ export function PerpsHackCasino({
                   gap: 8,
                   fontFamily: comic,
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: 16,
                   marginBottom: 16,
                 }}
               >
@@ -1824,7 +1768,7 @@ export function PerpsHackCasino({
               <div
                 style={{
                   fontFamily: bungee,
-                  fontSize: 15,
+                  fontSize: 19,
                   color: "#ffd700",
                   marginBottom: 10,
                 }}
@@ -1835,10 +1779,10 @@ export function PerpsHackCasino({
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 11,
+                  gap: 13,
                   fontFamily: comic,
                   fontWeight: 700,
-                  fontSize: 13,
+                  fontSize: 16,
                 }}
               >
                 {FAQ.map((f, i) => (
@@ -1856,7 +1800,7 @@ export function PerpsHackCasino({
         <div style={{ textAlign: "center", padding: "80px 24px 90px" }}>
           <div
             style={{
-              display: "inline-block",
+              display: "block",
               fontFamily: bungee,
               fontSize: "clamp(34px,8vw,90px)",
               lineHeight: 1.3,
