@@ -152,10 +152,12 @@ function getInMemoryCachedDatabricksData(
 
   pruneDatabricksDataRequests(cacheKey);
 
-  const request = fetchDatabricksData(config).catch((error: unknown) => {
-    databricksDataRequests.delete(cacheKey);
-    throw error;
-  });
+  const request = fetchDatabricksData(config);
+
+  request.then(
+    () => databricksDataRequests.delete(cacheKey),
+    () => databricksDataRequests.delete(cacheKey),
+  );
 
   databricksDataRequests.set(cacheKey, request);
 
