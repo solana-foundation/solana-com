@@ -20,9 +20,10 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const DATABRICKS_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
-const BROWSER_CACHE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
 const DEFAULT_RANGE_DAYS = 90;
+const MAX_RANGE_DAYS = Math.max(...rangeOptions.map((option) => option.value));
+const DATABRICKS_CACHE_KEY_VERSION = "solana-data-databricks-metric-rows-v4";
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
   const rangeDays = parseRangeDays(request.nextUrl.searchParams.get("days"));
 
   try {
-    const result = await getDatabricksData(configResult.config, rangeDays);
+    const result = await getDatabricksData(configResult.config);
 
     return json<DataApiResponse>(
       buildDataResponse(result, rangeDays),
@@ -105,20 +106,24 @@ function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
   });
 }
 
-function getDatabricksData(config: DatabricksConfig, rangeDays: number) {
+function getDatabricksData(config: DatabricksConfig) {
   return IS_PRODUCTION
-    ? getCachedDatabricksData(config, rangeDays)
-    : fetchDatabricksData(config, rangeDays);
+    ? getCachedDatabricksData(config)
+    : fetchDatabricksData(config);
 }
 
-function getCachedDatabricksData(config: DatabricksConfig, rangeDays: number) {
+function getCachedDatabricksData(config: DatabricksConfig) {
+  const refreshCacheKey = getDatabricksRefreshCacheKey();
+  const dataCacheKey = getDatabricksCacheKey(config);
+  const cacheKeyParts = [
+    DATABRICKS_CACHE_KEY_VERSION,
+    refreshCacheKey,
+    dataCacheKey,
+  ];
+
   return unstable_cache(
-    () => fetchDatabricksData(config, rangeDays),
-    [
-      "solana-data-databricks-metric-rows-v3",
-      getDatabricksRefreshCacheKey(),
-      getDatabricksCacheKey(config, rangeDays),
-    ],
+    () => getInMemoryCachedDatabricksData(config, cacheKeyParts.join("|")),
+    cacheKeyParts,
     {
       revalidate: DATABRICKS_CACHE_REVALIDATE_SECONDS,
       tags: ["solana-data-databricks"],
@@ -126,12 +131,9 @@ function getCachedDatabricksData(config: DatabricksConfig, rangeDays: number) {
   )();
 }
 
-async function fetchDatabricksData(
-  config: DatabricksConfig,
-  rangeDays: number,
-) {
+async function fetchDatabricksData(config: DatabricksConfig) {
   const result = await getDatabricksSqlMetricRows(config, {
-    lookbackDays: rangeDays,
+    lookbackDays: MAX_RANGE_DAYS,
     metricNames,
   });
 
@@ -141,12 +143,47 @@ async function fetchDatabricksData(
   };
 }
 
-function getDatabricksCacheKey(config: DatabricksConfig, rangeDays: number) {
+const databricksDataRequests = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof fetchDatabricksData>>>
+>();
+
+function getInMemoryCachedDatabricksData(
+  config: DatabricksConfig,
+  cacheKey: string,
+) {
+  const cachedRequest = databricksDataRequests.get(cacheKey);
+
+  if (cachedRequest) {
+    return cachedRequest;
+  }
+
+  pruneDatabricksDataRequests(cacheKey);
+
+  const request = fetchDatabricksData(config).catch((error: unknown) => {
+    databricksDataRequests.delete(cacheKey);
+    throw error;
+  });
+
+  databricksDataRequests.set(cacheKey, request);
+
+  return request;
+}
+
+function pruneDatabricksDataRequests(activeCacheKey: string) {
+  for (const cacheKey of databricksDataRequests.keys()) {
+    if (cacheKey !== activeCacheKey) {
+      databricksDataRequests.delete(cacheKey);
+    }
+  }
+}
+
+function getDatabricksCacheKey(config: DatabricksConfig) {
   return [
     config.serverHostname,
     config.httpPath,
     config.warehouseId,
-    rangeDays,
+    MAX_RANGE_DAYS,
     metricNames.join(","),
   ].join("|");
 }
@@ -175,7 +212,7 @@ function getSuccessCacheControl(now = new Date()) {
 
   return [
     "public",
-    `max-age=${BROWSER_CACHE_SECONDS}`,
+    "max-age=0",
     `s-maxage=${getSecondsUntilNextScheduledRefresh(now)}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
