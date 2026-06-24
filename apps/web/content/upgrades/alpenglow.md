@@ -2,11 +2,14 @@
 
 **TBD** • Solana Foundation
 
-Solana is replacing its consensus and block propagation protocols with a new
-protocol called Alpenglow. It aims to simplify consensus on Solana given its
-scale and improve performance. This change aims to achieve block consensus in
-150ms compared to Solana's current confirmation times of 400ms and finality of
-12.8ms.
+Solana is replacing its consensus protocol with Alpenglow, beginning with
+Votor. Alpenglow aims to simplify Solana consensus at network scale, improve
+performance, and provide faster finality. The target is roughly 150ms finality,
+compared with Solana's current roughly 400ms pre-confirmation latency and
+12.8-second TowerBFT finality.
+
+A later Alpenglow phase is expected to replace Turbine with Rotor, a new block
+propagation protocol.
 
 |                                  |     |
 | -------------------------------- | --- |
