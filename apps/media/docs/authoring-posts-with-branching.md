@@ -13,7 +13,7 @@ The goal is simple:
 1. Create a dedicated branch from `staging`
 2. Write and save the post there
 3. Open the pull request flow from that branch
-4. Merge and publish through GitHub
+4. Review, approve, merge, and publish through GitHub
 
 ## Step 1: Start from `staging`
 
@@ -85,6 +85,34 @@ link to the preview deployment for that PR.
 
 Use that preview link to review the post before merging.
 
+## Step 7: Approve the Pull Request in GitHub
+
+After the preview looks correct, open the PR's `Files changed` tab and review
+the content diff.
+
+Click `Submit review`, select `Approve`, and then click `Submit review` again.
+
+![Approve Pull Request Review](screenshots/21-approve-github-review.webp)
+
+Only approve after the post copy, metadata, publish date, images, and preview
+page have been checked.
+
+## Step 8: Squash and Merge the Pull Request
+
+Return to the PR conversation view. Confirm GitHub shows:
+
+- `Changes reviewed`
+- `All checks have passed`
+- `No conflicts with base branch`
+
+Then click `Squash and merge`.
+
+![Squash and Merge Pull Request](screenshots/22-squash-and-merge.webp)
+
+After the squash merge completes, the post is published from `main` once the
+production deployment finishes and the post's `Publish Date` timestamp has
+passed.
+
 ## Quick Rules
 
 - Do not draft directly on shared `staging` when the article should live on its
@@ -93,3 +121,6 @@ Use that preview link to review the post before merging.
 - Review the GitHub base and compare branches before clicking
   `Create pull request`
 - Wait for the Vercel preview build and review the preview link from the PR
+- Approve the GitHub PR only after the preview and content diff have been
+  checked
+- Use `Squash and merge` after approval, passing checks, and a clean base branch
