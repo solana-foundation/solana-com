@@ -60,35 +60,42 @@ pub struct Transaction {
 직렬화된 `Message`의 64바이트 Ed25519 서명입니다. 트랜잭션의 명령어가 참조하는
 모든 [서명자 계정](#account-addresses)에 대해 하나의 서명이 필요합니다.
 
-배열의 첫 번째 서명은 트랜잭션
-[기본 수수료 및 우선순위 수수료](/docs/core/fees/fee-structure#base-fee)를
-지불하는 계정인 **수수료 지불자**의 것입니다. 이 첫 번째 서명은 네트워크에서
-트랜잭션을 조회하는 데 사용되는 **트랜잭션 ID**로도 사용됩니다. 트랜잭션 ID는
-일반적으로 **트랜잭션 서명**이라고 합니다.
+각 서명은 개인 키에 의해 생성됩니다. 해당 키가 어디에 위치하는지 — 로컬 keypair,
+클라우드 HSM 또는 KMS, 또는 관리형 지갑 서비스 — 는 프로덕션 설계 결정
+사항입니다.
+[프로덕션에서의 서명](/docs/core/transactions/signing-in-production)을
+참조하세요.
 
-수수료 지불자 요구사항:
+배열의 첫 번째 서명은 **수수료 지불자**에 해당하며, 트랜잭션의
+[기본 수수료 및 우선순위 수수료](/docs/core/fees/fee-structure#base-fee)를
+지불하는 계정입니다. 이 첫 번째 서명은 네트워크에서 트랜잭션을 조회하는 데
+사용되는 **트랜잭션 ID** 역할도 합니다. 트랜잭션 ID는 일반적으로 **트랜잭션
+서명**이라고도 불립니다.
+
+수수료 지불자 요건:
 
 - 메시지의 첫 번째 계정(인덱스 0)이어야 하며 서명자여야 합니다.
-- 시스템 프로그램 소유 계정 또는 논스 계정이어야
-  합니다([`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)에서
-  검증됨).
-- `rent_exempt_minimum + total_fee`를 충당할 수 있는 충분한 램포트를 보유해야
-  하며, 그렇지 않으면 트랜잭션이 _rs`InsufficientFundsForFee`_ 로 실패합니다.
+- System Program 소유 계정이거나 nonce 계정이어야
+  합니다([`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)에
+  의해 검증됨).
+- `rent_exempt_minimum + total_fee`를 충당하기에 충분한 lamport를 보유해야
+  합니다. 그렇지 않으면 트랜잭션이 *rs`InsufficientFundsForFee`*와 함께
+  실패합니다.
 
 ## 메시지
 
-`message` 필드는 트랜잭션의 페이로드를 포함하는
+`message` 필드는 트랜잭션의 페이로드를 담고 있는
 [`Message`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L161)
 구조체입니다:
 
 <WithMentions>
 
 - [`header`](mention:message-header): 메시지 [헤더](#header)
-- [`account_keys`](mention:account-addresses): 트랜잭션의 인스트럭션에 필요한
+- [`account_keys`](mention:account-addresses): 트랜잭션 명령어에서 필요한
   [계정 주소](#account-addresses) 배열
 - [`recent_blockhash`](mention:recent-blockhash): 트랜잭션의 타임스탬프 역할을
   하는 [블록해시](#recent-blockhash)
-- [`instructions`](mention:instructions): [인스트럭션](#instructions) 배열
+- [`instructions`](mention:instructions): [명령어](#instructions) 배열
 
 ```rust title="Message"
 pub struct Message {
@@ -119,10 +126,9 @@ pub struct Message {
 
 <WithMentions>
 
-`header` 필드는 `account_keys` 배열을 권한 그룹으로 분할하는 세 개의 `u8` 필드를
-가진
+`header` 필드는 세 개의 `u8` 필드를 가진
 [`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
-구조체입니다:
+구조체로, `account_keys` 배열을 권한 그룹으로 분류합니다:
 
 - [`num_required_signatures`](mention:num_required_signatures): 트랜잭션에
   필요한 총 서명 수.
@@ -153,14 +159,14 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![메시지 헤더의 세 부분을 보여주는 다이어그램](/assets/docs/core/transactions/message_header.png)
+![메시지 헤더의 세 부분을 나타내는 다이어그램](/assets/docs/core/transactions/message_header.png)
 
 ### 계정 주소
 
 [`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
-필드는 공개 키의 압축 인코딩된 배열입니다. 각 항목은 트랜잭션의 인스트럭션 중
-하나 이상에서 사용되는 계정을 식별합니다. 배열은 모든 계정을 포함해야 하며
-다음과 같은 엄격한 순서를 따라야 합니다:
+필드는 공개 키의 압축 인코딩 배열입니다. 각 항목은 트랜잭션 명령어 중 하나
+이상에서 사용되는 계정을 식별합니다. 이 배열에는 모든 계정이 포함되어야 하며
+다음의 엄격한 순서를 따라야 합니다:
 
 1. 서명자 + 쓰기 가능
 2. 서명자 + 읽기 전용
@@ -168,39 +174,39 @@ pub struct MessageHeader {
 4. 비서명자 + 읽기 전용
 
 <Callout>
-  이러한 엄격한 순서는 `account_keys` 배열을 메시지의 [`header`](#header)에 있는
-  세 개의 카운트와 결합하여 계정별 메타데이터 플래그를 저장하지 않고도 각 계정의
-  권한을 결정할 수 있게 합니다. 헤더 카운트는 배열을 위에 나열된 네 개의 권한
-  그룹으로 분할합니다.
+  이 엄격한 순서 덕분에 `account_keys` 배열을 메시지의 [`header`](#header)에
+  있는 세 개의 카운트와 결합하여, 계정별 메타데이터 플래그를 저장하지 않고도 각
+  계정의 권한을 결정할 수 있습니다. 헤더 카운트는 배열을 위에 나열된 네 가지
+  권한 그룹으로 분할합니다.
 </Callout>
 
 ![계정 주소 배열의 순서를 보여주는 다이어그램](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### 최근 블록해시
 
-`recent_blockhash` 필드는 두 가지 목적을 제공하는 32바이트 해시입니다:
+`recent_blockhash` 필드는 두 가지 목적을 가진 32바이트 해시입니다:
 
 1. **타임스탬프**: 트랜잭션이 최근에 생성되었음을 증명합니다.
-2. **중복 제거**: 동일한 트랜잭션이 두 번 처리되는 것을 방지합니다.
+2. **중복 방지**: 동일한 트랜잭션이 두 번 처리되는 것을 방지합니다.
 
-블록해시는 150개의 슬롯 후에 만료됩니다. 트랜잭션이 도착했을 때 블록해시가 더
-이상 유효하지 않으면 _rs`BlockhashNotFound`_ 로 거부되며, 유효한
-[지속 가능한 논스 트랜잭션](/docs/core/transactions/durable-nonces)이 아닌
-경우에 해당합니다.
+블록해시는 150 slot 이후에 만료됩니다. 트랜잭션이 도착했을 때 블록해시가 더 이상
+유효하지 않으면,
+[내구성 있는 nonce 트랜잭션](/docs/core/transactions/durable-nonces)이 아닌 한
+*rs`BlockhashNotFound`*로 거부됩니다.
 
 <Callout>
   [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC 메서드를
-  사용하면 현재 블록해시와 블록해시가 유효한 마지막 블록 높이를 가져올 수
+  사용하면 현재 블록해시와 해당 블록해시가 유효한 마지막 블록 높이를 가져올 수
   있습니다.
 </Callout>
 
-### 인스트럭션
+### 명령어
 
 [`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)
 필드는
 [`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)
-구조체의 컴팩트 인코딩 배열입니다. 각 _rs`CompiledInstruction`_ 는 전체 공개
-키가 아닌 `account_keys` 배열의 인덱스로 계정을 참조합니다. 다음을 포함합니다:
+구조체의 컴팩트 인코딩 배열입니다. 각 *rs`CompiledInstruction`*는 전체 공개 키
+대신 `account_keys` 배열의 인덱스로 계정을 참조합니다. 다음을 포함합니다:
 
 <WithMentions>
 
@@ -208,8 +214,8 @@ pub struct MessageHeader {
    `account_keys`의 인덱스.
 2. [`accounts`](mention:account-indexes): 프로그램에 전달할 계정을 지정하는
    `account_keys`의 인덱스 배열.
-3. [`data`](mention:instruction-data): 인스트럭션 식별자와 직렬화된 인수를
-   포함하는 바이트 배열.
+3. [`data`](mention:instruction-data): 명령어 판별자와 직렬화된 인수를 포함하는
+   바이트 배열인 instruction data.
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -229,43 +235,43 @@ pub struct CompiledInstruction {
 
 </WithMentions>
 
-![인스트럭션의 컴팩트 배열](/assets/docs/core/transactions/compact_array_of_ixs.png)
+![명령어의 컴팩트 배열](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
 ## 트랜잭션 바이너리 형식
 
 트랜잭션은 컴팩트 인코딩 방식을 사용하여 직렬화됩니다. 모든 가변 길이 배열(서명,
-계정 키, 인스트럭션)은 컴팩트-u16 길이 인코딩으로 접두사가 붙습니다. 이 형식은
-0-127 값에 대해 1바이트를 사용하고 더 큰 값에 대해 2-3바이트를 사용합니다.
+계정 키, 명령어)에는 컴팩트-u16 길이 인코딩이 접두사로 붙습니다. 이 형식은 0~127
+값에 1바이트를 사용하고, 더 큰 값에는 2~3바이트를 사용합니다.
 
-**레거시 트랜잭션 레이아웃** (네트워크 상):
+**레거시 트랜잭션 레이아웃** (전송 형식):
 
-| 필드                      | 크기                          | 설명                                      |
-| ------------------------- | ----------------------------- | ----------------------------------------- |
-| `num_signatures`          | 1-3바이트 (컴팩트-u16)        | 서명 개수                                 |
-| `signatures`              | `num_signatures` x 64바이트   | Ed25519 서명                              |
-| `num_required_signatures` | 1바이트                       | `MessageHeader` 필드 1                    |
-| `num_readonly_signed`     | 1바이트                       | `MessageHeader` 필드 2                    |
-| `num_readonly_unsigned`   | 1바이트                       | `MessageHeader` 필드 3                    |
-| `num_account_keys`        | 1-3바이트 (컴팩트-u16)        | 정적 계정 키 개수                         |
-| `account_keys`            | `num_account_keys` x 32바이트 | 공개 키                                   |
-| `recent_blockhash`        | 32바이트                      | 블록해시                                  |
-| `num_instructions`        | 1-3바이트 (컴팩트-u16)        | 인스트럭션 개수                           |
-| `instructions`            | 가변                          | [컴파일된 인스트럭션](#instructions) 배열 |
+| 필드                      | 크기                          | 설명                                  |
+| ------------------------- | ----------------------------- | ------------------------------------- |
+| `num_signatures`          | 1-3바이트 (compact-u16)       | 서명 수                               |
+| `signatures`              | `num_signatures` x 64바이트   | Ed25519 서명                          |
+| `num_required_signatures` | 1바이트                       | `MessageHeader` 필드 1                |
+| `num_readonly_signed`     | 1바이트                       | `MessageHeader` 필드 2                |
+| `num_readonly_unsigned`   | 1바이트                       | `MessageHeader` 필드 3                |
+| `num_account_keys`        | 1-3바이트 (compact-u16)       | 정적 계정 키 수                       |
+| `account_keys`            | `num_account_keys` x 32바이트 | 공개 키                               |
+| `recent_blockhash`        | 32바이트                      | 블록해시                              |
+| `num_instructions`        | 1-3바이트 (compact-u16)       | 명령어 수                             |
+| `instructions`            | 가변                          | [컴파일된 명령어](#instructions) 배열 |
 
-각 컴파일된 명령어는 다음과 같이 직렬화됩니다:
+컴파일된 각 명령어는 다음과 같이 직렬화됩니다:
 
-| 필드               | 크기                     | 설명                    |
-| ------------------ | ------------------------ | ----------------------- |
-| `program_id_index` | 1바이트                  | 계정 키 인덱스          |
-| `num_accounts`     | 1-3바이트 (compact-u16)  | 계정 인덱스 개수        |
-| `account_indices`  | `num_accounts` x 1바이트 | 계정 키 인덱스          |
-| `data_len`         | 1-3바이트 (compact-u16)  | instruction data 길이   |
-| `data`             | `data_len` 바이트        | 불투명 instruction data |
+| 필드               | 크기                     | 설명                      |
+| ------------------ | ------------------------ | ------------------------- |
+| `program_id_index` | 1바이트                  | 계정 키 인덱스            |
+| `num_accounts`     | 1-3바이트 (compact-u16)  | 계정 인덱스 수            |
+| `account_indices`  | `num_accounts` x 1바이트 | 계정 키 인덱스            |
+| `data_len`         | 1-3바이트 (compact-u16)  | instruction data 길이     |
+| `data`             | `data_len`바이트         | 불투명한 instruction data |
 
 ### 크기 계산
 
-_rs`PACKET_DATA_SIZE`_ = 1,232바이트일 때, 사용 가능한 공간은 다음과 같이 계산할
-수 있습니다:
+_rs`PACKET_DATA_SIZE`_ = 1,232바이트로 주어졌을 때, 사용 가능한 공간은 다음과
+같이 계산할 수 있습니다:
 
 ```
 Total = 1232 bytes
@@ -282,43 +288,43 @@ Total = 1232 bytes
 ## 예시: SOL 전송 트랜잭션
 
 아래 다이어그램은 트랜잭션과 명령어가 함께 작동하여 사용자가 네트워크와
-상호작용할 수 있도록 하는 방법을 보여줍니다. 이 예시에서는 한 계정에서 다른
-계정으로 SOL이 전송됩니다.
+상호작용하는 방식을 보여줍니다. 이 예시에서는 SOL이 한 계정에서 다른 계정으로
+전송됩니다.
 
 발신자 계정의
 [메타데이터](/docs/core/instructions/instruction-structure#account-metadata)는
-트랜잭션에 서명해야 함을 나타냅니다. 이를 통해 System Program이 lamport를 차감할
-수 있습니다. lamport 잔액이 변경되려면 발신자와 수신자 계정 모두 쓰기 가능해야
-합니다. 이 명령어를 실행하기 위해 발신자의 지갑은 서명과 SOL 전송 명령어가
-포함된 메시지를 담은 트랜잭션을 전송합니다.
+해당 계정이 트랜잭션에 서명해야 함을 나타냅니다. 이를 통해 System Program이
+lamport를 차감할 수 있습니다. 발신자와 수신자 계정 모두 lamport 잔액이
+변경되어야 하므로 쓰기 가능 상태여야 합니다. 이 명령을 실행하려면 발신자의
+지갑이 서명과 SOL 전송 명령이 포함된 메시지를 담은 트랜잭션을 전송합니다.
 
 ![SOL 전송 다이어그램](/assets/docs/core/transactions/sol-transfer.svg)
 
-트랜잭션이 전송된 후, System Program은 전송 명령어를 처리하고 두 계정의 lamport
+트랜잭션이 전송되면 System Program이 전송 명령을 처리하고 두 계정의 lamport
 잔액을 업데이트합니다.
 
 ![SOL 전송 프로세스 다이어그램](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-<Callout type="warn" title="SOL을 전송하기 전에 수신자를 확인하세요">
+<Callout type="warn" title="SOL 전송 전 수신자 확인">
 
 System Program 전송은 **모든** 계정에 lamport를 추가합니다. 수신자가 SOL을 다시
-꺼낼 수 있는지에 대한 프로토콜 수준의 검사는 없습니다. lamport는 계정의 소유
-프로그램에 의해서만 이동할 수 있으므로,
-[토큰 민트](/docs/tokens/basics/create-mint), 프로그램, 또는 직접 제어하지 않는
-[PDA](/docs/core/pda)로 SOL을 전송하면 **영구적인 자금 손실의 위험**이 있습니다
-— 소유 프로그램이 지정한 권한자만이 이를 반환할 수 있습니다.
+인출할 수 있는지에 대한 프로토콜 수준의 검사는 없습니다. lamport는 계정을 소유한
+프로그램만 인출할 수 있으므로, [토큰 민트](/docs/tokens/basics/create-mint),
+프로그램, 또는 본인이 제어하지 않는 [PDA](/docs/core/pda)에 SOL을 전송하면
+**자금이 영구적으로 손실될 위험**이 있습니다 — 소유 프로그램이 지정한 권한자만
+이를 반환할 수 있습니다.
 [token account](/docs/tokens/basics/create-token-account)로 전송된 SOL은 해당
-계정의 소유자만 회수할 수 있으며, 발신자는 회수할 수 없습니다.
+계정의 소유자만 복구할 수 있으며, 발신자는 복구할 수 없습니다.
 
 SPL **토큰** 전송은 부분적으로 자체 보호 기능이 있습니다. Token Program은 계정이
-예상한 민트와 일치하지 않는 전송을 거부합니다. 네이티브 **SOL** 전송에는 이러한
-보호 장치가 없으므로, 서명 전에 발신자가 수신자를 직접 확인해야 합니다. 전체
+예상된 민트와 일치하지 않는 전송을 거부합니다. 네이티브 **SOL** 전송에는 이러한
+보호 장치가 없으므로, 발신자가 서명 전에 수신자를 직접 확인해야 합니다. 전체
 분류 로직은 [주소 확인](/docs/payments/send-payments/verify-address)을
 참고하세요.
 
 </Callout>
 
-아래 예제는 위 다이어그램과 관련된 코드를 보여줍니다. System Program의
+아래 예시는 위 다이어그램과 관련된 코드를 보여줍니다. System Program의
 [`transfer` 함수](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)를
 참고하세요.
 
@@ -537,7 +543,7 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-다음 예제는 단일 SOL 전송 명령어를 포함하는 트랜잭션의 구조를 보여줍니다.
+다음 예시는 단일 SOL 전송 명령을 포함하는 트랜잭션의 구조를 보여줍니다.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -687,8 +693,8 @@ async fn main() -> Result<()> {
 
 <WithMentions>
 아래 코드는 이전 코드 스니펫의 출력 결과를 보여줍니다.
-SDK마다 형식은 다르지만,
-각 명령어에는 동일한 필수 정보가 포함되어 있다는 점에 주목하세요.
+형식은 SDK마다 다르지만,
+각 명령어에는 동일한 필수 정보가 포함되어 있음을 확인할 수 있습니다.
 
 <CodeTabs storage="sol-transfer">
 
@@ -793,13 +799,13 @@ SDK마다 형식은 다르지만,
 </CodeTabs>
 </WithMentions>
 
-### 전송 전에 수신자를 확인하세요
+### 전송 전 수신자 확인
 
-SOL 전송은 모든 계정으로 성공적으로 이루어지기 때문에, 서명 전에 수신자를
-확인해야 합니다. 계정을 조회하고 System Program 지갑(또는 자금이 없는
+SOL 전송은 어떤 계정으로도 성공할 수 있으므로, 서명 전에 수신자를 반드시
+확인하세요. 계정을 조회하여 System Program 지갑(또는 자금이 없는
 [온커브](/docs/payments/send-payments/verify-address#on-curve-addresses)
-주소)으로만 전송하세요. 민트, token account, 프로그램, 그리고 직접 제어하지 않는
-PDA로의 전송은 거부해야 합니다.
+주소)으로만 전송하고, 직접 제어하지 않는 민트, token account, 프로그램, PDA는
+거부하세요.
 
 <CodeTabs flags="r">
 
@@ -856,12 +862,12 @@ await assertSafeSolRecipient(
 </CodeTabs>
 
 <Callout>
-  이 코드 조각은 네이티브 SOL 수신자를 확인합니다. SPL 토큰 전송(token account,
-  ATA, Token-2022)도 처리하는 전체 분류 방법은 [주소
+  이 스니펫은 네이티브 SOL 수신자를 확인합니다. token account, ATA, Token-2022를
+  포함한 SPL 토큰 전송까지 처리하는 전체 분류 방법은 [주소
   확인](/docs/payments/send-payments/verify-address)을 참조하세요.
 </Callout>
 
-## 트랜잭션 세부 정보 가져오기
+## 트랜잭션 세부 정보 조회
 
 제출 후, 트랜잭션 서명과 [getTransaction](/docs/rpc/http/gettransaction) RPC
 메서드를 사용하여 트랜잭션 세부 정보를 조회할 수 있습니다.

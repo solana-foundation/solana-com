@@ -212,57 +212,64 @@ mengelola biaya prioritas Anda).
 
 Solana JSON RPC API memiliki metode
 [`simulatetransaction`](/docs/rpc/http/simulatetransaction) yang dapat digunakan
-untuk memperkirakan unit komputasi yang diperlukan untuk sebuah transaksi, yang
-mencakup estimasi unit komputasi yang akan digunakan. Package
-[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
-menyediakan fungsi helper untuk dengan mudah memperkirakan unit komputasi yang
-diperlukan untuk sebuah transaksi (yang menggunakan metode `simulatetransaction`
-di balik layar).
+untuk memperkirakan unit komputasi yang diperlukan oleh suatu transaksi, yang
+mencakup perkiraan unit komputasi yang akan digunakan.
+[`@solana/kit`](https://github.com/anza-xyz/kit) menyediakan fungsi pembantu
+yang memperkirakan batas sumber daya transaksi dan menetapkannya pada pesan
+dalam satu langkah (menggunakan metode `simulatetransaction` di balik layar).
+Untuk transaksi versi 1, pembantu ini juga memperkirakan batas ukuran data akun
+yang dimuat.
 
 ```ts
 import {
-  estimateComputeUnitLimitFactory,
-  updateOrAppendSetComputeUnitLimitInstruction
-} from "@solana-program/compute-budget";
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
 
-const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
-const computeUnitLimit = await estimateComputeUnitLimit(tx);
-const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
-  computeUnitLimit,
-  tx
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
 );
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
 ```
 
-Dalam produksi, jika Anda mengulangi jenis transaksi yang sama beberapa kali,
-Anda sebaiknya mempertimbangkan untuk meng-cache estimasi komputasi untuk jenis
-transaksi tersebut guna menghindari overhead estimasi unit komputasi setiap
-kali.
+<Callout type="info">
+  Jika Anda membangun dan mengirim transaksi dengan klien plugin kit, biasanya
+  Anda tidak perlu langkah ini — klien secara otomatis menambahkan instruksi
+  anggaran komputasi saat mengirim (`.sendTransaction()`). Alur manual di atas
+  digunakan saat Anda menyusun transaksi secara langsung dengan `@solana/kit`.
+</Callout>
 
-### Jito bundles
+Dalam produksi, jika Anda mengulangi jenis transaksi yang sama berkali-kali,
+pertimbangkan untuk menyimpan cache perkiraan komputasi untuk jenis transaksi
+tersebut guna menghindari overhead estimasi unit komputasi setiap kali.
+
+### Jito Bundles
 
 Jito bundles adalah alat untuk mengelola eksekusi atomik dari beberapa
 transaksi. Hal ini dicapai dengan mengirimkan beberapa transaksi ke jaringan
-Jito dengan tip. Tip dapat digunakan untuk memberi insentif kepada jaringan Jito
-agar menyertakan transaksi Anda dalam sebuah blok.
+Jito beserta tip. Tip dapat digunakan untuk mendorong jaringan Jito agar
+menyertakan transaksi Anda dalam sebuah blok.
 
-**Sumber daya:**
+**Sumber Daya:**
 
 - [Dokumentasi Jito](https://docs.jito.wtf/lowlatencytxnsend/)
 - [🎥 Video: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
 - [Panduan QuickNode tentang Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
 
-### Strategi retry
+### Strategi Percobaan Ulang
 
 Transaksi dapat gagal karena berbagai alasan. Tidak seperti API pembayaran
-tradisional yang mengembalikan sukses/gagal secara langsung, transaksi
+tradisional yang langsung mengembalikan status berhasil/gagal, transaksi
 blockchain memerlukan pelacakan konfirmasi.
 
-**Konsep kunci:**
+**Konsep utama:**
 
 - **Kedaluwarsa blockhash**: Transaksi berlaku selama ~150 blok (~60-90 detik)
-- **Idempotency**: Transaksi yang ditandatangani sama selalu menghasilkan
-  signature yang sama—mengirim ulang aman dilakukan
-- **Exponential backoff**: Hindari membebani jaringan dengan retry yang cepat
+- **Idempotency**: Transaksi yang ditandatangani sama selalu menghasilkan tanda
+  tangan yang sama — pengiriman ulang aman dilakukan
+- **Exponential backoff**: Hindari membebani jaringan dengan percobaan ulang
+  yang terlalu cepat
 
 ```typescript
 import {
@@ -298,43 +305,42 @@ try {
 ```
 
 `sendAndConfirmTransactionFactory` dari `@solana/kit` menangani polling
-konfirmasi dan pelacakan block height secara otomatis. Ini melempar
+konfirmasi dan pelacakan tinggi blok secara otomatis. Fungsi ini akan melempar
 `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` ketika blockhash transaksi kedaluwarsa,
-menandakan bahwa Anda perlu membangun ulang transaksi dengan blockhash yang
-baru.
+memberi sinyal bahwa Anda perlu membangun ulang transaksi dengan blockhash baru.
 
-### Sumber daya tambahan
+### Sumber Daya Tambahan
 
 - [Panduan: Konfirmasi & Kedaluwarsa Transaksi](https://solana.com/developers/guides/advanced/confirmation)
-- [Helius: Cara Mengirim Transaksi di Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [Helius: Cara Melakukan Transaksi di Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
 - [QuickNode: Strategi untuk Mengoptimalkan Transaksi Solana](https://www.quicknode.com/docs/solana/transactions)
 
-## Memahami tingkat konfirmasi
+## Memahami Tingkat Konfirmasi
 
 Solana menawarkan tiga tingkat konfirmasi. Dalam istilah keuangan tradisional:
 
-| Tingkat     | Definisi Solana             | Ekuivalen Tradisional | Kasus penggunaan              |
-| ----------- | --------------------------- | --------------------- | ----------------------------- |
-| `processed` | Dalam blok, belum divoting  | Otorisasi tertunda    | Pembaruan UI real-time        |
-| `confirmed` | Divoting supermayoritas     | Dana tersedia         | **Sebagian besar pembayaran** |
-| `finalized` | Berakar, tidak dapat diubah | Dana diselesaikan     | Nilai tinggi, kepatuhan       |
+| Level       | Definisi Solana                       | Padanan Tradisional     | Kasus Penggunaan              |
+| ----------- | ------------------------------------- | ----------------------- | ----------------------------- |
+| `processed` | Dalam blok, belum divoting            | Otorisasi tertunda      | Pembaruan UI real-time        |
+| `confirmed` | Supermayoritas telah voting           | Dana telah dikliringkan | **Sebagian besar pembayaran** |
+| `finalized` | Sudah di-root, tidak dapat dibatalkan | Dana telah diselesaikan | Nilai tinggi, kepatuhan       |
 
 **Kapan menggunakan masing-masing:**
 
-- **Pembaruan UI**: Tampilkan `processed` untuk umpan balik langsung
-  ("Pembayaran dikirim")
+- **Pembaruan UI**: Tampilkan `processed` untuk umpan balik segera ("Pembayaran
+  telah dikirim")
 - **Kredit akun pengguna**: Tunggu `confirmed` (aman untuk sebagian besar
   transaksi)
 - **Kirim barang fisik**: Tunggu `finalized`
-- **Penarikan besar**: Tunggu `finalized`
+- **Penarikan dalam jumlah besar**: Tunggu `finalized`
 - **Kepatuhan/audit**: Selalu catat status `finalized`
 
 Untuk informasi lebih lanjut tentang memeriksa status transaksi, lihat
 [Berinteraksi dengan Solana](/docs/payments/interacting-with-solana).
 
-## Penanganan error
+## Penanganan Kesalahan
 
-Solana Kit menyediakan error bertipe melalui `isSolanaError()`. Gunakan kode
+Solana Kit menyediakan error berupa tipe melalui `isSolanaError()`. Gunakan kode
 error spesifik alih-alih pencocokan string:
 
 ```typescript
@@ -381,55 +387,54 @@ function handlePaymentError(error: unknown): {
 }
 ```
 
-**Kode error umum:**
+**Kode Error Umum:**
 
-| Kode error                   | Penyebab                  | Pemulihan                                                                                                            |
-| ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash kedaluwarsa     | Bangun ulang dengan blockhash baru                                                                                   |
-| `BLOCKHASH_NOT_FOUND`        | Blockhash tidak ditemukan | Bangun ulang dengan blockhash baru                                                                                   |
-| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL tidak cukup           | Danai pembayar biaya atau gunakan [abstraksi biaya](/docs/payments/send-payments/payment-processing/fee-abstraction) |
-| `INSUFFICIENT_FUNDS`         | Token tidak cukup         | Pengguna memerlukan saldo lebih banyak                                                                               |
-| `ACCOUNT_NOT_FOUND`          | Token account tidak ada   | Buat ATA dalam transaksi                                                                                             |
+| Kode Error                   | Penyebab                  | Pemulihan                                                                                                           |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash kedaluwarsa     | Bangun ulang dengan blockhash baru                                                                                  |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash tidak ditemukan | Bangun ulang dengan blockhash baru                                                                                  |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL tidak mencukupi       | Isi saldo fee payer atau gunakan [abstraksi biaya](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Token tidak mencukupi     | Pengguna memerlukan saldo lebih banyak                                                                              |
+| `ACCOUNT_NOT_FOUND`          | token account tidak ada   | Buat ATA dalam transaksi                                                                                            |
 
-## Transaksi tanpa gas
+## Transaksi Tanpa Gas
 
-Pengguna mengharapkan untuk membayar dalam stablecoin, bukan memperoleh SOL
-untuk biaya jaringan. Transaksi tanpa gas menyelesaikan masalah ini—mirip dengan
-bagaimana pengguna Venmo tidak memikirkan biaya ACH. Lihat
-[Abstraksi biaya](/docs/payments/send-payments/payment-processing/fee-abstraction)
-untuk implementasi lengkap.
+Pengguna mengharapkan pembayaran menggunakan stablecoin, bukan harus memperoleh
+SOL untuk biaya jaringan. Transaksi tanpa gas mengatasi masalah ini—mirip dengan
+bagaimana pengguna Venmo tidak perlu memikirkan biaya ACH. Lihat
+[Abstraksi Biaya](/docs/payments/send-payments/payment-processing/fee-abstraction)
+untuk implementasi lengkapnya.
 
 ## Keamanan
 
-### Manajemen kunci
+### Manajemen Kunci
 
 - **Jangan pernah mengekspos kunci privat dalam kode frontend.** Gunakan
-  penandatanganan backend, dompet perangkat keras, dompet multisignature, atau
-  layanan manajemen kunci.
-- **Pisahkan dompet panas dan dingin.** Dompet panas untuk operasi, dingin untuk
-  perbendaharaan.
-- **Cadangkan semua kunci produksi.** Simpan cadangan terenkripsi di beberapa
-  lokasi aman. Kehilangan kunci berarti kehilangan akses secara permanen.
-- **Gunakan kunci berbeda untuk devnet dan mainnet.** Kunci devnet Anda
+  penandatanganan backend, dompet perangkat keras, dompet multitanda tangan,
+  atau layanan manajemen kunci.
+- **Pisahkan dompet panas dan dompet dingin.** Dompet panas untuk operasional,
+  dompet dingin untuk perbendaharaan.
+- **Buat cadangan semua kunci produksi.** Simpan cadangan terenkripsi di
+  beberapa lokasi yang aman. Kehilangan kunci berarti kehilangan akses secara
+  permanen.
+- **Gunakan kunci yang berbeda untuk devnet dan mainnet.** Kunci devnet Anda
   seharusnya tidak sama dengan kunci mainnet Anda. Gunakan konfigurasi berbasis
-  environment untuk memastikan kunci yang tepat dimuat untuk setiap jaringan.
+  lingkungan untuk memastikan kunci yang tepat dimuat di setiap jaringan.
 
 ### Infrastruktur Penandatanganan
 
-Untuk penandatanganan backend produksi, pertimbangkan untuk menggunakan
-[solana-keychain](https://github.com/solana-foundation/solana-keychain)—sebuah
-library penandatanganan terpadu yang mengabstraksi berbagai backend manajemen
-kunci melalui satu interface: Memory, Vault, Privy, Turnkey, AWS KMS,
-Fireblocks, GCP KMS, CDP, Para, Dfns, Crossmint. Ini memungkinkan Anda untuk
-mengembangkan secara lokal dengan kunci in-memory, kemudian beralih ke backend
-tingkat produksi tanpa mengubah kode aplikasi.
+Untuk penandatanganan backend produksi, gunakan
+[Keychain](/docs/tools/keychain)—sebuah pustaka penandatanganan terpadu yang
+mengabstraksi berbagai backend manajemen kunci melalui satu antarmuka: Memory,
+Vault, Privy, Turnkey, AWS KMS, Fireblocks, GCP KMS, CDP, Para, Dfns, Crossmint,
+Openfort, dan Utila. Ini memungkinkan Anda mengembangkan secara lokal
+menggunakan kunci in-memory, lalu beralih ke backend kelas produksi tanpa
+mengubah kode aplikasi.
 
-Tersedia untuk [Rust](https://crates.io/crates/solana-keychain) dan
+Tidak yakin backend mana yang cocok? Lihat
+[Memilih backend](/docs/tools/keychain/choosing-a-backend). Keychain tersedia
+untuk [Rust](https://crates.io/crates/solana-keychain) dan
 [TypeScript](https://www.npmjs.com/package/@solana/keychain).
-
-Lihat
-[panduan Menambahkan Signer](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
-untuk mengintegrasikan layanan manajemen kunci tambahan.
 
 ### Keamanan RPC
 
