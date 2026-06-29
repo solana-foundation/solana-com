@@ -48,6 +48,11 @@ const platinumSponsors = [
     width: 181.818,
     height: 32,
   },
+  {
+    companyId: "solflare",
+    width: 230.648,
+    height: 55.2,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -102,6 +107,16 @@ const goldSponsors = [
     width: 1118.91,
     height: 150,
   },
+  {
+    companyId: "sidley",
+    width: 1911,
+    height: 440,
+  },
+  {
+    companyId: "rain",
+    width: 300,
+    height: 91.13,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -117,7 +132,7 @@ export const sponsorTiers = [
     title: "Platinum",
     mobileColumns: "grid-cols-1",
     mobileLogoScale: 0.6,
-    columns: "md:grid-cols-3",
+    columns: "md:grid-cols-4",
     cellAspect: "aspect-[442/221]",
     sponsors: platinumSponsors,
   },
