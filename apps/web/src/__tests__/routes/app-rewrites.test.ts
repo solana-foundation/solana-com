@@ -27,8 +27,12 @@ function expectBeforeFileRewrite(
   );
 }
 
-function sourceIndex(source: string) {
-  return beforeFiles.findIndex((rewrite) => rewrite.source === source);
+function expectSourceIndex(source: string) {
+  const index = beforeFiles.findIndex((rewrite) => rewrite.source === source);
+
+  expect(index).toBeGreaterThanOrEqual(0);
+
+  return index;
 }
 
 describe("Cross-app rewrites", () => {
@@ -58,14 +62,23 @@ describe("Cross-app rewrites", () => {
   });
 
   it("keeps templates rewrites before generic developer docs rewrites", () => {
-    expect(sourceIndex("/developers/templates")).toBeLessThan(
-      sourceIndex("/developers"),
+    expect(expectSourceIndex("/developers/templates")).toBeLessThan(
+      expectSourceIndex("/developers"),
     );
-    expect(sourceIndex("/developers/templates/:path*")).toBeLessThan(
-      sourceIndex("/developers/:path*.md"),
+    expect(expectSourceIndex("/developers/templates/:path*")).toBeLessThan(
+      expectSourceIndex("/developers/:path*.md"),
     );
-    expect(sourceIndex("/developers/templates/:path*")).toBeLessThan(
-      sourceIndex("/developers/cookbook/:path*"),
+    expect(expectSourceIndex("/developers/templates/:path*")).toBeLessThan(
+      expectSourceIndex("/developers/cookbook/:path*"),
+    );
+  });
+
+  it("keeps specific Accelerate asset rewrites before the generic fallback", () => {
+    expect(expectSourceIndex("/accelerate-assets/_next/:path+")).toBeLessThan(
+      expectSourceIndex("/accelerate-assets/:path+"),
+    );
+    expect(expectSourceIndex("/accelerate-assets/images/:path+")).toBeLessThan(
+      expectSourceIndex("/accelerate-assets/:path+"),
     );
   });
 
