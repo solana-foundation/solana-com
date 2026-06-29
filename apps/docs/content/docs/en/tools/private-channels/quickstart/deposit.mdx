@@ -1,0 +1,121 @@
+---
+title: Deposit Tokens
+description:
+  Deposit SPL tokens into a Private Channels escrow instance on devnet
+---
+
+## Overview
+
+The `Deposit` instruction moves SPL tokens from a user's associated token
+account into the escrow's associated token account. Once deposited, tokens are
+available for off-chain transfers through the gateway. The optional `recipient`
+parameter lets a depositor credit a different user's channel balance.
+
+## Prerequisites
+
+- Completed installation and client generation
+- A devnet wallet with SOL (for transaction fees) and the SPL token you want to
+  deposit
+- An active Private Channels instance with your mint on the allowlist
+
+## Code
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+import { getBase58Decoder } from "@solana/codecs-strings";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Verify
+
+After your Mainnet transaction confirms, the indexer detects the deposit event
+via Yellowstone gRPC and the operator mints the equivalent balance on the
+channel. A finality safety delay is applied before crediting, so **expect ~15
+seconds** before the channel balance is available.
+
+Query your balance through the gateway (not the Mainnet RPC) to confirm:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+A non-zero balance confirms the deposit was indexed and credited. If the balance
+is zero after 30 seconds, check that `indexer-solana` and `operator-solana` are
+running (`make docker-devnet-logs`).
+
+## Next Steps
+
+**[Send a Transfer](/docs/tools/private-channels/quickstart/transfer)** - send
+your first off-chain transfer
