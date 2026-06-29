@@ -30,12 +30,32 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("footer");
   });
 
-  it("uses English web defaults when locale files do not include new messages", async () => {
-    const messages = await loadMergedMessages({ app: "web", locale: "fr" });
+  it("uses English defaults when locale files do not include new messages", () => {
+    const messages = deepMergeMessages(
+      {
+        dataDashboard: {
+          header: {
+            title: "Solana data",
+            description: "Explore network activity.",
+          },
+        },
+      },
+      {
+        dataDashboard: {
+          header: {
+            description: "Explorer l'activite du reseau.",
+          },
+        },
+      },
+    );
 
     expect(messages).toHaveProperty(
       "dataDashboard.header.title",
       "Solana data",
+    );
+    expect(messages).toHaveProperty(
+      "dataDashboard.header.description",
+      "Explorer l'activite du reseau.",
     );
   });
 
