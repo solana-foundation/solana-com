@@ -59,6 +59,7 @@ import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { pyth } from "./records/pyth";
 import { quicknode } from "./records/quicknode";
+import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
 import { reap } from "./records/reap";
 import { renderNetwork } from "./records/render-network";
@@ -66,6 +67,7 @@ import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sanctum } from "./records/sanctum";
+import { sidley } from "./records/sidley";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
@@ -157,6 +159,7 @@ export const companies = [
   playSolana,
   pyth,
   quicknode,
+  rain,
   ramp,
   reap,
   renderNetwork,
@@ -164,6 +167,7 @@ export const companies = [
   ryder,
   safepalWallet,
   sanctum,
+  sidley,
   societeGenerale,
   sofi,
   solanaSpaces,
