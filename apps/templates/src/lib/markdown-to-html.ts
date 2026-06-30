@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import sanitizeHtml from "sanitize-html";
 import { codeToHtml } from "shiki";
 
 /**
@@ -14,6 +15,87 @@ const renderer = {
 };
 
 marked.use({ renderer });
+
+const ALLOWED_TAGS = [
+  "a",
+  "blockquote",
+  "br",
+  "code",
+  "dd",
+  "del",
+  "details",
+  "div",
+  "dl",
+  "dt",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "img",
+  "kbd",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "s",
+  "span",
+  "strong",
+  "sub",
+  "summary",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+];
+
+const ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions["allowedAttributes"] = {
+  a: ["href", "name", "rel", "target", "title"],
+  code: ["class", "style"],
+  div: ["class"],
+  img: ["alt", "height", "src", "title", "width"],
+  pre: ["class", "style", "tabindex"],
+  span: ["class", "style"],
+  td: ["align", "colspan", "rowspan"],
+  th: ["align", "colspan", "rowspan"],
+};
+
+const ALLOWED_STYLES: sanitizeHtml.IOptions["allowedStyles"] = {
+  "*": {
+    "background-color": [
+      /^#[0-9a-f]{3,8}$/i,
+      /^rgb(a)?\([\d\s,%.]+\)$/i,
+      /^hsl(a)?\([\d\s,%.]+\)$/i,
+    ],
+    color: [
+      /^#[0-9a-f]{3,8}$/i,
+      /^rgb(a)?\([\d\s,%.]+\)$/i,
+      /^hsl(a)?\([\d\s,%.]+\)$/i,
+    ],
+    "font-style": [/^italic$/, /^normal$/],
+    "font-weight": [/^\d{3}$/, /^bold$/, /^normal$/],
+    "text-decoration": [/^underline$/, /^none$/],
+  },
+};
+
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ALLOWED_TAGS,
+  allowedAttributes: ALLOWED_ATTRIBUTES,
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: {
+    img: ["http", "https"],
+  },
+  allowedStyles: ALLOWED_STYLES,
+  allowProtocolRelative: false,
+  disallowedTagsMode: "discard",
+};
 
 /**
  * Convert markdown to HTML with syntax highlighting
@@ -61,5 +143,5 @@ export async function markdownToHtml(markdown: string): Promise<string> {
     }
   }
 
-  return result;
+  return sanitizeHtml(result, SANITIZE_OPTIONS);
 }
