@@ -1,0 +1,1930 @@
+---
+title: Xây Dựng Chương Trình Đầu Tiên
+description:
+  Tạo một chương trình Anchor cục bộ, build và kiểm tra nó, đồng thời xem qua
+  từng tệp trong chương trình counter mặc định.
+h1: Xây Dựng Chương Trình Solana Đầu Tiên
+---
+
+Quickstart này sử dụng dự án khởi đầu của
+[Anchor framework](https://www.anchor-lang.com/docs) được tạo bởi `anchor init`.
+Bạn sẽ tạo dự án trên máy cục bộ, chạy các bài kiểm tra, build chương trình và
+xem qua mã nguồn chương trình mà Anchor tạo ra.
+
+## Điều Kiện Tiên Quyết
+
+Trước khi bắt đầu,
+[hãy cài đặt các công cụ phát triển Solana](/docs/intro/installation). Bộ cài
+đặt bao gồm Rust, Solana CLI và Anchor CLI.
+
+Sử dụng Anchor CLI phiên bản 1.1.2 trở lên cho template này. Kiểm tra phiên bản
+đã cài đặt của bạn:
+
+```terminal
+$ anchor --version
+```
+
+<Steps>
+
+<Step>
+
+### Tạo Dự Án
+
+Chạy các lệnh sau trong terminal của bạn:
+
+```terminal
+$ anchor init my-program
+$ cd my-program
+```
+
+Dự án khởi đầu bao gồm một chương trình Solana nằm trong `programs/my-program`.
+Chương trình này có hai instruction: một để khởi tạo tài khoản counter và một để
+tăng giá trị counter.
+
+Một số phần của template minh họa các mẫu chương trình Solana phổ biến: dẫn xuất
+địa chỉ tài khoản [PDA](/docs/core/pda), thực hiện Cross Program Invocation
+([CPI](/docs/core/cpi)) để chuyển SOL, và sử dụng kiểm tra lỗi tùy chỉnh để dừng
+một instruction khi một điều kiện không được thỏa mãn.
+
+<Files>
+  <Folder name="my-program" defaultOpen>
+    <File name="Anchor.toml" />
+    <File name="Cargo.toml" />
+    <Folder name="programs" defaultOpen>
+      <Folder name="my-program" defaultOpen>
+        <File name="Cargo.toml" />
+        <Folder name="src" defaultOpen>
+          <File name="lib.rs" />
+          <File name="constants.rs" />
+          <File name="error.rs" />
+          <File name="instructions.rs" />
+          <Folder name="instructions" defaultOpen>
+            <File name="initialize.rs" />
+            <File name="increment.rs" />
+          </Folder>
+          <File name="state.rs" />
+        </Folder>
+        <Folder name="tests" defaultOpen>
+          <File name="test_initialize.rs" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>
+
+</Step>
+
+<Step>
+
+### Build Chương Trình
+
+Chạy `anchor build` để biên dịch chương trình khởi đầu:
+
+```terminal
+$ anchor build
+```
+
+Chương trình đã biên dịch được ghi vào `target/deploy/my_program.so`. Khi chương
+trình được triển khai, nội dung của tệp `.so` này sẽ được lưu trữ trong một tài
+khoản trên chuỗi.
+
+</Step>
+
+<Step>
+
+### Chạy Kiểm Thử
+
+Chạy kiểm thử mặc định:
+
+```terminal
+$ anchor test
+```
+
+`Anchor.toml` của template này sử dụng lệnh kiểm thử Rust:
+
+```toml title="Anchor.toml"
+skip_local_validator = true
+
+[scripts]
+test = "cargo test"
+```
+
+Kiểm thử tải chương trình đã biên dịch vào [LiteSVM](https://www.litesvm.com/),
+tạo một payer, gửi các lệnh _rs`initialize`_ và _rs`increment`_, sau đó kiểm tra
+trạng thái của tài khoản counter.
+
+Chạy `anchor test` cũng sẽ biên dịch chương trình, vì vậy bạn không cần chạy
+`anchor build` trước khi kiểm thử cục bộ.
+
+</Step>
+
+<Step>
+
+### Triển Khai Chương Trình
+
+Kiểm thử cục bộ là vòng phản hồi nhanh nhất. Khi bạn sẵn sàng triển khai lên một
+mạng, ví dụ như devnet, hãy build trước, sau đó triển khai lên một cluster.
+
+Việc triển khai một chương trình Solana yêu cầu SOL vì chương trình được lưu trữ
+trong một account, và account đó phải trả phí cho không gian lưu trữ. Trên
+devnet, hãy yêu cầu devnet SOL miễn phí từ
+[Solana Faucet](https://faucet.solana.com/) hoặc qua Solana CLI:
+
+```terminal
+$ solana airdrop 2 --url devnet
+```
+
+```terminal
+$ anchor build
+$ anchor deploy --provider.cluster devnet
+```
+
+</Step>
+
+</Steps>
+
+## Các tệp nguồn
+
+Thư mục `src` chứa chương trình Solana. Tài liệu
+[Cấu Trúc Chương Trình](https://www.anchor-lang.com/docs/basics/program-structure)
+của Anchor giải thích các macro cốt lõi được sử dụng ở đây, bao gồm
+_rs`declare_id!`_, _rs`#[program]`_, _rs`#[derive(Accounts)]`_, và
+_rs`#[account]`_. Phần này hướng dẫn qua các tệp template.
+
+### lib.rs
+
+`lib.rs` là điểm vào của chương trình. Nó kết nối các tệp nguồn, định nghĩa địa
+chỉ chương trình, và định nghĩa các lệnh của chương trình mà người dùng có thể
+gọi.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/lib.rs" -w
+// !tooltip[/pub mod constants/] constantsMod
+pub mod constants;
+// !tooltip[/pub mod error/] errorMod
+pub mod error;
+// !tooltip[/pub mod instructions/] instructionsMod
+pub mod instructions;
+// !tooltip[/pub mod state/] stateMod
+pub mod state;
+
+// !tooltip[/anchor_lang::prelude/] prelude
+use anchor_lang::prelude::*;
+
+pub use constants::*;
+pub use instructions::*;
+pub use state::*;
+
+// !tooltip[/declare_id!/] declareId
+declare_id!("82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd");
+
+// !tooltip[/#\[program\]/] programMacro
+#[program]
+pub mod my_program {
+    use super::*;
+
+    // !tooltip[/pub fn initialize/] publicInstructions
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        // !tooltip[/handle_initialize/] handlers
+        crate::instructions::initialize::handle_initialize(ctx)
+    }
+
+    // !tooltip[/pub fn increment/] publicInstructions
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {
+        // !tooltip[/handle_increment/] handlers
+        crate::instructions::increment::handle_increment(ctx)
+    }
+}
+```
+
+### !constantsMod
+
+_rs`pub mod constants`_ đưa `constants.rs` vào crate chương trình. Đây là nơi
+template lưu trữ các giá trị chung của chương trình như seed PDA, số tiền chuyển
+và giá trị bộ đếm tối đa.
+
+### !errorMod
+
+_rs`pub mod error`_ đưa `error.rs` vào crate chương trình. File này định nghĩa
+các lỗi tùy chỉnh mà chương trình có thể trả về khi một lệnh không hợp lệ.
+
+### !instructionsMod
+
+_rs`pub mod instructions`_ đưa `instructions.rs` vào crate chương trình. File đó
+hoạt động như một chỉ mục cho các file theo từng lệnh trong `src/instructions/`.
+
+### !stateMod
+
+_rs`pub mod state`_ đưa `state.rs` vào crate chương trình. File này định nghĩa
+cấu trúc dữ liệu cho các tài khoản thuộc sở hữu của chương trình này, bao gồm
+tài khoản _rs`Counter`_.
+
+### !prelude
+
+_rs`anchor_lang::prelude::*`_ nhập các kiểu và macro của Anchor dùng để định
+nghĩa một chương trình Solana, bao gồm _rs`Context`_, _rs`Result`_,
+_rs`Pubkey`_, _rs`Account`_, _rs`Signer`_ và các thuộc tính tài khoản Anchor.
+
+### !reexports
+
+Các dòng _rs`pub use`_ công khai các mục từ các module con tại gốc crate. Điều
+này giúp các điểm vào lệnh ngắn gọn hơn, chẳng hạn _rs`Context<Initialize>`_
+thay vì một đường dẫn module dài hơn.
+
+### !declareId
+
+_rs`declare_id!`_ định nghĩa địa chỉ của chương trình. Nó phải khớp với địa chỉ
+trong `Anchor.toml`, program account đã triển khai và bất kỳ người dùng hoặc bài
+kiểm tra nào gọi chương trình.
+
+### !programMacro
+
+_rs`#[program]`_ yêu cầu Anchor tạo điểm vào chương trình Solana và mã điều phối
+lệnh. Các hàm công khai trong module này trở thành các lệnh mà người dùng có thể
+gọi.
+
+### !publicInstructions
+
+_rs`initialize`_ và _rs`increment`_ là hai tên lệnh mà người dùng có thể gọi.
+Mỗi lệnh nhận một _rs`Context<T>`_. Kiểu bên trong _rs`Context`_ định nghĩa các
+tài khoản mà lệnh đó yêu cầu, và Anchor xác thực các tài khoản đó trước khi lệnh
+được thực thi.
+
+### !handlers
+
+Hàm xử lý chứa logic cho lệnh.
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```toml title="Anchor.toml" -w
+[programs.localnet]
+# !mark
+my_program = "82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd"
+```
+
+### !right
+
+```rust title="lib.rs" -w
+// !mark
+declare_id!("82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd");
+```
+
+</SideBySide>
+
+Địa chỉ chương trình giống nhau xuất hiện trong cả cấu hình và mã nguồn.
+`Anchor.toml` cho Anchor biết địa chỉ cần triển khai hoặc gọi cho một cluster.
+_rs`declare_id!`_ định nghĩa địa chỉ chương trình trong chương trình để kiểm tra
+bảo mật.
+
+### constants.rs
+
+`constants.rs` lưu các giá trị dùng chung ở một nơi. Trong template này,
+_rs`COUNTER_SEED`_ dẫn xuất PDA của bộ đếm, _rs`HELLO_WORLD_LAMPORTS`_ được
+chuyển trong quá trình khởi tạo, và _rs`MAX_COUNT`_ được kiểm tra trước khi tăng
+giá trị.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/constants.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[constant\]/] anchorConstant
+// !tooltip[/COUNTER_SEED/] counterSeed
+#[constant]
+pub const COUNTER_SEED: &[u8] = b"counter";
+
+// !tooltip[/HELLO_WORLD_LAMPORTS/] helloLamports
+#[constant]
+pub const HELLO_WORLD_LAMPORTS: u64 = 1;
+
+// !tooltip[/MAX_COUNT/] maxCount
+#[constant]
+pub const MAX_COUNT: u64 = 10;
+```
+
+### !anchorConstant
+
+_rs`#[constant]`_ yêu cầu Anchor đưa giá trị vào IDL của chương trình. Điều này
+giúp các hằng số quan trọng của chương trình hiển thị với các client được tạo tự
+động và các công cụ hỗ trợ.
+
+### !counterSeed
+
+_rs`COUNTER_SEED`_ là chuỗi byte dùng để dẫn xuất PDA của bộ đếm. Cả chương
+trình và bài kiểm tra đều sử dụng seed này để đồng thuận về địa chỉ tài khoản mà
+không cần lưu trữ một keypair riêng biệt. Template này sử dụng một seed cố định
+duy nhất, vì vậy chương trình có một địa chỉ bộ đếm. Các chương trình thực tế
+thường bao gồm địa chỉ của người dùng hoặc một định danh khác trong các seeds để
+tạo nhiều tài khoản có liên quan.
+
+### !helloLamports
+
+_rs`HELLO_WORLD_LAMPORTS`_ là lượng lamport được chuyển từ người thanh toán đến
+tài khoản bộ đếm bên trong _rs`initialize`_. Giá trị này cố ý rất nhỏ vì
+template đang minh họa một CPI đến System Program.
+
+### !maxCount
+
+_rs`MAX_COUNT`_ là giới hạn trên được kiểm tra bởi _rs`increment`_. Đặt nó ở đây
+giúp chương trình, các bài kiểm tra và IDL được tạo tự động có một tên chung duy
+nhất cho quy tắc này.
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // ...
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        // !mark
+        // !mention counter-seed
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // ...
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // ...
+
+    // !mark
+    // !mention hello-world-lamports
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    Ok(())
+}
+```
+
+### !right
+
+`initialize.rs` sử dụng hai hằng số:
+
+- [_rs`COUNTER_SEED`_](mention:counter-seed) lấy địa chỉ PDA của bộ đếm.
+- [_rs`HELLO_WORLD_LAMPORTS`_](mention:hello-world-lamports) đặt số lượng được
+  chuyển từ người thanh toán sang tài khoản bộ đếm.
+
+</SideBySide>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // ...
+
+    require!(
+        // !mark
+        // !mention max-count
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    Ok(())
+}
+```
+
+### !right
+
+`increment.rs` sử dụng [_rs`MAX_COUNT`_](mention:max-count) làm giới hạn trên
+của bộ đếm. Nếu giá trị hiện tại đã đạt tối đa, _rs`require!`_ trả về
+_rs`CounterOverflow`_ và dữ liệu tài khoản không bị thay đổi.
+
+</SideBySide>
+
+### state.rs
+
+`state.rs` định nghĩa các kiểu dữ liệu tùy chỉnh cho các tài khoản mà chương
+trình tạo ra và sở hữu. Chương trình định nghĩa các lệnh để tạo, khởi tạo và cập
+nhật dữ liệu đó, nhưng dữ liệu bộ đếm không được lưu trữ bên trong chính chương
+trình. Nó được lưu trữ trong một tài khoản riêng biệt với địa chỉ của chính nó.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/state.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[account\]/] accountMacro
+#[account]
+// !tooltip[/InitSpace/] initSpace
+#[derive(InitSpace)]
+pub struct Counter {
+    // !tooltip[/count/] count
+    pub count: u64,
+    // !tooltip[/authority/] authority
+    pub authority: Pubkey,
+}
+```
+
+### !accountMacro
+
+_rs`#[account]`_ cho Anchor biết rằng struct này là dữ liệu có thể được lưu trữ
+trong một tài khoản onchain do chương trình này sở hữu. Anchor sử dụng nó để
+tuần tự hóa, giải tuần tự hóa, và xác thực các tài khoản _rs`Counter`_.
+
+### !initSpace
+
+_rs`InitSpace`_ cho phép Anchor tính toán _rs`Counter::INIT_SPACE`_, số byte cần
+thiết cho các trường của struct này. Bộ phân biệt tài khoản Anchor 8 byte được
+thêm riêng khi tài khoản được tạo.
+
+### !count
+
+_rs`count`_ là giá trị bộ đếm được lưu trữ bên trong dữ liệu tài khoản.
+
+### !authority
+
+_rs`authority`_ lưu trữ địa chỉ được phép tăng bộ đếm. _rs`initialize`_ ghi địa
+chỉ này, và _rs`increment`_ yêu cầu cùng địa chỉ đó để ký.
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[account(
+    init,
+    payer = payer,
+    // !mark
+    // !mention counter-space
+    space = 8 + Counter::INIT_SPACE,
+    seeds = [COUNTER_SEED],
+    bump
+)]
+pub counter: Account<'info, Counter>,
+// ...
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !mark(1:2)
+    // !mention(1:2) initialize-fields
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    Ok(())
+}
+```
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // ...
+
+    // !mark
+    // !mention increment-count
+    ctx.accounts.counter.count += 1;
+    Ok(())
+}
+```
+
+### !right
+
+`state.rs` định nghĩa dữ liệu tài khoản _rs`Counter`_. Các tệp lệnh sử dụng kiểu
+đó khi tạo và cập nhật tài khoản:
+
+- [_rs`Counter::INIT_SPACE`_](mention:counter-space) xác định kích thước tài
+  khoản cho các trường được định nghĩa trong `state.rs`.
+- [_rs`count`_ và _rs`authority`_](mention:initialize-fields) là các giá trị
+  trường được ghi khi tài khoản được khởi tạo.
+- [_rs`count += 1`_](mention:increment-count) cập nhật giá trị bộ đếm đã lưu sau
+  khi xác thực thành công.
+
+</SideBySide>
+
+### error.rs
+
+`error.rs` định nghĩa các lỗi tùy chỉnh của chương trình. Trong mẫu này, các lỗi
+minh họa cách các trình xử lý lệnh dừng lại khi người gọi không được phép cập
+nhật bộ đếm hoặc bộ đếm đã đạt đến _rs`MAX_COUNT`_.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/error.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[error_code\]/] errorCode
+#[error_code]
+pub enum ErrorCode {
+    // !tooltip[/Unauthorized/] unauthorized
+    #[msg("Only the counter authority can update this counter")]
+    Unauthorized,
+    // !tooltip[/CounterOverflow/] counterOverflow
+    #[msg("Counter has reached the maximum value")]
+    CounterOverflow,
+}
+```
+
+### !errorCode
+
+_rs`#[error_code]`_ yêu cầu Anchor chuyển đổi các biến thể này thành các lỗi
+chương trình tùy chỉnh. Các client và bài kiểm thử có thể sử dụng những lỗi đó
+thay vì phải đoán từ mã lỗi thô.
+
+### !unauthorized
+
+_rs`Unauthorized`_ được trả về khi người ký giao dịch không phải là authority
+được lưu trong tài khoản bộ đếm.
+
+### !counterOverflow
+
+_rs`CounterOverflow`_ được trả về khi việc tăng giá trị sẽ vi phạm quy tắc
+_rs`MAX_COUNT`_ của chương trình.
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        // !mark
+        // !mention unauthorized-error
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        // !mark
+        // !mention overflow-error
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+### !right
+
+`error.rs` liệt kê các lỗi mà lệnh có thể trả về:
+
+- [_rs`ErrorCode::Unauthorized`_](mention:unauthorized-error) được trả về khi
+  người ký không phải là authority được lưu trong tài khoản bộ đếm.
+- [_rs`ErrorCode::CounterOverflow`_](mention:overflow-error) được trả về khi bộ
+  đếm đã đạt đến _rs`MAX_COUNT`_.
+
+</SideBySide>
+
+### instructions.rs
+
+`instructions.rs` kết nối các tệp lệnh với crate chương trình để `lib.rs` có thể
+truy cập mã lệnh _rs`initialize`_ và _rs`increment`_. Mỗi tệp lệnh định nghĩa
+các tài khoản mà lệnh đó yêu cầu và logic xử lý chạy sau khi Anchor xác thực các
+tài khoản đó.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions.rs" -w
+// !tooltip[/pub mod initialize/] moduleDeclarations
+pub mod initialize;
+pub mod increment;
+
+// !tooltip[/pub use initialize/] reexports
+pub use initialize::*;
+pub use increment::*;
+```
+
+### !moduleDeclarations
+
+Các dòng _rs`pub mod`_ đưa `src/instructions/initialize.rs` và
+`src/instructions/increment.rs` vào crate chương trình.
+
+### !reexports
+
+Các dòng _rs`pub use`_ tái xuất các mục công khai từ những tệp đó. Điều này giúp
+các struct tài khoản lệnh và các hàm xử lý có thể truy cập được thông qua module
+_rs`instructions`_.
+
+</WithNotes>
+
+### initialize.rs
+
+`initialize.rs` định nghĩa các tài khoản cần thiết để tạo tài khoản counter, sau
+đó ghi các giá trị đầu tiên của tài khoản. Struct _rs`#[derive(Accounts)]`_ sử
+dụng các
+[ràng buộc tài khoản](https://www.anchor-lang.com/docs/references/account-constraints)
+của Anchor để chỉ định các tài khoản nào là bắt buộc và cách tạo tài khoản
+counter mới.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions/initialize.rs" -w
+use anchor_lang::prelude::*;
+
+use crate::{constants::*, state::Counter};
+
+// !tooltip[/derive\(Accounts\)/] accountsStruct
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // !tooltip[/#\[account\(mut\)\]/] payerMutable
+    #[account(mut)]
+    // !tooltip[/Signer<'info>/] payerSigner
+    pub payer: Signer<'info>,
+    // !tooltip[/#\[account\(/] counterConstraints
+    #[account(
+        // !tooltip[/init/] initConstraint
+        init,
+        // !tooltip[/payer = payer/] payerConstraint
+        payer = payer,
+        // !tooltip[/space = 8 \+ Counter::INIT_SPACE/] space
+        space = 8 + Counter::INIT_SPACE,
+        // !tooltip[/seeds = \[COUNTER_SEED\]/] seeds
+        seeds = [COUNTER_SEED],
+        // !tooltip[/bump/] bump
+        bump
+    )]
+    // !tooltip[/Account<'info, Counter>/] counterAccountType
+    pub counter: Account<'info, Counter>,
+    // !tooltip[/Program<'info, System>/] systemProgram
+    pub system_program: Program<'info, System>,
+}
+
+// !tooltip[/handle_initialize/] handler
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !tooltip[/counter.count = 0/] initialCount
+    ctx.accounts.counter.count = 0;
+    // !tooltip[/counter.authority = ctx.accounts.payer.key\(\)/] initialAuthority
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    // !tooltip[/system_program::Transfer/] cpiAccounts
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    // !tooltip[/CpiContext::new/] cpiContext
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    // !tooltip[/system_program::transfer/] transfer
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    // !tooltip[/msg!/] programLog
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+<ScrollyCoding>
+
+## !!steps Ngữ cảnh tài khoản
+
+Struct _rs`Initialize`_ định nghĩa các tài khoản phải được đưa vào khi người
+dùng gọi lệnh _rs`initialize`_. Anchor kiểm tra các tài khoản này trước khi
+trình xử lý chạy.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+// !focus(1:2)
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Tài khoản người thanh toán
+
+Tài khoản _rs`payer`_ trả phí để tạo tài khoản counter. Kiểu _rs`Signer<'info>`_
+có nghĩa là người thanh toán phải ký giao dịch, và _rs`#[account(mut)]`_ có
+nghĩa là tài khoản người thanh toán có thể bị thay đổi vì lamport sẽ bị trừ đi.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // !focus(1:2)
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Tài khoản Counter
+
+Tài khoản _rs`counter`_ lưu trữ dữ liệu _rs`Counter`_ từ `state.rs`. _rs`init`_
+yêu cầu Anchor tạo tài khoản này trước khi trình xử lý chạy, và
+_rs`payer = payer`_ cho Anchor biết tài khoản nào trả phí tạo.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    // !focus(1:8)
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Kích Thước Tài Khoản
+
+Ràng buộc _rs`space`_ cho Anchor biết cần cấp phát bao nhiêu dữ liệu cho tài
+khoản. Anchor lưu trữ một bộ phân biệt 8 byte trước, sau đó là các byte cần
+thiết cho các trường _rs`Counter`_. Bộ phân biệt cho phép Anchor nhận dạng tài
+khoản này là tài khoản _rs`Counter`_ trước khi giải mã hóa dữ liệu tài khoản.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        // !focus
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Địa Chỉ Bộ Đếm
+
+Các ràng buộc _rs`seeds`_ và _rs`bump`_ xác định địa chỉ PDA dự kiến cho tài
+khoản bộ đếm. Anchor xác minh rằng tài khoản _rs`counter`_ được cung cấp khớp
+với địa chỉ đó. Mẫu sử dụng PDA để người dùng có thể suy ra địa chỉ bộ đếm từ ID
+chương trình và seed, giúp địa chỉ bộ đếm trở nên xác định.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        // !focus(1:2)
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps System Program
+
+Tài khoản _rs`system_program`_ là bắt buộc vì việc tạo tài khoản mới sử dụng
+System Program.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps Hàm Xử Lý
+
+Hàm _rs`handle_initialize`_ chạy sau khi Anchor xác thực các tài khoản trong
+_rs`Initialize`_. Giá trị _rs`ctx`_ cho phép hàm xử lý truy cập vào các tài
+khoản đã được kiểm tra đó.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+// !focus
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps Dữ Liệu Ban Đầu
+
+Hàm xử lý ghi các giá trị đầu tiên vào tài khoản bộ đếm mới. Số đếm bắt đầu tại
+_rs`0`_, và người thanh toán trở thành quyền hạn được phép tăng bộ đếm sau này.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !focus(1:2)
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps Tài Khoản Chuyển Khoản
+
+CPI chuyển khoản này được đưa vào chỉ để minh họa cách một CPI truyền tài khoản
+đến chương trình khác. Cấu trúc _rs`Transfer`_ liệt kê các tài khoản được sử
+dụng bởi lệnh chuyển khoản System Program.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    // !focus(1:4)
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps Ngữ Cảnh CPI
+
+_rs`CpiContext::new`_ kết hợp chương trình được gọi với các tài khoản được
+truyền vào chương trình đó. Đây là cấu trúc cơ bản của một CPI: chọn chương
+trình cần gọi, thu thập các tài khoản mà chương trình đó yêu cầu, sau đó truyền
+cả hai vào lời gọi. Ở đây, chương trình được gọi là System Program.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    // !focus
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps Gọi Transfer
+
+_rs`anchor_lang::system_program::transfer`_ gọi lệnh transfer của System
+Program. Trong mẫu này, transfer là một ví dụ đơn giản về việc gọi một chương
+trình khác từ chương trình của bạn. Nếu CPI transfer thất bại, lệnh
+_rs`initialize`_ cũng sẽ thất bại theo.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    // !focus
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps Ghi Log
+
+_rs`msg!`_ ghi một thông báo vào log của chương trình. _rs`Ok(())`_ cho biết
+lệnh đã trả về thành công.
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    // !focus(1:2)
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+</ScrollyCoding>
+
+### !imports
+
+Tệp này nhập các hằng số dùng chung và kiểu tài khoản _rs`Counter`_. Lệnh sử
+dụng các định nghĩa đó để suy ra PDA, chọn số lượng transfer và cấp phát tài
+khoản với kích thước dữ liệu phù hợp.
+
+### !accountsStruct
+
+_rs`Initialize`_ là ngữ cảnh tài khoản cho lệnh _rs`initialize`_. Mỗi trường
+trong struct đại diện cho một tài khoản riêng biệt phải được đưa vào khi lệnh
+được gọi. Anchor sử dụng struct này để xác thực các tài khoản đầu vào trước khi
+handler chạy.
+
+### !payerMutable
+
+_rs`#[account(mut)]`_ báo cho Anchor biết tài khoản payer phải có quyền ghi.
+Điều này là bắt buộc vì việc tạo tài khoản và CPI transfer đều khấu trừ lamport
+từ payer.
+
+### !payerSigner
+
+_rs`Signer<'info>`_ báo cho Anchor biết payer phải ký giao dịch.
+
+### !counterConstraints
+
+Khối _rs`#[account(...)]`_ báo cho Anchor biết cách tạo và xác thực tài khoản
+counter trước khi handler chạy.
+
+### !initConstraint
+
+_rs`init`_ yêu cầu Anchor tạo tài khoản _rs`counter`_ trước khi handler chạy.
+Tài khoản mới thuộc sở hữu của chương trình này, do đó chương trình có thể lưu
+trữ dữ liệu _rs`Counter`_ trong đó.
+
+### !payerConstraint
+
+_rs`payer = payer`_ chỉ định tài khoản _rs`payer`_ là người thanh toán cho việc
+tạo tài khoản counter mới.
+
+### !space
+
+_rs`space = 8 + Counter::INIT_SPACE`_ phân bổ số byte cho discriminator tài
+khoản của Anchor cộng với các trường _rs`Counter`_ từ `state.rs`. Discriminator
+giúp Anchor xác nhận tài khoản lưu trữ đúng kiểu dữ liệu mong đợi trước khi đọc.
+
+### !seeds
+
+_rs`seeds = [COUNTER_SEED]`_ quy định rằng địa chỉ tài khoản counter phải là PDA
+được suy ra từ seed này và program ID. Với một seed cố định, chương trình này
+chỉ có một counter PDA. Để tạo các counter riêng biệt trong một chương trình
+thực tế, bạn thường cần thêm một seed khác như địa chỉ của người dùng.
+
+### !bump
+
+_rs`bump`_ yêu cầu Anchor tìm và xác thực bump của PDA, đây là byte bổ sung giúp
+địa chỉ được suy ra hợp lệ như một PDA.
+
+### !counterAccountType
+
+_rs`Account<'info, Counter>`_ yêu cầu Anchor xử lý dữ liệu tài khoản theo kiểu
+_rs`Counter`_ từ `state.rs`. Anchor cũng kiểm tra rằng tài khoản thuộc sở hữu
+của chương trình này.
+
+### !systemProgram
+
+_rs`Program<'info, System>`_ yêu cầu người gọi cung cấp System Program. Anchor
+sử dụng nó cho ràng buộc tạo tài khoản _rs`init`_. CPI chuyển tiền của handler
+cũng gọi System Program.
+
+### !handler
+
+Handler chạy sau khi Anchor xác thực các tài khoản và tạo tài khoản counter, do
+đó nó có thể ghi dữ liệu khởi tạo của tài khoản một cách an toàn.
+
+### !initialCount
+
+Đặt trường _rs`count`_ trong tài khoản counter thành _rs`0`_.
+
+### !initialAuthority
+
+Đặt trường _rs`authority`_ trong tài khoản counter thành địa chỉ của người thanh
+toán.
+
+### !cpiAccounts
+
+Đây là các tài khoản được truyền vào lệnh chuyển của System Program. CPI chuyển
+này chỉ được đưa vào để minh họa cách một CPI truyền tài khoản sang chương trình
+khác.
+
+### !cpiContext
+
+_rs`CpiContext`_ đóng gói chương trình đích và các tài khoản cần thiết cho một
+Cross Program Invocation. Việc tạo context chuẩn bị CPI bằng cách ghép nối
+chương trình bạn muốn gọi với các tài khoản mà chương trình đó yêu cầu.
+
+### !transfer
+
+CPI này gọi lệnh chuyển của System Program và chuyển _rs`HELLO_WORLD_LAMPORTS`_
+từ người thanh toán sang tài khoản counter.
+
+### !programLog
+
+_rs`msg!`_ ghi một thông báo vào nhật ký chương trình khi chương trình được gọi.
+
+</WithNotes>
+
+### increment.rs
+
+`increment.rs` xác định các tài khoản cần thiết để cập nhật một tài khoản
+counter hiện có. Hàm xử lý kiểm tra rằng người ký là authority đã lưu trữ, kiểm
+tra rằng count chưa đạt đến _rs`MAX_COUNT`_ được chỉ định, sau đó tăng count
+lên.
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions/increment.rs" -w
+use anchor_lang::prelude::*;
+
+use crate::{constants::*, error::ErrorCode, state::Counter};
+
+// !tooltip[/derive\(Accounts\)/] incrementAccounts
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        // !tooltip[/mut/] counterMutable
+        mut,
+        // !tooltip[/seeds = \[COUNTER_SEED\]/] counterSeeds
+        seeds = [COUNTER_SEED],
+        // !tooltip[/bump/] counterBump
+        bump
+    )]
+    // !tooltip[/Account<'info, Counter>/] incrementCounterAccountType
+    pub counter: Account<'info, Counter>,
+    // !tooltip[/Signer/] authoritySigner
+    pub authority: Signer<'info>,
+}
+
+// !tooltip[/handle_increment/] incrementHandler
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // !tooltip[/require_keys_eq!/] authorityCheck
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    // !tooltip[/require!/] maxCheck
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    // !tooltip[/count \+= 1/] mutateCount
+    ctx.accounts.counter.count += 1;
+    // !tooltip[/msg!/] programLog
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+<ScrollyCoding>
+
+## !!steps Account Context
+
+Struct _rs`Increment`_ xác định các tài khoản phải được đưa vào khi người dùng
+gọi lệnh _rs`increment`_. Anchor kiểm tra các tài khoản này trước khi hàm xử lý
+chạy.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+// !focus(1:2)
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps Counter Account
+
+Tài khoản _rs`counter`_ lưu trữ dữ liệu _rs`Counter`_. Ràng buộc _rs`mut`_ cho
+phép hàm xử lý cập nhật count đã lưu trữ, còn các ràng buộc _rs`seeds`_ và
+_rs`bump`_ xác minh địa chỉ PDA của counter.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    // !focus(1:6)
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps Authority Signer
+
+Tài khoản _rs`authority`_ phải ký giao dịch. Hàm xử lý sau đó kiểm tra rằng
+người ký này khớp với authority được lưu trong tài khoản counter.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps Hàm Handler
+
+Hàm _rs`handle_increment`_ chạy sau khi Anchor xác thực các tài khoản trong
+_rs`Increment`_. Giá trị _rs`ctx`_ cho phép handler truy cập vào các tài khoản
+đã được kiểm tra đó.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+// !focus
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps Kiểm Tra Quyền
+
+Kiểm tra đầu tiên đảm bảo rằng người ký được phép cập nhật bộ đếm này. Nếu địa
+chỉ của người ký không khớp với _rs`counter.authority`_, lệnh sẽ dừng lại với
+_rs`ErrorCode::Unauthorized`_. Điều này minh họa cho việc phân quyền ở cấp độ
+ứng dụng: chương trình sở hữu dữ liệu bộ đếm, nhưng nó thực thi một quy tắc xác
+định người ký nào có thể thay đổi dữ liệu đó.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // !focus(1:5)
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps Kiểm Tra Giá Trị Tối Đa
+
+Kiểm tra thứ hai ngăn bộ đếm vượt quá _rs`MAX_COUNT`_. Nếu bộ đếm đã đạt đến
+giới hạn, lệnh sẽ dừng lại với _rs`ErrorCode::CounterOverflow`_. Giới hạn này là
+một quy tắc nhân tạo trong template để bạn có thể thấy cách các lỗi tùy chỉnh
+dừng một lệnh trước khi dữ liệu tài khoản bị thay đổi.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    // !focus(1:4)
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps Cập Nhật Bộ Đếm
+
+Chỉ sau khi cả hai kiểm tra đều vượt qua, handler mới cập nhật dữ liệu tài
+khoản. Dòng này cộng thêm một vào giá trị bộ đếm đã lưu trữ.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    // !focus
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps Ghi Log
+
+_rs`msg!`_ ghi số đếm đã cập nhật vào nhật ký chương trình. _rs`Ok(())`_ cho
+biết lệnh đã trả về thành công.
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    // !focus(1:2)
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+</ScrollyCoding>
+
+### !incrementAccounts
+
+_rs`Increment`_ là ngữ cảnh tài khoản cho lệnh _rs`increment`_. Anchor sử dụng
+nó để xác thực tài khoản bộ đếm có thể thay đổi và người ký bắt buộc.
+
+### !counterMutable
+
+_rs`mut`_ cho Anchor biết tài khoản counter phải có quyền ghi vì handler cập
+nhật giá trị _rs`count`_ đã lưu trữ.
+
+### !counterSeeds
+
+_rs`seeds = [COUNTER_SEED]`_ xác minh rằng tài khoản counter được cung cấp là
+PDA được dẫn xuất từ seed này và ID chương trình.
+
+### !counterBump
+
+_rs`bump`_ cho Anchor biết cần tìm và xác thực PDA bump cho tài khoản counter.
+
+### !incrementCounterAccountType
+
+_rs`Account<'info, Counter>`_ cho Anchor biết cách giải mã dữ liệu tài khoản
+thành kiểu _rs`Counter`_ từ `state.rs`. Anchor cũng kiểm tra rằng tài khoản
+thuộc sở hữu của chương trình này.
+
+### !authoritySigner
+
+_rs`Signer`_ yêu cầu chữ ký của authority. Handler sau đó so sánh địa chỉ của
+người ký này với authority được lưu trong tài khoản counter.
+
+### !incrementHandler
+
+Handler chạy sau khi Anchor xác thực danh sách tài khoản, kiểm tra quyền sở hữu
+và giải mã tài khoản counter.
+
+### !authorityCheck
+
+_rs`require_keys_eq!`_ so sánh hai khóa công khai và dừng lệnh nếu địa chỉ của
+người ký không khớp với authority được lưu trong tài khoản counter. Đây là quy
+tắc phân quyền ở tầng ứng dụng của template.
+
+### !maxCheck
+
+_rs`require!`_ kiểm tra một điều kiện boolean và dừng lệnh với
+_rs`CounterOverflow`_ nếu counter đã đạt đến _rs`MAX_COUNT`_. Quy tắc template
+này minh họa lỗi tùy chỉnh và việc dừng thực thi trước khi thay đổi dữ liệu.
+
+### !mutateCount
+
+Chỉ sau khi cả hai kiểm tra đều thành công, handler mới cập nhật dữ liệu tài
+khoản counter. Nếu bất kỳ kiểm tra nào thất bại, giao dịch sẽ thất bại và tài
+khoản không bị thay đổi.
+
+### !programLog
+
+_rs`msg!`_ ghi một thông báo vào nhật ký chương trình khi chương trình được gọi.
+
+</WithNotes>
+
+## Tệp kiểm thử
+
+`programs/my-program/tests/test_initialize.rs` là một bài kiểm thử tích hợp
+Rust. Nó không khởi động một validator cục bộ. Thay vào đó, nó tải tệp `.so` đã
+biên dịch vào LiteSVM, xây dựng các giao dịch gọi chương trình và đọc tài khoản
+counter sau mỗi giao dịch. Bài kiểm thử xây dựng các lệnh cho một giao dịch
+Solana bằng cách chỉ định ID chương trình cần gọi, cung cấp instruction data và
+truyền các tài khoản cần thiết.
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mark
+    // !mention initialize-payer
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    // !mark
+    // !mention initialize-counter
+    pub counter: Account<'info, Counter>,
+    // !mark
+    // !mention initialize-system-program
+    pub system_program: Program<'info, System>,
+}
+```
+
+```rust title="test_initialize.rs" -w
+let instruction = Instruction::new_with_bytes(
+    program_id,
+    // !mention initialize-instruction-data
+    &my_program::instruction::Initialize {}.data(),
+    my_program::accounts::Initialize {
+        // !mark
+        // !mention initialize-payer
+        payer: payer.pubkey(),
+        // !mark
+        // !mention initialize-counter
+        counter,
+        // !mark
+        // !mention initialize-system-program
+        system_program: system_program::ID,
+    }
+    .to_account_metas(None),
+);
+```
+
+### !right
+
+Ngữ cảnh tài khoản _rs`Initialize`_ xác định các tài khoản cần thiết cho lệnh
+_rs`initialize`_. Bài kiểm tra truyền những tài khoản đó vào hàm trợ giúp
+_rs`my_program::accounts::Initialize`_ được tạo tự động:
+
+- [_rs`payer`_](mention:initialize-payer) được truyền vào là
+  _rs`payer: payer.pubkey()`_.
+- [_rs`counter`_](mention:initialize-counter) được truyền vào là _rs`counter`_.
+- [_rs`system_program`_](mention:initialize-system-program) được truyền vào là
+  _rs`system_program::ID`_.
+
+[_rs`my_program::instruction::Initialize {}.data()`_](mention:initialize-instruction-data)
+tạo ra instruction data. Đây là nơi các đối số lệnh sẽ được mã hóa, nhưng lệnh
+_rs`initialize`_ này không yêu cầu bất kỳ đối số nào.
+
+</SideBySide>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    // !mark
+    // !mention increment-counter
+    pub counter: Account<'info, Counter>,
+    // !mark
+    // !mention increment-authority
+    pub authority: Signer<'info>,
+}
+```
+
+```rust title="test_initialize.rs" -w
+let instruction = Instruction::new_with_bytes(
+    program_id,
+    // !mention increment-instruction-data
+    &my_program::instruction::Increment {}.data(),
+    my_program::accounts::Increment {
+        // !mark
+        // !mention increment-counter
+        counter,
+        // !mark
+        // !mention increment-authority
+        authority: payer.pubkey(),
+    }
+    .to_account_metas(None),
+);
+```
+
+### !right
+
+Ngữ cảnh tài khoản _rs`Increment`_ xác định các tài khoản cần thiết cho lệnh
+_rs`increment`_. Bài kiểm tra truyền những tài khoản đó vào hàm trợ giúp
+_rs`my_program::accounts::Increment`_ được tạo tự động:
+
+- [_rs`counter`_](mention:increment-counter) được truyền vào là _rs`counter`_.
+- [_rs`authority`_](mention:increment-authority) được truyền vào là
+  _rs`authority: payer.pubkey()`_.
+
+[_rs`my_program::instruction::Increment {}.data()`_](mention:increment-instruction-data)
+tạo ra instruction data. Đây là nơi các đối số lệnh sẽ được mã hóa, nhưng lệnh
+_rs`increment`_ này không yêu cầu bất kỳ đối số nào.
+
+</SideBySide>
+
+<WithNotes>
+
+```rust title="programs/my-program/tests/test_initialize.rs" -w
+use {
+    anchor_lang::{
+        prelude::Pubkey,
+        solana_program::{instruction::Instruction, system_program},
+        AccountDeserialize, InstructionData, ToAccountMetas,
+    },
+    // !tooltip[/litesvm::LiteSVM/] litesvm
+    litesvm::LiteSVM,
+    solana_keypair::Keypair,
+    solana_message::{Message, VersionedMessage},
+    solana_signer::Signer,
+    solana_transaction::versioned::VersionedTransaction,
+};
+
+#[test]
+fn test_initialize() {
+    // !tooltip[/let program_id/] setup
+    let program_id = my_program::id();
+    let payer = Keypair::new();
+    // !tooltip[/Pubkey::find_program_address/] counterPda
+    let counter = Pubkey::find_program_address(
+        &[my_program::constants::COUNTER_SEED],
+        &program_id,
+    )
+    .0;
+    let mut svm = LiteSVM::new();
+    // !tooltip[/include_bytes!/] programBytes
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_TARGET_TMPDIR"),
+        "/../deploy/my_program.so"
+    ));
+    // !tooltip[/svm.add_program/] addProgram
+    svm.add_program(program_id, bytes).unwrap();
+    svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+    // !tooltip[/let instruction/] testInstruction
+    let instruction = Instruction::new_with_bytes(
+        program_id,
+        &my_program::instruction::Initialize {}.data(),
+        my_program::accounts::Initialize {
+            payer: payer.pubkey(),
+            counter,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+
+    // !tooltip[/svm.latest_blockhash/] blockhash
+    let blockhash = svm.latest_blockhash();
+    // !tooltip[/Message::new_with_blockhash/] message
+    let msg = Message::new_with_blockhash(&[instruction], Some(&payer.pubkey()), &blockhash);
+    // !tooltip[/VersionedTransaction::try_new/] transaction
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+
+    // !tooltip[/svm.send_transaction/] sendTx
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok());
+
+    // !tooltip[/svm.get_account/] getCounter
+    let counter_account = svm.get_account(&counter).unwrap();
+    let mut data: &[u8] = &counter_account.data;
+    // !tooltip[/Counter::try_deserialize/] deserialize
+    let counter_state = my_program::state::Counter::try_deserialize(&mut data).unwrap();
+    // !tooltip[/assert_eq!\(counter_state.count, 0\)/] initAssert
+    assert_eq!(counter_state.count, 0);
+    assert_eq!(counter_state.authority, payer.pubkey());
+
+    // !tooltip[/let instruction/] testInstruction
+    let instruction = Instruction::new_with_bytes(
+        program_id,
+        &my_program::instruction::Increment {}.data(),
+        my_program::accounts::Increment {
+            counter,
+            authority: payer.pubkey(),
+        }
+        .to_account_metas(None),
+    );
+
+    // !tooltip[/svm.latest_blockhash/] blockhash
+    let blockhash = svm.latest_blockhash();
+    // !tooltip[/Message::new_with_blockhash/] message
+    let msg = Message::new_with_blockhash(&[instruction], Some(&payer.pubkey()), &blockhash);
+    // !tooltip[/VersionedTransaction::try_new/] transaction
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+
+    // !tooltip[/svm.send_transaction/] sendTx
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok());
+
+    // !tooltip[/svm.get_account/] getCounter
+    let counter_account = svm.get_account(&counter).unwrap();
+    let mut data: &[u8] = &counter_account.data;
+    // !tooltip[/Counter::try_deserialize/] deserialize
+    let counter_state = my_program::state::Counter::try_deserialize(&mut data).unwrap();
+    // !tooltip[/assert_eq!\(counter_state.count, 1\)/] incrementAssert
+    assert_eq!(counter_state.count, 1);
+    assert_eq!(counter_state.authority, payer.pubkey());
+}
+```
+
+### !litesvm
+
+_rs`LiteSVM`_ là một Solana VM chạy trong tiến trình dùng để kiểm tra. Nó cho
+phép bài kiểm tra đăng ký chương trình đã biên dịch, tạo tài khoản, gửi giao
+dịch và kiểm tra trạng thái tài khoản mà không cần khởi động tiến trình
+validator.
+
+### !setup
+
+Bài kiểm tra lấy địa chỉ chương trình từ giá trị _rs`declare_id!`_ thông qua
+_rs`my_program::id()`_ và tạo một keypair người thanh toán mới cho giao dịch
+kiểm tra.
+
+### !counterPda
+
+Địa chỉ counter được dẫn xuất từ cùng _rs`COUNTER_SEED`_ được sử dụng bởi chương
+trình. Điều này giúp bài test nhắm đúng vào PDA mà `initialize.rs` mong đợi.
+
+### !programBytes
+
+_rs`include_bytes!`_ đọc file `my_program.so` đã được biên dịch do quá trình
+build tạo ra. Các byte đó là mã chương trình thực thi mà LiteSVM sẽ chạy trong
+bài test.
+
+### !addProgram
+
+_rs`svm.add_program`_ đăng ký các byte chương trình đã biên dịch tại địa chỉ
+chương trình trong LiteSVM. Lệnh airdrop cấp đủ SOL nội bộ cho payer để thanh
+toán phí giao dịch và tạo tài khoản.
+
+### !testInstruction
+
+_rs`Instruction::new_with_bytes`_ tạo một lệnh để gọi chương trình. Nó bao gồm
+ID chương trình, instruction data và các tài khoản trong lệnh.
+
+### !blockhash
+
+Mỗi giao dịch Solana đều cần một blockhash gần đây. Trong bài test này, LiteSVM
+cung cấp một blockhash để sử dụng cho giao dịch.
+
+### !message
+
+Message chứa lệnh, fee payer và blockhash. Đây là dữ liệu giao dịch sẽ được ký.
+
+### !transaction
+
+_rs`VersionedTransaction::try_new`_ ký message bằng keypair của payer. Payer ký
+vì nó thanh toán phí giao dịch và cấp vốn cho tài khoản counter mới.
+
+### !sendTx
+
+_rs`svm.send_transaction`_ thực thi giao dịch trong LiteSVM.
+
+### !getCounter
+
+Sau khi giao dịch chạy, bài test đọc trực tiếp tài khoản counter từ LiteSVM để
+có thể kiểm tra dữ liệu tài khoản.
+
+### !deserialize
+
+Tài khoản counter lưu trữ dữ liệu đã được serialize.
+_rs`Counter::try_deserialize`_ kiểm tra bộ phân biệt tài khoản của Anchor và
+chuyển đổi dữ liệu tài khoản trở lại thành kiểu _rs`Counter`_ từ `state.rs`.
+
+### !initAssert
+
+Sau khi _rs`initialize`_ thành công, bài test deserialize tài khoản counter và
+kiểm tra rằng trạng thái ban đầu khớp với những gì _rs`handle_initialize`_ đã
+ghi.
+
+### !incrementAssert
+
+Sau khi _rs`increment`_ thành công, cùng tài khoản counter đó sẽ có _rs`count`_
+được đặt thành _rs`1`_ trong khi vẫn giữ nguyên authority.
+
+</WithNotes>
+
+## Cấu hình dự án
+
+Các tệp dự án gốc cho Anchor và Cargo biết cách build, test và triển khai chương
+trình. Để tham khảo đầy đủ, xem tài liệu Anchor cho
+[cấu hình Anchor.toml](https://www.anchor-lang.com/docs/references/anchor-toml)
+và [Anchor CLI](https://www.anchor-lang.com/docs/references/cli).
+
+<WithNotes>
+
+```toml title="Anchor.toml"
+# !tooltip[/skip_local_validator/] skipValidator
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+# !tooltip[/programs.localnet/] programs
+[programs.localnet]
+my_program = "82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd"
+
+# !tooltip[/provider/] provider
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+# !tooltip[/scripts/] scripts
+[scripts]
+test = "cargo test"
+
+[hooks]
+```
+
+### !skipValidator
+
+`skip_local_validator = true` yêu cầu Anchor không khởi động validator cho
+`anchor test`. Bài kiểm tra Rust sử dụng LiteSVM thay thế.
+
+### !programs
+
+`[programs.localnet]` ánh xạ tên crate Rust tới địa chỉ program account được
+dùng cho bản build và kiểm tra cục bộ.
+
+### !provider
+
+`[provider]` thiết lập cluster và ví mặc định cho các lệnh như `anchor deploy`.
+
+### !scripts
+
+`[scripts]` thay đổi những gì `anchor test` chạy. Trong template này,
+`anchor test` chạy `cargo test`.
+
+</WithNotes>
