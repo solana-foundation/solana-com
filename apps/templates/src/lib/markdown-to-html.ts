@@ -80,10 +80,24 @@ const ALLOWED_STYLES: sanitizeHtml.IOptions["allowedStyles"] = {
       /^hsl(a)?\([\d\s,%.]+\)$/i,
     ],
     "font-style": [/^italic$/, /^normal$/],
-    "font-weight": [/^\d{3}$/, /^bold$/, /^normal$/],
+    "font-weight": [
+      /^(?:[1-9]\d{0,2}|1000)$/,
+      /^bold$/,
+      /^bolder$/,
+      /^lighter$/,
+      /^normal$/,
+    ],
     "text-decoration": [/^underline$/, /^none$/],
   },
 };
+
+function ensureNoopenerNoreferrer(rel: string | undefined): string {
+  const tokens = new Set((rel ?? "").split(/\s+/).filter(Boolean));
+  tokens.add("noopener");
+  tokens.add("noreferrer");
+
+  return Array.from(tokens).join(" ");
+}
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ALLOWED_TAGS,
@@ -95,6 +109,21 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedStyles: ALLOWED_STYLES,
   allowProtocolRelative: false,
   disallowedTagsMode: "discard",
+  transformTags: {
+    a: (tagName, attribs) => {
+      if (attribs.target?.toLowerCase() !== "_blank") {
+        return { tagName, attribs };
+      }
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: ensureNoopenerNoreferrer(attribs.rel),
+        },
+      };
+    },
+  },
 };
 
 /**
