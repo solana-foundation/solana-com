@@ -1,0 +1,210 @@
+---
+title: Інтроспекція транзакцій
+description:
+  Декодуйте та перевіряйте підтверджену транзакцію Solana за допомогою
+  @solana/transaction-introspection — розв'язуйте індекси облікових записів та
+  адреси таблиць пошуку, обходьте зовнішні та внутрішні (CPI) інструкції та
+  аналізуйте їх за допомогою програмних клієнтів.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Підсумок">
+  `@solana/transaction-introspection` перетворює відповідь RPC `getTransaction`
+  на список інструкцій із реальними адресами. Він розв'язує індекси облікових
+  записів (включно з адресами таблиць пошуку), декодує внутрішні CPI-інструкції
+  та обходить повне дерево інструкцій у порядку, що використовується в
+  провіднику.
+</Callout>
+
+<Callout type="info">
+  Шукаєте інформацію про те, як програма перевіряє суміжні інструкції _в мережі_
+  під час виконання? Це системна змінна Instructions — див. [Інтроспекція
+  інструкцій](/docs/core/instructions/instruction-introspection). Ця сторінка
+  присвячена декодуванню транзакції _поза мережею_ з відповіді RPC.
+</Callout>
+
+Відповідь [`getTransaction`](/docs/rpc/http/gettransaction) не надає готового
+списку інструкцій. Облікові записи зберігаються як числові індекси,
+[версійні транзакції](/docs/core/transactions/versioned-transactions) розділяють
+ці облікові записи на статичні ключі та адреси, завантажені з
+[таблиць пошуку адрес](/docs/core/transactions/versioned-transactions), а
+внутрішні інструкції з Cross Program Invocation (CPI) надходять як закодовані
+блоби у метаданих транзакції.
+
+`@solana/transaction-introspection` виконує це розв'язання за вас. Він декодує
+транзакцію у форматі передачі даних, зіставляє кожен індекс облікового запису з
+його `Address`, нормалізує внутрішні інструкції та повертає інструкції в тому
+самому порядку (зовнішні, потім внутрішні), що показує провідник блоків.
+Повернені інструкції безпосередньо підключаються до клієнтів, згенерованих
+codama (наприклад, `@solana-program/*`), у допоміжні функції
+`parseXInstruction`.
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Декодування відповіді
+
+Отримайте транзакцію з кодуванням у форматі передачі даних і передайте відповідь
+до `decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+Наступні фрагменти повторно використовують `rpcTx`, `compiledMessage` та
+`loadedAddresses` з цього кроку.
+
+<Callout type="warn">
+  Отримуйте дані з кодуванням `base64`, `base58` або `json`.
+  `decodeTransactionFromRpcResponse` відхиляє відповіді `jsonParsed` — це
+  кодування вимагає від вузла RPC розбирати інструкції на стороні сервера, тому
+  на клієнті більше нічого декодувати.
+</Callout>
+
+## Обхід інструкцій
+
+`walkInstructions` повертає кожну інструкцію — зовнішню та внутрішню — як масив
+у тому порядку, в якому їх показує блок-оглядач: кожна зовнішня інструкція йде
+безпосередньо перед внутрішніми інструкціями, породженими її CPI. Кожна
+інструкція містить поле `trace`, що описує її місце в ієрархії викликів.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` — це розрізнений тип-об'єднання: `{ kind: "outer", index }` для
+інструкції верхнього рівня або
+`{ kind: "inner", outerIndex, innerIndex, stackHeight? }` для інструкції CPI,
+вкладеної в зовнішню.
+
+`meta` є необов'язковим — передавайте `rpcTx.meta` безпосередньо, навіть якщо
+він може бути `null`. Без метаданих `walkInstructions` повертає лише зовнішні
+інструкції.
+
+## Розбір за допомогою клієнта програми
+
+Кожна інструкція з `walkInstructions` є `ResolvedInstruction`, тому вона
+безпосередньо працює з предикатами з `@solana/instructions` та допоміжними
+функціями `identifyXInstruction` / `parseXInstruction`, згенерованими клієнтами
+`@solana-program/*` — без жодного кроку перетворення.
+
+Цей приклад перевіряє кожну інструкцію Token Program `SyncNative` у транзакції,
+незалежно від того, чи вона виконувалась на верхньому рівні, чи всередині CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Допоміжні функції нижнього рівня
+
+`walkInstructions` охоплює більшість потреб, однак пакет також надає доступ до
+компонентів, на яких він побудований:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  повертає лише зовнішні інструкції з розв'язаними акаунтами та декодованими
+  даними.
+- `getInnerInstructionsFromMeta(meta, accountMetas)` декодує внутрішні
+  CPI-інструкції з метаданих транзакції.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  повертає повний список акаунтів у порядку транзакції — вхідні дані, необхідні
+  попередній допоміжній функції для розв'язання індексів акаунтів внутрішніх
+  інструкцій.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Використовуєте Rust?">
+  Еквівалента цього пакету для Rust не існує. Щоб отримати розібрані інструкції
+  з Rust, запросіть `UiTransactionEncoding::JsonParsed` з
+  [`getTransaction`](/docs/rpc/http/gettransaction) і дозвольте вузлу RPC
+  самостійно розв'язати акаунти та внутрішні інструкції.
+</Callout>
+
+## Дивіться також
+
+- [Структура транзакції](/docs/core/transactions/transaction-structure) —
+  анатомія відповіді, яку декодує цей пакет
+- [Версійні транзакції](/docs/core/transactions/versioned-transactions) — як
+  таблиці пошуку адрес розділяють акаунти на статичні та завантажені групи
+- [`getTransaction`](/docs/rpc/http/gettransaction) — метод RPC, що повертає
+  транзакцію

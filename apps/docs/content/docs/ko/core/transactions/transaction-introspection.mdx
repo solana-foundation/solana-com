@@ -1,0 +1,202 @@
+---
+title: 트랜잭션 분석
+description:
+  "@solana/transaction-introspection으로 확인된 Solana 트랜잭션을 디코딩하고
+  검사합니다 - 계정 인덱스 및 조회 테이블 주소 확인, 외부 및 내부(CPI) 명령어
+  탐색, 프로그램 클라이언트로 파싱."
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="요약">
+  `@solana/transaction-introspection`는 `getTransaction` RPC 응답을 실제 주소가
+  포함된 명령어 목록으로 변환합니다. 계정 인덱스(조회 테이블 주소 포함)를
+  확인하고, 내부 CPI 명령어를 디코딩하며, 탐색기 순서에 따라 전체 명령어 트리를
+  탐색합니다.
+</Callout>
+
+<Callout type="info">
+  프로그램이 런타임에 _온체인_에서 형제 명령어를 검사하는 방법을 찾고 계신가요?
+  그것은 Instructions sysvar입니다 - [명령어
+  분석](/docs/core/instructions/instruction-introspection)을 참조하세요. 이
+  페이지는 RPC 응답으로부터 _오프체인_에서 트랜잭션을 디코딩하는 방법에 관한
+  것입니다.
+</Callout>
+
+[`getTransaction`](/docs/rpc/http/gettransaction) 응답은 바로 사용할 수 있는
+명령어 목록을 제공하지 않습니다. 계정은 숫자 인덱스로 저장되며,
+[버전 트랜잭션](/docs/core/transactions/versioned-transactions)은 해당 계정을
+정적 키와 [주소 조회 테이블](/docs/core/transactions/versioned-transactions)에서
+로드된 주소로 분리하고, Cross Program Invocation(CPI)에서 발생한 내부 명령어는
+트랜잭션 메타데이터에 인코딩된 blob 형태로 전달됩니다.
+
+`@solana/transaction-introspection`가 이 확인 작업을 대신 처리합니다. 와이어
+트랜잭션을 디코딩하고, 모든 계정 인덱스를 해당 `Address`에 매핑하며, 내부
+명령어를 정규화하고, 블록 탐색기에서 표시하는 것과 동일한 외부-내부 순서로
+명령어를 반환합니다. 반환된 명령어는 codama가 생성한 클라이언트(예:
+`@solana-program/*`)의 `parseXInstruction` 헬퍼에 직접 연결할 수 있습니다.
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## 응답 디코딩
+
+와이어 형식 인코딩으로 트랜잭션을 가져오고 응답을
+`decodeTransactionFromRpcResponse`에 전달합니다.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+나머지 코드 스니펫은 이 단계의 `rpcTx`, `compiledMessage`, `loadedAddresses`를
+재사용합니다.
+
+<Callout type="warn">
+  `base64`, `base58`, 또는 `json` 인코딩으로 가져오세요.
+  `decodeTransactionFromRpcResponse`는 `jsonParsed` 응답을 거부합니다 - 해당
+  인코딩은 RPC 노드에 서버 측에서 명령어를 파싱하도록 요청하므로, 클라이언트에서
+  디코딩할 내용이 남아 있지 않습니다.
+</Callout>
+
+## 명령어 순회
+
+`walkInstructions`는 블록 탐색기에 표시되는 순서대로 외부 명령어와 내부 명령어를
+모두 배열로 반환합니다. 즉, 각 외부 명령어 바로 뒤에 해당 CPI가 생성한 내부
+명령어가 이어집니다. 각 명령어에는 호출 계층에서의 위치를 나타내는 `trace`
+필드가 포함됩니다.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace`는 판별 유니온입니다. 최상위 명령어의 경우 `{ kind: "outer", index }`,
+CPI 명령어로 외부 명령어 아래에 중첩된 경우
+`{ kind: "inner", outerIndex, innerIndex, stackHeight? }`입니다.
+
+`meta`는 선택 사항입니다. `null`일 수 있더라도 `rpcTx.meta`를 직접 전달하세요.
+메타가 없으면 `walkInstructions`는 외부 명령어만 반환합니다.
+
+## 프로그램 클라이언트로 파싱하기
+
+`walkInstructions`에서 반환된 각 명령어는 `ResolvedInstruction`이므로,
+`@solana/instructions`의 조건자(predicate)와 `@solana-program/*` 클라이언트가
+생성한 `identifyXInstruction` / `parseXInstruction` 헬퍼와 별도의 변환 없이 바로
+사용할 수 있습니다.
+
+이 예제는 트랜잭션 내에서 최상위 레벨이든 CPI 내부든 관계없이 모든 Token Program
+`SyncNative` 명령어를 감사합니다.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## 하위 레벨 헬퍼
+
+`walkInstructions`는 대부분의 요구를 충족하지만, 패키지는 내부적으로 사용하는
+구성 요소도 함께 노출합니다:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`는
+  계정이 해석되고 데이터가 디코딩된 외부 명령어만 반환합니다.
+- `getInnerInstructionsFromMeta(meta, accountMetas)`는 트랜잭션 메타데이터에서
+  내부 CPI 명령어를 디코딩합니다.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`는
+  트랜잭션 순서 기준의 전체 계정 목록을 반환합니다. 이는 이전 헬퍼가 내부
+  명령어의 계정 인덱스를 해석하는 데 필요한 입력입니다.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Rust를 사용하시나요?">
+  이 패키지에 해당하는 Rust 버전은 없습니다. Rust에서 파싱된 명령어를 얻으려면
+  RPC 노드가 계정과 내부 명령어를 해석할 수 있도록
+  [`getTransaction`](/docs/rpc/http/gettransaction)에서
+  `UiTransactionEncoding::JsonParsed`를 요청하세요.
+</Callout>
+
+## 참고 항목
+
+- [트랜잭션 구조](/docs/core/transactions/transaction-structure) - 이 패키지가
+  디코딩하는 응답의 구조
+- [버전 관리 트랜잭션](/docs/core/transactions/versioned-transactions) - Address
+  Lookup Tables가 계정을 정적 그룹과 로드된 그룹으로 분리하는 방법
+- [`getTransaction`](/docs/rpc/http/gettransaction) - 트랜잭션을 반환하는 RPC
+  메서드
