@@ -18,12 +18,20 @@ export default async function Page(_props: Props) {
   });
 
   // Breakpoint 2026 calendar (https://luma.com/bp26)
-  const bp26Events = await fetchCalendarEvents("cal-vSUPHVSJHqgysCR", {
+  const breakpointEvents = await fetchCalendarEvents("evgrp-f8F1bDAHhBNDM1f", {
     period: "future",
   });
 
+  // Solana Accelerate calendar (https://luma.com/solana-accelerate)
+  const solanaAccelerateEvents = await fetchCalendarEvents(
+    "cal-78uQDEIMsmrT3GN",
+    {
+      period: "future",
+    },
+  );
+
   // Merge Breakpoint 2026 events with main events
-  mainEvents = [...mainEvents, ...bp26Events];
+  mainEvents = [...mainEvents, ...breakpointEvents, ...solanaAccelerateEvents];
 
   // Solanamerica calendar
   const usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
