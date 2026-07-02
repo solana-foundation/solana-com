@@ -3,6 +3,7 @@ import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
 import {
+  type CalendarEvent,
   fetchCalendarEvents,
   fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
@@ -11,56 +12,65 @@ type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
-export default async function Page(_props: Props) {
-  // Solana Foundation calendar
-  let mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
-    period: "future",
-  });
-
-  // Breakpoint 2026 calendar (https://luma.com/bp26)
-  const breakpointEvents = await fetchCalendarEvents("evgrp-f8F1bDAHhBNDM1f", {
-    period: "future",
-  });
-
-  // Solana Accelerate calendar (https://luma.com/solana-accelerate)
-  const solanaAccelerateEvents = await fetchCalendarEvents(
-    "cal-78uQDEIMsmrT3GN",
-    {
-      period: "future",
-    },
+const sortByStartDate = (events: CalendarEvent[]) =>
+  orderBy(
+    events,
+    [
+      (event) =>
+        event.schedule.from
+          ? new Date(event.schedule.from).getTime()
+          : Number.POSITIVE_INFINITY,
+    ],
+    ["asc"],
   );
 
-  // Merge Breakpoint 2026 events with main events
-  mainEvents = [...mainEvents, ...breakpointEvents, ...solanaAccelerateEvents];
-
-  // Solanamerica calendar
-  const usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
-    period: "future",
-  });
-
-  // Community calendar
-  const communityEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
-    period: "future",
-  });
-
-  const communityRiverEvents = await fetchCalendarRiverEvents({
-    time: "future",
-    limit: 20,
-  });
-
-  const sortInstructions = [
-    [(x: { schedule: { from: string | null } }) => x.schedule.from],
-    ["asc"],
-  ];
+export default async function Page(_props: Props) {
+  const [
+    mainEvents,
+    breakpointEvents,
+    solanaAccelerateEvents,
+    usEvents,
+    communityEvents,
+    communityRiverEvents,
+  ] = await Promise.all([
+    // Solana Foundation calendar
+    fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
+      period: "future",
+    }),
+    // Breakpoint 2026 calendar (https://luma.com/bp26)
+    fetchCalendarEvents("evgrp-f8F1bDAHhBNDM1f", {
+      period: "future",
+    }),
+    // Solana Accelerate calendar (https://luma.com/solana-accelerate)
+    fetchCalendarEvents("cal-78uQDEIMsmrT3GN", {
+      period: "future",
+    }),
+    // Solanamerica calendar
+    fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
+      period: "future",
+    }),
+    // Community calendar
+    fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
+      period: "future",
+    }),
+    fetchCalendarRiverEvents({
+      time: "future",
+      limit: 20,
+    }),
+  ]);
 
   // sorted and unique main events
-  const sorted = orderBy([...mainEvents], ...sortInstructions);
+  const sorted = sortByStartDate([
+    ...mainEvents,
+    ...breakpointEvents,
+    ...solanaAccelerateEvents,
+  ]);
   const unique = uniqBy(sorted, "key");
 
   // sorted community events
-  const sortedCommunity = orderBy(
-    [...communityEvents, ...communityRiverEvents],
-    ...sortInstructions,
+  const sortedCommunity = uniqBy(
+    sortByStartDate([...communityEvents, ...communityRiverEvents]),
+    "key",
   );
 
   // Set featured event: prefer explicitly marked featured, else first by date
