@@ -14,7 +14,10 @@ type Props = {
 
 export const revalidate = 60;
 
-const ARCHIVE_EVENTS_PER_PAGE = 8;
+const ARCHIVE_EVENTS_PER_PAGE = 24;
+// Pull a deep slice of past events per calendar in a single request so the
+// archive has real depth without paginating the upstream API.
+const ARCHIVE_FETCH_LIMIT = 100;
 const ARCHIVE_CALENDAR_IDS = [
   // Solana Foundation calendar
   "cal-J8WZ4jDbwzD9TWi",
@@ -39,7 +42,10 @@ const sortByStartDateDesc = (events: CalendarEvent[]) =>
 async function fetchArchiveEvents() {
   const eventGroups = await Promise.all(
     ARCHIVE_CALENDAR_IDS.map((calendarId) =>
-      fetchCalendarEvents(calendarId, { period: "past" }),
+      fetchCalendarEvents(calendarId, {
+        period: "past",
+        pagination_limit: ARCHIVE_FETCH_LIMIT,
+      }),
     ),
   );
 

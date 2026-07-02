@@ -7,6 +7,8 @@ interface EventsListProps {
   list: CalendarEvent[];
   animate?: boolean;
   isCompact?: boolean;
+  /** Number of columns for the compact (row) layout on large screens. */
+  compactColumns?: 1 | 2;
   emptyLabel?: string;
 }
 
@@ -14,6 +16,7 @@ const EventsList = ({
   list,
   animate = true,
   isCompact,
+  compactColumns = 1,
   emptyLabel = "No events are currently scheduled.",
 }: EventsListProps) => {
   if (!list.length) {
@@ -25,6 +28,11 @@ const EventsList = ({
   }
 
   if (isCompact) {
+    const compactClassName =
+      compactColumns === 2
+        ? "border-t border-white/10 md:grid md:grid-cols-2 md:gap-x-12"
+        : "border-t border-white/10";
+
     const rows = list.map((event) =>
       animate ? (
         <Stagger.Item key={event.key}>
@@ -38,9 +46,9 @@ const EventsList = ({
     );
 
     return animate ? (
-      <Stagger className="border-t border-white/10">{rows}</Stagger>
+      <Stagger className={compactClassName}>{rows}</Stagger>
     ) : (
-      <div className="border-t border-white/10">{rows}</div>
+      <div className={compactClassName}>{rows}</div>
     );
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "../../utils/Link";
 import FormattedDate from "../shared/FormattedDate";
@@ -45,6 +45,20 @@ const EventsHeroSection = ({
         className="container pb-16 pt-28 md:pb-24 md:pt-40"
         {...motionProps}
       >
+        {isArchive && (
+          <motion.div {...itemProps}>
+            <Link
+              to="/events"
+              className="group mb-10 inline-flex items-center gap-2 font-brand-mono text-[11px] uppercase tracking-[0.25em] text-white/50 no-underline transition-colors duration-200 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            >
+              <ArrowLeft
+                aria-hidden
+                className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5"
+              />
+              Back to events
+            </Link>
+          </motion.div>
+        )}
         <motion.p
           className="mb-8 font-brand-mono text-[11px] uppercase tracking-[0.35em] text-white/40"
           {...itemProps}
@@ -64,20 +78,16 @@ const EventsHeroSection = ({
           {t(`events.${type}.subtitle`)}
         </motion.p>
 
-        <motion.div
-          className="mt-12 flex flex-wrap items-center gap-x-10 gap-y-4"
-          {...itemProps}
-        >
-          {isArchive ? (
-            <HeroLink to="/events">{t("events.hero.all-events")}</HeroLink>
-          ) : (
-            <>
-              <HeroLink to="#upcoming">Upcoming</HeroLink>
-              <HeroLink to="#community-events">Community</HeroLink>
-              <HeroLink to="/events/archive">Past events</HeroLink>
-            </>
-          )}
-        </motion.div>
+        {!isArchive && (
+          <motion.div
+            className="mt-12 flex flex-wrap items-center gap-x-10 gap-y-4"
+            {...itemProps}
+          >
+            <HeroLink to="#upcoming">Upcoming</HeroLink>
+            <HeroLink to="#community-events">Community</HeroLink>
+            <HeroLink to="/events/archive">Past events</HeroLink>
+          </motion.div>
+        )}
 
         {!isArchive && nextEvent && (
           <motion.div {...itemProps}>

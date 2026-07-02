@@ -21,7 +21,12 @@ export function EventsArchivePage({
       <EventsHeroSection type="archive" />
 
       <main className="container py-16 md:py-24">
-        <EventsList list={events} animate={false} />
+        <EventsList
+          list={events}
+          animate={false}
+          isCompact
+          compactColumns={2}
+        />
         <EventsArchivePagination {...pagination} />
       </main>
     </div>
