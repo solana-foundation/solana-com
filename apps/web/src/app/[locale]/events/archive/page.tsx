@@ -12,9 +12,9 @@ type Props = {
   searchParams: Promise<{ page?: string | string[] }>;
 };
 
-const ARCHIVE_REVALIDATE_SECONDS = 24 * 60 * 60;
+export const revalidate = 86400;
 
-export const revalidate = ARCHIVE_REVALIDATE_SECONDS;
+const ARCHIVE_REVALIDATE_SECONDS = revalidate;
 
 const ARCHIVE_EVENTS_PER_PAGE = 24;
 // Pull a deep slice of past events per calendar in a single request so the

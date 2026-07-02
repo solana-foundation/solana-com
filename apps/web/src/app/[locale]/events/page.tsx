@@ -16,9 +16,9 @@ import {
 
 type Props = { params: Promise<{ locale: string }> };
 
-const EVENTS_REVALIDATE_SECONDS = 24 * 60 * 60;
+export const revalidate = 86400;
 
-export const revalidate = EVENTS_REVALIDATE_SECONDS;
+const EVENTS_REVALIDATE_SECONDS = revalidate;
 
 const sortByStartDate = (events: CalendarEvent[]) =>
   orderBy(
