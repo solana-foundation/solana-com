@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight, CalendarPlus, Sparkles } from "lucide-react";
+import { ArrowUpRight, CalendarPlus } from "lucide-react";
 import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsDetailSection from "@/components/events/EventsDetailSection";
 import EventsList from "@/components/events/EventsList";
@@ -22,7 +22,6 @@ interface EventsLandingPageProps {
     communityHeading: string;
     communityDescription: string;
     submitEvent: string;
-    hostEvent: string;
     archive: string;
   };
 }
@@ -157,12 +156,6 @@ export function EventsLandingPage({
                       label={translations.submitEvent}
                       description="Add an event for calendar review."
                       icon={CalendarPlus}
-                    />
-                    <CommunityAction
-                      href="https://app.getriver.io/solana"
-                      label={translations.hostEvent}
-                      description="Spin up an independent community hub."
-                      icon={Sparkles}
                     />
                   </div>
                 </div>

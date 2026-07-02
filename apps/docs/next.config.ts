@@ -106,10 +106,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.getriver.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {

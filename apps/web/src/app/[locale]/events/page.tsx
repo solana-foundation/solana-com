@@ -5,7 +5,6 @@ import { uniqBy, orderBy } from "lodash";
 import {
   type CalendarEvent,
   fetchCalendarEvents,
-  fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -31,7 +30,6 @@ export default async function Page(_props: Props) {
     solanaAccelerateEvents,
     usEvents,
     communityEvents,
-    communityRiverEvents,
   ] = await Promise.all([
     // Solana Foundation calendar
     fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
@@ -53,10 +51,6 @@ export default async function Page(_props: Props) {
     fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
       period: "future",
     }),
-    fetchCalendarRiverEvents({
-      time: "future",
-      limit: 20,
-    }),
   ]);
 
   // sorted and unique main events
@@ -68,10 +62,7 @@ export default async function Page(_props: Props) {
   const unique = uniqBy(sorted, "key");
 
   // sorted community events
-  const sortedCommunity = uniqBy(
-    sortByStartDate([...communityEvents, ...communityRiverEvents]),
-    "key",
-  );
+  const sortedCommunity = uniqBy(sortByStartDate(communityEvents), "key");
 
   // Set featured event: prefer explicitly marked featured, else first by date
   const featuredEvent =
@@ -86,7 +77,6 @@ export default async function Page(_props: Props) {
     communityHeading: t("events.community.heading"),
     communityDescription: t("events.community.description"),
     submitEvent: t("commands.submit-event"),
-    hostEvent: t("commands.host-event"),
     archive: t("events.archive.archive"),
   };
 

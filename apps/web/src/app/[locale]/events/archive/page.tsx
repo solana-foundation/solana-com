@@ -2,10 +2,7 @@ import { EventsArchivePage } from "./events-archive";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
-import {
-  fetchCalendarEvents,
-  fetchCalendarRiverEvents,
-} from "@/lib/events/fetchCalendarEvents";
+import { fetchCalendarEvents } from "@/lib/events/fetchCalendarEvents";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -27,18 +24,12 @@ export default async function Page(_props: Props) {
     period: "past",
   });
 
-  // Community River calendar
-  const communityRiverEvents = await fetchCalendarRiverEvents({
-    time: "past",
-    limit: 20,
-  });
-
   const sortInstructions = [
     [(x: { schedule: { from: string | null } }) => x.schedule.from],
     ["desc"],
   ];
   const sorted = orderBy(
-    [...mainEvents, ...hhEvents, ...communityEvents, ...communityRiverEvents],
+    [...mainEvents, ...hhEvents, ...communityEvents],
     ...sortInstructions,
   );
   const unique = uniqBy(sorted, "key");
