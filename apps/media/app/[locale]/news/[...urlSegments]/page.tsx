@@ -1,4 +1,3 @@
-import React from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { reader } from "@/lib/reader";
@@ -15,11 +14,23 @@ import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
-import { newsPostMetadata } from "@/lib/metadata";
-import { fetchPublishedPostBySlug } from "@/lib/post-data";
+import {
+  categoryListingMetadata,
+  newsListingMetadata,
+  newsPostMetadata,
+} from "@/lib/metadata";
+import { fetchLatestPosts, fetchPublishedPostBySlug } from "@/lib/post-data";
+import { fetchCategoryByPath } from "@/lib/category-data";
 import { extractHeadings } from "@/lib/extract-headings";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import type { Metadata } from "next";
+import PostsClientPage from "../client-page";
+import {
+  CASE_STUDIES_FILTER_LABEL,
+  CASE_STUDIES_FILTER_SLUG,
+  newsFilterToSlug,
+} from "@/lib/news-filters";
+import { fetchNewsFilterOptions } from "@/lib/news-filter-options";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -31,6 +42,11 @@ export default async function PostPage({
 }) {
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
+
+  const filterPage = await renderFilterPage(resolvedParams.urlSegments);
+  if (filterPage) {
+    return filterPage;
+  }
 
   const post = await fetchPublishedPostBySlug(slug);
 
@@ -232,6 +248,66 @@ export default async function PostPage({
   );
 }
 
+async function renderFilterPage(urlSegments: string[]) {
+  if (urlSegments.length !== 1) {
+    return null;
+  }
+
+  const filterSlug = urlSegments[0];
+  if (!filterSlug) {
+    return null;
+  }
+
+  if (filterSlug === CASE_STUDIES_FILTER_SLUG) {
+    const latestPosts = await fetchLatestPosts({
+      limit: 13,
+      tag: CASE_STUDIES_FILTER_SLUG,
+    });
+
+    if (latestPosts.posts.length === 0) {
+      return null;
+    }
+
+    const filterOptions = await fetchNewsFilterOptions();
+
+    return (
+      <PostsClientPage
+        featuredPost={latestPosts.posts[0] ?? null}
+        latestPosts={latestPosts.posts}
+        initialPageInfo={latestPosts.pageInfo}
+        initialFilter={CASE_STUDIES_FILTER_LABEL}
+        filterOptions={filterOptions}
+      />
+    );
+  }
+
+  const { category } = await fetchCategoryByPath(filterSlug);
+  if (!category) {
+    return null;
+  }
+
+  const latestPosts = await fetchLatestPosts({
+    limit: 13,
+    category: category.name,
+  });
+
+  if (latestPosts.posts.length === 0) {
+    return null;
+  }
+
+  const filterOptions = await fetchNewsFilterOptions();
+
+  return (
+    <PostsClientPage
+      featuredPost={latestPosts.posts[0] ?? null}
+      latestPosts={latestPosts.posts}
+      initialPageInfo={latestPosts.pageInfo}
+      initialFilter={category.name}
+      filterOptions={filterOptions}
+    />
+  );
+}
+
 export async function generateStaticParams() {
   try {
     const slugs = await reader.collections.posts.list();
@@ -244,7 +320,10 @@ export async function generateStaticParams() {
       }
     }
 
-    return publishedSlugs.map((slug) => ({
+    const filterSlugs = (await fetchNewsFilterOptions()).map(newsFilterToSlug);
+    const routeSlugs = [...publishedSlugs, ...filterSlugs];
+
+    return routeSlugs.map((slug) => ({
       urlSegments: slug.split("/"),
     }));
   } catch (error) {
@@ -260,5 +339,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
+
+  if (resolvedParams.urlSegments.length === 1) {
+    if (slug === CASE_STUDIES_FILTER_SLUG) {
+      const filterOptions = await fetchNewsFilterOptions();
+      if (filterOptions.includes(CASE_STUDIES_FILTER_LABEL)) {
+        return newsListingMetadata();
+      }
+    }
+
+    const category = (await fetchCategoryByPath(slug)).category;
+    if (category) {
+      const filterOptions = await fetchNewsFilterOptions();
+      if (filterOptions.includes(category.name)) {
+        return categoryListingMetadata(slug);
+      }
+    }
+  }
+
   return newsPostMetadata(slug);
 }
