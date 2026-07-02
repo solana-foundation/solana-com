@@ -16,7 +16,9 @@ import {
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 60;
+const EVENTS_REVALIDATE_SECONDS = 24 * 60 * 60;
+
+export const revalidate = EVENTS_REVALIDATE_SECONDS;
 
 const sortByStartDate = (events: CalendarEvent[]) =>
   orderBy(
@@ -42,25 +44,45 @@ export default async function Page({ params }: Props) {
   ] = await Promise.all([
     params,
     // Solana Foundation calendar
-    fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
-      period: "future",
-    }),
+    fetchCalendarEvents(
+      "cal-J8WZ4jDbwzD9TWi",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
     // Breakpoint 2026 calendar (https://luma.com/bp26)
-    fetchCalendarEvents("evgrp-f8F1bDAHhBNDM1f", {
-      period: "future",
-    }),
+    fetchCalendarEvents(
+      "evgrp-f8F1bDAHhBNDM1f",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
     // Solana Accelerate calendar (https://luma.com/solana-accelerate)
-    fetchCalendarEvents("cal-78uQDEIMsmrT3GN", {
-      period: "future",
-    }),
+    fetchCalendarEvents(
+      "cal-78uQDEIMsmrT3GN",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
     // Solanamerica calendar
-    fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
-      period: "future",
-    }),
+    fetchCalendarEvents(
+      "cal-TLgSVhf1CeO04x3",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
     // Community calendar
-    fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
-      period: "future",
-    }),
+    fetchCalendarEvents(
+      "cal-C0cmhNE8Qz3xF5r",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
     getTranslations(),
   ]);
 

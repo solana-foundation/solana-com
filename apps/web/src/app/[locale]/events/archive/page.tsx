@@ -12,7 +12,9 @@ type Props = {
   searchParams: Promise<{ page?: string | string[] }>;
 };
 
-export const revalidate = 60;
+const ARCHIVE_REVALIDATE_SECONDS = 24 * 60 * 60;
+
+export const revalidate = ARCHIVE_REVALIDATE_SECONDS;
 
 const ARCHIVE_EVENTS_PER_PAGE = 24;
 // Pull a deep slice of past events per calendar in a single request so the
@@ -42,10 +44,14 @@ const sortByStartDateDesc = (events: CalendarEvent[]) =>
 async function fetchArchiveEvents() {
   const eventGroups = await Promise.all(
     ARCHIVE_CALENDAR_IDS.map((calendarId) =>
-      fetchCalendarEvents(calendarId, {
-        period: "past",
-        pagination_limit: ARCHIVE_FETCH_LIMIT,
-      }),
+      fetchCalendarEvents(
+        calendarId,
+        {
+          period: "past",
+          pagination_limit: ARCHIVE_FETCH_LIMIT,
+        },
+        { revalidate: ARCHIVE_REVALIDATE_SECONDS },
+      ),
     ),
   );
 

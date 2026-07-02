@@ -53,6 +53,10 @@ export type CalendarEvent = {
   type?: string;
 };
 
+type FetchCalendarEventsRequestOptions = {
+  revalidate?: number;
+};
+
 const dummyEvent = [
   {
     key: "dummy-event",
@@ -91,6 +95,7 @@ const signupFormEvents: CalendarEvent[] = [];
 export async function fetchCalendarEvents(
   calendarId: string,
   options: Record<string, string | number>,
+  requestOptions: FetchCalendarEventsRequestOptions = {},
 ): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
@@ -122,6 +127,10 @@ export async function fetchCalendarEvents(
         "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
       },
       signal: controller.signal,
+      next:
+        requestOptions.revalidate === undefined
+          ? undefined
+          : { revalidate: requestOptions.revalidate },
     });
 
     clearTimeout(timeoutId);
