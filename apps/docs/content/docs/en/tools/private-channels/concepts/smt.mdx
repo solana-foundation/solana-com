@@ -1,0 +1,107 @@
+---
+title: Sparse Merkle Tree
+description:
+  How Private Channels uses a Sparse Merkle Tree to prevent double-spend on
+  withdrawals
+---
+
+<Callout type="info">
+  Users and developers don't interact with the SMT directly - exclusion proofs
+  are computed and submitted automatically by the `operator-private-channel`
+  service. This page is reference material for operators and anyone building
+  operator tooling.
+</Callout>
+
+## Purpose
+
+Private Channels uses a Sparse Merkle Tree (SMT) to guarantee that each
+withdrawal nonce can only be settled once. When an operator calls
+`ReleaseFunds`, they must provide a proof that the nonce does NOT yet exist in
+the tree. The program verifies this exclusion proof on-chain before releasing
+funds, then updates the root to include the nonce - making any future attempt to
+reuse it provably invalid.
+
+## Tree Parameters
+
+- Tree height: `16`
+- Maximum leaves: `65,536` (2^16)
+- Hash function: SHA-256
+- Empty leaf value: `[0u8; 32]` (32 zero bytes)
+- Non-empty leaf value: `SHA256([1u8; 32])` - stored as the constant
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Leaf Structure
+
+Each withdrawal occupies exactly one leaf. The leaf position is determined by:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+A leaf is considered non-empty when its value equals `NON_EMPTY_LEAF_HASH`
+(i.e., `SHA256([1u8; 32])`). An empty leaf is all zeros.
+
+## Nonce and Leaf Position
+
+The `transaction_nonce` in `ReleaseFunds` is a `u64`. Its position in the tree
+is `nonce % 65536`. Its expected epoch is `nonce / 65536`. The on-chain program
+validates that this computed epoch equals `Instance.current_tree_index` - a
+mismatch throws `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Tree Rotation
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+The SMT has a fixed capacity of 65,536 leaves. The operator service detects when
+a rotation is needed by checking whether `nonce % 65536 == 0` (for `nonce > 0`);
+that boundary signals the start of a new epoch. At that point,
+`operator-private-channel` calls `ResetSmtRoot` before submitting the next
+`ReleaseFunds`:
+
+- `Instance.current_tree_index` is incremented
+- The withdrawal root resets to the empty tree
+- Nonces from the previous tree epoch are invalidated
+
+The operator service also verifies its local SMT root matches
+`Instance.withdrawal_transactions_root` on-chain before each `ReleaseFunds`
+call; a mismatch triggers a safety shutdown rather than a potentially invalid
+proof submission.
+
+Tree rotation is tracked by `Instance.current_tree_index: u64`, stored on-chain.
+
+## Verification in ReleaseFunds
+
+The `sibling_proofs` argument in `ReleaseFunds` is exactly `[u8; 512]` - 16
+sibling hashes × 32 bytes each, matching the tree height of 16.
+
+The on-chain verification process (`verify_smt_exclusion_proof`):
+
+1. Verifies the proof proves the nonce leaf is currently empty (not yet in the
+   tree)
+2. If valid, updates `Instance.withdrawal_transactions_root` to the new root
+   that includes this nonce
+3. Releases the tokens to the recipient
+
+The updated root is stored in `Instance.withdrawal_transactions_root: [u8; 32]`,
+updated atomically with each `ReleaseFunds` call.
