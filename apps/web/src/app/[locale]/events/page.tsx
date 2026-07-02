@@ -2,14 +2,40 @@ import { EventsLandingPage } from "./events";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
+import scaleOrDieImg from "@@/assets/events/scaleordie.jpg";
 import {
   fetchCalendarEvents,
   fetchCalendarRiverEvents,
+  type CalendarEvent,
 } from "@/lib/events/fetchCalendarEvents";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
+
+const scaleOrDieEvent: CalendarEvent = {
+  key: "scale-or-die-26",
+  title: "Accelerate Scale or Die",
+  description:
+    "Solana's application-only summit for engineers, validators, protocol developers, infrastructure teams, and researchers pushing the network to its limits.",
+  rsvp: "https://luma.com/scale-or-die-26",
+  schedule: {
+    from: "2026-11-14T09:30:00.000Z",
+    to: "2026-11-14T18:30:00.000Z",
+    timezone: "Europe/London",
+  },
+  img: {
+    primary: scaleOrDieImg.src,
+    alt: "Accelerate Scale or Die",
+  },
+  venue: {
+    city: "London",
+    region: "England",
+    city_state: "London, United Kingdom",
+    country: "United Kingdom",
+    address: null,
+  },
+};
 
 export default async function Page(_props: Props) {
   // Solana Foundation calendar
@@ -24,6 +50,16 @@ export default async function Page(_props: Props) {
 
   // Merge Breakpoint 2026 events with main events
   mainEvents = [...mainEvents, ...bp26Events];
+  if (
+    !mainEvents.some(
+      ({ key, rsvp }) =>
+        key === scaleOrDieEvent.key ||
+        rsvp === scaleOrDieEvent.rsvp ||
+        rsvp === "https://lu.ma/scale-or-die-26",
+    )
+  ) {
+    mainEvents.push(scaleOrDieEvent);
+  }
 
   // Solanamerica calendar
   const usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
