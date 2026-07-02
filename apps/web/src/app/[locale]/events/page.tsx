@@ -1,74 +1,115 @@
 import { EventsLandingPage } from "./events";
+import type { Metadata } from "next";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
 import {
+  buildEventsJsonLd,
+  EVENTS_PATH,
+  EVENTS_SOCIAL_IMAGE,
+  serializeJsonLd,
+} from "@/lib/events/structuredData";
+import {
+  type CalendarEvent,
   fetchCalendarEvents,
-  fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
-export default async function Page(_props: Props) {
-  // Solana Foundation calendar
-  let mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
-    period: "future",
-  });
+const EVENTS_REVALIDATE_SECONDS = revalidate;
 
-  // Breakpoint 2026 calendar (https://luma.com/bp26)
-  const breakpointEvents = await fetchCalendarEvents("evgrp-f8F1bDAHhBNDM1f", {
-    period: "future",
-  });
-
-  // Solana Accelerate calendar (https://luma.com/solana-accelerate)
-  const solanaAccelerateEvents = await fetchCalendarEvents(
-    "cal-78uQDEIMsmrT3GN",
-    {
-      period: "future",
-    },
+const sortByStartDate = (events: CalendarEvent[]) =>
+  orderBy(
+    events,
+    [
+      (event) =>
+        event.schedule.from
+          ? new Date(event.schedule.from).getTime()
+          : Number.POSITIVE_INFINITY,
+    ],
+    ["asc"],
   );
 
-  // Merge Breakpoint 2026 events with main events
-  mainEvents = [...mainEvents, ...breakpointEvents, ...solanaAccelerateEvents];
-
-  // Solanamerica calendar
-  const usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
-    period: "future",
-  });
-
-  // Community calendar
-  const communityEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
-    period: "future",
-  });
-
-  const communityRiverEvents = await fetchCalendarRiverEvents({
-    time: "future",
-    limit: 20,
-  });
-
-  const sortInstructions = [
-    [(x: { schedule: { from: string | null } }) => x.schedule.from],
-    ["asc"],
-  ];
+export default async function Page({ params }: Props) {
+  const [
+    { locale },
+    mainEvents,
+    breakpointEvents,
+    solanaAccelerateEvents,
+    usEvents,
+    communityEvents,
+    t,
+  ] = await Promise.all([
+    params,
+    // Solana Foundation calendar
+    fetchCalendarEvents(
+      "cal-J8WZ4jDbwzD9TWi",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    // Breakpoint 2026 calendar (https://luma.com/bp26)
+    fetchCalendarEvents(
+      "evgrp-f8F1bDAHhBNDM1f",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    // Solana Accelerate calendar (https://luma.com/solana-accelerate)
+    fetchCalendarEvents(
+      "cal-78uQDEIMsmrT3GN",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    // Solanamerica calendar
+    fetchCalendarEvents(
+      "cal-TLgSVhf1CeO04x3",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    // Community calendar
+    fetchCalendarEvents(
+      "cal-C0cmhNE8Qz3xF5r",
+      {
+        period: "future",
+      },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    getTranslations(),
+  ]);
 
   // sorted and unique main events
-  const sorted = orderBy([...mainEvents], ...sortInstructions);
+  const sorted = sortByStartDate([
+    ...mainEvents,
+    ...breakpointEvents,
+    ...solanaAccelerateEvents,
+  ]);
   const unique = uniqBy(sorted, "key");
 
   // sorted community events
-  const sortedCommunity = orderBy(
-    [...communityEvents, ...communityRiverEvents],
-    ...sortInstructions,
-  );
+  const sortedCommunity = uniqBy(sortByStartDate(communityEvents), "key");
 
   // Set featured event: prefer explicitly marked featured, else first by date
   const featuredEvent =
     unique.find((e) => e.featured === true) || unique[0] || null;
   const events = [...unique];
 
-  const t = await getTranslations();
+  const seoTitle = t("events.meta.seoTitle");
+  const seoDescription = t("events.meta.seoDescription");
+  const structuredData = buildEventsJsonLd({
+    events: uniqBy([...events, ...usEvents, ...sortedCommunity], "key"),
+    locale,
+    title: seoTitle,
+    description: seoDescription,
+  });
 
   const translations = {
     usHeading: t("events.us.heading"),
@@ -76,27 +117,48 @@ export default async function Page(_props: Props) {
     communityHeading: t("events.community.heading"),
     communityDescription: t("events.community.description"),
     submitEvent: t("commands.submit-event"),
-    hostEvent: t("commands.host-event"),
     archive: t("events.archive.archive"),
   };
 
   return (
-    <EventsLandingPage
-      events={events}
-      communityEvents={sortedCommunity}
-      featuredEvent={featuredEvent}
-      usEvents={usEvents}
-      translations={translations}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
+      <EventsLandingPage
+        events={events}
+        communityEvents={sortedCommunity}
+        featuredEvent={featuredEvent}
+        usEvents={usEvents}
+        translations={translations}
+      />
+    </>
   );
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations();
+  const title = t("events.meta.seoTitle");
+  const description = t("events.meta.seoDescription");
+  const alternates = getAlternates(EVENTS_PATH, locale);
+
   return {
-    title: t("titles.events"),
-    description: t("events.description"),
-    alternates: getAlternates("/events", locale),
+    title,
+    description,
+    alternates,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: alternates.canonical,
+      images: [EVENTS_SOCIAL_IMAGE],
+    },
+    twitter: {
+      title,
+      description,
+      images: [EVENTS_SOCIAL_IMAGE],
+    },
   };
 }
