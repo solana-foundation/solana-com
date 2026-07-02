@@ -10,6 +10,7 @@ export type PlaceMediaCardProps = {
   style?: React.CSSProperties;
   imageSrc: string;
   title?: string;
+  description?: string;
   date?: string;
   location?: string;
   href?: string;
@@ -20,6 +21,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
   style,
   imageSrc,
   title,
+  description,
   date,
   location,
   href,
@@ -37,6 +39,9 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
         />
       </div>
       <h3 className="nd-heading-s mt-6">{title}</h3>
+      {description && (
+        <p className="nd-body-m text-nd-mid-em-text mt-2 mb-0">{description}</p>
+      )}
       {(location || date) && (
         <div className="mt-2 flex gap-1 flex-wrap">
           {date && (

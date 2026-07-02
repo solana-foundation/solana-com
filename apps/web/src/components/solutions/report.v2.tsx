@@ -1,4 +1,5 @@
 import React from "react";
+import type { ComponentType } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine, ChevronRight } from "lucide-react";
@@ -13,11 +14,17 @@ export type SolutionReportProps = {
   eyebrow?: string;
   description?: string;
   emailCta?: string;
-  onEmailClick?: () => void;
+  ctaHref?: string;
+  onEmailClick?: React.MouseEventHandler<HTMLButtonElement>;
   imgSrc?: string;
   links?: SolutionReportLink[];
   linksTitle?: string;
   bgJsonFilePath?: string;
+  CtaIcon?: ComponentType<{
+    className?: string;
+    strokeWidth?: number;
+    "aria-hidden"?: boolean;
+  }>;
 };
 
 /**
@@ -53,15 +60,28 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   eyebrow,
   description,
   emailCta,
+  ctaHref,
   onEmailClick,
   imgSrc,
   links,
   linksTitle,
   bgJsonFilePath,
+  CtaIcon = ArrowDownToLine,
 }) => {
-  if (!emailCta || !onEmailClick) {
+  if (!emailCta || (!ctaHref && !onEmailClick)) {
     return null;
   }
+
+  const ctaContent = (
+    <>
+      <CtaIcon
+        aria-hidden={true}
+        className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
+        strokeWidth={3}
+      />
+      {emailCta}
+    </>
+  );
 
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
@@ -108,19 +128,26 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                 )}
               </div>
               <div>
-                <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-                  size="lg"
-                  aria-label={emailCta}
-                  onClick={onEmailClick}
-                >
-                  <ArrowDownToLine
-                    aria-hidden={true}
-                    className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                    strokeWidth={3}
-                  />
-                  {emailCta}
-                </Button>
+                {ctaHref ? (
+                  <Button
+                    asChild
+                    className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                    size="lg"
+                    aria-label={emailCta}
+                  >
+                    <a href={ctaHref}>{ctaContent}</a>
+                  </Button>
+                ) : (
+                  <Button
+                    className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                    size="lg"
+                    aria-label={emailCta}
+                    onClick={onEmailClick}
+                    type="button"
+                  >
+                    {ctaContent}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

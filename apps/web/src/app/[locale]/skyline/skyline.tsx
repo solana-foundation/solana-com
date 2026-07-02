@@ -1,0 +1,534 @@
+"use client";
+
+import type { ReactNode } from "react";
+import Image from "next/image";
+import { useTranslations } from "next-intl";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@workspace/ui/accordion";
+import {
+  ClockIcon,
+  LedgerIcon,
+  MoneyIcon,
+  UsersIcon,
+} from "@solana-com/ui-chrome/icons";
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
+import type { SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { SkylineHero } from "./components/skyline-hero";
+import { SkylineGallery } from "./components/skyline-gallery";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+import { CardCarouselSection } from "@/component-library/card-carousel-section";
+import { PlaceMediaCard } from "@/component-library/place-media-card";
+import { TierCards } from "@/component-library/tier-cards";
+import { Container } from "@/component-library/container";
+import { SelectionColor } from "@/component-library/selection-color";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import {
+  AMENITY_COUNT,
+  FAQ_COUNT,
+  LINKS,
+  MEMBERSHIP_TIERS,
+  PERK_COUNT,
+  QUICK_LINKS,
+  SKYLINE_GALLERY_IMAGES,
+  SPACES,
+  VENUE_DETAIL_COUNT,
+  VENUE_FEATURE_COUNT,
+} from "@/data/skyline";
+
+const ACCENT = "#CA9FF5";
+
+const PlusGlyph = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    fill="none"
+    aria-hidden={true}
+    className={className}
+    style={{ color: ACCENT }}
+  >
+    <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
+  </svg>
+);
+
+const isExternalHref = (href: string) => href.startsWith("http");
+
+type SkylinePageProps = {
+  events: CalendarEvent[];
+};
+
+export function SkylinePage({ events }: SkylinePageProps) {
+  const t = useTranslations();
+
+  const { ref: spacesRef, isIntersecting: spacesVisible } =
+    useIntersectionObserver<HTMLUListElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
+  const { ref: venueRef, isIntersecting: venueVisible } =
+    useIntersectionObserver<HTMLUListElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
+
+  const stats: SolutionHeroStat[] = [
+    {
+      value: t("skyline.hero.stats.0.value"),
+      label: t("skyline.hero.stats.0.label"),
+      Icon: LedgerIcon,
+    },
+    {
+      value: t("skyline.hero.stats.1.value"),
+      label: t("skyline.hero.stats.1.label"),
+      Icon: UsersIcon,
+    },
+    {
+      value: t("skyline.hero.stats.2.value"),
+      label: t("skyline.hero.stats.2.label"),
+      Icon: ClockIcon,
+    },
+    {
+      value: t("skyline.hero.stats.3.value"),
+      label: t("skyline.hero.stats.3.label"),
+      Icon: MoneyIcon,
+    },
+  ];
+
+  const email = (chunks: ReactNode) => (
+    <a href={LINKS.contactEmail} className="underline text-inherit">
+      {chunks}
+    </a>
+  );
+
+  const light = (chunks: ReactNode) => (
+    <span className="font-light">{chunks}</span>
+  );
+
+  return (
+    <>
+      <SelectionColor selectionColor={ACCENT} selectionTextColor="#000000" />
+
+      <div id="skyline-page" className="bg-black">
+        <SkylineHero
+          title={t("skyline.hero.title")}
+          subtitle={t("skyline.hero.subtitle")}
+          primaryCta={t("skyline.hero.secondaryCta")}
+          primaryCtaHref={LINKS.eventsCalendar}
+          stats={stats}
+          imageSrc="/src/img/skyline/hero-skyline.webp"
+          bgJsonFilePath="/src/img/skyline/hero-bg.json"
+        />
+
+        {/* Quick Links Section */}
+        <section className="relative bg-nd-bg text-nd-high-em-text text-left">
+          <Container className="py-[48px] md:py-[64px] xl:py-[80px]">
+            <div className="max-w-3xl mb-8 xl:mb-10">
+              <p className="nd-body-m uppercase text-nd-mid-em-text mb-3">
+                {t("skyline.quickLinks.eyebrow")}
+              </p>
+              <h2 className="nd-heading-m mb-0">
+                {t("skyline.quickLinks.title")}
+              </h2>
+              <p className="nd-body-l text-nd-mid-em-text mt-3 mb-0">
+                {t("skyline.quickLinks.description")}
+              </p>
+            </div>
+
+            <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 p-0 m-0 list-none">
+              {QUICK_LINKS.map(({ key, href, Icon }) => {
+                const external = isExternalHref(href);
+                const LinkIcon = external ? ArrowUpRight : ArrowRight;
+
+                return (
+                  <li key={key} className="min-h-[188px]">
+                    <a
+                      href={href}
+                      target={external ? "_blank" : undefined}
+                      rel={external ? "noopener noreferrer" : undefined}
+                      className="group flex h-full flex-col rounded-xl border border-nd-border-light bg-nd-high-em-text/[0.04] p-5 md:p-6 text-nd-high-em-text transition-colors hover:border-nd-border-hovered hover:bg-nd-high-em-text/[0.08]"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <Icon
+                          aria-hidden={true}
+                          className="size-5 text-nd-mid-em-text transition-colors group-hover:text-nd-high-em-text"
+                        />
+                        <LinkIcon
+                          aria-hidden={true}
+                          className="size-5 text-nd-mid-em-text transition-transform group-hover:translate-x-1 group-hover:text-nd-high-em-text"
+                        />
+                      </div>
+                      <div className="mt-auto pt-10">
+                        <h3 className="nd-heading-s mb-2">
+                          {t(`skyline.quickLinks.items.${key}.title`)}
+                        </h3>
+                        <p className="nd-body-m text-nd-mid-em-text mb-0">
+                          {t(`skyline.quickLinks.items.${key}.description`)}
+                        </p>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </Container>
+        </section>
+
+        <Divider />
+
+        <WhatIsIt
+          title={t.rich("skyline.whatIs.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                <br />
+                {chunks}
+              </span>
+            ),
+          })}
+          description={t("skyline.whatIs.description")}
+          highlightColor={ACCENT}
+          imageSrc="/src/img/skyline/what-is.webp"
+        />
+
+        <Divider />
+
+        <SkylineGallery
+          title={t("skyline.gallery.title")}
+          description={t("skyline.gallery.description")}
+          images={SKYLINE_GALLERY_IMAGES}
+        />
+
+        <Divider />
+
+        {/* Coworking Section */}
+        <section
+          id="coworking"
+          className="relative bg-black text-white text-left"
+        >
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row gap-8 xl:gap-16">
+            <div className="w-full xl:w-1/2">
+              <h2 className="nd-heading-l mb-0">
+                {t.rich("skyline.coworking.title", { light })}
+              </h2>
+              <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0">
+                {t("skyline.coworking.description")}
+              </p>
+              <ul className="p-0 mt-8 xl:mt-12 mb-0 list-none divide-y-[1px] divide-white/10">
+                {Array.from({ length: AMENITY_COUNT }, (_, i) => (
+                  <li key={i} className="flex items-center gap-4 py-4">
+                    <PlusGlyph className="shrink-0" />
+                    <span className="nd-body-l">
+                      {t(`skyline.coworking.items.${i}`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="w-full xl:w-1/2">
+              <Image
+                src="/src/img/skyline/coworking.webp"
+                alt=""
+                width={1000}
+                height={667}
+                className="w-full h-full max-h-[640px] object-cover rounded-xl"
+                loading="lazy"
+              />
+            </div>
+          </Container>
+        </section>
+
+        <Divider />
+
+        {/* Membership Section */}
+        <section
+          id="membership"
+          className="relative z-[1] bg-black text-white text-left"
+        >
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
+            <div className="max-w-xl mb-8 xl:mb-12">
+              <h2 className="nd-heading-l mb-0">
+                {t.rich("skyline.membership.title", { light })}
+              </h2>
+              <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0">
+                {t("skyline.membership.description")}
+              </p>
+            </div>
+            <TierCards
+              tiers={MEMBERSHIP_TIERS.map((tier) => ({
+                key: tier.key,
+                name: t(`skyline.membership.tiers.${tier.key}.name`),
+                price: t(`skyline.membership.tiers.${tier.key}.price`),
+                period: t(`skyline.membership.tiers.${tier.key}.period`),
+                description: t(
+                  `skyline.membership.tiers.${tier.key}.description`,
+                ),
+                cta: t(`skyline.membership.tiers.${tier.key}.cta`),
+                ctaHref: tier.href,
+              }))}
+            />
+            <div className="mt-12 xl:mt-16 pt-8 xl:pt-12 border-t border-nd-border-light">
+              <h3 className="nd-heading-s pb-6">
+                {t("skyline.membership.perksTitle")}
+              </h3>
+              <ul className="p-0 m-0 list-none md:columns-2 md:gap-x-16">
+                {Array.from({ length: PERK_COUNT }, (_, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-4 mb-4 last:mb-0 break-inside-avoid"
+                  >
+                    <PlusGlyph className="shrink-0 mt-[5px]" />
+                    <span className="nd-body-m text-nd-mid-em-text">
+                      {t(`skyline.membership.perks.${i}`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Container>
+        </section>
+
+        <Decor imageSrc="/src/img/skyline/decor.webp" />
+
+        {/* Spaces Section */}
+        <section
+          id="spaces"
+          className="relative z-[1] bg-black text-white text-left"
+        >
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
+            <div className="max-w-xl mb-8 xl:mb-12">
+              <h2 className="nd-heading-l mb-0">
+                {t.rich("skyline.spaces.title", { light })}
+              </h2>
+              <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0">
+                {t("skyline.spaces.description")}
+              </p>
+            </div>
+            <ul
+              ref={spacesRef}
+              className="p-0 m-0 list-none grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
+            >
+              {SPACES.map(({ key, Icon }, index) => (
+                <li
+                  key={key}
+                  className={
+                    "flex flex-col rounded-xl border border-nd-border-light bg-white/[0.04] p-6 xl:p-8" +
+                    (spacesVisible ? " animate-fade-in-up" : "")
+                  }
+                  style={
+                    spacesVisible
+                      ? { animationDelay: `${0.1 + index * 0.1}s` }
+                      : { opacity: 0 }
+                  }
+                >
+                  <Icon
+                    aria-hidden={true}
+                    className="size-6 mb-6"
+                    style={{ color: ACCENT }}
+                  />
+                  <h3 className="nd-heading-s mb-2">
+                    {t(`skyline.spaces.items.${key}.title`)}
+                  </h3>
+                  <p className="nd-body-m text-nd-mid-em-text mb-0">
+                    {t(`skyline.spaces.items.${key}.description`)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Container>
+        </section>
+
+        <Divider />
+
+        {/* Host Your Event Section */}
+        <section
+          id="host-events"
+          className="relative bg-black text-white text-left"
+        >
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px]">
+            <div className="flex flex-col xl:flex-row xl:items-center gap-8 xl:gap-16">
+              <div className="w-full xl:w-2/5 max-xl:order-2">
+                <Image
+                  src="/src/img/skyline/host-event.webp"
+                  alt=""
+                  width={1000}
+                  height={1356}
+                  className="w-full h-auto max-h-[560px] object-cover rounded-xl"
+                  loading="lazy"
+                />
+              </div>
+              <div className="w-full xl:w-3/5 max-xl:order-1">
+                <h2 className="nd-heading-l mb-0">
+                  {t.rich("skyline.host.title", { light })}
+                </h2>
+                <p className="nd-body-xl text-nd-mid-em-text mt-3 xl:mt-5 mb-0 max-w-2xl">
+                  {t("skyline.host.description")}
+                </p>
+                <div className="mt-8 xl:mt-12">
+                  <a
+                    href={LINKS.contactEmail}
+                    className="inline-flex items-center rounded-full bg-white text-black px-5 py-2.5 nd-body-m font-medium hover:bg-white/90 transition-colors"
+                  >
+                    {t("skyline.host.cta")}
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 xl:mt-16 pt-8 xl:pt-12 border-t border-nd-border-light">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] gap-8 xl:gap-16">
+                <div>
+                  <h3 className="nd-heading-m mb-3">
+                    {t("skyline.host.detailsTitle")}
+                  </h3>
+                  <p className="nd-body-l text-nd-mid-em-text mb-0 max-w-2xl">
+                    {t("skyline.host.detailsDescription")}
+                  </p>
+                </div>
+
+                <ul className="p-0 m-0 list-none divide-y divide-white/10">
+                  {Array.from({ length: VENUE_FEATURE_COUNT }, (_, i) => (
+                    <li key={i} className="flex items-start gap-4 py-3">
+                      <PlusGlyph className="shrink-0 mt-[5px]" />
+                      <span className="nd-body-m text-nd-mid-em-text">
+                        {t(`skyline.host.features.${i}`)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <ul
+                ref={venueRef}
+                className="p-0 mt-8 xl:mt-12 mb-0 list-none grid grid-cols-2 xl:grid-cols-4 border border-nd-border-light rounded-xl overflow-hidden"
+              >
+                {Array.from({ length: VENUE_DETAIL_COUNT }, (_, i) => (
+                  <li
+                    key={i}
+                    className={
+                      "min-h-[144px] p-5 xl:p-6 flex flex-col justify-between border-r border-b border-nd-border-light last:border-r-0 even:border-r-0 xl:even:border-r xl:[&:nth-child(4n)]:border-r-0 [&:nth-last-child(-n+2)]:border-b-0 xl:[&:nth-last-child(-n+4)]:border-b-0" +
+                      (venueVisible ? " animate-fade-in-up" : "")
+                    }
+                    style={
+                      venueVisible
+                        ? { animationDelay: `${0.1 + i * 0.1}s` }
+                        : { opacity: 0 }
+                    }
+                  >
+                    <span
+                      className="nd-heading-m font-light"
+                      style={{ color: ACCENT }}
+                    >
+                      {t(`skyline.host.details.${i}.value`)}
+                    </span>
+                    <span className="nd-body-s text-nd-mid-em-text mt-6">
+                      {t(`skyline.host.details.${i}.label`)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Container>
+        </section>
+
+        <Divider />
+
+        {/* Upcoming Events Section */}
+        {events.length > 0 && (
+          <>
+            <CardCarouselSection
+              wrapperClassName="py-[64px] md:py-[112px] xl:py-[160px]"
+              title={t.rich("skyline.events.title", { light })}
+              subtitle={t("skyline.events.subtitle")}
+              totalItems={events.length}
+              tabletLastPageOffset={2}
+              desktopLastPageOffset={2}
+              desktop2xlLastPageOffset={3}
+              cardWidthClassName="w-full md:w-[356px] xl:w-[456px]"
+              cta={t("skyline.events.cta")}
+              ctaHref={LINKS.eventsCalendar}
+            >
+              {events.map((event) => (
+                <PlaceMediaCard
+                  key={event.key}
+                  imageSrc={event.img.primary || "/src/img/skyline/decor.webp"}
+                  title={event.title}
+                  date={event.schedule.from ?? undefined}
+                  location={
+                    event.venue.city ?? event.venue.address ?? undefined
+                  }
+                  href={event.rsvp}
+                  className="px-1"
+                />
+              ))}
+            </CardCarouselSection>
+
+            <Divider />
+          </>
+        )}
+
+        {/* FAQ Section */}
+        <section className="relative bg-black text-white text-left">
+          <Container className="py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row gap-8 xl:gap-16">
+            <div className="xl:w-2/5">
+              <h2 className="nd-heading-l mb-0">{t("skyline.faq.title")}</h2>
+            </div>
+            <div className="xl:w-3/5">
+              <Accordion type="single" collapsible className="w-full">
+                {Array.from({ length: FAQ_COUNT }, (_, i) => (
+                  <AccordionItem
+                    key={i}
+                    value={`faq-${i}`}
+                    className="border-nd-border-light"
+                  >
+                    <AccordionTrigger className="nd-body-l font-medium py-6 hover:no-underline">
+                      {t(`skyline.faq.items.${i}.question`)}
+                    </AccordionTrigger>
+                    <AccordionContent className="nd-body-m text-nd-mid-em-text pb-6">
+                      {t.rich(`skyline.faq.items.${i}.answer`, { email })}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          </Container>
+        </section>
+
+        <Divider hideOnDesktop />
+
+        {/* Closing CTA Section */}
+        <SolutionReport
+          eyebrow={t("skyline.cta.title")}
+          description={t("skyline.cta.description")}
+          emailCta={t("skyline.cta.button")}
+          ctaHref={LINKS.contactEmail}
+          CtaIcon={UsersIcon}
+          imgSrc="/src/img/skyline/logo.webp"
+          linksTitle={t("skyline.cta.linksTitle")}
+          links={[
+            {
+              title: t("skyline.cta.links.0.label"),
+              href: LINKS.fridayCoworking,
+            },
+            {
+              title: t("skyline.cta.links.1.label"),
+              href: LINKS.membershipApplication,
+            },
+            {
+              title: t("skyline.cta.links.2.label"),
+              href: LINKS.eventsCalendar,
+            },
+          ]}
+          bgJsonFilePath="/src/img/skyline/hero-bg.json"
+        />
+      </div>
+    </>
+  );
+}
