@@ -1,7 +1,14 @@
 import { EventsLandingPage } from "./events";
+import type { Metadata } from "next";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
+import {
+  buildEventsJsonLd,
+  EVENTS_PATH,
+  EVENTS_SOCIAL_IMAGE,
+  serializeJsonLd,
+} from "@/lib/events/structuredData";
 import {
   type CalendarEvent,
   fetchCalendarEvents,
@@ -23,14 +30,17 @@ const sortByStartDate = (events: CalendarEvent[]) =>
     ["asc"],
   );
 
-export default async function Page(_props: Props) {
+export default async function Page({ params }: Props) {
   const [
+    { locale },
     mainEvents,
     breakpointEvents,
     solanaAccelerateEvents,
     usEvents,
     communityEvents,
+    t,
   ] = await Promise.all([
+    params,
     // Solana Foundation calendar
     fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
       period: "future",
@@ -51,6 +61,7 @@ export default async function Page(_props: Props) {
     fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
       period: "future",
     }),
+    getTranslations(),
   ]);
 
   // sorted and unique main events
@@ -69,7 +80,14 @@ export default async function Page(_props: Props) {
     unique.find((e) => e.featured === true) || unique[0] || null;
   const events = [...unique];
 
-  const t = await getTranslations();
+  const seoTitle = t("events.meta.seoTitle");
+  const seoDescription = t("events.meta.seoDescription");
+  const structuredData = buildEventsJsonLd({
+    events: uniqBy([...events, ...usEvents, ...sortedCommunity], "key"),
+    locale,
+    title: seoTitle,
+    description: seoDescription,
+  });
 
   const translations = {
     usHeading: t("events.us.heading"),
@@ -81,22 +99,44 @@ export default async function Page(_props: Props) {
   };
 
   return (
-    <EventsLandingPage
-      events={events}
-      communityEvents={sortedCommunity}
-      featuredEvent={featuredEvent}
-      usEvents={usEvents}
-      translations={translations}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
+      <EventsLandingPage
+        events={events}
+        communityEvents={sortedCommunity}
+        featuredEvent={featuredEvent}
+        usEvents={usEvents}
+        translations={translations}
+      />
+    </>
   );
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations();
+  const title = t("events.meta.seoTitle");
+  const description = t("events.meta.seoDescription");
+  const alternates = getAlternates(EVENTS_PATH, locale);
+
   return {
-    title: t("titles.events"),
-    description: t("events.description"),
-    alternates: getAlternates("/events", locale),
+    title,
+    description,
+    alternates,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: alternates.canonical,
+      images: [EVENTS_SOCIAL_IMAGE],
+    },
+    twitter: {
+      title,
+      description,
+      images: [EVENTS_SOCIAL_IMAGE],
+    },
   };
 }
