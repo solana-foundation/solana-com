@@ -1,0 +1,204 @@
+---
+title: استبطان المعاملات
+description:
+  فك تشفير وفحص معاملة سولانا مؤكدة باستخدام @solana/transaction-introspection -
+  حل مؤشرات الحسابات وعناوين جداول البحث، والتنقل عبر التعليمات الخارجية
+  والداخلية (CPI)، وتحليلها باستخدام عملاء البرامج.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="ملخص">
+  يحوّل `@solana/transaction-introspection` استجابة RPC من نوع `getTransaction`
+  إلى قائمة من التعليمات مع العناوين الحقيقية. يحل مؤشرات الحسابات (بما فيها
+  عناوين جداول البحث)، ويفك تشفير تعليمات CPI الداخلية، ويتنقل عبر شجرة
+  التعليمات الكاملة بترتيب المستكشف.
+</Callout>
+
+<Callout type="info">
+  هل تبحث عن كيفية فحص البرنامج للتعليمات المجاورة _على السلسلة_ في وقت التشغيل؟
+  تلك هي متغير Instructions sysvar - راجع [استبطان
+  التعليمات](/docs/core/instructions/instruction-introspection). هذه الصفحة
+  تتعلق بفك تشفير معاملة _خارج السلسلة_ من استجابة RPC.
+</Callout>
+
+لا تمنحك استجابة [`getTransaction`](/docs/rpc/http/gettransaction) قائمة جاهزة
+من التعليمات. تُخزَّن الحسابات كمؤشرات رقمية، وتقسّم
+[المعاملات ذات الإصدارات](/docs/core/transactions/versioned-transactions) تلك
+الحسابات إلى مفاتيح ثابتة وعناوين محمّلة من
+[جداول بحث العناوين](/docs/core/transactions/versioned-transactions)، وتصل
+التعليمات الداخلية الناتجة عن Cross Program Invocation (CPIs) على شكل بيانات
+مشفرة ضمن بيانات تعريف المعاملة.
+
+يتولى `@solana/transaction-introspection` هذا الحل نيابةً عنك. يفك تشفير معاملة
+الشبكة، ويربط كل مؤشر حساب بـ `Address` الخاص به، ويوحّد التعليمات الداخلية،
+ويعيد التعليمات بالترتيب الخارجي ثم الداخلي ذاته الذي يعرضه مستكشف الكتل. تتصل
+التعليمات المُعادة مباشرةً بمساعدات `parseXInstruction` الخاصة بعملاء codama
+المُولَّدين (مثل `@solana-program/*`).
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## فك تشفير الاستجابة
+
+اجلب المعاملة بترميز تنسيق الشبكة ومرر الاستجابة إلى
+`decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+تعيد المقتطفات اللاحقة استخدام `rpcTx` و `compiledMessage` و `loadedAddresses`
+من هذه الخطوة.
+
+<Callout type="warn">
+  اجلب البيانات بترميز `base64` أو `base58` أو `json`. يرفض
+  `decodeTransactionFromRpcResponse` استجابات `jsonParsed` - إذ يطلب هذا الترميز
+  من عقدة RPC تحليل التعليمات من جهة الخادم، فلا يتبقى شيء لفك تشفيره على جانب
+  العميل.
+</Callout>
+
+## التنقل عبر التعليمات
+
+تُعيد `walkInstructions` كل تعليمة - خارجية وداخلية - كمصفوفة بالترتيب الذي
+يعرضه مستكشف الكتل: كل تعليمة خارجية يعقبها مباشرةً التعليمات الداخلية التي
+أنتجتها استدعاءات CPI الخاصة بها. تحمل كل تعليمة حقل `trace` يصف موضعها في
+التسلسل الهرمي للاستدعاء.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+إن `trace` هو اتحاد مُمَيَّز: `{ kind: "outer", index }` للتعليمة على المستوى
+الأعلى، أو `{ kind: "inner", outerIndex, innerIndex, stackHeight? }` لتعليمة CPI
+متداخلة تحت تعليمة خارجية.
+
+`meta` اختياري - مرِّر `rpcTx.meta` مباشرةً حتى عندما قد يكون `null`. بدون
+بيانات وصفية، تُعيد `walkInstructions` التعليمات الخارجية فقط.
+
+## التحليل باستخدام عميل برنامج
+
+كل تعليمة من `walkInstructions` هي `ResolvedInstruction`، لذا تعمل مباشرةً مع
+المُحَدِّدات المنطقية من `@solana/instructions` ومساعدات `identifyXInstruction`
+/ `parseXInstruction` التي تُولِّدها عملاء `@solana-program/*` - دون الحاجة إلى
+خطوة تحويل.
+
+يقوم هذا المثال بمراجعة كل تعليمة `SyncNative` الخاصة بـ Token Program في معاملة
+ما، سواء نُفِّذت على المستوى الأعلى أو داخل CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## مساعدات المستوى الأدنى
+
+تُغطي `walkInstructions` معظم الاحتياجات، لكن الحزمة تكشف أيضاً المكوِّنات التي
+تبني عليها:
+
+- تُعيد
+  `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  التعليمات الخارجية فقط، مع الحسابات المُحلَّلة والبيانات المُفسَّرة.
+- تُفسِّر `getInnerInstructionsFromMeta(meta, accountMetas)` تعليمات CPI
+  الداخلية من بيانات المعاملة الوصفية.
+- تُعيد
+  `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  قائمة الحسابات الكاملة بترتيب المعاملة - وهي المدخلات التي يحتاجها المساعد
+  السابق لحل فهارس حسابات التعليمات الداخلية.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="هل تستخدم Rust?">
+  لا يوجد ما يعادل هذه الحزمة في Rust. للحصول على تعليمات مُحلَّلة من Rust، اطلب
+  `UiTransactionEncoding::JsonParsed` من
+  [`getTransaction`](/docs/rpc/http/gettransaction) ودع عقدة RPC تحل الحسابات
+  والتعليمات الداخلية نيابةً عنك.
+</Callout>
+
+## انظر أيضاً
+
+- [هيكل المعاملة](/docs/core/transactions/transaction-structure) - تشريح
+  الاستجابة التي تفككها هذه الحزمة
+- [المعاملات ذات الإصدار](/docs/core/transactions/versioned-transactions) - كيف
+  تقسّم جداول بحث العناوين الحسابات إلى مجموعات ثابتة ومحمّلة
+- [`getTransaction`](/docs/rpc/http/gettransaction) - طريقة RPC التي تُعيد
+  المعاملة

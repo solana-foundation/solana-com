@@ -1,0 +1,208 @@
+---
+title: Introspeksi Transaksi
+description:
+  Dekode dan periksa transaksi Solana yang telah dikonfirmasi dengan
+  @solana/transaction-introspection - selesaikan indeks akun dan alamat
+  lookup-table, telusuri instruksi luar dan dalam (CPI), serta parse dengan
+  klien program.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Ringkasan">
+  `@solana/transaction-introspection` mengubah respons RPC `getTransaction`
+  menjadi daftar instruksi dengan alamat nyata. Ini menyelesaikan indeks akun
+  (termasuk alamat lookup-table), mendekode instruksi CPI dalam, dan menelusuri
+  pohon instruksi lengkap dalam urutan explorer.
+</Callout>
+
+<Callout type="info">
+  Mencari cara program memeriksa instruksi saudara _on-chain_ saat runtime?
+  Itulah Instructions sysvar - lihat [Introspeksi
+  Instruksi](/docs/core/instructions/instruction-introspection). Halaman ini
+  membahas dekoding transaksi _off-chain_ dari respons RPC.
+</Callout>
+
+Respons [`getTransaction`](/docs/rpc/http/gettransaction) tidak langsung
+memberikan daftar instruksi yang siap digunakan. Akun disimpan sebagai indeks
+numerik, [transaksi berversi](/docs/core/transactions/versioned-transactions)
+membagi akun-akun tersebut menjadi kunci statis ditambah alamat yang dimuat dari
+[Address Lookup Tables](/docs/core/transactions/versioned-transactions), dan
+instruksi dalam dari Cross Program Invocation (CPI) tiba sebagai blob terenkode
+dalam metadata transaksi.
+
+`@solana/transaction-introspection` melakukan resolusi ini untuk Anda. Ini
+mendekode transaksi wire, memetakan setiap indeks akun kembali ke `Address`-nya,
+menormalisasi instruksi dalam, dan mengembalikan instruksi dalam urutan
+luar-kemudian-dalam yang sama seperti yang ditampilkan block explorer. Instruksi
+yang dikembalikan dapat langsung digunakan pada helper `parseXInstruction` dari
+klien yang dihasilkan codama (mis., `@solana-program/*`).
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Dekode respons
+
+Ambil transaksi dengan encoding format wire dan teruskan responsnya ke
+`decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+Cuplikan kode berikutnya menggunakan kembali `rpcTx`, `compiledMessage`, dan
+`loadedAddresses` dari langkah ini.
+
+<Callout type="warn">
+  Ambil dengan encoding `base64`, `base58`, atau `json`.
+  `decodeTransactionFromRpcResponse` menolak respons `jsonParsed` - encoding
+  tersebut meminta node RPC untuk mem-parse instruksi di sisi server, sehingga
+  tidak ada yang tersisa untuk didekode di sisi klien.
+</Callout>
+
+## Telusuri instruksi
+
+`walkInstructions` mengembalikan setiap instruksi - luar dan dalam - sebagai
+array dalam urutan yang ditampilkan oleh block explorer: setiap instruksi luar
+diikuti langsung oleh instruksi dalam yang dihasilkan oleh CPI-nya. Setiap
+instruksi membawa field `trace` yang mendeskripsikan posisinya dalam hierarki
+panggilan.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` adalah discriminated union: `{ kind: "outer", index }` untuk instruksi
+tingkat atas, atau `{ kind: "inner", outerIndex, innerIndex, stackHeight? }`
+untuk instruksi CPI yang bersarang di bawah instruksi luar.
+
+`meta` bersifat opsional - teruskan `rpcTx.meta` secara langsung meskipun
+nilainya mungkin `null`. Tanpa meta, `walkInstructions` hanya mengembalikan
+instruksi luar.
+
+## Parsing dengan program client
+
+Setiap instruksi dari `walkInstructions` adalah `ResolvedInstruction`, sehingga
+dapat digunakan langsung dengan predikat dari `@solana/instructions` dan helper
+`identifyXInstruction` / `parseXInstruction` yang dihasilkan oleh client
+`@solana-program/*` - tanpa langkah konversi.
+
+Contoh ini mengaudit setiap instruksi Token Program `SyncNative` dalam sebuah
+transaksi, baik yang berjalan di tingkat atas maupun di dalam CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Helper tingkat rendah
+
+`walkInstructions` mencakup sebagian besar kebutuhan, tetapi paket ini juga
+mengekspos komponen-komponen yang menjadi dasarnya:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  hanya mengembalikan instruksi luar, dengan akun yang telah di-resolve dan data
+  yang telah di-decode.
+- `getInnerInstructionsFromMeta(meta, accountMetas)` mendecode instruksi CPI
+  dalam dari metadata transaksi.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  mengembalikan daftar akun lengkap dalam urutan transaksi - input yang
+  dibutuhkan helper sebelumnya untuk me-resolve indeks akun instruksi dalam.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Menggunakan Rust?">
+  Tidak ada padanan Rust untuk paket ini. Untuk mendapatkan instruksi yang telah
+  di-parse dari Rust, minta `UiTransactionEncoding::JsonParsed` dari
+  [`getTransaction`](/docs/rpc/http/gettransaction) dan biarkan node RPC
+  me-resolve akun dan instruksi dalam untuk Anda.
+</Callout>
+
+## Lihat juga
+
+- [Struktur Transaksi](/docs/core/transactions/transaction-structure) - anatomi
+  dari respons yang didekode oleh paket ini
+- [Transaksi Berversi](/docs/core/transactions/versioned-transactions) -
+  bagaimana Address Lookup Tables membagi akun menjadi grup statis dan grup yang
+  dimuat
+- [`getTransaction`](/docs/rpc/http/gettransaction) - metode RPC yang
+  mengembalikan transaksi
