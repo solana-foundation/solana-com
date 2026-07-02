@@ -23,7 +23,7 @@ resulting subscription PDA.
   <Tab value="Rust">
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
+    subscriptions = "0.4.0"
     solana-instruction = "^2"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
@@ -133,6 +133,16 @@ The merchant can update mutable plan fields after creation. Existing subscribers
 keep the terms they accepted, while new subscribers accept the current plan
 terms.
 
+A few rules apply:
+
+- A finite `endTs` can only be shortened, never extended or cleared
+  (`PlanEndTsCannotExtend`).
+- On a `Sunset` plan you can remove pullers (the new set must be a subset of the
+  current one) to revoke a compromised puller; status, `endTs`, and metadata
+  stay frozen.
+- Edits work during a plan's final billing period as long as `endTs` is
+  unchanged.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
@@ -165,9 +175,13 @@ terms.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -396,6 +410,46 @@ transactions.
         .authority(subscriber)
         .delegation_account(subscription_pda)
         .add_remaining_account(AccountMeta::new_readonly(plan_pda, false))
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Resume A Subscription
+
+A cancelled subscription can be reactivated before it is revoked. Resume
+requires the subscriber's `SubscriptionAuthority` for the plan's mint, which the
+program validates (owner, mint, and `init_id`) and rejects if it is stale or
+re-initialized.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
         .instruction();
     ```
 
