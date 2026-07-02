@@ -1,0 +1,214 @@
+---
+title: Introspezione delle Transazioni
+description:
+  Decodifica e ispeziona una transazione Solana confermata con
+  @solana/transaction-introspection - risolvi gli indici degli account e gli
+  indirizzi delle lookup table, esplora le istruzioni esterne e interne (CPI) e
+  analizzale con i client dei programmi.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Riepilogo">
+  `@solana/transaction-introspection` trasforma una risposta RPC
+  `getTransaction` in un elenco di istruzioni con indirizzi reali. Risolve gli
+  indici degli account (inclusi gli indirizzi delle lookup table), decodifica le
+  istruzioni interne Cross Program Invocation e attraversa l'intero albero delle
+  istruzioni nell'ordine dell'explorer.
+</Callout>
+
+<Callout type="info">
+  Cerchi informazioni su come un programma ispeziona le istruzioni adiacenti
+  _on-chain_ in fase di esecuzione? Questo riguarda il sysvar Instructions -
+  vedi [Introspezione delle
+  Istruzioni](/docs/core/instructions/instruction-introspection). Questa pagina
+  riguarda la decodifica di una transazione _off-chain_ da una risposta RPC.
+</Callout>
+
+Una risposta [`getTransaction`](/docs/rpc/http/gettransaction) non fornisce
+direttamente un elenco di istruzioni pronto all'uso. Gli account sono
+memorizzati come indici numerici, le
+[transazioni con versione](/docs/core/transactions/versioned-transactions)
+suddividono quegli account in chiavi statiche più indirizzi caricati dalle
+[Address Lookup Table](/docs/core/transactions/versioned-transactions), e le
+istruzioni interne provenienti da cross-program invocations (CPI) arrivano come
+blob codificati nei metadati della transazione.
+
+`@solana/transaction-introspection` esegue questa risoluzione per te. Decodifica
+la transazione wire, mappa ogni indice di account al suo `Address`
+corrispondente, normalizza le istruzioni interne e restituisce le istruzioni
+nello stesso ordine esterno-poi-interno mostrato da un block explorer. Le
+istruzioni restituite si collegano direttamente agli helper `parseXInstruction`
+dei client generati da codama (es., `@solana-program/*` ).
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Decodifica la risposta
+
+Recupera la transazione con una codifica wire-format e passa la risposta a
+`decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+I frammenti successivi riutilizzano `rpcTx`, `compiledMessage` e
+`loadedAddresses` da questo passaggio.
+
+<Callout type="warn">
+  Recupera con la codifica `base64`, `base58` o `json`.
+  `decodeTransactionFromRpcResponse` rifiuta le risposte `jsonParsed` - quella
+  codifica chiede al nodo RPC di analizzare le istruzioni lato server, quindi
+  non rimane nulla da decodificare sul client.
+</Callout>
+
+## Scorri le istruzioni
+
+`walkInstructions` restituisce ogni istruzione - esterna e interna - come array
+nell'ordine mostrato da un block explorer: ogni istruzione esterna seguita
+immediatamente dalle istruzioni interne prodotte dai suoi CPI. Ogni istruzione
+contiene un campo `trace` che descrive la sua posizione nella gerarchia delle
+chiamate.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+Il campo `trace` è un'unione discriminata: `{ kind: "outer", index }` per
+un'istruzione di primo livello, oppure
+`{ kind: "inner", outerIndex, innerIndex, stackHeight? }` per un'istruzione CPI
+annidata sotto una esterna.
+
+`meta` è opzionale - passa `rpcTx.meta` direttamente anche quando potrebbe
+essere `null`. Senza metadati, `walkInstructions` restituisce solo le istruzioni
+esterne.
+
+## Analisi con un client di programma
+
+Ogni istruzione restituita da `walkInstructions` è un `ResolvedInstruction`,
+quindi funziona direttamente con i predicati di `@solana/instructions` e con gli
+helper `identifyXInstruction` / `parseXInstruction` generati dai client
+`@solana-program/*` - senza alcuna fase di conversione.
+
+Questo esempio verifica ogni istruzione `SyncNative` del Token Program in una
+transazione, sia che sia eseguita al livello superiore sia all'interno di un
+CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Helper di livello inferiore
+
+`walkInstructions` copre la maggior parte delle esigenze, ma il pacchetto espone
+anche i componenti su cui si basa:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  restituisce solo le istruzioni esterne, con gli account risolti e i dati
+  decodificati.
+- `getInnerInstructionsFromMeta(meta, accountMetas)` decodifica le istruzioni
+  CPI interne dai metadati della transazione.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  restituisce l'elenco completo degli account nell'ordine della transazione -
+  l'input necessario all'helper precedente per risolvere gli indici degli
+  account delle istruzioni interne.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Utilizzi Rust?">
+  Non esiste un equivalente Rust di questo pacchetto. Per ottenere istruzioni
+  analizzate da Rust, richiedi `UiTransactionEncoding::JsonParsed` da
+  [`getTransaction`](/docs/rpc/http/gettransaction) e lascia che il nodo RPC
+  risolva gli account e le istruzioni interne per te.
+</Callout>
+
+## Vedi anche
+
+- [Struttura della transazione](/docs/core/transactions/transaction-structure) -
+  l'anatomia della risposta decodificata da questo pacchetto
+- [Transazioni con versione](/docs/core/transactions/versioned-transactions) -
+  come le tabelle di ricerca degli indirizzi suddividono gli account in gruppi
+  statici e caricati
+- [`getTransaction`](/docs/rpc/http/gettransaction) - il metodo RPC che
+  restituisce la transazione

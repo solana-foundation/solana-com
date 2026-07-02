@@ -1,0 +1,188 @@
+---
+title: 交易内省
+description:
+  使用 @solana/transaction-introspection 解码并检查已确认的 Solana
+  交易——解析账户索引和查找表地址，遍历外层及内层（CPI）指令，并通过程序客户端进行解析。
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="摘要">
+  `@solana/transaction-introspection` 将 `getTransaction` RPC 响应转换为
+  一个包含真实地址的指令列表。它解析账户索引 （包括查找表地址），解码内层 CPI
+  指令，并按 浏览器顺序遍历完整的指令树。
+</Callout>
+
+<Callout type="info">
+  想了解程序如何在运行时 _链上_ 检查同级指令？ 那是 Instructions sysvar——请参阅
+  [指令 内省](/docs/core/instructions/instruction-introspection)。本页面
+  介绍的是如何从 RPC 响应中 _离链_ 解码交易。
+</Callout>
+
+[`getTransaction`](/docs/rpc/http/gettransaction)
+响应并不会直接提供可用的指令列表。账户以数字索引形式存储，
+[版本化交易](/docs/core/transactions/versioned-transactions)
+将这些账户拆分为静态密钥加上从
+[地址查找表](/docs/core/transactions/versioned-transactions)
+加载的地址，而来自 Cross Program
+Invocation（CPI）的内层指令则以编码数据块的形式存储于交易元数据中。
+
+`@solana/transaction-introspection`
+为您完成此解析工作。它解码线格式交易，将每个账户索引映射回其
+`Address`，规范化内层指令，并按区块浏览器所展示的外层优先、内层其次的顺序返回指令。返回的指令可直接插入 codama 生成的客户端（例如
+`@solana-program/*`）的 `parseXInstruction` 辅助函数中。
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## 解码响应
+
+使用线格式编码获取交易，并将响应传递给 `decodeTransactionFromRpcResponse`。
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+后续代码片段将复用此步骤中的 `rpcTx`、`compiledMessage` 和 `loadedAddresses`。
+
+<Callout type="warn">
+  请使用 `base64`、`base58` 或 `json` 编码进行获取。
+  `decodeTransactionFromRpcResponse` 会拒绝 `jsonParsed` 响应——该 编码会要求 RPC
+  节点在服务端解析指令，因此 客户端将无任何内容可解码。
+</Callout>
+
+## 遍历指令
+
+`walkInstructions`
+以数组形式返回所有指令——包括外层指令和内层指令——其顺序与区块浏览器显示的一致：每条外层指令后紧跟其 CPI 产生的内层指令。每条指令都包含一个
+`trace` 字段，用于描述其在调用层级中的位置。
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` 是一个可辨别联合类型：顶层指令为
+`{ kind: "outer", index }`，嵌套在外层指令下的 CPI 指令为
+`{ kind: "inner", outerIndex, innerIndex, stackHeight? }`。
+
+`meta` 是可选的——即使可能为 `null`，也可以直接传入
+`rpcTx.meta`。若没有元数据，`walkInstructions` 将仅返回外层指令。
+
+## 使用程序客户端解析
+
+`walkInstructions` 返回的每条指令都是 `ResolvedInstruction`，因此可直接与
+`@solana/instructions` 中的谓词函数以及由 `@solana-program/*` 客户端生成的
+`identifyXInstruction` / `parseXInstruction`
+辅助函数配合使用，无需额外的转换步骤。
+
+以下示例审计一笔交易中每条 Token Program `SyncNative`
+指令，无论其是在顶层执行还是在 CPI 内部执行。
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## 底层辅助函数
+
+`walkInstructions` 可满足大多数需求，但该包还暴露了其底层所依赖的各个组件：
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  仅返回外层指令，并附带已解析的账户和已解码的数据。
+- `getInnerInstructionsFromMeta(meta, accountMetas)`
+  从交易元数据中解码内层 CPI 指令。
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  按交易顺序返回完整的账户列表——这是前一个辅助函数解析内层指令账户索引所需的输入。
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="使用 Rust？">
+  本包没有对应的 Rust 实现。如需在 Rust 中获取已解析的指令，请从
+  [`getTransaction`](/docs/rpc/http/gettransaction) 请求
+  `UiTransactionEncoding::JsonParsed`，让 RPC 节点为您解析账户和内层指令。
+</Callout>
+
+## 另请参阅
+
+- [交易结构](/docs/core/transactions/transaction-structure) - 此包解码的响应结构详解
+- [版本化交易](/docs/core/transactions/versioned-transactions) - 地址查找表如何将账户分为静态组和已加载组
+- [`getTransaction`](/docs/rpc/http/gettransaction) - 返回交易信息的 RPC 方法
