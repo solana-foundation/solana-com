@@ -6,7 +6,10 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/app/components/utils";
-import UnicornScene from "unicornstudio-react";
+import {
+  getSafeUnicornDpi,
+  SafeUnicornScene,
+} from "@/components/shared/SafeUnicornScene";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 export type SolutionHeroStat = {
@@ -107,13 +110,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       aria-labelledby="hero-title"
     >
       {bgJsonFilePath && (
-        <UnicornScene
+        <SafeUnicornScene
           className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
           scale={1}
-          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad={true}
           production={true}

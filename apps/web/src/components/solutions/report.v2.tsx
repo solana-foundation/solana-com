@@ -2,7 +2,10 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine, ChevronRight } from "lucide-react";
-import UnicornScene from "unicornstudio-react";
+import {
+  getSafeUnicornDpi,
+  SafeUnicornScene,
+} from "@/components/shared/SafeUnicornScene";
 
 export type SolutionReportLink = {
   title: string;
@@ -66,13 +69,13 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="!absolute m-auto max-xl:top-2 max-xl:right-2 max-xl:bottom-2 max-xl:left-2 xl:top-10 xl:bottom-10 xl:right-10 xl:left-10">
-        <UnicornScene
+        <SafeUnicornScene
           className="!absolute top-0 right-0 bottom-0 left-0 rounded-xl overflow-hidden"
           width="100%"
           height="100%"
           jsonFilePath={bgJsonFilePath}
           scale={1}
-          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad={true}
           production={true}

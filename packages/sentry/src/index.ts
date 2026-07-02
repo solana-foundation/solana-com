@@ -44,6 +44,14 @@ const EXTENSION_FRAME_MARKERS = [
 const EXTENSION_REJECTION_PATTERNS = [
   /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/,
 ];
+const RESOURCE_LOAD_EVENT_TYPES = ["abort", "error"];
+const RESOURCE_ELEMENT_MARKERS = [
+  "HTMLImageElement",
+  "HTMLLinkElement",
+  "HTMLScriptElement",
+  "HTMLSourceElement",
+  "HTMLVideoElement",
+];
 
 type SentryEventLike = {
   exception?: {
@@ -208,6 +216,46 @@ function isWalletExtensionError(event: SentryEventLike): boolean {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object");
+}
+
+function isSerializedResourceEvent(serialized: unknown): boolean {
+  if (!isRecord(serialized)) {
+    return false;
+  }
+
+  if (
+    !RESOURCE_LOAD_EVENT_TYPES.includes(
+      typeof serialized.type === "string" ? serialized.type : "",
+    )
+  ) {
+    return false;
+  }
+
+  let serializedValue = "";
+
+  try {
+    serializedValue = JSON.stringify(serialized);
+  } catch {
+    return false;
+  }
+
+  return RESOURCE_ELEMENT_MARKERS.some((marker) =>
+    serializedValue.includes(marker),
+  );
+}
+
+function isResourceLoadRejection(event: SentryEventLike): boolean {
+  const exception = event.exception?.values?.[0];
+
+  return Boolean(
+    exception?.mechanism?.synthetic &&
+    exception.type === "UnhandledRejection" &&
+    isSerializedResourceEvent(event.extra?.__serialized__),
+  );
+}
+
 export function sentryTracesSampler(
   context: SentrySamplingContextLike,
 ): number {
@@ -278,6 +326,10 @@ export function sentryBeforeSend<T extends SentryEventLike>(
   }
 
   if (isWalletExtensionError(event)) {
+    return null;
+  }
+
+  if (isResourceLoadRejection(event)) {
     return null;
   }
 

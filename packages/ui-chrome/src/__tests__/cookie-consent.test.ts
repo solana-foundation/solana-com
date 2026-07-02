@@ -13,9 +13,11 @@ import {
 } from "../cookie-consent";
 
 const evaluateBootstrapConsent = ({
+  blockStorage = false,
   now,
   storedValue,
 }: {
+  blockStorage?: boolean;
   now: number;
   storedValue: string | null;
 }) => {
@@ -50,7 +52,15 @@ const evaluateBootstrapConsent = ({
   };
 
   windowObject.window = windowObject;
-  windowObject.localStorage = context.localStorage;
+  if (blockStorage) {
+    Object.defineProperty(windowObject, "localStorage", {
+      get() {
+        throw new DOMException("Blocked", "SecurityError");
+      },
+    });
+  } else {
+    windowObject.localStorage = context.localStorage;
+  }
   vm.runInNewContext(script, context);
 
   const consentUpdateCall = gtag.mock.calls.find(
@@ -122,6 +132,32 @@ describe("cookie consent helpers", () => {
     expect(consent).toBeNull();
     expect(removeItem).toHaveBeenCalledWith(COOKIE_CONSENT_KEY);
     consoleError.mockRestore();
+  });
+
+  it("returns null when storage access throws", () => {
+    const consent = readCookieConsent({
+      storage: {
+        getItem: vi.fn(() => {
+          throw new DOMException("Blocked", "SecurityError");
+        }),
+        removeItem: vi.fn(),
+      },
+    });
+
+    expect(consent).toBeNull();
+  });
+
+  it("does not throw when persisting consent to blocked storage", () => {
+    expect(() =>
+      persistCookieConsent({
+        storage: {
+          setItem: vi.fn(() => {
+            throw new DOMException("Blocked", "SecurityError");
+          }),
+        },
+        value: true,
+      }),
+    ).not.toThrow();
   });
 
   it("accepts legacy numeric consent values", () => {
@@ -336,5 +372,25 @@ describe("cookie consent helpers", () => {
       "security_storage: 'granted'",
     );
     expect(getCookieConsentDefaultScript()).toContain("wait_for_update: 500");
+  });
+
+  it("bootstrap script keeps tracking denied when storage is blocked", () => {
+    const bootstrapResult = evaluateBootstrapConsent({
+      blockStorage: true,
+      now: 10,
+      storedValue: JSON.stringify({
+        value: true,
+        timeToExpire: 100,
+      }),
+    });
+
+    expect(bootstrapResult.consentUpdateCall).toBeUndefined();
+    expect(bootstrapResult.windowObject.builderNoTrack).toBe(true);
+    expect(bootstrapResult.gtag).toHaveBeenCalledWith("consent", "default", {
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+      analytics_storage: "denied",
+    });
   });
 });

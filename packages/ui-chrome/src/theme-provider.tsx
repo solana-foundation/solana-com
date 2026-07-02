@@ -2,6 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "@workspace/i18n/routing";
+import {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageSetItem,
+} from "./browser-storage";
 import { isThemeRoute } from "./developer-routes";
 
 type Theme = "dark" | "light";
@@ -25,6 +30,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (isThemePage) {
+      const storage = getBrowserStorage("localStorage");
       // Function to update the theme based on the passed theme name
       const updateTheme = (newTheme: Theme) => {
         setTheme(newTheme);
@@ -35,11 +41,11 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           "tw-light",
         );
         document.documentElement.classList.add(newTheme, `tw-${newTheme}`);
-        localStorage.setItem("theme", newTheme);
+        safeStorageSetItem(storage, "theme", newTheme);
       };
 
       // Check if user has a theme preference in localStorage
-      const localTheme = localStorage.getItem("theme");
+      const localTheme = safeStorageGetItem(storage, "theme");
       if (localTheme === "dark" || localTheme === "light") {
         updateTheme(localTheme);
       } else {
@@ -84,7 +90,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     document.documentElement.classList.add(newTheme, `tw-${newTheme}`);
     setTheme(newTheme);
     if (isThemePage) {
-      localStorage.setItem("theme", newTheme);
+      safeStorageSetItem(getBrowserStorage("localStorage"), "theme", newTheme);
     }
   };
 

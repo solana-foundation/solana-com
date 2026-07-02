@@ -5,13 +5,10 @@ import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/app/components/utils";
 import { Container } from "@/component-library/container";
 import dynamic from "next/dynamic";
-
-const UnicornScene = dynamic(
-  () => import("unicornstudio-react").then((mod) => mod.default),
-  {
-    ssr: false,
-  },
-);
+import {
+  getSafeUnicornDpi,
+  SafeUnicornScene,
+} from "@/components/shared/SafeUnicornScene";
 
 const GetStarted = dynamic(
   () => import("./get-started").then((mod) => mod.GetStarted),
@@ -92,14 +89,14 @@ export const Hero: React.FC<HeroProps> = ({
         aria-labelledby="hero-title"
       >
         {bgJsonFilePath && (
-          <UnicornScene
+          <SafeUnicornScene
             projectId="hero"
             className="!absolute inset-0 z-0"
             jsonFilePath={bgJsonFilePath}
             width="100%"
             height="101%"
             scale={1}
-            dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+            dpi={getSafeUnicornDpi()}
             fps={30}
             lazyLoad={true}
             production={true}
@@ -118,6 +115,21 @@ export const Hero: React.FC<HeroProps> = ({
                   }}
                 />
               ) : undefined
+            }
+            fallback={
+              bgImageSrc ? (
+                <Image
+                  className="!absolute inset-0 z-0"
+                  src={bgImageSrc}
+                  alt="Hero background"
+                  fill
+                  sizes="150vw"
+                  priority
+                  style={{
+                    objectFit: "cover",
+                  }}
+                />
+              ) : null
             }
             showPlaceholderOnError
             showPlaceholderWhileLoading
