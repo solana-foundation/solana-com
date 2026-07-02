@@ -10,6 +10,7 @@ type Props = {
 };
 
 export const revalidate = 3600;
+const SOCIAL_IMAGE = "/social/solana-data.webp";
 
 export default function DataDashboard() {
   return (
@@ -63,5 +64,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t("title"),
     description: t("description"),
     alternates: getAlternates("/data", locale),
+    openGraph: {
+      images: [SOCIAL_IMAGE],
+    },
   };
 }
