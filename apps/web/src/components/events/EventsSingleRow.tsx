@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
@@ -30,9 +30,11 @@ const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
   const eventUrl =
     event?.platform === "external" ? event.key! : event?.rsvp || event?.lumaUrl;
 
-  return event ? (
+  if (!event) return <></>;
+
+  return (
     <Link
-      className="link-unstyled group flex min-h-[132px] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/25 text-white transition-colors duration-200 hover:border-[#14f195]/60 hover:bg-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#80ecff]"
+      className="link-unstyled group flex items-center gap-5 border-b border-white/10 py-5 text-white transition-colors duration-200 hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
       target="_blank"
       rel={
         eventUrl && !eventUrl.includes("solana.com")
@@ -41,59 +43,53 @@ const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
       }
       to={eventUrl}
     >
-      <div className="relative hidden w-[132px] shrink-0 overflow-hidden bg-[#111217] sm:block">
+      <div className="relative hidden aspect-square w-16 shrink-0 overflow-hidden bg-white/[0.04] sm:block">
         <Image
           alt={event.img.alt || event.title}
           src={(event?.img?.primary as string) || defaultImg}
           fill
-          sizes="132px"
-          className="object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+          sizes="64px"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
         />
       </div>
-      <div className="flex min-w-0 flex-1 items-start justify-between gap-4 p-4">
+
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
         <div className="min-w-0">
           <p
-            className="mb-3 flex flex-wrap items-center gap-2 text-sm text-[#80ecff]"
-            suppressHydrationWarning={true}
+            className="mb-2 font-brand-mono text-[11px] uppercase tracking-[0.25em] text-white/50"
+            suppressHydrationWarning
           >
-            <CalendarDays aria-hidden className="h-4 w-4 shrink-0" />
             {event?.schedule?.from && (
               <FormattedDate
                 date={event.schedule.from}
-                format="E, MMM d"
+                format="MMM d"
                 timezone={event.schedule.timezone}
               />
             )}
             {hasDifferentEndDay(event) && event.schedule.to && (
               <>
-                <span className="mx-1">-</span>
+                <span className="mx-1">–</span>
                 <FormattedDate
                   date={event.schedule.to}
-                  format="E, MMM d"
+                  format="MMM d"
                   timezone={event.schedule.timezone}
                 />
               </>
             )}
           </p>
-          <h3 className="mb-3 font-brand text-xl font-semibold leading-[1.2] text-white">
+          <h3 className="truncate font-brand text-lg font-medium leading-[1.2] tracking-[-0.01em] text-white transition-opacity duration-200 group-hover:opacity-60">
             {event.title}
           </h3>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm leading-[1.45] text-white/60">
-            <span className="inline-flex items-center gap-2">
-              <MapPin aria-hidden className="h-4 w-4 text-[#14f195]" />
-              <EventsSingleLocation event={event} />
-            </span>
-            {event.type && <span>{event.type}</span>}
-          </div>
+          <p className="mt-1 truncate text-sm text-white/45">
+            <EventsSingleLocation event={event} />
+          </p>
         </div>
         <ArrowUpRight
           aria-hidden
-          className="mt-1 h-5 w-5 shrink-0 text-white/50 transition-colors duration-200 group-hover:text-[#14f195]"
+          className="h-4 w-4 shrink-0 text-white/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
         />
       </div>
     </Link>
-  ) : (
-    <></>
   );
 };
 
