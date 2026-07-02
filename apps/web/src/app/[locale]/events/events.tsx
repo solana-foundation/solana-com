@@ -45,7 +45,7 @@ export function EventsLandingPage({
             className="container border-b border-white/10 py-16 md:py-24"
           >
             <Reveal>
-              <SectionLabel>Featured</SectionLabel>
+              <SectionLabel>{t("events.featured.label")}</SectionLabel>
               <EventsDetailSection event={visibleFeaturedEvent} />
             </Reveal>
           </section>
@@ -57,12 +57,12 @@ export function EventsLandingPage({
               title={t("titles.events")}
               action={
                 <TextLink to="https://lu.ma/solana" newTab>
-                  Follow on Luma
+                  {t("commands.follow-luma")}
                 </TextLink>
               }
             />
           </Reveal>
-          <EventsList list={events} emptyLabel="No upcoming events." />
+          <EventsList list={events} emptyLabel={t("events.empty.upcoming")} />
         </section>
 
         {usEvents.length > 0 && (
@@ -86,7 +86,7 @@ export function EventsLandingPage({
         >
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <Reveal className="lg:sticky lg:top-24 lg:self-start">
-              <SectionLabel>Community</SectionLabel>
+              <SectionLabel>{t("events.community.label")}</SectionLabel>
               <h2 className="font-brand text-3xl font-medium tracking-[-0.01em] text-white md:text-5xl">
                 {translations.communityHeading}
               </h2>
@@ -111,7 +111,11 @@ export function EventsLandingPage({
                 </p>
               </div>
             </Reveal>
-            <EventsList list={communityEvents} isCompact />
+            <EventsList
+              list={communityEvents}
+              isCompact
+              emptyLabel={t("events.empty.community")}
+            />
           </div>
         </section>
 

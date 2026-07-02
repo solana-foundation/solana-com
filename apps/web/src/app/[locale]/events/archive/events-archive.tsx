@@ -9,11 +9,13 @@ import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
 interface EventsArchivePageProps {
   events: CalendarEvent[];
+  emptyLabel: string;
   pagination: EventsArchivePaginationProps;
 }
 
 export function EventsArchivePage({
   events,
+  emptyLabel,
   pagination,
 }: EventsArchivePageProps) {
   return (
@@ -26,6 +28,7 @@ export function EventsArchivePage({
           animate={false}
           isCompact
           compactColumns={2}
+          emptyLabel={emptyLabel}
         />
         <EventsArchivePagination {...pagination} />
       </main>

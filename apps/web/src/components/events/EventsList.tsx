@@ -17,9 +17,11 @@ const EventsList = ({
   animate = true,
   isCompact,
   compactColumns = 1,
-  emptyLabel = "No events are currently scheduled.",
+  emptyLabel,
 }: EventsListProps) => {
   if (!list.length) {
+    if (!emptyLabel) return null;
+
     return (
       <div className="py-16 text-center font-brand-mono text-[11px] uppercase tracking-[0.25em] text-white/40">
         {emptyLabel}

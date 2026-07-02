@@ -55,7 +55,7 @@ const EventsHeroSection = ({
                 aria-hidden
                 className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5"
               />
-              Back to events
+              {t("events.archive.back-to-events")}
             </Link>
           </motion.div>
         )}
@@ -63,7 +63,7 @@ const EventsHeroSection = ({
           className="mb-8 font-brand-mono text-[11px] uppercase tracking-[0.35em] text-white/40"
           {...itemProps}
         >
-          {isArchive ? "Events — Archive" : "Solana — Events"}
+          {t(isArchive ? "events.archive.eyebrow" : "events.hero.eyebrow")}
         </motion.p>
         <motion.h1
           className="max-w-[15ch] font-brand text-5xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-7xl xl:text-[6.5rem]"
@@ -83,9 +83,13 @@ const EventsHeroSection = ({
             className="mt-12 flex flex-wrap items-center gap-x-10 gap-y-4"
             {...itemProps}
           >
-            <HeroLink to="#upcoming">Upcoming</HeroLink>
-            <HeroLink to="#community-events">Community</HeroLink>
-            <HeroLink to="/events/archive">Past events</HeroLink>
+            <HeroLink to="#upcoming">{t("events.hero.upcoming")}</HeroLink>
+            <HeroLink to="#community-events">
+              {t("events.community.label")}
+            </HeroLink>
+            <HeroLink to="/events/archive">
+              {t("events.hero.past-events")}
+            </HeroLink>
           </motion.div>
         )}
 
@@ -102,7 +106,7 @@ const EventsHeroSection = ({
               className="group mt-16 flex flex-col gap-2 border-t border-white/10 pt-6 text-white no-underline sm:flex-row sm:items-baseline sm:justify-between"
             >
               <span className="font-brand-mono text-[11px] uppercase tracking-[0.3em] text-white/40">
-                Next
+                {t("events.hero.next")}
               </span>
               <span className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1 sm:justify-end">
                 {nextEvent.schedule?.from && (

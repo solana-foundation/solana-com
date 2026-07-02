@@ -59,6 +59,29 @@ describe("@workspace/i18n messages", () => {
     );
   });
 
+  it("keeps localized event labels and only falls back to English for missing labels", () => {
+    const messages = deepMergeMessages(
+      {
+        events: {
+          hero: {
+            upcoming: "Upcoming",
+            next: "Next",
+          },
+        },
+      },
+      {
+        events: {
+          hero: {
+            upcoming: "À venir",
+          },
+        },
+      },
+    );
+
+    expect(messages).toHaveProperty("events.hero.upcoming", "À venir");
+    expect(messages).toHaveProperty("events.hero.next", "Next");
+  });
+
   it("inherits shared web messages for media", async () => {
     const messages = await loadMergedMessages({ app: "media", locale: "fr" });
 

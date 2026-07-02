@@ -5,27 +5,9 @@ import FormattedDate from "../shared/FormattedDate";
 import { useTranslations } from "next-intl";
 import defaultImg from "../../../public/social/solana.jpg";
 import { Link } from "@/utils/Link";
-import { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
+import { hasDifferentEndDay } from "@/lib/events/utils";
 import EventsSingleLocation from "./EventsSingleLocation";
-
-const hasDifferentEndDay = (event: CalendarEvent) => {
-  if (!event.schedule.from || !event.schedule.to) return false;
-
-  return (
-    new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "numeric",
-      year: "numeric",
-      timeZone: event.schedule.timezone || "UTC",
-    }).format(new Date(event.schedule.from)) !==
-    new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "numeric",
-      year: "numeric",
-      timeZone: event.schedule.timezone || "UTC",
-    }).format(new Date(event.schedule.to))
-  );
-};
 
 const EventsDetailSection = ({
   event = null,

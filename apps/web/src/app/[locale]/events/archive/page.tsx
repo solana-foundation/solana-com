@@ -93,6 +93,7 @@ export default async function Page({ searchParams }: Props) {
         totalCount: events.length,
         totalPages,
       }}
+      emptyLabel={t("events.empty.archive")}
     />
   );
 }

@@ -4,26 +4,8 @@ import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
 import FormattedDate from "../shared/FormattedDate";
 import defaultImg from "../../../assets/events/solana-event.jpg";
-import { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
-
-const hasDifferentEndDay = (event: CalendarEvent) => {
-  if (!event.schedule.from || !event.schedule.to) return false;
-
-  return (
-    new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "numeric",
-      year: "numeric",
-      timeZone: event.schedule.timezone || "UTC",
-    }).format(new Date(event.schedule.from)) !==
-    new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "numeric",
-      year: "numeric",
-      timeZone: event.schedule.timezone || "UTC",
-    }).format(new Date(event.schedule.to))
-  );
-};
+import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
+import { hasDifferentEndDay } from "@/lib/events/utils";
 
 const EventsSingleCard = ({ event }: { event?: CalendarEvent }) => {
   const eventUrl =
