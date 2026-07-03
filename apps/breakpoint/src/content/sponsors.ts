@@ -53,6 +53,11 @@ const platinumSponsors = [
     width: 230.648,
     height: 55.2,
   },
+  {
+    companyId: "bridge",
+    width: 204,
+    height: 96,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -116,6 +121,11 @@ const goldSponsors = [
     companyId: "rain",
     width: 300,
     height: 91.13,
+  },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
   },
 ] satisfies SponsorLogo[];
 
