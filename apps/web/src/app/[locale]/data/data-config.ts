@@ -253,6 +253,13 @@ export const chartDefinitions = [
     metrics: ["Fee Payers"],
     aggregation: "avg",
     seriesField: "provider",
+    methodology: [
+      {
+        provider: "Artemis",
+        description:
+          "Distinct signers of successful transactions, not just fee payers, capturing fee-sponsored users.",
+      },
+    ],
   },
   {
     id: "total-stake",
