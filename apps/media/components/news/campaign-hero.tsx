@@ -29,27 +29,21 @@ function isExternal(url: string): boolean {
   return /^https?:\/\//i.test(url);
 }
 
-/** Split an eyebrow like "Solana Breakpoint 2026 | Campaign" into label + disclosure. */
-function parseEyebrow(eyebrow: string): { label: string; disclosure: string } {
-  const [label, ...rest] = eyebrow.split("|").map((part) => part.trim());
-  return {
-    label: label || eyebrow,
-    disclosure: rest.join(" · ") || "Promoted",
-  };
+/** Take the event label from an eyebrow like "Solana Breakpoint 2026 | Campaign". */
+function eyebrowLabel(eyebrow: string): string {
+  return eyebrow.split("|")[0]?.trim() || eyebrow;
 }
 
 /**
  * Featured-event promo band for the News experience.
  *
- * Designed as a poster, not a notice card: the campaign artwork anchors one
- * side and its accent light bleeds across the band via an ambient glow, so the
- * promo reads as premium and unmistakably distinct from the editorial lead. A
- * single green pulse marks it as the live featured event; the "| Campaign"
- * disclosure is surfaced as a chip so the promotion is clearly labeled.
+ * A quiet, high-end poster: the campaign artwork anchors one side and a single
+ * restrained eyebrow names the event. Whitespace and typography carry it — no
+ * glow, no badge, no image scrim.
  */
 export function CampaignHero({ campaign }: CampaignHeroProps) {
   const { eyebrow, title, description, primaryCta, secondaryCta } = campaign;
-  const { label, disclosure } = parseEyebrow(eyebrow);
+  const label = eyebrowLabel(eyebrow);
   const art = CAMPAIGN_ART[campaign.id];
 
   return (
@@ -59,37 +53,22 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
       className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
     >
       <div className="relative overflow-hidden rounded-2xl border border-border bg-muted">
-        {/* One restrained luminous accent, toward the artwork seam. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 [background:radial-gradient(120%_120%_at_92%_10%,rgba(153,69,255,0.16),transparent_55%)]"
-        />
-
-        <div className="relative grid lg:grid-cols-[1fr_minmax(0,40%)]">
+        <div className="grid lg:grid-cols-[1fr_minmax(0,40%)]">
           {/* Content */}
-          <div className="order-2 flex flex-col gap-5 p-6 md:p-10 lg:order-1 lg:py-12 lg:pr-6">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-foreground">
-                <span
-                  aria-hidden
-                  className="size-1.5 rounded-full bg-primary"
-                />
-                {label}
-              </span>
-              <span className="rounded-full border border-white/15 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                {disclosure}
-              </span>
-            </div>
+          <div className="order-2 flex flex-col items-start gap-6 p-8 md:p-12 lg:order-1 lg:py-16 lg:pr-8">
+            <span className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
+              {label}
+            </span>
 
-            <h2 className="text-balance text-3xl font-bold leading-[1.04] tracking-tight md:text-4xl lg:text-5xl">
+            <h2 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight md:text-4xl lg:text-5xl">
               {title}
             </h2>
 
-            <p className="max-w-xl text-sm text-muted-foreground md:text-base">
+            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
               {description}
             </p>
 
-            <div className="mt-1 flex flex-wrap items-center gap-3">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="font-semibold">
                 <Link
                   href={primaryCta.url}
@@ -104,12 +83,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 </Link>
               </Button>
               {secondaryCta && (
-                <Button
-                  asChild
-                  size="lg"
-                  variant="secondary"
-                  className="border border-white/20 bg-white/5 text-foreground hover:bg-white/10 hover:text-foreground"
-                >
+                <Button asChild size="lg" variant="secondary">
                   <Link
                     href={secondaryCta.url}
                     {...(isExternal(secondaryCta.url)
@@ -135,12 +109,6 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 fill
                 sizes="(min-width: 1024px) 40vw, 100vw"
                 className="object-cover"
-              />
-              {/* Blend the artwork into the charcoal panel: fade up on mobile,
-                  fade left on desktop. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-t from-muted via-muted/30 to-transparent lg:bg-gradient-to-l lg:from-transparent lg:via-muted/10 lg:to-muted"
               />
             </div>
           )}
