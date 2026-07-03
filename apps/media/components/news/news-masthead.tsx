@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { NEWS_NAV_ITEMS, newsNavHref, type NewsNavItem } from "@/lib/news-nav";
 import { cn } from "@/lib/utils";
 
@@ -41,10 +42,13 @@ interface NewsMastheadProps {
  * `/news/category/[category]` route.
  */
 export function NewsMasthead({
-  tagline = "Updates from across the Solana ecosystem",
+  tagline,
   activeSlug,
   navItems = NEWS_NAV_ITEMS,
 }: NewsMastheadProps) {
+  const t = useTranslations("news.masthead");
+  const mastheadTagline = tagline ?? t("tagline");
+
   return (
     // Fragment (not a wrapping element) is deliberate: the sticky <nav> below
     // must have the tall page container as its sticky containing block. If it
@@ -58,10 +62,10 @@ export function NewsMasthead({
             className="text-inherit no-underline hover:no-underline w-fit"
           >
             <span className="text-3xl md:text-4xl font-bold tracking-tight">
-              Solana News
+              {t("wordmark")}
             </span>
           </Link>
-          <p className="text-sm text-muted-foreground">{tagline}</p>
+          <p className="text-sm text-muted-foreground">{mastheadTagline}</p>
         </div>
       </header>
 
@@ -71,14 +75,14 @@ export function NewsMasthead({
         while scrolling. z-40 keeps it below the global header's z-50.
       */}
       <nav
-        aria-label="News sections"
+        aria-label={t("navLabel")}
         className="sticky top-[65px] lg:top-[71px] z-40 border-y border-border bg-background/85 backdrop-blur-md"
       >
         <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0">
           <ul className="flex flex-nowrap gap-x-6 overflow-x-auto overflow-y-hidden whitespace-nowrap md:flex-wrap md:whitespace-normal">
             <li>
               <NavLink href="/news" isActive={!activeSlug}>
-                Latest
+                {t("latest")}
               </NavLink>
             </li>
             {navItems.map((item) => (

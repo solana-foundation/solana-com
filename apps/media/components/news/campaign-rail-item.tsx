@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "lucide-react";
+import { isExternalUrl } from "@/lib/external-url";
 import type { NewsCampaign } from "@/lib/news-campaign";
 
 interface CampaignRailItemProps {
   campaign: NewsCampaign;
-}
-
-function isExternal(url: string): boolean {
-  return /^https?:\/\//i.test(url);
 }
 
 /**
@@ -20,7 +17,7 @@ function isExternal(url: string): boolean {
  */
 export function CampaignRailItem({ campaign }: CampaignRailItemProps) {
   const t = useTranslations(`news.campaigns.${campaign.id}`);
-  const external = isExternal(campaign.primaryCtaUrl);
+  const external = isExternalUrl(campaign.primaryCtaUrl);
 
   return (
     <li data-campaign-id={campaign.id}>

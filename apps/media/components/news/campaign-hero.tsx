@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isExternalUrl } from "@/lib/external-url";
 import type { NewsCampaign } from "@/lib/news-campaign";
 
 interface CampaignHeroProps {
@@ -19,10 +20,6 @@ const CAMPAIGN_ART: Record<string, string> = {
   "breakpoint-2026": "/uploads/campaigns/breakpoint-2026-promo.webp",
 };
 
-function isExternal(url: string): boolean {
-  return /^https?:\/\//i.test(url);
-}
-
 /**
  * Featured-event promo band for the News experience.
  *
@@ -36,6 +33,10 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
   const tHero = useTranslations("news.campaignHero");
   const { primaryCtaUrl, secondaryCtaUrl } = campaign;
   const artSrc = CAMPAIGN_ART[campaign.id];
+  const primaryCtaIsExternal = isExternalUrl(primaryCtaUrl);
+  const secondaryCtaIsExternal = secondaryCtaUrl
+    ? isExternalUrl(secondaryCtaUrl)
+    : false;
 
   return (
     <section
@@ -67,12 +68,12 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
               <Button asChild size="lg" className="min-h-11 font-semibold">
                 <Link
                   href={primaryCtaUrl}
-                  {...(isExternal(primaryCtaUrl)
+                  {...(primaryCtaIsExternal
                     ? { target: "_blank", rel: "noopener noreferrer" }
                     : {})}
                 >
                   <span>{t("primaryCta")}</span>
-                  {isExternal(primaryCtaUrl) && (
+                  {primaryCtaIsExternal && (
                     <ArrowUpRight aria-hidden className="size-4" />
                   )}
                 </Link>
@@ -86,12 +87,12 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 >
                   <Link
                     href={secondaryCtaUrl}
-                    {...(isExternal(secondaryCtaUrl)
+                    {...(secondaryCtaIsExternal
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
                   >
                     <span>{t("secondaryCta")}</span>
-                    {isExternal(secondaryCtaUrl) && (
+                    {secondaryCtaIsExternal && (
                       <ArrowUpRight aria-hidden className="size-4" />
                     )}
                   </Link>
