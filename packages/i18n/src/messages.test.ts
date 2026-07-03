@@ -31,7 +31,7 @@ describe("@workspace/i18n messages", () => {
   });
 
   it("uses English defaults when locale files do not include new messages", () => {
-    const messages = deepMergeMessages(
+    const messages = deepMergeMessages<Record<string, unknown>>(
       {
         dataDashboard: {
           header: {

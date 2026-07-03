@@ -7,8 +7,13 @@ import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
 
 export const revalidate = 300;
 
-export async function generateMetadata(): Promise<Metadata> {
-  return newsListingMetadata();
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return newsListingMetadata(locale);
 }
 
 export default async function PostsPage({

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
 import { NEWS_NAV_ITEMS, newsNavHref, type NewsNavItem } from "@/lib/news-nav";
 import { cn } from "@/lib/utils";

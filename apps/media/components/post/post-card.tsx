@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import { Link } from "@workspace/i18n/routing";
 import { PostItem } from "@/lib/post-types";
 import {
   DocumentRenderer,

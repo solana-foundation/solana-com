@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +25,13 @@ interface SectionHeaderProps {
 export function SectionHeader({
   title,
   href,
-  linkLabel = "View all",
+  linkLabel,
   id,
   className,
 }: SectionHeaderProps) {
+  const t = useTranslations("news.sectionHeader");
+  const resolvedLinkLabel = linkLabel ?? t("viewAll");
+
   return (
     <div
       className={cn(
@@ -46,7 +50,7 @@ export function SectionHeader({
           href={href}
           className="group inline-flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground hover:no-underline"
         >
-          <span>{linkLabel}</span>
+          <span>{resolvedLinkLabel}</span>
           <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </Link>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import ErrorBoundary from "@/components/error-boundary";
 import { CampaignHero } from "@/components/news/campaign-hero";
 import { NewsMasthead } from "@/components/news/news-masthead";
@@ -39,6 +40,8 @@ export default function CategoryPostsClientPage({
     },
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const tFront = useTranslations("news.front");
+  const tVertical = useTranslations("news.vertical");
 
   const handleLoadMore = useCallback(async () => {
     if (!pageInfo.hasNextPage || isLoadingMore) return;
@@ -103,7 +106,7 @@ export default function CategoryPostsClientPage({
         <NewsMasthead
           activeSlug={categorySlug}
           navItems={navItems}
-          tagline={`Latest ${category} coverage from across the Solana ecosystem`}
+          tagline={tVertical("tagline", { category })}
         />
 
         <div className="flex flex-col gap-10 pt-8">
@@ -112,14 +115,13 @@ export default function CategoryPostsClientPage({
           <section className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0">
             <div className="mb-8 border-b border-border pb-6">
               <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                News vertical
+                {tVertical("eyebrow")}
               </span>
               <h1 className="mt-2 text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
                 {category}
               </h1>
               <p className="mt-4 max-w-2xl text-sm text-muted-foreground md:text-base">
-                Latest stories, updates, and analysis from the {category} news
-                vertical.
+                {tVertical("description", { category })}
               </p>
             </div>
 
@@ -140,8 +142,8 @@ export default function CategoryPostsClientPage({
               isLoading={isLoadingMore}
               hasMore={pageInfo.hasNextPage}
               onLoadMore={handleLoadMore}
-              loadingText="Loading more posts..."
-              noMoreText="No more posts to load"
+              loadingText={tFront("loadMore.loading")}
+              noMoreText={tFront("loadMore.complete")}
             />
           </section>
         </div>

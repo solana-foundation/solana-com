@@ -15,8 +15,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; category: string }>;
 }): Promise<Metadata> {
-  const { category: categoryParam } = await params;
-  return categoryListingMetadata(categoryParam);
+  const { category: categoryParam, locale } = await params;
+  return categoryListingMetadata(categoryParam, locale);
 }
 
 export default async function CategoryPostsPage({

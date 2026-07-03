@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import ErrorBoundary from "@/components/error-boundary";
 import { CampaignRailItem } from "@/components/news/campaign-rail-item";
 import { NewsMasthead } from "@/components/news/news-masthead";
@@ -61,6 +62,7 @@ export default function PostsClientPage({
     initialPageInfo ?? DEFAULT_PAGE_INFO,
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const t = useTranslations("news.front");
 
   const handleLoadMore = useCallback(async () => {
     if (!pageInfo?.hasNextPage || isLoadingMore) return;
@@ -176,7 +178,7 @@ export default function PostsClientPage({
                 {(railStories.length > 0 || campaign) && (
                   <div className="flex flex-col lg:border-l lg:border-border lg:pl-10">
                     <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      More top stories
+                      {t("railTitle")}
                     </h2>
                     <ul className="flex flex-col divide-y divide-border">
                       {railStories.map((post) => {
@@ -214,7 +216,7 @@ export default function PostsClientPage({
             aria-labelledby="latest-updates-title"
             className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
           >
-            <SectionHeader id="latest-updates-title" title="Latest" />
+            <SectionHeader id="latest-updates-title" title={t("latestTitle")} />
 
             {latestStories.length > 0 ? (
               <div className="grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-3">
@@ -224,7 +226,7 @@ export default function PostsClientPage({
               </div>
             ) : (
               <div className="py-8 text-sm text-muted-foreground">
-                More stories will appear here as they are published.
+                {t("emptyLatest")}
               </div>
             )}
 
@@ -233,8 +235,8 @@ export default function PostsClientPage({
                 isLoading={isLoadingMore}
                 hasMore={pageInfo.hasNextPage}
                 onLoadMore={handleLoadMore}
-                loadingText="Loading more posts..."
-                noMoreText="No more posts to load"
+                loadingText={t("loadMore.loading")}
+                noMoreText={t("loadMore.complete")}
               />
             )}
           </section>
