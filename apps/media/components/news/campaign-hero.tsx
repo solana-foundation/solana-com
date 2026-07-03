@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NewsCampaign } from "@/lib/news-campaign";
@@ -8,30 +9,18 @@ interface CampaignHeroProps {
   campaign: NewsCampaign;
 }
 
-interface CampaignArt {
-  src: string;
-  alt: string;
-}
-
 /**
  * Promo artwork keyed by campaign id. Kept local to the component so the
  * campaign data model stays presentation-agnostic; a campaign without art
- * falls back to a refined text-only band.
+ * falls back to a refined text-only band. Alt text lives with the rest of the
+ * campaign copy in packages/i18n under `news.campaigns.<id>.imageAlt`.
  */
-const CAMPAIGN_ART: Record<string, CampaignArt> = {
-  "breakpoint-2026": {
-    src: "/uploads/campaigns/breakpoint-2026-promo.webp",
-    alt: "Solana Breakpoint 2026",
-  },
+const CAMPAIGN_ART: Record<string, string> = {
+  "breakpoint-2026": "/uploads/campaigns/breakpoint-2026-promo.webp",
 };
 
 function isExternal(url: string): boolean {
   return /^https?:\/\//i.test(url);
-}
-
-/** Take the event label from an eyebrow like "Solana Breakpoint 2026 | Campaign". */
-function eyebrowLabel(eyebrow: string): string {
-  return eyebrow.split("|")[0]?.trim() || eyebrow;
 }
 
 /**
@@ -39,16 +28,18 @@ function eyebrowLabel(eyebrow: string): string {
  *
  * A quiet, high-end poster: the campaign artwork anchors one side and a single
  * restrained eyebrow names the event. Whitespace and typography carry it — no
- * glow, no badge, no image scrim.
+ * glow, no badge, no image scrim. All copy comes from packages/i18n under
+ * `news.campaigns.<id>`; the campaign config only carries structure and URLs.
  */
 export function CampaignHero({ campaign }: CampaignHeroProps) {
-  const { eyebrow, title, description, primaryCta, secondaryCta } = campaign;
-  const label = eyebrowLabel(eyebrow);
-  const art = CAMPAIGN_ART[campaign.id];
+  const t = useTranslations(`news.campaigns.${campaign.id}`);
+  const tHero = useTranslations("news.campaignHero");
+  const { primaryCtaUrl, secondaryCtaUrl } = campaign;
+  const artSrc = CAMPAIGN_ART[campaign.id];
 
   return (
     <section
-      aria-label="Featured event"
+      aria-label={tHero("regionLabel")}
       data-campaign-id={campaign.id}
       className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
     >
@@ -56,37 +47,37 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
         {/* Two columns only when there is artwork; otherwise a full-width
             text-only band (avoids a dead 40% column on desktop). */}
         <div
-          className={`grid${art ? " lg:grid-cols-[1fr_minmax(0,40%)]" : ""}`}
+          className={`grid${artSrc ? " lg:grid-cols-[1fr_minmax(0,40%)]" : ""}`}
         >
           {/* Content */}
           <div className="order-2 flex flex-col items-start gap-6 p-8 md:p-12 lg:order-1 lg:py-16 lg:pr-8">
             <span className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
-              {label}
+              {t("eyebrow")}
             </span>
 
             <h2 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight md:text-4xl lg:text-6xl">
-              {title}
+              {t("title")}
             </h2>
 
             <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-              {description}
+              {t("description")}
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="min-h-11 font-semibold">
                 <Link
-                  href={primaryCta.url}
-                  {...(isExternal(primaryCta.url)
+                  href={primaryCtaUrl}
+                  {...(isExternal(primaryCtaUrl)
                     ? { target: "_blank", rel: "noopener noreferrer" }
                     : {})}
                 >
-                  <span>{primaryCta.label}</span>
-                  {isExternal(primaryCta.url) && (
+                  <span>{t("primaryCta")}</span>
+                  {isExternal(primaryCtaUrl) && (
                     <ArrowUpRight aria-hidden className="size-4" />
                   )}
                 </Link>
               </Button>
-              {secondaryCta && (
+              {secondaryCtaUrl && (
                 <Button
                   asChild
                   size="lg"
@@ -94,13 +85,13 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                   className="min-h-11"
                 >
                   <Link
-                    href={secondaryCta.url}
-                    {...(isExternal(secondaryCta.url)
+                    href={secondaryCtaUrl}
+                    {...(isExternal(secondaryCtaUrl)
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
                   >
-                    <span>{secondaryCta.label}</span>
-                    {isExternal(secondaryCta.url) && (
+                    <span>{t("secondaryCta")}</span>
+                    {isExternal(secondaryCtaUrl) && (
                       <ArrowUpRight aria-hidden className="size-4" />
                     )}
                   </Link>
@@ -110,11 +101,11 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
           </div>
 
           {/* Artwork */}
-          {art && (
+          {artSrc && (
             <div className="relative order-1 min-h-[200px] overflow-hidden md:min-h-[240px] lg:order-2 lg:min-h-full">
               <Image
-                src={art.src}
-                alt={art.alt}
+                src={artSrc}
+                alt={t("imageAlt")}
                 fill
                 priority
                 sizes="(min-width: 1024px) 40vw, 100vw"

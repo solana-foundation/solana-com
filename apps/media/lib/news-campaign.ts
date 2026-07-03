@@ -16,19 +16,15 @@ export type CampaignSurface =
   | "all-news-verticals"
   | `category:${string}`;
 
-export interface CampaignCta {
-  label: string;
-  url: string;
-}
-
 export interface NewsCampaign {
+  /**
+   * Also the i18n key: all display copy (eyebrow, title, description, CTA
+   * labels, image alt) lives in packages/i18n media messages under
+   * `news.campaigns.<id>`. Add the message entry when declaring a campaign.
+   */
   id: string;
-  /** Small disclosure/eyebrow so users understand this is a promotion. */
-  eyebrow: string;
-  title: string;
-  description: string;
-  primaryCta: CampaignCta;
-  secondaryCta?: CampaignCta;
+  primaryCtaUrl: string;
+  secondaryCtaUrl?: string;
   /**
    * Surfaces this campaign may render on. Use "news-front" for /news,
    * "all-news-verticals" for every category page, or "category:<slug>" for a
@@ -51,18 +47,8 @@ export interface NewsCampaign {
 export const NEWS_CAMPAIGNS: NewsCampaign[] = [
   {
     id: "breakpoint-2026",
-    eyebrow: "Solana Breakpoint 2026 | Campaign",
-    title: "Breakpoint 2026 comes to Abu Dhabi",
-    description:
-      "The Solana ecosystem's flagship conference returns. Join builders, founders, and institutions for the year's most important gathering.",
-    primaryCta: {
-      label: "Register for Breakpoint",
-      url: "https://solana.com/breakpoint",
-    },
-    secondaryCta: {
-      label: "Become a sponsor",
-      url: "https://solanafoundation.typeform.com/bp26sponsorform",
-    },
+    primaryCtaUrl: "https://solana.com/breakpoint/registration",
+    secondaryCtaUrl: "https://solanafoundation.typeform.com/bp26sponsorform",
     targetSurfaces: [
       "news-front",
       "category:breakpoint",
