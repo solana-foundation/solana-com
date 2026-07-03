@@ -16,7 +16,7 @@ function NavLink({
       href={href}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "inline-block border-b-2 py-2 text-sm font-medium no-underline transition-colors hover:no-underline",
+        "-mb-px inline-block border-b-2 py-3 text-sm font-medium no-underline transition-colors hover:no-underline",
         isActive
           ? "border-primary text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground",
@@ -46,8 +46,12 @@ export function NewsMasthead({
   navItems = NEWS_NAV_ITEMS,
 }: NewsMastheadProps) {
   return (
-    <header className="border-b border-border">
-      <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0 py-6 flex flex-col gap-4">
+    // Fragment (not a wrapping element) is deliberate: the sticky <nav> below
+    // must have the tall page container as its sticky containing block. If it
+    // were nested inside a short <header>, it would only stick within that
+    // header's height and then scroll away.
+    <>
+      <header className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0 pt-6 pb-4">
         <div className="flex flex-col gap-1">
           <Link
             href="/news"
@@ -59,9 +63,19 @@ export function NewsMasthead({
           </Link>
           <p className="text-sm text-muted-foreground">{tagline}</p>
         </div>
+      </header>
 
-        <nav aria-label="News sections">
-          <ul className="-mx-4 flex flex-nowrap gap-x-6 gap-y-1 overflow-x-auto whitespace-nowrap px-4 md:mx-0 md:flex-wrap md:whitespace-normal md:px-0">
+      {/*
+        Sticky section nav. Sticks directly beneath the global site header
+        (sticky top-0, ~65px mobile / ~71px desktop) so verticals stay reachable
+        while scrolling. z-40 keeps it below the global header's z-50.
+      */}
+      <nav
+        aria-label="News sections"
+        className="sticky top-[65px] lg:top-[71px] z-40 border-y border-border bg-background/85 backdrop-blur-md"
+      >
+        <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0">
+          <ul className="flex flex-nowrap gap-x-6 overflow-x-auto overflow-y-hidden whitespace-nowrap md:flex-wrap md:whitespace-normal">
             <li>
               <NavLink href="/news" isActive={!activeSlug}>
                 Latest
@@ -78,8 +92,8 @@ export function NewsMasthead({
               </li>
             ))}
           </ul>
-        </nav>
-      </div>
-    </header>
+        </div>
+      </nav>
+    </>
   );
 }
