@@ -53,14 +53,18 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
       className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
     >
       <div className="relative overflow-hidden rounded-2xl border border-border bg-muted">
-        <div className="grid lg:grid-cols-[1fr_minmax(0,40%)]">
+        {/* Two columns only when there is artwork; otherwise a full-width
+            text-only band (avoids a dead 40% column on desktop). */}
+        <div
+          className={`grid${art ? " lg:grid-cols-[1fr_minmax(0,40%)]" : ""}`}
+        >
           {/* Content */}
           <div className="order-2 flex flex-col items-start gap-6 p-8 md:p-12 lg:order-1 lg:py-16 lg:pr-8">
             <span className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
               {label}
             </span>
 
-            <h2 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight md:text-4xl lg:text-5xl">
+            <h2 className="text-balance text-3xl font-semibold leading-[1.05] tracking-tight md:text-4xl lg:text-6xl">
               {title}
             </h2>
 
@@ -69,7 +73,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg" className="font-semibold">
+              <Button asChild size="lg" className="min-h-11 font-semibold">
                 <Link
                   href={primaryCta.url}
                   {...(isExternal(primaryCta.url)
@@ -78,12 +82,17 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 >
                   <span>{primaryCta.label}</span>
                   {isExternal(primaryCta.url) && (
-                    <ArrowUpRight className="size-4" />
+                    <ArrowUpRight aria-hidden className="size-4" />
                   )}
                 </Link>
               </Button>
               {secondaryCta && (
-                <Button asChild size="lg" variant="secondary">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="secondary"
+                  className="min-h-11"
+                >
                   <Link
                     href={secondaryCta.url}
                     {...(isExternal(secondaryCta.url)
@@ -92,7 +101,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                   >
                     <span>{secondaryCta.label}</span>
                     {isExternal(secondaryCta.url) && (
-                      <ArrowUpRight className="size-4" />
+                      <ArrowUpRight aria-hidden className="size-4" />
                     )}
                   </Link>
                 </Button>
@@ -107,6 +116,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 src={art.src}
                 alt={art.alt}
                 fill
+                priority
                 sizes="(min-width: 1024px) 40vw, 100vw"
                 className="object-cover"
               />
