@@ -102,7 +102,11 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
 
           {/* Artwork */}
           {artSrc && (
-            <div className="relative order-1 min-h-[200px] overflow-hidden md:min-h-[240px] lg:order-2 lg:min-h-full">
+            // Fixed ratios below lg keep the crop of the square artwork
+            // deliberate (16:9, then 21:9) instead of letting min-height
+            // stretch it to an arbitrary letterbox at intermediate widths.
+            // At lg the column matches the content height.
+            <div className="relative order-1 aspect-video overflow-hidden md:aspect-[21/9] lg:order-2 lg:aspect-auto lg:min-h-full">
               <Image
                 src={artSrc}
                 alt={t("imageAlt")}
