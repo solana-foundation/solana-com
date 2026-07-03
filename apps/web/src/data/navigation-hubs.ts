@@ -328,24 +328,16 @@ const navigationHubStaticConfigs = {
       },
       {
         href: "/data",
-        eyebrow: "Data products",
-        title: "Explore network data and token APIs.",
-        description:
-          "Use Solana Data for network metrics, Tokens API for market and token data, and Pay.sh for paid API workflows.",
-        cta: "Open Solana Data",
         links: [
           {
             href: "/data",
-            title: "Solana Data",
           },
           {
             href: "https://pay.sh",
-            title: "Pay.sh",
             external: true,
           },
           {
             href: "https://tokens.xyz",
-            title: "Tokens API",
             external: true,
           },
         ],
@@ -422,27 +414,16 @@ const navigationHubStaticConfigs = {
         ],
       },
       {
-        title: "Data and API products",
-        description:
-          "Dashboards and API products for network, token, and paid resource workflows.",
         links: [
           {
             href: "/data",
-            title: "Solana Data",
-            description: "Network, stablecoin, and DeFi metrics.",
           },
           {
             href: "https://pay.sh",
-            title: "Pay.sh",
-            description:
-              "Pay-as-you-go API access for agents and command-line tools.",
             external: true,
           },
           {
             href: "https://tokens.xyz",
-            title: "Tokens API",
-            description:
-              "Token, price, and liquidity APIs for Solana applications.",
             external: true,
           },
         ],
