@@ -2,6 +2,31 @@ import Link from "next/link";
 import { NEWS_NAV_ITEMS, newsNavHref, type NewsNavItem } from "@/lib/news-nav";
 import { cn } from "@/lib/utils";
 
+function NavLink({
+  href,
+  isActive,
+  children,
+}: {
+  href: string;
+  isActive: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "inline-block border-b-2 py-2 text-sm font-medium no-underline transition-colors hover:no-underline",
+        isActive
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 interface NewsMastheadProps {
   /** Optional short tagline under the wordmark. */
   tagline?: string;
@@ -36,40 +61,22 @@ export function NewsMasthead({
         </div>
 
         <nav aria-label="News sections">
-          <ul className="flex flex-nowrap gap-x-5 gap-y-2 overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap md:whitespace-normal">
+          <ul className="-mx-4 flex flex-nowrap gap-x-6 gap-y-1 overflow-x-auto whitespace-nowrap px-4 md:mx-0 md:flex-wrap md:whitespace-normal md:px-0">
             <li>
-              <Link
-                href="/news"
-                aria-current={!activeSlug ? "page" : undefined}
-                className={cn(
-                  "text-sm font-medium no-underline hover:no-underline transition-colors",
-                  !activeSlug
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
+              <NavLink href="/news" isActive={!activeSlug}>
                 Latest
-              </Link>
+              </NavLink>
             </li>
-            {navItems.map((item) => {
-              const isActive = item.slug === activeSlug;
-              return (
-                <li key={item.slug}>
-                  <Link
-                    href={newsNavHref(item.slug)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "text-sm font-medium no-underline hover:no-underline transition-colors",
-                      isActive
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+            {navItems.map((item) => (
+              <li key={item.slug}>
+                <NavLink
+                  href={newsNavHref(item.slug)}
+                  isActive={item.slug === activeSlug}
+                >
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
           </ul>
         </nav>
       </div>

@@ -1,13 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { PostItem } from "@/lib/post-types";
 import {
   DocumentRenderer,
   DocumentRendererProps,
 } from "@keystatic/core/renderer";
 import { components } from "@/components/mdx-components";
-import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PostCardProps {
@@ -15,19 +13,40 @@ interface PostCardProps {
   variant?: "vertical" | "horizontal";
 }
 
-function getUniqueValues(values: string[] | undefined): string[] {
-  if (!values?.length) return [];
-  return Array.from(new Set(values.filter(Boolean)));
+/**
+ * Editorial meta line: a single durable category label in the accent color
+ * followed by the publish date. Replaces noisy tag pills so index cards read
+ * like a news front.
+ */
+function PostMeta({ post }: { post: PostItem }) {
+  const category = post.categories?.find(Boolean);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      {category && (
+        <span className="font-semibold uppercase tracking-wider text-primary">
+          {category}
+        </span>
+      )}
+      {category && post.published && (
+        <span aria-hidden className="text-muted-foreground">
+          &middot;
+        </span>
+      )}
+      {post.published && (
+        <span className="text-muted-foreground">{post.published}</span>
+      )}
+    </div>
+  );
 }
 
-interface DescriptionContentProps {
+export interface DescriptionContentProps {
   description?:
     | DocumentRendererProps["document"]
     | { node: { children: DocumentRendererProps["document"] } };
 }
 
 // Helper: render description as plain text or DocumentRenderer document
-function DescriptionContent({ description }: DescriptionContentProps) {
+export function DescriptionContent({ description }: DescriptionContentProps) {
   if (!description) return null;
 
   // Plain string from fields.text()
@@ -61,50 +80,35 @@ function DescriptionContent({ description }: DescriptionContentProps) {
 }
 
 export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
-  const uniqueTags = getUniqueValues(post.tags);
-
   if (variant === "horizontal") {
     return (
       <Link
         href={post.url}
-        className={cn(
-          "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer",
-        )}
+        className="group flex flex-col gap-4 sm:flex-row-reverse sm:items-start sm:gap-6"
       >
-        <h3 className="text-xl font-semibold group-hover:underline">
-          {post.title}
-        </h3>
-        <div className="flex flex-col sm:flex-row items-start gap-4">
-          {post?.heroImage && (
-            <div className="relative aspect-video overflow-hidden w-full max-w-80 sm:w-[30%] shrink-0">
-              <Image
-                src={post?.heroImage}
-                alt={post?.title}
-                fill
-                sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
-              />
-            </div>
-          )}
-          <div className="flex flex-col gap-4 grow">
-            <div className="text-muted-foreground grow">
-              <DescriptionContent
-                description={
-                  post.description as DescriptionContentProps["description"]
-                }
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {post.published}
-              </span>
-              {uniqueTags.map((tag: string, index: number) => (
-                <Badge key={`${post.id}-${tag}-${index}`} variant="outline">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+        {post?.heroImage && (
+          <div className="relative aspect-video w-full shrink-0 overflow-hidden sm:w-[34%]">
+            <Image
+              src={post?.heroImage}
+              alt={post?.title}
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+              className="object-cover transition-opacity duration-300 group-hover:opacity-90"
+              loading="lazy"
+            />
+          </div>
+        )}
+        <div className="flex grow flex-col gap-3">
+          <PostMeta post={post} />
+          <h3 className="text-xl font-bold leading-snug tracking-tight group-hover:underline md:text-2xl">
+            {post.title}
+          </h3>
+          <div className="line-clamp-3 text-sm text-muted-foreground">
+            <DescriptionContent
+              description={
+                post.description as DescriptionContentProps["description"]
+              }
+            />
           </div>
         </div>
       </Link>
@@ -114,9 +118,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
   return (
     <Link
       href={post.url}
-      className={cn(
-        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border",
-      )}
+      className={cn("group flex flex-col gap-3 border-b border-border pb-6")}
     >
       {post?.heroImage && (
         <div className="relative aspect-video w-full overflow-hidden">
@@ -125,33 +127,22 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
             alt={post?.title}
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-cover transition-opacity duration-300 group-hover:opacity-90"
             loading="lazy"
           />
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">{post.published}</span>
-        {uniqueTags.map((tag: string, index: number) => (
-          <Badge key={`${post.id}-${tag}-${index}`} variant="outline">
-            {tag}
-          </Badge>
-        ))}
-      </div>
-      <h3 className="text-xl font-semibold group-hover:underline">
+      <PostMeta post={post} />
+      <h3 className="text-lg font-bold leading-snug tracking-tight group-hover:underline">
         {post.title}
       </h3>
-      <div className="text-muted-foreground grow">
+      <div className="line-clamp-2 text-sm text-muted-foreground">
         <DescriptionContent
           description={
             post.description as DescriptionContentProps["description"]
           }
         />
       </div>
-      <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
-        Read article
-        <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-      </span>
     </Link>
   );
 };

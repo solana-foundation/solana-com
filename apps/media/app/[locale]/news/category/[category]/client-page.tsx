@@ -107,10 +107,10 @@ export default function CategoryPostsClientPage({
 
           <section className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0">
             <div className="mb-8 border-b border-border pb-6">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
                 News vertical
               </span>
-              <h1 className="mt-2 text-4xl font-bold leading-[1.05] md:text-6xl">
+              <h1 className="mt-2 text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
                 {category}
               </h1>
               <p className="mt-4 max-w-2xl text-sm text-muted-foreground md:text-base">
@@ -120,15 +120,13 @@ export default function CategoryPostsClientPage({
             </div>
 
             {posts.length > 0 && (
-              <div className="grid grid-cols-1 gap-10">
+              <div className="flex flex-col divide-y divide-border">
                 {posts.map(
                   (post) =>
                     post && (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        variant="horizontal"
-                      />
+                      <div key={post.id} className="py-8 first:pt-0">
+                        <PostCard post={post} variant="horizontal" />
+                      </div>
                     ),
                 )}
               </div>
