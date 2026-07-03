@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import PostsClientPage from "./client-page";
 import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/post-data";
 import { newsListingMetadata } from "@/lib/metadata";
+import { getActiveCampaign } from "@/lib/news-campaign";
 
 export const revalidate = 300;
 
@@ -16,9 +17,11 @@ export default async function PostsPage({
 }) {
   const featuredPost = await fetchFeaturedPost();
   const latestPosts = await fetchLatestPosts({ limit: 13 });
+  const campaign = getActiveCampaign("news-front");
 
   return (
     <PostsClientPage
+      campaign={campaign}
       featuredPost={featuredPost.post}
       latestPosts={latestPosts.posts}
       initialPageInfo={latestPosts.pageInfo}

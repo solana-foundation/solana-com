@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { fetchLatestPosts, LatestPostsResponse } from "@/lib/post-data";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { categoryListingMetadata } from "@/lib/metadata";
+import { getActiveCampaign } from "@/lib/news-campaign";
 
 export const revalidate = 300;
 
@@ -42,10 +43,13 @@ export default async function CategoryPostsPage({
   } catch {
     return notFound();
   }
+  const campaign = getActiveCampaign(`category:${categoryParam}`);
 
   return (
     <CategoryPostsClientPage
       category={categoryName}
+      categorySlug={categoryParam}
+      campaign={campaign}
       latestPosts={latestPosts.posts}
       initialPageInfo={latestPosts.pageInfo}
     />
