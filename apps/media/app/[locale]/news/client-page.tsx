@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ErrorBoundary from "@/components/error-boundary";
-import { CampaignHero } from "@/components/news/campaign-hero";
+import { CampaignRailItem } from "@/components/news/campaign-rail-item";
 import { NewsMasthead } from "@/components/news/news-masthead";
 import { SectionHeader } from "@/components/news/section-header";
 import {
@@ -119,8 +119,6 @@ export default function PostsClientPage({
         <NewsMasthead navItems={navItems} />
 
         <div className="flex flex-col gap-12 pt-8">
-          {campaign && <CampaignHero campaign={campaign} />}
-
           {lead && (
             <section
               aria-labelledby="lead-story-title"
@@ -175,7 +173,7 @@ export default function PostsClientPage({
                 </div>
 
                 {/* More top stories rail */}
-                {railStories.length > 0 && (
+                {(railStories.length > 0 || campaign) && (
                   <div className="flex flex-col lg:border-l lg:border-border lg:pl-10">
                     <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       More top stories
@@ -204,6 +202,7 @@ export default function PostsClientPage({
                           </li>
                         );
                       })}
+                      {campaign && <CampaignRailItem campaign={campaign} />}
                     </ul>
                   </div>
                 )}
