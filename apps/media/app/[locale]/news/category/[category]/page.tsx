@@ -5,6 +5,8 @@ import { fetchLatestPosts, LatestPostsResponse } from "@/lib/post-data";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { categoryListingMetadata } from "@/lib/metadata";
 import { getActiveCampaign } from "@/lib/news-campaign";
+import type { NewsNavItem } from "@/lib/news-nav";
+import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
 
 export const revalidate = 300;
 
@@ -26,10 +28,15 @@ export default async function CategoryPostsPage({
 
   let categoryName: string | null = null;
   let latestPosts: LatestPostsResponse | null = null;
+  let navItems: NewsNavItem[] = [];
 
   try {
-    const { category } = await fetchCategoryByPath(categoryParam);
+    const [{ category }, filteredNavItems] = await Promise.all([
+      fetchCategoryByPath(categoryParam),
+      fetchNewsNavItemsWithPosts(),
+    ]);
     categoryName = category?.name || null;
+    navItems = filteredNavItems;
   } catch {
     return notFound();
   }
@@ -52,6 +59,7 @@ export default async function CategoryPostsPage({
       campaign={campaign}
       latestPosts={latestPosts.posts}
       initialPageInfo={latestPosts.pageInfo}
+      navItems={navItems}
     />
   );
 }

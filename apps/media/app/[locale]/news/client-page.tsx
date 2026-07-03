@@ -14,6 +14,7 @@ import {
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
 import type { NewsCampaign } from "@/lib/news-campaign";
+import type { NewsNavItem } from "@/lib/news-nav";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 import uniqBy from "lodash/uniqBy";
 
@@ -29,6 +30,7 @@ interface PostsClientPageProps {
   featuredPost: PostItem | null;
   latestPosts: PostItem[];
   initialPageInfo?: PageInfo;
+  navItems: NewsNavItem[];
 }
 
 function isPost(post: PostItem | null): post is PostItem {
@@ -49,6 +51,7 @@ export default function PostsClientPage({
   featuredPost,
   latestPosts,
   initialPageInfo,
+  navItems,
 }: PostsClientPageProps) {
   const [posts, setPosts] = useState<(PostItem | null)[]>(() =>
     getPostsWithoutFeatured(latestPosts, featuredPost),
@@ -113,7 +116,7 @@ export default function PostsClientPage({
   return (
     <ErrorBoundary>
       <div className="bg-default pb-16">
-        <NewsMasthead />
+        <NewsMasthead navItems={navItems} />
 
         <div className="flex flex-col gap-12 pt-8">
           {campaign && <CampaignHero campaign={campaign} />}

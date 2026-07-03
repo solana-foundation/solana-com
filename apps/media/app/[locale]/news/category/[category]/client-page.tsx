@@ -7,6 +7,7 @@ import { NewsMasthead } from "@/components/news/news-masthead";
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
 import type { NewsCampaign } from "@/lib/news-campaign";
+import type { NewsNavItem } from "@/lib/news-nav";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 import uniqBy from "lodash/uniqBy";
 
@@ -16,6 +17,7 @@ interface CategoryPostsClientPageProps {
   campaign?: NewsCampaign | null;
   latestPosts: PostItem[];
   initialPageInfo?: PageInfo;
+  navItems: NewsNavItem[];
 }
 
 export default function CategoryPostsClientPage({
@@ -24,6 +26,7 @@ export default function CategoryPostsClientPage({
   campaign,
   latestPosts,
   initialPageInfo,
+  navItems,
 }: CategoryPostsClientPageProps) {
   const [posts, setPosts] = useState<(PostItem | null)[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -99,6 +102,7 @@ export default function CategoryPostsClientPage({
       <div className="bg-default pb-16">
         <NewsMasthead
           activeSlug={categorySlug}
+          navItems={navItems}
           tagline={`Latest ${category} coverage from across the Solana ecosystem`}
         />
 
