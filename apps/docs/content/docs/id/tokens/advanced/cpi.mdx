@@ -1,0 +1,292 @@
+---
+title: Memanggil Token Program melalui CPI
+description:
+  Memanggil Token Program dari program on-chain dengan Cross Program Invocation
+  (CPI) — transfer, mint, dan burn token, tanda tangani dengan otoritas PDA, dan
+  gabungkan beberapa instruksi token dalam satu CPI.
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+Program on-chain memindahkan token dengan mengeluarkan
+[Cross Program Invocation (CPI)](/docs/core/cpi) ke Token Program. Program Anda
+membangun instruksi Token Program, menyediakan akun-akun yang diperlukan, dan
+memanggil _rs`invoke`_ (atau _rs`invoke_signed`_ ketika Program Derived Address
+menandatangani). Token Program kemudian menjalankan instruksi tersebut dengan
+hak akses yang diberikan program Anda kepadanya.
+
+Halaman ini membahas sisi khusus token dari alur tersebut. Untuk mekanisme CPI
+itu sendiri — cara kerja _rs`invoke`_ dan _rs`invoke_signed`_, cara hak penanda
+tangan dan writable disebarkan, serta
+[model biaya per-CPI](/docs/core/cpi/cpi-cost-model) — lihat
+[Cross Program Invocation](/docs/core/cpi).
+
+## Pola umum
+
+Sebagian besar CPI token mengikuti bentuk yang sama: buat instruksi, teruskan
+token account dan otoritas, lalu panggil. Contoh di bawah ini mentransfer token
+dengan _rs`TransferChecked`_, yang memverifikasi mint dan desimal sebagai bagian
+dari transfer.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Minting, burning, dan penutupan akun mengikuti pola yang sama dengan instruksi
+berbeda — _rs`MintTo`_, _rs`Burn`_, dan _rs`CloseAccount`_ dalam modul
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+Ankhor, atau pembangun yang sesuai di
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token). Untuk program
+lengkap yang dapat dijalankan dan melakukan CPI ke Token Program baik dengan
+Anchor maupun native Rust, lihat
+[contoh token program](/docs/programs/examples#tokens) — khususnya contoh
+"Transfer Tokens".
+
+## Menandatangani dengan otoritas Program Derived Address
+
+Ketika otoritas pada sebuah token account adalah
+[Program Derived Address](/docs/core/pda) yang dimiliki oleh program Anda,
+program tersebut menandatangani CPI itu sendiri dengan _rs`invoke_signed`_,
+dengan meneruskan seed Program Derived Address sebagai seed penanda tangan. Di
+Anchor, gunakan _rs`CpiContext::new_with_signer`_ dengan seed tersebut sebagai
+pengganti _rs`CpiContext::new`_. Instruksinya identik dengan contoh-contoh di
+atas. Lihat [CPI dengan PDA Signer](/docs/core/cpi/cpi-with-pda) untuk mekanisme
+lengkapnya.
+
+## Pengelompokan (Batching)
+
+Instruksi _rs`Batch`_ mengeksekusi beberapa instruksi Token Program dalam satu
+panggilan program tunggal. Karena setiap CPI memiliki biaya komputasi tetap,
+menjalankan beberapa operasi token dalam satu batch CPI menggunakan lebih
+sedikit [unit komputasi](/docs/core/fees/compute-budget) dibandingkan
+mengeluarkan CPI terpisah per operasi — lihat
+[model biaya CPI](/docs/core/cpi/cpi-cost-model) untuk mengetahui bagaimana
+biaya per-CPI terakumulasi.
+
+Penggunaan komputasi yang lebih rendah mengurangi
+[biaya prioritas](/docs/core/fees) yang dibayar transaksi per unit komputasi dan
+meningkatkan peluang keberhasilannya — hal ini paling penting bagi program yang
+melakukan banyak operasi token dalam satu instruksi. Penggunaan umum meliputi
+penyebaran transfer ke banyak penerima, atau menjalankan alur token bertahap
+(misalnya sinkronisasi, transfer, dan penutupan) dalam satu CPI.
+
+<Callout type="info">
+
+_rs`Batch`_ hanya menerima instruksi Token Program sebagai turunan, dan sebuah
+batch tidak dapat berisi batch lain. Untuk operasi yang memindahkan token
+(seperti transfer, mint, dan burn), program memverifikasi bahwa akun yang
+terpengaruh dimiliki oleh Token Program sebelum mengeksekusinya.
+
+</Callout>
+
+### Referensi sumber
+
+| Item                | Deskripsi                            | Sumber                                                                                               |
+| ------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | Instruksi Batch (diskriminator 255). | [Sumber](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | Logika pemroses Batch.               | [Sumber](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### Memanggil Batch melalui CPI
+
+Crate [`pinocchio-token`](https://crates.io/crates/pinocchio-token) mengekspos
+sebuah builder _rs`Batch`_ di bawah _rs`pinocchio_token::instructions::Batch`_.
+Anda memasukkan setiap instruksi turunan ke dalam buffer batch, lalu
+mengeluarkan satu CPI dengan _rs`invoke`_.
+
+Sebuah _rs`Batch`_ didukung oleh tiga buffer yang disediakan pemanggil: satu
+untuk instruction data yang diserialisasi, satu untuk meta akun instruksi
+per-turunan, dan satu untuk tampilan akun yang diteruskan ke CPI. Buat sebagai
+slice _rs`MaybeUninit`_, berikan ke _rs`Batch::new`_, tambahkan turunan, lalu
+panggil:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_ menulis diskriminator batch ke byte pertama dari buffer data
+dan mengembalikan _rs`Batch`_ yang melacak seberapa banyak setiap buffer yang
+telah digunakan. Setiap pembangun instruksi Token Program (seperti
+_rs`Transfer`_, _rs`TransferChecked`_, _rs`MintTo`_, dan _rs`Burn`_)
+mengimplementasikan trait _rs`IntoBatch`_, sehingga _rs`into_batch`_ menambahkan
+data instruksi tersebut, meta akun, dan tampilan akun ke dalam batch. Memanggil
+_rs`invoke`_ akan mengirimkan batch yang telah dirakit sebagai satu CPI ke Token
+Program.
+
+Buffer membatasi kapasitas batch. Ukuran buffer data ke
+`1 + Σ(2 + child_data_len)` byte (diskriminator, ditambah header 2-byte dan data
+terserialisasi untuk setiap instruksi anak) dan setiap buffer akun ke jumlah
+total akun di semua instruksi anak. Jika instruksi anak tidak muat,
+_rs`into_batch`_ mengembalikan _rs`ProgramError::InvalidArgument`_. Sebagai
+referensi, _rs`Batch::MAX_DATA_LEN`_ adalah 10 KiB dan
+_rs`Batch::MAX_ACCOUNTS_LEN`_ sama dengan jumlah akun CPI maksimum dari runtime.
+
+Untuk batch yang ukurannya hanya diketahui saat runtime, aktifkan fitur `alloc`
+pada crate dan gunakan _rs`BatchState::new(accounts_len, data_len)`_ untuk
+mengalokasikan buffer di heap, lalu panggil _rs`as_batch`_ untuk mendapatkan
+_rs`Batch`_.
+
+Ketika otoritas instruksi anak adalah PDA yang dimiliki oleh program Anda,
+tandatangani CPI dengan _rs`invoke_signed`_ sebagai pengganti _rs`invoke`_,
+dengan meneruskan seed PDA sebagai entri _rs`Signer`_.
+
+### Tata letak instruction data
+
+Sebuah batch mengenkode instruksi-instruksi anaknya satu per satu di belakang
+diskriminator `255`. Semua akun diteruskan secara datar, berurutan, dan dipotong
+oleh `num_accounts` untuk setiap instruksi anak. Builder menghasilkan tepat
+format wire ini:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+Kapasitas batch dibatasi oleh buffer yang diteruskan ke _rs`Batch::new`_: buffer
+data harus menampung diskriminator ditambah header dan data setiap instruksi
+anak, serta buffer akun harus menampung akun-akun setiap instruksi anak. Ukurkan
+buffer untuk batch terbesar yang Anda bangun, atau gunakan _rs`BatchState`_
+(dengan fitur `alloc`) untuk menentukan ukurannya saat runtime. CPI gabungan
+tetap tunduk pada batas akun dan ukuran transaksi, sehingga untuk fan-out yang
+sangat besar, gunakan Address Lookup Tables agar lebih banyak akun dapat
+termuat.
+
+</Callout>

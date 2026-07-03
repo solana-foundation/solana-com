@@ -13,6 +13,11 @@ export type AppId =
   | "templates";
 
 type MessageLoader = (locale: string) => Promise<MessageModule>;
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends Record<string, unknown>
+    ? DeepPartial<T[K]>
+    : T[K];
+};
 
 const appMessageLoaders: Partial<Record<AppId, MessageLoader>> = {
   web: (locale) => import(`../messages/web/${locale}/common.json`),
@@ -43,7 +48,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function deepMergeMessages<T extends Record<string, unknown>>(
   base: T,
-  override: Partial<T>,
+  override: DeepPartial<T>,
 ): T {
   const result = { ...base } as T;
 

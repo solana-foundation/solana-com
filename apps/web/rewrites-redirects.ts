@@ -253,26 +253,10 @@ export default {
         destination: `${ACCELERATE_APP_URL}/:locale/accelerate/:path*`,
         locale: false,
       },
-      {
-        source: "/accelerate-assets/:path+",
-        destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
-        locale: false,
-      },
       // Accelerate app Next.js optimizer/static (_next/*) paths
       {
         source: "/accelerate-assets/_next/:path+",
         destination: `${ACCELERATE_APP_URL}/_next/:path+`,
-        locale: false,
-      },
-      // Templates app rewrites (must come before general /developers rewrites)
-      {
-        source: "/developers/templates",
-        destination: `${TEMPLATES_APP_URL}/developers/templates`,
-        locale: false,
-      },
-      {
-        source: "/developers/templates/:path*",
-        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
         locale: false,
       },
       // Accelerate app assets (required for static assets with assetPrefix: "/accelerate-assets")
@@ -284,6 +268,17 @@ export default {
       {
         source: "/accelerate-assets/:path+",
         destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
+        locale: false,
+      },
+      // Templates app rewrites (must come before general /developers rewrites)
+      {
+        source: "/developers/templates",
+        destination: `${TEMPLATES_APP_URL}/developers/templates`,
+        locale: false,
+      },
+      {
+        source: "/developers/templates/:path*",
+        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
         locale: false,
       },
       // Docs app assets (required for static assets with assetPrefix: "/docs-assets")

@@ -126,5 +126,8 @@ describe("shared header route matching", () => {
         buildSection?.matchRules ?? [],
       ),
     ).toBe(true);
+    expect(isNavSectionActive("/data", buildSection?.matchRules ?? [])).toBe(
+      true,
+    );
   });
 });

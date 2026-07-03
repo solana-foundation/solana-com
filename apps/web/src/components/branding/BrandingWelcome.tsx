@@ -11,7 +11,7 @@ const BrandingWelcome = () => {
       <p className="small">
         {t.rich("branding.welcome.description-2", {
           guidelinesLink: (chunks) => (
-            <InlineLink to="https://drive.google.com/file/d/1e6etjSgFltRAPNPWQlkAJJfU25hKbm35/view">
+            <InlineLink to="https://docs.google.com/document/d/1gOjdCVI2tp-hpCJciSNZAR93cxgw_gh2/edit?usp=sharing">
               {chunks}
             </InlineLink>
           ),

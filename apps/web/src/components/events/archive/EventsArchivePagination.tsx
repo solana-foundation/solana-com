@@ -1,74 +1,121 @@
-import { ArrowLeft, ArrowRight } from "react-feather";
-import { useTranslations } from "next-intl";
-import Button from "../../shared/Button";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { cn } from "@/app/components/utils";
 
-interface EventsArchivePaginationProps {
-  initialPageSize: number;
-  totalCount?: number;
-  currentPage?: number;
-  setCurrentPage?: React.Dispatch<React.SetStateAction<number>>;
+export interface EventsArchivePaginationProps {
+  currentPage: number;
+  eventCountLabel: string;
+  nextLabel: string;
+  pageEnd: number;
+  previousLabel: string;
+  totalCount: number;
+  totalPages: number;
 }
 
 const EventsArchivePagination = ({
-  initialPageSize,
-  totalCount = 0,
-  currentPage = 0,
-  setCurrentPage = () => {},
+  currentPage,
+  eventCountLabel,
+  nextLabel,
+  pageEnd,
+  previousLabel,
+  totalCount,
+  totalPages,
 }: EventsArchivePaginationProps) => {
-  const t = useTranslations();
-  const pageLowerBound = currentPage * initialPageSize;
+  const hasPreviousPage = currentPage > 1;
+  const hasNextPage = currentPage < totalPages && totalCount > 0;
+  const progressPercentage =
+    totalCount > 0 ? Math.min((pageEnd / totalCount) * 100, 100) : 0;
 
-  const pageUpperBound =
-    pageLowerBound + initialPageSize < totalCount
-      ? pageLowerBound + initialPageSize
-      : totalCount;
-
-  const progressPercentage = (pageUpperBound / totalCount) * 100;
-
-  const totalPages = totalCount / initialPageSize;
+  const getPageHref = (page: number) =>
+    page <= 1 ? "/events/archive" : `/events/archive?page=${page}`;
 
   return (
-    <div className="container">
-      <div className="mt-6">
-        {t("events.archive.event-count", {
-          current: `${pageLowerBound + 1} - ${pageUpperBound}`,
-          total: totalCount,
-        })}
-        <div className="h-1 mt-2 max-w-[11rem] bg-[#232323]">
+    <nav
+      aria-label="Archive pagination"
+      className="mt-12 border-t border-white/10 pt-6"
+    >
+      <div className="font-brand-mono text-[11px] uppercase tracking-[0.25em] text-white/45">
+        {eventCountLabel}
+        <div className="mt-3 h-px max-w-[14rem] bg-white/10">
           <div
-            className="bg-[#f9f9fb] h-full"
-            style={{ width: `${progressPercentage || 6}%` }}
+            className="h-full bg-white"
+            style={{ width: `${progressPercentage}%` }}
           />
         </div>
       </div>
-      <div className="md:flex justify-between mt-6">
-        <Button
-          onClick={() =>
-            setCurrentPage((prevPage) => (currentPage === 0 ? 0 : prevPage - 1))
-          }
-          variant="tertiary"
-          className="mt-6 md:mt-0"
-          disabled={currentPage === 0}
+
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <ArchivePageLink
+          disabled={!hasPreviousPage}
+          href={getPageHref(currentPage - 1)}
+          icon={<ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2.5} />}
         >
-          <ArrowLeft className="mr-2" />
-          {t("events.archive.previous-page")}
-        </Button>
-        <Button
-          onClick={() =>
-            setCurrentPage((prevPage) =>
-              prevPage + 1 > totalPages ? prevPage : prevPage + 1,
-            )
+          {previousLabel}
+        </ArchivePageLink>
+        <ArchivePageLink
+          disabled={!hasNextPage}
+          href={getPageHref(currentPage + 1)}
+          icon={
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2.5} />
           }
-          variant="tertiary"
-          className="mt-6 md:mt-0"
-          disabled={currentPage + 1 >= totalPages}
+          iconPosition="right"
         >
-          {t("events.archive.next-page")}
-          <ArrowRight className="ml-2" />
-        </Button>
+          {nextLabel}
+        </ArchivePageLink>
       </div>
-    </div>
+    </nav>
   );
 };
+
+function ArchivePageLink({
+  children,
+  disabled,
+  href,
+  icon,
+  iconPosition = "left",
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+  href: string;
+  icon: React.ReactNode;
+  iconPosition?: "left" | "right";
+}) {
+  const className = cn(
+    "inline-flex h-12 w-full items-center justify-center gap-3 rounded-full px-2 font-brand text-base leading-none tracking-normal no-underline transition-colors sm:w-auto",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white",
+    disabled
+      ? "cursor-not-allowed border border-white/10 bg-white/[0.04] text-white/35"
+      : "bg-white text-black hover:bg-[#ececec]",
+  );
+
+  const iconClassName = cn(
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+    disabled ? "bg-white/10 text-white/35" : "bg-black text-white",
+  );
+
+  const content = (
+    <>
+      {iconPosition === "left" && <span className={iconClassName}>{icon}</span>}
+      <span className="whitespace-nowrap px-2">{children}</span>
+      {iconPosition === "right" && (
+        <span className={iconClassName}>{icon}</span>
+      )}
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <span aria-disabled="true" className={className}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
+  );
+}
 
 export default EventsArchivePagination;

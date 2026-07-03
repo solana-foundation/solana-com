@@ -25,6 +25,10 @@ pnpm add @solana/keychain-crossmint   # Crossmint
 pnpm add @solana/keychain-dfns        # Dfns
 pnpm add @solana/keychain-openfort    # Openfort
 pnpm add @solana/keychain-para        # Para
+pnpm add @solana/keychain-utila       # Utila
+
+# Kit client plugins (keychainSigner / keychainPayer / keychainIdentity)
+pnpm add @solana/keychain-kit-plugin
 ```
 
 ## Uso Básico
@@ -96,14 +100,75 @@ async function signWithKeychain(signer: SolanaSigner) {
 }
 ```
 
-## Configuración de Backend
+### Uso con un cliente Kit (plugin keychainSigner)
+
+`@solana/keychain-kit-plugin` instala un firmante de cadena de claves
+directamente en un [cliente Kit](https://github.com/anza-xyz/kit), conectándolo
+como `payer` y `identity`, por lo que omites la configuración manual de `pipe`
+mostrada anteriormente:
+
+```typescript
+import { createClient } from "@solana/kit";
+import { keychainSigner } from "@solana/keychain-kit-plugin";
+
+const client = await createClient().use(
+  keychainSigner({
+    backend: "privy",
+    appId: process.env.PRIVY_APP_ID!,
+    appSecret: process.env.PRIVY_APP_SECRET!,
+    walletId: process.env.PRIVY_WALLET_ID!
+  })
+);
+
+client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.identity; // same signer instance
+```
+
+El plugin acepta la misma configuración etiquetada por backend que
+`createKeychainSigner`, y solo el backend al que despacha se incluye en el
+paquete (los paquetes de backend se cargan mediante `import()` dinámico).
+
+Usa `keychainPayer` o `keychainIdentity` para asignar un único rol, y combina
+backends en un solo cliente:
+
+```typescript
+import { createClient } from "@solana/kit";
+import { keychainIdentity, keychainPayer } from "@solana/keychain-kit-plugin";
+
+const client = await createClient()
+  .use(
+    keychainPayer({
+      backend: "memory",
+      privateKeyPath: "~/.config/solana/id.json"
+    })
+  )
+  .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
+```
+
+¿Ya tienes un `SolanaSigner`? Cada firmante de cadena de claves es un
+`TransactionSigner` de Kit válido, por lo que puedes instalar uno existente con
+[`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
+en su lugar (`pnpm add @solana/kit-plugin-signer`):
+
+```typescript
+import { signer } from "@solana/kit-plugin-signer";
+import { createKeychainSigner } from "@solana/keychain";
+
+const mySigner = await createKeychainSigner({
+  backend: "vault",
+  ...vaultConfig
+});
+const client = createClient().use(signer(mySigner));
+```
+
+## Configuración del backend
 
 ### HashiCorp Vault
 
 ```typescript
-import { VaultSigner } from "@solana/keychain-vault";
+import { createVaultSigner } from "@solana/keychain-vault";
 
-const signer = new VaultSigner({
+const signer = createVaultSigner({
   vaultAddr: "https://vault.example.com:8200",
   vaultToken: "hvs.xxxxx",
   keyName: "my-solana-key",
@@ -114,9 +179,9 @@ const signer = new VaultSigner({
 ### AWS KMS
 
 ```typescript
-import { AwsKmsSigner } from "@solana/keychain-aws-kms";
+import { createAwsKmsSigner } from "@solana/keychain-aws-kms";
 
-const signer = new AwsKmsSigner({
+const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
@@ -126,9 +191,9 @@ const signer = new AwsKmsSigner({
 ### Privy
 
 ```typescript
-import { PrivySigner } from "@solana/keychain-privy";
+import { createPrivySigner } from "@solana/keychain-privy";
 
-const signer = await PrivySigner.create({
+const signer = await createPrivySigner({
   appId: "app_id",
   appSecret: "app_secret",
   walletId: "wallet_id"
@@ -138,9 +203,9 @@ const signer = await PrivySigner.create({
 ### Turnkey
 
 ```typescript
-import { TurnkeySigner } from "@solana/keychain-turnkey";
+import { createTurnkeySigner } from "@solana/keychain-turnkey";
 
-const signer = new TurnkeySigner({
+const signer = createTurnkeySigner({
   apiPublicKey: "api_public_key",
   apiPrivateKey: "api_private_key",
   organizationId: "org_id",
@@ -152,15 +217,14 @@ const signer = new TurnkeySigner({
 ### Fireblocks
 
 ```typescript
-import { FireblocksSigner } from "@solana/keychain-fireblocks";
+import { createFireblocksSigner } from "@solana/keychain-fireblocks";
 
-const signer = new FireblocksSigner({
+const signer = await createFireblocksSigner({
   apiKey: "api_key",
   privateKeyPem: "-----BEGIN RSA PRIVATE KEY-----\n...",
   vaultAccountId: "0",
   assetId: "SOL" // or "SOL_TEST" for devnet
 });
-await signer.init();
 ```
 
 ### CDP (Coinbase Developer Platform)
@@ -214,8 +278,8 @@ const signer = await createParaSigner({
 
 ## Interfaz SolanaSigner
 
-La interfaz `SolanaSigner` extiende los tipos `@solana/signers` para
-compatibilidad total:
+La interfaz `SolanaSigner` extiende los tipos `@solana/signers` para plena
+compatibilidad:
 
 ```typescript
 interface SolanaSigner<TAddress extends string = string>
@@ -239,7 +303,7 @@ interface SolanaSigner<TAddress extends string = string>
 }
 ```
 
-## Crear firmantes personalizados
+## Creación de Firmantes Personalizados
 
 Implementa la interfaz `SolanaSigner` para crear firmantes personalizados:
 
@@ -268,5 +332,5 @@ class MyCustomSigner implements SolanaSigner {
 }
 ```
 
-Consulta la [guía de Agregar firmantes](/docs/tools/keychain/adding-signers)
+Consulta la [guía para agregar firmantes](/docs/tools/keychain/adding-signers)
 para integrar servicios adicionales de gestión de claves.

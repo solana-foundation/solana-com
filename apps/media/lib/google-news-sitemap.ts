@@ -5,7 +5,7 @@ import { parsePublishedAt } from "@/lib/keystatic/publishing";
 
 const BASE_URL = "https://solana.com";
 const NEWS_URL = `${BASE_URL}/news`;
-const GOOGLE_NEWS_SITEMAP_CANONICAL_PATH = "/news/google-news.xml";
+const GOOGLE_NEWS_SITEMAP_CANONICAL_PATH = "/news/sitemap-news.xml";
 const PUBLICATION_NAME = "Solana";
 const PUBLICATION_LANGUAGE = "en";
 const GOOGLE_NEWS_LOOKBACK_HOURS = 48;
@@ -30,7 +30,12 @@ type RecentPublishedPost = {
   publishedAt: Date;
 };
 
-async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
+async function getRecentPublishedPosts(
+  now: Date,
+): Promise<RecentPublishedPost[]> {
+  const minNewsPublishedAt = new Date(
+    now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
+  );
   const allSlugs = await reader.collections.posts.list();
   const posts: RecentPublishedPost[] = [];
 
@@ -42,6 +47,10 @@ async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
 
     const publishedAt = parsePublishedAt(post.publishedAt);
     if (!publishedAt) {
+      continue;
+    }
+
+    if (publishedAt < minNewsPublishedAt || publishedAt > now) {
       continue;
     }
 
@@ -62,35 +71,23 @@ async function getPublishedPosts(now: Date): Promise<RecentPublishedPost[]> {
 async function buildGoogleNewsSitemapXml(
   now: Date = new Date(),
 ): Promise<string> {
-  const minNewsPublishedAt = new Date(
-    now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
-  );
-  const posts = await getPublishedPosts(now);
+  const posts = await getRecentPublishedPosts(now);
   const urls = posts.map((post) => {
     const loc = `${NEWS_URL}/${post.slug}`;
-    const isGoogleNewsEligible =
-      post.publishedAt >= minNewsPublishedAt && post.publishedAt <= now;
-
     const lines = [
       "<url>",
       `<loc>${escapeXml(loc)}</loc>`,
       `<lastmod>${escapeXml(post.publishedAt.toISOString())}</lastmod>`,
+      "<news:news>",
+      "<news:publication>",
+      `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
+      `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
+      "</news:publication>",
+      `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
+      `<news:title>${escapeXml(post.title)}</news:title>`,
+      "</news:news>",
+      "</url>",
     ];
-
-    if (isGoogleNewsEligible) {
-      lines.push(
-        "<news:news>",
-        "<news:publication>",
-        `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
-        `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
-        "</news:publication>",
-        `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
-        `<news:title>${escapeXml(post.title)}</news:title>`,
-        "</news:news>",
-      );
-    }
-
-    lines.push("</url>");
 
     return lines.join("");
   });
