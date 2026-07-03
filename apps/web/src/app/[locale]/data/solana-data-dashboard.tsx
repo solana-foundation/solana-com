@@ -1026,8 +1026,8 @@ function ChartCard({
   return (
     <article className="relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-2">
-          <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="m-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
             {title}
           </h2>
           {methodologyNotes.length > 0 ? (
