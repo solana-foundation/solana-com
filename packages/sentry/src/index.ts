@@ -1,5 +1,7 @@
+// [\w-]*bot\b catches compound crawler names (Googlebot, AhrefsBot); the
+// lookahead excludes CUBOT phone user agents.
 const BOT_USER_AGENT_PATTERN =
-  /\b(bot|crawler|spider|crawling|headless|lighthouse|pagespeed|slurp|bingpreview)\b/i;
+  /\b(?!cubot\b)[\w-]*bot\b|crawler|spider|crawling|headless|lighthouse|pagespeed|slurp|bingpreview/i;
 const DEBUG_TRANSACTION_MARKERS = ["sentry-debug", "__sentry_debug__"];
 const HEALTH_ROUTE_MARKERS = [
   "/api/health",
@@ -44,6 +46,22 @@ const EXTENSION_FRAME_MARKERS = [
 const EXTENSION_REJECTION_PATTERNS = [
   /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/,
 ];
+const RESOURCE_LOAD_EVENT_TYPES = ["abort", "error"];
+// Sentry serializes rejection targets either as constructor names
+// ("HTMLImageElement") or as DOM paths (" > head > link"), depending on
+// normalization depth — both shapes appear in production events.
+const RESOURCE_ELEMENT_MARKERS = [
+  "HTMLAudioElement",
+  "HTMLIFrameElement",
+  "HTMLImageElement",
+  "HTMLLinkElement",
+  "HTMLScriptElement",
+  "HTMLSourceElement",
+  "HTMLTrackElement",
+  "HTMLVideoElement",
+];
+const RESOURCE_DOM_PATH_PATTERN =
+  /(?:^|>)\s*(?:img|link|script|video|audio|source|track|iframe)(?:[.#[\s]|$)/i;
 
 type SentryEventLike = {
   exception?: {
@@ -88,6 +106,11 @@ type SentrySamplingContextLike = {
   };
 };
 
+// Local `next dev` runs with NODE_ENV=development; Vercel preview and
+// production builds run with NODE_ENV=production. Gating on it keeps local
+// build errors and machine names out of the production Sentry projects.
+export const sentryEnabled = process.env.NODE_ENV === "production";
+
 export const sentryIgnoreErrors = [
   /^ResizeObserver loop/,
   /^Non-Error promise rejection captured/,
@@ -98,6 +121,8 @@ export const sentryIgnoreErrors = [
   /Hydration failed/,
   /There was an error while hydrating/,
   /Text content does not match/,
+  // React Server Components flight stream interrupted by navigation/network.
+  /^Connection closed\.$/,
 ];
 
 export const sentryDenyUrls = [
@@ -109,6 +134,9 @@ export const sentryDenyUrls = [
   /googletagmanager\.com/i,
   /google-analytics\.com/i,
   /connect\.facebook\.net/i,
+  // UnicornStudio WebGL library served from jsDelivr; its internal errors
+  // (plane creation, render loop) are not actionable from this codebase.
+  /unicornstudio/i,
 ];
 
 function getHeaderValue(
@@ -208,6 +236,75 @@ function isWalletExtensionError(event: SentryEventLike): boolean {
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object");
+}
+
+function isSerializedResourceEvent(serialized: unknown): boolean {
+  if (!isRecord(serialized)) {
+    return false;
+  }
+
+  if (
+    !RESOURCE_LOAD_EVENT_TYPES.includes(
+      typeof serialized.type === "string" ? serialized.type : "",
+    )
+  ) {
+    return false;
+  }
+
+  // Trusted abort/error events surfacing as promise rejections come from the
+  // browser (resource loads, aborted streams), never application throw sites.
+  if (serialized.isTrusted === true) {
+    return true;
+  }
+
+  if (
+    [serialized.target, serialized.currentTarget].some(
+      (value) =>
+        typeof value === "string" && RESOURCE_DOM_PATH_PATTERN.test(value),
+    )
+  ) {
+    return true;
+  }
+
+  let serializedValue = "";
+
+  try {
+    serializedValue = JSON.stringify(serialized);
+  } catch {
+    return false;
+  }
+
+  return RESOURCE_ELEMENT_MARKERS.some((marker) =>
+    serializedValue.includes(marker),
+  );
+}
+
+function isResourceLoadRejection(event: SentryEventLike): boolean {
+  const exception = event.exception?.values?.[0];
+
+  return Boolean(
+    exception?.mechanism?.synthetic &&
+    exception.type === "UnhandledRejection" &&
+    isSerializedResourceEvent(event.extra?.__serialized__),
+  );
+}
+
+function isEmptyObjectRejection(event: SentryEventLike): boolean {
+  const exception = event.exception?.values?.[0];
+  const serialized = event.extra?.__serialized__;
+  const frames = exception?.stacktrace?.frames ?? [];
+
+  return Boolean(
+    exception?.mechanism?.synthetic &&
+    exception.type === "UnhandledRejection" &&
+    frames.length === 0 &&
+    isRecord(serialized) &&
+    Object.keys(serialized).length === 0,
+  );
+}
+
 export function sentryTracesSampler(
   context: SentrySamplingContextLike,
 ): number {
@@ -281,6 +378,14 @@ export function sentryBeforeSend<T extends SentryEventLike>(
     return null;
   }
 
+  if (isResourceLoadRejection(event)) {
+    return null;
+  }
+
+  if (isEmptyObjectRejection(event)) {
+    return null;
+  }
+
   const hasAppFrame = filenames.some((filename) => isAppFrame(filename));
   const hasThirdPartyFrame = filenames.some((filename) =>
     isThirdPartyFrame(filename),
@@ -295,3 +400,16 @@ export function sentryBeforeSend<T extends SentryEventLike>(
 
   return event;
 }
+
+// Complete Sentry.init() options shared by every app's client, server, and
+// edge config. NEXT_PUBLIC_SENTRY_DSN is inlined at build time in browser and
+// edge bundles because this package is transpiled as part of each app.
+export const sentryOptions = {
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  enabled: sentryEnabled,
+  tracesSampler: sentryTracesSampler,
+  beforeSend: sentryBeforeSend,
+  beforeSendTransaction: sentryBeforeSendTransaction,
+  ignoreErrors: sentryIgnoreErrors,
+  denyUrls: sentryDenyUrls,
+};

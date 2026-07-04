@@ -1,12 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import dynamic from "next/dynamic";
-
-const UnicornScene = dynamic(
-  () => import("unicornstudio-react").then((mod) => mod.default),
-  { ssr: false },
-);
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export function HubHeroBackground({
   heroImageSrc,
@@ -18,14 +13,13 @@ export function HubHeroBackground({
   return (
     <>
       {bgJsonFilePath ? (
-        <UnicornScene
+        <SafeUnicornScene
           projectId={`hub-${bgJsonFilePath}`}
           className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="101%"
           scale={1}
-          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
           fps={30}
           lazyLoad
           production
@@ -42,6 +36,19 @@ export function HubHeroBackground({
                 style={{ objectFit: "cover" }}
               />
             ) : undefined
+          }
+          fallback={
+            heroImageSrc ? (
+              <Image
+                className="!absolute inset-0 z-0"
+                src={heroImageSrc}
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                style={{ objectFit: "cover" }}
+              />
+            ) : null
           }
           showPlaceholderOnError
           showPlaceholderWhileLoading

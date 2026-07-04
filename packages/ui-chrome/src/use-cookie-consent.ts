@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getBrowserStorage } from "./browser-storage";
 import {
   applyCookieConsent,
   type CookieConsentValue,
@@ -14,8 +15,9 @@ export const useCookieConsent = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    const storage = getBrowserStorage("localStorage");
     const consent = readCookieConsent({
-      storage: window.localStorage,
+      storage,
     });
 
     setCookieConsent(consent);
@@ -34,8 +36,9 @@ export const useCookieConsent = () => {
       return;
     }
 
+    const storage = getBrowserStorage("localStorage");
     persistCookieConsent({
-      storage: window.localStorage,
+      storage,
       value: cookieConsent,
     });
     applyCookieConsent({
