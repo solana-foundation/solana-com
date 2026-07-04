@@ -5,7 +5,17 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { UnicornSceneProps } from "unicornstudio-react";
 
+const MIN_UNICORN_DPI = 1;
 const MAX_UNICORN_DPI = 2;
+const DEFAULT_UNICORN_DPI = 1.5;
+
+function clampUnicornDpi(dpi: number): number {
+  if (Number.isNaN(dpi)) {
+    return DEFAULT_UNICORN_DPI;
+  }
+
+  return Math.min(Math.max(dpi, MIN_UNICORN_DPI), MAX_UNICORN_DPI);
+}
 
 const UnicornScene = dynamic<UnicornSceneProps>(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -31,10 +41,10 @@ function canUseWebGL() {
 
 export function getSafeUnicornDpi() {
   if (typeof window === "undefined") {
-    return 1.5;
+    return DEFAULT_UNICORN_DPI;
   }
 
-  return Math.min(Math.max(window.devicePixelRatio || 1, 1), MAX_UNICORN_DPI);
+  return clampUnicornDpi(window.devicePixelRatio || MIN_UNICORN_DPI);
 }
 
 export function SafeUnicornScene({
@@ -56,7 +66,7 @@ export function SafeUnicornScene({
   return (
     <UnicornScene
       {...props}
-      dpi={Math.min(Number(props.dpi ?? 1.5), MAX_UNICORN_DPI)}
+      dpi={clampUnicornDpi(Number(props.dpi ?? DEFAULT_UNICORN_DPI))}
     />
   );
 }

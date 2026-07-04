@@ -1,5 +1,7 @@
+// [\w-]*bot\b catches compound crawler names (Googlebot, AhrefsBot); the
+// lookahead excludes CUBOT phone user agents.
 const BOT_USER_AGENT_PATTERN =
-  /\b(bot|crawler|spider|crawling|headless|lighthouse|pagespeed|slurp|bingpreview)\b/i;
+  /\b(?!cubot\b)[\w-]*bot\b|crawler|spider|crawling|headless|lighthouse|pagespeed|slurp|bingpreview/i;
 const DEBUG_TRANSACTION_MARKERS = ["sentry-debug", "__sentry_debug__"];
 const HEALTH_ROUTE_MARKERS = [
   "/api/health",
@@ -46,10 +48,13 @@ const EXTENSION_REJECTION_PATTERNS = [
 ];
 const RESOURCE_LOAD_EVENT_TYPES = ["abort", "error"];
 const RESOURCE_ELEMENT_MARKERS = [
+  "HTMLAudioElement",
+  "HTMLIFrameElement",
   "HTMLImageElement",
   "HTMLLinkElement",
   "HTMLScriptElement",
   "HTMLSourceElement",
+  "HTMLTrackElement",
   "HTMLVideoElement",
 ];
 
