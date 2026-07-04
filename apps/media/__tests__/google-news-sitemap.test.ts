@@ -88,10 +88,86 @@ describe("getGoogleNewsSitemapResponse", () => {
       "<news:publication_date>2026-04-13T13:00:00.000Z</news:publication_date>",
     );
     expect(xml).toContain("<news:title>Fresh Solana News</news:title>");
-    expect(xml).not.toContain("stale-post");
+    // The stale post pads the sitemap as a plain <url> entry, but only the
+    // fresh post carries <news:news> metadata.
+    expect(xml).toContain("<loc>https://solana.com/news/stale-post</loc>");
+    expect(xml.match(/<news:news>/g)).toHaveLength(1);
     expect(xml).not.toContain("Old Solana News");
     expect(xml).not.toContain("draft-post");
     expect(xml).not.toContain("future-post");
+    // Newest first: the fresh post precedes the padded older post.
+    expect(xml.indexOf("fresh-post")).toBeLessThan(xml.indexOf("stale-post"));
+  });
+
+  it("pads the sitemap with the newest older posts so the urlset is never empty", async () => {
+    const olderSlugs = Array.from(
+      { length: 15 },
+      (_, index) => `older-post-${index}`,
+    );
+
+    mockReader.collections.posts.list.mockResolvedValue(olderSlugs);
+    mockReader.collections.posts.read.mockImplementation((slug: string) => {
+      const index = Number(slug.replace("older-post-", ""));
+      return Promise.resolve({
+        status: "published",
+        title: `Older Solana News ${index}`,
+        publishedAt: new Date(
+          Date.UTC(2026, 3, 1, 12, 0, 0) - index * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      });
+    });
+
+    const response = await getGoogleNewsSitemapResponse(
+      new Date("2026-04-14T12:00:00.000Z"),
+    );
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(xml.match(/<url>/g)).toHaveLength(10);
+    expect(xml).toContain("<loc>https://solana.com/news/older-post-0</loc>");
+    expect(xml).toContain("<loc>https://solana.com/news/older-post-9</loc>");
+    expect(xml).not.toContain("older-post-10");
+    // None of the padded posts are within 48 hours, so no news metadata.
+    expect(xml).not.toContain("<news:news>");
+  });
+
+  it("includes only 48-hour posts when the window has enough articles", async () => {
+    const freshSlugs = Array.from(
+      { length: 12 },
+      (_, index) => `fresh-post-${index}`,
+    );
+
+    mockReader.collections.posts.list.mockResolvedValue([
+      ...freshSlugs,
+      "stale-post",
+    ]);
+    mockReader.collections.posts.read.mockImplementation((slug: string) => {
+      if (slug === "stale-post") {
+        return Promise.resolve({
+          status: "published",
+          title: "Old Solana News",
+          publishedAt: "2026-04-01T11:59:59.000Z",
+        });
+      }
+
+      const index = Number(slug.replace("fresh-post-", ""));
+      return Promise.resolve({
+        status: "published",
+        title: `Fresh Solana News ${index}`,
+        publishedAt: new Date(
+          Date.UTC(2026, 3, 13, 13, 0, 0) - index * 1000,
+        ).toISOString(),
+      });
+    });
+
+    const response = await getGoogleNewsSitemapResponse(
+      new Date("2026-04-14T12:00:00.000Z"),
+    );
+    const xml = await response.text();
+
+    expect(xml.match(/<url>/g)).toHaveLength(12);
+    expect(xml.match(/<news:news>/g)).toHaveLength(12);
+    expect(xml).not.toContain("stale-post");
   });
 
   it("escapes XML-sensitive characters in titles", async () => {
