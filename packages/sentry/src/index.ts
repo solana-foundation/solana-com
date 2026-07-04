@@ -47,6 +47,9 @@ const EXTENSION_REJECTION_PATTERNS = [
   /Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+/,
 ];
 const RESOURCE_LOAD_EVENT_TYPES = ["abort", "error"];
+// Sentry serializes rejection targets either as constructor names
+// ("HTMLImageElement") or as DOM paths (" > head > link"), depending on
+// normalization depth — both shapes appear in production events.
 const RESOURCE_ELEMENT_MARKERS = [
   "HTMLAudioElement",
   "HTMLIFrameElement",
@@ -57,6 +60,8 @@ const RESOURCE_ELEMENT_MARKERS = [
   "HTMLTrackElement",
   "HTMLVideoElement",
 ];
+const RESOURCE_DOM_PATH_PATTERN =
+  /(?:^|>)\s*(?:img|link|script|video|audio|source|track|iframe)(?:[.#[\s]|$)/i;
 
 type SentryEventLike = {
   exception?: {
@@ -101,6 +106,11 @@ type SentrySamplingContextLike = {
   };
 };
 
+// Local `next dev` runs with NODE_ENV=development; Vercel preview and
+// production builds run with NODE_ENV=production. Gating on it keeps local
+// build errors and machine names out of the production Sentry projects.
+export const sentryEnabled = process.env.NODE_ENV === "production";
+
 export const sentryIgnoreErrors = [
   /^ResizeObserver loop/,
   /^Non-Error promise rejection captured/,
@@ -111,6 +121,8 @@ export const sentryIgnoreErrors = [
   /Hydration failed/,
   /There was an error while hydrating/,
   /Text content does not match/,
+  // React Server Components flight stream interrupted by navigation/network.
+  /^Connection closed\.$/,
 ];
 
 export const sentryDenyUrls = [
@@ -122,6 +134,9 @@ export const sentryDenyUrls = [
   /googletagmanager\.com/i,
   /google-analytics\.com/i,
   /connect\.facebook\.net/i,
+  // UnicornStudio WebGL library served from jsDelivr; its internal errors
+  // (plane creation, render loop) are not actionable from this codebase.
+  /unicornstudio/i,
 ];
 
 function getHeaderValue(
@@ -238,6 +253,21 @@ function isSerializedResourceEvent(serialized: unknown): boolean {
     return false;
   }
 
+  // Trusted abort/error events surfacing as promise rejections come from the
+  // browser (resource loads, aborted streams), never application throw sites.
+  if (serialized.isTrusted === true) {
+    return true;
+  }
+
+  if (
+    [serialized.target, serialized.currentTarget].some(
+      (value) =>
+        typeof value === "string" && RESOURCE_DOM_PATH_PATTERN.test(value),
+    )
+  ) {
+    return true;
+  }
+
   let serializedValue = "";
 
   try {
@@ -258,6 +288,20 @@ function isResourceLoadRejection(event: SentryEventLike): boolean {
     exception?.mechanism?.synthetic &&
     exception.type === "UnhandledRejection" &&
     isSerializedResourceEvent(event.extra?.__serialized__),
+  );
+}
+
+function isEmptyObjectRejection(event: SentryEventLike): boolean {
+  const exception = event.exception?.values?.[0];
+  const serialized = event.extra?.__serialized__;
+  const frames = exception?.stacktrace?.frames ?? [];
+
+  return Boolean(
+    exception?.mechanism?.synthetic &&
+    exception.type === "UnhandledRejection" &&
+    frames.length === 0 &&
+    isRecord(serialized) &&
+    Object.keys(serialized).length === 0,
   );
 }
 
@@ -335,6 +379,10 @@ export function sentryBeforeSend<T extends SentryEventLike>(
   }
 
   if (isResourceLoadRejection(event)) {
+    return null;
+  }
+
+  if (isEmptyObjectRejection(event)) {
     return null;
   }
 

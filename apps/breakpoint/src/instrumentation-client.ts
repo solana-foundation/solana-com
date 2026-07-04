@@ -7,6 +7,7 @@ import {
   sentryBeforeSend,
   sentryBeforeSendTransaction,
   sentryDenyUrls,
+  sentryEnabled,
   sentryIgnoreErrors,
   sentryTracesSampler,
 } from "@workspace/sentry";
@@ -14,6 +15,7 @@ import {
 const initSentry = () => {
   Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    enabled: sentryEnabled,
     tracesSampler: sentryTracesSampler,
     debug: false,
     beforeSend: sentryBeforeSend,

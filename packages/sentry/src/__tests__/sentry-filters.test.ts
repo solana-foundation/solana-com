@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   sentryBeforeSend,
   sentryBeforeSendTransaction,
+  sentryDenyUrls,
+  sentryIgnoreErrors,
   sentryTracesSampler,
 } from "../index.js";
 
@@ -122,6 +124,49 @@ describe("sentryBeforeSend", () => {
     expect(sentryBeforeSend(event)).toBeNull();
   });
 
+  it("drops resource load rejections serialized as DOM paths (JAVASCRIPT-NEXTJS-20 shape)", () => {
+    const event = buildSyntheticRejectionEvent({
+      serialized: {
+        currentTarget: "[object Null]",
+        isTrusted: true,
+        target: " > html.dark.tw-dark > head > link",
+        type: "error",
+      },
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops trusted error events even without an element marker", () => {
+    const event = buildSyntheticRejectionEvent({
+      serialized: { type: "error", isTrusted: true },
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops DOM-path targets without isTrusted", () => {
+    const event = buildSyntheticRejectionEvent({
+      serialized: { type: "error", target: " > body > img.hero" },
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops empty-object rejections with no stacktrace (JAVASCRIPT-NEXTJS-59 shape)", () => {
+    const event = buildSyntheticRejectionEvent({ serialized: {} });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("keeps rejections whose serialized payload has data worth inspecting", () => {
+    const event = buildSyntheticRejectionEvent({
+      serialized: { reason: "checkout failed", step: 3 },
+    });
+
+    expect(sentryBeforeSend(event)).toEqual(event);
+  });
+
   it("keeps rejections whose serialized payload is not a resource event", () => {
     const event = buildSyntheticRejectionEvent({
       serialized: { type: "custom", detail: "application state" },
@@ -195,6 +240,25 @@ describe("sentryBeforeSend", () => {
     const result = sentryBeforeSend(event);
 
     expect(result?.tags?.third_party_code).toBeUndefined();
+  });
+});
+
+describe("sentryIgnoreErrors", () => {
+  it("ignores interrupted RSC streams but not other connection errors", () => {
+    const matches = (message: string) =>
+      sentryIgnoreErrors.some((pattern) => pattern.test(message));
+
+    expect(matches("Connection closed.")).toBe(true);
+    expect(matches("Connection closed unexpectedly by peer")).toBe(false);
+  });
+});
+
+describe("sentryDenyUrls", () => {
+  it("drops errors raised inside the UnicornStudio CDN bundle", () => {
+    const url =
+      "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.5.2/dist/unicornStudio.umd.js";
+
+    expect(sentryDenyUrls.some((pattern) => pattern.test(url))).toBe(true);
   });
 });
 
