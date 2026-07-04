@@ -32,22 +32,32 @@ describe("getGoogleNewsSitemapResponse", () => {
     );
   });
 
-  it("includes only published posts from the last 48 hours", async () => {
+  it("includes only posts from the last 48 hours when the window has enough posts", async () => {
+    const freshSlugs = Array.from(
+      { length: 12 },
+      (_, index) => `fresh-post-${index}`,
+    );
+
     mockReader.collections.posts.list.mockResolvedValue([
-      "fresh-post",
+      ...freshSlugs,
       "stale-post",
       "draft-post",
       "future-post",
     ]);
 
     mockReader.collections.posts.read.mockImplementation((slug: string) => {
+      if (slug.startsWith("fresh-post-")) {
+        const index = Number(slug.replace("fresh-post-", ""));
+        return Promise.resolve({
+          status: "published",
+          title: `Fresh Solana News ${index}`,
+          publishedAt: new Date(
+            Date.UTC(2026, 3, 13, 13, 0, 0) - index * 1000,
+          ).toISOString(),
+        });
+      }
+
       switch (slug) {
-        case "fresh-post":
-          return Promise.resolve({
-            status: "published",
-            title: "Fresh Solana News",
-            publishedAt: "2026-04-13T13:00:00.000Z",
-          });
         case "stale-post":
           return Promise.resolve({
             status: "published",
@@ -81,17 +91,84 @@ describe("getGoogleNewsSitemapResponse", () => {
     expect(xml).toContain(
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">',
     );
-    expect(xml).toContain("<loc>https://solana.com/news/fresh-post</loc>");
+    expect(xml).toContain("<loc>https://solana.com/news/fresh-post-0</loc>");
     expect(xml).toContain("<news:name>Solana</news:name>");
     expect(xml).toContain("<news:language>en</news:language>");
     expect(xml).toContain(
       "<news:publication_date>2026-04-13T13:00:00.000Z</news:publication_date>",
     );
-    expect(xml).toContain("<news:title>Fresh Solana News</news:title>");
+    expect(xml).toContain("<news:title>Fresh Solana News 0</news:title>");
     expect(xml).not.toContain("stale-post");
     expect(xml).not.toContain("Old Solana News");
     expect(xml).not.toContain("draft-post");
     expect(xml).not.toContain("future-post");
+  });
+
+  it("falls back to the newest published posts when the 48-hour window is sparse", async () => {
+    const olderSlugs = Array.from(
+      { length: 15 },
+      (_, index) => `older-post-${index}`,
+    );
+
+    mockReader.collections.posts.list.mockResolvedValue([
+      "fresh-post",
+      "draft-post",
+      "future-post",
+      ...olderSlugs,
+    ]);
+
+    mockReader.collections.posts.read.mockImplementation((slug: string) => {
+      if (slug.startsWith("older-post-")) {
+        const index = Number(slug.replace("older-post-", ""));
+        return Promise.resolve({
+          status: "published",
+          title: `Older Solana News ${index}`,
+          publishedAt: new Date(
+            Date.UTC(2026, 3, 1, 12, 0, 0) - index * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+        });
+      }
+
+      switch (slug) {
+        case "fresh-post":
+          return Promise.resolve({
+            status: "published",
+            title: "Fresh Solana News",
+            publishedAt: "2026-04-13T13:00:00.000Z",
+          });
+        case "draft-post":
+          return Promise.resolve({
+            status: "draft",
+            title: "Draft Solana News",
+            publishedAt: "2026-04-14T08:00:00.000Z",
+          });
+        case "future-post":
+          return Promise.resolve({
+            status: "published",
+            title: "Future Solana News",
+            publishedAt: "2026-04-15T08:00:00.000Z",
+          });
+        default:
+          return Promise.resolve(null);
+      }
+    });
+
+    const response = await getGoogleNewsSitemapResponse(
+      new Date("2026-04-14T12:00:00.000Z"),
+    );
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    // The fresh post plus the 9 newest older posts fill the 10-URL floor.
+    expect(xml.match(/<news:news>/g)).toHaveLength(10);
+    expect(xml).toContain("<loc>https://solana.com/news/fresh-post</loc>");
+    expect(xml).toContain("older-post-0");
+    expect(xml).toContain("older-post-8");
+    expect(xml).not.toContain("older-post-9");
+    expect(xml).not.toContain("draft-post");
+    expect(xml).not.toContain("future-post");
+    // Newest first: the fresh post precedes the older fallback posts.
+    expect(xml.indexOf("fresh-post")).toBeLessThan(xml.indexOf("older-post-0"));
   });
 
   it("escapes XML-sensitive characters in titles", async () => {

@@ -9,6 +9,7 @@ const GOOGLE_NEWS_SITEMAP_CANONICAL_PATH = "/news/sitemap-news.xml";
 const PUBLICATION_NAME = "Solana";
 const PUBLICATION_LANGUAGE = "en";
 const GOOGLE_NEWS_LOOKBACK_HOURS = 48;
+const MIN_NEWS_URLS = 10;
 const MAX_NEWS_URLS = 1000;
 const XML_CONTENT_TYPE = "application/xml; charset=utf-8";
 const XML_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
@@ -50,7 +51,7 @@ async function getRecentPublishedPosts(
       continue;
     }
 
-    if (publishedAt < minNewsPublishedAt || publishedAt > now) {
+    if (publishedAt > now) {
       continue;
     }
 
@@ -65,7 +66,17 @@ async function getRecentPublishedPosts(
     (left, right) => right.publishedAt.getTime() - left.publishedAt.getTime(),
   );
 
-  return posts.slice(0, MAX_NEWS_URLS);
+  // Google News wants articles from the last 48 hours, but our publishing
+  // cadence often leaves that window empty. Top up with the newest older
+  // posts so the sitemap always has URLs for crawlers to read.
+  const withinLookback = posts.filter(
+    (post) => post.publishedAt >= minNewsPublishedAt,
+  );
+  if (withinLookback.length >= MIN_NEWS_URLS) {
+    return withinLookback.slice(0, MAX_NEWS_URLS);
+  }
+
+  return posts.slice(0, MIN_NEWS_URLS);
 }
 
 async function buildGoogleNewsSitemapXml(
