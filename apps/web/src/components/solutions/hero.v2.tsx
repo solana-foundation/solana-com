@@ -6,10 +6,7 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/app/components/utils";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 export type SolutionHeroStat = {
@@ -116,7 +113,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           width="100%"
           height="100%"
           scale={1}
-          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad={true}
           production={true}

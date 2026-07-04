@@ -3,10 +3,7 @@ import { Container } from "@/component-library/container";
 import { StatsGrid, StatsGridItem } from "@/component-library/stats-grid";
 import { cn } from "@/app/components/utils";
 import Image from "next/image";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export type PerformanceProps = {
   title?: React.ReactNode;
@@ -35,7 +32,6 @@ export const Performance: React.FC<PerformanceProps> = ({
           width="100%"
           height="101%"
           scale={1}
-          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad={true}
           production={true}

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export function SkillsHeroBackground() {
   return (
@@ -13,7 +10,6 @@ export function SkillsHeroBackground() {
       width="100%"
       height="100%"
       scale={1}
-      dpi={getSafeUnicornDpi()}
       fps={30}
       lazyLoad={true}
       production={true}

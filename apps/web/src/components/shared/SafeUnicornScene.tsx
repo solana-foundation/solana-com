@@ -47,12 +47,14 @@ export function getSafeUnicornDpi() {
   return clampUnicornDpi(window.devicePixelRatio || MIN_UNICORN_DPI);
 }
 
+type SafeUnicornSceneProps = Omit<UnicornSceneProps, "dpi"> & {
+  fallback?: ReactNode;
+};
+
 export function SafeUnicornScene({
   fallback = null,
   ...props
-}: UnicornSceneProps & {
-  fallback?: ReactNode;
-}) {
+}: SafeUnicornSceneProps) {
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
@@ -63,10 +65,5 @@ export function SafeUnicornScene({
     return fallback;
   }
 
-  return (
-    <UnicornScene
-      {...props}
-      dpi={clampUnicornDpi(Number(props.dpi ?? DEFAULT_UNICORN_DPI))}
-    />
-  );
+  return <UnicornScene {...props} dpi={getSafeUnicornDpi()} />;
 }

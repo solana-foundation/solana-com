@@ -3,10 +3,7 @@ import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 const EarthAnimation = dynamic(
   () =>
@@ -52,7 +49,6 @@ export const Community: React.FC<CommunityProps> = ({
             width="100%"
             height="101%"
             scale={1}
-            dpi={getSafeUnicornDpi()}
             fps={30}
             lazyLoad={true}
             production={true}

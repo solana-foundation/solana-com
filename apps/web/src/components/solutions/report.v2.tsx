@@ -2,10 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine, ChevronRight } from "lucide-react";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export type SolutionReportLink = {
   title: string;
@@ -75,7 +72,6 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           height="100%"
           jsonFilePath={bgJsonFilePath}
           scale={1}
-          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad={true}
           production={true}

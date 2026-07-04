@@ -1,10 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export function HubHeroBackground({
   heroImageSrc,
@@ -23,7 +20,6 @@ export function HubHeroBackground({
           width="100%"
           height="101%"
           scale={1}
-          dpi={getSafeUnicornDpi()}
           fps={30}
           lazyLoad
           production

@@ -5,10 +5,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/app/components/utils";
 import { Container } from "@/component-library/container";
 import dynamic from "next/dynamic";
-import {
-  getSafeUnicornDpi,
-  SafeUnicornScene,
-} from "@/components/shared/SafeUnicornScene";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 const GetStarted = dynamic(
   () => import("./get-started").then((mod) => mod.GetStarted),
@@ -96,7 +93,6 @@ export const Hero: React.FC<HeroProps> = ({
             width="100%"
             height="101%"
             scale={1}
-            dpi={getSafeUnicornDpi()}
             fps={30}
             lazyLoad={true}
             production={true}
