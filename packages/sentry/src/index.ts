@@ -400,3 +400,16 @@ export function sentryBeforeSend<T extends SentryEventLike>(
 
   return event;
 }
+
+// Complete Sentry.init() options shared by every app's client, server, and
+// edge config. NEXT_PUBLIC_SENTRY_DSN is inlined at build time in browser and
+// edge bundles because this package is transpiled as part of each app.
+export const sentryOptions = {
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  enabled: sentryEnabled,
+  tracesSampler: sentryTracesSampler,
+  beforeSend: sentryBeforeSend,
+  beforeSendTransaction: sentryBeforeSendTransaction,
+  ignoreErrors: sentryIgnoreErrors,
+  denyUrls: sentryDenyUrls,
+};

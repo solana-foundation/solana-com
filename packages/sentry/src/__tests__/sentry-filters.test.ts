@@ -4,7 +4,9 @@ import {
   sentryBeforeSend,
   sentryBeforeSendTransaction,
   sentryDenyUrls,
+  sentryEnabled,
   sentryIgnoreErrors,
+  sentryOptions,
   sentryTracesSampler,
 } from "../index.js";
 
@@ -240,6 +242,20 @@ describe("sentryBeforeSend", () => {
     const result = sentryBeforeSend(event);
 
     expect(result?.tags?.third_party_code).toBeUndefined();
+  });
+});
+
+describe("sentryOptions", () => {
+  it("wires every shared handler and filter into the init options", () => {
+    expect(sentryOptions).toMatchObject({
+      enabled: sentryEnabled,
+      tracesSampler: sentryTracesSampler,
+      beforeSend: sentryBeforeSend,
+      beforeSendTransaction: sentryBeforeSendTransaction,
+      ignoreErrors: sentryIgnoreErrors,
+      denyUrls: sentryDenyUrls,
+    });
+    expect(Object.keys(sentryOptions)).toContain("dsn");
   });
 });
 
