@@ -70,6 +70,11 @@ export type BreakpointMessages = {
       }
     >;
   };
+  events: {
+    headline: string;
+    scheduleCta: string;
+    communityCta: string;
+  };
   highlights: {
     eyebrow: string;
     headline: string;
