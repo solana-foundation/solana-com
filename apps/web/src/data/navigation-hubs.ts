@@ -326,6 +326,22 @@ const navigationHubStaticConfigs = {
           },
         ],
       },
+      {
+        href: "/data",
+        links: [
+          {
+            href: "/data",
+          },
+          {
+            href: "https://pay.sh",
+            external: true,
+          },
+          {
+            href: "https://tokens.xyz",
+            external: true,
+          },
+        ],
+      },
     ],
     feature: {
       href: "/x402",
@@ -394,6 +410,21 @@ const navigationHubStaticConfigs = {
           },
           {
             href: "/developers/guides",
+          },
+        ],
+      },
+      {
+        links: [
+          {
+            href: "/data",
+          },
+          {
+            href: "https://pay.sh",
+            external: true,
+          },
+          {
+            href: "https://tokens.xyz",
+            external: true,
           },
         ],
       },

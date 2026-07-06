@@ -64,36 +64,41 @@ diserialisasi, ditandatangani dengan kunci privat akun penandatangan. Satu tanda
 tangan diperlukan untuk setiap [akun penandatangan](#account-addresses) yang
 direferensikan oleh instruksi transaksi.
 
-Tanda tangan pertama dalam array adalah milik **pembayar biaya**, akun yang
-membayar
-[biaya dasar dan biaya prioritas transaksi](/docs/core/fees/fee-structure#base-fee).
-Tanda tangan pertama ini juga berfungsi sebagai **ID transaksi**, digunakan
+Setiap tanda tangan dihasilkan oleh private key. Tempat penyimpanan key tersebut
+— keypair lokal, cloud HSM atau KMS, atau layanan wallet terkelola — merupakan
+keputusan desain untuk lingkungan produksi. Lihat
+[Penandatanganan di Produksi](/docs/core/transactions/signing-in-production).
+
+Tanda tangan pertama dalam array milik **fee payer**, yaitu akun yang membayar
+[biaya dasar dan biaya prioritisasi transaksi](/docs/core/fees/fee-structure#base-fee).
+Tanda tangan pertama ini juga berfungsi sebagai **ID transaksi**, yang digunakan
 untuk mencari transaksi di jaringan. ID transaksi umumnya disebut sebagai
 **tanda tangan transaksi**.
 
-Persyaratan pembayar biaya:
+Persyaratan fee payer:
 
-- Harus menjadi akun pertama dalam pesan (indeks 0) dan penandatangan.
+- Harus menjadi akun pertama dalam pesan (indeks 0) dan merupakan penanda
+  tangan.
 - Harus berupa akun milik System Program atau akun nonce (divalidasi oleh
   [`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
-- Harus memiliki lamport yang cukup untuk menutupi
+- Harus memiliki cukup lamport untuk menanggung
   `rent_exempt_minimum + total_fee`; jika tidak, transaksi akan gagal dengan
   _rs`InsufficientFundsForFee`_.
 
 ## Pesan
 
-Field `message` adalah struct
+Field `message` adalah sebuah struct
 [`Message`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L161)
 yang berisi payload transaksi:
 
 <WithMentions>
 
 - [`header`](mention:message-header): [Header](#header) pesan
-- [`account_keys`](mention:account-addresses): Array
+- [`account_keys`](mention:account-addresses): Array dari
   [alamat akun](#account-addresses) yang diperlukan oleh instruksi transaksi
-- [`recent_blockhash`](mention:recent-blockhash): [Blockhash](#recent-blockhash)
-  yang berfungsi sebagai timestamp untuk transaksi
-- [`instructions`](mention:instructions): Array [instruksi](#instructions)
+- [`recent_blockhash`](mention:recent-blockhash): Sebuah
+  [blockhash](#recent-blockhash) yang berfungsi sebagai cap waktu transaksi
+- [`instructions`](mention:instructions): Array dari [instruksi](#instructions)
 
 ```rust title="Message"
 pub struct Message {
@@ -124,17 +129,16 @@ pub struct Message {
 
 <WithMentions>
 
-Field `header` adalah struct
+Field `header` adalah sebuah struct
 [`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
-dengan tiga field `u8` yang mempartisi array `account_keys` ke dalam kelompok
-izin:
+dengan tiga field `u8` yang membagi array `account_keys` ke dalam kelompok izin:
 
 - [`num_required_signatures`](mention:num_required_signatures): Jumlah total
   tanda tangan yang diperlukan oleh transaksi.
 - [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Jumlah
-  akun yang ditandatangani yang bersifat read-only.
+  akun bertanda tangan yang bersifat hanya-baca.
 - [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
-  Jumlah akun yang tidak ditandatangani yang bersifat read-only.
+  Jumlah akun tidak bertanda tangan yang bersifat hanya-baca.
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -165,46 +169,47 @@ pub struct MessageHeader {
 Field
 [`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
 adalah array public key yang dikodekan secara kompak. Setiap entri
-mengidentifikasi akun yang digunakan oleh setidaknya satu instruksi transaksi.
-Array harus mencakup setiap akun dan harus mengikuti urutan ketat ini:
+mengidentifikasi sebuah akun yang digunakan oleh setidaknya satu instruksi
+transaksi. Array tersebut harus menyertakan setiap akun dan harus mengikuti
+urutan ketat berikut:
 
-1. Penandatangan + Writable
-2. Penandatangan + Read-only
-3. Non-penandatangan + Writable
-4. Non-penandatangan + Read-only
+1. Penanda tangan + Dapat ditulis
+2. Penanda tangan + Hanya baca
+3. Bukan penanda tangan + Dapat ditulis
+4. Bukan penanda tangan + Hanya baca
 
 <Callout>
   Urutan ketat ini memungkinkan array `account_keys` digabungkan dengan tiga
-  hitungan dalam [`header`](#header) pesan untuk menentukan izin untuk setiap
-  akun tanpa menyimpan flag metadata per-akun. Hitungan header mempartisi array
-  ke dalam empat kelompok izin yang tercantum di atas.
+  hitungan dalam [`header`](#header) pesan untuk menentukan izin bagi setiap
+  akun tanpa menyimpan flag metadata per akun. Hitungan header membagi array
+  menjadi empat kelompok izin yang tercantum di atas.
 </Callout>
 
 ![Diagram yang menunjukkan urutan array alamat akun](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### Blockhash terbaru
 
-Field `recent_blockhash` adalah hash 32-byte yang memiliki dua tujuan:
+Kolom `recent_blockhash` adalah hash 32-byte yang memiliki dua tujuan:
 
-1. **Timestamp**: membuktikan bahwa transaksi dibuat baru-baru ini.
+1. **Stempel waktu**: membuktikan bahwa transaksi dibuat baru-baru ini.
 2. **Deduplikasi**: mencegah transaksi yang sama diproses dua kali.
 
-Blockhash kedaluwarsa setelah 150 slot. Jika blockhash tidak lagi valid saat
-transaksi tiba, maka akan ditolak dengan _rs`BlockhashNotFound`_, kecuali jika
-merupakan [transaksi nonce tahan lama](/docs/core/transactions/durable-nonces)
-yang valid.
+Sebuah blockhash kedaluwarsa setelah 150 slot. Jika blockhash sudah tidak valid
+saat transaksi tiba, transaksi akan ditolak dengan _rs`BlockhashNotFound`_,
+kecuali jika merupakan
+[transaksi durable nonce](/docs/core/transactions/durable-nonces) yang valid.
 
 <Callout>
   Metode RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash)
   memungkinkan Anda mendapatkan blockhash saat ini dan tinggi blok terakhir di
-  mana blockhash akan valid.
+  mana blockhash masih valid.
 </Callout>
 
 ### Instruksi
 
-Field
+Kolom
 [`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)
-adalah array compact-encoded dari struct
+adalah array berenkode ringkas dari struct
 [`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21).
 Setiap _rs`CompiledInstruction`_ mereferensikan akun berdasarkan indeks ke dalam
 array `account_keys`, bukan berdasarkan public key lengkap. Ini berisi:
@@ -215,8 +220,8 @@ array `account_keys`, bukan berdasarkan public key lengkap. Ini berisi:
    `account_keys` yang mengidentifikasi program yang akan dipanggil.
 2. [`accounts`](mention:account-indexes): Array indeks ke dalam `account_keys`
    yang menentukan akun yang akan diteruskan ke program.
-3. [`data`](mention:instruction-data): Array byte yang berisi diskriminator
-   instruksi dan argumen yang diserialisasi.
+3. [`data`](mention:instruction-data): Array byte yang berisi discriminator
+   instruksi dan argumen terserialisasi.
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -236,43 +241,44 @@ pub struct CompiledInstruction {
 
 </WithMentions>
 
-![Array compact dari instruksi](/assets/docs/core/transactions/compact_array_of_ixs.png)
+![Array ringkas dari Instruksi](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
 ## Format biner transaksi
 
-Transaksi diserialisasi menggunakan skema encoding compact. Semua array dengan
-panjang variabel (signature, kunci akun, instruksi) diawali dengan encoding
+Transaksi diserialisasi menggunakan skema enkoding ringkas. Semua array dengan
+panjang variabel (tanda tangan, kunci akun, instruksi) diberi awalan enkoding
 panjang compact-u16. Format ini menggunakan 1 byte untuk nilai 0-127 dan 2-3
 byte untuk nilai yang lebih besar.
 
-**Layout transaksi legacy** (on the wire):
+**Tata letak transaksi legacy** (pada wire):
 
-| Field                     | Ukuran                       | Deskripsi                                         |
-| ------------------------- | ---------------------------- | ------------------------------------------------- |
-| `num_signatures`          | 1-3 byte (compact-u16)       | Jumlah signature                                  |
-| `signatures`              | `num_signatures` x 64 byte   | Signature Ed25519                                 |
-| `num_required_signatures` | 1 byte                       | Field `MessageHeader` 1                           |
-| `num_readonly_signed`     | 1 byte                       | Field `MessageHeader` 2                           |
-| `num_readonly_unsigned`   | 1 byte                       | Field `MessageHeader` 3                           |
-| `num_account_keys`        | 1-3 byte (compact-u16)       | Jumlah kunci akun statis                          |
-| `account_keys`            | `num_account_keys` x 32 byte | Public key                                        |
-| `recent_blockhash`        | 32 byte                      | Blockhash                                         |
-| `num_instructions`        | 1-3 byte (compact-u16)       | Jumlah instruksi                                  |
-| `instructions`            | variabel                     | Array [instruksi yang dikompilasi](#instructions) |
+| Field                     | Ukuran                       | Deskripsi                                              |
+| ------------------------- | ---------------------------- | ------------------------------------------------------ |
+| `num_signatures`          | 1-3 byte (compact-u16)       | Jumlah tanda tangan                                    |
+| `signatures`              | `num_signatures` x 64 byte   | Tanda tangan Ed25519                                   |
+| `num_required_signatures` | 1 byte                       | Field 1 `MessageHeader`                                |
+| `num_readonly_signed`     | 1 byte                       | Field 2 `MessageHeader`                                |
+| `num_readonly_unsigned`   | 1 byte                       | Field 3 `MessageHeader`                                |
+| `num_account_keys`        | 1-3 byte (compact-u16)       | Jumlah kunci akun statis                               |
+| `account_keys`            | `num_account_keys` x 32 byte | Kunci publik                                           |
+| `recent_blockhash`        | 32 byte                      | Blockhash                                              |
+| `num_instructions`        | 1-3 byte (compact-u16)       | Jumlah instruksi                                       |
+| `instructions`            | variabel                     | Array dari [instruksi yang dikompilasi](#instructions) |
 
 Setiap instruksi yang dikompilasi diserialisasi sebagai:
 
-| Field              | Size                    | Description              |
-| ------------------ | ----------------------- | ------------------------ |
-| `program_id_index` | 1 byte                  | Indeks ke kunci akun     |
-| `num_accounts`     | 1-3 bytes (compact-u16) | Jumlah indeks akun       |
-| `account_indices`  | `num_accounts` x 1 byte | Indeks kunci akun        |
-| `data_len`         | 1-3 bytes (compact-u16) | Panjang instruction data |
-| `data`             | `data_len` bytes        | Instruction data opak    |
+| Field              | Ukuran                  | Deskripsi                  |
+| ------------------ | ----------------------- | -------------------------- |
+| `program_id_index` | 1 byte                  | Indeks ke dalam kunci akun |
+| `num_accounts`     | 1-3 byte (compact-u16)  | Jumlah indeks akun         |
+| `account_indices`  | `num_accounts` x 1 byte | Indeks kunci akun          |
+| `data_len`         | 1-3 byte (compact-u16)  | Panjang instruction data   |
+| `data`             | `data_len` byte         | instruction data buram     |
 
 ### Perhitungan ukuran
 
-Dengan _rs`PACKET_DATA_SIZE`_ = 1.232 bytes, ruang yang tersedia dapat dihitung:
+Diberikan _rs`PACKET_DATA_SIZE`_ = 1.232 byte, ruang yang tersedia dapat
+dihitung:
 
 ```
 Total = 1232 bytes
@@ -286,41 +292,41 @@ Total = 1232 bytes
  - sum(instruction_sizes)         # per-instruction overhead + data
 ```
 
-## Contoh: transaksi transfer SOL
+## Contoh: Transaksi transfer SOL
 
 Diagram di bawah ini menunjukkan bagaimana transaksi dan instruksi bekerja sama
 untuk memungkinkan pengguna berinteraksi dengan jaringan. Dalam contoh ini, SOL
 ditransfer dari satu akun ke akun lainnya.
 
 [Metadata](/docs/core/instructions/instruction-structure#account-metadata) akun
-pengirim mengindikasikan bahwa akun tersebut harus menandatangani transaksi. Ini
-memungkinkan System Program mengurangi lamport. Baik akun pengirim maupun
-penerima harus dapat ditulis (writable), agar saldo lamport mereka dapat
-berubah. Untuk mengeksekusi instruksi ini, wallet pengirim mengirimkan transaksi
-yang berisi tanda tangannya dan pesan yang berisi instruksi transfer SOL.
+pengirim menunjukkan bahwa akun tersebut harus menandatangani transaksi. Hal ini
+memungkinkan System Program untuk mengurangi lamport. Baik akun pengirim maupun
+penerima harus dapat ditulis, agar saldo lamport mereka dapat berubah. Untuk
+menjalankan instruksi ini, dompet pengirim mengirimkan transaksi yang berisi
+tanda tangannya dan pesan yang berisi instruksi transfer SOL.
 
-![SOL transfer diagram](/assets/docs/core/transactions/sol-transfer.svg)
+![Diagram transfer SOL](/assets/docs/core/transactions/sol-transfer.svg)
 
 Setelah transaksi dikirim, System Program memproses instruksi transfer dan
 memperbarui saldo lamport dari kedua akun.
 
-![SOL transfer process diagram](/assets/docs/core/transactions/sol-transfer-process.svg)
+![Diagram proses transfer SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
 
 <Callout type="warn" title="Verifikasi penerima sebelum mengirim SOL">
 
 Transfer System Program menambahkan lamport ke akun **mana pun**. Tidak ada
-pemeriksaan di tingkat protokol bahwa penerima dapat memindahkan SOL kembali
-keluar. Lamport hanya dapat dipindahkan keluar oleh program pemilik akun,
-sehingga mengirim SOL ke [token mint](/docs/tokens/basics/create-mint), sebuah
-program, atau [PDA](/docs/core/pda) yang tidak Anda kendalikan **berisiko
-kehilangan dana secara permanen** — hanya otoritas yang ditentukan oleh program
-pemilik yang dapat mengembalikannya. SOL yang dikirim ke
+pemeriksaan di tingkat protokol bahwa penerima dapat memindahkan SOL kembali.
+Lamport hanya dapat dipindahkan keluar oleh program pemilik akun, sehingga
+mengirim SOL ke [token mint](/docs/tokens/basics/create-mint), sebuah program,
+atau [PDA](/docs/core/pda) yang tidak Anda kendalikan **berisiko kehilangan dana
+secara permanen** — hanya otoritas yang ditentukan oleh program pemilik yang
+dapat mengembalikannya. SOL yang dikirim ke
 [token account](/docs/tokens/basics/create-token-account) hanya dapat dipulihkan
 oleh pemilik akun tersebut, tidak pernah oleh pengirim.
 
 Transfer **token** SPL sebagian bersifat melindungi diri sendiri: Token Program
 menolak transfer yang akunnya tidak cocok dengan mint yang diharapkan. Transfer
-**SOL** asli tidak memiliki perlindungan semacam itu, sehingga pengirim harus
+**SOL** native tidak memiliki perlindungan seperti itu, sehingga pengirim harus
 memverifikasi penerima sebelum menandatangani. Lihat
 [Verifikasi Alamat](/docs/payments/send-payments/verify-address) untuk logika
 klasifikasi lengkapnya.
@@ -696,7 +702,7 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Kode di bawah ini menunjukkan output dari cuplikan kode sebelumnya.
+Kode di bawah ini menampilkan output dari cuplikan kode sebelumnya.
 Formatnya berbeda antar SDK,
 namun perhatikan bahwa setiap instruksi mengandung informasi yang sama dan diperlukan.
 
@@ -803,13 +809,13 @@ namun perhatikan bahwa setiap instruksi mengandung informasi yang sama dan diper
 </CodeTabs>
 </WithMentions>
 
-### Verifikasi penerima sebelum mentransfer
+### Verifikasi penerima sebelum melakukan transfer
 
 Karena transfer SOL berhasil ke akun mana pun, periksa penerima sebelum
-menandatangani. Ambil akun tersebut dan hanya kirim ke dompet System Program
-(atau alamat
-[pada kurva](/docs/payments/send-payments/verify-address#on-curve-addresses)
-yang tidak didanai); tolak mint, token account, program, dan PDA yang tidak Anda
+menandatangani. Ambil data akun dan kirim hanya ke dompet System Program (atau
+alamat
+[on-curve](/docs/payments/send-payments/verify-address#on-curve-addresses) yang
+belum didanai); tolak mint, token account, program, dan PDA yang tidak Anda
 kendalikan.
 
 <CodeTabs flags="r">
@@ -869,7 +875,7 @@ await assertSafeSolRecipient(
 <Callout>
   Cuplikan ini memeriksa penerima SOL native. Untuk klasifikasi lengkap yang
   juga menangani pengiriman token SPL (token account, ATA, Token-2022), lihat
-  [Verifikasi Alamat](/docs/payments/send-payments/verify-address).
+  [Verify Address](/docs/payments/send-payments/verify-address).
 </Callout>
 
 ## Mengambil detail transaksi
@@ -938,3 +944,8 @@ dan metode RPC [getTransaction](/docs/rpc/http/gettransaction).
   "version": "legacy"
 }
 ```
+
+Respons mentah mengidentifikasi akun berdasarkan indeks dan menyimpan instruksi
+inner (CPI) sebagai blob yang dienkode. Untuk menguraikan ini menjadi alamat dan
+menelusuri pohon instruksi secara lengkap, lihat
+[Introspeksi Transaksi](/docs/core/transactions/transaction-introspection).

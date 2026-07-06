@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
     },
     sitemap: [
       "https://solana.com/sitemap.xml",
-      "https://solana.com/news/google-news.xml",
+      "https://solana.com/news/sitemap-news.xml",
     ],
   };
 }

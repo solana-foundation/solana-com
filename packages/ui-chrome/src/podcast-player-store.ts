@@ -4,6 +4,12 @@ import type {
   PodcastPlayerCommand,
   PodcastPlayerState,
 } from "./podcast-player-types";
+import {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageRemoveItem,
+  safeStorageSetItem,
+} from "./browser-storage";
 
 export const PODCAST_PLAYER_STORAGE_KEY = "solana:persistent-podcast-player";
 export const PODCAST_PLAYER_STATE_EVENT =
@@ -33,7 +39,10 @@ export function readPodcastPlayerState(): PodcastPlayerState {
   }
 
   try {
-    const rawState = window.localStorage.getItem(PODCAST_PLAYER_STORAGE_KEY);
+    const rawState = safeStorageGetItem(
+      getBrowserStorage("localStorage"),
+      PODCAST_PLAYER_STORAGE_KEY,
+    );
     if (!rawState) {
       return DEFAULT_PODCAST_PLAYER_STATE;
     }
@@ -52,7 +61,8 @@ export function writePodcastPlayerState(state: PodcastPlayerState) {
     return;
   }
 
-  window.localStorage.setItem(
+  safeStorageSetItem(
+    getBrowserStorage("localStorage"),
     PODCAST_PLAYER_STORAGE_KEY,
     JSON.stringify(state),
   );
@@ -68,7 +78,10 @@ export function clearPodcastPlayerState() {
     return;
   }
 
-  window.localStorage.removeItem(PODCAST_PLAYER_STORAGE_KEY);
+  safeStorageRemoveItem(
+    getBrowserStorage("localStorage"),
+    PODCAST_PLAYER_STORAGE_KEY,
+  );
   window.dispatchEvent(
     new CustomEvent<PodcastPlayerState>(PODCAST_PLAYER_STATE_EVENT, {
       detail: DEFAULT_PODCAST_PLAYER_STATE,

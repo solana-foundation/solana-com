@@ -48,16 +48,17 @@ interface PrivacyPageProps {
 }
 
 const PROJECT_PRIVACY_TYPES: Record<string, string> = {
+  arcane: "confidential",
   contra: "fullyPrivate",
   encrypt: "fullyPrivate",
+  heliusPrivacyProtocol: "fullyPrivate",
   privacyCash: "anonymous",
-  silentSwap: "anonymous",
   encifher: "confidential",
+  ligero: "confidential",
   magicBlock: "fullyPrivate",
   lightProtocol: "anonymous",
   arcium: "fullyPrivate",
   inco: "fullyPrivate",
-  zama: "fullyPrivate",
   confidentialTransfer: "confidential",
 };
 
@@ -69,16 +70,17 @@ const BADGE_FOR_TYPE: Record<string, { className: string; label: string }> = {
 };
 
 const PROJECT_META_TAGS: Record<string, string> = {
+  arcane: "FIN",
   arcium: "MPC",
   contra: "E2E",
   encifher: "DEFI",
   encrypt: "INFRA",
+  heliusPrivacyProtocol: "ZK",
   inco: "FHE",
+  ligero: "ZK",
   lightProtocol: "ZK",
   magicBlock: "GAME",
   privacyCash: "TX",
-  silentSwap: "SWAP",
-  zama: "FHE",
   confidentialTransfer: "CT-EXT",
 };
 
@@ -516,9 +518,11 @@ function Ticker() {
       <em>Encrypted&nbsp;Identity</em>
       <span className="pp-star">✦</span>
       Private&nbsp;DAO<span className="pp-star">✦</span>
-      <em>Zama&nbsp;FHE</em>
+      <em>Helius&nbsp;Privacy</em>
       <span className="pp-star">✦</span>
-      SilentSwap<span className="pp-star">✦</span>
+      Arcane<span className="pp-star">✦</span>
+      <em>Ligero&nbsp;ZK</em>
+      <span className="pp-star">✦</span>
     </span>
   );
 

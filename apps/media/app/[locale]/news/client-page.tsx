@@ -1,20 +1,23 @@
 "use client";
-import React, { useCallback, useMemo, useEffect, useState } from "react";
-import Link from "next/link";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import ErrorBoundary from "@/components/error-boundary";
-import { Section } from "@/components/layout/section";
-import { Button } from "@/components/ui/button";
-import { ArrowUpRight } from "lucide-react";
-import { SocialShare } from "@/components/ui/social-share";
-import { PostItem, PageInfo } from "@/lib/post-types";
+import { CampaignRailItem } from "@/components/news/campaign-rail-item";
+import { NewsMasthead } from "@/components/news/news-masthead";
+import { SectionHeader } from "@/components/news/section-header";
+import {
+  DescriptionContent,
+  type DescriptionContentProps,
+} from "@/components/post/post-card";
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
+import type { NewsCampaign } from "@/lib/news-campaign";
+import type { NewsNavItem } from "@/lib/news-nav";
+import type { PageInfo, PostItem } from "@/lib/post-types";
 import uniqBy from "lodash/uniqBy";
-import {
-  filterPostsByNewsFilter,
-  getNewsFilterOptions,
-} from "@/lib/news-filters";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
   hasPreviousPage: false,
@@ -24,25 +27,43 @@ const DEFAULT_PAGE_INFO: PageInfo = {
 };
 
 interface PostsClientPageProps {
+  campaign?: NewsCampaign | null;
   featuredPost: PostItem | null;
   latestPosts: PostItem[];
   initialPageInfo?: PageInfo;
+  navItems: NewsNavItem[];
 }
 
-export default function PostsClientPage(props: PostsClientPageProps) {
-  const { featuredPost, latestPosts, initialPageInfo } = props;
-  const [selectedFilter, setSelectedFilter] = React.useState<string | null>(
-    null,
-  );
+function isPost(post: PostItem | null): post is PostItem {
+  return Boolean(post);
+}
 
-  const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
+function getPostsWithoutFeatured(
+  latestPosts: PostItem[],
+  featuredPost: PostItem | null,
+): PostItem[] {
+  return featuredPost
+    ? latestPosts.filter((post) => post?.id !== featuredPost.id)
+    : latestPosts;
+}
+
+export default function PostsClientPage({
+  campaign,
+  featuredPost,
+  latestPosts,
+  initialPageInfo,
+  navItems,
+}: PostsClientPageProps) {
+  const [posts, setPosts] = useState<(PostItem | null)[]>(() =>
+    getPostsWithoutFeatured(latestPosts, featuredPost),
+  );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
     initialPageInfo ?? DEFAULT_PAGE_INFO,
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const t = useTranslations("news.front");
 
-  // Load more posts via API
   const handleLoadMore = useCallback(async () => {
     if (!pageInfo?.hasNextPage || isLoadingMore) return;
 
@@ -60,17 +81,14 @@ export default function PostsClientPage(props: PostsClientPageProps) {
       const newPosts = response.posts;
 
       if (newPosts.length > 0) {
-        // Append older posts to the end
         setPosts((prev) => uniqBy([...prev, ...newPosts], "id"));
 
-        // Update the cursor to the last (oldest) edge
         const lastEdge = newPosts[newPosts.length - 1];
         if (lastEdge?.cursor) {
           setCurrentCursor(lastEdge.cursor);
         }
       }
 
-      // Always update pageInfo to track pagination state
       setPageInfo(response.pageInfo ?? DEFAULT_PAGE_INFO);
     } catch (error) {
       console.error("Failed to load more posts:", error);
@@ -79,171 +97,151 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     }
   }, [pageInfo.hasNextPage, pageInfo.endCursor, isLoadingMore, currentCursor]);
 
-  // Extract regular posts from postsData
   useEffect(() => {
-    // Remove featured post from latest posts if it exists
-    setPosts(
-      featuredPost
-        ? latestPosts?.filter((post) => post?.id !== featuredPost?.id) || []
-        : latestPosts || [],
-    );
+    setPosts(getPostsWithoutFeatured(latestPosts || [], featuredPost));
 
-    // Set the cursor from the last (oldest) post edge
     const lastPost = latestPosts[latestPosts.length - 1];
     if (lastPost?.cursor) {
       setCurrentCursor(lastPost.cursor);
     }
   }, [latestPosts, featuredPost]);
 
-  const filterOptions = useMemo(() => getNewsFilterOptions(posts), [posts]);
-
-  const filteredPosts = useMemo(() => {
-    return filterPostsByNewsFilter(posts, selectedFilter);
-  }, [posts, selectedFilter]);
-
-  // const handleCopyLink = useCallback(() => {
-  //   if (
-  //     !featuredPost ||
-  //     typeof window === "undefined" ||
-  //     !navigator.clipboard
-  //   ) {
-  //     return;
-  //   }
-
-  //   const articleUrl = `${window.location.origin}${featuredPost.url}`;
-  //   navigator.clipboard.writeText(articleUrl).catch(() => {
-  //     /* no-op */
-  //   });
-  // }, [featuredPost]);
+  const visiblePosts = useMemo(() => posts.filter(isPost), [posts]);
+  const lead = featuredPost ?? visiblePosts[0] ?? null;
+  // visiblePosts already excludes the featured post; only trim the first entry
+  // when it is standing in as the lead.
+  const pool = featuredPost ? visiblePosts : visiblePosts.slice(1);
+  const railStories = pool.slice(0, 4);
+  const latestStories = pool.slice(4);
+  const leadCategory = lead?.categories?.find(Boolean);
 
   return (
     <ErrorBoundary>
-      <Section>
-        <div className="flex flex-col gap-16">
-          {featuredPost && (
-            <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
-              <div className="relative z-10 flex flex-col gap-12 lg:flex-row lg:items-center max-w-6xl mx-auto">
-                <div className="flex flex-1 flex-col gap-8">
-                  <span className="text-xs font-base uppercase tracking-widest text-sky-300/80">
-                    Solana News | Updates from the Solana ecosystem
-                  </span>
-                  <h3 className="text-4xl font-bold leading-[1.05] md:text-6xl">
+      <div className="bg-default pb-16">
+        <NewsMasthead navItems={navItems} />
+
+        <div className="flex flex-col gap-12 pt-8">
+          {lead && (
+            <section
+              aria-labelledby="lead-story-title"
+              className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
+            >
+              <div className="grid gap-8 border-b border-border pb-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-10">
+                {/* Lead story */}
+                <div className="flex flex-col gap-5">
+                  {lead.heroImage && (
                     <Link
-                      href={featuredPost.url}
-                      className="no-underline hover:no-underline text-inherit"
+                      href={lead.url}
+                      className="group relative block aspect-video w-full overflow-hidden"
                     >
-                      {featuredPost.title}
+                      <Image
+                        src={lead.heroImage}
+                        alt={lead.title}
+                        fill
+                        priority
+                        sizes="(min-width: 1024px) 62vw, 100vw"
+                        className="object-cover transition-opacity duration-300 group-hover:opacity-90"
+                      />
                     </Link>
-                  </h3>
-
-                  <div className="flex flex-col gap-6">
-                    <SocialShare
-                      url={featuredPost.url}
-                      title={featuredPost.title}
-                      variant="dark"
-                    />
-
-                    <p className="text-sm font-medium uppercase tracking-[0.35em] text-white/60">
-                      {featuredPost.published}
-                    </p>
-                  </div>
-
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="ghost"
-                    className="group inline-flex w-fit items-center rounded-full border border-white/40 bg-white/5 px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-white transition hover:border-white/70 hover:bg-white/10"
-                  >
-                    <Link href={featuredPost.url}>
-                      <span>Read</span>
-                      <span className="flex size-9 items-center justify-center">
-                        <ArrowUpRight className="size-5" />
+                  )}
+                  <div className="flex flex-col gap-3">
+                    {leadCategory && (
+                      <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                        {leadCategory}
                       </span>
-                    </Link>
-                  </Button>
+                    )}
+                    <h1
+                      id="lead-story-title"
+                      className="text-3xl font-bold leading-[1.08] tracking-tight md:text-5xl"
+                    >
+                      <Link
+                        href={lead.url}
+                        className="text-inherit no-underline hover:underline"
+                      >
+                        {lead.title}
+                      </Link>
+                    </h1>
+                    <div className="line-clamp-3 text-base text-muted-foreground md:text-lg">
+                      <DescriptionContent
+                        description={
+                          lead.description as DescriptionContentProps["description"]
+                        }
+                      />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {lead.published}
+                    </span>
+                  </div>
                 </div>
 
-                {featuredPost.heroImage && (
-                  <div className="flex flex-1 lg:justify-end">
-                    <div className="relative aspect-5/3 w-full lg:max-w-[520px]">
-                      <div className="relative h-full w-full overflow-hidden">
-                        <Image
-                          src={featuredPost.heroImage}
-                          alt={featuredPost.title}
-                          fill
-                          priority
-                          sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 90vw"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    </div>
+                {/* More top stories rail */}
+                {(railStories.length > 0 || campaign) && (
+                  <div className="flex flex-col lg:border-l lg:border-border lg:pl-10">
+                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t("railTitle")}
+                    </h2>
+                    <ul className="flex flex-col divide-y divide-border">
+                      {railStories.map((post) => {
+                        const category = post.categories?.find(Boolean);
+                        return (
+                          <li key={post.id}>
+                            <Link
+                              href={post.url}
+                              className="group flex flex-col gap-1.5 py-4"
+                            >
+                              {category && (
+                                <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                                  {category}
+                                </span>
+                              )}
+                              <h3 className="text-base font-semibold leading-snug tracking-tight group-hover:underline md:text-lg">
+                                {post.title}
+                              </h3>
+                              <span className="text-xs text-muted-foreground">
+                                {post.published}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                      {campaign && <CampaignRailItem campaign={campaign} />}
+                    </ul>
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           )}
-          <div className="px-4 md:px-6 lg:px-0">
-            {/* Filter Button Group */}
-            {filterOptions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full mb-6">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Filter by category:
-                </span>
-                <Button
-                  variant={selectedFilter === null ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setSelectedFilter(null)}
-                  className="capitalize"
-                >
-                  All
-                </Button>
-                {filterOptions.map((category) => (
-                  <Button
-                    key={category}
-                    variant={
-                      selectedFilter === category ? "default" : "secondary"
-                    }
-                    size="sm"
-                    onClick={() => setSelectedFilter(category)}
-                    className="capitalize"
-                  >
-                    {category}
-                  </Button>
+
+          <section
+            aria-labelledby="latest-updates-title"
+            className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0"
+          >
+            <SectionHeader id="latest-updates-title" title={t("latestTitle")} />
+
+            {latestStories.length > 0 ? (
+              <div className="grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-3">
+                {latestStories.map((post) => (
+                  <PostCard key={post.id} post={post} />
                 ))}
               </div>
-            )}
-
-            {filteredPosts.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-                {filteredPosts.map(
-                  (post) => post && <PostCard key={post.id} post={post} />,
-                )}
+            ) : (
+              <div className="py-8 text-sm text-muted-foreground">
+                {t("emptyLatest")}
               </div>
             )}
 
-            {/* Show message when no posts match the filter */}
-            {filteredPosts.length === 0 && selectedFilter && (
-              <div className="text-center py-12 max-w-6xl mx-auto w-full">
-                <p className="text-muted-foreground">
-                  No posts found for &quot;{selectedFilter}&quot;.
-                </p>
-              </div>
-            )}
-
-            {/* Only show LoadMoreStatus when there are posts and no filter is active */}
-            {posts.length > 0 && !selectedFilter && (
+            {posts.length > 0 && (
               <LoadMoreStatus
                 isLoading={isLoadingMore}
                 hasMore={pageInfo.hasNextPage}
                 onLoadMore={handleLoadMore}
-                loadingText="Loading more posts..."
-                noMoreText="No more posts to load"
+                loadingText={t("loadMore.loading")}
+                noMoreText={t("loadMore.complete")}
               />
             )}
-          </div>
+          </section>
         </div>
-      </Section>
+      </div>
     </ErrorBoundary>
   );
 }

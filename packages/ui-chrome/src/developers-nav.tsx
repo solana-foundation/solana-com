@@ -6,6 +6,7 @@ import CoursesIcon from "./assets/developers/courses.inline.svg";
 import ToolsIcon from "./assets/developers/templates.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import SkillsIcon from "./assets/developers/skills.inline.svg";
+import StatisticsIcon from "./assets/developers/statistics.inline.svg";
 import StackExchangeIcon from "./assets/developers/stackexchange.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
@@ -13,6 +14,7 @@ import {
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
   DocsSidebarToggleIcon,
 } from "./docs-sidebar-toggle";
+import { shouldShowDocsSidebarToggle } from "./developer-routes";
 import type { ComponentProps } from "react";
 
 function NavLink(props: ComponentProps<typeof Link>) {
@@ -32,9 +34,7 @@ export function DevelopersNav({
   const t = useTranslations();
   const router = useRouter();
   const pathname = router.asPath.split(/[?#]/)[0];
-  const showSidebarToggleSlot = pathname
-    ? pathname.includes("/docs") || pathname.includes("/developers/cookbook")
-    : false;
+  const showSidebarToggleSlot = shouldShowDocsSidebarToggle(pathname);
 
   return (
     <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]">
@@ -138,6 +138,18 @@ export function DevelopersNav({
                 <span className="align-middle">
                   {t("developers.nav.tools")}
                 </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/data"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <StatisticsIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.data")}</span>
               </NavLink>
               <NavLink
                 partiallyActive
