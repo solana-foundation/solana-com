@@ -6,6 +6,7 @@ import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
 import { anchorage } from "./records/anchorage";
 import { anoma } from "./records/anoma";
+import { apollo } from "./records/apollo";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { atxp } from "./records/atxp";
@@ -13,6 +14,7 @@ import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
 import { blockzero } from "./records/blockzero";
 import { bonk } from "./records/bonk";
+import { brevanHoward } from "./records/brevan-howard";
 import { brave } from "./records/brave";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
@@ -37,12 +39,16 @@ import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
 import { gradient } from "./records/gradient";
+import { hamiltonLane } from "./records/hamilton-lane";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
+import { jupiter } from "./records/jupiter";
+import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
+import { loopscale } from "./records/loopscale";
 import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
@@ -61,6 +67,7 @@ import { pyth } from "./records/pyth";
 import { quicknode } from "./records/quicknode";
 import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
+import { raydium } from "./records/raydium";
 import { reap } from "./records/reap";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
@@ -106,6 +113,7 @@ export const companies = [
   ampPay,
   anchorage,
   anoma,
+  apollo,
   banxa,
   arcium,
   atxp,
@@ -113,6 +121,7 @@ export const companies = [
   blackrock,
   blockzero,
   bonk,
+  brevanHoward,
   brave,
   bridge,
   bydfi,
@@ -137,12 +146,16 @@ export const companies = [
   frodobots,
   galaxy,
   gradient,
+  hamiltonLane,
   jito,
   jpmorgan,
+  jupiter,
+  kamino,
   kast,
   kazakhstan,
   libeara,
   listingHelp,
+  loopscale,
   matcha,
   mantle,
   mantleByreal,
@@ -161,6 +174,7 @@ export const companies = [
   quicknode,
   rain,
   ramp,
+  raydium,
   reap,
   renderNetwork,
   rockawayx,

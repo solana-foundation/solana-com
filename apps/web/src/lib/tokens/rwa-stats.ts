@@ -33,14 +33,19 @@ export type RwaStats = {
   volume24hUSD: number;
 };
 
-/** Verified against the live API on 2026-06-19; used when the API is unreachable. */
+/**
+ * Last-known values used when the API is unreachable.
+ *
+ * Headline value and asset count were refreshed from the public July 2026 RWA
+ * update; category counts and 24h volume remain the last live API fallback.
+ */
 const FALLBACK_STATS: RwaStats = {
   treasuries: 15,
   etfs: 24,
   commodities: 4,
   stocks: 389,
-  totalAssets: 432,
-  totalValueUSD: 2_200_000_000,
+  totalAssets: 692,
+  totalValueUSD: 3_400_000_000,
   volume24hUSD: 205_000_000,
 };
 

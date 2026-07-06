@@ -1,5 +1,6 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import type { SolutionNewsQuery } from "@/lib/media/solution-news";
+import { getCompanyLogoSrc } from "@workspace/ecosystem-data";
 import {
   BadgeCheck,
   CandlestickChart,
@@ -15,37 +16,37 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/logos-eco/jupiter.svg",
+    src: getCompanyLogoSrc("jupiter", { theme: "dark" }) ?? "",
     key: "jupiter",
     href: "/news/solana-ecosystem-roundup-april-2026",
   },
   {
-    src: "/src/img/logos-eco/kamino.svg",
+    src: getCompanyLogoSrc("kamino", { theme: "dark" }) ?? "",
     key: "kamino",
     href: "/news/state-of-solana-february-2026",
   },
   {
-    src: "/src/img/logos-eco/raydium.svg",
+    src: getCompanyLogoSrc("raydium", { theme: "dark" }) ?? "",
     key: "raydium",
     href: "/news/case-study-xstocks",
   },
   {
-    src: "/src/img/logos-eco/loopscale.svg",
+    src: getCompanyLogoSrc("loopscale", { theme: "dark" }) ?? "",
     key: "loopscale",
     href: "/news/solana-ecosystem-roundup-march-2026",
   },
   {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
+    src: getCompanyLogoSrc("franklin-templeton") ?? "",
     key: "franklinTempleton",
     href: "/news/state-of-solana-breakpoint-2024",
   },
   {
-    src: "/src/img/logos-eco/blackrock.png",
+    src: getCompanyLogoSrc("blackrock") ?? "",
     key: "blackrock",
     href: "/news/state-of-solana-february-2026",
   },
   {
-    src: "/src/img/logos-eco/apollo.webp",
+    src: getCompanyLogoSrc("apollo") ?? "",
     key: "apollo",
     href: "/news/solana-ecosystem-roundup-march-2026",
   },
@@ -53,39 +54,39 @@ export const PROJECTS = [
 
 export const LOGOS = [
   {
-    src: "/src/img/logos-eco/jupiter.svg",
+    src: getCompanyLogoSrc("jupiter", { theme: "dark" }) ?? "",
     alt: "Jupiter",
   },
   {
-    src: "/src/img/logos-eco/kamino.svg",
+    src: getCompanyLogoSrc("kamino", { theme: "dark" }) ?? "",
     alt: "Kamino",
   },
   {
-    src: "/src/img/logos-eco/raydium.svg",
+    src: getCompanyLogoSrc("raydium", { theme: "dark" }) ?? "",
     alt: "Raydium",
   },
   {
-    src: "/src/img/logos-eco/loopscale.svg",
+    src: getCompanyLogoSrc("loopscale", { theme: "dark" }) ?? "",
     alt: "Loopscale",
   },
   {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
+    src: getCompanyLogoSrc("franklin-templeton") ?? "",
     alt: "Franklin Templeton",
   },
   {
-    src: "/src/img/logos-eco/blackrock.png",
+    src: getCompanyLogoSrc("blackrock") ?? "",
     alt: "BlackRock",
   },
   {
-    src: "/src/img/logos-eco/apollo.webp",
+    src: getCompanyLogoSrc("apollo") ?? "",
     alt: "Apollo",
   },
   {
-    src: "/src/img/logos-eco/hamilton-lane.webp",
+    src: getCompanyLogoSrc("hamilton-lane") ?? "",
     alt: "Hamilton Lane",
   },
   {
-    src: "/src/img/logos-eco/brevan-howard.png",
+    src: getCompanyLogoSrc("brevan-howard") ?? "",
     alt: "Brevan Howard",
   },
 ];
