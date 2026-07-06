@@ -27,19 +27,23 @@ const buildSyntheticRejectionEvent = ({
   serialized,
   synthetic = true,
   type = "UnhandledRejection",
+  value = "Non-Error promise rejection captured with keys: currentTarget, isTrusted, target, type",
+  mechanismType,
 }: {
   serialized?: unknown;
   synthetic?: boolean;
   type?: string;
+  value?: string;
+  mechanismType?: string;
 } = {}) => ({
   exception: {
     values: [
       {
         type,
-        value:
-          "Non-Error promise rejection captured with keys: currentTarget, isTrusted, target, type",
+        value,
         mechanism: {
           synthetic,
+          ...(mechanismType ? { type: mechanismType } : {}),
         },
       },
     ],
@@ -48,6 +52,25 @@ const buildSyntheticRejectionEvent = ({
     __serialized__: serialized,
   },
 });
+
+// Sentry SDK v8+ titles non-Error rejections with the rejected value's class
+// name and namespaces the mechanism type, unlike the v7 "UnhandledRejection"
+// shape the other builders model.
+const buildV8RejectionEvent = ({
+  serialized,
+  type = "Event",
+  value = "Event `Event` (type=error) captured as promise rejection",
+}: {
+  serialized?: unknown;
+  type?: string;
+  value?: string;
+} = {}) =>
+  buildSyntheticRejectionEvent({
+    serialized,
+    type,
+    value,
+    mechanismType: "auto.browser.global_handlers.onunhandledrejection",
+  });
 
 const buildResourceEventPayload = (
   elementMarker: string,
@@ -137,6 +160,49 @@ describe("sentryBeforeSend", () => {
     });
 
     expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops SDK v8+ resource load rejections typed by class name (JAVASCRIPT-NEXTJS-20 shape)", () => {
+    const event = buildV8RejectionEvent({
+      serialized: {
+        currentTarget: "[object Null]",
+        isTrusted: true,
+        target: " > html.dark.tw-dark > head > link",
+        type: "error",
+      },
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops SDK v8+ empty-object rejections", () => {
+    const event = buildV8RejectionEvent({
+      serialized: {},
+      type: "Object",
+      value:
+        "Object captured as promise rejection with keys: [object has no keys]",
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("drops SDK v8+ wallet extension rejections", () => {
+    const event = buildV8RejectionEvent({
+      serialized: { code: 4001, message: "User rejected the request." },
+      type: "Object",
+      value: "Object captured as promise rejection with keys: code, message",
+    });
+
+    expect(sentryBeforeSend(event)).toBeNull();
+  });
+
+  it("keeps resource-shaped events without any rejection marker", () => {
+    const event = buildSyntheticRejectionEvent({
+      serialized: buildResourceEventPayload("HTMLImageElement", "error"),
+      type: "Event",
+    });
+
+    expect(sentryBeforeSend(event)).toEqual(event);
   });
 
   it("drops trusted error events even without an element marker", () => {

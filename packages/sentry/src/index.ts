@@ -63,20 +63,23 @@ const RESOURCE_ELEMENT_MARKERS = [
 const RESOURCE_DOM_PATH_PATTERN =
   /(?:^|>)\s*(?:img|link|script|video|audio|source|track|iframe)(?:[.#[\s]|$)/i;
 
+type SentryExceptionValue = {
+  type?: string;
+  value?: string;
+  mechanism?: {
+    synthetic?: boolean;
+    type?: string;
+  };
+  stacktrace?: {
+    frames?: Array<{
+      filename?: string;
+    }>;
+  };
+};
+
 type SentryEventLike = {
   exception?: {
-    values?: Array<{
-      type?: string;
-      value?: string;
-      mechanism?: {
-        synthetic?: boolean;
-      };
-      stacktrace?: {
-        frames?: Array<{
-          filename?: string;
-        }>;
-      };
-    }>;
+    values?: Array<SentryExceptionValue>;
   };
   extra?: Record<string, unknown>;
   tags?: Record<string, unknown>;
@@ -197,14 +200,27 @@ function isThirdPartyFrame(filename: string): boolean {
   );
 }
 
-function isSerializedWalletExtensionRejection(
-  serialized: unknown,
-  exceptionType: string | undefined,
-  isSynthetic: boolean | undefined,
+// Sentry SDK v7 titles non-Error promise rejections "UnhandledRejection";
+// v8+ uses the rejected value's class name ("Event", "Object") and reports
+// the handler through namespaced mechanism types like
+// "auto.browser.global_handlers.onunhandledrejection" — accept both shapes.
+function isRejectionException(
+  exception: SentryExceptionValue | undefined,
 ): boolean {
   return Boolean(
-    isSynthetic &&
-    exceptionType === "UnhandledRejection" &&
+    exception &&
+    (exception.type === "UnhandledRejection" ||
+      exception.mechanism?.type?.includes("onunhandledrejection")),
+  );
+}
+
+function isSerializedWalletExtensionRejection(
+  serialized: unknown,
+  exception: SentryExceptionValue | undefined,
+): boolean {
+  return Boolean(
+    exception?.mechanism?.synthetic &&
+    isRejectionException(exception) &&
     serialized &&
     typeof serialized === "object" &&
     "code" in serialized &&
@@ -213,13 +229,14 @@ function isSerializedWalletExtensionRejection(
 }
 
 function isKnownExtensionRejectionMessage(
-  value: string | undefined,
-  exceptionType: string | undefined,
+  exception: SentryExceptionValue | undefined,
 ): boolean {
   return Boolean(
-    exceptionType === "UnhandledRejection" &&
-    value &&
-    EXTENSION_REJECTION_PATTERNS.some((pattern) => pattern.test(value)),
+    isRejectionException(exception) &&
+    exception?.value &&
+    EXTENSION_REJECTION_PATTERNS.some((pattern) =>
+      pattern.test(exception.value ?? ""),
+    ),
   );
 }
 
@@ -228,11 +245,8 @@ function isWalletExtensionError(event: SentryEventLike): boolean {
   const serialized = event.extra?.__serialized__;
 
   return (
-    isSerializedWalletExtensionRejection(
-      serialized,
-      exception?.type,
-      exception?.mechanism?.synthetic,
-    ) || isKnownExtensionRejectionMessage(exception?.value, exception?.type)
+    isSerializedWalletExtensionRejection(serialized, exception) ||
+    isKnownExtensionRejectionMessage(exception)
   );
 }
 
@@ -286,7 +300,7 @@ function isResourceLoadRejection(event: SentryEventLike): boolean {
 
   return Boolean(
     exception?.mechanism?.synthetic &&
-    exception.type === "UnhandledRejection" &&
+    isRejectionException(exception) &&
     isSerializedResourceEvent(event.extra?.__serialized__),
   );
 }
@@ -298,7 +312,7 @@ function isEmptyObjectRejection(event: SentryEventLike): boolean {
 
   return Boolean(
     exception?.mechanism?.synthetic &&
-    exception.type === "UnhandledRejection" &&
+    isRejectionException(exception) &&
     frames.length === 0 &&
     isRecord(serialized) &&
     Object.keys(serialized).length === 0,
