@@ -21,6 +21,7 @@ export const HEADER_SECTION_METADATA: Array<
     titleKey: "nav.build.title",
     matchRules: [
       { type: "includes", value: "/developers" },
+      { type: "equals", value: "/data" },
       { type: "includes", value: "/docs", exclude: ["/docs/tools"] },
       { type: "equals", value: "/hackathon" },
     ],
@@ -44,7 +45,6 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/privacy" },
     ],
     contentAlign: "left",
-    contentClassName: "xl:overflow-y-auto xl:max-h-[90vh]",
   },
   {
     id: "products",
@@ -92,6 +92,5 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/solutions/request-for-startups" },
     ],
     contentAlign: "center",
-    contentClassName: "xl:overflow-y-auto xl:max-h-[90vh]",
   },
 ];

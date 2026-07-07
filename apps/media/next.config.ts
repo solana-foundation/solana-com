@@ -37,11 +37,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.getriver.io",
-        port: "",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
         port: "",
       },
@@ -63,6 +58,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "img.transistor.fm",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "media.rss.com",
         port: "",
       },
     ],

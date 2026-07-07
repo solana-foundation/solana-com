@@ -22,6 +22,13 @@ export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageRemoveItem,
+  safeStorageSetItem,
+} from "./browser-storage";
+export type { BrowserStorage, BrowserStorageKind } from "./browser-storage";
+export {
   applyCookieConsent,
   COOKIE_CONSENT_EVENT,
   COOKIE_CONSENT_KEY,

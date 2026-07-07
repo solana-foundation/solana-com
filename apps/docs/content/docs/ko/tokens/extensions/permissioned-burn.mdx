@@ -1,0 +1,853 @@
+---
+title: 권한 있는 소각
+description:
+  권한 있는 소각 확장이 포함된 Token-2022 민트를 생성하여 모든 소각 시 설정된
+  소각 권한자의 공동 서명이 필요하도록 하고, 권한 있는 소각 명령어로 토큰을
+  소각합니다.
+url: /docs/tokens/extensions/permissioned-burn
+type: tutorial
+prerequisites:
+  - /docs/tokens/basics/create-mint
+  - /docs/tokens/basics/burn-tokens
+related:
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/pausable
+  - /docs/tokens/extensions
+---
+
+## 권한 있는 소각이란?
+
+Token Extensions Program의 _rs`PermissionedBurnConfig`_ 민트 확장은 해당 민트의
+모든 소각에 설정된 소각 권한자의 공동 서명을 요구합니다.
+
+소각 권한자가 설정되어 있는 동안:
+
+- 표준 _rs`Burn`_ 및 _rs`BurnChecked`_ 명령어는
+  _rs`TokenError::InvalidInstruction`_ 오류와 함께 실패합니다.
+- 소각 시 _rs`PermissionedBurnInstruction::Burn`_ 또는
+  *rs`PermissionedBurnInstruction::BurnChecked`*을 사용해야 하며, 소각 권한자와
+  token account의 소유자 또는 위임자 모두의 서명이 필요합니다.
+
+소각 권한자는 소유자를 대체하는 것이 아니라 공동 서명자입니다. 권한자 단독으로는
+타인의 token account에서 토큰을 소각할 수 없으며, token account 소유자도
+권한자의 서명 없이는 소각할 수 없습니다. 영구 위임자도 권한 있는 소각 명령어를
+사용해야 하며, 소각 권한자의 공동 서명이 여전히 필요합니다.
+
+이를 통해 발행자는 토큰 공급량을 오프체인 기록과 동기화할 수 있습니다. 예를
+들어, 1:1 담보를 유지해야 하는 토큰화 자산의 경우 보유자가 일방적으로 토큰을
+소각하는 것을 방지할 수 있습니다.
+
+소각 권한자는 나중에 *rs`AuthorityType::PermissionedBurn`*를 사용하여
+*rs`SetAuthority`*로 교체할 수 있습니다. 권한자를 `None`로 설정하면 권한 있는
+소각이 비활성화되고 표준 소각 명령어가 다시 활성화됩니다. 확장 데이터 자체는
+민트에 그대로 유지됩니다.
+
+로컬 테스트 validator에는 구버전 Token-2022 빌드도 포함되어 있으므로, 이
+페이지의 예제를 실행하려면 devnet에서 v11.0.0 프로그램을 테스트 validator에
+로드하세요:
+
+```shell title="Terminal"
+solana program dump -u devnet TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb token_2022.so
+solana-test-validator --reset --bpf-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb token_2022.so
+```
+
+## 권한 있는 소각으로 Mint 생성 및 소각하는 방법
+
+권한 있는 소각 기능이 포함된 mint를 생성하고 토큰을 소각하려면:
+
+1. mint 및 _rs`PermissionedBurnConfig`_ 확장에 필요한 mint account 크기와 rent를
+   계산합니다.
+2. *rs`CreateAccount`*로 mint account를 생성하고, *rs`PermissionedBurnConfig`*를
+   초기화한 후, *rs`InitializeMint`*로 mint를 초기화합니다.
+3. token account를 생성하고 토큰을 발행합니다.
+4. token account 소유자와 소각 권한자 모두가 서명한
+   *rs`PermissionedBurnInstruction::BurnChecked`*로 소각합니다.
+5. 선택적으로 *rs`AuthorityType::PermissionedBurn`*와 `None` 권한자를 사용하여
+   *rs`SetAuthority`*로 권한 있는 소각을 비활성화하면 표준 소각 명령어가 다시
+   활성화됩니다. 아래의 전체 코드 예제에서 이 단계를 확인할 수 있습니다.
+
+<ScrollyCoding>
+
+## !!steps 계정 크기 계산
+
+기본 mint와 _rs`PermissionedBurnConfig`_ 확장을 위한 mint account 크기를
+계산합니다. 이 크기는 *rs`CreateAccount`*에서 사용됩니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+// !focus(1:3)
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+// !focus(1:1)
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+```
+
+## !!steps rent 계산
+
+mint와 _rs`PermissionedBurnConfig`_ 확장에 필요한 크기를 사용하여 rent를
+계산합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+// !focus(1:3)
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+```
+
+## !!steps Mint 계정 생성
+
+계산된 공간과 lamport로 mint account를 생성합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+// !focus(1:9)
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  })
+]);
+```
+
+## !!steps PermissionedBurn 초기화
+
+소각 권한자와 함께 mint에서 _rs`PermissionedBurnConfig`_ 확장을 초기화합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  // !focus(1:4)
+  getInitializePermissionedBurnInstruction({
+    mint: mint.address,
+    authority: burnAuthority.address
+  })
+]);
+```
+
+## !!steps Mint 초기화
+
+동일한 트랜잭션에서 *rs`InitializeMint`*로 mint를 초기화합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializePermissionedBurnInstruction({
+    mint: mint.address,
+    authority: burnAuthority.address
+  }),
+  // !focus(1:6)
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+```
+
+## !!steps token account 생성 및 토큰 발행
+
+지불자를 위한 token account를 생성하고 토큰을 발행합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializePermissionedBurnInstruction({
+    mint: mint.address,
+    authority: burnAuthority.address
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !focus(1:14)
+await client.sendTransaction([
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  }),
+  getMintToCheckedInstruction({
+    mint: mint.address,
+    token: sourceToken,
+    mintAuthority: client.payer,
+    amount: 2n,
+    decimals: 0
+  })
+]);
+```
+
+## !!steps 소각 권한으로 소각하기
+
+token account 소유자와 소각 권한자 모두가 서명한
+*rs`PermissionedBurnInstruction::BurnChecked`*로 토큰을 소각합니다.
+
+<CodePlaceholder title="Example" />
+
+```ts !! title="Example"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializePermissionedBurnInstruction({
+    mint: mint.address,
+    authority: burnAuthority.address
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 0,
+    mintAuthority: client.payer.address,
+    freezeAuthority: client.payer.address
+  })
+]);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await client.sendTransaction([
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer,
+    mint: mint.address,
+    owner: client.payer.address
+  }),
+  getMintToCheckedInstruction({
+    mint: mint.address,
+    token: sourceToken,
+    mintAuthority: client.payer,
+    amount: 2n,
+    decimals: 0
+  })
+]);
+
+await client.sendTransaction([
+  // !focus(1:8)
+  getPermissionedBurnCheckedInstruction({
+    account: sourceToken,
+    mint: mint.address,
+    // !mark(1:1)
+    permissionedBurnAuthority: burnAuthority,
+    authority: client.payer,
+    amount: 1n,
+    decimals: 0
+  })
+]);
+```
+
+</ScrollyCoding>
+
+<Callout type="info" title="Instruction Order">
+  _rs`PermissionedBurnInstruction::Initialize`_는 _rs`InitializeMint`_ 이전에
+  와야 합니다. _rs`CreateAccount`_,
+  _rs`PermissionedBurnInstruction::Initialize`_, _rs`InitializeMint`_는 동일한
+  트랜잭션에 포함되어야 합니다.
+</Callout>
+
+### 소스 참조
+
+| 항목                                           | 설명                                                                                                   | 소스                                                                                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| _rs`PermissionedBurnConfig`_                   | 해당 민트의 모든 소각에 공동 서명하는 데 필요한 권한을 저장하는 민트 확장.                             | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/interface/src/extension/permissioned_burn/mod.rs#L16-L25)         |
+| _rs`PermissionedBurnInstruction::Initialize`_  | _rs`InitializeMint`_ 이전에 허가된 소각 설정을 초기화하는 명령어.                                      | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/interface/src/extension/permissioned_burn/instruction.rs#L41-L49) |
+| _rs`PermissionedBurnInstruction::Burn`_        | 소각 권한자와 token account 소유자 또는 위임자의 서명을 요구하는 소각 명령어.                          | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/interface/src/extension/permissioned_burn/instruction.rs#L50-L71) |
+| _rs`PermissionedBurnInstruction::BurnChecked`_ | *rs`PermissionedBurnInstruction::Burn`*와 동일한 계정을 사용하는 소수점 검사가 포함된 소각 명령어.     | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/interface/src/extension/permissioned_burn/instruction.rs#L72-L79) |
+| _rs`AuthorityType::PermissionedBurn`_          | 민트의 소각 권한을 교체하거나 비활성화하기 위해 *rs`SetAuthority`*와 함께 사용되는 권한 식별자.        | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/interface/src/instruction.rs#L1276-L1277)                         |
+| _rs`process_initialize`_                       | 초기화되지 않은 민트에서 *rs`PermissionedBurnConfig`*를 초기화하고 소각 권한을 저장하는 프로세서 로직. | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/program/src/extension/permissioned_burn/processor.rs#L29-L47)     |
+| _rs`process_burn`_                             | 소각 권한이 설정된 경우 표준 소각을 거부하고 권한자의 서명을 검증하는 프로세서 로직.                   | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/program/src/processor.rs#L1114-L1179)                             |
+| _rs`process_set_authority`_                    | _rs`AuthorityType::PermissionedBurn`_ 사용 시 소각 권한을 검증하고 교체하는 프로세서 로직.             | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/program/src/processor.rs#L996-L1008)                              |
+
+### Typescript
+
+아래의 `Kit` 예제는 생성된 명령어를 직접 사용합니다. 게시된 레거시
+`@solana/spl-token` 패키지는 아직 권한 있는 소각(permissioned burn) 지원을
+포함하지 않으므로, 레거시 예제는 포함되지 않습니다.
+
+#### Kit
+
+<CodeTabs storage="token-ts-kit">
+
+```ts !! title="Instructions"
+import {
+  lamports,
+  createClient,
+  generateKeyPairSigner,
+  unwrapOption
+} from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  AuthorityType,
+  extension,
+  fetchMint,
+  fetchToken,
+  findAssociatedTokenPda,
+  getBurnCheckedInstruction,
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getInitializePermissionedBurnInstruction,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getPermissionedBurnCheckedInstruction,
+  getSetAuthorityInstruction,
+  isExtension,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+const burnAuthority = await generateKeyPairSigner();
+
+const permissionedBurnExtension = extension("PermissionedBurn", {
+  authority: burnAuthority.address
+});
+const mintSpace = BigInt(getMintSize([permissionedBurnExtension]));
+const mintRent = await client.rpc
+  .getMinimumBalanceForRentExemption(mintSpace)
+  .send();
+
+await client.sendTransaction([
+  getCreateAccountInstruction({
+    payer: client.payer, // Account funding account creation.
+    newAccount: mint, // New mint account to create.
+    lamports: mintRent, // Lamports funding the mint account rent.
+    space: mintSpace, // Account size in bytes for the mint plus PermissionedBurnConfig.
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS // Program that owns the mint account.
+  }),
+  // !mark(1:4)
+  getInitializePermissionedBurnInstruction({
+    mint: mint.address, // Mint account that stores the PermissionedBurnConfig extension.
+    authority: burnAuthority.address // Authority required to co-sign every burn for the mint.
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address, // Mint account to initialize.
+    decimals: 0, // Number of decimals for the token.
+    mintAuthority: client.payer.address, // Authority allowed to mint new tokens.
+    freezeAuthority: client.payer.address // Authority allowed to freeze token accounts.
+  })
+]);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await client.sendTransaction([
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: client.payer, // Account funding the associated token account creation.
+    mint: mint.address, // Mint for the associated token account.
+    owner: client.payer.address // Owner of the associated token account.
+  }),
+  getMintToCheckedInstruction({
+    mint: mint.address, // Mint account that issues the tokens.
+    token: sourceToken, // Token account receiving the newly minted tokens.
+    mintAuthority: client.payer, // Signer authorized to mint new tokens.
+    amount: 2n, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
+  })
+]);
+
+let standardBurnFailure: string | undefined;
+try {
+  await client.sendTransaction([
+    getBurnCheckedInstruction({
+      account: sourceToken, // Token account to burn from.
+      mint: mint.address, // Mint with the permissioned burn configuration.
+      authority: client.payer, // Token account owner signing the burn.
+      amount: 1n, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ]);
+} catch (error) {
+  standardBurnFailure = error instanceof Error ? error.message : String(error);
+}
+if (!standardBurnFailure) {
+  throw new Error("Expected the standard burn to fail");
+}
+
+await client.sendTransaction([
+  // !mark(1:8)
+  getPermissionedBurnCheckedInstruction({
+    account: sourceToken, // Token account to burn from.
+    mint: mint.address, // Mint with the permissioned burn configuration.
+    permissionedBurnAuthority: burnAuthority, // Burn authority co-signing the burn.
+    authority: client.payer, // Token account owner signing the burn.
+    amount: 1n, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
+  })
+]);
+
+await client.sendTransaction([
+  // !mark(1:6)
+  getSetAuthorityInstruction({
+    owned: mint.address, // Mint with the permissioned burn configuration.
+    owner: burnAuthority, // Current burn authority signing the update.
+    authorityType: AuthorityType.PermissionedBurn, // Authority type to update.
+    newAuthority: null // Setting the authority to None disables permissioned burning.
+  })
+]);
+
+await client.sendTransaction([
+  getBurnCheckedInstruction({
+    account: sourceToken, // Token account to burn from.
+    mint: mint.address, // Mint with permissioned burning disabled.
+    authority: client.payer, // Token account owner signing the burn.
+    amount: 1n, // Token amount in base units.
+    decimals: 0 // Decimals defined on the mint.
+  })
+]);
+
+const sourceAccount = await fetchToken(client.rpc, sourceToken);
+const mintAccount = await fetchMint(client.rpc, mint.address);
+const permissionedBurnConfig = (
+  unwrapOption(mintAccount.data.extensions) ?? []
+).find((item) => isExtension("PermissionedBurn", item));
+
+console.log("Mint Address:", mint.address);
+console.log("Error From Failed Standard Burn:", standardBurnFailure);
+console.log("Source Amount After Burns:", sourceAccount.data.amount);
+console.log("Extension After Disable:", permissionedBurnConfig);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs">
+
+```rust !! title="Rust"
+use anyhow::{anyhow, Result};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address_with_program_id,
+    instruction::create_associated_token_account,
+};
+use spl_token_2022_interface::{
+    extension::{
+        permissioned_burn::{instruction as permissioned_burn_ix, PermissionedBurnConfig},
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    },
+    instruction::{burn_checked, initialize_mint, mint_to_checked, set_authority, AuthorityType},
+    state::{Account, Mint},
+    ID as TOKEN_2022_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let fee_payer = Keypair::new();
+    let burn_authority = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let mint = Keypair::new();
+
+    let mint_space =
+        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::PermissionedBurn])?;
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    let create_mint_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account(
+                &fee_payer.pubkey(), // Account funding account creation.
+                &mint.pubkey(), // New mint account to create.
+                mint_rent, // Lamports funding the mint account rent.
+                mint_space as u64, // Account size in bytes for the mint plus PermissionedBurnConfig.
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
+            ),
+            // !mark(1:5)
+            permissioned_burn_ix::initialize(
+                &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
+                &mint.pubkey(), // Mint account that stores the PermissionedBurnConfig extension.
+                &burn_authority.pubkey(), // Authority required to co-sign every burn for the mint.
+            )?,
+            initialize_mint(
+                &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
+                &mint.pubkey(), // Mint account to initialize.
+                &fee_payer.pubkey(), // Authority allowed to mint new tokens.
+                Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
+                0, // Number of decimals for the token.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&create_mint_transaction)
+        .await?;
+
+    let source_token = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_token_account_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_associated_token_account(
+                &fee_payer.pubkey(), // Account funding the associated token account creation.
+                &fee_payer.pubkey(), // Owner of the associated token account.
+                &mint.pubkey(), // Mint for the associated token account.
+                &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+            ),
+            mint_to_checked(
+                &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint and token account.
+                &mint.pubkey(), // Mint account that issues the tokens.
+                &source_token, // Token account receiving the newly minted tokens.
+                &fee_payer.pubkey(), // Signer authorized to mint new tokens.
+                &[&fee_payer.pubkey()], // Additional multisig signers.
+                2, // Token amount in base units.
+                0, // Decimals defined on the mint.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&create_token_account_transaction)
+        .await?;
+
+    let standard_burn_ix = burn_checked(
+        &TOKEN_2022_PROGRAM_ID, // Token program that processes the burn.
+        &source_token, // Token account to burn from.
+        &mint.pubkey(), // Mint with the permissioned burn configuration.
+        &fee_payer.pubkey(), // Token account owner signing the burn.
+        &[&fee_payer.pubkey()], // Additional multisig signers.
+        1, // Token amount in base units.
+        0, // Decimals defined on the mint.
+    )?;
+
+    let standard_burn_transaction = Transaction::new_signed_with_payer(
+        &[standard_burn_ix],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+    let standard_burn_result = client
+        .simulate_transaction(&standard_burn_transaction)
+        .await?;
+    let standard_burn_failure = standard_burn_result
+        .value
+        .err
+        .ok_or_else(|| anyhow!("Expected the standard burn to fail"))?;
+
+    // !mark(1:9)
+    let permissioned_burn_instruction = permissioned_burn_ix::burn_checked(
+        &TOKEN_2022_PROGRAM_ID, // Token program that processes the burn.
+        &source_token, // Token account to burn from.
+        &mint.pubkey(), // Mint with the permissioned burn configuration.
+        &burn_authority.pubkey(), // Burn authority co-signing the burn.
+        &fee_payer.pubkey(), // Token account owner signing the burn.
+        &[], // Additional multisig signers.
+        1, // Token amount in base units.
+        0, // Decimals defined on the mint.
+    )?;
+
+    let permissioned_burn_transaction = Transaction::new_signed_with_payer(
+        &[permissioned_burn_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &burn_authority],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&permissioned_burn_transaction)
+        .await?;
+
+    let disable_authority_transaction = Transaction::new_signed_with_payer(
+        &[
+            // !mark(1:8)
+            set_authority(
+                &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
+                &mint.pubkey(), // Mint with the permissioned burn configuration.
+                None, // Setting the authority to None disables permissioned burning.
+                AuthorityType::PermissionedBurn, // Authority type to update.
+                &burn_authority.pubkey(), // Current burn authority signing the update.
+                &[], // Additional multisig signers.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &burn_authority],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&disable_authority_transaction)
+        .await?;
+
+    let standard_burn_after_disable_transaction = Transaction::new_signed_with_payer(
+        &[
+            burn_checked(
+                &TOKEN_2022_PROGRAM_ID, // Token program that processes the burn.
+                &source_token, // Token account to burn from.
+                &mint.pubkey(), // Mint with permissioned burning disabled.
+                &fee_payer.pubkey(), // Token account owner signing the burn.
+                &[&fee_payer.pubkey()], // Additional multisig signers.
+                1, // Token amount in base units.
+                0, // Decimals defined on the mint.
+            )?,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+    client
+        .send_and_confirm_transaction(&standard_burn_after_disable_transaction)
+        .await?;
+
+    let source_account = client.get_account(&source_token).await?;
+    let source_state = StateWithExtensions::<Account>::unpack(&source_account.data)?;
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
+    let permissioned_burn_config = mint_state.get_extension::<PermissionedBurnConfig>()?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "Error From Failed Standard Burn: {:?}",
+        standard_burn_failure
+    );
+    println!(
+        "Source Amount After Burns: {}",
+        u64::from(source_state.base.amount)
+    );
+    println!("Extension After Disable: {:?}", permissioned_burn_config);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

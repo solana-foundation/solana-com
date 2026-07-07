@@ -19,7 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value: "frame-ancestors 'self'",
+    value: `frame-ancestors 'self'`,
   },
 ];
 
@@ -103,10 +103,6 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "assets.getriver.io",
       },
       {
         protocol: "https",
