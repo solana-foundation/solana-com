@@ -59,6 +59,7 @@ import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { pyth } from "./records/pyth";
 import { quicknode } from "./records/quicknode";
+import { raiku } from "./records/raiku";
 import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
 import { reap } from "./records/reap";
@@ -159,6 +160,7 @@ export const companies = [
   playSolana,
   pyth,
   quicknode,
+  raiku,
   rain,
   ramp,
   reap,
