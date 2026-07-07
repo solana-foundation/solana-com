@@ -7,6 +7,9 @@ import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
 
 export const revalidate = 300;
 
+const FEATURED_MASTHEAD_LIMIT = 5;
+const LATEST_POSTS_LIMIT = 13;
+
 export async function generateMetadata({
   params,
 }: {
@@ -22,8 +25,11 @@ export default async function PostsPage({
   params: Promise<{ locale: string }>;
 }) {
   const [featuredPosts, latestPosts, navItems] = await Promise.all([
-    fetchFeaturedPosts({ limit: 5 }),
-    fetchLatestPosts({ limit: 13, excludeTag: "featured" }),
+    fetchFeaturedPosts({ limit: FEATURED_MASTHEAD_LIMIT }),
+    fetchLatestPosts({
+      limit: LATEST_POSTS_LIMIT,
+      excludeTag: "featured",
+    }),
     fetchNewsNavItemsWithPosts(),
   ]);
   const campaign = getActiveCampaign("news-front");
