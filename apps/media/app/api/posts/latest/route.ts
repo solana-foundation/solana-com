@@ -13,6 +13,7 @@ interface PostConnectionParams {
   cursor?: string;
   category?: string;
   tag?: string;
+  excludeTag?: string;
 }
 
 /**
@@ -25,6 +26,7 @@ async function fetchPosts(params: PostConnectionParams) {
       cursor: params.cursor,
       category: params.category,
       tag: params.tag,
+      excludeTag: params.excludeTag,
     });
 
     return {
@@ -74,6 +76,11 @@ function parseQueryParams(searchParams: URLSearchParams): PostConnectionParams {
     params.tag = tagParam;
   }
 
+  const excludeTagParam = searchParams.get("excludeTag");
+  if (excludeTagParam) {
+    params.excludeTag = excludeTagParam;
+  }
+
   return params;
 }
 
@@ -83,7 +90,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}-${params.cursor || "start"}-${params.category || "all"}-${params.tag || "all"}`;
+    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}-${params.cursor || "start"}-${params.category || "all"}-${params.tag || "all"}-${params.excludeTag || "none"}`;
     const data = await unstable_cache(() => fetchPosts(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

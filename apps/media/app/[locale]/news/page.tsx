@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import PostsClientPage from "./client-page";
-import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/post-data";
+import { fetchFeaturedPosts, fetchLatestPosts } from "@/lib/post-data";
 import { newsListingMetadata } from "@/lib/metadata";
 import { getActiveCampaign } from "@/lib/news-campaign";
 import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
@@ -21,9 +21,9 @@ export default async function PostsPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const [featuredPost, latestPosts, navItems] = await Promise.all([
-    fetchFeaturedPost(),
-    fetchLatestPosts({ limit: 13 }),
+  const [featuredPosts, latestPosts, navItems] = await Promise.all([
+    fetchFeaturedPosts(),
+    fetchLatestPosts({ limit: 13, excludeTag: "featured" }),
     fetchNewsNavItemsWithPosts(),
   ]);
   const campaign = getActiveCampaign("news-front");
@@ -31,7 +31,7 @@ export default async function PostsPage({
   return (
     <PostsClientPage
       campaign={campaign}
-      featuredPost={featuredPost.post}
+      featuredPosts={featuredPosts.posts}
       latestPosts={latestPosts.posts}
       initialPageInfo={latestPosts.pageInfo}
       navItems={navItems}
