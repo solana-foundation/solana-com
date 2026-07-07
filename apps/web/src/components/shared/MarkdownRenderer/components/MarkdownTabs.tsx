@@ -6,6 +6,11 @@ import React, {
   useLayoutEffect,
 } from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
+import {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageSetItem,
+} from "@solana-com/ui-chrome";
 import styles from "./MarkdownTabs.module.scss";
 
 interface MarkdownTabsProps {
@@ -42,9 +47,10 @@ export function MarkdownTabs({
       if (values.includes(v)) setValue(v);
     };
 
-    const previous = persist
-      ? localStorage.getItem(groupId)
-      : sessionStorage.getItem(groupId);
+    const previous = safeStorageGetItem(
+      getBrowserStorage(persist ? "localStorage" : "sessionStorage"),
+      groupId,
+    );
 
     if (previous) onUpdate(previous);
     addChangeListener(groupId, onUpdate);
@@ -118,8 +124,11 @@ function removeChangeListener(groupId: string, listener: ChangeListener): void {
 
 function update(groupId: string, v: string, persist: boolean): void {
   listeners.get(groupId)?.forEach((item) => item(v));
-  if (persist) localStorage.setItem(groupId, v);
-  else sessionStorage.setItem(groupId, v);
+  safeStorageSetItem(
+    getBrowserStorage(persist ? "localStorage" : "sessionStorage"),
+    groupId,
+    v,
+  );
 }
 
 function toValue(v: string): string {

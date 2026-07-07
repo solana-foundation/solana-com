@@ -7,7 +7,7 @@ import {
   getLocaleRedirectPath,
   getPreferredLocaleCookie,
 } from "./middleware";
-import { getAlternates } from "./routing";
+import { getAlternates } from "./alternates";
 
 describe("@workspace/i18n middleware", () => {
   it("extracts locale prefixes from localized paths", () => {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
-import { useRouter } from "@workspace/i18n/use-router";
+import { usePathname } from "@workspace/i18n/routing";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
@@ -11,6 +11,7 @@ import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
 import { InkeepChatButton } from "./inkeep-chat-button";
+import { shouldShowDevelopersNav } from "./developer-routes";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/icons/moon.inline.svg";
@@ -22,10 +23,11 @@ function Header({
   showLanguage = true,
   showDevelopersNav = true,
 }) {
-  const router = useRouter();
+  const pathname = usePathname();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
+  const showSecondaryDevelopersNav = shouldShowDevelopersNav(pathname);
 
   return (
     <>
@@ -86,12 +88,10 @@ function Header({
           </div>
         </nav>
       </header>
-      {/* Secondary nav for /developers/* and /docs/* */}
-      {showDevelopersNav &&
-        (router.asPath.includes("/developers") ||
-          router.asPath.includes("/docs")) && (
-          <DevelopersNav containerClassName={containerClassName} />
-        )}
+      {/* Secondary nav for docs-owned developer routes. */}
+      {showDevelopersNav && showSecondaryDevelopersNav && (
+        <DevelopersNav containerClassName={containerClassName} />
+      )}
     </>
   );
 }

@@ -5,9 +5,18 @@ description:
   fund loss.
 ---
 
-Sending tokens to the wrong address can result in permanent loss of funds.
-Address verification ensures you only send tokens to addresses that can properly
-receive and access them.
+Sending funds to the wrong address can result in permanent loss. Address
+verification ensures you only send to addresses that can properly receive and
+access the funds.
+
+Validation depends on what you send:
+
+- **SPL tokens** are partly self-protecting. The Token Program rejects a
+  transfer whose accounts don't match the expected mint, so a misdirected token
+  transfer fails without losing funds. Most of this page covers SPL token sends.
+- **Native SOL** has no such guard. A System Program transfer succeeds into any
+  account, so an incorrect recipient permanently locks the SOL. See
+  [Sending native SOL](#sending-native-sol).
 
 <Callout>
   See [How Payments Work on Solana](/docs/payments/how-payments-work) for core
@@ -89,6 +98,30 @@ mint address results in a failed transaction, but no funds are lost.
 Accounts owned by other programs require a policy decision. Some accounts (e.g.
 multisig wallets) may be valid token account owners, while others should be
 rejected.
+
+## Sending native SOL
+
+The classification above determines where SPL tokens can go. Native SOL is
+stricter: the only safe recipient is a **System Program wallet** (or an unfunded
+on-curve address that becomes one).
+
+A System Program transfer adds lamports to any account, including mints, token
+accounts, programs, and PDAs. Lamports can only be moved out by the account's
+owning program, so sending SOL to an incorrect recipient may result in funds
+being permanently lost.
+
+Unlike an SPL token transfer, the transaction does **not** fail when the
+recipient is an unexpected address.
+
+When sending native SOL, only an `IS_WALLET` result is acceptable.
+`IS_TOKEN_ACCOUNT` is **not**: a token account holds SPL tokens, and SOL sent
+there is outside the sender's control.
+
+<Callout type="warn">
+  This is a common way SOL is lost: a user pastes a token's mint address (or a
+  program address) into a SOL withdrawal. The transfer succeeds and the SOL is
+  unrecoverable. Always classify the recipient before signing a SOL transfer.
+</Callout>
 
 ## Verification Flow
 
@@ -191,6 +224,11 @@ The demo below uses three possible outcomes:
 | `IS_TOKEN_ACCOUNT` | Valid token account  | Send tokens directly to this address        |
 | `REJECT`           | Invalid address      | Do not send                                 |
 
+It then maps each result to per-asset acceptability with `canReceiveNativeSol`
+(wallets only) and `canReceiveSplToken` (wallets or token accounts). A token
+account returns `IS_TOKEN_ACCOUNT`, so it can receive SPL tokens but **not**
+native SOL — the distinction that prevents SOL from being locked.
+
 <CodeTabs flags="r">
 
 ```ts !! title="Demo"
@@ -287,6 +325,20 @@ export async function validateAddress(
   return { type: "REJECT", reason: "Unknown program owner" };
 }
 
+/**
+ * Native SOL is only safe to send to a wallet. Any other account locks it.
+ */
+function canReceiveNativeSol(result: ValidationResult): boolean {
+  return result.type === "IS_WALLET";
+}
+
+/**
+ * SPL tokens can go to a wallet (via its ATA) or directly to a token account.
+ */
+function canReceiveSplToken(result: ValidationResult): boolean {
+  return result.type === "IS_WALLET" || result.type === "IS_TOKEN_ACCOUNT";
+}
+
 // =============================================================================
 // Examples
 // =============================================================================
@@ -325,6 +377,12 @@ async function runExample(label: string, address: Address) {
 
   const result = await validateAddress(address);
   console.log("\nResult:", result);
+  console.log(
+    `Can receive SOL?   ${canReceiveNativeSol(result) ? "YES" : "NO"}`
+  );
+  console.log(
+    `Can receive token? ${canReceiveSplToken(result) ? "YES" : "NO"}`
+  );
 }
 
 console.log("\n" + "═".repeat(60));

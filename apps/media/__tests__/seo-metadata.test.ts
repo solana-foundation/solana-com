@@ -93,6 +93,21 @@ function expectCanonical(alternates: any, path: string) {
   expect(alternates?.canonical).toBe(`${PUBLIC_URL}${path}`);
 }
 
+function expectLocalizedAlternates(
+  alternates: any,
+  path: string,
+  locale: string,
+) {
+  expect(alternates?.canonical).toBe(`${PUBLIC_URL}/${locale}${path}`);
+  expect(alternates?.languages).toEqual(
+    expect.objectContaining({
+      "x-default": `${PUBLIC_URL}${path}`,
+      en: `${PUBLIC_URL}${path}`,
+      [locale]: `${PUBLIC_URL}/${locale}${path}`,
+    }),
+  );
+}
+
 function expectNoInternalUrls(og: any, alternates: any) {
   const urls = [og?.url, alternates?.canonical].filter(Boolean);
   for (const url of urls) {
@@ -185,6 +200,11 @@ describe("newsListingMetadata", () => {
     expectCanonical(meta.alternates, "/news");
   });
 
+  it("sets localized alternates for non-default locales", async () => {
+    const meta = await newsListingMetadata("es");
+    expectLocalizedAlternates(meta.alternates, "/news", "es");
+  });
+
   it("uses only public URLs", async () => {
     const meta = await newsListingMetadata();
     expectNoInternalUrls(meta.openGraph, meta.alternates);
@@ -259,6 +279,11 @@ describe("newsPostMetadata", () => {
     expectCanonical(meta.alternates, `/news/${slug}`);
   });
 
+  it("sets localized alternates for post pages", async () => {
+    const meta = await newsPostMetadata(slug, "fr");
+    expectLocalizedAlternates(meta.alternates, `/news/${slug}`, "fr");
+  });
+
   it("uses only public URLs", async () => {
     const meta = await newsPostMetadata(slug);
     expectNoInternalUrls(meta.openGraph, meta.alternates);
@@ -314,6 +339,15 @@ describe("categoryListingMetadata", () => {
   it("sets canonical to /news/category/{slug}", async () => {
     const meta = await categoryListingMetadata("ecosystem");
     expectCanonical(meta.alternates, "/news/category/ecosystem");
+  });
+
+  it("sets localized alternates for category pages", async () => {
+    const meta = await categoryListingMetadata("ecosystem", "de");
+    expectLocalizedAlternates(
+      meta.alternates,
+      "/news/category/ecosystem",
+      "de",
+    );
   });
 
   it("uses only public URLs", async () => {

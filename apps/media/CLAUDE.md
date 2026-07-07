@@ -200,7 +200,6 @@ Pre-commit formatting:
 - Remote images allowed from:
   - `res.cloudinary.com`
   - `*.cloudfront.net`
-  - `assets.getriver.io`
 
 ## Gotchas
 

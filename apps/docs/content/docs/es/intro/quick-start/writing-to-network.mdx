@@ -1,121 +1,118 @@
 ---
 title: Escribiendo en la red
 description:
-  Aprende cómo interactuar con la red Solana enviando transacciones e
-  instrucciones. Sigue ejemplos paso a paso para transferir tokens SOL y crear
-  nuevos tokens usando el System Program y el Token Extensions Program.
+  Aprende cómo escribir datos en la red de Solana enviando transacciones e
+  instrucciones. Sigue ejemplos paso a paso para transferir SOL y crear un token
+  mint usando Solana Kit.
 ---
 
-En la sección anterior, aprendiste cómo leer datos de la red Solana. Ahora
-aprenderás cómo escribir datos en ella. Escribir en la red Solana implica enviar
-transacciones que contienen una o más instrucciones.
+En la sección anterior, aprendiste cómo
+[leer datos de la red de Solana](/docs/intro/quick-start/reading-from-network)
+mediante la consulta de cuentas. Para escribir datos en la red de Solana se
+necesita una [transacción](/docs/core/transactions). Una transacción contiene
+una o más [instrucciones](/docs/core/instructions), y cada instrucción invoca un
+programa.
 
-Los programas definen la lógica de negocio para lo que hace cada
-[instrucción](/docs/core/instructions). Cuando envías una
-[transacción](/docs/core/transactions), el runtime de Solana ejecuta cada
-instrucción en secuencia y de forma atómica. Los ejemplos en esta sección
-muestran cómo construir y enviar transacciones para invocar programas de Solana,
-estos incluyen:
+Los programas definen la lógica de negocio de cada instrucción. Cuando envías
+una transacción, el runtime de Solana ejecuta las instrucciones de la
+transacción en orden. Las transacciones son atómicas: o todas las instrucciones
+de la transacción se ejecutan correctamente, o la transacción completa falla.
+
+Los ejemplos de esta sección muestran cómo:
 
 1. Transferir SOL entre cuentas
-2. Crear un nuevo token
+2. Crear un nuevo token mint
 
 ## Transferir SOL
 
-El siguiente ejemplo transfiere SOL entre dos cuentas. Cada cuenta tiene un
-programa propietario, que es el único programa que puede reducir el saldo de SOL
-de la cuenta.
-
-Todas las cuentas de billetera son propiedad del System Program. Para transferir
-SOL, debes invocar la instrucción
+El siguiente ejemplo transfiere SOL de una cuenta a otra. Solo el programa
+designado como propietario de una cuenta puede modificar los datos de esa cuenta
+o deducir lamports de su saldo. Las cuentas de billetera son propiedad del
+[System Program](/docs/core/programs#the-system-program), por lo que transferir
+SOL entre cuentas de billetera requiere una instrucción que invoque la
+instrucción
 [transfer](https://github.com/anza-xyz/agave/blob/v2.1.11/programs/system/src/system_processor.rs#L183-L213)
-del System Program.
+del System Program. La cuenta de origen también debe firmar la transacción.
 
 <WithNotes>
 
 <CodeTabs flags="r">
 
 ```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
 
-// !tooltip[/connection/] connection
-const connection = new Connection("http://localhost:8899", "confirmed");
+// !tooltip[/createClient/] client
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-// !tooltip[/sender/] sender
-const sender = new Keypair();
 // !tooltip[/receiver/] receiver
-const receiver = new Keypair();
+const receiver = await generateKeyPairSigner();
 
-// !tooltip[/requestAirdrop/] airdrop
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-// !tooltip[/transferInstruction/] instruction
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: 0.01 * LAMPORTS_PER_SOL
+// !tooltip[/transferInstruction/] transferInstruction
+const transferInstruction = getTransferSolInstruction({
+  source: client.payer,
+  destination: receiver.address,
+  amount: lamports(10_000_000n)
 });
 
-// !tooltip[/transaction/] transaction
-const transaction = new Transaction().add(transferInstruction);
+// !tooltip[/sendTransaction/] sendTransaction
+const result = await client.sendTransaction([transferInstruction]);
 
-// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender]
-);
+console.log("Transaction Signature:", result.context.signature);
 
-console.log("Transaction Signature:", `${transactionSignature}`);
+// !tooltip[/balances/] balances
+const { value: senderBalance } = await client.rpc
+  .getBalance(client.payer.address)
+  .send();
+const { value: receiverBalance } = await client.rpc
+  .getBalance(receiver.address)
+  .send();
 
-const senderBalance = await connection.getBalance(sender.publicKey);
-const receiverBalance = await connection.getBalance(receiver.publicKey);
-
-console.log("Sender Balance:", `${senderBalance}`);
-console.log("Receiver Balance:", `${receiverBalance}`);
+console.log("Sender Balance:", senderBalance);
+console.log("Receiver Balance:", receiverBalance);
 ```
 
 </CodeTabs>
 
-### !connection
+### !client
 
-Crear una conexión a un clúster de Solana.
-
-### !sender
-
-Genera un nuevo keypair para usar como `sender`.
+Crea un cliente Kit para el validator local. `generatedPayer()` agrega un
+firmante pagador, `solanaRpc()` agrega capacidades de RPC y envío de
+transacciones, `rpcAirdrop()` agrega `client.airdrop`, y `airdropPayer()`
+financia al pagador con SOL de prueba.
 
 ### !receiver
 
-Genera un nuevo keypair para usar como `receiver`.
+Genera un firmante para la cuenta que recibirá SOL. El receptor no necesita
+firmar esta transferencia. Si la dirección del receptor aún no tiene una cuenta,
+recibir SOL crea una cuenta del sistema en esa dirección.
 
-### !airdrop
+### !transferInstruction
 
-Solicita un airdrop de SOL para financiar el `sender`.
+Construye la instrucción de System Program que transfiere lamports del pagador
+del cliente al receptor.
 
-### !instruction
+### !sendTransaction
 
-Construir la instrucción para invocar la instrucción de transferencia del System
-Program.
+Envía la instrucción como una transacción. El cliente de Kit obtiene un
+blockhash reciente, establece el pagador de comisiones, firma con los firmantes
+requeridos, envía la transacción y espera la confirmación.
 
-### !transaction
+### !balances
 
-Crear una nueva transacción y añadir la instrucción de transferencia.
-
-### !sendAndConfirmTransaction
-
-Enviar la transacción.
+Obtiene los saldos del remitente y del receptor una vez confirmada la
+transacción.
 
 </WithNotes>
 
@@ -123,402 +120,342 @@ Enviar la transacción.
 
 ## !!steps
 
-Crea una `Connection` para gestionar el envío de transacciones y la obtención de
-datos de cuentas.
+Crea un cliente de Kit para el validator de pruebas local. Este fragmento añade
+un firmante pagador, se conecta al endpoint RPC local, habilita los airdrops y
+financia al pagador con SOL de prueba para la transferencia.
 
-En este ejemplo, nos conectamos al validador de prueba local que se ejecuta en
-`localhost:8899`.
-
-```ts title="Connection"
-const connection = new Connection("http://localhost:8899", "confirmed");
+```ts title="Client setup"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 ```
 
 ```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// !focus(1:10)
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+```
+
+## !!steps
+
+Genera un firmante para el receptor. El remitente es `client.payer`, que fue
+creado por `generatedPayer()` y financiado por `airdropPayer()`.
+
+```ts title="Receiver signer"
+const receiver = await generateKeyPairSigner();
+```
+
+```ts !! title="Transfer SOL"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
 // !focus
-const connection = new Connection("http://localhost:8899", "confirmed");
-```
-
-## !!steps
-
-Genera nuevos [pares de claves](/docs/core/accounts#public-key) para usar como
-cuentas de emisor y receptor.
-
-```ts title="Generate keypairs"
-const sender = new Keypair();
-const receiver = new Keypair();
-```
-
-```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// !focus(1:2)
-const sender = new Keypair();
-const receiver = new Keypair();
-```
-
-## !!steps
-
-Añade SOL a la cuenta del remitente. En redes distintas a mainnet, puedes usar
-el método `requestAirdrop` para obtener SOL para pruebas.
-
-```ts title="Airdrop"
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-```
-
-```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-const sender = new Keypair();
-const receiver = new Keypair();
-
-// !focus(1:5)
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const receiver = await generateKeyPairSigner();
 ```
 
 ## !!steps
 
 <WithMentions>
 
-El método `SystemProgram.transfer()` crea una instrucción que transfiere SOL
-desde la cuenta [`fromPubkey`](mention:from) a la cuenta
-[`toPubkey`](mention:to) por el número especificado de
-[`lamports`](mention:lamports).
+El helper `getTransferSolInstruction()` crea una instrucción de System Program.
+La instrucción transfiere SOL desde el firmante [`source`](mention:source) hacia
+la dirección [`destination`](mention:destination) por la cantidad especificada
+de [`amount`](mention:amount) lamports.
 
 ```ts title="Transfer instruction"
-const transferInstruction = SystemProgram.transfer({
-  // !mention from
-  fromPubkey: sender.publicKey,
-  // !mention to
-  toPubkey: receiver.publicKey,
-  // !mention lamports
-  lamports: 0.01 * LAMPORTS_PER_SOL
+const transferInstruction = getTransferSolInstruction({
+  // !mention source
+  source: client.payer,
+  // !mention destination
+  destination: receiver.address,
+  // !mention amount
+  amount: lamports(10_000_000n)
 });
 ```
 
 </WithMentions>
 
 ```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const sender = new Keypair();
-const receiver = new Keypair();
-
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const receiver = await generateKeyPairSigner();
 
 // !focus(1:5)
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: 0.01 * LAMPORTS_PER_SOL
+const transferInstruction = getTransferSolInstruction({
+  source: client.payer,
+  destination: receiver.address,
+  amount: lamports(10_000_000n)
 });
 ```
 
 ## !!steps
 
-Crea una transacción y añade la instrucción a la transacción. En este ejemplo,
-estamos creando una transacción con una sola instrucción. Sin embargo, puedes
-añadir múltiples instrucciones a una transacción.
-
-```ts title="Transaction"
-const transaction = new Transaction().add(transferInstruction);
-```
-
-```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-const sender = new Keypair();
-const receiver = new Keypair();
-
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: 0.01 * LAMPORTS_PER_SOL
-});
-
-// !focus
-const transaction = new Transaction().add(transferInstruction);
-```
-
-## !!steps
-
-<WithMentions>
-
-Firma y envía la [transacción](mention:transaction) a la red. El keypair del
-[remitente](mention:sender) es necesario en el array de firmantes para autorizar
-la transferencia de SOL desde su cuenta.
+Llama a `client.sendTransaction()` con un array de instrucciones. El cliente de
+Kit convierte las instrucciones en una sola transacción, firma con los firmantes
+adjuntos a las instrucciones, envía la transacción y espera la confirmación.
 
 ```ts title="Send transaction"
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  // !mention transaction
-  transaction,
-  // !mention sender
-  [sender]
-);
+const result = await client.sendTransaction([transferInstruction]);
+
+console.log("Transaction Signature:", result.context.signature);
 ```
 
-</WithMentions>
-
-La firma de la transacción es un identificador único que puede utilizarse para
-buscar la transacción en Solana Explorer.
-
 ```ts !! title="Transfer SOL"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const sender = new Keypair();
-const receiver = new Keypair();
+const receiver = await generateKeyPairSigner();
 
-const signature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: 0.01 * LAMPORTS_PER_SOL
+const transferInstruction = getTransferSolInstruction({
+  source: client.payer,
+  destination: receiver.address,
+  amount: lamports(10_000_000n)
 });
 
-const transaction = new Transaction().add(transferInstruction);
+// !focus(1:3)
+const result = await client.sendTransaction([transferInstruction]);
+
+console.log("Transaction Signature:", result.context.signature);
+```
+
+## !!steps
+
+Después de que la transacción sea confirmada, obtén ambos saldos usando
+`client.rpc`.
+
+```ts title="Fetch balances"
+const { value: senderBalance } = await client.rpc
+  .getBalance(client.payer.address)
+  .send();
+const { value: receiverBalance } = await client.rpc
+  .getBalance(receiver.address)
+  .send();
+```
+
+```ts !! title="Transfer SOL"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const receiver = await generateKeyPairSigner();
+
+const transferInstruction = getTransferSolInstruction({
+  source: client.payer,
+  destination: receiver.address,
+  amount: lamports(10_000_000n)
+});
+
+const result = await client.sendTransaction([transferInstruction]);
+
+console.log("Transaction Signature:", result.context.signature);
 
 // !focus(1:6)
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender]
-);
+const { value: senderBalance } = await client.rpc
+  .getBalance(client.payer.address)
+  .send();
+const { value: receiverBalance } = await client.rpc
+  .getBalance(receiver.address)
+  .send();
 
-console.log("Transaction Signature:", `${transactionSignature}`);
+console.log("Sender Balance:", senderBalance);
+console.log("Receiver Balance:", receiverBalance);
 ```
 
 </ScrollyCoding>
 
 ## Crear un token
 
-El siguiente ejemplo crea un nuevo token en Solana utilizando el Token
-Extensions Program. Esto requiere dos instrucciones:
+El siguiente ejemplo crea un nuevo mint de token usando el
+[Token Extensions Program](/docs/tokens/extensions). Una mint account es la
+cuenta que define la configuración global de un token, como los decimales, el
+suministro, la autoridad de emisión y la autoridad de congelación.
 
-1. Invocar el System Program para crear una nueva cuenta.
-2. Invocar el Token Extensions Program para inicializar esa cuenta como un Mint.
+Crear una mint account requiere dos instrucciones:
+
+1. Invocar el System Program para crear una nueva cuenta propiedad del Token
+   Extensions Program.
+2. Invocar el Token Extensions Program para inicializar esa cuenta como un mint.
 
 <WithNotes>
 
 <CodeTabs flags="r">
 
 ```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+// !tooltip[/createClient/] client
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-// !tooltip[/wallet/] wallet
-const wallet = new Keypair();
-// Fund the wallet with SOL
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-// Generate keypair to use as address of mint account
 // !tooltip[/mint/] mint
-const mint = new Keypair();
+const mint = await generateKeyPairSigner();
 
-// Calculate lamports required for rent exemption
-// !tooltip[/rentExemptionLamports/] rentExemptionLamports
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
+// !tooltip[/space/] space
+const space = BigInt(getMintSize());
 
-// Instruction to create new account with space for new mint account
+// !tooltip[/rent/] rent
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
+
 // !tooltip[/createAccountInstruction/] createAccountInstruction
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: rentExemptionLamports,
-  programId: TOKEN_2022_PROGRAM_ID
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: client.payer,
+  newAccount: mint,
+  space,
+  lamports: rent,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-// Instruction to initialize mint account
 // !tooltip[/initializeMintInstruction/] initializeMintInstruction
-const initializeMintInstruction = createInitializeMint2Instruction(
-  mint.publicKey,
-  2, // decimals
-  wallet.publicKey, // mint authority
-  wallet.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: client.payer.address,
+  freezeAuthority: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
 
-// Build transaction with instructions to create new account and initialize mint account
-// !tooltip[/transaction/] transaction
-const transaction = new Transaction().add(
+// !tooltip[/sendTransaction/] sendTransaction
+const result = await client.sendTransaction([
   createAccountInstruction,
   initializeMintInstruction
-);
+]);
 
-// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [
-    wallet, // payer
-    mint // mint address keypair
-  ]
-);
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", result.context.signature);
 
-console.log("Transaction Signature:", `${transactionSignature}`);
-
-const mintData = await getMint(
-  connection,
-  mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
-);
-// !collapse(1:17) collapsed
-console.log(
-  "Mint Account:",
-  JSON.stringify(
-    mintData,
-    (key, value) => {
-      // Convert BigInt to String
-      if (typeof value === "bigint") {
-        return value.toString();
-      }
-      // Handle Buffer objects
-      if (Buffer.isBuffer(value)) {
-        return `<Buffer ${value.toString("hex")}>`;
-      }
-      return value;
-    },
-    2
-  )
-);
+// !tooltip[/mintAccount/] mintAccount
+const mintAccount = await fetchMint(client.rpc, mint.address);
+console.log("Mint Account:", mintAccount);
 ```
 
 </CodeTabs>
 
-### !wallet
+### !client
 
-Genera un nuevo keypair para usar como billetera.
+Crea y financia un cliente Kit para el validator local. El pagador financiado
+cubre el rent de la cuenta y las comisiones de transacción.
 
 ### !mint
 
-Genera un nuevo keypair para usar como dirección de la cuenta Mint a crear.
+Genera un firmante para usar como dirección de la nueva mint account. El
+firmante autoriza la creación de esa cuenta.
 
-### !rentLamports
+### !space
 
-Calcula los lamports requeridos para una cuenta Mint.
+Calcula el número de bytes requeridos para una mint account sin extensiones.
 
-### !rentExemptionLamports
+### !rent
 
-Calcula los lamports requeridos para la exención de rent
+Calcula los lamports necesarios para que la mint account esté exenta de rent.
 
 ### !createAccountInstruction
 
-Construye la instrucción para crear una nueva cuenta con espacio para el tipo de
-cuenta Mint y propiedad del Token Extensions Program.
+Construye la instrucción del System Program que crea la mint account y la asigna
+al Token Extensions Program.
 
 ### !initializeMintInstruction
 
-Construye la instrucción para inicializar los datos de la nueva cuenta como un
-tipo de cuenta Mint.
+Construye la instrucción del Token Extensions Program que escribe los datos
+iniciales del mint en la nueva cuenta.
 
-### !transaction
+### !sendTransaction
 
-Crea una nueva transacción y añade ambas instrucciones.
+Envía ambas instrucciones como una sola transacción. El orden de las
+instrucciones importa: la cuenta debe crearse antes de que pueda inicializarse.
 
-El orden de las instrucciones es importante aquí. La `createAccountInstruction`
-debe ir antes de la `initializeMintInstruction`.
+### !mintAccount
 
-### !sendAndConfirmTransaction
-
-Envía la transacción.
+Obtén el mint account después de la confirmación. El helper lee la cuenta y
+deserializa el campo de datos del mint account en el tipo Mint.
 
 </WithNotes>
 
@@ -526,210 +463,158 @@ Envía la transacción.
 
 ## !!steps
 
-Crear un token requiere usar tanto la biblioteca `@solana/web3.js` como
-`@solana/spl-token`. El código del ejemplo a continuación:
+Crea y financia un cliente Kit, luego genera un firmante para usar como
+dirección del nuevo mint account. El pagador del cliente financia la creación de
+la cuenta y paga la comisión de la transacción.
 
-<WithMentions>
+```ts title="Client and mint setup"
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-- [Creará una conexión](mention:connection)
-- [Generará un keypair](mention:wallet) para pagar la transacción
-- [Solicitará un airdrop](mention:airdrop) para financiar el keypair
-
-```ts title="Connection & wallet setup"
-// !mention connection
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// !mention wallet
-const wallet = new Keypair();
-// !mention(1:4) airdrop
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const mint = await generateKeyPairSigner();
 ```
 
-</WithMentions>
-
 ```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-// !focus(1:8)
-const connection = new Connection("http://localhost:8899", "confirmed");
+// !focus(1:12)
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const mint = await generateKeyPairSigner();
 ```
 
 ## !!steps
 
-Genera un keypair para la cuenta mint. La clave pública se utilizará como la
-dirección de la cuenta mint.
+Calcula el tamaño del mint account en bytes, luego realiza una solicitud RPC
+para calcular los lamports necesarios para almacenar esos datos en la cuenta.
+Este saldo requerido se denomina rent.
 
-```ts title="Mint keypair"
-const mint = new Keypair();
+```ts title="Mint account size and rent"
+const space = BigInt(getMintSize());
+
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 ```
 
 ```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const mint = await generateKeyPairSigner();
 
-// !focus
-const mint = new Keypair();
-```
+// !focus(1:3)
+const space = BigInt(getMintSize());
 
-## !!steps
-
-Calcula los lamports mínimos requeridos para una cuenta mint. La función
-`getMinimumBalanceForRentExemptMint` calcula cuántos lamports deben asignarse
-para los datos en una cuenta mint.
-
-```ts title="Rent exemption"
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
-```
-
-```ts !! title="Create mint account"
-import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-const mint = new Keypair();
-
-// !focus(1:2)
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 ```
 
 ## !!steps
 
 <WithMentions>
 
-La primera instrucción invoca la instrucción `createAccount` del System Program
-para:
-
-1. Asignar el [número de bytes](mention:space) necesarios para almacenar los
-   datos del mint.
-2. [Transferir lamports](mention:lamports) desde la billetera para financiar la
-   nueva cuenta.
-3. [Asignar la propiedad](mention:programId) de la cuenta al
-   [Token Extensions Program](/docs/tokens/extensions).
+La primera instrucción invoca el System Program. La instrucción usa el
+[`payer`](mention:payer) para financiar una [`newAccount`](mention:new-account),
+asigna el [`space`](mention:space) del mint account, transfiere los
+[`lamports`](mention:lamports) de exención de rent, y asigna la propiedad al
+[`programAddress`](mention:program-address).
 
 ```ts title="Create account instruction"
-const createAccountInstruction = SystemProgram.createAccount({
-  // !mention(1:2) lamports
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
+const createAccountInstruction = getCreateAccountInstruction({
+  // !mention payer
+  payer: client.payer,
+  // !mention new-account
+  newAccount: mint,
   // !mention space
-  space: MINT_SIZE,
+  space,
   // !mention lamports
-  lamports: rentExemptionLamports,
-  // !mention programId
-  programId: TOKEN_2022_PROGRAM_ID
+  lamports: rent,
+  // !mention program-address
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
 });
 ```
 
 </WithMentions>
 
 ```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const mint = await generateKeyPairSigner();
 
-const mint = new Keypair();
+const space = BigInt(getMintSize());
 
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
 // !focus(1:7)
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: rentExemptionLamports,
-  programId: TOKEN_2022_PROGRAM_ID
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: client.payer,
+  newAccount: mint,
+  space,
+  lamports: rent,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
 });
 ```
 
@@ -737,241 +622,218 @@ const createAccountInstruction = SystemProgram.createAccount({
 
 <WithMentions>
 
-La segunda instrucción invoca la instrucción `createInitializeMint2Instruction`
-del [Token Extensions Program](mention:programId) para inicializar la cuenta
-mint con los siguientes datos:
-
-- [2 decimales](mention:decimals)
-- [Billetera](mention:authority) como autoridad de emisión y autoridad de
-  congelación
+La segunda instrucción invoca el Token Extensions Program. La instrucción
+inicializa la dirección del [`mint`](mention:mint-account) con un valor de
+[`decimals`](mention:decimals), una [`mintAuthority`](mention:mint-authority),
+una [`freezeAuthority`](mention:freeze-authority), y especifica el
+[`tokenProgram`](mention:token-program) que posee el mint account.
 
 ```ts title="Initialize mint instruction"
-const initializeMintInstruction = createInitializeMint2Instruction(
-  mint.publicKey,
+const initializeMintInstruction = getInitializeMintInstruction({
+  // !mention mint-account
+  mint: mint.address,
   // !mention decimals
-  2,
-  // !mention authority
-  wallet.publicKey,
-  // !mention authority
-  wallet.publicKey,
-  // !mention programId
-  TOKEN_2022_PROGRAM_ID
-);
+  decimals: 2,
+  // !mention mint-authority
+  mintAuthority: client.payer.address,
+  // !mention freeze-authority
+  freezeAuthority: client.payer.address,
+  // !mention token-program
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
 ```
 
 </WithMentions>
 
 ```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
 
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
+const mint = await generateKeyPairSigner();
 
-const mint = new Keypair();
+const space = BigInt(getMintSize());
 
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: rentExemptionLamports,
-  programId: TOKEN_2022_PROGRAM_ID
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: client.payer,
+  newAccount: mint,
+  space,
+  lamports: rent,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-// !focus(1:6)
-const initializeMintInstruction = createInitializeMint2Instruction(
-  mint.publicKey,
-  2, // decimals
-  wallet.publicKey, // mint authority
-  wallet.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
+// !focus(1:7)
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: client.payer.address,
+  freezeAuthority: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
 ```
 
 ## !!steps
 
-Añade ambas instrucciones a una sola transacción. Esto asegura que la creación
-de la cuenta y la inicialización ocurran de forma atómica. (O ambas
-instrucciones tienen éxito, o ninguna lo tiene.)
-
-Este enfoque es común al construir transacciones complejas en Solana, ya que
-garantiza que todas las instrucciones se ejecuten juntas.
-
-```ts title="Transaction"
-const transaction = new Transaction().add(
-  createAccountInstruction,
-  initializeMintInstruction
-);
-```
-
-```ts !! title="Create mint account"
-import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-const mint = new Keypair();
-
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
-
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: rentExemptionLamports,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-const initializeMintInstruction = createInitializeMint2Instruction(
-  mint.publicKey,
-  2, // decimals
-  wallet.publicKey, // mint authority
-  wallet.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-// !focus(1:4)
-const transaction = new Transaction().add(
-  createAccountInstruction,
-  initializeMintInstruction
-);
-```
-
-## !!steps
-
-<WithMentions>
-
-Firma y envía la transacción. Se requieren dos firmas:
-
-- La cuenta [billetera](mention:wallet) firma como pagador de las
-  [comisiones de transacción](/docs/core/fees) y la creación de la cuenta
-- La cuenta [mint](mention:mint) firma para autorizar el uso de su dirección
-  para la nueva cuenta
+Envía ambas instrucciones en una sola transacción. La instrucción de creación de
+cuenta debe ir antes de la instrucción de inicialización del mint porque el mint
+account debe existir antes de que el Token Extensions Program pueda escribir los
+datos del mint en la cuenta.
 
 ```ts title="Send transaction"
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [
-    // !mention wallet
-    wallet,
-    // !mention mint
-    mint
-  ]
-);
-```
-
-La firma de transacción devuelta puede utilizarse para inspeccionar la
-transacción en Solana Explorer.
-
-</WithMentions>
-
-```ts !! title="Create mint account"
-import {
-  Connection,
-  Keypair,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  MINT_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  createInitializeMint2Instruction,
-  getMinimumBalanceForRentExemptMint,
-  getMint
-} from "@solana/spl-token";
-
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-const wallet = new Keypair();
-const signature = await connection.requestAirdrop(
-  wallet.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(signature, "confirmed");
-
-const mint = new Keypair();
-
-const rentExemptionLamports =
-  await getMinimumBalanceForRentExemptMint(connection);
-
-const createAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: wallet.publicKey,
-  newAccountPubkey: mint.publicKey,
-  space: MINT_SIZE,
-  lamports: rentExemptionLamports,
-  programId: TOKEN_2022_PROGRAM_ID
-});
-
-const initializeMintInstruction = createInitializeMint2Instruction(
-  mint.publicKey,
-  2, // decimals
-  wallet.publicKey, // mint authority
-  wallet.publicKey, // freeze authority
-  TOKEN_2022_PROGRAM_ID
-);
-
-const transaction = new Transaction().add(
+const result = await client.sendTransaction([
   createAccountInstruction,
   initializeMintInstruction
-);
+]);
+```
 
-// !focus(1:9)
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [
-    wallet, // payer
-    mint // mint address keypair
-  ]
-);
+```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-console.log("Transaction Signature:", `${transactionSignature}`);
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+
+const space = BigInt(getMintSize());
+
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
+
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: client.payer,
+  newAccount: mint,
+  space,
+  lamports: rent,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: client.payer.address,
+  freezeAuthority: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !focus(1:4)
+const result = await client.sendTransaction([
+  createAccountInstruction,
+  initializeMintInstruction
+]);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", result.context.signature);
+```
+
+## !!steps
+
+Una vez confirmada la transacción, obtén el mint account.
+
+```ts title="Fetch mint account"
+const mintAccount = await fetchMint(client.rpc, mint.address);
+console.log("Mint Account:", mintAccount);
+```
+
+```ts !! title="Create mint account"
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaRpc, rpcAirdrop } from "@solana/kit-plugin-rpc";
+import { generatedPayer, airdropPayer } from "@solana/kit-plugin-signer";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  fetchMint,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "http://localhost:8899",
+      rpcSubscriptionsUrl: "ws://localhost:8900"
+    })
+  )
+  .use(rpcAirdrop())
+  .use(airdropPayer(lamports(1_000_000_000n)));
+
+const mint = await generateKeyPairSigner();
+
+const space = BigInt(getMintSize());
+
+const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
+
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: client.payer,
+  newAccount: mint,
+  space,
+  lamports: rent,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: client.payer.address,
+  freezeAuthority: client.payer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const result = await client.sendTransaction([
+  createAccountInstruction,
+  initializeMintInstruction
+]);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", result.context.signature);
+
+// !focus(1:2)
+const mintAccount = await fetchMint(client.rpc, mint.address);
+console.log("Mint Account:", mintAccount);
 ```
 
 </ScrollyCoding>
+
+<Callout type="info">
+  Estos ejemplos usan `generatedPayer()` para crear un keypair desechable para
+  pruebas locales. Las aplicaciones en producción nunca deben almacenar claves
+  privadas en texto plano dentro del código — delega la firma a un backend de
+  gestión de claves. Consulta [Firma en
+  Producción](/docs/core/transactions/signing-in-production).
+</Callout>

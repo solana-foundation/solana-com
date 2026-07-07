@@ -1,0 +1,259 @@
+---
+title: CPIによるToken Programの呼び出し
+description:
+  Cross Program Invocation (CPI)を使用して、オンチェーンプログラムからToken
+  Programを呼び出します。トークンの転送、ミント、バーン、PDAオーソリティによる署名、複数のトークンinstructionsを単一のCPIにまとめる方法を解説します。
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+オンチェーンプログラムは、Token
+Programへの[Cross Program Invocation (CPI)](/docs/core/cpi)を発行することでトークンを移動します。プログラムはToken
+Programのinstructionを構築し、必要なアカウントを提供して、_rs`invoke`_（またはProgram
+Derived Addressが署名する場合は*rs`invoke_signed`*）を呼び出します。Token
+Programはその後、プログラムが付与した権限を使用してinstructionを実行します。
+
+このページでは、そのフローのトークン固有の側面について説明します。CPIのメカニズム自体——*rs`invoke`*と*rs`invoke_signed`*の動作、署名と書き込み権限の伝播、および[CPIあたりのコストモデル](/docs/core/cpi/cpi-cost-model)——については、[Cross Program Invocation](/docs/core/cpi)を参照してください。
+
+## 一般的なパターン
+
+ほとんどのトークンCPIは同じ形式に従います：instructionを構築し、token
+accountとオーソリティを渡して呼び出します。以下の例では、*rs`TransferChecked`*を使用してトークンを転送します。これは転送の一部としてミントとデシマルを検証します。
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+ミント、バーン、アカウントのクローズも同じパターンに従い、instructionが異なります——Anchorの[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)モジュールの*rs`MintTo`*、_rs`Burn`_、_rs`CloseAccount`_、または[`pinocchio-token`](https://crates.io/crates/pinocchio-token)の対応するビルダーを使用します。AnchorおよびネイティブRustでToken
+Programへのチェーンプログラムを使用した完全な実行可能プログラムについては、[token programの例](/docs/programs/examples#tokens)——特に「Transfer
+Tokens」の例を参照してください。
+
+## PDAオーソリティによる署名
+
+token
+accountのオーソリティがプログラムの所有する[Program Derived Address](/docs/core/pda)である場合、プログラムはPDAシードを署名シードとして渡しながら、*rs`invoke_signed`*を使用してCPI自体に署名します。Anchorでは、*rs`CpiContext::new`*の代わりにシードとともに*rs`CpiContext::new_with_signer`*を使用します。instructionはそれ以外は上記の例と同じです。詳細なメカニズムについては、[PDA署名者を使用したCPI](/docs/core/cpi/cpi-with-pda)を参照してください。
+
+## バッチ処理
+
+_rs`Batch`_ instructionは、単一のプログラム呼び出し内で複数のToken Program
+instructionsを実行します。各CPIには固定のコンピュートコストが発生するため、1つのバッチCPIで複数のトークン操作を実行すると、操作ごとに個別のCPIを発行するよりも使用する[コンピュートユニット](/docs/core/fees/compute-budget)が少なくなります。CPIごとのコストの合計については、[CPIコストモデル](/docs/core/cpi/cpi-cost-model)を参照してください。
+
+コンピュート使用量を削減することで、トランザクションがコンピュートユニットごとに支払う[優先手数料](/docs/core/fees)が下がり、着地の可能性が高まります。これは、単一のinstructionで多くのトークン操作を行うプログラムにとって特に重要です。一般的な用途としては、多数の受取人へのトランスファーのファンアウトや、単一のCPI内でのマルチステップトークンフロー（例：同期、トランスファー、クローズ）の実行などが挙げられます。
+
+<Callout type="info">
+
+_rs`Batch`_ は子要素としてToken Program
+instructionsのみを受け付け、バッチの中に別のバッチを含めることはできません。トークンを移動する操作（トランスファー、ミント、バーンなど）については、プログラムは実行前に対象アカウントがToken
+Programによって所有されていることを検証します。
+
+</Callout>
+
+### ソースリファレンス
+
+| 項目                | 説明                                           | ソース                                                                                               |
+| ------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | Batch instruction（ディスクリミネーター255）。 | [ソース](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | バッチプロセッサーロジック。                   | [ソース](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### CPIを介したBatchの呼び出し
+
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token)
+クレートは、_rs`pinocchio_token::instructions::Batch`_ 以下に _rs`Batch`_
+ビルダーを公開しています。各子instructionをバッチのバッファにステージングし、_rs`invoke`_
+で単一のCPIを発行します。
+
+_rs`Batch`_
+は、呼び出し元が提供する3つのバッファによって支えられています。1つはシリアライズされたinstruction
+data用、1つは子instructionごとのアカウントメタ用、もう1つはCPIに渡されるアカウントビュー用です。これらを
+_rs`MaybeUninit`_ スライスとして構築し、_rs`Batch::new`_
+に渡して子要素を追加した後、以下のように呼び出します：
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_
+はバッチの識別子をデータバッファの先頭バイトに書き込み、各バッファのどれだけが使用されたかを追跡する
+_rs`Batch`_ を返します。すべての Token
+Program の instructions ビルダー（_rs`Transfer`_、_rs`TransferChecked`_、_rs`MintTo`_、_rs`Burn`_
+など）は _rs`IntoBatch`_ トレイトを実装しているため、_rs`into_batch`_
+はその instruction の instruction
+data、アカウントメタ、アカウントビューをバッチに追加します。_rs`invoke`_
+を呼び出すと、組み立てられたバッチが Token
+Program への1つのCPIとして発行されます。
+
+バッファはバッチの容量を制限します。データバッファのサイズは
+`1 + Σ(2 + child_data_len)`
+バイト（識別子、2バイトのヘッダー、および各子の直列化されたデータ）に設定し、各アカウントバッファはすべての子のアカウント総数に設定します。子が収まらない場合、_rs`into_batch`_
+は _rs`ProgramError::InvalidArgument`_
+を返します。参考として、_rs`Batch::MAX_DATA_LEN`_ は10
+KiBで、_rs`Batch::MAX_ACCOUNTS_LEN`_
+はランタイムの最大CPIアカウント数と等しくなります。
+
+サイズが実行時にのみ判明するバッチの場合は、クレートの `alloc`
+フィーチャーを有効にし、_rs`BatchState::new(accounts_len, data_len)`_
+を使用してヒープ上にバッファを確保してから、_rs`as_batch`_ を呼び出して
+_rs`Batch`_ を取得します。
+
+子 instruction の権限がプログラムに所有されるPDAである場合は、_rs`invoke`_
+の代わりに _rs`invoke_signed`_ を使用してCPIに署名し、PDAシードを _rs`Signer`_
+エントリとして渡します。
+
+### instruction data のレイアウト
+
+バッチは `255`
+識別子の後ろに子を順番にエンコードします。すべてのアカウントはフラットに順番に渡され、各子に対して
+`num_accounts`
+によってスライスされます。ビルダーはまさにこのワイヤーフォーマットを生成します：
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+バッチの容量は _rs`Batch::new`_
+に渡されるバッファによって制限されます：データバッファは識別子に加えてすべての子のヘッダーとデータを保持する必要があり、アカウントバッファはすべての子のアカウントを保持する必要があります。構築する最大バッチに合わせてサイズを設定するか、実行時にサイズを決定するために（`alloc`
+フィーチャーを使用して）_rs`BatchState`_
+を使用してください。結合されたCPIはトランザクションのアカウント数とサイズ制限の影響を受けるため、非常に大きなファンアウトの場合は、より多くのアカウントを収めるためにAddress
+Lookup Tablesを使用してください。
+
+</Callout>
