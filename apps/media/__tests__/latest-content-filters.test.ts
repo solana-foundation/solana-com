@@ -509,6 +509,14 @@ describe("latest content filters", () => {
           author: "solana-foundation",
           tags: [{ tag: "featured" }],
         },
+        "middle-featured-post": {
+          status: "published",
+          title: "Middle Featured Post",
+          description: "middle featured post",
+          publishedAt: "2026-03-10T12:00:00.000Z",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
       };
 
       readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
@@ -520,7 +528,15 @@ describe("latest content filters", () => {
 
       expect(result.posts.map((item) => item.id)).toEqual([
         "newer-featured-post",
+        "middle-featured-post",
         "older-featured-post",
+      ]);
+
+      const limitedResult = await fetchFeaturedPosts({ limit: 2 });
+
+      expect(limitedResult.posts.map((item) => item.id)).toEqual([
+        "newer-featured-post",
+        "middle-featured-post",
       ]);
     });
 

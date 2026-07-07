@@ -102,7 +102,7 @@ export default function PostsClientPage({
 
   const visiblePosts = useMemo(() => posts.filter(isPost), [posts]);
   const lead = featuredPosts[0] ?? null;
-  const railStories = featuredPosts.slice(1);
+  const railStories = featuredPosts.slice(1, 5);
   const latestStories = visiblePosts;
   const leadCategory = lead?.categories?.find(Boolean);
 

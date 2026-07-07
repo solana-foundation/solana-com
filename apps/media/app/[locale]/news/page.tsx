@@ -22,7 +22,7 @@ export default async function PostsPage({
   params: Promise<{ locale: string }>;
 }) {
   const [featuredPosts, latestPosts, navItems] = await Promise.all([
-    fetchFeaturedPosts(),
+    fetchFeaturedPosts({ limit: 5 }),
     fetchLatestPosts({ limit: 13, excludeTag: "featured" }),
     fetchNewsNavItemsWithPosts(),
   ]);
