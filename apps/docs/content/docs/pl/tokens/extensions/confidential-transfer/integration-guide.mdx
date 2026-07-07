@@ -1,0 +1,625 @@
+---
+title: Przewodnik integracji poufnych transferów
+description:
+  Dowiedz się, jak integrować tokeny korzystające z rozszerzenia Confidential
+  Transfer w portfelach, eksploratorach, giełdach i innych aplikacjach.
+---
+
+# Obsługa poufnych transferów w Solana
+
+## Tło
+
+Rozszerzenie Confidential Transfer pozwala mintom Token-2022 przechowywać kwoty
+transferów i salda kont zaszyfrowane w łańcuchu. Salda są zaszyfrowane, więc ich
+wyświetlenie wymaga kluczy deszyfrujących właściciela, a wysyłanie wymaga
+generowania downodów o zerowej wiedzy po stronie klienta.
+
+Ten przewodnik jest przeznaczony dla zespołów **integrujących** tokeny z
+poufnymi transferami (portfele, eksploratoryy, giełdy, depozytariusze,
+indekserzy), a nie dla emitentów konfigurujących mint. Jeśli budujesz podstawowy
+przepływ od zera, zacznij od stron krok po kroku powiązanych poniżej; ten
+przewodnik skupia się na tym, co Twój produkt musi robić, aby dobrze obsługiwać
+te tokeny.
+
+Adresy kont, mint i właściciel każdego konta pozostają **publiczne**. Tylko
+kwoty i salda są zaszyfrowane, więc wszystko inne, w tym informacje o tym, kto z
+kim przeprowadza transakcje, pozostaje widoczne. Zapewnia to poufność wobec
+publicznych obserwatorów, ale nie anonimowość.
+
+### Zasoby
+
+- [Przegląd Confidential Transfer i przewodniki krok po kroku](/docs/tokens/extensions/confidential-transfer)
+- [Kod Rust rozszerzenia](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` Klient JS](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instrukcje, parsowanie stanu konta, derywacja kluczy oraz pomocniki wysokiego
+  poziomu do poufnych transferów)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (prymitywy szyfrowania i generowanie danych dowodów)
+- [`@solana-program/zk-elgamal-proof` Klient JS](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (instrukcje weryfikacji dowodów)
+- [`spl-token-client` Crate Rust](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (pomocniki wysokiego poziomu end-to-end w Rust)
+
+## TL;DR
+
+- Każdy poufny token account nadal posiada **publiczne saldo** oraz zaszyfrowane
+  saldo **oczekujące** i **dostępne**. Token może swobodnie przemieszczać się
+  między stanami publicznym i poufnym.
+- Aby **wyświetlić** poufne saldo, potrzebujesz kluczy właściciela. Zalecane
+  podejście to derywacja kluczy z portfela właściciela, odszyfrowanie dostępnego
+  salda za pomocą klucza AES (szybkie) oraz odszyfrowanie kwot oczekujących za
+  pomocą klucza ElGamal w razie potrzeby.
+- Aby **wysłać** poufnie, generujesz dowody ZK po stronie klienta (równości,
+  ważności szyfrogramu, zakresu), zazwyczaj umieszczane w tymczasowych
+  **kontekstowych kontach stanu dowodów**, a następnie przesyłasz transfer.
+  Zarówno `@solana-program/token-2022` (JS), jak i `spl-token-client` (Rust)
+  zapewniają pomocniki wysokiego poziomu, które budują dowody i sekwencjonują
+  transakcje za Ciebie.
+- Poufne transfery obejmują obecnie kilka zależnych transakcji, ponieważ dowody
+  przekraczają obecny limit rozmiaru transakcji. Nadchodząca zmiana (format
+  transakcji v1, wdrażana wraz z Agave v4.2) podnosi ten limit i ma umożliwić
+  wykonanie poufnego transferu w ramach jednej transakcji onchain.
+- Portfel bez żadnego wsparcia nadal działa: wyświetla publiczne saldo i
+  standardowe transfery działają normalnie. Poufne środki pozostają dostępne dla
+  każdego klienta obsługującego poufność, który posiada klucze właściciela.
+
+## Terminy
+
+- **ElGamal keypair**: per-konto keypair klucza publicznego używany do
+  szyfrowania sald i budowania dowodów ZK. Klucz publiczny jest przechowywany na
+  koncie.
+- **Klucz AES**: per-konto klucz symetryczny używany do szyfrowania
+  "odszyfrowanego dostępnego salda", dzięki czemu właściciel może odczytać swoje
+  dostępne saldo w stałym czasie, bez rozwiązywania dyskretnego logarytmu.
+- **Saldo oczekujące**: zaszyfrowane saldo środków otrzymanych poprzez depozyty
+  lub przychodzące przelewy, które nie zostały jeszcze zastosowane. Nie można go
+  bezpośrednio wydać.
+- **Dostępne saldo**: zaszyfrowane saldo, które można przelać lub wypłacić.
+- **Zastosowanie**: krok, który przenosi saldo oczekujące do dostępnego.
+- **Konto stanu kontekstu dowodu**: tymczasowe konto onchain przechowujące
+  wstępnie zweryfikowany dowód ZK, przywoływane przez poufną instrukcję, a
+  następnie zamykane w celu odzyskania rent.
+- **Audytor**: opcjonalny globalny klucz ElGamal w mint; gdy jest ustawiony,
+  każdy przelew dodatkowo szyfruje swoją kwotę tym kluczem, dzięki czemu
+  wyznaczona strona może go odszyfrować.
+
+## Model konta i salda
+
+Gdy konto jest skonfigurowane do poufnych przelewów, rozszerzenie
+`ConfidentialTransferAccount` przechowuje (między innymi):
+
+- `elgamal_pubkey`: klucz publiczny ElGamal konta.
+- `pending_balance_lo` / `pending_balance_hi`: szyfrogramy ElGamal salda
+  oczekującego, podzielone na bity niskie i wysokie (odszyfrowanie bitów
+  wysokich jest droższe, dlatego są przechowywane osobno).
+- `available_balance`: szyfrogram ElGamal salda dostępnego do wydania.
+- `decryptable_available_balance`: szyfrogram **AES** tego samego dostępnego
+  salda, który właściciel może natychmiast odszyfrować. To jest pole używane do
+  wyświetlania.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: czy konto
+  aktualnie akceptuje przychodzące poufne lub publiczne uznania.
+- `pending_balance_credit_counter` i `maximum_pending_balance_credit_counter`:
+  ile uznań narosło na saldzie oczekującym oraz limit, po przekroczeniu którego
+  wymagane jest zastosowanie.
+
+Wszystkie te pola są zwracane w przeanalizowanym stanie konta przez standardowe
+RPC. Każdy może odczytać szyfrogramy, ale tylko posiadacze kluczy mogą odzyskać
+ukryte kwoty.
+
+## Zarządzanie kluczami
+
+Każde poufne konto używa dwóch kluczy: **pary kluczy ElGamal** do szyfrowania i
+dowodów oraz **klucza AES** do szybkiego odszyfrowywania salda. Sposób
+generowania i przechowywania tych kluczy jest kwestią integracji. Kilka typowych
+opcji:
+
+- **Wyprowadzenie z podpisu portfela (zalecane domyślnie).** Właściciel
+  podpisuje kanoniczny, domenowo separowany komunikat, a klucze są wyprowadzane
+  z tego podpisu — są więc odtwarzalne wyłącznie na podstawie portfela i nie
+  trzeba ich przechowywać. seed jest deterministyczny dla każdego konta:
+  poniższe helpery JS wiążą go z parą keypair `(owner, mint)`, natomiast
+  przykład w Rust używa adresu token account jako seed (dla associated token
+  account są one równoważne, ponieważ adres ten jest sam w sobie wyprowadzany z
+  właściciela i mint).
+- **Wyprowadzenie z niezależnego materiału klucza.** W przypadku kluczy dostępu,
+  bezpiecznych enklaw lub konfiguracji MPC wyprowadź klucze z wyjścia WebAuthn
+  PRF lub innego wejściowego materiału klucza, aby poufne klucze nie były
+  powiązane z kluczem podpisującym konta. `@solana/zk-sdk` udostępnia
+  `ConfidentialKeys.fromIkm` oraz `ConfidentialKeys.fromPrf` w tym celu.
+- **Generowanie i bezpośrednie zarządzanie.** Dostawcy usług powierniczych i MPC
+  mogą preferować generowanie kluczy i zarządzanie nimi jak każdym innym
+  wrażliwym materiałem klucza.
+
+Klient `@solana-program/token-2022` dostarcza helpery dla zalecanej ścieżki:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Klucze poufne są kluczami deszyfrującymi. Traktuj żądanie podpisania
+  komunikatu wyprowadzającego jak odblokowanie prywatnego podglądu sald
+  użytkownika. Preferuj wyprowadzanie kluczy na żądanie zamiast ich
+  przechowywania; jeśli je przechowujesz (np. w usłudze powierniczej), chroń je
+  z taką samą starannością jak klucze podpisujące.
+</Callout>
+
+Pomocnicze funkcje derywacji zwracają zserializowany materiał klucza. Pomocnicze
+funkcje operacji wysokiego poziomu (pokazane dalej) przyjmują obiekty WASM
+`ElGamalKeypair` i `AeKey`, więc odtwórz je z bajtów, gdy będą potrzebne:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Tworzenie i konfigurowanie kont
+
+Zanim konto będzie mogło przechowywać poufne saldo, potrzebuje rozszerzenia
+`ConfidentialTransferAccount`, które dodaje około 295 bajtów do token account (w
+przybliżeniu 0,0015 SOL w dodatkowym rent). Konfiguracja składa się z dwóch
+kroków: utwórz token account, a następnie skonfiguruj rozszerzenie.
+
+Konfiguracja zazwyczaj wymaga, aby **właściciel konta** podpisał i dostarczył
+dowód posiadania klucza publicznego ElGamal ustawianego na koncie. Portfel lub
+giełda może utworzyć i zasilić podstawowe token account dla użytkownika, ale nie
+może skonfigurować poufnego rozszerzenia w jego imieniu bez tego podpisu.
+
+Z tego powodu należy unikać cichego udostępniania poufnych kont wszystkim
+użytkownikom: wiąże się to z dodatkowym rent i nadal wymaga zaangażowania
+właściciela. Konfiguruj przy pierwszym użyciu lub gdy użytkownik zdecyduje się
+na poufne przelewy.
+
+**Rejestr ElGamal** eliminuje krok wymagający udziału właściciela dla każdego
+konta. Użytkownik rejestruje swój klucz publiczny ElGamal raz (podpisując dowód
+podczas rejestracji), a wpis w rejestrze można wielokrotnie wykorzystywać dla
+każdego mintu. Następnie strona trzecia może konfigurować poufne konta dla
+użytkownika za pomocą `ConfigureAccountWithRegistry`, co nie wymaga podpisu
+właściciela ani dowodu w czasie konfiguracji — jedynie płatnika za rent. Jest to
+mechanizm, którego należy używać, jeśli chcesz płynnie udostępniać poufne konta
+użytkownikom.
+
+<Callout type="info">
+  Konfiguracja rejestru jest dostępna dziś w bibliotece Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) oraz w
+  programie `spl-elgamal-registry`. Równoważne pomocnicze funkcje w kliencie JS
+  `@solana-program/token-2022` nie są jeszcze dostępne, dlatego integracje JS
+  wymagające ścieżki rejestru powinny śledzić kolejne wydania tego klienta.
+</Callout>
+
+## Wyświetlanie sald
+
+Solidna integracja wyświetla saldo publiczne przy użyciu standardowego salda
+tokena, wykrywa rozszerzenie poufne i — gdy użytkownik odblokował swoje klucze —
+odszyfruje oraz pokazuje dostępne saldo.
+
+Dostępne saldo najlepiej odczytywać z `decryptable_available_balance` przy
+użyciu klucza AES, co odbywa się w stałym czasie. Bezpośrednie odszyfrowanie
+`available_balance` ElGamala wymaga rozwiązania logarytmu dyskretnego i należy
+tego unikać w przypadku rutynowego wyświetlania.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Gdy użytkownik nie odblokował swoich kluczy, wyświetl saldo publiczne i zaznacz,
+że istnieje saldo poufne, lecz jest zablokowane — zamiast pokazywać zero.
+
+## Odbieranie przelewów
+
+Przychodzące depozyty i przelewy trafiają do salda **oczekującego** i nie mogą
+być wydane do momentu ich zastosowania. Każde uznanie zwiększa
+`pending_balance_credit_counter`; gdy osiągnie wartość
+`maximum_pending_balance_credit_counter`, konto nie może otrzymywać więcej
+poufnych uznań, dopóki właściciel nie zastosuje salda oczekującego.
+
+Integracje przechowujące środki w imieniu użytkowników powinny:
+
+- Oddzielnie prezentować saldo oczekujące i dostępne, aby użytkownicy rozumieli,
+  dlaczego właśnie otrzymana kwota nie jest jeszcze do wydania.
+- Stosować saldo oczekujące w imieniu użytkownika w odpowiednich momentach (na
+  przykład przed wysłaniem), aby salda nie zostały zablokowane.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Zobacz stronę
+[Zastosuj saldo oczekujące](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+aby zapoznać się z pełnym przebiegiem.
+
+## Wysyłanie przelewów
+
+Poufny przelew wymaga trzech dowodów wiedzy zerowej generowanych po stronie
+klienta:
+
+- **Dowód równości** potwierdzający, że nowy tekst zaszyfrowany salda nadawcy
+  szyfruje tę samą wartość co nowe zobowiązanie, które nadawca może otworzyć.
+- **Dowód poprawności tekstu zaszyfrowanego** potwierdzający, że teksty
+  zaszyfrowane kwoty przelewu są poprawnie uformowane przy użyciu kluczy:
+  źródłowego, docelowego oraz (jeśli ustawiono) audytora.
+- **Dowód zakresu** potwierdzający, że kwota i pozostałe saldo nadawcy są
+  poprawnymi nieujemnymi liczbami całkowitymi, co zapobiega tworzeniu wartości z
+  niczego.
+
+Te dowody są większe niż pozwala na to aktualny limit rozmiaru transakcji dla
+danych inline, dlatego zwykłym wzorcem jest tworzenie **kont stanu kontekstu
+dowodu**, weryfikowanie każdego dowodu w nich, odwoływanie się do nich z
+instrukcji transferu, a następnie zamykanie ich w celu odzyskania rent. Obejmuje
+to kilka zależnych transakcji. Format transakcji v1 (wdrażany wraz z Agave v4.2)
+podnosi limit rozmiaru i ma umożliwić przeprowadzenie poufnego transferu w
+ramach jednej transakcji onchain, co uprości ten przepływ.
+
+Nie musisz samodzielnie składać dowodów. Oba klienty udostępniają
+wysokoopoziomowy helper, który buduje dowody i generuje instrukcje do
+przesłania:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Jeśli potrzebujesz większej kontroli, dostępne są również niskopoziomowe bloki
+konstrukcyjne: `@solana/zk-sdk` generuje dane każdego dowodu
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` dostarcza
+instrukcje weryfikacji dowodów, a `@solana-program/token-2022` dostarcza
+`confidentialTransfer` oraz instrukcje kont stanu kontekstu.
+
+Zobacz stronę
+[Transfer tokenów](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+aby zapoznać się ze szczegółową sekwencją instrukcji.
+
+## Wypłacanie
+
+Wypłacanie przenosi środki z poufnego salda dostępnego z powrotem do salda
+publicznego, po czym zachowują się jak każde zwykłe saldo tokenów. Wypłata
+wymaga również dowodów (dowodu równości i dowodu zakresu), udostępnionych jako
+`getConfidentialWithdrawInstructionPlan` w kliencie JS oraz
+`confidential_transfer_withdraw` w kliencie Rust. Najpierw zastosuj oczekujące
+saldo, aby pełna kwota była dostępna. Zobacz
+[Wypłata tokenów](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Powiązane rozszerzenia poufne
+
+Dwa opcjonalne rozszerzenia bazują na poufnych transferach. Oba leżą głównie w
+gestii emitenta, jednak każde z nich zmienia coś, z czym integrator powinien się
+liczyć:
+
+- **Poufne opłaty transferowe.** Gdy mint łączy poufne transfery z
+  [opłatą transferową](/docs/tokens/extensions/transfer-fees), wysyłki
+  korzystają ze ścieżki transferu z opłatą
+  (`confidential_transfer_transfer_with_fee` w kliencie Rust), a potrącona
+  opłata jest szyfrowana tak jak kwota. Pobieranie potrąconych opłat (zebranie i
+  wypłata) należy do obowiązków organu ds. opłat, a nie integratora.
+- **Poufny mint i burn.** Mint z tym rozszerzeniem emituje i spala podaż w
+  sposób poufny, co wyłącza publiczną ścieżkę wpłat i wypłat. Tokeny nie mogą
+  przemieszczać się między saldem publicznym a poufnym na takim mincie, dlatego
+  nie udostępniaj dla niego funkcji wpłaty ani wypłaty.
+
+Szczegóły na poziomie protokołu dla obu przypadków znajdziesz w
+[dokumentacji poufnych sald](https://www.solana-program.com/docs/confidential-balances).
+
+## Parsowanie transakcji poufnych transferów
+
+Eksplorery i indeksery muszą rozpoznawać i oznaczać aktywność poufnych
+transferów bez możliwości odczytania kwot. Klient `@solana-program/token-2022`
+udostępnia `identifyToken2022Instruction` do klasyfikacji każdej instrukcji
+Token-2022, a także parsery dla poszczególnych instrukcji (na przykład
+`parseConfidentialTransferInstruction`) do dekodowania kont i pól niebędących
+tajemnicą. Zaszyfrowane kwoty pozostają jako szyfrogramy: wyświetlaj je jako
+poufne, zamiast renderować bajty jako liczbę.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Ograniczenia indeksowania, które należy uwzględnić:
+
+- **Brak kwot dla poufnych transferów.** `ConfidentialTransfer` zawiera
+  zaszyfrowane kwoty, więc analizy wolumenu, przepływu i wielkości transferów
+  nie mogą być obliczane na jego podstawie. Oznaczaj te transfery jako poufne,
+  zamiast zapisywać zero lub surowy szyfrogram.
+- **Brak delt salda.** Poufne przesunięcia nie zmieniają publicznego salda
+  tokenów, więc różnicowanie sald tokenów przed/po transakcji, które stanowi
+  podstawę większości indeksowania transferów, nie obejmuje ich. Salda
+  oczekujące i dostępne są szyfrgramami.
+- **Depozyty i wypłaty są jawne.** `ConfidentialDeposit` i
+  `ConfidentialWithdraw` zawierają jawne kwoty, więc nadal możesz indeksować
+  przepływ środków do i z puli poufnej, ale nie transfery wewnątrz niej.
+- **Jeden transfer obejmuje dziś kilka transakcji.** Konta stanu kontekstu
+  dowodów są tworzone, używane i zamykane w ramach transferu, więc koreluj
+  powiązane transakcje, zamiast traktować każdą z nich oddzielnie. Przestanie to
+  być problemem, gdy wylądują jednotransakcyjne poufne transfery (patrz wyżej).
+- **Minty z audytorem są odszyfrowywalne.** Jeśli mint posiada globalnego
+  audytora i posiadasz klucz audytora, możesz odszyfrować kwoty transferów dla
+  tego minta (patrz niżej).
+
+## Audytorzy i zgodność
+
+Mint może skonfigurować **globalny klucz publiczny ElGamal audytora**. Gdy jest
+ustawiony, każdy poufny transfer musi zawierać kwotę zaszyfrowaną kluczem
+audytora, dzięki czemu posiadacz tajnego klucza audytora może odszyfrować
+wszystkie kwoty transferów dla danego minta. Dowód ważności obejmuje szyfrogram
+audytora, więc jako integrator nie musisz robić niczego szczególnego po stronie
+wysyłania — wystarczy przekazać klucz audytora z konfiguracji minta
+(wysokopoziomowe narzędzia pomocnicze odczytują go automatycznie).
+
+Jeśli Twój produkt pełni rolę audytora (na przykład regulowany emitent lub
+dostawca usług zgodności), odszyfruj kwoty transferów za pomocą tajnego klucza
+audytora w taki sam sposób, w jaki właściciel odszyfrowuje własne saldo.
+Właściciele mogą również selektywnie udostępniać swoje klucze per-konto
+określonej stronie bez ich publicznego ujawniania.
+
+### Monitorowanie transakcji (KYT)
+
+W przypadku dostawców usług know-your-transaction i AML poufne transfery
+zmieniają to, co jest obserwowalne, a nie ogólny model:
+
+- **Analiza adresów i grafu pozostaje niezmieniona.** Nadawcy, odbiorcy, minty i
+  właściciele kont są nadal publiczni, więc weryfikacja adresów, dopasowywanie
+  sankcji i analiza grafu kontrahentów działają tak samo jak w przypadku każdego
+  tokena.
+- **Heurystyki oparte na kwotach wymagają klucza audytora.** Wykrywanie
+  strukturyzowania transakcji, raportowanie progowe i ocena ryzyka oparta na
+  wolumenie nie mogą samodzielnie odczytać kwot poufnych transferów. Kwoty wpłat
+  i wypłat pozostają jawne, więc wielkość przepływów wchodzących i wychodzących
+  z poufnej puli jest nadal widoczna.
+- **Pokrycie zapewnia model audytora.** W mintach skonfigurowanych z globalnym
+  audytorem dostawca dysponujący kluczem audytora (lub otrzymujący selektywne
+  ujawnienie od użytkownika lub emitenta) może odtworzyć kwoty transferów.
+  Emitenci działający w regulowanym środowisku powinni zaplanować konfigurację
+  audytora lub obsługę selektywnego ujawniania, aby umożliwić monitorowanie.
+
+## Wsteczna kompatybilność
+
+- Token account zawsze posiada publiczne saldo. Portfele i aplikacje
+  nieobsługujące rozszerzenia działają nadal i wyświetlają publiczne saldo.
+- Standardowe przelewy dla publicznego salda nadal działają, o ile odbiorca
+  akceptuje kredyty jawne.
+- Salda poufne nie są widoczne dla narzędzi bez wsparcia dla tego rozszerzenia,
+  jednak środki nie są utracone: każdy klient obsługujący poufność może uzyskać
+  do nich dostęp przy użyciu kluczy właściciela.
+- Ponieważ kwoty są szyfrowane, analizy wolumenu i podaży oparte na odczycie
+  kwot transakcji nie będą uwzględniać aktywności poufnej. Dostosuj dashboardy i
+  księgowość do tego faktu.
+
+## Zalecane priorytety integracji według platformy
+
+### Wymagania ogólne
+
+| Wymaganie                     | Opis                                                                                                                                                                       | Priorytet |
+| :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Wykrywanie rozszerzenia       | Rozpoznawaj rozszerzenie Confidential Transfer na mintach i kontach oraz obsługuj te tokeny jawnie, zamiast zakładać model wyłącznie publiczny.                            | **P0**    |
+| Nie trać poufnych środków     | Nawet bez pełnej obsługi, informuj o istnieniu poufnego salda, aby użytkownicy nie zakładali, że ich konto jest puste.                                                     | **P0**    |
+| Właściwe zarządzanie kluczami | Wybierz strategię zarządzania kluczami ElGamal i AES. Zalecane jest wyprowadzanie ich z portfela właściciela; jeśli przechowujesz klucze, chroń je jak klucze podpisujące. | **P0**    |
+
+---
+
+### Portfele
+
+| Wymaganie                                    | Opis                                                                                                                | Priorytet |
+| :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ | :-------- |
+| Wyświetlanie publicznego salda               | Zawsze pokazuj publiczne saldo przy użyciu standardowego odczytu salda tokenów.                                     | **P0**    |
+| Odblokowanie i wyświetlenie dostępnego salda | Pozwól użytkownikowi odblokować klucze podpisem i pokaż odszyfrowane dostępne saldo (przez saldo deszyfrowane AES). | **P0**    |
+| Wyświetlanie salda oczekującego i dostępnego | Pokazuj salda oczekujące oddzielnie i monituj o ich zastosowanie po otrzymaniu środków.                             | **P1**    |
+| Automatyczne stosowanie salda oczekującego   | Stosuj salda oczekujące w odpowiednich momentach (np. przed wysłaniem), aby środki nie utknęły.                     | **P1**    |
+| Wysyłanie poufne                             | Obsługuj przepływy wpłaty, transferu i wypłaty z generowaniem dowodów po stronie klienta.                           | **P1**    |
+| UX przy zablokowanych kluczach               | Gdy klucze nie są odblokowane, wyraźnie informuj o istnieniu poufnego salda zamiast wyświetlać zero.                | **P1**    |
+| Onboarding / edukacja                        | Pomóż użytkownikom zrozumieć, co pozostaje prywatne (kwoty i salda) oraz krok odblokowywania kluczy.                | **P2**    |
+
+---
+
+### Eksploratory i indeksery
+
+| Wymaganie                                        | Opis                                                                                                             | Priorytet |
+| :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :-------- |
+| Oznaczanie poufnych kont i mintów                | Wyraźnie oznaczaj konta i minty korzystające z rozszerzenia oraz wyświetlaj publiczne saldo.                     | **P0**    |
+| Parsowanie poufnych instrukcji                   | Dekoduj instrukcje konfiguracji, depozytu, aplikowania, transferu i wypłaty oraz wyświetlaj ich typ (nie kwoty). | **P0**    |
+| Nie wyświetlaj zaszyfrowanych kwot jako liczb    | Nigdy nie renderuj pól z szyfrogramem tak, jakby były saldami w postaci jawnej; wyświetlaj je jako poufne.       | **P0**    |
+| Indeksowanie publicznych przepływów wpłat/wypłat | Rejestruj jawne kwoty przy depozycie i wypłacie, aby śledzić przepływ środków do i z puli poufnej.               | **P1**    |
+| Korelowanie transferów wielotransakcyjnych       | Grupuj transakcje konfiguracji dowodu, transferu i czyszczenia składające się na jeden poufny transfer.          | **P1**    |
+| Wyświetlanie konfiguracji auditora               | Pokazuj, czy dla danego minta skonfigurowano globalnego auditora.                                                | **P1**    |
+| Cykl życia konta dowodowego                      | Rozpoznawaj tworzenie i zamykanie kont stanu kontekstu dowodu, aby transakcje były czytelne.                     | **P2**    |
+
+---
+
+### Giełdy i kustosze
+
+| Wymaganie                                        | Opis                                                                                                                                                                                           | Priorytet |
+| :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Śledzenie stanu publicznego i poufnego           | Uwzględniaj zarówno salda publiczne, jak i poufne przy księgowaniu depozytów i obliczaniu stanu posiadania.                                                                                    | **P0**    |
+| Stosowanie oczekujących sald przy depozytach     | Aplikuj oczekujące salda po otrzymaniu poufnych depozytów, aby zaksięgowane kwoty były dokładne.                                                                                               | **P0**    |
+| Bezpieczne zarządzanie kluczami                  | W przypadku powierniczego przechowywania poufnych środków zarządzaj kluczami ElGamal/AES z taką samą starannością jak kluczami podpisującymi.                                                  | **P0**    |
+| Inicjowanie kont przez rejestr                   | Aby skonfigurować poufne konta dla użytkowników, poproś ich o jednorazową rejestrację klucza ElGamal i inicjuj konta przez ścieżkę rejestru, zamiast wymagać podpisu dla każdego konta osobno. | **P1**    |
+| Wypłaty do użytkowników                          | Obsługuj poufne lub publiczne wypłaty w zależności od konfiguracji konta docelowego.                                                                                                           | **P1**    |
+| Zgodność z przepisami / wsparcie auditora        | Tam gdzie jest to wymagane, używaj kluczy auditora lub selektywnego ujawniania, aby spełnić obowiązki sprawozdawcze.                                                                           | **P1**    |
+| Wewnętrzna księgowość na podstawie surowych kwot | Uzgadniaj odszyfrowane kwoty na brzegu systemu i przechowuj je; nie próbuj agregować szyfrogramów.                                                                                             | **P1**    |
+
+---
+
+### Dostawcy zgodności i KYT
+
+| Wymaganie                          | Opis                                                                                                                                            | Priorytet |
+| :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Screening adresów i grafów         | Weryfikacja nadawców, odbiorców, emitentów i właścicieli oraz analiza grafu kontrahentów; dane pozostają publiczne.                             | **P0**    |
+| Śledzenie publicznych wpłat/wypłat | Monitorowanie jawnych kwot wpłat i wypłat jako obserwowalnych punktów wejścia i wyjścia z puli poufnej.                                         | **P0**    |
+| Widoczność kwot dla audytora       | W przypadku mintów z włączonym kluczem audytora, deszyfrowanie kwot transferów przy użyciu klucza audytora w celu wykrywania na podstawie kwot. | **P1**    |
+| Przyjmowanie selektywnych ujawnień | Obsługa ujawnień kwot udostępnianych przez użytkowników lub emitentów za pomocą kluczy per konto.                                               | **P2**    |

@@ -104,6 +104,10 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
+      ...createLocalizedEntries("/data", {
+        changeFrequency: "daily",
+        priority: 0.8,
+      }),
     ];
 
     return dedupeEntries([

@@ -6,6 +6,8 @@
  */
 
 import type { Metadata } from "next";
+import { loadMergedMessages, resolveLocale } from "@workspace/i18n/messages";
+import { getAlternates } from "@workspace/i18n/alternates";
 import { config } from "@/lib/config";
 import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
@@ -14,6 +16,54 @@ import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
 
 const { publicUrl, siteMetadata, social } = config;
+
+function toPublicUrl(path: string) {
+  return new URL(path, publicUrl).toString();
+}
+
+function getPublicAlternates(path: string, locale: string) {
+  const alternates = getAlternates(path, locale);
+
+  return {
+    canonical: toPublicUrl(String(alternates.canonical)),
+    languages: Object.fromEntries(
+      Object.entries(alternates.languages ?? {}).map(([language, value]) => [
+        language,
+        toPublicUrl(String(value)),
+      ]),
+    ),
+  };
+}
+
+async function getNewsMetadataMessages(locale?: string) {
+  const resolvedLocale = resolveLocale(locale);
+  const messages = await loadMergedMessages({
+    app: "media",
+    locale: resolvedLocale,
+  });
+
+  function t(key: string, values: Record<string, string> = {}) {
+    const path = ["news", "metadata", ...key.split(".")];
+    const template = path.reduce<unknown>((value, part) => {
+      if (value && typeof value === "object" && part in value) {
+        return (value as Record<string, unknown>)[part];
+      }
+
+      return undefined;
+    }, messages);
+
+    if (typeof template !== "string") {
+      return path.join(".");
+    }
+
+    return Object.entries(values).reduce(
+      (result, [name, value]) => result.replaceAll(`{${name}}`, value),
+      template,
+    );
+  }
+
+  return { locale: resolvedLocale, t };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,11 +89,11 @@ function twitterBase() {
 // News listing  /news
 // ---------------------------------------------------------------------------
 
-export async function newsListingMetadata(): Promise<Metadata> {
+export async function newsListingMetadata(locale?: string): Promise<Metadata> {
+  const { locale: resolvedLocale, t } = await getNewsMetadataMessages(locale);
   const canonicalUrl = `${publicUrl}/news`;
-  const title = "Solana News";
-  const description =
-    "Latest news and updates from the Solana ecosystem. Breaking coverage on DeFi, NFTs, developer updates, and Web3 innovation.";
+  const title = t("listing.title");
+  const description = t("listing.description");
 
   return {
     title,
@@ -62,7 +112,7 @@ export async function newsListingMetadata(): Promise<Metadata> {
       description,
       images: [siteMetadata.socialShare],
     },
-    alternates: { canonical: canonicalUrl },
+    alternates: getPublicAlternates("/news", resolvedLocale),
   };
 }
 
@@ -70,12 +120,16 @@ export async function newsListingMetadata(): Promise<Metadata> {
 // News post  /news/[slug]
 // ---------------------------------------------------------------------------
 
-export async function newsPostMetadata(slug: string): Promise<Metadata> {
+export async function newsPostMetadata(
+  slug: string,
+  locale?: string,
+): Promise<Metadata> {
+  const { locale: resolvedLocale, t } = await getNewsMetadataMessages(locale);
   const post = await fetchPublishedPostBySlug(slug);
 
   if (!post) {
     return {
-      title: "Post Not Found",
+      title: t("postNotFound.title"),
       description: "",
       robots: {
         index: false,
@@ -148,7 +202,7 @@ export async function newsPostMetadata(slug: string): Promise<Metadata> {
       images: ogImage ? [ogImage] : undefined,
     },
     authors: authorName ? [{ name: authorName }] : undefined,
-    alternates: { canonical: canonicalUrl },
+    alternates: getPublicAlternates(`/news/${slug}`, resolvedLocale),
   };
 }
 
@@ -158,21 +212,23 @@ export async function newsPostMetadata(slug: string): Promise<Metadata> {
 
 export async function categoryListingMetadata(
   categoryParam: string,
+  locale?: string,
 ): Promise<Metadata> {
+  const { locale: resolvedLocale, t } = await getNewsMetadataMessages(locale);
   let categoryName: string | null = null;
   try {
     const { category } = await fetchCategoryByPath(categoryParam);
     categoryName = category?.name || null;
   } catch {
-    return { title: "Category Not Found" };
+    return { title: t("categoryNotFound.title") };
   }
 
   if (!categoryName) {
-    return { title: "Category Not Found" };
+    return { title: t("categoryNotFound.title") };
   }
 
-  const title = `${categoryName} News`;
-  const description = `Latest ${categoryName} news and updates from the Solana ecosystem.`;
+  const title = t("category.title", { category: categoryName });
+  const description = t("category.description", { category: categoryName });
   const canonicalUrl = `${publicUrl}/news/category/${categoryParam}`;
 
   return {
@@ -192,7 +248,10 @@ export async function categoryListingMetadata(
       description,
       images: [siteMetadata.socialShare],
     },
-    alternates: { canonical: canonicalUrl },
+    alternates: getPublicAlternates(
+      `/news/category/${categoryParam}`,
+      resolvedLocale,
+    ),
   };
 }
 

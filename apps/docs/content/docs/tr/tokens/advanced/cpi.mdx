@@ -1,0 +1,288 @@
+---
+title: Token Program'ı CPI ile Çağırma
+description:
+  Token Program'ı, Cross Program Invocation (CPI) ile zincir üstü bir programdan
+  çağırın — token transfer edin, mint edin ve yakın, PDA yetkisiyle imzalayın ve
+  birden fazla token talimatını tek bir CPI'da birleştirin.
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+Zincir üstü programlar, Token Program'a bir
+[Cross Program Invocation (CPI)](/docs/core/cpi) göndererek token taşır.
+Programınız bir Token Program talimatı oluşturur, gerekli hesapları sağlar ve
+_rs`invoke`_ (ya da bir Program Derived Address imzaladığında
+_rs`invoke_signed`_) işlevini çağırır. Token Program, ardından bu talimatı
+programınızın kendisine devrettiği ayrıcalıklarla çalıştırır.
+
+Bu sayfa, söz konusu akışın token'a özgü tarafını ele almaktadır. CPI
+mekanizmasının kendisi için — _rs`invoke`_ ve _rs`invoke_signed`_ nasıl çalışır,
+imzalayan ve yazılabilir ayrıcalıklar nasıl yayılır ve
+[CPI başına maliyet modeli](/docs/core/cpi/cpi-cost-model) — bkz.
+[Cross Program Invocation](/docs/core/cpi).
+
+## Yaygın desenler
+
+Çoğu token CPI aynı yapıyı izler: talimatı oluştur, token hesaplarını ve bir
+yetkiyi ilet ve çağır. Aşağıdaki örnek, transfer işleminin bir parçası olarak
+mint ve ondalık basamakları doğrulayan _rs`TransferChecked`_ ile token transfer
+etmektedir.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Mint etme, yakma ve hesap kapatma işlemleri, farklı bir talimatla aynı deseni
+izler — Anchor'ın
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+modülünde _rs`MintTo`_, _rs`Burn`_ ve _rs`CloseAccount`_ ya da
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token) içindeki eşleşen
+oluşturucular. Token Program'a hem Anchor hem de yerel Rust ile CPI yapan
+eksiksiz ve çalıştırılabilir programlar için
+[token program örneklerine](/docs/programs/examples#tokens) bakın — özellikle
+"Transfer Tokens" örneği.
+
+## PDA yetkisiyle imzalama
+
+Bir token account üzerindeki yetki, programınıza ait bir
+[Program Derived Address](/docs/core/pda) olduğunda, program CPI'yi
+_rs`invoke_signed`_ ile PDA seed'lerini imzalayan seed'ler olarak geçirerek
+bizzat imzalar. Anchor'da, _rs`CpiContext::new`_ yerine seed'lerle birlikte
+_rs`CpiContext::new_with_signer`_ kullanın. Talimat, bunun dışında yukarıdaki
+örneklerle aynıdır. Tam mekanik için
+[PDA İmzalayıcılarla CPI](/docs/core/cpi/cpi-with-pda) sayfasına bakın.
+
+## Toplu İşlem
+
+_rs`Batch`_ komutu, tek bir program çağrısı içinde birden fazla Token Program
+talimatı çalıştırır. Her CPI sabit bir hesaplama maliyeti taşıdığından, tek bir
+toplu CPI içinde birden fazla token işlemi çalıştırmak, her işlem için ayrı bir
+CPI göndermekten daha az [hesaplama birimi](/docs/core/fees/compute-budget)
+kullanır — CPI başına maliyetlerin nasıl biriktiğini görmek için
+[CPI maliyet modeline](/docs/core/cpi/cpi-cost-model) bakın.
+
+Daha düşük hesaplama kullanımı, bir işlemin hesaplama birimi başına ödediği
+[öncelik ücretlerini](/docs/core/fees) azaltır ve işlemin onaylanma olasılığını
+artırır — bu, tek bir talimatta çok sayıda token işlemi gerçekleştiren
+programlar için özellikle önemlidir. Yaygın kullanım senaryoları arasında bir
+transferi çok sayıda alıcıya dağıtmak veya çok adımlı bir token akışını (örneğin
+senkronizasyon, transfer ve kapatma) tek bir CPI içinde çalıştırmak yer alır.
+
+<Callout type="info">
+
+_rs`Batch`_ yalnızca Token Program talimatlarını alt eleman olarak kabul eder ve
+bir toplu işlem başka bir toplu işlem içeremez. Token taşıyan işlemler
+(transferler, mint'ler ve burn'ler gibi) için program, bu işlemleri
+çalıştırmadan önce etkilenen hesapların Token Program'a ait olduğunu doğrular.
+
+</Callout>
+
+### Kaynak referansı
+
+| Öğe                 | Açıklama                                | Kaynak                                                                                               |
+| ------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | Toplu İşlem talimatı (ayrıştırıcı 255). | [Kaynak](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | Toplu işlem işleyici mantığı.           | [Kaynak](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### CPI Aracılığıyla Toplu İşlem Çağırma
+
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token) crate'i,
+_rs`pinocchio_token::instructions::Batch`_ altında bir _rs`Batch`_ oluşturucu
+sunar. Her alt talimatı toplu işlemin arabelleklerine ekler ve ardından
+_rs`invoke`_ ile tek bir CPI gönderirsiniz.
+
+Bir _rs`Batch`_, çağıran tarafından sağlanan üç arabelleğe dayanır: biri seri
+hale getirilmiş instruction data için, biri alt talimatlara ait hesap meta
+verileri için, biri de CPI'ya iletilen hesap görünümleri için. Bunları
+_rs`MaybeUninit`_ dilimleri olarak oluşturun, _rs`Batch::new`_'e aktarın, alt
+elemanları ekleyin ve ardından çağırın:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_, toplu iş ayırt edici değerini veri tamponunun ilk baytına
+yazar ve her tamponun ne kadarının kullanıldığını izleyen bir _rs`Batch`_
+döndürür. Her Token Program instruction builder (örneğin _rs`Transfer`_,
+_rs`TransferChecked`_, _rs`MintTo`_ ve _rs`Burn`_), _rs`IntoBatch`_ özelliğini
+uygular; böylece _rs`into_batch`_, ilgili talimatın verilerini, hesap meta
+bilgilerini ve hesap görünümlerini toplu işe ekler. _rs`invoke`_ çağrıldığında,
+hazırlanan toplu iş Token Program'a tek bir CPI olarak iletilir.
+
+Tamponlar, toplu işin kapasitesini sınırlandırır. Veri tamponunu
+`1 + Σ(2 + child_data_len)` bayt (ayırt edici, artı 2 baytlık başlık ve her alt
+öğenin serileştirilmiş verisi) olarak boyutlandırın; her hesap tamponunu ise tüm
+alt öğeler genelindeki toplam hesap sayısı kadar ayarlayın. Bir alt öğe sığmazsa
+_rs`into_batch`_, _rs`ProgramError::InvalidArgument`_ döndürür. Referans olarak,
+_rs`Batch::MAX_DATA_LEN`_ 10 KiB'dir ve _rs`Batch::MAX_ACCOUNTS_LEN`_ çalışma
+zamanının izin verdiği maksimum CPI hesap sayısına eşittir.
+
+Boyutu yalnızca çalışma zamanında bilinen toplu işler için, paketin `alloc`
+özelliğini etkinleştirin ve tamponları heap üzerinde tahsis etmek için
+_rs`BatchState::new(accounts_len, data_len)`_ kullanın; ardından bir _rs`Batch`_
+elde etmek için _rs`as_batch`_ çağırın.
+
+Bir alt talimatın yetkisi, programınıza ait bir PDA ise, CPI'yı _rs`invoke`_
+yerine _rs`invoke_signed`_ ile imzalayın ve PDA seed'lerini _rs`Signer`_
+girdileri olarak iletin.
+
+### instruction data düzeni
+
+Bir toplu iş, alt öğelerini `255` ayırt edicisinin ardına art arda kodlar. Tüm
+hesaplar düz biçimde, sırayla iletilir ve her alt öğe için `num_accounts`
+tarafından dilimlenir. Builder tam olarak şu aktarım formatını üretir:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+Bir toplu işin kapasitesi, _rs`Batch::new`_'e iletilen tamponlarla sınırlıdır:
+veri tamponu, ayırt ediciyi ve her alt öğenin başlık ve verilerini barındırmalı;
+hesap tamponları ise her alt öğenin hesaplarını tutabilmelidir. Bunları
+oluşturduğunuz en büyük toplu iş için boyutlandırın ya da çalışma zamanında
+boyutlandırmak amacıyla (`alloc` özelliğiyle) _rs`BatchState`_ kullanın.
+Birleşik CPI, işlemin hesap ve boyut sınırlarına tabi olmaya devam eder; bu
+nedenle çok büyük fan-out'lar için daha fazla hesap sığdırmak amacıyla Address
+Lookup Table'ları kullanın.
+
+</Callout>

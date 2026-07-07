@@ -1,5 +1,9 @@
 export const ECOSYSTEM_PROJECTS = [
   {
+    key: "arcane",
+    href: "https://arcane.finance/",
+  },
+  {
     key: "arcium",
     href: "https://arcium.com",
   },
@@ -20,8 +24,16 @@ export const ECOSYSTEM_PROJECTS = [
     href: "https://encrypt.xyz",
   },
   {
+    key: "heliusPrivacyProtocol",
+    href: "https://x.com/HeliusPrivacy",
+  },
+  {
     key: "inco",
     href: "https://inco.org",
+  },
+  {
+    key: "ligero",
+    href: "https://ligero-inc.com/",
   },
   {
     key: "lightProtocol",
@@ -34,13 +46,5 @@ export const ECOSYSTEM_PROJECTS = [
   {
     key: "privacyCash",
     href: "https://privacy.cash",
-  },
-  {
-    key: "silentSwap",
-    href: "https://silentswap.com",
-  },
-  {
-    key: "zama",
-    href: "https://zama.ai",
   },
 ];

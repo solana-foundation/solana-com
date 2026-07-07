@@ -1,0 +1,421 @@
+---
+title: Panduan Penerbit Confidential Transfer
+description:
+  Pelajari cara menerbitkan dan mengoperasikan token yang menggunakan ekstensi
+  Confidential Transfer, termasuk kebijakan persetujuan, auditor, biaya, serta
+  mint dan burn rahasia.
+---
+
+# Menerbitkan Token Confidential Transfer di Solana
+
+Panduan ini ditujukan untuk **penerbit**: tim yang membuat dan mengoperasikan
+mint Token-2022 yang menggunakan ekstensi Confidential Transfer. Panduan ini
+mencakup keputusan yang Anda buat saat pembuatan mint dan operasi yang Anda
+jalankan sepanjang masa pakai mint tersebut. Untuk alur dari sisi pemegang
+(deposit, terapkan, transfer, tarik) lihat halaman langkah demi langkah, dan
+untuk mendukung token ini dalam sebuah produk lihat
+[Panduan Integrasi](/docs/tokens/extensions/confidential-transfer/integration-guide).
+
+Transfer rahasia menjaga jumlah transfer dan saldo akun tetap terenkripsi sambil
+membiarkan alamat akun, mint, dan pemilik tetap publik. Mereka mengandalkan
+Program ZK ElGamal Proof untuk verifikasi bukti onchain, sehingga mint dapat
+digunakan pada kluster tempat program tersebut diaktifkan.
+
+## Keputusan yang Anda buat saat pembuatan
+
+Ekstensi Confidential Transfer harus diinisialisasi sebelum mint diinisialisasi
+dan tidak dapat ditambahkan setelahnya. Saat pembuatan, Anda memutuskan:
+
+- **Kebijakan persetujuan**: apakah akun dapat memilih untuk ikut dalam transfer
+  rahasia secara tanpa izin (`auto`) atau harus disetujui oleh otoritas transfer
+  rahasia mint (`manual`).
+- **Auditor**: apakah akan menetapkan kunci publik ElGamal auditor global
+  sehingga pihak yang ditunjuk dapat mendekripsi setiap jumlah transfer untuk
+  mint tersebut. Opsional, dan dapat diubah nanti.
+- **Ekstensi pendamping opsional**: biaya transfer rahasia (dipasangkan dengan
+  ekstensi biaya transfer) dan mint/burn rahasia, keduanya dibahas di bawah.
+  Keduanya juga harus diinisialisasi saat pembuatan.
+
+## Buat mint rahasia
+
+CLI menetapkan kebijakan persetujuan dengan
+`--enable-confidential-transfers auto` atau `manual`; `auto` memungkinkan
+pemegang mana pun mengonfigurasi akun mereka sendiri, sementara `manual`
+membatasi hal tersebut di balik persetujuan dari otoritas transfer rahasia (yang
+secara default adalah otoritas mint). Jalur klien mengambil pengaturan yang sama
+melalui parameter `ConfidentialTransferMint`: sebuah otoritas, flag persetujuan
+otomatis, dan kunci auditor opsional. Baik kebijakan persetujuan maupun auditor
+dapat diubah nanti (lihat [Konfigurasikan auditor](#configure-an-auditor));
+hanya keberadaan ekstensi itu sendiri yang ditetapkan saat pembuatan.
+
+<CodeTabs>
+
+```terminal !! title="create-confidential-mint.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --enable-confidential-transfers auto
+```
+
+```rust !! title="create-confidential-mint.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+let extensions = vec![ExtensionInitializationParams::ConfidentialTransferMint {
+    authority: Some(authority.pubkey().into()),
+    auto_approve_new_accounts: true, // false for a manual approve policy
+    auditor_elgamal_pubkey: None,    // Some(pubkey) to set a global auditor
+}];
+
+token
+    .create_mint(&mint_authority, freeze_authority.as_ref(), extensions, &[&mint_keypair])
+    .await?;
+```
+
+```ts !! title="create-confidential-mint.ts"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
+```
+
+</CodeTabs>
+
+## Konfigurasikan auditor
+
+Auditor global adalah kunci publik ElGamal yang tersimpan pada mint. Ketika
+ditetapkan, setiap transfer rahasia juga mengenkripsi jumlahnya dengan kunci
+ini, sehingga siapa pun yang memegang kunci rahasia yang sesuai dapat
+mendekripsi semua jumlah transfer untuk mint tersebut. Inilah cara transfer
+rahasia tetap kompatibel dengan persyaratan audit dan kepatuhan: publik tidak
+melihat apa pun, auditor melihat segalanya.
+
+Otoritas transfer rahasia dapat mengatur, merotasi, atau menghapus auditor kapan
+saja. Operasi yang sama juga memperbarui kebijakan persetujuan. Di CLI, kunci
+auditor adalah pengkodean base64 dari pubkey ElGamal; berikan
+`--auditor-pubkey none` untuk menghapusnya dan `--approve-policy auto|manual`
+untuk mengubah kebijakan.
+
+Rotasi hanya memengaruhi transfer di masa mendatang. Jumlah dalam transaksi yang
+sudah ada di onchain tetap terenkripsi ke kunci auditor mana pun yang aktif saat
+transaksi dieksekusi, jadi simpan kunci auditor lama jika Anda perlu mendekripsi
+aktivitas historis.
+
+<CodeTabs>
+
+```terminal !! title="update-confidential-settings.sh"
+$ spl-token update-confidential-transfer-settings <MINT_PUBKEY> --auditor-pubkey <AUDITOR_ELGAMAL_PUBKEY>
+```
+
+```rust !! title="update-confidential-settings.rs"
+token
+    .confidential_transfer_update_mint(
+        &authority,
+        true,                         // auto_approve_new_account
+        Some(auditor_elgamal_pubkey), // None to clear the auditor
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="update-confidential-settings.ts"
+import { getUpdateConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+
+const ix = getUpdateConfidentialTransferMintInstruction({
+  mint,
+  authority, // confidential transfer authority (signer)
+  autoApproveNewAccounts: true,
+  auditorElgamalPubkey // an ElGamal pubkey Address, or null to clear
+});
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Kunci rahasia auditor dapat mendekripsi setiap jumlah transfer untuk mint.
+  Simpan kunci tersebut dengan tingkat keamanan yang sama seperti kunci
+  penandatanganan, dan rencanakan rotasi. Menetapkan auditor ke `None`
+  menonaktifkan visibilitas jumlah bagi semua orang kecuali pemilik akun itu
+  sendiri.
+</Callout>
+
+## Menyetujui akun (kebijakan manual)
+
+Dengan kebijakan persetujuan manual, akun yang dikonfigurasi untuk transfer
+rahasia tidak dapat bertransaksi secara rahasia sampai otoritas transfer rahasia
+menyetujuinya. Hal ini memberi penerbit gerbang untuk peserta yang masuk daftar
+izin atau telah melalui KYC. CLI tidak menyediakan perintah persetujuan,
+sehingga persetujuan dilakukan melalui klien.
+
+<CodeTabs>
+
+```rust !! title="approve-account.rs"
+token
+    .confidential_transfer_approve_account(
+        &token_account,
+        &authority,
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="approve-account.ts"
+import { getApproveConfidentialTransferAccountInstruction } from "@solana-program/token-2022";
+
+const ix = getApproveConfidentialTransferAccountInstruction({
+  token, // the token account to approve
+  mint,
+  authority // confidential transfer authority (signer)
+});
+```
+
+</CodeTabs>
+
+## Biaya transfer rahasia
+
+Jika mint Anda mengenakan
+[biaya transfer](/docs/tokens/extensions/transfer-fees) dan transfer bersifat
+rahasia, biaya tersebut juga harus dipotong secara rahasia. Ekstensi
+`ConfidentialTransferFeeConfig` menangani hal ini, dan diinisialisasi saat
+pembuatan mint bersamaan dengan ekstensi biaya transfer dan transfer rahasia.
+
+Biaya yang ditahan terakumulasi dalam bentuk terenkripsi pada akun penerima,
+dipanen ke mint, lalu ditarik oleh otoritas penarikan yang ditahan. Setiap
+jumlah biaya tetap terenkripsi sepanjang prosesnya. Tidak ada hal ini yang
+diekspos melalui CLI. Kunci rahasia ElGamal milik otoritas penarikan yang
+ditahan dapat mendekripsi jumlah biaya yang ditahan, yang dikombinasikan dengan
+parameter biaya publik dapat mengungkap informasi tentang jumlah transfer,
+sehingga perlakukan kunci tersebut sebagai sensitif.
+
+### Inisialisasi konfigurasi biaya
+
+Sertakan ini bersama `ConfidentialTransferMint` dan konfigurasi biaya transfer
+dalam pembuatan mint yang sama.
+
+<CodeTabs>
+
+```rust !! title="init-confidential-fee.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+ExtensionInitializationParams::ConfidentialTransferFeeConfig {
+    authority: Some(authority.pubkey().into()),
+    withdraw_withheld_authority_elgamal_pubkey: withdraw_withheld_elgamal_pubkey,
+};
+```
+
+```ts !! title="init-confidential-fee.ts"
+import { getInitializeConfidentialTransferFeeInstruction } from "@solana-program/token-2022";
+
+const ix = getInitializeConfidentialTransferFeeInstruction({
+  mint,
+  authority, // authority allowed to change the withdraw withheld ElGamal key
+  withdrawWithheldAuthorityElGamalPubkey // ElGamal pubkey Address
+});
+```
+
+</CodeTabs>
+
+### Panen dan tarik biaya yang ditahan
+
+Pemanenan memindahkan biaya yang ditahan secara terenkripsi dari akun ke dalam
+mint; penarikan memindahkannya keluar dari mint ke akun yang dipilih. Dua
+otoritas terlibat, dan keduanya dapat berbeda dari otoritas mint:
+
+- **Otoritas biaya transfer rahasia** (`authority` yang ditetapkan pada
+  `ConfidentialTransferFeeConfig`) mengaktifkan atau menonaktifkan pemanenan.
+- **Otoritas penarikan yang ditahan** (dari `TransferFeeConfig` ekstensi biaya
+  transfer) menarik biaya yang telah dipanen keluar dari mint.
+
+Penarikan memerlukan bukti kesetaraan dan bukti rentang, yang disediakan secara
+inline atau diverifikasi ke dalam akun status konteks.
+
+<CodeTabs>
+
+```rust !! title="harvest-withdraw-fees.rs"
+// Permissionless: move withheld fees from accounts into the mint.
+token
+    .confidential_transfer_harvest_withheld_tokens_to_mint(&[&source_account])
+    .await?;
+
+// Withdraw withheld fees from the mint (requires the withdraw withheld authority).
+token
+    .confidential_transfer_withdraw_withheld_tokens_from_mint(
+        &destination_account,
+        &withdraw_withheld_authority,
+        None, // proof context state account, supplied inline if None
+        None, // withheld tokens info, fetched if None
+        &withdraw_withheld_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        &new_decryptable_available_balance,
+        &[&withdraw_withheld_authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="harvest-withdraw-fees.ts"
+import {
+  getEnableHarvestToMintInstruction,
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction
+} from "@solana-program/token-2022";
+
+// Allow accounts to harvest their withheld fees to the mint, signed by the
+// confidential transfer fee authority.
+const enableIx = getEnableHarvestToMintInstruction({ mint, authority });
+
+// Permissionless: move withheld fees from accounts into the mint.
+const harvestIx =
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction({
+    mint,
+    sources: [sourceAccount]
+  });
+```
+
+</CodeTabs>
+
+Di klien JS, menarik biaya yang telah dipanen keluar dari mint
+(`getWithdrawWithheldTokensFromMintForConfidentialTransferFeeInstruction`) juga
+memerlukan bukti kesetaraan dan bukti rentang yang diverifikasi ke dalam akun
+status konteks, sehingga mengikuti pola akun bukti yang sama seperti transfer
+rahasia.
+
+## Mint dan burn rahasia
+
+Ekstensi `ConfidentialMintBurn` memungkinkan otoritas mint menerbitkan dan
+membakar pasokan langsung terhadap saldo rahasia, menjaga total pasokan tetap
+terenkripsi. Mint dengan ekstensi ini menonaktifkan jalur deposit dan penarikan
+publik, karena token hanya pernah ada secara rahasia. Lihat
+[dokumentasi protokol](https://www.solana-program.com/docs/confidential-balances)
+untuk model lengkapnya.
+
+<Callout type="info">
+  Mint/burn rahasia paling mudah dilakukan melalui Rust `spl-token-client`, yang
+  menghasilkan bukti yang diperlukan dan mengurutkan transaksi untuk Anda. Klien
+  JS `@solana-program/token-2022` menyertakan pembangun instruksi tingkat rendah
+  (`getConfidentialMintInstruction`, `getConfidentialBurnInstruction`, dan
+  sejenisnya) tetapi tidak ada pembantu tingkat tinggi yang membangun bukti, dan
+  tidak ada perintah CLI, sehingga contoh di bawah ini hanya untuk Rust.
+</Callout>
+
+Inisialisasi ekstensi saat pembuatan mint, lalu mint, burn, dan rekonsiliasi
+pasokan dari waktu ke waktu. Minting menerbitkan jumlah terenkripsi ke dalam
+saldo konfidensial penerima; burning menghapus jumlah terenkripsi ke dalam
+antrian burn yang kemudian digabungkan ke dalam pasokan. Keduanya menghasilkan
+bukti seperti transfer konfidensial.
+
+<CodeTabs>
+
+```rust !! title="confidential-mint-burn.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+// 1. Initialize at creation (alongside ConfidentialTransferMint).
+ExtensionInitializationParams::ConfidentialMintBurn {
+    supply_elgamal_pubkey, // encrypts the confidential supply
+    decryptable_supply,    // AES ciphertext of the initial supply (zero)
+};
+
+// 2. Mint an encrypted amount into a recipient's confidential balance.
+token
+    .confidential_transfer_mint(
+        &mint_authority,
+        &destination_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        mint_amount,
+        &supply_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &supply_aes_key,
+        None, // supply account info, fetched if None
+        &[&mint_authority_keypair],
+    )
+    .await?;
+
+// 3. Burn an encrypted amount from a holder's confidential balance into the
+//    mint's pending burn. Generates proofs like a confidential transfer.
+token
+    .confidential_transfer_burn(
+        &owner,
+        &source_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        burn_amount,
+        &source_elgamal_keypair,
+        &supply_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &source_aes_key,
+        None, // burn account info, fetched if None
+        &[&owner_keypair],
+    )
+    .await?;
+
+// 4. Fold the accumulated pending burn into the confidential supply.
+token
+    .confidential_transfer_apply_pending_burn(&mint_authority, &[&mint_authority_keypair])
+    .await?;
+```
+
+</CodeTabs>
+
+Rotasi kunci enkripsi pasokan dengan
+`confidential_transfer_rotate_supply_elgamal_pubkey` (antrian burn harus nol
+terlebih dahulu), dan perbarui ciphertext pasokan yang dapat dibaca dengan
+`confidential_transfer_update_decrypt_supply`.
+
+## Pertimbangan operasional dan kepatuhan
+
+- **Penyimpanan kunci auditor.** Jika Anda menetapkan auditor, kunci rahasia
+  auditor adalah kunci dekripsi bernilai tinggi. Simpan dan rotasi dengan
+  hati-hati, dan tentukan siapa dalam organisasi Anda (atau regulator mana) yang
+  memegangnya.
+- **Postur kepatuhan.** Pemindaian alamat dan analisis grafik pihak lawan tetap
+  berfungsi karena alamat tetap publik. Pemantauan berbasis jumlah bergantung
+  pada kunci auditor atau pengungkapan selektif dari pemilik akun. Tentukan
+  pendekatan Anda sebelum peluncuran.
+- **Orientasi pemegang.** Mengonfigurasi akun konfidensial memerlukan tanda
+  tangan pemilik. Untuk menyediakan akun bagi pengguna dengan lancar, minta
+  mereka mendaftarkan kunci ElGamal sekali dan gunakan jalur registri, yang
+  dijelaskan dalam
+  [Panduan Integrasi](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts).
+- **Jumlah transaksi.** Transfer konfidensial saat ini mencakup beberapa
+  transaksi yang saling bergantung karena bukti melebihi batas ukuran transaksi
+  saat ini. Format transaksi v1 (hadir bersama Agave v4.2) meningkatkan batas
+  tersebut dan diharapkan memungkinkan satu transaksi onchain.
