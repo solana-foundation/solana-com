@@ -5,10 +5,40 @@ export const rangeOptions = [
   { label: "1Y", value: 365 },
 ] as const;
 
+export const rpcRegionOptions = [
+  { label: "us-east4", value: "us-east4" },
+  { label: "us-west2", value: "us-west2" },
+  { label: "europe-west2", value: "europe-west2" },
+  { label: "europe-west3", value: "europe-west3" },
+  { label: "asia-northeast3", value: "asia-northeast3" },
+  { label: "asia-northeast1", value: "asia-northeast1" },
+  { label: "asia-southeast1", value: "asia-southeast1" },
+] as const;
+
+export const rpcMethodOptions = [
+  { label: "getHealth", value: "getHealth" },
+  { label: "getSlot", value: "getSlot" },
+  { label: "getLatestBlockhash", value: "getLatestBlockhash" },
+  { label: "getAccountInfo", value: "getAccountInfo" },
+  { label: "getProgramAccounts", value: "getProgramAccounts" },
+  { label: "getBlock_recent", value: "getBlock_recent" },
+] as const;
+
+export const defaultRpcRegion = "us-east4";
+export const defaultRpcMethod = "getLatestBlockhash";
+
+export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
+export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type ProviderName = string;
-export type DashboardTab = "stablecoins" | "overview" | "network" | "defi";
+export type DashboardTab =
+  | "stablecoins"
+  | "overview"
+  | "network"
+  | "defi"
+  | "rpc";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
+export type TimeGranularity = "day" | "hour";
 
 export type MethodologyComment = {
   provider: ProviderName;
@@ -23,10 +53,13 @@ export type ChartDefinition = {
   metrics: readonly string[];
   aggregation: Aggregation;
   seriesField: SeriesField;
+  lowerIsBetter?: boolean;
   methodology?: readonly MethodologyComment[];
+  timeGranularity?: TimeGranularity;
 };
 
 export type MetricRow = {
+  /** ISO date for daily data, or ISO timestamp for intraday data. */
   date: string;
   metricName: string;
   unit: string;
@@ -43,19 +76,28 @@ export type DataApiResponse = {
 
 export const providerColors: Record<string, string> = {
   Allium: "#DFA3DA",
+  Alchemy: "#3B82F6",
   Artemis: "#14F195",
   Blockworks: "#E32EE9",
   DeFiLlama: "#3B8CFF",
   Dune: "#F75F47",
+  Helius: "#14F195",
+  QuickNode: "#8B5CF6",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
   "Token Terminal": "#45A88E",
+  Triton: "#F59E0B",
   "Validators App": "#38BDF8",
 };
 
 const providerAliases: Record<string, ProviderName> = {
+  alchemy: "Alchemy",
   DefiLama: "DeFiLlama",
   DefiLlama: "DeFiLlama",
+  helius: "Helius",
+  Quicknode: "QuickNode",
+  quicknode: "QuickNode",
+  triton: "Triton",
 };
 
 export function normalizeProviderName(value: string) {
@@ -376,6 +418,72 @@ export const chartDefinitions = [
         provider: "Allium",
         description:
           "Unique Solana DEX swap initiators; no bot filter applied.",
+      },
+    ],
+  },
+  {
+    id: "rpc-avg-latency",
+    tab: "rpc",
+    title: "Avg Latency",
+    valueLabel: "Milliseconds",
+    metrics: ["RPC Avg Latency"],
+    aggregation: "avg",
+    seriesField: "provider",
+    lowerIsBetter: true,
+    timeGranularity: "hour",
+    methodology: [
+      {
+        provider: "Alchemy",
+        description:
+          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+      },
+      {
+        provider: "Helius",
+        description:
+          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+      },
+      {
+        provider: "QuickNode",
+        description:
+          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+      },
+      {
+        provider: "Triton",
+        description:
+          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+      },
+    ],
+  },
+  {
+    id: "rpc-p99-latency",
+    tab: "rpc",
+    title: "P99 Latency",
+    valueLabel: "Milliseconds",
+    metrics: ["RPC P99 Latency"],
+    aggregation: "avg",
+    seriesField: "provider",
+    lowerIsBetter: true,
+    timeGranularity: "hour",
+    methodology: [
+      {
+        provider: "Alchemy",
+        description:
+          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "Helius",
+        description:
+          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "QuickNode",
+        description:
+          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "Triton",
+        description:
+          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
       },
     ],
   },

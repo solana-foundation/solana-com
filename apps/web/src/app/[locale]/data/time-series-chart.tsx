@@ -29,6 +29,7 @@ type TimeSeriesChartProps = {
   series: ChartSeries[];
   valueLabel: string;
   height?: number;
+  timeGranularity?: TimeGranularity;
 };
 
 type TooltipValue = {
@@ -41,6 +42,8 @@ type TooltipData = {
   date: Date;
   values: TooltipValue[];
 };
+
+export type TimeGranularity = "day" | "hour";
 
 const baseMargin = {
   top: 16,
@@ -57,6 +60,7 @@ export function TimeSeriesChart({
   series,
   valueLabel,
   height = 320,
+  timeGranularity = "day",
 }: TimeSeriesChartProps) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
@@ -152,6 +156,7 @@ export function TimeSeriesChart({
                 locale={locale}
                 series={visibleSeries}
                 seriesDashPatterns={seriesDashPatterns}
+                timeGranularity={timeGranularity}
                 valueLabel={valueLabel}
                 width={width}
               />
@@ -173,6 +178,7 @@ function ChartSvg({
   locale,
   series,
   seriesDashPatterns,
+  timeGranularity,
   valueLabel,
   width,
 }: {
@@ -181,6 +187,7 @@ function ChartSvg({
   locale: string;
   series: ChartSeries[];
   seriesDashPatterns: ReadonlyMap<string, string>;
+  timeGranularity: TimeGranularity;
   valueLabel: string;
   width: number;
 }) {
@@ -255,7 +262,9 @@ function ChartSvg({
             hideTicks
             numTicks={Math.max(2, Math.floor(innerWidth / 140))}
             scale={xScale}
-            tickFormat={(value) => formatDateTick(value as Date, locale)}
+            tickFormat={(value) =>
+              formatDateTick(value as Date, locale, timeGranularity)
+            }
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -387,7 +396,7 @@ function ChartSvg({
           top={tooltipTop}
         >
           <div className="font-brand-mono text-[11px] font-bold uppercase tracking-normal text-nd-mid-em-text">
-            {formatTooltipDate(tooltipData.date, locale)}
+            {formatTooltipDate(tooltipData.date, locale, timeGranularity)}
           </div>
           <div className="mt-2 grid gap-1.5">
             {tooltipData.values.map((item) => (
@@ -515,14 +524,37 @@ function getNearestDateValue(value: number, values: number[]) {
   return nearest;
 }
 
-function formatDateTick(value: Date, locale: string) {
+function formatDateTick(
+  value: Date,
+  locale: string,
+  timeGranularity: TimeGranularity,
+) {
+  if (timeGranularity === "hour") {
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      hour: "numeric",
+      month: "short",
+    }).format(value);
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
   }).format(value);
 }
 
-function formatTooltipDate(value: Date, locale: string) {
+function formatTooltipDate(
+  value: Date,
+  locale: string,
+  timeGranularity: TimeGranularity,
+) {
+  if (timeGranularity === "hour") {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(value);
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",

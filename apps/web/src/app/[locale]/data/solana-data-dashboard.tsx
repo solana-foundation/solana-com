@@ -12,6 +12,7 @@ import {
   Info,
   Loader2,
   Network,
+  RadioTower,
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -40,10 +41,14 @@ import { cn } from "@/app/components/utils";
 
 import {
   chartDefinitions,
+  defaultRpcMethod,
+  defaultRpcRegion,
   metricColors,
   normalizeProviderName,
   providerColors,
   rangeOptions,
+  rpcMethodOptions,
+  rpcRegionOptions,
   type Aggregation,
   type ChartDefinition,
   type DashboardTab,
@@ -51,6 +56,8 @@ import {
   type MethodologyComment,
   type MetricRow,
   type ProviderName,
+  type RpcLatencyMethod,
+  type RpcLatencyRegion,
 } from "./data-config";
 import {
   formatValue,
@@ -63,6 +70,7 @@ const tabOptions = [
   { labelKey: "tabs.network.label", value: "network" },
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
+  { labelKey: "tabs.rpc.label", value: "rpc" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
 const tabIcons: Record<DashboardTab, LucideIcon> = {
@@ -70,6 +78,7 @@ const tabIcons: Record<DashboardTab, LucideIcon> = {
   network: Network,
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
+  rpc: RadioTower,
 };
 
 const tabIndicatorSpring = {
@@ -95,6 +104,8 @@ const fallbackProviderColors = [
 ] as const;
 const dataRefreshIntervalMs = 12 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
+const rpcDataRefreshIntervalMs = 60 * 1000;
+const rpcDataDedupingIntervalMs = 15 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
@@ -188,10 +199,17 @@ const dataSWRConfig = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
 } as const;
+const rpcDataSWRConfig = {
+  ...dataSWRConfig,
+  dedupingInterval: rpcDataDedupingIntervalMs,
+  refreshInterval: rpcDataRefreshIntervalMs,
+} as const;
 
 type QueryUpdates = {
   days?: number;
+  method?: RpcLatencyMethod;
   providers?: Set<ProviderName>;
+  region?: RpcLatencyRegion;
   tab?: DashboardTab;
 };
 
@@ -217,9 +235,17 @@ export function SolanaDataDashboard() {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
   const showProviderControls = useMinWidth("(min-width: 768px)");
-  const { activeTab, providerParam, rangeDays } = useDashboardQueryParams();
+  const { activeTab, providerParam, rangeDays, rpcMethod, rpcRegion } =
+    useDashboardQueryParams();
+  const isRpcTab = activeTab === "rpc";
   const activeTabContent = getTabContent(t, activeTab);
-  const dataUrl = `/api/databricks/data?days=${rangeDays}`;
+  const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
+  const dataUrl = getDashboardDataUrl({
+    activeTab,
+    rangeDays,
+    rpcMethod,
+    rpcRegion,
+  });
   const errorMessages = useMemo(
     () => ({
       defaultUnavailable: t("errors.defaultUnavailable"),
@@ -234,9 +260,12 @@ export function SolanaDataDashboard() {
   const { data, error, isLoading, isValidating } = useSWR<DataApiResponse>(
     dataUrl,
     fetchDashboardData,
-    dataSWRConfig,
+    isRpcTab ? rpcDataSWRConfig : dataSWRConfig,
   );
-  const rows = data?.rows ?? emptyRows;
+  const rows = useMemo(
+    () => filterRowsForCharts(data?.rows ?? emptyRows, activeCharts),
+    [activeCharts, data?.rows],
+  );
   const availableProviders = useMemo(() => getAvailableProviders(rows), [rows]);
   const selectedProviders = useMemo(
     () => parseProviders(providerParam, availableProviders),
@@ -247,7 +276,6 @@ export function SolanaDataDashboard() {
     [availableProviders, selectedProviders],
   );
   const updateQuery = useDashboardQueryUpdater(availableProviders);
-  const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const visibleCharts = useMemo(
     () => getVisibleCharts(activeCharts, rows),
     [activeCharts, rows],
@@ -256,10 +284,12 @@ export function SolanaDataDashboard() {
     () => getKpis(visibleCharts, rows, selectedProviders),
     [visibleCharts, rows, selectedProviders],
   );
-  const isInitialLoading = isLoading && rows.length === 0;
+  const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
   const footerMetaItems = [
-    <span key="cadence">{t("footer.refreshCadence")}</span>,
+    <span key="cadence">
+      {isRpcTab ? t("footer.rpcRefreshCadence") : t("footer.refreshCadence")}
+    </span>,
     data?.generatedAt ? (
       <span key="refreshed">
         {t("footer.lastRefreshed")}{" "}
@@ -268,8 +298,17 @@ export function SolanaDataDashboard() {
         </span>
       </span>
     ) : null,
-    <span key="lag">{t("footer.lagNotice")}</span>,
-    <span key="backfill">{t("footer.backfillCadence")}</span>,
+    isRpcTab ? (
+      <span key="filter">
+        {t("footer.rpcFilter", {
+          method: rpcMethod,
+          region: rpcRegion,
+        })}
+      </span>
+    ) : (
+      <span key="lag">{t("footer.lagNotice")}</span>
+    ),
+    isRpcTab ? null : <span key="backfill">{t("footer.backfillCadence")}</span>,
   ].filter((item): item is React.ReactElement => item !== null);
 
   return (
@@ -300,8 +339,12 @@ export function SolanaDataDashboard() {
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
             rangeDays={rangeDays}
+            rpcMethod={rpcMethod}
+            rpcRegion={rpcRegion}
             selectedProviders={selectedProviders}
             showProviderControls={showProviderControls}
+            showRangeControl={!isRpcTab}
+            showRpcControls={isRpcTab}
             onUpdateQuery={updateQuery}
           />
         </nav>
@@ -356,28 +399,39 @@ export function SolanaDataDashboard() {
                 aria-hidden="true"
                 className="h-1 w-1 rounded-full bg-nd-border-prominent"
               />
-              {t("footer.lastDays", { days: rangeDays })}
+              {isRpcTab
+                ? t("footer.lastHours", { hours: 6 })
+                : t("footer.lastDays", { days: rangeDays })}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
-              <a
-                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                href={dataAggregatorRepositoryUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <Github aria-hidden="true" className="h-3.5 w-3.5" />
-                {t("footer.source")}
-                <ExternalLink aria-hidden="true" className="h-3 w-3" />
-              </a>
-              <a
-                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                href={backfillRequestsUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {t("footer.backfillRequests")}
-                <ExternalLink aria-hidden="true" className="h-3 w-3" />
-              </a>
+              {isRpcTab ? (
+                <span className="inline-flex items-center gap-1.5 text-nd-high-em-text">
+                  <RadioTower aria-hidden="true" className="h-3.5 w-3.5" />
+                  {t("footer.rpcSource")}
+                </span>
+              ) : (
+                <>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={dataAggregatorRepositoryUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Github aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("footer.source")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={backfillRequestsUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {t("footer.backfillRequests")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                </>
+              )}
             </span>
           </div>
 
@@ -408,16 +462,24 @@ function DashboardControls({
   isRefreshing,
   onUpdateQuery,
   rangeDays,
+  rpcMethod,
+  rpcRegion,
   selectedProviders,
   showProviderControls,
+  showRangeControl,
+  showRpcControls,
 }: {
   activeTab: DashboardTab;
   availableProviders: ProviderName[];
   isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
   rangeDays: number;
+  rpcMethod: RpcLatencyMethod;
+  rpcRegion: RpcLatencyRegion;
   selectedProviders: Set<ProviderName>;
   showProviderControls: boolean;
+  showRangeControl: boolean;
+  showRpcControls: boolean;
 }) {
   const t = useTranslations("dataDashboard");
 
@@ -436,15 +498,38 @@ function DashboardControls({
             className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-nd-inverse to-transparent md:hidden"
           />
         </div>
-        <Separator />
-        <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
-          <InlineControl
-            ariaLabel={t("controls.rangeAriaLabel")}
-            options={rangeOptions}
-            value={rangeDays}
-            onChange={(value) => onUpdateQuery({ days: value })}
-          />
-        </div>
+        {showRangeControl ? (
+          <>
+            <Separator />
+            <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+              <InlineControl
+                ariaLabel={t("controls.rangeAriaLabel")}
+                options={rangeOptions}
+                value={rangeDays}
+                onChange={(value) => onUpdateQuery({ days: value })}
+              />
+            </div>
+          </>
+        ) : null}
+        {showRpcControls ? (
+          <>
+            <Separator />
+            <div className="-mx-1 flex min-w-0 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+              <InlineControl
+                ariaLabel={t("controls.rpcRegionAriaLabel")}
+                options={rpcRegionOptions}
+                value={rpcRegion}
+                onChange={(value) => onUpdateQuery({ region: value })}
+              />
+              <InlineControl
+                ariaLabel={t("controls.rpcMethodAriaLabel")}
+                options={rpcMethodOptions}
+                value={rpcMethod}
+                onChange={(value) => onUpdateQuery({ method: value })}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
 
       {isRefreshing ||
@@ -612,6 +697,7 @@ function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
                 index={index}
                 key={kpi.chart.id}
                 label={getChartTitle(t, kpi.chart)}
+                lowerIsBetter={kpi.chart.lowerIsBetter}
                 summary={getKpiSummary(t, kpi.chart)}
                 unit={getValueLabel(t, kpi.chart.valueLabel)}
                 value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
@@ -1044,6 +1130,7 @@ function ChartCard({
           <TimeSeriesChart
             height={chartHeight}
             series={series}
+            timeGranularity={chart.timeGranularity}
             valueLabel={chart.valueLabel}
           />
         ) : (
@@ -1141,6 +1228,7 @@ function KpiCell({
   delta,
   index,
   label,
+  lowerIsBetter,
   summary,
   unit,
   value,
@@ -1148,11 +1236,13 @@ function KpiCell({
   delta: number;
   index: number;
   label: string;
+  lowerIsBetter?: boolean;
   summary: string;
   unit: string;
   value: string;
 }) {
   const locale = useLocale();
+  const isFavorableTrend = lowerIsBetter ? delta <= 0 : delta >= 0;
 
   return (
     <article className={getKpiCellClassName(index)}>
@@ -1174,7 +1264,9 @@ function KpiCell({
         <p
           className={cn(
             "shrink-0 whitespace-nowrap font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase tabular-nums",
-            delta >= 0 ? "text-nd-highlight-green" : "text-nd-highlight-orange",
+            isFavorableTrend
+              ? "text-nd-highlight-green"
+              : "text-nd-highlight-orange",
           )}
         >
           {delta >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(delta), locale)}
@@ -1346,6 +1438,8 @@ function useDashboardQueryParams() {
     activeTab: parseTab(searchParams.get("tab")),
     providerParam: searchParams.get("providers"),
     rangeDays: parseRangeDays(searchParams.get("days")),
+    rpcMethod: parseRpcMethod(searchParams.get("method")),
+    rpcRegion: parseRpcRegion(searchParams.get("region")),
   };
 }
 
@@ -1378,8 +1472,16 @@ function applyQueryUpdates(
     params.set("days", String(updates.days));
   }
 
+  if (updates.method) {
+    params.set("method", updates.method);
+  }
+
   if (updates.providers) {
     updateProvidersParam(params, updates.providers, availableProviders);
+  }
+
+  if (updates.region) {
+    params.set("region", updates.region);
   }
 }
 
@@ -1406,6 +1508,29 @@ function getDashboardUrl(pathname: string, params: URLSearchParams) {
   const queryString = params.toString();
 
   return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+function getDashboardDataUrl({
+  activeTab,
+  rangeDays,
+  rpcMethod,
+  rpcRegion,
+}: {
+  activeTab: DashboardTab;
+  rangeDays: number;
+  rpcMethod: RpcLatencyMethod;
+  rpcRegion: RpcLatencyRegion;
+}) {
+  if (activeTab !== "rpc") {
+    return `/api/databricks/data?days=${rangeDays}`;
+  }
+
+  const params = new URLSearchParams({
+    method: rpcMethod,
+    region: rpcRegion,
+  });
+
+  return `/api/rpc/data?${params.toString()}`;
 }
 
 function toggleProvider(
@@ -1471,6 +1596,15 @@ function getVisibleCharts(
     : activeCharts;
 }
 
+function filterRowsForCharts(
+  rows: readonly MetricRow[],
+  charts: readonly ChartDefinition[],
+) {
+  const metricSet = new Set(charts.flatMap((chart) => chart.metrics));
+
+  return rows.filter((row) => isChartDataRow(row, metricSet));
+}
+
 function getKpis(
   charts: readonly ChartDefinition[],
   rows: MetricRow[],
@@ -1484,7 +1618,9 @@ function getKpis(
 
 function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
   if (chart.seriesField === "provider") {
-    return t("kpis.providerTooltip");
+    return chart.timeGranularity === "hour"
+      ? t("kpis.providerSampleTooltip")
+      : t("kpis.providerTooltip");
   }
 
   if (chart.metrics.length > 1) {
@@ -1493,9 +1629,13 @@ function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
     });
   }
 
-  return t("kpis.metricTooltip", {
-    metric: chart.metrics[0] ?? getChartTitle(t, chart),
-  });
+  return chart.timeGranularity === "hour"
+    ? t("kpis.metricSampleTooltip", {
+        metric: chart.metrics[0] ?? getChartTitle(t, chart),
+      })
+    : t("kpis.metricTooltip", {
+        metric: chart.metrics[0] ?? getChartTitle(t, chart),
+      });
 }
 
 function getKpiCellClassName(index: number) {
@@ -1573,13 +1713,29 @@ function buildSeries(
           ? getProviderColor(seriesId)
           : (metricColors[seriesId] ?? "#A78BFA"),
       points: Array.from(seriesBucket.entries())
-        .map(([date, bucket]) => ({
-          date: new Date(`${date}T00:00:00.000Z`),
-          value: aggregate(bucket.sum, bucket.count, chart.aggregation),
-        }))
+        .flatMap(([date, bucket]) => {
+          const parsedDate = parseMetricRowDate(date);
+
+          return parsedDate
+            ? [
+                {
+                  date: parsedDate,
+                  value: aggregate(bucket.sum, bucket.count, chart.aggregation),
+                },
+              ]
+            : [];
+        })
         .sort((a, b) => a.date.getTime() - b.date.getTime()),
     };
   });
+}
+
+function parseMetricRowDate(value: string) {
+  const parsedDate = value.includes("T")
+    ? new Date(value)
+    : new Date(`${value}T00:00:00.000Z`);
+
+  return Number.isFinite(parsedDate.getTime()) ? parsedDate : undefined;
 }
 
 function getMethodologyNotes(
@@ -1730,7 +1886,10 @@ function useMinWidth(query: string) {
 }
 
 function parseTab(value: string | null): DashboardTab {
-  return value === "network" || value === "stablecoins" || value === "defi"
+  return value === "network" ||
+    value === "stablecoins" ||
+    value === "defi" ||
+    value === "rpc"
     ? value
     : "overview";
 }
@@ -1740,6 +1899,18 @@ function parseRangeDays(value: string | null) {
   return rangeOptions.some((option) => option.value === parsed)
     ? parsed
     : defaultRangeDays;
+}
+
+function parseRpcMethod(value: string | null): RpcLatencyMethod {
+  return rpcMethodOptions.some((option) => option.value === value)
+    ? (value as RpcLatencyMethod)
+    : defaultRpcMethod;
+}
+
+function parseRpcRegion(value: string | null): RpcLatencyRegion {
+  return rpcRegionOptions.some((option) => option.value === value)
+    ? (value as RpcLatencyRegion)
+    : defaultRpcRegion;
 }
 
 export function getAvailableProviders(rows: readonly MetricRow[]) {
@@ -1863,6 +2034,8 @@ function getValueLabel(t: DashboardTranslator, valueLabel: string) {
       return t("valueLabels.computeUnits");
     case "Fees (SOL)":
       return t("valueLabels.feesSol");
+    case "Milliseconds":
+      return t("valueLabels.milliseconds");
     case "Percent":
       return t("valueLabels.percent");
     case "SOL":
