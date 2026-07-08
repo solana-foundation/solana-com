@@ -54,6 +54,7 @@ import {
   normalizeProviderName,
   providerColors,
   rangeOptions,
+  rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
   type Aggregation,
@@ -439,7 +440,7 @@ export function SolanaDataDashboard() {
                 className="h-1 w-1 rounded-full bg-nd-border-prominent"
               />
               {isRpcTab
-                ? t("footer.lastHours", { hours: 6 })
+                ? t("footer.lastHours", { hours: rpcLatencyRangeHours })
                 : t("footer.lastDays", { days: rangeDays })}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">

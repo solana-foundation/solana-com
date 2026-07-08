@@ -28,6 +28,7 @@ export const rpcMethodOptions = [
 
 export const defaultRpcRegion = "us-east4";
 export const defaultRpcMethod = "getLatestBlockhash";
+export const rpcLatencyRangeHours = 6;
 
 export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
@@ -80,17 +81,17 @@ export type DataApiResponse = {
 
 export const providerColors: Record<string, string> = {
   Allium: "#DFA3DA",
-  Alchemy: "#3B82F6",
+  Alchemy: "#2196F3",
   Artemis: "#14F195",
   Blockworks: "#E32EE9",
   DeFiLlama: "#3B8CFF",
   Dune: "#F75F47",
-  Helius: "#14F195",
-  QuickNode: "#8B5CF6",
+  Helius: "#E84125",
+  QuickNode: "#6CFF75",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
   "Token Terminal": "#45A88E",
-  Triton: "#F59E0B",
+  Triton: "#A12CFF",
   "Validators App": "#38BDF8",
 };
 

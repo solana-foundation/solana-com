@@ -3,6 +3,7 @@ import "server-only";
 import {
   defaultRpcMethod,
   defaultRpcRegion,
+  rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
   type MetricRow,
@@ -17,7 +18,7 @@ const ENV_KEYS = {
 
 const QUERY_API_PATH = "/api/v1/query";
 const QUERY_RANGE_API_PATH = "/api/v1/query_range";
-export const RPC_LATENCY_RANGE_HOURS = 6;
+export const RPC_LATENCY_RANGE_HOURS = rpcLatencyRangeHours;
 export const RPC_LATENCY_RANGE_STEP_SECONDS = 3600;
 const RPC_LATENCY_QUANTILE_RANGE = "1h";
 const MS_PER_SECOND = 1000;
@@ -362,7 +363,7 @@ function normalizeBaseUrl(value: string) {
   try {
     const url = new URL(value);
 
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
+    if (url.protocol !== "https:") {
       return undefined;
     }
 
