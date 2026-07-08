@@ -126,13 +126,16 @@ const getRwaXyzTokenQuery = (page: number): RwaXyzTokenQuery => ({
 const getMetricValue = (metric?: RwaXyzMetric | null) => {
   const value = metric?.val;
 
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 };
 
 const getTokenValueUSD = (token: RwaXyzToken) =>
-  getMetricValue(token.market_value_dollar) ||
-  getMetricValue(token.circulating_market_value_dollar) ||
-  getMetricValue(token.total_asset_value_dollar);
+  getMetricValue(token.market_value_dollar) ??
+  getMetricValue(token.circulating_market_value_dollar) ??
+  getMetricValue(token.total_asset_value_dollar) ??
+  0;
 
 const getAssetId = (token: RwaXyzToken) =>
   token.asset_id ?? token.asset?.asset_id ?? token.asset?.id ?? token.id;
@@ -210,7 +213,7 @@ const fetchRwaStatsFromApi = async (): Promise<RwaStats> => {
       }
 
       totalValueUSD += getTokenValueUSD(token);
-      volume24hUSD += getMetricValue(token.daily_transfer_volume_dollar);
+      volume24hUSD += getMetricValue(token.daily_transfer_volume_dollar) ?? 0;
     });
 
     const stats: RwaStats = {
