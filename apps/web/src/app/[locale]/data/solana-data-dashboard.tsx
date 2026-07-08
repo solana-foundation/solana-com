@@ -115,6 +115,13 @@ const rpcDataRefreshIntervalMs = 60 * 1000;
 const rpcDataDedupingIntervalMs = 15 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
+const rpcLatencyRepositoryUrl =
+  "https://github.com/solana-foundation/rpc-latency-monitor";
+const rpcLatencyProviderOnboardingUrl = `${rpcLatencyRepositoryUrl}#adding-your-rpc-for-providers`;
+const rpcLatencyGrafanaUrl =
+  "https://rpclatency.grafana.net/d/rpc-latency-monitor/rpc-latency-monitor?orgId=1";
+const rpcSenderGrafanaUrl =
+  "https://rpclatency.grafana.net/d/rpc-sender/sender?orgId=1";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
 const resourceCardStepFallback = 460;
 const resourceCards = [
@@ -137,6 +144,26 @@ const resourceCards = [
     href: dataAggregatorRepositoryUrl,
     nodeId: "21:105",
     titleKey: "buildSection.cards.aggregator.title",
+  },
+  {
+    analyticsId: "rpc-latency-monitor",
+    backgroundClassName: "scale-[1.12]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.webp",
+    ctaKey: "buildSection.cards.rpcMonitor.cta",
+    descriptionKey: "buildSection.cards.rpcMonitor.description",
+    href: rpcLatencyRepositoryUrl,
+    nodeId: "25:141",
+    titleKey: "buildSection.cards.rpcMonitor.title",
+  },
+  {
+    analyticsId: "rpc-sender-dashboard",
+    backgroundClassName: "-scale-y-100",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
+    ctaKey: "buildSection.cards.senderMetrics.cta",
+    descriptionKey: "buildSection.cards.senderMetrics.description",
+    href: rpcSenderGrafanaUrl,
+    nodeId: "25:142",
+    titleKey: "buildSection.cards.senderMetrics.title",
   },
   {
     analyticsId: "allium",
@@ -288,8 +315,8 @@ export function SolanaDataDashboard() {
     [activeCharts, rows],
   );
   const kpis = useMemo(
-    () => getKpis(visibleCharts, rows, selectedProviders),
-    [visibleCharts, rows, selectedProviders],
+    () => (isRpcTab ? [] : getKpis(visibleCharts, rows, selectedProviders)),
+    [isRpcTab, visibleCharts, rows, selectedProviders],
   );
   const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
@@ -363,9 +390,24 @@ export function SolanaDataDashboard() {
           className="mt-8 max-w-[720px]"
         >
           <h2 className="sr-only">{activeTabContent.label}</h2>
-          <p className="nd-body-m text-nd-mid-em-text">
-            {activeTabContent.description}
-          </p>
+          {activeTab === "rpc" ? (
+            <p className="nd-body-m text-nd-mid-em-text">
+              {t("tabs.rpc.descriptionPrefix")}{" "}
+              <a
+                className="text-nd-high-em-text underline decoration-nd-border-prominent underline-offset-4 transition-colors hover:text-nd-primary"
+                href={rpcLatencyGrafanaUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {t("tabs.rpc.source")}
+              </a>
+              .
+            </p>
+          ) : (
+            <p className="nd-body-m text-nd-mid-em-text">
+              {activeTabContent.description}
+            </p>
+          )}
           {activeTabContent.clarification ? (
             <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
               {activeTabContent.clarification}
@@ -379,11 +421,14 @@ export function SolanaDataDashboard() {
 
         {!error ? (
           <>
-            <KpiGrid isLoading={isInitialLoading} kpis={kpis} />
+            {isRpcTab ? null : (
+              <KpiGrid isLoading={isInitialLoading} kpis={kpis} />
+            )}
 
             <ChartGrid
               activeCharts={activeCharts}
               activeTab={activeTab}
+              hasKpiGrid={!isRpcTab}
               isLoading={isInitialLoading}
               isRefreshing={isRefreshing}
               rows={rows}
@@ -412,10 +457,37 @@ export function SolanaDataDashboard() {
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
               {isRpcTab ? (
-                <span className="inline-flex items-center gap-1.5 text-nd-high-em-text">
-                  <RadioTower aria-hidden="true" className="h-3.5 w-3.5" />
-                  {t("footer.rpcSource")}
-                </span>
+                <>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={rpcLatencyGrafanaUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <RadioTower aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("footer.rpcSource")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={rpcLatencyRepositoryUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Github aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("footer.ossRepo")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={rpcLatencyProviderOnboardingUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {t("footer.addRpcProvider")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                </>
               ) : (
                 <>
                   <a
@@ -722,12 +794,14 @@ function ChartGrid({
   activeTab,
   isLoading,
   isRefreshing,
+  hasKpiGrid,
   rows,
   selectedProviders,
   visibleCharts,
 }: {
   activeCharts: readonly ChartDefinition[];
   activeTab: DashboardTab;
+  hasKpiGrid: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
   rows: MetricRow[];
@@ -744,6 +818,7 @@ function ChartGrid({
         })}
         className={cn(
           "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
+          hasKpiGrid ? "" : "mt-10 border-t xl:mt-14",
           "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
         )}
       >

@@ -19,6 +19,7 @@ const QUERY_API_PATH = "/api/v1/query";
 const QUERY_RANGE_API_PATH = "/api/v1/query_range";
 export const RPC_LATENCY_RANGE_HOURS = 6;
 export const RPC_LATENCY_RANGE_STEP_SECONDS = 3600;
+const RPC_LATENCY_QUANTILE_RANGE = "1h";
 const MS_PER_SECOND = 1000;
 
 export const rpcLatencyProviders = [
@@ -135,22 +136,30 @@ export async function getRpcLatencyMetricRows(
   };
   const end = Math.floor(Date.now() / MS_PER_SECOND);
   const start = end - RPC_LATENCY_RANGE_HOURS * 60 * 60;
-  const [avgLatencyResults, p99LatencyResults] = await Promise.all([
-    queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
-      query: buildRpcAvgLatencyQuery(normalizedOptions),
-    }),
-    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
-      end: String(end),
-      query: buildRpcP99LatencyQuery(normalizedOptions),
-      start: String(start),
-      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
-    }),
-  ]);
+  const [avgLatencyResults, p50LatencyResults, p99LatencyResults] =
+    await Promise.all([
+      queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
+        query: buildRpcAvgLatencyQuery(normalizedOptions),
+      }),
+      queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+        end: String(end),
+        query: buildRpcP50LatencyQuery(normalizedOptions),
+        start: String(start),
+        step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      }),
+      queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+        end: String(end),
+        query: buildRpcP99LatencyQuery(normalizedOptions),
+        start: String(start),
+        step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      }),
+    ]);
 
   return {
     generatedAt: new Date().toISOString(),
     rows: [
       ...toInstantMetricRows(avgLatencyResults, "RPC Avg Latency"),
+      ...toRangeMetricRows(p50LatencyResults, "RPC P50 Latency"),
       ...toRangeMetricRows(p99LatencyResults, "RPC P99 Latency"),
     ],
     truncated: false,
@@ -169,11 +178,22 @@ export function buildRpcAvgLatencyQuery(options: RpcLatencyQueryOptions = {}) {
 }
 
 export function buildRpcP99LatencyQuery(options: RpcLatencyQueryOptions = {}) {
+  return buildRpcQuantileLatencyQuery(0.99, options);
+}
+
+export function buildRpcP50LatencyQuery(options: RpcLatencyQueryOptions = {}) {
+  return buildRpcQuantileLatencyQuery(0.5, options);
+}
+
+function buildRpcQuantileLatencyQuery(
+  quantile: number,
+  options: RpcLatencyQueryOptions,
+) {
   const selector = buildLabelSelector(options);
 
   return [
-    "1000 * histogram_quantile(0.99,",
-    `sum by (le, provider)(rate(rpc_latency_seconds_bucket${selector}[1h])))`,
+    `1000 * histogram_quantile(${quantile.toFixed(2)},`,
+    `sum by (le, provider)(rate(rpc_latency_seconds_bucket${selector}[${RPC_LATENCY_QUANTILE_RANGE}])))`,
   ].join(" ");
 }
 

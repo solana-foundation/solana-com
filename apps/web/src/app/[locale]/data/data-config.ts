@@ -22,6 +22,8 @@ export const rpcMethodOptions = [
   { label: "getAccountInfo", value: "getAccountInfo" },
   { label: "getProgramAccounts", value: "getProgramAccounts" },
   { label: "getBlock_recent", value: "getBlock_recent" },
+  { label: "getTransaction_recent", value: "getTransaction_recent" },
+  { label: "getSignaturesForAddress", value: "getSignaturesForAddress" },
 ] as const;
 
 export const defaultRpcRegion = "us-east4";
@@ -454,6 +456,39 @@ export const chartDefinitions = [
         provider: "Triton",
         description:
           "Prometheus rate over 5 minutes for the selected RPC method and region.",
+      },
+    ],
+  },
+  {
+    id: "rpc-p50-latency",
+    tab: "rpc",
+    title: "P50 Latency",
+    valueLabel: "Milliseconds",
+    metrics: ["RPC P50 Latency"],
+    aggregation: "avg",
+    seriesField: "provider",
+    lowerIsBetter: true,
+    timeGranularity: "hour",
+    methodology: [
+      {
+        provider: "Alchemy",
+        description:
+          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "Helius",
+        description:
+          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "QuickNode",
+        description:
+          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+      },
+      {
+        provider: "Triton",
+        description:
+          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
       },
     ],
   },
