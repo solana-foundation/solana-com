@@ -158,7 +158,9 @@ export function resolveVariant(
   value: string | null | undefined,
 ): VariantConfig | null {
   if (!value) return null;
-  return VARIANTS[value.toLowerCase()] ?? null;
+  const key = value.toLowerCase();
+  if (!Object.hasOwn(VARIANTS, key)) return null;
+  return VARIANTS[key] ?? null;
 }
 
 /**

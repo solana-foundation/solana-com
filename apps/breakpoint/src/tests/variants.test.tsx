@@ -26,6 +26,12 @@ describe("resolveVariant", () => {
     expect(resolveVariant("gaming")).toBeNull();
     expect(resolveVariant("developers ")).toBeNull();
   });
+
+  it("ignores inherited object property names", () => {
+    expect(resolveVariant("__proto__")).toBeNull();
+    expect(resolveVariant("constructor")).toBeNull();
+    expect(resolveVariant("toString")).toBeNull();
+  });
 });
 
 describe("resolveVariantFromParams", () => {
