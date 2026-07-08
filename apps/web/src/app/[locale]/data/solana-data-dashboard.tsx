@@ -31,6 +31,13 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { usePathname, useRouter } from "@workspace/i18n/routing";
 
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipPortal,
@@ -511,30 +518,28 @@ function DashboardControls({
             </div>
           </>
         ) : null}
+        {showRpcControls ? (
+          <>
+            <Separator />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect
+                ariaLabel={t("controls.rpcRegionAriaLabel")}
+                label={t("controls.rpcRegionLabel")}
+                options={rpcRegionOptions}
+                value={rpcRegion}
+                onChange={(value) => onUpdateQuery({ region: value })}
+              />
+              <FilterSelect
+                ariaLabel={t("controls.rpcMethodAriaLabel")}
+                label={t("controls.rpcMethodLabel")}
+                options={rpcMethodOptions}
+                value={rpcMethod}
+                onChange={(value) => onUpdateQuery({ method: value })}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
-
-      {showRpcControls ? (
-        <div className="relative -mx-1 min-w-0">
-          <div className="flex min-w-0 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <InlineControl
-              ariaLabel={t("controls.rpcRegionAriaLabel")}
-              options={rpcRegionOptions}
-              value={rpcRegion}
-              onChange={(value) => onUpdateQuery({ region: value })}
-            />
-            <InlineControl
-              ariaLabel={t("controls.rpcMethodAriaLabel")}
-              options={rpcMethodOptions}
-              value={rpcMethod}
-              onChange={(value) => onUpdateQuery({ method: value })}
-            />
-          </div>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-nd-inverse to-transparent"
-          />
-        </div>
-      ) : null}
 
       {isRefreshing ||
       (showProviderControls && availableProviders.length > 0) ? (
@@ -1520,6 +1525,46 @@ function InlineControl<T extends string | number>({
         </button>
       ))}
     </div>
+  );
+}
+
+function FilterSelect<T extends string>({
+  ariaLabel,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  ariaLabel: string;
+  label: string;
+  onChange: (_value: T) => void;
+  options: readonly { label: string; value: T }[];
+  value: T;
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+    >
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className="h-auto w-auto shrink-0 gap-1.5 rounded-none border-nd-border-prominent bg-transparent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-high-em-text ring-offset-0 transition-colors hover:bg-nd-border-light/20 focus:ring-1 focus:ring-nd-primary focus:ring-offset-0 [&>svg]:h-3.5 [&>svg]:w-3.5"
+      >
+        <span className="text-nd-mid-em-text/70">{label}</span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="rounded-none border-nd-border-prominent bg-[#1D1D20] text-nd-high-em-text">
+        {options.map((option) => (
+          <SelectItem
+            className="rounded-none py-1.5 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text focus:bg-white/10 focus:text-nd-high-em-text data-[state=checked]:text-nd-high-em-text"
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
