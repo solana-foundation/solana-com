@@ -571,6 +571,10 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
     return `${formatStandardNumber(value, locale)}%`;
   }
 
+  if (valueLabel === "Milliseconds") {
+    return formatMillisecondsNumber(value, locale);
+  }
+
   return formatCompactNumber(value, locale);
 }
 
@@ -592,5 +596,12 @@ function formatCompactNumber(value: number, locale: string) {
 function formatStandardNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10 ? 1 : 2,
+  }).format(value);
+}
+
+function formatMillisecondsNumber(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
   }).format(value);
 }

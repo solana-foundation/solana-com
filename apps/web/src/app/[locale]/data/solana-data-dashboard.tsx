@@ -511,26 +511,30 @@ function DashboardControls({
             </div>
           </>
         ) : null}
-        {showRpcControls ? (
-          <>
-            <Separator />
-            <div className="-mx-1 flex min-w-0 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
-              <InlineControl
-                ariaLabel={t("controls.rpcRegionAriaLabel")}
-                options={rpcRegionOptions}
-                value={rpcRegion}
-                onChange={(value) => onUpdateQuery({ region: value })}
-              />
-              <InlineControl
-                ariaLabel={t("controls.rpcMethodAriaLabel")}
-                options={rpcMethodOptions}
-                value={rpcMethod}
-                onChange={(value) => onUpdateQuery({ method: value })}
-              />
-            </div>
-          </>
-        ) : null}
       </div>
+
+      {showRpcControls ? (
+        <div className="relative -mx-1 min-w-0">
+          <div className="flex min-w-0 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <InlineControl
+              ariaLabel={t("controls.rpcRegionAriaLabel")}
+              options={rpcRegionOptions}
+              value={rpcRegion}
+              onChange={(value) => onUpdateQuery({ region: value })}
+            />
+            <InlineControl
+              ariaLabel={t("controls.rpcMethodAriaLabel")}
+              options={rpcMethodOptions}
+              value={rpcMethod}
+              onChange={(value) => onUpdateQuery({ method: value })}
+            />
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-nd-inverse to-transparent"
+          />
+        </div>
+      ) : null}
 
       {isRefreshing ||
       (showProviderControls && availableProviders.length > 0) ? (
@@ -1107,32 +1111,49 @@ function ChartCard({
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
+  const caption = getChartCaption(t, chart);
   const methodologyNotes = getMethodologyNotes(chart, selectedProviders);
 
   return (
     <article className="relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="m-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-            {title}
-          </h2>
-          {methodologyNotes.length > 0 ? (
-            <MethodologyTooltip label={title} notes={methodologyNotes} />
-          ) : null}
+      <div className="grid gap-1.5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="m-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+              {title}
+            </h2>
+            {methodologyNotes.length > 0 ? (
+              <MethodologyTooltip label={title} notes={methodologyNotes} />
+            ) : null}
+          </div>
+          <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
+            {valueLabel}
+          </span>
         </div>
-        <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-          {valueLabel}
-        </span>
+        {caption ? (
+          <p className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+            {caption}
+          </p>
+        ) : null}
       </div>
 
       <ChartWatermarkFrame>
         {series.length > 0 ? (
-          <TimeSeriesChart
-            height={chartHeight}
-            series={series}
-            timeGranularity={chart.timeGranularity}
-            valueLabel={chart.valueLabel}
-          />
+          chart.visualization === "bar" ? (
+            <ProviderBarChart
+              height={chartHeight}
+              lowerIsBetter={chart.lowerIsBetter}
+              series={series}
+              valueLabel={chart.valueLabel}
+            />
+          ) : (
+            <TimeSeriesChart
+              height={chartHeight}
+              series={series}
+              timeGranularity={chart.timeGranularity}
+              valueLabel={chart.valueLabel}
+            />
+          )
         ) : (
           <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
             {t("empty.noDataForSelection")}
@@ -1140,7 +1161,7 @@ function ChartCard({
         )}
       </ChartWatermarkFrame>
 
-      <ChartOrdinal index={index} />
+      {chart.visualization === "bar" ? null : <ChartOrdinal index={index} />}
       {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
   );
@@ -1162,6 +1183,112 @@ function ChartWatermarkFrame({ children }: { children: ReactNode }) {
       <div className="relative z-[1]">{children}</div>
     </div>
   );
+}
+
+function ProviderBarChart({
+  height,
+  lowerIsBetter = false,
+  series,
+  valueLabel,
+}: {
+  height: number;
+  lowerIsBetter?: boolean;
+  series: ChartSeries[];
+  valueLabel: string;
+}) {
+  const locale = useLocale();
+  const t = useTranslations("dataDashboard");
+  const items = useMemo(
+    () => getLatestSeriesValues(series, lowerIsBetter),
+    [lowerIsBetter, series],
+  );
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
+        {t("empty.noDataForSelection")}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-label={t("barChart.ariaLabel")}
+      className="flex min-w-0 flex-col justify-center gap-4"
+      role="list"
+      style={{ height }}
+    >
+      {items.map((item, index) => (
+        <motion.div
+          className="grid min-w-0 gap-2"
+          key={item.id}
+          layout
+          role="listitem"
+          transition={tabIndicatorSpring}
+        >
+          <div className="flex min-w-0 items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-6 shrink-0 font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="truncate font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-high-em-text">
+                {item.label}
+              </span>
+            </div>
+            <span className="shrink-0 font-brand-mono text-[12px] leading-[1.42] font-bold tabular-nums text-nd-high-em-text">
+              {formatValue(item.value, valueLabel, locale)}
+            </span>
+          </div>
+          <div className="h-3 overflow-hidden bg-nd-border-light/30">
+            <div
+              className="h-full transition-[width] duration-500 ease-out"
+              style={{
+                backgroundColor: item.color,
+                width: `${getBarWidth(item.value, maxValue)}%`,
+              }}
+            />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function getLatestSeriesValues(series: ChartSeries[], lowerIsBetter: boolean) {
+  return series
+    .flatMap((item) => {
+      const latestPoint = item.points.at(-1);
+
+      return latestPoint
+        ? [
+            {
+              color: item.color,
+              id: item.id,
+              label: item.label,
+              value: latestPoint.value,
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) =>
+      lowerIsBetter
+        ? a.value - b.value || a.label.localeCompare(b.label)
+        : b.value - a.value || a.label.localeCompare(b.label),
+    );
+}
+
+function getBarWidth(value: number, maxValue: number) {
+  if (maxValue <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max((value / maxValue) * 100, 2), 100);
 }
 
 function ChartRefreshingOverlay() {
@@ -2024,6 +2151,12 @@ function getChartTitle(t: DashboardTranslator, chart: ChartDefinition) {
   const titleKey = `charts.${chart.id}.title`;
 
   return t.has(titleKey) ? t(titleKey) : chart.title;
+}
+
+function getChartCaption(t: DashboardTranslator, chart: ChartDefinition) {
+  const captionKey = `charts.${chart.id}.caption`;
+
+  return t.has(captionKey) ? t(captionKey) : undefined;
 }
 
 function getValueLabel(t: DashboardTranslator, valueLabel: string) {

@@ -39,6 +39,7 @@ export type DashboardTab =
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
 export type TimeGranularity = "day" | "hour";
+export type ChartVisualization = "line" | "bar";
 
 export type MethodologyComment = {
   provider: ProviderName;
@@ -56,6 +57,7 @@ export type ChartDefinition = {
   lowerIsBetter?: boolean;
   methodology?: readonly MethodologyComment[];
   timeGranularity?: TimeGranularity;
+  visualization?: ChartVisualization;
 };
 
 export type MetricRow = {
@@ -431,6 +433,7 @@ export const chartDefinitions = [
     seriesField: "provider",
     lowerIsBetter: true,
     timeGranularity: "hour",
+    visualization: "bar",
     methodology: [
       {
         provider: "Alchemy",
