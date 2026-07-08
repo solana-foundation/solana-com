@@ -383,37 +383,24 @@ export function SolanaDataDashboard() {
           />
         </nav>
 
-        <section
-          aria-label={t("summaryAriaLabel", {
-            tab: activeTabContent.label,
-          })}
-          className="mt-8 max-w-[720px]"
-        >
-          <h2 className="sr-only">{activeTabContent.label}</h2>
-          {activeTab === "rpc" ? (
-            <p className="nd-body-m text-nd-mid-em-text">
-              {t("tabs.rpc.descriptionPrefix")}{" "}
-              <a
-                className="text-nd-high-em-text underline decoration-nd-border-prominent underline-offset-4 transition-colors hover:text-nd-primary"
-                href={rpcLatencyGrafanaUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {t("tabs.rpc.source")}
-              </a>
-              .
-            </p>
-          ) : (
+        {!isRpcTab ? (
+          <section
+            aria-label={t("summaryAriaLabel", {
+              tab: activeTabContent.label,
+            })}
+            className="mt-8 max-w-[720px]"
+          >
+            <h2 className="sr-only">{activeTabContent.label}</h2>
             <p className="nd-body-m text-nd-mid-em-text">
               {activeTabContent.description}
             </p>
-          )}
-          {activeTabContent.clarification ? (
-            <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
-              {activeTabContent.clarification}
-            </p>
-          ) : null}
-        </section>
+            {activeTabContent.clarification ? (
+              <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
+                {activeTabContent.clarification}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         <DataResourceCarousel />
 
