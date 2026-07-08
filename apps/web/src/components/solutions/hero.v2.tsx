@@ -33,6 +33,7 @@ export type SolutionHeroProps = {
   stats?: SolutionHeroStat[];
   reportImgSrc?: string;
   bgJsonFilePath?: string;
+  bgTintColor?: string;
   showDownloadCard?: boolean;
 };
 
@@ -52,6 +53,7 @@ export type SolutionHeroProps = {
  * @param {SolutionHeroStat[]} props.stats - The stats to display in the hero section.
  * @param {string} props.reportImgSrc - The source of the report image.
  * @param {string} props.bgJsonFilePath - The path to the background JSON file.
+ * @param {string} props.bgTintColor - Optional color tint layered over the background scene.
  *
  * @example
  * <SolutionHero
@@ -72,6 +74,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   stats,
   reportImgSrc,
   bgJsonFilePath,
+  bgTintColor,
   showDownloadCard = true,
 }) => {
   const statsCount = stats?.length ?? 0;
@@ -117,6 +120,16 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           lazyLoad={true}
           production={true}
           onError={(error) => console.error("UnicornScene error:", error)}
+        />
+      )}
+      {bgTintColor && (
+        <div
+          aria-hidden={true}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            backgroundColor: bgTintColor,
+            mixBlendMode: "color",
+          }}
         />
       )}
       <div
