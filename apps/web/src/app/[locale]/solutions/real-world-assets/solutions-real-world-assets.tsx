@@ -43,9 +43,9 @@ export function SolutionsRealWorldAssetsPage({
   const format = useFormatter();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
-  // Hero figures are sourced live from the Tokens.xyz API (see fetchRwaStats),
-  // cached daily, so they stay current as issuers list and markets trade;
-  // labels stay translatable. The 24/7 anchor is static.
+  // Hero figures are sourced live from RWA.xyz (see fetchRwaStats) and cached
+  // server-side, so the app refreshes periodically without calling the API on
+  // every page request. The 24/7 anchor is static.
   const formatCompactUsd = (value: number) =>
     `$${format.number(value, {
       notation: "compact",
