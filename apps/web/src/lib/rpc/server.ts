@@ -17,8 +17,8 @@ const ENV_KEYS = {
 
 const QUERY_API_PATH = "/api/v1/query";
 const QUERY_RANGE_API_PATH = "/api/v1/query_range";
-const RANGE_HOURS = 6;
-const RANGE_STEP_SECONDS = 3600;
+export const RPC_LATENCY_RANGE_HOURS = 6;
+export const RPC_LATENCY_RANGE_STEP_SECONDS = 3600;
 const MS_PER_SECOND = 1000;
 
 export const rpcLatencyProviders = [
@@ -134,7 +134,7 @@ export async function getRpcLatencyMetricRows(
     region: options.region ?? defaultRpcRegion,
   };
   const end = Math.floor(Date.now() / MS_PER_SECOND);
-  const start = end - RANGE_HOURS * 60 * 60;
+  const start = end - RPC_LATENCY_RANGE_HOURS * 60 * 60;
   const [avgLatencyResults, p99LatencyResults] = await Promise.all([
     queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
       query: buildRpcAvgLatencyQuery(normalizedOptions),
@@ -143,7 +143,7 @@ export async function getRpcLatencyMetricRows(
       end: String(end),
       query: buildRpcP99LatencyQuery(normalizedOptions),
       start: String(start),
-      step: String(RANGE_STEP_SECONDS),
+      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
     }),
   ]);
 

@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 
 import {
+  buildRpcAvgLatencyQuery,
+  buildRpcP99LatencyQuery,
   getRpcLatencyConfig,
   getRpcLatencyMetricRows,
   parseRpcLatencyQueryOptions,
+  RPC_LATENCY_RANGE_HOURS,
+  RPC_LATENCY_RANGE_STEP_SECONDS,
+  type RpcLatencyConfig,
+  type RpcLatencyQueryOptions,
 } from "@/lib/rpc/server";
 import type { DataApiResponse } from "@/app/[locale]/data/data-config";
 
@@ -13,6 +20,7 @@ export const revalidate = 0;
 
 const RPC_CACHE_REVALIDATE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 5 * 60;
+const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v1";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DATA_UNAVAILABLE_ERROR =
@@ -23,6 +31,12 @@ type ErrorResponse = {
   detail?: string;
   invalidEnv?: string[];
   missingEnv?: string[];
+};
+
+type RpcLatencyData = {
+  generatedAt: string;
+  rows: DataApiResponse["rows"];
+  truncated: boolean;
 };
 
 export async function GET(request: NextRequest) {
@@ -37,10 +51,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await getRpcLatencyMetricRows(
-      configResult.config,
-      parseRpcLatencyQueryOptions(request.nextUrl.searchParams),
-    );
+    const options = parseRpcLatencyQueryOptions(request.nextUrl.searchParams);
+    const result = await getRpcLatencyData(configResult.config, options);
 
     return json<DataApiResponse>(
       {
@@ -61,6 +73,81 @@ export async function GET(request: NextRequest) {
       NO_STORE_CACHE_CONTROL,
     );
   }
+}
+
+function getRpcLatencyData(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+): Promise<RpcLatencyData> {
+  return IS_PRODUCTION
+    ? getCachedRpcLatencyData(config, options)
+    : fetchRpcLatencyData(config, options);
+}
+
+async function getCachedRpcLatencyData(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+) {
+  const dataCacheKey = getRpcLatencyCacheKey(config, options);
+  const cacheKeyParts = [RPC_CACHE_KEY_VERSION, dataCacheKey];
+
+  return unstable_cache(
+    () =>
+      getInMemoryCachedRpcLatencyData(config, options, cacheKeyParts.join("|")),
+    cacheKeyParts,
+    {
+      revalidate: RPC_CACHE_REVALIDATE_SECONDS,
+      tags: ["solana-data-rpc-latency"],
+    },
+  )();
+}
+
+function fetchRpcLatencyData(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+) {
+  return getRpcLatencyMetricRows(config, options);
+}
+
+const rpcLatencyDataRequests = new Map<string, Promise<RpcLatencyData>>();
+
+function getInMemoryCachedRpcLatencyData(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+  cacheKey: string,
+) {
+  const cachedRequest = rpcLatencyDataRequests.get(cacheKey);
+
+  if (cachedRequest) {
+    return cachedRequest;
+  }
+
+  const request = fetchRpcLatencyData(config, options);
+
+  request.then(
+    () => rpcLatencyDataRequests.delete(cacheKey),
+    () => rpcLatencyDataRequests.delete(cacheKey),
+  );
+
+  rpcLatencyDataRequests.set(cacheKey, request);
+
+  return request;
+}
+
+function getRpcLatencyCacheKey(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+) {
+  return [
+    config.baseUrl,
+    options.method,
+    options.provider ?? "all",
+    options.region,
+    RPC_LATENCY_RANGE_HOURS,
+    RPC_LATENCY_RANGE_STEP_SECONDS,
+    buildRpcAvgLatencyQuery(options),
+    buildRpcP99LatencyQuery(options),
+  ].join("|");
 }
 
 function getSuccessCacheControl() {
