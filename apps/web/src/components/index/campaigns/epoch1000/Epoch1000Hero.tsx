@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRightIcon } from "lucide-react";
+import { useLocale } from "@workspace/i18n/client";
+import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
 import { Container } from "@/component-library/container";
 import "./epoch-hero.css";
@@ -17,6 +18,7 @@ export type Epoch1000HeroTranslations = {
   statSlots: string;
   statProgress: string;
   statEta: string;
+  slotLabel: string;
   liveLabel: string;
   offline: string;
 };
@@ -174,10 +176,23 @@ function BlockStream({ absoluteSlot }: { absoluteSlot: number }) {
 export const Epoch1000Hero: React.FC<{
   translations: Epoch1000HeroTranslations;
 }> = ({ translations: t }) => {
+  const locale = useLocale();
   const live = useEpochData();
   // Freeze a sensible epoch for the backdrop before live data lands
   const gridEpoch = live?.epoch ?? 999;
   const progress = live ? live.slotIndex / live.slotsInEpoch : 0;
+  const numberFormatter = useMemo(
+    () => new Intl.NumberFormat(locale),
+    [locale],
+  );
+  const etaFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+      }),
+    [locale],
+  );
 
   return (
     <section
@@ -255,7 +270,9 @@ export const Epoch1000Hero: React.FC<{
               className="eh-rise w-full sm:max-w-[420px] shrink-0"
               style={{ animationDelay: "400ms" }}
             >
-              <div className="rounded-2xl border border-nd-border-prominent bg-white/[0.04] backdrop-blur-md p-6 md:p-7">
+              {/* no backdrop-blur here: Chrome won't paint background-clip:text
+                  (the gradient epoch number) inside a backdrop-filter layer */}
+              <div className="rounded-2xl border border-nd-border-prominent bg-black/60 p-6 md:p-7">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
                     <span className="eh-live-dot inline-block h-2 w-2 rounded-full bg-solana-green" />
@@ -263,7 +280,7 @@ export const Epoch1000Hero: React.FC<{
                   </span>
                   <span className="font-mono text-xs text-nd-mid-em-text tabular-nums">
                     {live
-                      ? `SLOT ${live.absoluteSlot.toLocaleString("en-US")}`
+                      ? `${t.slotLabel} ${numberFormatter.format(live.absoluteSlot)}`
                       : "—"}
                   </span>
                 </div>
@@ -310,7 +327,7 @@ export const Epoch1000Hero: React.FC<{
                       {t.statSlots}
                     </div>
                     <div className="mt-1 text-xl md:text-2xl font-bold tabular-nums">
-                      {live ? live.slotsRemaining.toLocaleString("en-US") : "—"}
+                      {live ? numberFormatter.format(live.slotsRemaining) : "—"}
                     </div>
                   </div>
                   <div>
@@ -318,12 +335,7 @@ export const Epoch1000Hero: React.FC<{
                       {t.statEta}
                     </div>
                     <div className="mt-1 text-xl md:text-2xl font-bold">
-                      {live
-                        ? live.eta.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
+                      {live ? etaFormatter.format(live.eta) : "—"}
                     </div>
                   </div>
                 </div>

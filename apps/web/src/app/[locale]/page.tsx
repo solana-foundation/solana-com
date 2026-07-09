@@ -91,6 +91,7 @@ export default async function Page(_props: Props) {
       statSlots: t("index.epochHero.statSlots"),
       statProgress: t("index.epochHero.statProgress"),
       statEta: t("index.epochHero.statEta"),
+      slotLabel: t("index.epochHero.slotLabel"),
       liveLabel: t("index.epochHero.liveLabel"),
       offline: t("index.epochHero.offline"),
     },
