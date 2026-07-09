@@ -39,11 +39,10 @@ export async function GET(req: Request) {
   const capped = p.get("x") === "1";
   const tier = tierFor(survived);
 
-  const [inter900, inter700, plex400, plex600] = await Promise.all([
-    font("inter-latin-900-normal.woff"),
-    font("inter-latin-700-normal.woff"),
-    font("ibm-plex-mono-latin-400-normal.woff"),
-    font("ibm-plex-mono-latin-600-normal.woff"),
+  const [diatype700, dsemi400, dsemi600] = await Promise.all([
+    font("ABCDiatype-Bold.woff"),
+    font("ABCDiatypeSemi-Mono-Regular.woff"),
+    font("ABCDiatypeSemi-Mono-Medium.woff"),
   ]);
 
   const firstCell = Math.min(CELLS - 1, Math.floor(firstEpoch / 10));
@@ -59,7 +58,7 @@ export async function GET(req: Request) {
         backgroundColor: "#000000",
         backgroundImage: `radial-gradient(ellipse 900px 500px at 85% -10%, ${tier.glow}55, transparent 70%)`,
         padding: "56px 64px",
-        fontFamily: "Plex",
+        fontFamily: "DSemi",
         color: "#FFFFFF",
       }}
     >
@@ -104,8 +103,8 @@ export async function GET(req: Request) {
         <div style={{ display: "flex", alignItems: "baseline", gap: 24 }}>
           <div
             style={{
-              fontFamily: "Inter",
-              fontWeight: 900,
+              fontFamily: "Diatype",
+              fontWeight: 700,
               fontSize: 176,
               lineHeight: 1.05,
               color: tier.color,
@@ -116,7 +115,7 @@ export async function GET(req: Request) {
           </div>
           <div
             style={{
-              fontFamily: "Inter",
+              fontFamily: "Diatype",
               fontWeight: 700,
               fontSize: 44,
               color: "#FFFFFF",
@@ -211,10 +210,9 @@ export async function GET(req: Request) {
       width: 1200,
       height: 630,
       fonts: [
-        { name: "Inter", data: inter900, weight: 900, style: "normal" },
-        { name: "Inter", data: inter700, weight: 700, style: "normal" },
-        { name: "Plex", data: plex400, weight: 400, style: "normal" },
-        { name: "Plex", data: plex600, weight: 600, style: "normal" },
+        { name: "Diatype", data: diatype700, weight: 700, style: "normal" },
+        { name: "DSemi", data: dsemi400, weight: 400, style: "normal" },
+        { name: "DSemi", data: dsemi600, weight: 600, style: "normal" },
       ],
     },
   );

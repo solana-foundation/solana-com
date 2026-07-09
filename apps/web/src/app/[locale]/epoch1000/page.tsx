@@ -1,5 +1,4 @@
-import Countdown from "@/components/epoch1000/Countdown";
-import WalletChecker from "@/components/epoch1000/WalletChecker";
+import Epoch1000Experience from "@/components/epoch1000/Epoch1000Experience";
 import { getAlternates, Link } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
 
@@ -9,9 +8,9 @@ export default async function Page() {
   const t = await getTranslations();
 
   return (
-    <main className="w-full max-w-3xl mx-auto px-5 sm:px-8 py-10 sm:py-16 flex flex-col gap-16 sm:gap-24 min-h-screen">
+    <main className="w-full max-w-6xl mx-auto px-5 sm:px-8 py-8 sm:py-12 flex flex-col gap-12 sm:gap-16 min-h-screen">
       <header className="flex items-center justify-between">
-        <p className="text-xs font-mono tracking-[0.3em] text-ep-dust">
+        <p className="text-xs font-brand-mono tracking-[0.3em] text-ep-dust">
           {t("epoch1000.page.eyebrow")}
         </p>
         <Link
@@ -22,24 +21,14 @@ export default async function Page() {
         </Link>
       </header>
 
-      <div className="flex flex-col gap-6">
-        <h1 className="font-black tracking-tight text-5xl sm:text-7xl leading-tight">
-          {t.rich("epoch1000.page.title", {
-            gradient: (chunks) => (
-              <span className="text-sol-gradient">{chunks}</span>
-            ),
-          })}
-        </h1>
-        <p className="text-sm sm:text-base text-ep-dim max-w-xl">
-          {t("epoch1000.page.description")}
-        </p>
-      </div>
-
-      <WalletChecker />
-
-      <hr className="border-ep-edge" />
-
-      <Countdown />
+      <Epoch1000Experience
+        title={t.rich("epoch1000.page.title", {
+          gradient: (chunks) => (
+            <span className="text-sol-gradient">{chunks}</span>
+          ),
+        })}
+        description={t("epoch1000.page.description")}
+      />
     </main>
   );
 }

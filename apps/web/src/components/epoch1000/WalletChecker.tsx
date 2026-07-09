@@ -10,7 +10,12 @@ const LOADING_LINES = [
   "replaying the ledger…",
 ];
 
-export default function WalletChecker() {
+interface Props {
+  /** Fires with each lookup result so the page can paint the timeline. */
+  onResult?: (result: CheckResult | null) => void;
+}
+
+export default function WalletChecker({ onResult }: Props) {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingLine, setLoadingLine] = useState(LOADING_LINES[0]);
@@ -26,6 +31,7 @@ export default function WalletChecker() {
     setLoading(true);
     setError(null);
     setResult(null);
+    onResult?.(null);
     setCopied(false);
     const rotator = setInterval(
       () =>
@@ -45,6 +51,7 @@ export default function WalletChecker() {
         setError(json.error ?? "Lookup failed. Try again.");
       } else {
         setResult(json as CheckResult);
+        onResult?.(json as CheckResult);
       }
     } catch {
       setError("Lookup failed. Try again.");
@@ -82,7 +89,8 @@ export default function WalletChecker() {
         </h2>
         <p className="mt-2 text-sm text-ep-dim">
           Paste any wallet address — no connect, no signature. We find its first
-          mainnet transaction and stamp your survivor card.
+          mainnet transaction, light up your era on the timeline above, and
+          stamp your survivor card.
         </p>
       </div>
 
