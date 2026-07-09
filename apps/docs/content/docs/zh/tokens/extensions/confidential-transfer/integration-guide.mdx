@@ -1,0 +1,493 @@
+---
+title: 机密转账集成指南
+description: 了解如何将使用机密转账扩展的代币集成到钱包、浏览器、交易所及其他应用程序中。
+---
+
+# 在 Solana 上支持机密转账
+
+## 背景
+
+机密转账扩展允许 Token-2022 铸币厂将转账金额和账户余额以加密形式存储在链上。由于余额经过加密，显示余额需要所有者的解密密钥，而发送转账则需要在客户端生成零知识证明。
+
+本指南面向**集成**机密转账代币的团队（钱包、浏览器、交易所、托管方、索引器），而非配置铸币厂的发行方。如果您正在从头构建底层流程，请从下方链接的分步页面开始；本指南重点介绍您的产品需要做什么才能良好支持这些代币。
+
+每个账户的地址、铸币厂和所有者均保持**公开**。只有金额和余额是加密的，因此其他所有信息（包括交易双方的身份）仍然可见。这为公共观察者提供了保密性，而非匿名性。
+
+### 资源
+
+- [机密转账概述及分步指南](/docs/tokens/extensions/confidential-transfer)
+- [扩展 Rust 代码](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS 客户端](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  （指令、账户状态解析、密钥派生及高层级机密转账辅助工具）
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  （加密原语及证明数据生成）
+- [`@solana-program/zk-elgamal-proof` JS 客户端](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  （证明验证指令）
+- [`spl-token-client` Rust crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  （Rust 中的高层级端到端辅助工具）
+
+## 摘要
+
+- 每个机密 token
+  account 仍具有**公开余额**，以及加密的**待处理**余额和**可用**余额。代币可在公开状态与机密状态之间自由转换。
+- 若要**显示**机密余额，您需要所有者的密钥。推荐的方式是从所有者的钱包派生密钥，使用 AES 密钥快速解密可用余额，并在需要时使用 ElGamal 密钥解密待处理金额。
+- 若要**机密发送**，您需要在客户端生成零知识证明（等式证明、密文有效性证明、范围证明），通常将其存放在临时**证明上下文状态账户**中，然后提交转账。`@solana-program/token-2022`（JS）和
+  `spl-token-client`（Rust）均提供高层级辅助工具，可自动构建证明并按顺序执行交易。
+- 机密转账目前需要跨越多笔相互依赖的交易，因为证明超出了当前的交易大小限制。即将推出的更新（交易格式 v1，随 Agave
+  v4.2 发布）将提高该限制，预计可让机密转账在单笔链上交易中完成。
+- 未添加任何支持的钱包仍可正常运行：它将显示公开余额，标准转账也可继续使用。只要拥有所有者密钥，任何支持机密功能的客户端均可访问机密资金。
+
+## 术语
+
+- **ElGamal
+  keypair**：每个账户的公钥 keypair，用于加密余额并构建零知识证明。公钥存储在账户上。
+- **AES 密钥**：每个账户的对称密钥，用于加密"可解密的可用余额"，使所有者能够在常数时间内读取其可用余额，而无需求解离散对数。
+- **待处理余额**：通过存款或转入但尚未应用的资金的加密余额。不能直接用于支出。
+- **可用余额**：可用于转账或提现的加密余额。
+- **应用**：将待处理余额转移至可用余额的步骤。
+- **证明上下文状态账户**：一个临时的链上账户，持有预验证的零知识证明，由机密指令引用，使用完毕后关闭以回收 rent。
+- **审计员**：铸币上可选的全局 ElGamal 密钥；设置后，每笔转账都会额外使用该密钥加密金额，以便指定方进行解密。
+
+## 账户模型与余额
+
+当账户配置为机密转账时，`ConfidentialTransferAccount`
+扩展会存储（以及其他字段）：
+
+- `elgamal_pubkey`：账户的 ElGamal 公钥。
+- `pending_balance_lo` /
+  `pending_balance_hi`：待处理余额的 ElGamal 密文，分为低位和高位（高位的解密开销更大，因此分开存储）。
+- `available_balance`：可支出余额的 ElGamal 密文。
+- `decryptable_available_balance`：同一可用余额的 **AES**
+  密文，所有者可即时解密。此字段用于显示。
+- `allow_confidential_credits` /
+  `allow_non_confidential_credits`：账户当前是否接受传入的机密或公开转账。
+- `pending_balance_credit_counter` 和
+  `maximum_pending_balance_credit_counter`：已累计到待处理余额的转账次数，以及需要执行应用操作前的上限。
+
+所有这些字段均通过标准 RPC 以已解析的账户状态形式返回。任何人都可以读取密文，但只有密钥持有者才能恢复底层金额。
+
+## 密钥管理
+
+每个机密账户使用两把密钥：用于加密和证明的 **ElGamal
+keypair**，以及用于快速余额解密的
+**AES 密钥**。如何生成和存储这些密钥是集成时的选择。以下是几种常见方案：
+
+- **从钱包签名派生（推荐默认方式）。**
+  所有者对一条规范的、域分隔的消息进行签名，密钥从该签名派生，因此仅凭钱包即可重现，无需单独存储。seed 按账户确定性生成：下方的 JS 辅助工具将其绑定到
+  `(owner, mint)` 对，而 Rust 示例则从 token
+  account 地址作为 seed（对于 associated token
+  account，两者等价，因为该地址本身由所有者和铸币地址派生）。
+- **从独立密钥材料派生。** 对于 passkeys、安全飞地或 MPC 方案，可从 WebAuthn
+  PRF 输出或其他输入密钥材料派生密钥，使机密密钥不与账户的签名密钥绑定。`@solana/zk-sdk`
+  为此提供了 `ConfidentialKeys.fromIkm` 和 `ConfidentialKeys.fromPrf`。
+- **直接生成和管理。**
+  托管及 MPC 服务商可能更倾向于自行生成密钥，并像管理其他敏感密钥材料一样进行管理。
+
+`@solana-program/token-2022` 客户端为推荐路径提供了辅助工具：
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  机密密钥是解密密钥。请将签署派生消息的请求视同解锁用户余额的私密视图。建议按需派生而非持久存储；如确需存储（例如在托管服务中），请以与签名密钥同等级别的严格措施加以保护。
+</Callout>
+
+派生辅助函数返回序列化的密钥材料。高级操作辅助函数（稍后展示）接受 WASM
+`ElGamalKeypair` 和 `AeKey` 对象，因此在需要时请从字节重新构建它们：
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## 创建和配置账户
+
+在账户能够持有保密余额之前，它需要 `ConfidentialTransferAccount`
+扩展，该扩展会为 token account 增加约 295 字节（额外 rent 约为 0.0015
+SOL）。设置分两步：创建 token account，然后配置扩展。
+
+配置通常需要**账户所有者**签名，并提供一个证明以证实其拥有账户上所设置的 ElGamal 公钥。钱包或交易所可以为用户创建并资助基础 token
+account，但若没有该签名，则无法代表用户配置保密扩展。
+
+因此，请避免默默地为每个用户预先配置保密账户：这会产生额外的 rent，且仍需所有者参与。应在首次使用时配置，或在用户选择启用保密转账时进行配置。
+
+**ElGamal 注册表**消除了每个账户的所有者操作步骤。用户只需注册一次其 ElGamal 公钥（在注册时签署一个证明），注册表条目即可在所有铸造中复用。此后，第三方可以使用
+`ConfigureAccountWithRegistry`
+为用户配置保密账户，配置时无需所有者签名或证明，只需一个支付 rent 的付款方。如果您希望为用户顺畅地预配置保密账户，这是推荐使用的机制。
+
+<Callout type="info">
+  注册表配置目前已在 Rust `spl-token-client`
+  （`confidential_transfer_configure_token_account_with_registry`）及
+  `spl-elgamal-registry` 程序中提供。`@solana-program/token-2022` JS
+  客户端中尚无对应的辅助函数，因此需要使用注册表路径的 JS
+  集成应关注该客户端的后续版本发布。
+</Callout>
+
+## 显示余额
+
+一个完善的集成方案应使用标准代币余额显示公开余额，检测保密扩展，并在用户解锁密钥后，解密并显示可用余额。
+
+可用余额最好通过 `decryptable_available_balance`
+使用 AES 密钥读取，该操作为常数时间。直接解密 ElGamal `available_balance`
+需要求解离散对数，应避免在日常显示中使用。
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+当用户尚未解锁密钥时，应显示公开余额并提示存在保密余额但处于锁定状态，而非显示零。
+
+## 接收转账
+
+存入的款项和转账会进入**待处理**余额，在应用之前无法使用。每笔入账会使
+`pending_balance_credit_counter` 递增；一旦达到
+`maximum_pending_balance_credit_counter`，账户将无法再接收更多保密入账，直到所有者应用待处理余额为止。
+
+代表用户持有资金的集成方案应：
+
+- 分别显示待处理余额与可用余额，让用户了解为何刚收到的金额尚不可用。
+- 在适当时机（例如发送前）代表用户应用待处理余额，以防余额卡滞。
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+请参阅
+[应用待处理余额](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+页面以了解完整流程。
+
+## 发送转账
+
+保密转账需要在客户端生成三个零知识证明：
+
+- **等式证明**：证明发送方的新余额密文与发送方可打开的新承诺加密的值相同。
+- **密文有效性证明**：证明转账金额密文在源密钥、目标密钥及（如已设置）审计员密钥下格式正确。
+- **范围证明**：证明转账金额及发送方剩余余额为有效的非负整数，从而防止凭空增发价值。
+
+这些证明比当前交易大小限制所允许的内联大小更大，因此通常的做法是创建**证明上下文状态账户**，将每个证明验证到其中，从转账指令中引用它们，然后关闭这些账户以回收 rent。这需要跨越几笔相互依赖的交易。交易格式 v1（随 Agave
+v4.2 一同发布）提高了大小限制，预计可让机密转账在单笔链上交易中完成，从而简化此流程。
+
+您无需手动组装证明。两个客户端都提供了高级辅助工具，可自动构建证明并生成待提交的指令：
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+如果您需要更精细的控制，也可以使用底层构建模块：`@solana/zk-sdk`
+生成各证明的数据（`CiphertextCommitmentEqualityProofData`、`BatchedGroupedCiphertext3HandlesValidityProofData`、`BatchedRangeProofU128Data`），`@solana-program/zk-elgamal-proof`
+提供证明验证指令，`@solana-program/token-2022` 提供 `confidentialTransfer`
+及上下文状态账户指令。
+
+请参阅 [转账代币](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+页面了解详细指令序列。
+
+## 提款
+
+提款将资金从机密可用余额转移回公开余额，此后其行为与普通代币余额无异。提款同样需要证明（一个等式证明和一个范围证明），在 JS 客户端中通过
+`getConfidentialWithdrawInstructionPlan` 暴露，在 Rust 客户端中通过
+`confidential_transfer_withdraw`
+暴露。请先应用所有待处理余额，以确保全额可用。请参阅[提取代币](/docs/tokens/extensions/confidential-transfer/withdraw-tokens)。
+
+## 相关机密扩展
+
+两个可选扩展基于机密转账构建。两者主要由发行方负责，但每个都会改变集成方需要处理的某些事项：
+
+- **机密转账手续费。**
+  当铸币账户将机密转账与[转账手续费](/docs/tokens/extensions/transfer-fees)配合使用时，发送方将走带手续费的转账路径（Rust 客户端中为
+  `confidential_transfer_transfer_with_fee`），且扣留的手续费与金额一样经过加密。收取扣留手续费（归集与提取）是手续费授权方的职责，而非集成方的职责。
+- **机密铸造与销毁。**
+  启用此扩展的铸币账户将以机密方式发行和销毁供应量，这将禁用公开的存款和提款路径。在此类铸币账户上，代币无法在公开余额与机密余额之间流转，因此请勿为其提供存款或提款功能。
+
+有关两者的协议级详细信息，请参阅
+[保密余额文档](https://www.solana-program.com/docs/confidential-balances)。
+
+## 解析保密转账交易
+
+区块链浏览器和索引器需要识别并标记保密转账活动，但无法读取转账金额。`@solana-program/token-2022`
+客户端提供 `identifyToken2022Instruction`
+来对每条 Token-2022 指令进行分类，并提供各指令对应的解析器（例如
+`parseConfidentialTransferInstruction`）以解码账户和非机密字段。加密金额保持密文形式：应将其显示为"保密"，而非将字节渲染为数字。
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+索引限制注意事项：
+
+- **保密转账无金额信息。** `ConfidentialTransfer`
+  携带的是加密金额，因此无法从中计算交易量、资金流向和转账规模等分析数据。应将这些转账标记为"保密"，而非记录零值或原始密文。
+- **无余额变化差值。**
+  保密转账不会改变公开代币余额，因此驱动大多数转账索引的转账前后余额差值方法无法捕获此类转账。待处理余额和可用余额均为密文。
+- **存入和提取为明文。** `ConfidentialDeposit` 和 `ConfidentialWithdraw`
+  携带明文金额，因此仍可对进出保密池的资金流向进行索引，但池内转账则无法索引。
+- **一笔转账目前可能跨越多个交易。**
+  证明上下文状态账户会在转账前后被创建、使用和关闭，因此应将相关交易关联分析，而非孤立处理。一旦单交易保密转账功能上线（见上文），此问题将得到解决。
+- **审计员铸币可解密。**
+  若某铸币账户配置了全局审计员，且您持有审计员密钥，则可解密该铸币的转账金额（见下文）。
+
+## 审计员与合规
+
+铸币账户可配置一个**全局审计员** ElGamal
+pubkey。设置后，每笔机密转账必须包含以审计员密钥加密的金额，以便持有审计员私钥的一方能够解密该铸币账户下所有转账金额。有效性证明涵盖审计员密文，因此作为集成方，您在发送路径上无需做任何特殊处理，只需从铸币账户配置中传入审计员密钥即可（高级封装函数会自动读取）。
+
+如果您的产品充当审计员角色（例如受监管的发行方或合规服务提供商），您可以使用审计员私钥解密转账金额，方式与账户所有者解密自身余额相同。账户所有者也可以选择性地将各自的账户密钥分享给特定方，而无需公开披露。
+
+### 交易监控（KYT）
+
+对于了解交易（KYT）和反洗钱（AML）服务提供商而言，机密转账改变的是链上可观察的内容，而非整体监控模型：
+
+- **地址与图谱分析不受影响。**
+  发送方、接收方、铸币账户及账户所有者均保持公开，因此地址筛查、制裁匹配和交易对手图谱分析与普通代币无异。
+- **基于金额的启发式分析需借助审计员密钥。**
+  结构性交易识别、阈值报告及基于交易量的风险评分无法自行读取机密转账金额。存入和提取金额仍以明文呈现，因此进出机密资金池的资金流规模依然可见。
+- **覆盖能力来源于审计员模型。**
+  对于配置了全局审计员的铸币账户，持有审计员密钥的服务提供商（或通过用户或发行方的选择性披露获得授权的一方）可恢复转账金额。受监管环境下的发行方应计划配置审计员或支持选择性披露，以确保监控合规可行。
+
+## 向后兼容性
+
+- 每个 token
+  account 始终拥有一个公开余额。不支持该扩展的钱包和应用程序仍可正常运行，并显示公开余额。
+- 只要目的地允许非机密入账，标准转账仍可对公开余额正常执行。
+- 机密余额对不支持该功能的工具不可见，但资金不会丢失：任何支持机密功能的客户端均可通过所有者密钥访问这些余额。
+- 由于金额已加密，依赖读取转账金额的供应量和交易量分析将无法获取机密活动数据。请在设计仪表板和账务系统时考虑到这一点。
+
+## 各平台推荐集成优先级
+
+### 通用要求
+
+| 要求           | 描述                                                                                                       | 优先级 |
+| :------------- | :--------------------------------------------------------------------------------------------------------- | :----- |
+| 检测扩展       | 识别铸币和账户上的机密转账扩展，并显式处理这些代币，而非假设其为纯公开模式。                               | **P0** |
+| 不丢失机密资金 | 即使不提供完整支持，也应提示用户存在机密余额，以免用户误认为账户为空。                                     | **P0** |
+| 健全的密钥管理 | 为 ElGamal 和 AES 密钥选择密钥策略。建议默认从所有者钱包派生；若需存储密钥，请像保护签名密钥一样妥善保管。 | **P0** |
+
+---
+
+### 钱包
+
+| 要求                     | 描述                                                                          | 优先级 |
+| :----------------------- | :---------------------------------------------------------------------------- | :----- |
+| 显示公开余额             | 始终通过标准代币余额读取方式显示公开余额。                                    | **P0** |
+| 解锁并显示可用余额       | 允许用户通过签名解锁密钥，并显示解密后的可用余额（通过 AES 可解密余额获取）。 | **P0** |
+| 显示待处理余额与可用余额 | 单独显示待处理余额，并在收到资金时提示用户进行应用操作。                      | **P1** |
+| 自动应用待处理余额       | 在合适时机（例如发送前）自动应用待处理余额，避免资金滞留。                    | **P1** |
+| 支持机密发送             | 支持存入、转账和提取流程，并在客户端生成零知识证明。                          | **P1** |
+| 锁定状态用户体验         | 当密钥未解锁时，明确提示存在机密余额，而非显示零。                            | **P1** |
+| 新手引导与教育           | 帮助用户了解哪些信息保持私密（金额和余额）以及密钥解锁步骤。                  | **P2** |
+
+---
+
+### 浏览器与索引器
+
+| 要求                   | 描述                                                             | 优先级 |
+| :--------------------- | :--------------------------------------------------------------- | :----- |
+| 标记机密账户和铸币     | 清晰标注使用该扩展的账户和铸币，并显示公开余额。                 | **P0** |
+| 解析机密指令           | 解码配置、存款、应用、转账和提款指令，并显示其类型（而非金额）。 | **P0** |
+| 不将加密金额显示为数字 | 切勿将密文字段渲染为明文余额；应将其显示为机密内容。             | **P0** |
+| 索引公开存款/提款流    | 记录存款和提款时的明文金额，以追踪机密资金池的资金进出。         | **P1** |
+| 关联多交易转账         | 将构成一次机密转账的证明设置、转账和清理交易归为一组。           | **P1** |
+| 显示审计员配置         | 展示铸币是否配置了全局审计员。                                   | **P1** |
+| 证明账户生命周期       | 识别证明上下文状态账户的创建与关闭，使交易记录清晰易读。         | **P2** |
+
+---
+
+### 交易所与托管机构
+
+| 要求                   | 描述                                                                                                    | 优先级 |
+| :--------------------- | :------------------------------------------------------------------------------------------------------ | :----- |
+| 跟踪公开与机密状态     | 在确认存款和计算持仓时，同时核算公开余额和机密余额。                                                    | **P0** |
+| 存款时应用待处理余额   | 当机密存款到账时，应用待处理余额以确保入账金额准确。                                                    | **P0** |
+| 安全密钥管理           | 若以托管方式持有机密资金，应以与签名密钥相同的严格标准管理 ElGamal/AES 密钥。                           | **P0** |
+| 通过注册表进行账户开通 | 为用户设置机密账户时，让用户一次性注册 ElGamal 密钥，并通过注册表路径进行开通，而无需每个账户单独签名。 | **P1** |
+| 向用户提款             | 根据目标账户配置，支持机密或公开提款方式。                                                              | **P1** |
+| 合规/审计员支持        | 在有要求的情况下，使用审计员密钥或选择性披露来履行报告义务。                                            | **P1** |
+| 对原始金额进行内部核算 | 在边界处核对解密后的金额并予以存储；不得尝试聚合密文。                                                  | **P1** |
+
+---
+
+### 合规与 KYT 提供商
+
+| 要求               | 描述                                                                           | 优先级 |
+| :----------------- | :----------------------------------------------------------------------------- | :----- |
+| 地址与图谱筛查     | 筛查发送方、接收方、铸造方和所有者，并进行交易对手图谱分析；这些信息保持公开。 | **P0** |
+| 追踪公开存取款     | 监控明文存款和取款金额，作为机密池可观察的资金进出节点。                       | **P0** |
+| 审计密钥金额可见性 | 对于启用审计方的铸造操作，使用审计密钥解密转账金额，以支持基于金额的检测。     | **P1** |
+| 选择性披露接入     | 支持用户或发行方通过每账户密钥共享的金额披露信息。                             | **P2** |

@@ -10,6 +10,7 @@ import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
+import { NextProvider } from "fumadocs-core/framework/next";
 import {
   Header,
   Footer,
@@ -43,17 +44,19 @@ export default async function RootLayout({ children, params }: Props) {
         </noscript>
         {/* End Google Tag Manager (noscript) */}
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <PostHogProvider>
-            <ThemeProvider>
-              <GTMTrackingSnippet />
-              <SitewideTopAlert />
-              <CookieConsent />
-              <Header />
-              {children}
-              <Footer />
-              <PersistentPodcastPlayer />
-            </ThemeProvider>
-          </PostHogProvider>
+          <NextProvider>
+            <PostHogProvider>
+              <ThemeProvider>
+                <GTMTrackingSnippet />
+                <SitewideTopAlert />
+                <CookieConsent />
+                <Header />
+                {children}
+                <Footer />
+                <PersistentPodcastPlayer />
+              </ThemeProvider>
+            </PostHogProvider>
+          </NextProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   COOKIE_CONSENT_EVENT,
+  getBrowserStorage,
   readCookieConsent,
   type CookieConsentValue,
 } from "@solana-com/ui-chrome";
@@ -51,22 +52,19 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       setIsEnabled(false);
     };
 
-    syncPostHogConsent(
+    const readConsent = () =>
       readCookieConsent({
-        storage: window.localStorage,
-      }),
-    );
+        storage: getBrowserStorage("localStorage"),
+      });
+
+    syncPostHogConsent(readConsent());
 
     const handleConsentChange = (
       event: Event | CustomEvent<{ value?: boolean }>,
     ) => {
       const consent = "detail" in event ? event.detail?.value : undefined;
       syncPostHogConsent(
-        typeof consent === "boolean"
-          ? consent
-          : readCookieConsent({
-              storage: window.localStorage,
-            }),
+        typeof consent === "boolean" ? consent : readConsent(),
       );
     };
 

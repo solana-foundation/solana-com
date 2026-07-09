@@ -40,5 +40,5 @@ export default function EventsSingleLocation({
     return location;
   }
 
-  return <>&nbsp;</>;
+  return <>Online</>;
 }

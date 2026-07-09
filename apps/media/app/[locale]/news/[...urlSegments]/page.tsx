@@ -260,5 +260,5 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
-  return newsPostMetadata(slug);
+  return newsPostMetadata(slug, resolvedParams.locale);
 }

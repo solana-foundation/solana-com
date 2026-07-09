@@ -1,0 +1,402 @@
+---
+title: دليل مُصدر التحويل السري
+description:
+  تعرّف على كيفية إصدار وتشغيل رمز مميز يستخدم امتداد التحويل السري، بما في ذلك
+  سياسة الموافقة، والمدققون، والرسوم، وسك الرموز وحرقها بشكل سري.
+---
+
+# إصدار رموز التحويل السري على سولانا
+
+هذا الدليل مخصص لـ **المُصدرين**: الفرق التي تنشئ وتُشغّل نقطة سك Token-2022
+تستخدم امتداد التحويل السري. يغطي القرارات التي تتخذها عند إنشاء نقطة السك
+والعمليات التي تُجريها طوال دورة حياتها. للاطلاع على تدفق جانب المالك (الإيداع،
+والتطبيق، والتحويل، والسحب) راجع الصفحات التفصيلية خطوة بخطوة، ولدعم هذه الرموز
+في منتجك راجع
+[دليل التكامل](/docs/tokens/extensions/confidential-transfer/integration-guide).
+
+تُبقي التحويلات السرية مبالغ التحويل وأرصدة الحسابات مشفرة مع إبقاء عناوين
+الحسابات ونقطة السك والملّاك علنية. تعتمد على برنامج ZK ElGamal Proof لتحقق من
+الإثباتات على السلسلة، لذا فإن نقطة السك قابلة للاستخدام على الشبكات التي يكون
+فيها هذا البرنامج مُفعَّلاً.
+
+## القرارات التي تتخذها عند الإنشاء
+
+يجب تهيئة امتداد النقل السري قبل تهيئة mint ولا يمكن إضافته لاحقاً. عند الإنشاء
+تحدد:
+
+- **سياسة الموافقة**: ما إذا كانت الحسابات يمكنها الاشتراك في النقل السري دون
+  إذن مسبق (`auto`) أو يجب أن تحصل على موافقة من سلطة النقل السري لـ mint
+  (`manual`).
+- **المدقق**: ما إذا كان سيتم تعيين مفتاح عام ElGamal لمدقق عالمي بحيث يمكن لجهة
+  محددة فك تشفير كل مبالغ النقل لـ mint. اختياري ويمكن تغييره لاحقاً.
+- **امتدادات مصاحبة اختيارية**: رسوم النقل السري (مقترنة مع امتداد رسوم النقل)
+  وسك/حرق سري، كلاهما مُغطّى أدناه. يجب أيضاً تهيئة هذه الامتدادات عند الإنشاء.
+
+## إنشاء mint سري
+
+تُعيِّن واجهة CLI سياسة الموافقة باستخدام `--enable-confidential-transfers auto`
+أو `manual`؛ إذ يتيح `auto` لأي حامل إعداد حسابه الخاص، بينما يضع `manual` ذلك
+خلف موافقة سلطة النقل السري (التي تكون افتراضياً سلطة mint). تأخذ مسارات العميل
+الإعدادات ذاتها من خلال معاملات `ConfidentialTransferMint`: سلطة، وعلامة
+الموافقة التلقائية، ومفتاح مدقق اختياري. يمكن تغيير كلٍّ من سياسة الموافقة
+والمدقق لاحقاً (انظر [تهيئة مدقق](#configure-an-auditor))؛ ما يبقى ثابتاً عند
+الإنشاء هو وجود الامتداد نفسه فقط.
+
+<CodeTabs>
+
+```terminal !! title="create-confidential-mint.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --enable-confidential-transfers auto
+```
+
+```rust !! title="create-confidential-mint.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+let extensions = vec![ExtensionInitializationParams::ConfidentialTransferMint {
+    authority: Some(authority.pubkey().into()),
+    auto_approve_new_accounts: true, // false for a manual approve policy
+    auditor_elgamal_pubkey: None,    // Some(pubkey) to set a global auditor
+}];
+
+token
+    .create_mint(&mint_authority, freeze_authority.as_ref(), extensions, &[&mint_keypair])
+    .await?;
+```
+
+```ts !! title="create-confidential-mint.ts"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getMintSize,
+  getInitializeConfidentialTransferMintInstruction,
+  getInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Size the mint account to include the confidential transfer extension.
+const space = BigInt(
+  getMintSize([
+    extension("ConfidentialTransferMint", {
+      authority: authority.address,
+      autoApproveNewAccounts: true, // false for a manual approve policy
+      auditorElgamalPubkey: null // an ElGamal pubkey Address to set an auditor
+    })
+  ])
+);
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Create the account, initialize the extension, then initialize the mint, in one
+// transaction. The extension instruction must come before InitializeMint.
+const instructions = [
+  getCreateAccountInstruction({
+    payer,
+    newAccount: mint, // mint keypair signer
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  }),
+  getInitializeConfidentialTransferMintInstruction({
+    mint: mint.address,
+    authority: authority.address,
+    autoApproveNewAccounts: true,
+    auditorElgamalPubkey: null
+  }),
+  getInitializeMintInstruction({
+    mint: mint.address,
+    decimals,
+    mintAuthority: mintAuthority.address,
+    freezeAuthority: null
+  })
+];
+// Sign with the payer and mint keypair, then send.
+```
+
+</CodeTabs>
+
+## تهيئة مدقق
+
+المدقق العالمي هو مفتاح عام ElGamal مخزَّن على mint. عند تعيينه، يقوم كل نقل سري
+بتشفير مبلغه أيضاً باستخدام هذا المفتاح، بحيث يستطيع من يمتلك المفتاح السري
+المقابل فك تشفير جميع مبالغ النقل الخاصة بـ mint. وهكذا تظل النقلات السرية
+متوافقة مع متطلبات التدقيق والامتثال: الجمهور لا يرى شيئاً، والمدقق يرى كل شيء.
+
+يمكن لسلطة النقل السري تعيين المدقق أو تدويره أو إزالته في أي وقت. تُحدِّث
+العملية ذاتها أيضًا سياسة الموافقة. في واجهة سطر الأوامر (CLI)، يكون مفتاح
+المدقق ترميزًا بتنسيق base64 لمفتاح عام ElGamal؛ مرِّر `--auditor-pubkey none`
+لإزالته و `--approve-policy auto|manual` لتغيير السياسة.
+
+لا يؤثر التدوير إلا على عمليات النقل المستقبلية. تبقى المبالغ الموجودة في
+المعاملات المسجَّلة بالفعل على السلسلة mمشفَّرة وفق مفتاح المدقق الذي كان نشطًا
+عند تنفيذها، لذا احتفظ بمفاتيح المدقق القديمة إذا كنت بحاجة إلى فك تشفير النشاط
+التاريخي.
+
+<CodeTabs>
+
+```terminal !! title="update-confidential-settings.sh"
+$ spl-token update-confidential-transfer-settings <MINT_PUBKEY> --auditor-pubkey <AUDITOR_ELGAMAL_PUBKEY>
+```
+
+```rust !! title="update-confidential-settings.rs"
+token
+    .confidential_transfer_update_mint(
+        &authority,
+        true,                         // auto_approve_new_account
+        Some(auditor_elgamal_pubkey), // None to clear the auditor
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="update-confidential-settings.ts"
+import { getUpdateConfidentialTransferMintInstruction } from "@solana-program/token-2022";
+
+const ix = getUpdateConfidentialTransferMintInstruction({
+  mint,
+  authority, // confidential transfer authority (signer)
+  autoApproveNewAccounts: true,
+  auditorElgamalPubkey // an ElGamal pubkey Address, or null to clear
+});
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  يمكن للمفتاح السري للمدقق فك تشفير كل مبلغ نقل خاص بالـ mint. احتفظ به بنفس
+  الصرامة التي تتعامل بها مع مفتاح التوقيع، وضع خطة للتدوير. يؤدي تعيين المدقق
+  على `None` إلى تعطيل رؤية المبالغ للجميع باستثناء أصحاب الحسابات أنفسهم.
+</Callout>
+
+## الموافقة على الحسابات (السياسة اليدوية)
+
+مع سياسة الموافقة اليدوية، لا يمكن للحساب المُهيَّأ لعمليات النقل السري إجراء
+معاملات سرية حتى تُوافق عليه سلطة النقل السري. يمنح هذا الجهات المُصدِرة بوابة
+تحكم للمشاركين المُدرَجين في قائمة السماح أو الخاضعين لإجراءات التحقق من الهوية
+(KYC). لا تعرض واجهة سطر الأوامر (CLI) أمر الموافقة، لذا تتم الموافقة عبر
+العميل.
+
+<CodeTabs>
+
+```rust !! title="approve-account.rs"
+token
+    .confidential_transfer_approve_account(
+        &token_account,
+        &authority,
+        &[&authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="approve-account.ts"
+import { getApproveConfidentialTransferAccountInstruction } from "@solana-program/token-2022";
+
+const ix = getApproveConfidentialTransferAccountInstruction({
+  token, // the token account to approve
+  mint,
+  authority // confidential transfer authority (signer)
+});
+```
+
+</CodeTabs>
+
+## رسوم النقل السري
+
+إذا كان الـ mint الخاص بك يفرض [رسوم نقل](/docs/tokens/extensions/transfer-fees)
+وكانت عمليات النقل سرية، فيجب أيضًا حجب الرسوم بصورة سرية. تتولى امتداد
+`ConfidentialTransferFeeConfig` هذه المهمة، ويتم تهيئته عند إنشاء الـ mint جنبًا
+إلى جنب مع امتدادَي رسوم النقل والنقل السري.
+
+تتراكم الرسوم المحجوبة مُشفَّرةً على حسابات المستلمين، ثم تُجمَع إلى الـ mint،
+وتُسحَب بعد ذلك بواسطة سلطة سحب المحجوب. تبقى جميع مبالغ الرسوم مُشفَّرة طوال
+العملية. لا شيء من هذا متاح عبر واجهة سطر الأوامر (CLI). يستطيع المفتاح السري
+ElGamal الخاص بسلطة سحب المحجوب فك تشفير مبالغ الرسوم المحجوبة، مما قد
+يكشف—مجتمعًا مع معاملات الرسوم العامة—معلومات عن مبالغ النقل، لذا تعامل مع هذا
+المفتاح باعتباره بيانات حساسة.
+
+### تهيئة إعداد الرسوم
+
+أدرج هذا جنبًا إلى جنب مع `ConfidentialTransferMint` وإعداد رسوم التحويل في
+إنشاء نفس العملة.
+
+<CodeTabs>
+
+```rust !! title="init-confidential-fee.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+ExtensionInitializationParams::ConfidentialTransferFeeConfig {
+    authority: Some(authority.pubkey().into()),
+    withdraw_withheld_authority_elgamal_pubkey: withdraw_withheld_elgamal_pubkey,
+};
+```
+
+```ts !! title="init-confidential-fee.ts"
+import { getInitializeConfidentialTransferFeeInstruction } from "@solana-program/token-2022";
+
+const ix = getInitializeConfidentialTransferFeeInstruction({
+  mint,
+  authority, // authority allowed to change the withdraw withheld ElGamal key
+  withdrawWithheldAuthorityElGamalPubkey // ElGamal pubkey Address
+});
+```
+
+</CodeTabs>
+
+### جمع الرسوم المحتجزة وسحبها
+
+تقوم عملية الجمع بنقل الرسوم المحتجزة المشفرة من الحسابات إلى العملة؛ بينما تقوم
+عملية السحب بنقلها من العملة إلى حساب مختار. يتدخل في ذلك سلطتان، وقد تختلف كل
+منهما عن سلطة إصدار العملة:
+
+- تُمكّن **سلطة رسوم التحويل السرية** (`authority` المُعيَّنة على
+  `ConfidentialTransferFeeConfig`) عملية الجمع أو تُعطّلها.
+- تسحب **سلطة سحب الرسوم المحتجزة** (من `TransferFeeConfig` الخاصة بامتداد رسوم
+  التحويل) الرسوم المجمّعة خارج العملة.
+
+تستلزم عمليات السحب دليل تساوٍ ودليل نطاق، يُقدَّمان مضمّنَين أو يُتحقق منهما في
+حسابات حالة السياق.
+
+<CodeTabs>
+
+```rust !! title="harvest-withdraw-fees.rs"
+// Permissionless: move withheld fees from accounts into the mint.
+token
+    .confidential_transfer_harvest_withheld_tokens_to_mint(&[&source_account])
+    .await?;
+
+// Withdraw withheld fees from the mint (requires the withdraw withheld authority).
+token
+    .confidential_transfer_withdraw_withheld_tokens_from_mint(
+        &destination_account,
+        &withdraw_withheld_authority,
+        None, // proof context state account, supplied inline if None
+        None, // withheld tokens info, fetched if None
+        &withdraw_withheld_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        &new_decryptable_available_balance,
+        &[&withdraw_withheld_authority_keypair],
+    )
+    .await?;
+```
+
+```ts !! title="harvest-withdraw-fees.ts"
+import {
+  getEnableHarvestToMintInstruction,
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction
+} from "@solana-program/token-2022";
+
+// Allow accounts to harvest their withheld fees to the mint, signed by the
+// confidential transfer fee authority.
+const enableIx = getEnableHarvestToMintInstruction({ mint, authority });
+
+// Permissionless: move withheld fees from accounts into the mint.
+const harvestIx =
+  getHarvestWithheldTokensToMintForConfidentialTransferFeeInstruction({
+    mint,
+    sources: [sourceAccount]
+  });
+```
+
+</CodeTabs>
+
+في عميل JS، يستلزم سحب الرسوم المجمّعة من العملة
+(`getWithdrawWithheldTokensFromMintForConfidentialTransferFeeInstruction`) أيضًا
+دليل تساوٍ ودليل نطاق يُتحقق منهما في حسابات حالة السياق، لذا يتبع نفس نمط حساب
+الإثبات كما في التحويل السري.
+
+## الإصدار والحرق السري
+
+يتيح امتداد `ConfidentialMintBurn` لسلطة الإصدار طرح العرض وحرقه مباشرةً مقابل
+الأرصدة السرية، مما يُبقي إجمالي العرض مشفرًا. تُعطّل العملة التي تستخدم هذا
+الامتداد مسار الإيداع والسحب العام، إذ لا توجد الرموز المميزة إلا بصورة سرية.
+راجع
+[توثيق البروتوكول](https://www.solana-program.com/docs/confidential-balances)
+للاطلاع على النموذج الكامل.
+
+<Callout type="info">
+  الإصدار/الحرق السري أيسر تنفيذًا عبر `spl-token-client` في Rust، الذي يُنشئ
+  الأدلة المطلوبة ويُرتّب المعاملات نيابةً عنك. يُضمّن عميل
+  `@solana-program/token-2022` في JS منشئات تعليمات المستوى المنخفض
+  (`getConfidentialMintInstruction`، و`getConfidentialBurnInstruction`، وما
+  شابهها) دون أي مساعد رفيع المستوى لبناء الأدلة، ولا تتوفر أوامر CLI، لذا فإن
+  الأمثلة أدناه مخصصة لـ Rust فقط.
+</Callout>
+
+قم بتهيئة الامتداد عند إنشاء العملة، ثم قم بسك العملات وحرقها وتسوية المعروض
+بمرور الوقت. يُصدر السك مبلغاً مشفراً في الرصيد السري للمستلم؛ أما الحرق فيزيل
+مبلغاً مشفراً في عملية حرق معلقة يتم دمجها لاحقاً في المعروض. يولّد كلاهما
+إثباتات مشابهة للتحويل السري.
+
+<CodeTabs>
+
+```rust !! title="confidential-mint-burn.rs"
+use spl_token_client::token::ExtensionInitializationParams;
+
+// 1. Initialize at creation (alongside ConfidentialTransferMint).
+ExtensionInitializationParams::ConfidentialMintBurn {
+    supply_elgamal_pubkey, // encrypts the confidential supply
+    decryptable_supply,    // AES ciphertext of the initial supply (zero)
+};
+
+// 2. Mint an encrypted amount into a recipient's confidential balance.
+token
+    .confidential_transfer_mint(
+        &mint_authority,
+        &destination_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        mint_amount,
+        &supply_elgamal_keypair,
+        &destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &supply_aes_key,
+        None, // supply account info, fetched if None
+        &[&mint_authority_keypair],
+    )
+    .await?;
+
+// 3. Burn an encrypted amount from a holder's confidential balance into the
+//    mint's pending burn. Generates proofs like a confidential transfer.
+token
+    .confidential_transfer_burn(
+        &owner,
+        &source_account,
+        None, // equality proof account
+        None, // ciphertext validity proof account
+        None, // range proof account
+        burn_amount,
+        &source_elgamal_keypair,
+        &supply_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option
+        &source_aes_key,
+        None, // burn account info, fetched if None
+        &[&owner_keypair],
+    )
+    .await?;
+
+// 4. Fold the accumulated pending burn into the confidential supply.
+token
+    .confidential_transfer_apply_pending_burn(&mint_authority, &[&mint_authority_keypair])
+    .await?;
+```
+
+</CodeTabs>
+
+قم بتدوير مفتاح تشفير المعروض باستخدام
+`confidential_transfer_rotate_supply_elgamal_pubkey` (يجب أن يكون الحرق المعلق
+صفراً أولاً)، وقم بتحديث نص التشفير المقروء للمعروض باستخدام
+`confidential_transfer_update_decrypt_supply`.
+
+## اعتبارات التشغيل والامتثال
+
+- **حضانة مفتاح المدقق.** إذا قمت بتعيين مدقق، فإن المفتاح السري للمدقق يُعدّ
+  مفتاح فك تشفير عالي القيمة. قم بتخزينه وتدويره بعناية، وحدد من داخل مؤسستك (أو
+  أي جهة تنظيمية) من يحتفظ به.
+- **موقف الامتثال.** يظل فحص العناوين وتحليل شبكة الأطراف المقابلة فعّالَين لأن
+  العناوين تبقى عامة. يعتمد الرصد القائم على المبالغ على مفتاح المدقق أو على
+  الإفصاح الانتقائي من أصحاب الحسابات. حدد نهجك قبل الإطلاق.
+- **تأهيل المستخدمين.** يتطلب تكوين حساب سري توقيع المالك. لتوفير الحسابات
+  للمستخدمين بسلاسة، اطلب منهم تسجيل مفتاح ElGamal مرة واحدة واستخدام مسار
+  السجل، الموضح في
+  [دليل التكامل](/docs/tokens/extensions/confidential-transfer/integration-guide#creating-and-configuring-accounts).
+- **عدد المعاملات.** يمتد التحويل السري حالياً عبر بضع معاملات مترابطة نظراً لأن
+  الإثباتات تتجاوز حد حجم المعاملة الحالي. يرفع صيغة المعاملة v1 (القادمة مع
+  Agave v4.2) ذلك الحد ومن المتوقع أن تتيح معاملة واحدة على السلسلة.

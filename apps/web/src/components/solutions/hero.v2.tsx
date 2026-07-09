@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/app/components/utils";
-import UnicornScene from "unicornstudio-react";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 export type SolutionHeroStat = {
@@ -33,6 +33,7 @@ export type SolutionHeroProps = {
   stats?: SolutionHeroStat[];
   reportImgSrc?: string;
   bgJsonFilePath?: string;
+  bgTintColor?: string;
   showDownloadCard?: boolean;
 };
 
@@ -52,6 +53,7 @@ export type SolutionHeroProps = {
  * @param {SolutionHeroStat[]} props.stats - The stats to display in the hero section.
  * @param {string} props.reportImgSrc - The source of the report image.
  * @param {string} props.bgJsonFilePath - The path to the background JSON file.
+ * @param {string} props.bgTintColor - Optional color tint layered over the background scene.
  *
  * @example
  * <SolutionHero
@@ -72,6 +74,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   stats,
   reportImgSrc,
   bgJsonFilePath,
+  bgTintColor,
   showDownloadCard = true,
 }) => {
   const statsCount = stats?.length ?? 0;
@@ -107,17 +110,26 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       aria-labelledby="hero-title"
     >
       {bgJsonFilePath && (
-        <UnicornScene
+        <SafeUnicornScene
           className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
           scale={1}
-          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
           fps={30}
           lazyLoad={true}
           production={true}
           onError={(error) => console.error("UnicornScene error:", error)}
+        />
+      )}
+      {bgTintColor && (
+        <div
+          aria-hidden={true}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            backgroundColor: bgTintColor,
+            mixBlendMode: "color",
+          }}
         />
       )}
       <div

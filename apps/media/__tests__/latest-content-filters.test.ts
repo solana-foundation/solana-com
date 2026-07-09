@@ -72,7 +72,11 @@ vi.mock("@/lib/content-renderer", () => ({
 }));
 
 import { fetchLatestLinks } from "@/lib/keystatic/link-data";
-import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/keystatic/post-data";
+import {
+  fetchFeaturedPost,
+  fetchFeaturedPosts,
+  fetchLatestPosts,
+} from "@/lib/keystatic/post-data";
 import { fetchLatestReports } from "@/lib/keystatic/report-data";
 import * as keystaticPostData from "@/lib/keystatic/post-data";
 import { GET as getLatestLinks } from "@/app/api/links/latest/route";
@@ -304,6 +308,52 @@ describe("latest content filters", () => {
       expect(result.posts[0]?.publishedAt).toBe("2026-03-10T00:00:00.000Z");
     });
 
+    it("excludes posts by tag from latest post results", async () => {
+      const posts = {
+        "featured-post": {
+          status: "published",
+          title: "Featured Post",
+          description: "featured post",
+          publishedAt: "2026-03-12T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "featured" }],
+        },
+        "newer-regular-post": {
+          status: "published",
+          title: "Newer Regular Post",
+          description: "newer regular post",
+          publishedAt: "2026-03-11T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+        "older-regular-post": {
+          status: "published",
+          title: "Older Regular Post",
+          description: "older regular post",
+          publishedAt: "2026-03-10T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "nft" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
+      );
+
+      const result = await fetchLatestPosts({
+        excludeTag: "featured",
+      });
+
+      expect(result.posts.map((item) => item.id)).toEqual([
+        "newer-regular-post",
+        "older-regular-post",
+      ]);
+    });
+
     it("matches mixed category and tag reference formats by slug", async () => {
       const posts = {
         "slug-match-post": {
@@ -433,6 +483,63 @@ describe("latest content filters", () => {
       expect(result.post?.id).toBe("live-featured-post");
     });
 
+    it("returns featured posts newest first", async () => {
+      const posts = {
+        "older-featured-post": {
+          status: "published",
+          title: "Older Featured Post",
+          description: "older featured post",
+          publishedAt: "2026-03-10T00:00:00.000Z",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
+        "regular-post": {
+          status: "published",
+          title: "Regular Post",
+          description: "regular post",
+          publishedAt: "2026-03-12T00:00:00.000Z",
+          author: "solana-foundation",
+          tags: [{ tag: "defi" }],
+        },
+        "newer-featured-post": {
+          status: "published",
+          title: "Newer Featured Post",
+          description: "newer featured post",
+          publishedAt: "2026-03-11T00:00:00.000Z",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
+        "middle-featured-post": {
+          status: "published",
+          title: "Middle Featured Post",
+          description: "middle featured post",
+          publishedAt: "2026-03-10T12:00:00.000Z",
+          author: "solana-foundation",
+          tags: [{ tag: "featured" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
+      );
+
+      const result = await fetchFeaturedPosts();
+
+      expect(result.posts.map((item) => item.id)).toEqual([
+        "newer-featured-post",
+        "middle-featured-post",
+        "older-featured-post",
+      ]);
+
+      const limitedResult = await fetchFeaturedPosts({ limit: 2 });
+
+      expect(limitedResult.posts.map((item) => item.id)).toEqual([
+        "newer-featured-post",
+        "middle-featured-post",
+      ]);
+    });
+
     it("dedupes duplicate tag and category names in transformed posts", async () => {
       readerMock.collections.categories.read.mockImplementation(
         (slug: string) =>
@@ -560,7 +667,7 @@ describe("latest content filters", () => {
       ]);
     });
 
-    it("includes tag in the posts cache key and forwards it to the data layer", async () => {
+    it("includes tag exclusions in the posts cache key and forwards them to the data layer", async () => {
       const fetchLatestPostsSpy = vi
         .spyOn(keystaticPostData, "fetchLatestPosts")
         .mockResolvedValue({
@@ -588,12 +695,12 @@ describe("latest content filters", () => {
         });
 
       const response = (await getLatestPosts({
-        url: "https://example.com/api/posts/latest?limit=2&cursor=post-0&category=ecosystem&tag=defi",
+        url: "https://example.com/api/posts/latest?limit=2&cursor=post-0&category=ecosystem&tag=defi&excludeTag=featured",
       } as any)) as any;
 
       expect(unstableCacheMock).toHaveBeenCalledWith(
         expect.any(Function),
-        ["posts-2-post-0-ecosystem-defi"],
+        ["posts-2-post-0-ecosystem-defi-featured"],
         expect.objectContaining({
           tags: ["posts"],
         }),
@@ -603,6 +710,7 @@ describe("latest content filters", () => {
         cursor: "post-0",
         category: "ecosystem",
         tag: "defi",
+        excludeTag: "featured",
       });
       expect(extractPlainTextMock).toHaveBeenCalledWith("rich text");
       expect(response.body).toEqual({
