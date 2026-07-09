@@ -2,10 +2,7 @@
 
 import { Hero } from "@/components/index/hero";
 import { CampaignId } from "@/components/index/campaigns/config";
-import {
-  Epoch1000Hero,
-  Epoch1000HeroTranslations,
-} from "@/components/index/campaigns/epoch1000/Epoch1000Hero";
+import { Epoch1000Hero } from "@/components/index/campaigns/epoch1000/Epoch1000Hero";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
 import {
@@ -54,7 +51,6 @@ interface HomePageProps {
     heroBannerDescription: string;
     heroBannerLabel: string;
     heroCta: string;
-    epochHero: Epoch1000HeroTranslations;
     getStartedTitle: string;
     getStartedTabInstitution: string;
     getStartedTabUser: string;
@@ -149,7 +145,7 @@ export function HomePage({
           below is swapped out wholesale — everything else stays untouched.
           Windows live in campaigns/config.ts. */}
       {activeCampaign === "epoch1000" ? (
-        <Epoch1000Hero translations={translations.epochHero} />
+        <Epoch1000Hero />
       ) : (
         <Hero
           title={translations.heroTitle}

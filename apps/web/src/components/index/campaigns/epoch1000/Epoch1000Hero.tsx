@@ -2,28 +2,13 @@
 
 import React, { useMemo } from "react";
 import { ArrowRightIcon } from "lucide-react";
-import { useLocale } from "@workspace/i18n/client";
+import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
 import { Container } from "@/component-library/container";
 import Odometer from "@/components/epoch1000/Odometer";
 import { useEpochData } from "@/components/epoch1000/useEpochData";
 import "./epoch-hero.css";
-
-export type Epoch1000HeroTranslations = {
-  eyebrow: string;
-  title: React.ReactNode;
-  subtitle: string;
-  cta: string;
-  secondaryCta: string;
-  statEpoch: string;
-  statSlots: string;
-  statProgress: string;
-  statEta: string;
-  slotLabel: string;
-  liveLabel: string;
-  offline: string;
-};
 
 const GRID_TOTAL = 1000;
 const GRID_COLS = 50;
@@ -104,16 +89,30 @@ function BlockStream({ absoluteSlot }: { absoluteSlot: number }) {
   );
 }
 
-export const Epoch1000Hero: React.FC<{
-  translations: Epoch1000HeroTranslations;
-}> = ({ translations: t }) => {
+export const Epoch1000Hero: React.FC = () => {
   const locale = useLocale();
+  const t = useTranslations("index.epochHero");
   const { live } = useEpochData();
   // Freeze a sensible epoch for the backdrop before live data lands
   const gridEpoch = live?.epoch ?? 999;
   const progress = live?.progress ?? 0;
+  const ctaLabel = t("cta");
+  const statEpochLabel = t("statEpoch");
+  const statSlotsLabel = t("statSlots");
+  const statProgressLabel = t("statProgress");
+  const statEtaLabel = t("statEta");
+  const slotLabel = t("slotLabel");
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale),
+    [locale],
+  );
+  const percentFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 1,
+        style: "percent",
+      }),
     [locale],
   );
   const etaFormatter = useMemo(
@@ -148,7 +147,7 @@ export const Epoch1000Hero: React.FC<{
           className="eh-rise font-brand-mono text-xs md:text-sm uppercase tracking-[0.18em] md:tracking-[0.3em] text-nd-mid-em-text"
           style={{ animationDelay: "0ms" }}
         >
-          {t.eyebrow}
+          {t("eyebrow")}
         </p>
 
         <div
@@ -158,7 +157,9 @@ export const Epoch1000Hero: React.FC<{
           <Odometer
             value={live?.epoch ?? null}
             arrived={live?.arrived ?? false}
-            label={`${t.statEpoch}: ${live ? live.epoch : "—"}`}
+            label={`${statEpochLabel}: ${
+              live ? numberFormatter.format(live.epoch) : "—"
+            }`}
             className="ep-odo--hero"
           />
         </div>
@@ -168,13 +169,20 @@ export const Epoch1000Hero: React.FC<{
           id="hero-title"
           style={{ animationDelay: "200ms" }}
         >
-          {t.title}
+          {t.rich("title", {
+            light: (chunks) => (
+              <>
+                <br />
+                <span className="font-light">{chunks}</span>
+              </>
+            ),
+          })}
         </h1>
         <p
           className="eh-rise text-nd-mid-em-text font-medium mt-3 nd-body-xl max-w-[560px]"
           style={{ animationDelay: "300ms" }}
         >
-          {t.subtitle}
+          {t("subtitle")}
         </p>
 
         <div
@@ -186,8 +194,8 @@ export const Epoch1000Hero: React.FC<{
             size="lg"
             asChild
           >
-            <Link href="/epoch1000" aria-label={t.cta}>
-              {t.cta}
+            <Link href="/epoch1000" aria-label={ctaLabel}>
+              {ctaLabel}
               <span className="-mr-3 p-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center transition-transform duration-200 group-hover:translate-x-0.5">
                 <ArrowRightIcon
                   aria-hidden={true}
@@ -201,7 +209,7 @@ export const Epoch1000Hero: React.FC<{
             href="/epoch1000#checker"
             className="nd-body-m text-nd-mid-em-text hover:text-nd-high-em-text transition-colors duration-200 underline underline-offset-4 decoration-nd-border-prominent rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
           >
-            {t.secondaryCta}
+            {t("secondaryCta")}
           </Link>
         </div>
 
@@ -212,9 +220,9 @@ export const Epoch1000Hero: React.FC<{
         >
           <div className="rounded-xl bg-black/[0.3] px-4 py-2 md:px-6 md:py-4">
             <div className="flex items-baseline justify-between font-brand-mono text-[11px] md:text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
-              <span>{t.statProgress}</span>
+              <span>{statProgressLabel}</span>
               <span className="tabular-nums">
-                {live ? `${(progress * 100).toFixed(1)}%` : "—"}
+                {live ? percentFormatter.format(progress) : "—"}
               </span>
             </div>
             <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
@@ -233,24 +241,24 @@ export const Epoch1000Hero: React.FC<{
                   <span className="flex items-center gap-2 whitespace-nowrap">
                     <span className="eh-live-dot inline-block h-2 w-2 rounded-full bg-[#14f195]" />
                     <span className="uppercase tracking-[0.1em]">
-                      {t.liveLabel}
+                      {t("liveLabel")}
                     </span>
                     <span className="hidden sm:block">
                       <BlockStream absoluteSlot={live.absoluteSlot} />
                     </span>
                     <span>
-                      {t.slotLabel} {numberFormatter.format(live.absoluteSlot)}
+                      {slotLabel} {numberFormatter.format(live.absoluteSlot)}
                     </span>
                   </span>
                   <span className="flex flex-wrap justify-center gap-x-4 gap-y-1 uppercase tracking-[0.1em]">
                     <span className="whitespace-nowrap">
-                      {t.statSlots}{" "}
+                      {statSlotsLabel}{" "}
                       <span className="text-nd-high-em-text">
                         {numberFormatter.format(live.slotsRemaining)}
                       </span>
                     </span>
                     <span className="whitespace-nowrap">
-                      {t.statEta}{" "}
+                      {statEtaLabel}{" "}
                       <span className="text-nd-high-em-text">
                         {etaFormatter.format(live.eta)}
                       </span>
@@ -258,7 +266,7 @@ export const Epoch1000Hero: React.FC<{
                   </span>
                 </>
               ) : (
-                <span className="animate-pulse">{t.offline}</span>
+                <span className="animate-pulse">{t("offline")}</span>
               )}
             </div>
           </div>
