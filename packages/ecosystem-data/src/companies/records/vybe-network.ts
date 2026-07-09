@@ -11,10 +11,8 @@ export const vybeNetwork = {
   name: "Vybe Network",
   profile: {
     tagline: "Solana intelligence for builders and analysts.",
-    summary:
-      "Vybe Network provides Solana data, analytics, and API tooling for applications and market participants.",
-    description:
-      "Vybe Network is a Solana data and intelligence platform that provides APIs, analytics, and dashboards for developers, traders, and ecosystem teams. Its tools help users inspect Solana activity, markets, and assets through accessible data products.",
+    summary: "Don't trade on vibes. Trade on Vybe.",
+    description: "Don't trade on vibes. Trade on Vybe.",
     sector: "Developer Tools",
     type: "Platform",
     links: {

@@ -28,7 +28,7 @@ const DEFAULT_PAGE_INFO: PageInfo = {
 
 interface PostsClientPageProps {
   campaign?: NewsCampaign | null;
-  featuredPost: PostItem | null;
+  featuredPosts: PostItem[];
   latestPosts: PostItem[];
   initialPageInfo?: PageInfo;
   navItems: NewsNavItem[];
@@ -38,25 +38,14 @@ function isPost(post: PostItem | null): post is PostItem {
   return Boolean(post);
 }
 
-function getPostsWithoutFeatured(
-  latestPosts: PostItem[],
-  featuredPost: PostItem | null,
-): PostItem[] {
-  return featuredPost
-    ? latestPosts.filter((post) => post?.id !== featuredPost.id)
-    : latestPosts;
-}
-
 export default function PostsClientPage({
   campaign,
-  featuredPost,
+  featuredPosts,
   latestPosts,
   initialPageInfo,
   navItems,
 }: PostsClientPageProps) {
-  const [posts, setPosts] = useState<(PostItem | null)[]>(() =>
-    getPostsWithoutFeatured(latestPosts, featuredPost),
-  );
+  const [posts, setPosts] = useState<(PostItem | null)[]>(() => latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
     initialPageInfo ?? DEFAULT_PAGE_INFO,
@@ -71,7 +60,10 @@ export default function PostsClientPage({
 
     try {
       const cursor = currentCursor || pageInfo.endCursor;
-      const params = new URLSearchParams({ limit: "13" });
+      const params = new URLSearchParams({
+        limit: "13",
+        excludeTag: "featured",
+      });
       if (cursor) params.set("cursor", cursor);
 
       const res = await fetch(`/api/posts/latest?${params.toString()}`);
@@ -98,21 +90,20 @@ export default function PostsClientPage({
   }, [pageInfo.hasNextPage, pageInfo.endCursor, isLoadingMore, currentCursor]);
 
   useEffect(() => {
-    setPosts(getPostsWithoutFeatured(latestPosts || [], featuredPost));
+    setPosts(latestPosts || []);
 
     const lastPost = latestPosts[latestPosts.length - 1];
     if (lastPost?.cursor) {
       setCurrentCursor(lastPost.cursor);
+    } else {
+      setCurrentCursor(null);
     }
-  }, [latestPosts, featuredPost]);
+  }, [latestPosts]);
 
   const visiblePosts = useMemo(() => posts.filter(isPost), [posts]);
-  const lead = featuredPost ?? visiblePosts[0] ?? null;
-  // visiblePosts already excludes the featured post; only trim the first entry
-  // when it is standing in as the lead.
-  const pool = featuredPost ? visiblePosts : visiblePosts.slice(1);
-  const railStories = pool.slice(0, 4);
-  const latestStories = pool.slice(4);
+  const lead = featuredPosts[0] ?? null;
+  const railStories = featuredPosts.slice(1, 5);
+  const latestStories = visiblePosts;
   const leadCategory = lead?.categories?.find(Boolean);
 
   return (
