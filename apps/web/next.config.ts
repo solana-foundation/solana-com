@@ -79,6 +79,10 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   transpilePackages: ["gsap"],
   serverExternalPackages: ["@databricks/sql", "lz4"],
+  // The epoch1000 OG card reads font files from disk at request time
+  outputFileTracingIncludes: {
+    "/api/epoch1000/og": ["./assets/fonts/epoch1000/*.woff"],
+  },
 
   async rewrites() {
     const baseRewrites = rewritesAndRedirectsJson.rewrites as {

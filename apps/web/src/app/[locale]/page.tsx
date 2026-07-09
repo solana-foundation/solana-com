@@ -11,6 +11,7 @@ import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { PostItem } from "@/types/media";
 import { uniqBy } from "lodash";
 import { PROJECTS, LINKS, GET_STARTED_LINKS } from "@/data/index/data";
+import { getActiveCampaignId } from "@/components/index/campaigns/config";
 
 export const revalidate = 60;
 
@@ -78,6 +79,21 @@ export default async function Page(_props: Props) {
     heroBannerDescription: t("index.hero.bannerDescription"),
     heroBannerLabel: t("index.hero.bannerLabel"),
     heroCta: t("index.hero.cta"),
+
+    // Epoch 1000 campaign hero
+    epochHero: {
+      eyebrow: t("index.epochHero.eyebrow"),
+      title: t.rich("index.epochHero.title", lightFormatter),
+      subtitle: t("index.epochHero.subtitle"),
+      cta: t("index.epochHero.cta"),
+      secondaryCta: t("index.epochHero.secondaryCta"),
+      statEpoch: t("index.epochHero.statEpoch"),
+      statSlots: t("index.epochHero.statSlots"),
+      statProgress: t("index.epochHero.statProgress"),
+      statEta: t("index.epochHero.statEta"),
+      liveLabel: t("index.epochHero.liveLabel"),
+      offline: t("index.epochHero.offline"),
+    },
 
     // Get Started
     getStartedTitle: t("index.get-started.title"),
@@ -171,6 +187,7 @@ export default async function Page(_props: Props) {
       firstFeaturedEventIndex={firstFeaturedEventIndex}
       videos={videos}
       news={news}
+      activeCampaign={getActiveCampaignId()}
     />
   );
 }
