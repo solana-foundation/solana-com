@@ -1,8 +1,12 @@
 import Epoch1000Experience from "@/components/epoch1000/Epoch1000Experience";
+import type { Metadata } from "next";
 import { getAlternates, Link } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
 
 type Props = { params: Promise<{ locale: string }> };
+
+const EPOCH1000_PATH = "/epoch1000";
+const EPOCH1000_SOCIAL_IMAGE = "/api/epoch1000/og?s=1000&fe=0&c=1000";
 
 export default async function Page() {
   const t = await getTranslations("epoch1000.page");
@@ -33,20 +37,35 @@ export default async function Page() {
   );
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations("epoch1000.meta");
+  const title = t("title");
+  const description = t("description");
+  const alternates = getAlternates(EPOCH1000_PATH, locale);
 
   return {
-    title: t("title"),
-    description: t("description"),
-    alternates: getAlternates("/epoch1000", locale),
+    title,
+    description,
+    alternates,
     openGraph: {
       title: t("openGraphTitle"),
       description: t("openGraphDescription"),
+      type: "website",
+      url: alternates.canonical,
+      images: [
+        {
+          url: EPOCH1000_SOCIAL_IMAGE,
+          width: 1200,
+          height: 630,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
+      title,
+      description,
+      images: [EPOCH1000_SOCIAL_IMAGE],
     },
   };
 }
