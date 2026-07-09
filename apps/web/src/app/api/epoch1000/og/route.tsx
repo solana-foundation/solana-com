@@ -2,10 +2,17 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { tierFor } from "@/lib/epoch1000/tiers";
+import {
+  GH_CELL_BORDER,
+  GH_EMPTY,
+  GH_LEVELS,
+  githubGreen,
+} from "@/lib/epoch1000/github-colors";
 
 export const dynamic = "force-dynamic";
 
-const CELLS = 100; // 1 cell = 10 epochs of the first 1000
+const CELLS = 50; // 1 cell = 20 epochs of the first 1000
+const EPOCHS_PER_CELL = 1000 / CELLS;
 
 const SOLANA_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 397.7 311.7"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="360.879" y1="351.455" x2="141.213" y2="-69.294" gradientTransform="matrix(1 0 0 -1 0 314)"><stop offset="0" stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs><path fill="url(#g)" d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path fill="url(#g)" d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path fill="url(#g)" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>`;
 const SOLANA_MARK_URI = `data:image/svg+xml,${encodeURIComponent(SOLANA_MARK_SVG)}`;
@@ -45,8 +52,14 @@ export async function GET(req: Request) {
     font("ABCDiatypeSemi-Mono-Medium.woff"),
   ]);
 
-  const firstCell = Math.min(CELLS - 1, Math.floor(firstEpoch / 10));
-  const currentCell = Math.min(CELLS - 1, Math.floor(currentEpoch / 10));
+  const firstCell = Math.min(
+    CELLS - 1,
+    Math.floor(firstEpoch / EPOCHS_PER_CELL),
+  );
+  const currentCell = Math.min(
+    CELLS - 1,
+    Math.floor(currentEpoch / EPOCHS_PER_CELL),
+  );
 
   return new ImageResponse(
     <div
@@ -137,30 +150,26 @@ export async function GET(req: Request) {
         </div>
       </div>
 
-      {/* thousand grid */}
+      {/* thousand grid — github-contributions strip of square cells */}
       <div
         style={{
           display: "flex",
-          gap: 3,
+          gap: 4,
+          width: 1046,
           marginTop: 52,
         }}
       >
         {Array.from({ length: CELLS }, (_, i) => {
           const inSpan = i >= firstCell && i <= currentCell;
-          const before = i < firstCell;
           return (
             <div
               key={i}
               style={{
-                width: 7.7,
-                height: 44,
-                borderRadius: 2,
-                backgroundColor: inSpan
-                  ? tier.color
-                  : before
-                    ? "#262626"
-                    : "transparent",
-                border: inSpan ? "none" : "1px solid #262626",
+                width: 17,
+                height: 17,
+                borderRadius: 3,
+                backgroundColor: inSpan ? githubGreen(i) : GH_EMPTY,
+                border: `1px solid ${inSpan ? "transparent" : GH_CELL_BORDER}`,
               }}
             />
           );
@@ -170,13 +179,14 @@ export async function GET(req: Request) {
         style={{
           display: "flex",
           justifyContent: "space-between",
+          width: 1046,
           fontSize: 20,
           color: "#757575",
           marginTop: 12,
         }}
       >
         <span>EPOCH 0</span>
-        <span style={{ color: tier.color, fontWeight: 600 }}>
+        <span style={{ color: GH_LEVELS[3], fontWeight: 600 }}>
           {`${(survived / 10).toFixed(0)}% OF SOLANA'S FIRST 1000 EPOCHS`}
         </span>
         <span>EPOCH 1000</span>

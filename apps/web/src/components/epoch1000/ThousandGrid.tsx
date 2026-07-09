@@ -2,6 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { approxDateOfEpoch, epochOfDate, MOMENTS } from "./moments";
+import {
+  GH_EMPTY,
+  GH_LEVELS,
+  githubGreen,
+} from "@/lib/epoch1000/github-colors";
 
 const TOTAL = 1000;
 const COLS = 50;
@@ -15,10 +20,17 @@ function cellColor(
   i: number,
   currentEpoch: number,
   inSpan: boolean,
-  accent: string | undefined,
+  ghMode: boolean,
   isMoment: boolean,
 ): string {
-  if (inSpan && accent) return accent;
+  // A wallet check flips the grid into a GitHub contributions graph:
+  // active epochs in scattered greens, everything else the empty gray.
+  if (ghMode) {
+    if (inSpan) return githubGreen(i);
+    if (i > currentEpoch) return "rgba(255,255,255,0.05)";
+    if (isMoment) return "rgba(255,255,255,0.92)";
+    return GH_EMPTY;
+  }
   if (i > currentEpoch) return "rgba(255,255,255,0.05)";
   if (isMoment) return "rgba(255,255,255,0.92)";
   const age = currentEpoch - i;
@@ -76,13 +88,16 @@ export default function ThousandGrid({
     [],
   );
 
+  const ghMode = firstEpoch !== undefined;
+  // Legend, hint, and tip adopt GitHub's brightest green once a wallet paints the grid
+  const spanColor = ghMode ? GH_LEVELS[3] : accent;
+
   const cells = useMemo(
     () =>
       Array.from({ length: TOTAL }, (_, i) => {
         const isTip = i === currentEpoch;
         const inSpan =
           firstEpoch !== undefined &&
-          accent !== undefined &&
           i >= firstEpoch &&
           i <= Math.min(currentEpoch, TOTAL - 1);
         return (
@@ -91,19 +106,21 @@ export default function ThousandGrid({
             className={`aspect-square rounded-[1px] ${isTip ? "ep-cell-live" : ""}`}
             style={{
               backgroundColor: isTip
-                ? "#14f195"
+                ? ghMode
+                  ? GH_LEVELS[3]
+                  : "#14f195"
                 : cellColor(
                     i,
                     currentEpoch,
                     inSpan,
-                    accent,
+                    ghMode,
                     momentByEpoch.has(i),
                   ),
             }}
           />
         );
       }),
-    [currentEpoch, firstEpoch, accent, momentByEpoch],
+    [currentEpoch, firstEpoch, ghMode, momentByEpoch],
   );
 
   function locate(e: React.PointerEvent): number | null {
@@ -173,20 +190,20 @@ export default function ThousandGrid({
               <span className="text-ep-dust"> - {readout.hint}</span>
             )}
             {readout.hint && readout.moment && (
-              <span style={accent ? { color: accent } : undefined}>
+              <span style={spanColor ? { color: spanColor } : undefined}>
                 {" "}
                 · {readout.hint}
               </span>
             )}
           </span>
-          {accentLabel && accent && (
+          {accentLabel && spanColor && (
             <span
               className="hidden sm:flex items-center gap-2 shrink-0 text-xs"
-              style={{ color: accent }}
+              style={{ color: spanColor }}
             >
               <span
                 className="inline-block h-2 w-2 rounded-[1px]"
-                style={{ backgroundColor: accent }}
+                style={{ backgroundColor: spanColor }}
               />
               {accentLabel}
             </span>

@@ -122,13 +122,17 @@ export default function Epoch1000Experience({ title, description }: Props) {
         </div>
 
         <a
-          href="#timeline"
+          href="#checker"
           className="ep-cue mt-6 pb-1 text-ep-dust hover:text-ep-ink transition-colors duration-200"
-          aria-label="Scroll to the timeline"
+          aria-label="Scroll to the wallet checker"
         >
           <ChevronDownIcon aria-hidden className="size-5" strokeWidth={2} />
         </a>
       </section>
+
+      <Reveal>
+        <WalletChecker onResult={setResult} />
+      </Reveal>
 
       {/* ── The thousand grid ────────────────────────────────────────── */}
       <Reveal>
@@ -154,13 +158,9 @@ export default function Epoch1000Experience({ title, description }: Props) {
           />
           <p className="font-brand-mono text-[11px] sm:text-xs text-ep-dust">
             one cell per epoch · bright cells mark moments · check a wallet
-            below to paint your era
+            above to paint your era
           </p>
         </section>
-      </Reveal>
-
-      <Reveal>
-        <WalletChecker onResult={setResult} />
       </Reveal>
 
       <footer className="border-t border-ep-edge pt-6 pb-2">

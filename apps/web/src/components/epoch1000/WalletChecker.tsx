@@ -104,7 +104,7 @@ export default function WalletChecker({ onResult }: Props) {
         </h2>
         <p className="mt-2 text-sm text-ep-dim">
           Paste any wallet address - no connect, no signature. We find its first
-          mainnet transaction, light up your era on the timeline above, and
+          mainnet transaction, light up your era on the timeline below, and
           stamp your survivor card.
         </p>
       </div>
