@@ -8,10 +8,10 @@ import {
 } from "@/lib/epoch1000/public-key";
 
 const LOADING_LINES = [
-  "walking your history back to genesis…",
-  "counting slots…",
-  "asking the validators about you…",
-  "replaying the ledger…",
+  "checking...",
+  "finding first tx...",
+  "scanning history...",
+  "building card...",
 ];
 
 interface Props {
@@ -75,7 +75,7 @@ export default function WalletChecker({ onResult }: Props) {
     : "";
   const tweet = result
     ? encodeURIComponent(
-        `I've survived ${result.epochsSurvived}${result.capped ? "+" : ""} epochs on Solana - ${result.tier}.\n\nWere you here? ${cardUrl}`,
+        `I've survived ${result.epochsSurvived}${result.capped ? "+" : ""} Solana epochs - ${result.tier}.\n\n${cardUrl}`,
       )
     : "";
 
@@ -100,12 +100,11 @@ export default function WalletChecker({ onResult }: Props) {
     <section id="checker" className="flex flex-col gap-6">
       <div>
         <h2 className="font-bold tracking-tight text-3xl sm:text-4xl">
-          Were you <span className="text-sol-gradient">here?</span>
+          Check <span className="text-sol-gradient">wallet</span>
         </h2>
         <p className="mt-2 text-sm text-ep-dim">
-          Paste any wallet address - no connect, no signature. We find its first
-          mainnet transaction, light up your era on the timeline below, and
-          stamp your survivor card.
+          Find your first epoch and share your survivor card. No connect, no
+          signature.
         </p>
       </div>
 
@@ -131,7 +130,7 @@ export default function WalletChecker({ onResult }: Props) {
           disabled={loading || !isAddressValid}
           className="!bg-ep-ink text-ep-void font-semibold rounded-full px-7 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:!bg-ep-dim transition"
         >
-          {loading ? "checking…" : "Check wallet"}
+          {loading ? "Checking..." : "Check"}
         </button>
       </form>
 
@@ -171,7 +170,7 @@ export default function WalletChecker({ onResult }: Props) {
                 onChange={(e) => setShowAddress(e.target.checked)}
                 className="accent-[#14f195]"
               />
-              show wallet on card
+              Show wallet
             </label>
             <a
               href={`https://twitter.com/intent/tweet?text=${tweet}`}
@@ -179,7 +178,7 @@ export default function WalletChecker({ onResult }: Props) {
               rel="noopener noreferrer"
               className="bg-ep-ink text-ep-void font-semibold rounded-full px-5 py-2 hover:bg-ep-dim transition"
             >
-              Share on X
+              Share
             </a>
             <button
               onClick={copyLink}
@@ -192,12 +191,12 @@ export default function WalletChecker({ onResult }: Props) {
               download={`epoch1000-${result.firstEpoch}.png`}
               className="border border-ep-edge rounded-full px-5 py-2 text-ep-dim hover:text-ep-ink transition"
             >
-              Download PNG
+              PNG
             </a>
           </div>
 
           <p className="text-xs text-ep-dust">
-            First transaction:{" "}
+            First seen:{" "}
             <a
               href={`https://solscan.io/tx/${result.firstSignature}`}
               target="_blank"
@@ -208,7 +207,7 @@ export default function WalletChecker({ onResult }: Props) {
               {result.firstSlot.toLocaleString("en-US")}
             </a>
             {result.capped &&
-              ` - this wallet has over ${result.scanned.toLocaleString("en-US")} transactions, so we report the oldest we could reach. True survival may be even longer.`}
+              ` - oldest found across ${result.scanned.toLocaleString("en-US")} transactions.`}
           </p>
         </div>
       )}

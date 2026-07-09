@@ -101,7 +101,6 @@ export const Epoch1000Hero: React.FC = () => {
   const statSlotsLabel = t("statSlots");
   const statProgressLabel = t("statProgress");
   const statEtaLabel = t("statEta");
-  const slotLabel = t("slotLabel");
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale),
     [locale],
@@ -179,14 +178,14 @@ export const Epoch1000Hero: React.FC = () => {
           })}
         </h1>
         <p
-          className="eh-rise text-nd-mid-em-text font-medium mt-3 nd-body-xl max-w-[560px]"
+          className="eh-rise text-nd-mid-em-text font-medium pt-3 nd-body-xl max-w-[560px]"
           style={{ animationDelay: "300ms" }}
         >
           {t("subtitle")}
         </p>
 
         <div
-          className="eh-rise mt-4 md:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-5"
+          className="eh-rise pt-4 md:pt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-5"
           style={{ animationDelay: "400ms" }}
         >
           <Button
@@ -213,12 +212,12 @@ export const Epoch1000Hero: React.FC = () => {
           </Link>
         </div>
 
-        {/* live console — the chain ticking underneath the monument */}
+        {/* Compact live status under the monument. */}
         <div
-          className="eh-rise mt-auto pt-4 md:pt-6 w-full max-w-4xl"
+          className="eh-rise mt-auto pt-4 md:pt-6 w-full max-w-3xl"
           style={{ animationDelay: "500ms" }}
         >
-          <div className="rounded-xl bg-black/[0.3] px-4 py-2 md:px-6 md:py-4">
+          <div className="rounded-xl bg-black/[0.3] px-4 py-2.5 md:px-6 md:py-4">
             <div className="flex items-baseline justify-between font-brand-mono text-[11px] md:text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
               <span>{statProgressLabel}</span>
               <span className="tabular-nums">
@@ -235,7 +234,7 @@ export const Epoch1000Hero: React.FC = () => {
                 }}
               />
             </div>
-            <div className="mt-2 md:mt-3 flex flex-wrap items-center justify-center sm:justify-between gap-x-6 gap-y-1.5 md:gap-y-2 font-brand-mono text-[11px] md:text-xs text-nd-mid-em-text tabular-nums">
+            <div className="mt-2 md:mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 md:gap-y-2 font-brand-mono text-[11px] md:text-xs text-nd-mid-em-text tabular-nums">
               {live ? (
                 <>
                   <span className="flex items-center gap-2 whitespace-nowrap">
@@ -246,22 +245,17 @@ export const Epoch1000Hero: React.FC = () => {
                     <span className="hidden sm:block">
                       <BlockStream absoluteSlot={live.absoluteSlot} />
                     </span>
-                    <span>
-                      {slotLabel} {numberFormatter.format(live.absoluteSlot)}
+                  </span>
+                  <span className="whitespace-nowrap uppercase tracking-[0.1em]">
+                    {statSlotsLabel}{" "}
+                    <span className="text-nd-high-em-text">
+                      {numberFormatter.format(live.slotsRemaining)}
                     </span>
                   </span>
-                  <span className="flex flex-wrap justify-center gap-x-4 gap-y-1 uppercase tracking-[0.1em]">
-                    <span className="whitespace-nowrap">
-                      {statSlotsLabel}{" "}
-                      <span className="text-nd-high-em-text">
-                        {numberFormatter.format(live.slotsRemaining)}
-                      </span>
-                    </span>
-                    <span className="whitespace-nowrap">
-                      {statEtaLabel}{" "}
-                      <span className="text-nd-high-em-text">
-                        {etaFormatter.format(live.eta)}
-                      </span>
+                  <span className="whitespace-nowrap uppercase tracking-[0.1em]">
+                    {statEtaLabel}{" "}
+                    <span className="text-nd-high-em-text">
+                      {etaFormatter.format(live.eta)}
                     </span>
                   </span>
                 </>

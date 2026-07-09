@@ -135,8 +135,8 @@ export default function ThousandGrid({
   const readout = useMemo(() => {
     if (hovered === null) {
       return {
-        text: "EPOCH 0 → 999 · MAR 2020 → NOW",
-        hint: "scrub to travel",
+        text: "EPOCHS 0-999",
+        hint: "scrub",
         moment: null as string | null,
       };
     }
