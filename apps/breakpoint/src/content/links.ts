@@ -10,7 +10,8 @@ export const PRESS_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-press";
 export const CONTENT_CREATOR_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-creator";
-export const CODE_OF_CONDUCT_HREF = "https://shorturl.at/lEMR1";
+export const CODE_OF_CONDUCT_HREF =
+  "https://solana.com/community/code-of-conduct";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
 export const BREAKPOINT_2025_ARCHIVES_URL =
   "https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z";
