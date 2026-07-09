@@ -16,9 +16,6 @@ const CACHE_CONTROL =
 const CELLS = 50; // 1 cell = 20 epochs of the first 1000
 const EPOCHS_PER_CELL = 1000 / CELLS;
 
-const SOLANA_MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 397.7 311.7"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="360.879" y1="351.455" x2="141.213" y2="-69.294" gradientTransform="matrix(1 0 0 -1 0 314)"><stop offset="0" stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/></linearGradient></defs><path fill="url(#g)" d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path fill="url(#g)" d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path fill="url(#g)" d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></svg>`;
-const SOLANA_MARK_URI = `data:image/svg+xml,${encodeURIComponent(SOLANA_MARK_SVG)}`;
-
 function fmtDate(ts: number | null): string {
   if (!ts) return "";
   return new Date(ts * 1000).toLocaleDateString("en-US", {
@@ -49,6 +46,23 @@ function getFontData() {
   return fontDataPromise;
 }
 
+let solanaLogoPromise: Promise<string>;
+
+function getSolanaLogo() {
+  solanaLogoPromise ??= readFile(
+    path.join(
+      process.cwd(),
+      "public",
+      "src",
+      "img",
+      "branding",
+      "solanaLogo.png",
+    ),
+  ).then((data) => `data:image/png;base64,${data.toString("base64")}`);
+
+  return solanaLogoPromise;
+}
+
 export async function GET(req: Request) {
   const p = new URL(req.url).searchParams;
   const survived = Math.max(0, parseInt(p.get("s") ?? "0", 10) || 0);
@@ -61,8 +75,19 @@ export async function GET(req: Request) {
   const wallet = p.get("w") ?? "";
   const capped = p.get("x") === "1";
   const tier = tierFor(survived);
+  const survivedLabel = capped ? `${survived}+` : String(survived);
+  const firstSeenLabel = blockTime
+    ? `Epoch ${firstEpoch} · ${fmtDate(blockTime)}`
+    : `Epoch ${firstEpoch}`;
+  const percentOfFirst1000 = Math.min(
+    100,
+    Math.max(0, Math.round((survived / 1000) * 100)),
+  );
 
-  const [diatype700, dsemi400, dsemi600] = await getFontData();
+  const [[diatype700, dsemi400, dsemi600], solanaLogo] = await Promise.all([
+    getFontData(),
+    getSolanaLogo(),
+  ]);
 
   const firstCell = Math.min(
     CELLS - 1,
@@ -85,6 +110,7 @@ export async function GET(req: Request) {
         padding: "56px 64px",
         fontFamily: "DSemi",
         color: "#FFFFFF",
+        boxSizing: "border-box",
       }}
     >
       {/* header */}
@@ -95,7 +121,9 @@ export async function GET(req: Request) {
           alignItems: "center",
         }}
       >
-        <img src={SOLANA_MARK_URI} width={46} height={36} alt="" />
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <img src={solanaLogo} width={175} height={26} alt="" />
+        </div>
         <div
           style={{
             display: "flex",
@@ -115,60 +143,118 @@ export async function GET(req: Request) {
       </div>
 
       {/* main stat */}
-      <div style={{ display: "flex", flexDirection: "column", marginTop: 44 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          marginTop: 58,
+        }}
+      >
         <div
           style={{
-            fontSize: 24,
-            letterSpacing: "0.3em",
-            color: "#757575",
+            fontSize: 25,
+            letterSpacing: "0.18em",
+            color: "#BDBDBD",
+            textTransform: "uppercase",
           }}
         >
-          SURVIVED
+          Epoch 1000 survivor card
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 24 }}>
           <div
             style={{
               fontFamily: "Diatype",
               fontWeight: 700,
-              fontSize: 176,
-              lineHeight: 1.05,
+              fontSize: 154,
+              lineHeight: 0.92,
               color: tier.color,
             }}
           >
-            {/* satori crashes on numeric JSX children — keep this a string */}
-            {capped ? `${survived}+` : String(survived)}
+            {/* satori crashes on numeric JSX children - keep this a string */}
+            {survivedLabel}
           </div>
           <div
             style={{
-              fontFamily: "Diatype",
-              fontWeight: 700,
-              fontSize: 44,
-              color: "#FFFFFF",
+              display: "flex",
+              flexDirection: "column",
+              marginBottom: 18,
+              gap: 6,
             }}
           >
-            EPOCHS
+            <span
+              style={{
+                display: "flex",
+                fontFamily: "Diatype",
+                fontWeight: 700,
+                fontSize: 44,
+                color: "#FFFFFF",
+              }}
+            >
+              EPOCHS
+            </span>
+            <span
+              style={{
+                display: "flex",
+                fontSize: 24,
+                color: "#8B8B8B",
+                letterSpacing: "0.14em",
+              }}
+            >
+              SURVIVED
+            </span>
           </div>
         </div>
         <div
-          style={{ display: "flex", fontSize: 26, color: "#B0B0B0", gap: 10 }}
+          style={{
+            display: "flex",
+            fontSize: 26,
+            color: "#B0B0B0",
+            gap: 10,
+            marginTop: 16,
+          }}
         >
-          <span style={{ color: "#757575" }}>first seen</span>
-          <span style={{ fontWeight: 600 }}>{`epoch ${firstEpoch}`}</span>
-          {blockTime ? (
-            <span
-              style={{ color: "#757575" }}
-            >{`· ${fmtDate(blockTime)}`}</span>
-          ) : null}
+          <span style={{ color: "#757575" }}>First seen</span>
+          <span style={{ fontWeight: 600 }}>{firstSeenLabel}</span>
         </div>
       </div>
 
-      {/* thousand grid — github-contributions strip of square cells */}
+      {/* thousand grid - github-contributions strip of square cells */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: 1046,
+          marginTop: 62,
+          fontSize: 21,
+        }}
+      >
+        <span
+          style={{
+            color: "#8B8B8B",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+          }}
+        >
+          First 1000 epochs
+        </span>
+        <span
+          style={{
+            color: GH_LEVELS[3],
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {`${percentOfFirst1000}%`}
+        </span>
+      </div>
       <div
         style={{
           display: "flex",
           gap: 4,
           width: 1046,
-          marginTop: 52,
+          marginTop: 14,
         }}
       >
         {Array.from({ length: CELLS }, (_, i) => {
@@ -198,9 +284,6 @@ export async function GET(req: Request) {
         }}
       >
         <span>EPOCH 0</span>
-        <span style={{ color: GH_LEVELS[3], fontWeight: 600 }}>
-          {`${(survived / 10).toFixed(0)}% OF SOLANA'S FIRST 1000 EPOCHS`}
-        </span>
         <span>EPOCH 1000</span>
       </div>
 
@@ -221,7 +304,7 @@ export async function GET(req: Request) {
             fontWeight: 600,
           }}
         >
-          {wallet || "ANONYMOUS SURVIVOR"}
+          {wallet || "Anonymous survivor"}
         </div>
         <div style={{ display: "flex", color: "#757575" }}>
           solana.com/epoch1000

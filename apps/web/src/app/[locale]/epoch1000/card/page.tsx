@@ -26,8 +26,8 @@ export async function generateMetadata({
   const survived = first(sp.s) || "0";
   const capped = first(sp.x) === "1";
   const tier = tierFor(parseInt(survived, 10) || 0);
-  const title = `Survived ${survived}${capped ? "+" : ""} epochs on Solana — ${tier.name}`;
-  const description = `First seen in epoch ${first(sp.fe) || "?"}. How many of Solana's first 1000 epochs did you survive?`;
+  const title = `Epoch 1000 survivor card - ${tier.name}`;
+  const description = `Survived ${survived}${capped ? "+" : ""} Solana epochs. First seen in epoch ${first(sp.fe) || "?"}.`;
   const image = `/api/epoch1000/og?${ogQuery(sp)}`;
   return {
     title,
