@@ -9,9 +9,12 @@ import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import { useVariant } from "@/lib/use-variant";
 
 export default function HeroSection() {
   const t = useTranslations("breakpoint");
+  const variant = useVariant();
   const [interacting, setInteracting] = useState(false);
   const [cursorY, setCursorY] = useState(50);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -100,20 +103,36 @@ export default function HeroSection() {
       </div>
 
       <div className="container relative z-10 h-full">
-        <div className="absolute left-4 right-4 top-[283px] md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px]">
+        <div
+          className={`absolute left-4 right-4 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px] ${
+            // Variant headlines run to four lines on mobile; start higher so
+            // the date/venue block stays inside the fixed-height hero.
+            variant ? "top-[224px]" : "top-[283px]"
+          }`}
+        >
           <TextScramble
+            key={variant?.slug ?? "default"}
             as="h1"
-            text={t("hero.headline")}
+            text={variant?.heroHeadline ?? t("hero.headline")}
             durationMs={1000}
             className="type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] xl:w-[926px]"
           />
           <div className="mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0">
-            <Button
-              label={t("hero.cta")}
-              variant="primary"
-              arrow
-              onClick={() => setSubscribeOpen(true)}
-            />
+            {variant ? (
+              <Button
+                label={variant.heroCtaLabel}
+                variant="primary"
+                arrow
+                href={GENERAL_ADMISSION_HREF}
+              />
+            ) : (
+              <Button
+                label={t("hero.cta")}
+                variant="primary"
+                arrow
+                onClick={() => setSubscribeOpen(true)}
+              />
+            )}
           </div>
           <div className="type-eyebrow mt-12 grid w-[326px] max-w-full grid-cols-1 gap-x-[24px] gap-y-6 text-white md:absolute md:left-0 md:top-[284px] md:mt-0 md:w-[676px] md:grid-cols-[326px_minmax(0,326px)] md:gap-y-2 xl:w-[609px] xl:grid-cols-[293px_minmax(0,292px)]">
             <WordReveal text={t("hero.date")} stepMs={70} startDelayMs={1100} />
