@@ -79,7 +79,7 @@ const goldSponsors = [
   {
     companyId: "vybe-network",
     width: 2400,
-    height: 1176,
+    height: 368,
   },
   {
     companyId: "alchemy",
