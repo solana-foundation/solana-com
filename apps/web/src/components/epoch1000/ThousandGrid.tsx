@@ -48,7 +48,7 @@ interface Props {
 
 /**
  * The Thousand Grid: one cell per epoch, 0–999, filled to the current epoch.
- * The signature element of the campaign — scrub across it to travel through
+ * The signature element of the campaign - scrub across it to travel through
  * six years of mainnet-beta; a wallet check paints your era onto it.
  */
 export default function ThousandGrid({
@@ -167,10 +167,10 @@ export default function ThousandGrid({
           <span className="text-ep-dim tabular-nums" aria-live="off">
             {readout.text}
             {readout.moment && (
-              <span className="text-ep-ink"> — {readout.moment}</span>
+              <span className="text-ep-ink"> - {readout.moment}</span>
             )}
             {readout.hint && !readout.moment && (
-              <span className="text-ep-dust"> — {readout.hint}</span>
+              <span className="text-ep-dust"> - {readout.hint}</span>
             )}
             {readout.hint && readout.moment && (
               <span style={accent ? { color: accent } : undefined}>

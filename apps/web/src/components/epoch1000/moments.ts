@@ -2,7 +2,7 @@
  * Annotated moments on the thousand-epoch timeline.
  *
  * Epoch numbers are interpolated from dates at runtime (genesis → now is a
- * near-linear ~2.2 days/epoch), so labels stay honest as the chain advances —
+ * near-linear ~2.2 days/epoch), so labels stay honest as the chain advances -
  * the readout always presents them with a "~".
  */
 
@@ -27,7 +27,7 @@ export const MOMENTS: Moment[] = [
   { dateMs: Date.parse("2022-08-16T00:00:00Z"), label: "Firedancer announced" },
   {
     dateMs: Date.parse("2022-12-15T00:00:00Z"),
-    label: "Bottom of the bear — still shipping",
+    label: "Bottom of the bear - still shipping",
   },
   {
     dateMs: Date.parse("2023-04-06T00:00:00Z"),

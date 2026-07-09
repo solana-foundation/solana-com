@@ -26,7 +26,7 @@ export function nextWheelTargets(
   });
 }
 
-/** Fold an offset back one revolution — visually identical digit. */
+/** Fold an offset back one revolution - visually identical digit. */
 export function normalizeTargets(targets: number[]): number[] {
   return targets.map((t) => (t > STRIP_LEN - 10 ? t - 10 : t));
 }

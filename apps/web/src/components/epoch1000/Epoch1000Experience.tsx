@@ -41,7 +41,7 @@ export default function Epoch1000Experience({ title, description }: Props) {
 
   return (
     <div className="flex flex-col gap-16 sm:gap-24">
-      {/* ── The odometer — owns the first view pane ──────────────────── */}
+      {/* ── The odometer - owns the first view pane ──────────────────── */}
       <section className="flex min-h-[calc(100svh-230px)] flex-col items-center text-center">
         <div className="my-auto flex flex-col items-center gap-6 sm:gap-8">
           <p
@@ -55,7 +55,7 @@ export default function Epoch1000Experience({ title, description }: Props) {
                 {numberFormatter.format(live.absoluteSlot)}
               </>
             ) : error ? (
-              "COULDN'T REACH MAINNET — REFRESH TO RETRY"
+              "COULDN'T REACH MAINNET - REFRESH TO RETRY"
             ) : (
               <span className="animate-pulse">SYNCING WITH MAINNET…</span>
             )}

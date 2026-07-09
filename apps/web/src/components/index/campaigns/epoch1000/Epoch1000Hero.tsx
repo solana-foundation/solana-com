@@ -143,7 +143,7 @@ export const Epoch1000Hero: React.FC<{
       <div aria-hidden className="eh-grain absolute inset-0 z-0" />
       <EpochGridBackdrop currentEpoch={gridEpoch} />
 
-      <Container className="relative z-10 flex w-full flex-col items-center text-center pt-8 md:pt-9 pb-5 md:pb-6 min-h-[calc(100svh-70px)]">
+      <Container className="relative z-10 flex w-full flex-col items-center text-center pt-6 md:pt-9 pb-4 md:pb-6 min-h-[calc(100svh-72px)]">
         <p
           className="eh-rise font-brand-mono text-xs md:text-sm uppercase tracking-[0.18em] md:tracking-[0.3em] text-nd-mid-em-text"
           style={{ animationDelay: "0ms" }}
@@ -207,10 +207,10 @@ export const Epoch1000Hero: React.FC<{
 
         {/* live console — the chain ticking underneath the monument */}
         <div
-          className="eh-rise mt-auto pt-6 w-full max-w-4xl"
+          className="eh-rise mt-auto pt-4 md:pt-6 w-full max-w-4xl"
           style={{ animationDelay: "500ms" }}
         >
-          <div className="rounded-xl bg-black/[0.3] px-4 py-2.5 md:px-6 md:py-4">
+          <div className="rounded-xl bg-black/[0.3] px-4 py-2 md:px-6 md:py-4">
             <div className="flex items-baseline justify-between font-brand-mono text-[11px] md:text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
               <span>{t.statProgress}</span>
               <span className="tabular-nums">
@@ -227,7 +227,7 @@ export const Epoch1000Hero: React.FC<{
                 }}
               />
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-between gap-x-6 gap-y-2 font-brand-mono text-[11px] md:text-xs text-nd-mid-em-text tabular-nums">
+            <div className="mt-2 md:mt-3 flex flex-wrap items-center justify-center sm:justify-between gap-x-6 gap-y-1.5 md:gap-y-2 font-brand-mono text-[11px] md:text-xs text-nd-mid-em-text tabular-nums">
               {live ? (
                 <>
                   <span className="flex items-center gap-2 whitespace-nowrap">

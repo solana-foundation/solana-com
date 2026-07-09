@@ -75,7 +75,7 @@ export default function WalletChecker({ onResult }: Props) {
     : "";
   const tweet = result
     ? encodeURIComponent(
-        `I've survived ${result.epochsSurvived}${result.capped ? "+" : ""} epochs on Solana — ${result.tier}.\n\nWere you here? ${cardUrl}`,
+        `I've survived ${result.epochsSurvived}${result.capped ? "+" : ""} epochs on Solana - ${result.tier}.\n\nWere you here? ${cardUrl}`,
       )
     : "";
 
@@ -85,7 +85,7 @@ export default function WalletChecker({ onResult }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard unavailable — the link is visible in the X intent instead
+      // clipboard unavailable - the link is visible in the X intent instead
     }
   }
 
@@ -103,7 +103,7 @@ export default function WalletChecker({ onResult }: Props) {
           Were you <span className="text-sol-gradient">here?</span>
         </h2>
         <p className="mt-2 text-sm text-ep-dim">
-          Paste any wallet address — no connect, no signature. We find its first
+          Paste any wallet address - no connect, no signature. We find its first
           mainnet transaction, light up your era on the timeline above, and
           stamp your survivor card.
         </p>
@@ -129,7 +129,7 @@ export default function WalletChecker({ onResult }: Props) {
         <button
           type="submit"
           disabled={loading || !isAddressValid}
-          className="bg-ep-ink text-ep-void font-semibold rounded-full px-7 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ep-dim transition"
+          className="!bg-ep-ink text-ep-void font-semibold rounded-full px-7 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:!bg-ep-dim transition"
         >
           {loading ? "checking…" : "Check wallet"}
         </button>
@@ -153,7 +153,7 @@ export default function WalletChecker({ onResult }: Props) {
 
       {result && (
         <div className="flex flex-col gap-4">
-          {/* The preview IS the shareable image — zero drift. */}
+          {/* The preview IS the shareable image - zero drift. */}
           <img
             key={params}
             src={`/api/epoch1000/og?${params}`}
@@ -208,7 +208,7 @@ export default function WalletChecker({ onResult }: Props) {
               {result.firstSlot.toLocaleString("en-US")}
             </a>
             {result.capped &&
-              ` — this wallet has over ${result.scanned.toLocaleString("en-US")} transactions, so we report the oldest we could reach. True survival may be even longer.`}
+              ` - this wallet has over ${result.scanned.toLocaleString("en-US")} transactions, so we report the oldest we could reach. True survival may be even longer.`}
           </p>
         </div>
       )}

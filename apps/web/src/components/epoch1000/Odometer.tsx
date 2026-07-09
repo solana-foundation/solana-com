@@ -16,7 +16,7 @@ interface OdometerProps {
 
 /**
  * The campaign signature: a mechanical odometer of digit wheels driven by
- * live mainnet data. The thousands wheel has read 0 since March 2020 — it
+ * live mainnet data. The thousands wheel has read 0 since March 2020 - it
  * turns for the first time at epoch 1000.
  */
 export default function Odometer({
