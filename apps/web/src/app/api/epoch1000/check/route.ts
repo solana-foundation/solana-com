@@ -3,8 +3,11 @@ import {
   epochOfSlot,
   findFirstTransaction,
   getEpochInfo,
-  isValidSolanaAddress,
 } from "@/lib/epoch1000/solana";
+import {
+  isValidSolanaAddress,
+  SOLANA_ADDRESS_ERROR,
+} from "@/lib/epoch1000/public-key";
 import { tierFor } from "@/lib/epoch1000/tiers";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +25,7 @@ export async function POST(req: Request) {
   }
 
   if (typeof address !== "string" || !isValidSolanaAddress(address.trim())) {
-    return NextResponse.json(
-      {
-        error:
-          "That doesn't look like a Solana address. Check it and try again.",
-      },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: SOLANA_ADDRESS_ERROR }, { status: 400 });
   }
   const wallet = address.trim();
 

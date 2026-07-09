@@ -140,76 +140,77 @@ export const Epoch1000Hero: React.FC<{
             "radial-gradient(ellipse 700px 420px at 12% -6%, rgba(153,69,255,0.20), transparent 65%), radial-gradient(ellipse 800px 500px at 90% 20%, rgba(20,241,149,0.10), transparent 65%)",
         }}
       />
+      <div aria-hidden className="eh-grain absolute inset-0 z-0" />
       <EpochGridBackdrop currentEpoch={gridEpoch} />
 
-      <div className="flex min-h-[700px]">
-        <Container className="relative z-10 flex w-full flex-col items-center text-center pt-16 xl:pt-[140px] pb-10 md:pb-14 min-h-[calc(100vh-70px)]">
-          <p
-            className="eh-rise font-brand-mono text-xs md:text-sm uppercase tracking-[0.3em] text-nd-mid-em-text"
-            style={{ animationDelay: "0ms" }}
-          >
-            {t.eyebrow}
-          </p>
+      <Container className="relative z-10 flex w-full flex-col items-center text-center pt-8 md:pt-9 pb-5 md:pb-6 min-h-[calc(100svh-70px)]">
+        <p
+          className="eh-rise font-brand-mono text-xs md:text-sm uppercase tracking-[0.18em] md:tracking-[0.3em] text-nd-mid-em-text"
+          style={{ animationDelay: "0ms" }}
+        >
+          {t.eyebrow}
+        </p>
 
-          <div
-            className="eh-rise mt-7 md:mt-9"
-            style={{ animationDelay: "100ms" }}
-          >
-            <Odometer
-              value={live?.epoch ?? null}
-              arrived={live?.arrived ?? false}
-              label={`${t.statEpoch}: ${live ? live.epoch : "—"}`}
-              className="ep-odo--hero"
-            />
-          </div>
+        <div
+          className="eh-rise mt-4 md:mt-6"
+          style={{ animationDelay: "100ms" }}
+        >
+          <Odometer
+            value={live?.epoch ?? null}
+            arrived={live?.arrived ?? false}
+            label={`${t.statEpoch}: ${live ? live.epoch : "—"}`}
+            className="ep-odo--hero"
+          />
+        </div>
 
-          <h1
-            className="eh-rise nd-heading-l mt-7 md:mt-9 max-w-[720px]"
-            id="hero-title"
-            style={{ animationDelay: "200ms" }}
-          >
-            {t.title}
-          </h1>
-          <p
-            className="eh-rise text-nd-mid-em-text font-medium mt-4 nd-body-xl max-w-[560px]"
-            style={{ animationDelay: "300ms" }}
-          >
-            {t.subtitle}
-          </p>
+        <h1
+          className="eh-rise nd-heading-l mt-4 md:mt-6 max-w-[720px]"
+          id="hero-title"
+          style={{ animationDelay: "200ms" }}
+        >
+          {t.title}
+        </h1>
+        <p
+          className="eh-rise text-nd-mid-em-text font-medium mt-3 nd-body-xl max-w-[560px]"
+          style={{ animationDelay: "300ms" }}
+        >
+          {t.subtitle}
+        </p>
 
-          <div
-            className="eh-rise mt-8 flex flex-col sm:flex-row items-center gap-5"
-            style={{ animationDelay: "400ms" }}
+        <div
+          className="eh-rise mt-4 md:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-5"
+          style={{ animationDelay: "400ms" }}
+        >
+          <Button
+            className="group rounded-full md:h-[48px] nd-body-m !px-5 py-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+            size="lg"
+            asChild
           >
-            <Button
-              className="rounded-full md:h-[48px] nd-body-m !px-5 py-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
-              size="lg"
-              asChild
-            >
-              <Link href="/epoch1000" aria-label={t.cta}>
-                {t.cta}
-                <span className="-mr-3 p-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center">
-                  <ArrowRightIcon
-                    aria-hidden={true}
-                    className="!size-[16px] block"
-                    strokeWidth={3}
-                  />
-                </span>
-              </Link>
-            </Button>
-            <Link
-              href="/epoch1000#checker"
-              className="nd-body-m text-nd-mid-em-text hover:text-nd-high-em-text transition-colors duration-200 underline underline-offset-4 decoration-nd-border-prominent"
-            >
-              {t.secondaryCta}
+            <Link href="/epoch1000" aria-label={t.cta}>
+              {t.cta}
+              <span className="-mr-3 p-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center transition-transform duration-200 group-hover:translate-x-0.5">
+                <ArrowRightIcon
+                  aria-hidden={true}
+                  className="!size-[16px] block"
+                  strokeWidth={3}
+                />
+              </span>
             </Link>
-          </div>
-
-          {/* live console — the chain ticking underneath the monument */}
-          <div
-            className="eh-rise mt-auto pt-14 w-full max-w-4xl"
-            style={{ animationDelay: "500ms" }}
+          </Button>
+          <Link
+            href="/epoch1000#checker"
+            className="nd-body-m text-nd-mid-em-text hover:text-nd-high-em-text transition-colors duration-200 underline underline-offset-4 decoration-nd-border-prominent rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
           >
+            {t.secondaryCta}
+          </Link>
+        </div>
+
+        {/* live console — the chain ticking underneath the monument */}
+        <div
+          className="eh-rise mt-auto pt-6 w-full max-w-4xl"
+          style={{ animationDelay: "500ms" }}
+        >
+          <div className="rounded-xl bg-black/[0.3] px-4 py-2.5 md:px-6 md:py-4">
             <div className="flex items-baseline justify-between font-brand-mono text-[11px] md:text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
               <span>{t.statProgress}</span>
               <span className="tabular-nums">
@@ -261,8 +262,8 @@ export const Epoch1000Hero: React.FC<{
               )}
             </div>
           </div>
-        </Container>
-      </div>
+        </div>
+      </Container>
     </section>
   );
 };

@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { cardParams, type CheckResult } from "@/lib/epoch1000/card-params";
+import {
+  isValidSolanaAddress,
+  SOLANA_ADDRESS_ERROR,
+} from "@/lib/epoch1000/public-key";
 
 const LOADING_LINES = [
   "walking your history back to genesis…",
@@ -12,14 +16,14 @@ const LOADING_LINES = [
 
 interface Props {
   /** Fires with each lookup result so the page can paint the timeline. */
-  onResult?: (result: CheckResult | null) => void;
+  onResult?: (_result: CheckResult | null) => void;
 }
 
 export default function WalletChecker({ onResult }: Props) {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingLine, setLoadingLine] = useState(LOADING_LINES[0]);
-  const [error, setError] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
   const [showAddress, setShowAddress] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -27,9 +31,13 @@ export default function WalletChecker({ onResult }: Props) {
   async function check(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = address.trim();
-    if (!trimmed || loading) return;
+    if (loading) return;
+    if (!isValidSolanaAddress(trimmed)) {
+      setLookupError(null);
+      return;
+    }
     setLoading(true);
-    setError(null);
+    setLookupError(null);
     setResult(null);
     onResult?.(null);
     setCopied(false);
@@ -48,13 +56,13 @@ export default function WalletChecker({ onResult }: Props) {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Lookup failed. Try again.");
+        setLookupError(json.error ?? "Lookup failed. Try again.");
       } else {
         setResult(json as CheckResult);
         onResult?.(json as CheckResult);
       }
     } catch {
-      setError("Lookup failed. Try again.");
+      setLookupError("Lookup failed. Try again.");
     } finally {
       clearInterval(rotator);
       setLoading(false);
@@ -81,6 +89,13 @@ export default function WalletChecker({ onResult }: Props) {
     }
   }
 
+  const trimmedAddress = address.trim();
+  const hasAddress = trimmedAddress.length > 0;
+  const isAddressValid = hasAddress && isValidSolanaAddress(trimmedAddress);
+  const validationError =
+    hasAddress && !isAddressValid ? SOLANA_ADDRESS_ERROR : null;
+  const displayedError = validationError ?? lookupError;
+
   return (
     <section id="checker" className="flex flex-col gap-6">
       <div>
@@ -97,16 +112,23 @@ export default function WalletChecker({ onResult }: Props) {
       <form onSubmit={check} className="flex flex-col sm:flex-row gap-3">
         <input
           value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          onChange={(e) => {
+            setAddress(e.target.value);
+            setLookupError(null);
+          }}
           placeholder="wallet address"
           spellCheck={false}
           autoComplete="off"
           aria-label="Solana wallet address"
+          aria-invalid={validationError ? true : undefined}
+          aria-describedby={
+            displayedError ? "epoch1000-wallet-error" : undefined
+          }
           className="ep-glow-input flex-1 bg-ep-panel border border-ep-edge rounded-full px-5 py-3 font-mono text-sm placeholder:text-ep-dust"
         />
         <button
           type="submit"
-          disabled={loading || !address.trim()}
+          disabled={loading || !isAddressValid}
           className="bg-ep-ink text-ep-void font-semibold rounded-full px-7 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-ep-dim transition"
         >
           {loading ? "checking…" : "Check wallet"}
@@ -119,9 +141,13 @@ export default function WalletChecker({ onResult }: Props) {
         </p>
       )}
 
-      {error && (
-        <p className="text-sm text-red-400" role="alert">
-          {error}
+      {displayedError && (
+        <p
+          id="epoch1000-wallet-error"
+          className="text-sm text-red-400"
+          role="alert"
+        >
+          {displayedError}
         </p>
       )}
 

@@ -8,14 +8,14 @@ export default async function Page() {
   const t = await getTranslations();
 
   return (
-    <main className="w-full max-w-6xl mx-auto px-5 sm:px-8 py-8 sm:py-12 flex flex-col gap-12 sm:gap-16 min-h-screen">
-      <header className="flex items-center justify-between">
-        <p className="text-xs font-brand-mono tracking-[0.3em] text-ep-dust">
+    <main className="w-full max-w-6xl mx-auto px-5 sm:px-8 pt-6 sm:pt-8 pb-8 sm:pb-12 flex flex-col gap-10 sm:gap-14 min-h-screen">
+      <header className="flex items-center justify-between gap-4 border-b border-ep-edge/70 pb-4">
+        <p className="text-xs font-brand-mono uppercase tracking-[0.3em] text-ep-dust">
           {t("epoch1000.page.eyebrow")}
         </p>
         <Link
           href="/epoch1000#checker"
-          className="text-xs text-ep-dust hover:text-ep-ink transition shrink-0"
+          className="text-xs font-brand-mono text-ep-dust hover:text-ep-ink transition-colors duration-200 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
         >
           {t("epoch1000.page.checkerLink")}
         </Link>

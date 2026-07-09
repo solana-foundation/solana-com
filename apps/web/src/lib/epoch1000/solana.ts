@@ -1,5 +1,9 @@
+import { isValidSolanaAddress } from "./public-key";
+
 const SLOTS_PER_EPOCH = 432_000;
 export const TARGET_EPOCH = 1000;
+
+export { isValidSolanaAddress };
 
 function rpcUrl(): string {
   const key = process.env.HELIUS_API_KEY;
@@ -104,34 +108,6 @@ export async function findFirstTransaction(
 
   if (!oldest) return null;
   return { ...oldest, capped: true, scanned };
-}
-
-const BASE58_ALPHABET =
-  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-/** Validate a Solana address: base58, decodes to exactly 32 bytes. */
-export function isValidSolanaAddress(address: string): boolean {
-  if (address.length < 32 || address.length > 44) return false;
-  const bytes: number[] = [0];
-  for (const char of address) {
-    const value = BASE58_ALPHABET.indexOf(char);
-    if (value === -1) return false;
-    let carry = value;
-    for (let i = 0; i < bytes.length; i++) {
-      carry += bytes[i] * 58;
-      bytes[i] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-  for (const char of address) {
-    if (char !== "1") break;
-    bytes.push(0);
-  }
-  return bytes.length === 32;
 }
 
 export function shortAddress(address: string): string {
