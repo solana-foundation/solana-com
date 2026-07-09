@@ -63,7 +63,7 @@ export function epochOfSlot(slot: number): number {
 }
 
 export function slotsUntilEpoch(target: number, info: EpochInfo): number {
-  return (target - info.epoch) * SLOTS_PER_EPOCH - info.slotIndex;
+  return Math.max(0, (target - info.epoch) * SLOTS_PER_EPOCH - info.slotIndex);
 }
 
 interface SignatureInfo {

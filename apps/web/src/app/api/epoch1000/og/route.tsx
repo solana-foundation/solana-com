@@ -11,6 +11,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const CACHE_CONTROL =
+  "public, max-age=0, s-maxage=86400, stale-while-revalidate=86400";
 const CELLS = 50; // 1 cell = 20 epochs of the first 1000
 const EPOCHS_PER_CELL = 1000 / CELLS;
 
@@ -33,6 +35,20 @@ async function font(file: string) {
   );
 }
 
+let fontDataPromise: Promise<
+  [Buffer<ArrayBufferLike>, Buffer<ArrayBufferLike>, Buffer<ArrayBufferLike>]
+>;
+
+function getFontData() {
+  fontDataPromise ??= Promise.all([
+    font("ABCDiatype-Bold.woff"),
+    font("ABCDiatypeSemi-Mono-Regular.woff"),
+    font("ABCDiatypeSemi-Mono-Medium.woff"),
+  ]);
+
+  return fontDataPromise;
+}
+
 export async function GET(req: Request) {
   const p = new URL(req.url).searchParams;
   const survived = Math.max(0, parseInt(p.get("s") ?? "0", 10) || 0);
@@ -46,11 +62,7 @@ export async function GET(req: Request) {
   const capped = p.get("x") === "1";
   const tier = tierFor(survived);
 
-  const [diatype700, dsemi400, dsemi600] = await Promise.all([
-    font("ABCDiatype-Bold.woff"),
-    font("ABCDiatypeSemi-Mono-Regular.woff"),
-    font("ABCDiatypeSemi-Mono-Medium.woff"),
-  ]);
+  const [diatype700, dsemi400, dsemi600] = await getFontData();
 
   const firstCell = Math.min(
     CELLS - 1,
@@ -219,6 +231,9 @@ export async function GET(req: Request) {
     {
       width: 1200,
       height: 630,
+      headers: {
+        "Cache-Control": CACHE_CONTROL,
+      },
       fonts: [
         { name: "Diatype", data: diatype700, weight: 700, style: "normal" },
         { name: "DSemi", data: dsemi400, weight: 400, style: "normal" },
