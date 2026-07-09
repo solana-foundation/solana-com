@@ -2,7 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine, ChevronRight } from "lucide-react";
-import UnicornScene from "unicornstudio-react";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 export type SolutionReportLink = {
   title: string;
@@ -18,6 +18,7 @@ export type SolutionReportProps = {
   links?: SolutionReportLink[];
   linksTitle?: string;
   bgJsonFilePath?: string;
+  bgTintColor?: string;
 };
 
 /**
@@ -33,6 +34,7 @@ export type SolutionReportProps = {
  * @param {SolutionReportLink[]} props.links - The links to display in the report.
  * @param {string} props.linksTitle - The title of the links.
  * @param {string} props.bgJsonFilePath - The path to the background JSON file.
+ * @param {string} props.bgTintColor - Optional color tint layered over the background scene.
  *
  * @example
  * <SolutionReport
@@ -58,6 +60,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   links,
   linksTitle,
   bgJsonFilePath,
+  bgTintColor,
 }) => {
   if (!emailCta || !onEmailClick) {
     return null;
@@ -66,18 +69,27 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="!absolute m-auto max-xl:top-2 max-xl:right-2 max-xl:bottom-2 max-xl:left-2 xl:top-10 xl:bottom-10 xl:right-10 xl:left-10">
-        <UnicornScene
+        <SafeUnicornScene
           className="!absolute top-0 right-0 bottom-0 left-0 rounded-xl overflow-hidden"
           width="100%"
           height="100%"
           jsonFilePath={bgJsonFilePath}
           scale={1}
-          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
           fps={30}
           lazyLoad={true}
           production={true}
           onError={(error) => console.error("UnicornScene error:", error)}
         />
+        {bgTintColor && (
+          <div
+            aria-hidden={true}
+            className="pointer-events-none absolute inset-0 rounded-xl"
+            style={{
+              backgroundColor: bgTintColor,
+              mixBlendMode: "color",
+            }}
+          />
+        )}
       </div>
       <div className="py-[64px] md:py-[112px] xl:py-[160px] relative">
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">

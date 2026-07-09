@@ -9,6 +9,7 @@ const GOOGLE_NEWS_SITEMAP_CANONICAL_PATH = "/news/sitemap-news.xml";
 const PUBLICATION_NAME = "Solana";
 const PUBLICATION_LANGUAGE = "en";
 const GOOGLE_NEWS_LOOKBACK_HOURS = 48;
+const MIN_SITEMAP_URLS = 10;
 const MAX_NEWS_URLS = 1000;
 const XML_CONTENT_TYPE = "application/xml; charset=utf-8";
 const XML_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
@@ -24,20 +25,19 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-type RecentPublishedPost = {
+type SitemapPost = {
   slug: string;
   title: string;
   publishedAt: Date;
+  isRecentNews: boolean;
 };
 
-async function getRecentPublishedPosts(
-  now: Date,
-): Promise<RecentPublishedPost[]> {
+async function getSitemapPosts(now: Date): Promise<SitemapPost[]> {
   const minNewsPublishedAt = new Date(
     now.getTime() - GOOGLE_NEWS_LOOKBACK_HOURS * 60 * 60 * 1000,
   );
   const allSlugs = await reader.collections.posts.list();
-  const posts: RecentPublishedPost[] = [];
+  const posts: SitemapPost[] = [];
 
   for (const slug of allSlugs) {
     const post = await fetchPublishedPostBySlug(slug, now);
@@ -50,7 +50,7 @@ async function getRecentPublishedPosts(
       continue;
     }
 
-    if (publishedAt < minNewsPublishedAt || publishedAt > now) {
+    if (publishedAt > now) {
       continue;
     }
 
@@ -58,6 +58,7 @@ async function getRecentPublishedPosts(
       slug,
       title: String(post.title || slug),
       publishedAt,
+      isRecentNews: publishedAt >= minNewsPublishedAt,
     });
   }
 
@@ -65,29 +66,44 @@ async function getRecentPublishedPosts(
     (left, right) => right.publishedAt.getTime() - left.publishedAt.getTime(),
   );
 
-  return posts.slice(0, MAX_NEWS_URLS);
+  // Google only wants <news:news> metadata on articles from the last 48
+  // hours, but an empty <urlset> is a "Missing XML tag" error in Search
+  // Console. Pad the sitemap with the newest older posts as plain <url>
+  // entries (no news metadata) so it always validates.
+  const recentNewsPosts = posts.filter((post) => post.isRecentNews);
+  if (recentNewsPosts.length >= MIN_SITEMAP_URLS) {
+    return recentNewsPosts.slice(0, MAX_NEWS_URLS);
+  }
+
+  return posts.slice(0, MIN_SITEMAP_URLS);
 }
 
 async function buildGoogleNewsSitemapXml(
   now: Date = new Date(),
 ): Promise<string> {
-  const posts = await getRecentPublishedPosts(now);
+  const posts = await getSitemapPosts(now);
   const urls = posts.map((post) => {
     const loc = `${NEWS_URL}/${post.slug}`;
     const lines = [
       "<url>",
       `<loc>${escapeXml(loc)}</loc>`,
       `<lastmod>${escapeXml(post.publishedAt.toISOString())}</lastmod>`,
-      "<news:news>",
-      "<news:publication>",
-      `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
-      `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
-      "</news:publication>",
-      `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
-      `<news:title>${escapeXml(post.title)}</news:title>`,
-      "</news:news>",
-      "</url>",
     ];
+
+    if (post.isRecentNews) {
+      lines.push(
+        "<news:news>",
+        "<news:publication>",
+        `<news:name>${escapeXml(PUBLICATION_NAME)}</news:name>`,
+        `<news:language>${escapeXml(PUBLICATION_LANGUAGE)}</news:language>`,
+        "</news:publication>",
+        `<news:publication_date>${escapeXml(post.publishedAt.toISOString())}</news:publication_date>`,
+        `<news:title>${escapeXml(post.title)}</news:title>`,
+        "</news:news>",
+      );
+    }
+
+    lines.push("</url>");
 
     return lines.join("");
   });

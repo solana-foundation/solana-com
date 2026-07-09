@@ -58,6 +58,11 @@ const platinumSponsors = [
     width: 204,
     height: 96,
   },
+  {
+    companyId: "phantom",
+    width: 279.68,
+    height: 55.2,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -74,7 +79,7 @@ const goldSponsors = [
   {
     companyId: "vybe-network",
     width: 2400,
-    height: 1176,
+    height: 368,
   },
   {
     companyId: "alchemy",
@@ -126,6 +131,16 @@ const goldSponsors = [
     companyId: "kast",
     width: 384,
     height: 80,
+  },
+  {
+    companyId: "raiku",
+    width: 2646,
+    height: 768,
+  },
+  {
+    companyId: "render-network",
+    width: 1933,
+    height: 233,
   },
 ] satisfies SponsorLogo[];
 

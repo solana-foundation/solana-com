@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDevelopersLearnDependentLessonKeys } from "@/utils/developers-learn-curriculum";
+import {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageSetItem,
+} from "@solana-com/ui-chrome";
 
 type StoredProgress = {
   completedLessons: string[];
@@ -16,7 +21,10 @@ function readProgressFromStorage(): StoredProgress {
     return { completedLessons: [], updatedAt: "" };
   }
 
-  const rawProgress = window.localStorage.getItem(STORAGE_KEY);
+  const rawProgress = safeStorageGetItem(
+    getBrowserStorage("localStorage"),
+    STORAGE_KEY,
+  );
   if (!rawProgress) {
     return { completedLessons: [], updatedAt: "" };
   }
@@ -45,7 +53,11 @@ function writeProgressToStorage(completedLessons: string[]) {
     updatedAt: new Date().toISOString(),
   };
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextProgress));
+  safeStorageSetItem(
+    getBrowserStorage("localStorage"),
+    STORAGE_KEY,
+    JSON.stringify(nextProgress),
+  );
   window.dispatchEvent(new Event(PROGRESS_UPDATED_EVENT));
 }
 

@@ -8,6 +8,7 @@ export interface LatestPostsParams {
   cursor?: string;
   category?: string;
   tag?: string;
+  excludeTag?: string;
 }
 
 export interface LatestPostsResponse {
@@ -21,9 +22,83 @@ export interface LatestPostsResponse {
 }
 
 type PostEntry = Awaited<ReturnType<typeof reader.collections.posts.read>>;
+const FEATURED_TAG = "featured";
+
+function normalizeFilter(value?: string): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+function getTaxonomySlug(
+  item: unknown,
+  key: "category" | "tag",
+): string | null {
+  if (typeof item === "string") {
+    return item;
+  }
+
+  if (item && typeof item === "object" && key in item) {
+    const value = (item as Record<string, unknown>)[key];
+    return value ? String(value) : null;
+  }
+
+  return null;
+}
 
 function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values));
+}
+
+async function postMatchesCategory(
+  post: PostEntry,
+  normalizedCategory?: string,
+): Promise<boolean> {
+  if (!normalizedCategory) return true;
+  if (!post?.categories) return false;
+
+  for (const catRef of post.categories) {
+    const categorySlug = getTaxonomySlug(catRef, "category");
+    if (!categorySlug) continue;
+
+    if (categorySlug.toLowerCase() === normalizedCategory) {
+      return true;
+    }
+
+    const catData = await reader.collections.categories.read(categorySlug);
+    const categoryName = String(catData?.name || "").toLowerCase();
+
+    if (categoryName === normalizedCategory) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function postMatchesTag(
+  post: PostEntry,
+  normalizedTag?: string,
+): Promise<boolean> {
+  if (!normalizedTag) return true;
+  if (!post?.tags) return false;
+
+  for (const tagRef of post.tags) {
+    const tagSlug = getTaxonomySlug(tagRef, "tag");
+    if (!tagSlug) continue;
+
+    if (tagSlug.toLowerCase() === normalizedTag) {
+      return true;
+    }
+
+    const tagData = await reader.collections.tags.read(tagSlug);
+    const tagName = String(tagData?.name || "").toLowerCase();
+
+    if (tagName === normalizedTag) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function readPostBySlug(
@@ -93,15 +168,16 @@ async function transformPost(
   if (post.tags) {
     for (const tagItem of post.tags) {
       // Handle both string format (new) and object format (legacy)
+      const tagSlug = getTaxonomySlug(tagItem, "tag");
+      if (!tagSlug) continue;
+
       if (typeof tagItem === "string") {
-        tagNames.push(tagItem);
-      } else if (tagItem && typeof tagItem === "object" && "tag" in tagItem) {
+        tagNames.push(tagSlug);
+      } else {
         // Legacy format: relationship object
-        if (tagItem.tag) {
-          const tagData = await reader.collections.tags.read(tagItem.tag);
-          if (tagData?.name) {
-            tagNames.push(String(tagData.name));
-          }
+        const tagData = await reader.collections.tags.read(tagSlug);
+        if (tagData?.name) {
+          tagNames.push(String(tagData.name));
         }
       }
     }
@@ -209,69 +285,26 @@ export const fetchLatestPosts = async (
       return b.date.getTime() - a.date.getTime();
     });
 
-    const normalizedCategory = params.category?.trim().toLowerCase();
-    const normalizedTag = params.tag?.trim().toLowerCase();
+    const normalizedCategory = normalizeFilter(params.category);
+    const normalizedTag = normalizeFilter(params.tag);
+    const normalizedExcludeTag = normalizeFilter(params.excludeTag);
 
     // Filter by category and/or tag if specified
     let filteredPosts = postsWithDates;
-    if (normalizedCategory || normalizedTag) {
+    if (normalizedCategory || normalizedTag || normalizedExcludeTag) {
       filteredPosts = [];
 
       for (const item of postsWithDates) {
-        let matchesCategory = !normalizedCategory;
-        if (normalizedCategory && item.post?.categories) {
-          for (const catRef of item.post.categories) {
-            let categorySlug: string | null = null;
+        const matchesCategory = await postMatchesCategory(
+          item.post,
+          normalizedCategory,
+        );
+        const matchesTag = await postMatchesTag(item.post, normalizedTag);
+        const matchesExcludedTag = normalizedExcludeTag
+          ? await postMatchesTag(item.post, normalizedExcludeTag)
+          : false;
 
-            if (typeof catRef === "string") {
-              categorySlug = catRef;
-            } else if (catRef?.category) {
-              categorySlug = String(catRef.category);
-            }
-
-            if (categorySlug) {
-              const catData =
-                await reader.collections.categories.read(categorySlug);
-              const categoryName = String(catData?.name || "").toLowerCase();
-
-              if (
-                categoryName === normalizedCategory ||
-                categorySlug.toLowerCase() === normalizedCategory
-              ) {
-                matchesCategory = true;
-                break;
-              }
-            }
-          }
-        }
-
-        let matchesTag = !normalizedTag;
-        if (normalizedTag && item.post?.tags) {
-          for (const tagRef of item.post.tags) {
-            let tagSlug: string | null = null;
-
-            if (typeof tagRef === "string") {
-              tagSlug = tagRef;
-            } else if (tagRef?.tag) {
-              tagSlug = String(tagRef.tag);
-            }
-
-            if (tagSlug) {
-              const tagData = await reader.collections.tags.read(tagSlug);
-              const tagName = String(tagData?.name || "").toLowerCase();
-
-              if (
-                tagName === normalizedTag ||
-                tagSlug.toLowerCase() === normalizedTag
-              ) {
-                matchesTag = true;
-                break;
-              }
-            }
-          }
-        }
-
-        if (matchesCategory && matchesTag) {
+        if (matchesCategory && matchesTag && !matchesExcludedTag) {
           filteredPosts.push(item);
         }
       }
@@ -318,19 +351,28 @@ export interface FeaturedPostResponse {
   post: PostItem | null;
 }
 
+export interface FeaturedPostsParams {
+  limit?: number;
+}
+
+export interface FeaturedPostsResponse {
+  posts: PostItem[];
+}
+
 export async function fetchPublishedPostBySlug(slug: string, now?: Date) {
   const post = await readPostBySlug(slug, "fetchPublishedPostBySlug");
   return isPublishedPost(post, now) ? post : null;
 }
 
 /**
- * Fetch featured post from Keystatic
+ * Fetch featured posts from Keystatic, newest first.
  */
-export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
+export const fetchFeaturedPosts = async (
+  params: FeaturedPostsParams = {},
+): Promise<FeaturedPostsResponse> => {
   try {
     const allSlugs = await reader.collections.posts.list();
 
-    // Collect all posts with "Featured" tag, then pick the most recent
     const featuredCandidates: Array<{
       slug: string;
       date: Date | null;
@@ -340,44 +382,24 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
     for (const slug of allSlugs) {
       try {
         const post = await reader.collections.posts.read(slug);
-        if (isPublishedPost(post) && post.tags) {
-          let isFeatured = false;
-          for (const tagItem of post.tags) {
-            let tagSlug: string | null = null;
-            if (typeof tagItem === "string") {
-              tagSlug = tagItem;
-            } else if (
-              tagItem &&
-              typeof tagItem === "object" &&
-              "tag" in tagItem
-            ) {
-              if (tagItem.tag) {
-                tagSlug = tagItem.tag;
-              }
-            }
-            if (tagSlug === "featured") {
-              isFeatured = true;
-              break;
-            }
-          }
-
-          if (isFeatured) {
-            featuredCandidates.push({
-              slug,
-              date: parsePublishedAt(post.publishedAt),
-              post,
-            });
-          }
+        if (
+          isPublishedPost(post) &&
+          (await postMatchesTag(post, FEATURED_TAG))
+        ) {
+          featuredCandidates.push({
+            slug,
+            date: parsePublishedAt(post.publishedAt),
+            post,
+          });
         }
       } catch (error) {
         console.error(
-          `Failed to read post "${slug}" in fetchFeaturedPost:`,
+          `Failed to read post "${slug}" in fetchFeaturedPosts:`,
           error,
         );
       }
     }
 
-    // Sort by date descending and pick the most recent
     featuredCandidates.sort((a, b) => {
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
@@ -385,15 +407,30 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
       return b.date.getTime() - a.date.getTime();
     });
 
-    if (featuredCandidates.length > 0 && featuredCandidates[0]) {
-      const newest = featuredCandidates[0];
-      const transformed = await transformPost(newest.slug, newest.post);
-      return { post: transformed };
+    const limitedCandidates =
+      typeof params.limit === "number"
+        ? featuredCandidates.slice(0, params.limit)
+        : featuredCandidates;
+
+    const posts: PostItem[] = [];
+    for (const item of limitedCandidates) {
+      const transformed = await transformPost(item.slug, item.post);
+      if (transformed) {
+        posts.push(transformed);
+      }
     }
 
-    return { post: null };
+    return { posts };
   } catch (error) {
-    console.error("Failed to fetch featured post from Keystatic:", error);
-    return { post: null };
+    console.error("Failed to fetch featured posts from Keystatic:", error);
+    return { posts: [] };
   }
+};
+
+/**
+ * Fetch the most recent featured post from Keystatic.
+ */
+export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
+  const response = await fetchFeaturedPosts({ limit: 1 });
+  return { post: response.posts[0] ?? null };
 };

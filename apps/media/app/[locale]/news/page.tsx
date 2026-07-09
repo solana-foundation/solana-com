@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import PostsClientPage from "./client-page";
-import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/post-data";
+import { fetchFeaturedPosts, fetchLatestPosts } from "@/lib/post-data";
 import { newsListingMetadata } from "@/lib/metadata";
 import { getActiveCampaign } from "@/lib/news-campaign";
 import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
 
 export const revalidate = 300;
+
+const FEATURED_MASTHEAD_LIMIT = 5;
+const LATEST_POSTS_LIMIT = 13;
 
 export async function generateMetadata({
   params,
@@ -21,9 +24,12 @@ export default async function PostsPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const [featuredPost, latestPosts, navItems] = await Promise.all([
-    fetchFeaturedPost(),
-    fetchLatestPosts({ limit: 13 }),
+  const [featuredPosts, latestPosts, navItems] = await Promise.all([
+    fetchFeaturedPosts({ limit: FEATURED_MASTHEAD_LIMIT }),
+    fetchLatestPosts({
+      limit: LATEST_POSTS_LIMIT,
+      excludeTag: "featured",
+    }),
     fetchNewsNavItemsWithPosts(),
   ]);
   const campaign = getActiveCampaign("news-front");
@@ -31,7 +37,7 @@ export default async function PostsPage({
   return (
     <PostsClientPage
       campaign={campaign}
-      featuredPost={featuredPost.post}
+      featuredPosts={featuredPosts.posts}
       latestPosts={latestPosts.posts}
       initialPageInfo={latestPosts.pageInfo}
       navItems={navItems}
