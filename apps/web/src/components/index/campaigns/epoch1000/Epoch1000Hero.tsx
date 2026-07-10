@@ -95,9 +95,11 @@ export const Epoch1000Hero: React.FC = () => {
   const { live } = useEpochData();
   // Epoch 1000 has passed; default the copy to the celebration state while live data loads.
   const arrived = live?.arrived ?? true;
+  const targetEpoch = live?.targetEpoch ?? GRID_TOTAL;
+  const displayEpoch = arrived ? targetEpoch : (live?.epoch ?? targetEpoch);
   const titleKey = arrived ? "titleArrived" : "title";
   const subtitleKey = arrived ? "subtitleArrived" : "subtitle";
-  const gridEpoch = Math.min(live?.epoch ?? GRID_TOTAL, GRID_TOTAL);
+  const gridEpoch = Math.min(live?.epoch ?? targetEpoch, targetEpoch);
   const progress = live?.progress ?? 0;
   const progressWidth = arrived ? 100 : Math.max(1, progress * 100);
   const ctaLabel = t("cta");
@@ -161,11 +163,9 @@ export const Epoch1000Hero: React.FC = () => {
           style={{ animationDelay: "100ms" }}
         >
           <Odometer
-            value={live?.epoch ?? null}
-            arrived={live?.arrived ?? false}
-            label={`${statEpochLabel}: ${
-              live ? numberFormatter.format(live.epoch) : "—"
-            }`}
+            value={displayEpoch}
+            arrived={arrived}
+            label={`${statEpochLabel}: ${numberFormatter.format(displayEpoch)}`}
             className="ep-odo--hero"
           />
         </div>
@@ -261,7 +261,7 @@ export const Epoch1000Hero: React.FC = () => {
                     {arrived ? statEpochLabel : statSlotsLabel}{" "}
                     <span className="text-nd-high-em-text">
                       {numberFormatter.format(
-                        arrived ? live.epoch : live.slotsRemaining,
+                        arrived ? displayEpoch : live.slotsRemaining,
                       )}
                     </span>
                   </span>
