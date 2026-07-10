@@ -65,7 +65,7 @@ function formatEventMeta(
       : `${startParts.day} ${startParts.month} – ${endParts.day} ${endParts.month}`;
 
   return {
-    time: null,
+    time: end ? `${timeFormat.format(start)}–${timeFormat.format(end)}` : null,
     date: `${dayRange}, ${endParts.year}`.toUpperCase(),
   };
 }
