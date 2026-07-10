@@ -12,9 +12,8 @@ export const CONTENT_CREATOR_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-creator";
 export const CODE_OF_CONDUCT_HREF = "https://shorturl.at/lEMR1";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
-export const BREAKPOINT_LUMA_CALENDAR_ID = "evgrp-f8F1bDAHhBNDM1f";
-// Highlighted side events pinned by Luma URL slug until they land on the calendar.
-export const HIGHLIGHTED_EVENT_URLS = ["dmxdc394"];
+// Public calendar: https://luma.com/BP-Highlight
+export const BREAKPOINT_LUMA_CALENDAR_ID = "cal-J8paV20F2tKUEXI";
 export const BREAKPOINT_2025_ARCHIVES_URL =
   "https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z";
 export const BP25_RECAP_YOUTUBE_ID = "394wb968J68";

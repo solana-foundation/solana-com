@@ -16,7 +16,6 @@ export default async function EventsSection() {
       <div className="container">
         <EventsCarousel
           headline={t("events.headline")}
-          scheduleCta={t("events.scheduleCta")}
           communityCta={t("events.communityCta")}
           items={events}
         />

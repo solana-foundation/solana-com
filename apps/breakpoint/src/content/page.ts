@@ -72,7 +72,6 @@ export type BreakpointMessages = {
   };
   events: {
     headline: string;
-    scheduleCta: string;
     communityCta: string;
   };
   highlights: {

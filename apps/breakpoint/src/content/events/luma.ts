@@ -2,7 +2,6 @@ import { unstable_cache } from "next/cache";
 import {
   BREAKPOINT_LUMA_CALENDAR_ID,
   BREAKPOINT_LUMA_EVENT_ID,
-  HIGHLIGHTED_EVENT_URLS,
 } from "@/content/links";
 import type { HighlightedEvent } from "./types";
 
@@ -88,34 +87,11 @@ async function fetchCalendarEvents(): Promise<HighlightedEvent[]> {
     .filter((event): event is HighlightedEvent => event !== null);
 }
 
-async function fetchPinnedEvent(
-  slug: string,
-): Promise<HighlightedEvent | null> {
-  const url = new URL(`${LUMA_API_BASE}/url`);
-  url.searchParams.set("url", slug);
-
-  const payload = (await fetchLumaJson(url)) as {
-    kind?: string;
-    data?: LumaEventData & { event?: LumaEventData };
-  } | null;
-
-  if (payload?.kind !== "event" || !payload.data) {
-    return null;
-  }
-
-  return normalizeLumaEvent(payload.data.event ?? payload.data);
-}
-
 async function fetchHighlightedEvents(): Promise<HighlightedEvent[]> {
-  const [calendarEvents, ...pinnedEvents] = await Promise.all([
-    fetchCalendarEvents(),
-    ...HIGHLIGHTED_EVENT_URLS.map(fetchPinnedEvent),
-  ]);
-
   const now = Date.now();
   const events = new Map<string, HighlightedEvent>();
 
-  for (const event of [...calendarEvents, ...pinnedEvents]) {
+  for (const event of await fetchCalendarEvents()) {
     if (!event || event.id === BREAKPOINT_LUMA_EVENT_ID) continue;
     const endsAt = Date.parse(event.endAt ?? event.startAt);
     if (Number.isFinite(endsAt) && endsAt < now) continue;

@@ -11,7 +11,6 @@ import { getAnchorLinkProps } from "@/lib/links";
 
 interface EventsCarouselProps {
   headline: string;
-  scheduleCta: string;
   communityCta: string;
   items: HighlightedEvent[];
 }
@@ -73,7 +72,6 @@ function formatEventMeta(
 
 export default function EventsCarousel({
   headline,
-  scheduleCta,
   communityCta,
   items,
 }: EventsCarouselProps) {
@@ -123,13 +121,6 @@ export default function EventsCarousel({
           </h2>
           <div className="flex w-full flex-col gap-xs sm:w-auto sm:flex-row">
             <Button
-              label={scheduleCta}
-              variant="primary"
-              href="/schedule"
-              arrow
-              className="w-full sm:w-auto"
-            />
-            <Button
               label={communityCta}
               variant="secondary"
               href={SIDE_EVENTS_HREF}
@@ -159,15 +150,15 @@ export default function EventsCarousel({
             <li
               key={event.id}
               data-event-card
-              className="block aspect-[3/2] w-[280px] shrink-0 snap-start md:w-[calc((100%-64px)/3)] md:min-w-[300px]"
+              className="block w-[280px] shrink-0 snap-start md:w-[calc((100%-64px)/3)] md:min-w-[300px]"
             >
               <a
                 href={event.url}
-                className="group relative flex h-full w-full flex-col justify-end overflow-hidden border border-neutral-700 p-s focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                className="group block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                 {...getAnchorLinkProps({ href: event.url })}
               >
-                {event.coverUrl && (
-                  <>
+                <span className="relative block aspect-[3/2] overflow-hidden border border-neutral-700 bg-neutral-800">
+                  {event.coverUrl && (
                     <Image
                       src={event.coverUrl}
                       alt=""
@@ -175,19 +166,20 @@ export default function EventsCarousel({
                       sizes="(min-width: 768px) 33vw, 280px"
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20"
-                    />
-                  </>
-                )}
-                <span className="relative z-10 flex flex-col items-start">
-                  {time && (
-                    <span className="type-eyebrow text-white">{time}</span>
                   )}
-                  <span className="type-eyebrow mt-3xs text-white">{date}</span>
-                  <span className="type-h5 mt-2xs text-white">
+                </span>
+                <span className="flex min-h-[128px] flex-col items-start border-x border-b border-neutral-700 p-s">
+                  <span className="type-h5-fixed text-white transition-opacity duration-200 group-hover:opacity-70">
                     {event.title}
+                  </span>
+                  <span className="type-eyebrow mt-2xs flex flex-wrap gap-x-2xs gap-y-3xs text-text-secondary">
+                    <span>{date}</span>
+                    {time && (
+                      <>
+                        <span aria-hidden="true">/</span>
+                        <span>{time}</span>
+                      </>
+                    )}
                   </span>
                   <span className="sr-only">(opens in a new tab)</span>
                 </span>
