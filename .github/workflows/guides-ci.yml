@@ -1,0 +1,236 @@
+name: Guides CI
+
+# Walks through changed developer guides with an agent that follows the guide
+# exactly as a reader would, and fails if the guide is broken. On pushes to
+# main, failures additionally produce an auto-fix PR (opened by the
+# solana-docs-checker GitHub App).
+#
+# Required secrets:
+#   ANTHROPIC_API_KEY                - API key used by the walkthrough agent
+#   DOCS_CHECKER_APP_ID              - solana-docs-checker GitHub App id
+#   DOCS_CHECKER_APP_PRIVATE_KEY     - private key for that GitHub App
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      guides:
+        description: >-
+          Comma-separated guide paths to test (apps/docs/content/guides/...), or
+          "all"
+        required: true
+        default: all
+
+concurrency:
+  group:
+    guides-ci-${{ github.event_name }}-${{ github.event.pull_request.number ||
+    github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect:
+    name: Detect changed guides
+    runs-on: ubuntu-latest
+    outputs:
+      guides: ${{ steps.changed.outputs.guides }}
+      any: ${{ steps.changed.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect guide files to test
+        id: changed
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          INPUT_GUIDES: ${{ inputs.guides }}
+        run: |
+          set -euo pipefail
+          pathspec=':(glob)apps/docs/content/guides/**/*.mdx'
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$INPUT_GUIDES" = "all" ]; then
+              files=$(git ls-files "$pathspec")
+            else
+              files=$(echo "$INPUT_GUIDES" | tr ',' '\n' | sed 's/^ *//;s/ *$//')
+            fi
+          elif [ "$EVENT" = "pull_request" ]; then
+            base=$(git merge-base "$BASE_SHA" HEAD)
+            files=$(git diff --name-only --diff-filter=d "$base" HEAD -- "$pathspec")
+          else
+            base="$BEFORE_SHA"
+            if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              base=$(git rev-parse HEAD~1)
+            fi
+            files=$(git diff --name-only --diff-filter=d "$base" HEAD -- "$pathspec")
+          fi
+
+          # Keep only files that exist (guards manual dispatch typos)
+          existing=""
+          while IFS= read -r f; do
+            [ -n "$f" ] && [ -f "$f" ] && existing="$existing$f"$'\n'
+          done <<< "$files"
+
+          guides=$(printf '%s' "$existing" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "Guides to test: $guides"
+          echo "guides=$guides" >> "$GITHUB_OUTPUT"
+          if [ "$guides" = "[]" ]; then
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    name: Walk through guide
+    needs: detect
+    if: needs.detect.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        guide: ${{ fromJSON(needs.detect.outputs.guides) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Follow the guide
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read scripts/guides-ci/test-guide-prompt.md in this repository and
+            follow those instructions exactly.
+
+            Guide to test: ${{ matrix.guide }}
+            Write the JSON report to: ${{ runner.temp }}/guide-report.json
+          claude_args: |
+            --model claude-opus-4-8
+            --max-turns 250
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
+
+      - name: Evaluate report
+        run:
+          node scripts/guides-ci/check-report.mjs
+          "$RUNNER_TEMP/guide-report.json"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guide-report-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/guide-report.json
+          if-no-files-found: ignore
+
+  # Single job for branch protection: mark this one as the required check.
+  # It passes when no guides changed and fails when any walkthrough failed.
+  gate:
+    name: Guides CI gate
+    needs: [detect, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          if [ "$TEST_RESULT" = "failure" ] || [ "$TEST_RESULT" = "cancelled" ]; then
+            echo "One or more guide walkthroughs failed."
+            exit 1
+          fi
+          echo "All guide walkthroughs passed (or no guides changed)."
+
+  autofix:
+    name: Open fix PR
+    needs: [detect, test]
+    if:
+      always() && github.event_name == 'push' && needs.test.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Create bot token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.DOCS_CHECKER_APP_ID }}
+          private-key: ${{ secrets.DOCS_CHECKER_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download walkthrough reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: guide-report-*
+          path: reports
+          merge-multiple: false
+
+      - name: Fix failing guides
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read scripts/guides-ci/fix-guides-prompt.md in this repository and
+            follow those instructions exactly.
+
+            The walkthrough reports are under: reports/
+            Write the PR title to: ${{ runner.temp }}/pr-title.txt
+            Write the PR body to: ${{ runner.temp }}/pr-body.md
+          claude_args: |
+            --model claude-opus-4-8
+            --max-turns 250
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
+
+      - name: Read PR title
+        id: pr
+        run: |
+          title="docs: fix guide steps failing the automated guide check"
+          if [ -s "$RUNNER_TEMP/pr-title.txt" ]; then
+            title=$(head -n 1 "$RUNNER_TEMP/pr-title.txt" | cut -c1-150)
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          if [ ! -s "$RUNNER_TEMP/pr-body.md" ]; then
+            echo "Automated guide check found failing guides on main; this PR fixes them. See the Guides CI run for reports." > "$RUNNER_TEMP/pr-body.md"
+          fi
+
+      - name: Get bot user id
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run:
+          echo "id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)" >>
+          "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: guides-autofix/${{ github.run_id }}
+          base: main
+          add-paths: apps/docs/content/guides/**
+          commit-message: ${{ steps.pr.outputs.title }}
+          title: ${{ steps.pr.outputs.title }}
+          body-path: ${{ runner.temp }}/pr-body.md
+          committer:
+            ${{ steps.app-token.outputs.app-slug }}[bot] <${{
+            steps.bot.outputs.id }}+${{ steps.app-token.outputs.app-slug
+            }}[bot]@users.noreply.github.com>
+          author:
+            ${{ steps.app-token.outputs.app-slug }}[bot] <${{
+            steps.bot.outputs.id }}+${{ steps.app-token.outputs.app-slug
+            }}[bot]@users.noreply.github.com>
+          delete-branch: true
