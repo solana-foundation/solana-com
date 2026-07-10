@@ -102,10 +102,39 @@ function getSolanaLogo() {
 }
 
 const remoteImageCache = new Map<string, Promise<string | null>>();
+const MAX_REMOTE_IMAGE_CACHE = 64;
+const ALLOWED_REMOTE_IMAGE_HOSTS = new Set(["trillium.so", "s3.amazonaws.com"]);
+
+function isAllowedRemoteImageUrl(urlString: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol !== "https:") return false;
+  if (!ALLOWED_REMOTE_IMAGE_HOSTS.has(url.hostname)) return false;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(url.hostname)) return false;
+  if (url.hostname === "localhost" || url.hostname.endsWith(".local")) {
+    return false;
+  }
+
+  return true;
+}
 
 function getRemoteImageDataUrl(url: string): Promise<string | null> {
+  if (!isAllowedRemoteImageUrl(url)) {
+    return Promise.resolve(null);
+  }
+
   let cached = remoteImageCache.get(url);
   if (!cached) {
+    if (remoteImageCache.size >= MAX_REMOTE_IMAGE_CACHE) {
+      const oldest = remoteImageCache.keys().next().value;
+      if (oldest) remoteImageCache.delete(oldest);
+    }
+
     cached = fetch(url)
       .then(async (res) => {
         if (!res.ok) return null;

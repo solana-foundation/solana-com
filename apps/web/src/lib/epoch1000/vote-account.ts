@@ -25,18 +25,32 @@ export async function findValidatorFirstTransaction(
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Trillium API failed: ${res.status}`);
 
-  const records = (await res.json()) as TrilliumValidatorReward[];
-  const record = records.find(
+  const payload: unknown = await res.json();
+  if (!Array.isArray(payload)) return null;
+
+  const records = payload as TrilliumValidatorReward[];
+  const matches = records.filter(
     (entry) => entry.vote_account_pubkey === voteAccount,
   );
-  if (!record || record.sw_first_epoch_with_stake == null) return null;
+  if (matches.length === 0) return null;
+
+  // Trillium returns per-epoch rows; sw_first_epoch_with_stake is only on some.
+  const recordWithFirstEpoch = matches.find(
+    (entry) => entry.sw_first_epoch_with_stake != null,
+  );
+  if (!recordWithFirstEpoch) return null;
+
+  const latestRecord = matches[0];
 
   return {
     signature: "",
-    slot: record.sw_first_epoch_with_stake * SLOTS_PER_EPOCH,
+    slot: recordWithFirstEpoch.sw_first_epoch_with_stake * SLOTS_PER_EPOCH,
     blockTime: null,
     capped: false,
     scanned: 0,
-    logoUrl: record.icon_url?.trim() || null,
+    logoUrl:
+      latestRecord?.icon_url?.trim() ||
+      recordWithFirstEpoch.icon_url?.trim() ||
+      null,
   };
 }

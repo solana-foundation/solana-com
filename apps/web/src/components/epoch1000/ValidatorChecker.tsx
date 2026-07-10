@@ -1,31 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { cardParams, type CheckResult } from "@/lib/epoch1000/card-params";
 import {
   isValidSolanaAddress,
   SOLANA_ADDRESS_ERROR,
 } from "@/lib/epoch1000/public-key";
 
-const LOADING_LINES = [
-  "checking...",
-  "finding first vote...",
-  "scanning validator history...",
-  "building card...",
-];
+const LOADING_LINE_KEYS = [
+  "loadingChecking",
+  "loadingFindingVote",
+  "loadingScanning",
+  "loadingBuilding",
+] as const;
 
 interface Props {
   onResult?: (_result: CheckResult | null) => void;
 }
 
 export default function ValidatorChecker({ onResult }: Props) {
+  const t = useTranslations("epoch1000.validator.checker");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingLine, setLoadingLine] = useState(LOADING_LINES[0]);
+  const [loadingLine, setLoadingLine] = useState<
+    (typeof LOADING_LINE_KEYS)[number]
+  >(LOADING_LINE_KEYS[0]);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckResult | null>(null);
   const [showAddress, setShowAddress] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const numberFormatter = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
   async function check(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +49,9 @@ export default function ValidatorChecker({ onResult }: Props) {
     const rotator = setInterval(
       () =>
         setLoadingLine(
-          LOADING_LINES[Math.floor(Math.random() * LOADING_LINES.length)],
+          LOADING_LINE_KEYS[
+            Math.floor(Math.random() * LOADING_LINE_KEYS.length)
+          ],
         ),
       2500,
     );
@@ -55,13 +63,13 @@ export default function ValidatorChecker({ onResult }: Props) {
       });
       const json = await res.json();
       if (!res.ok) {
-        setLookupError(json.error ?? "Lookup failed. Try again.");
+        setLookupError(json.error ?? t("lookupFailed"));
       } else {
         setResult(json as CheckResult);
         onResult?.(json as CheckResult);
       }
     } catch {
-      setLookupError("Lookup failed. Try again.");
+      setLookupError(t("lookupFailed"));
     } finally {
       clearInterval(rotator);
       setLoading(false);
@@ -74,7 +82,12 @@ export default function ValidatorChecker({ onResult }: Props) {
     : "";
   const tweet = result
     ? encodeURIComponent(
-        `I've validated ${result.epochsSurvived}${result.capped ? "+" : ""} Solana epochs - ${result.tier}.\n\n${cardUrl}`,
+        t("tweet", {
+          epochsSurvived: result.epochsSurvived,
+          capped: result.capped ? "+" : "",
+          tier: result.tier,
+          cardUrl,
+        }),
       )
     : "";
 
@@ -99,12 +112,13 @@ export default function ValidatorChecker({ onResult }: Props) {
     <section id="checker" className="flex flex-col gap-6">
       <div>
         <h2 className="font-bold tracking-tight text-3xl sm:text-4xl">
-          Check <span className="text-sol-gradient">validator</span>
+          {t.rich("heading", {
+            gradient: (chunks) => (
+              <span className="text-sol-gradient">{chunks}</span>
+            ),
+          })}
         </h2>
-        <p className="mt-2 text-sm text-ep-dim">
-          Enter a vote account to find your first validating epoch and share
-          your survivor card. No connect, no signature.
-        </p>
+        <p className="mt-2 text-sm text-ep-dim">{t("description")}</p>
       </div>
 
       <form onSubmit={check} className="flex flex-col sm:flex-row gap-3">
@@ -114,10 +128,10 @@ export default function ValidatorChecker({ onResult }: Props) {
             setAddress(e.target.value);
             setLookupError(null);
           }}
-          placeholder="vote account address"
+          placeholder={t("placeholder")}
           spellCheck={false}
           autoComplete="off"
-          aria-label="Validator vote account address"
+          aria-label={t("inputAriaLabel")}
           aria-invalid={validationError ? true : undefined}
           aria-describedby={
             displayedError ? "epoch1000-validator-error" : undefined
@@ -129,13 +143,13 @@ export default function ValidatorChecker({ onResult }: Props) {
           disabled={loading || !isAddressValid}
           className="!bg-ep-ink text-ep-void font-semibold rounded-full px-7 py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:!bg-ep-dim transition"
         >
-          {loading ? "Checking..." : "Check"}
+          {loading ? t("submitLoading") : t("submit")}
         </button>
       </form>
 
       {loading && (
         <p className="text-sm text-ep-dust animate-pulse" aria-live="polite">
-          {loadingLine}
+          {t(loadingLine)}
         </p>
       )}
 
@@ -154,7 +168,10 @@ export default function ValidatorChecker({ onResult }: Props) {
           <img
             key={params}
             src={`/api/epoch1000/og?${params}`}
-            alt={`Validator card: first seen epoch ${result.firstEpoch}, validated ${result.epochsSurvived} epochs`}
+            alt={t("imageAlt", {
+              firstEpoch: result.firstEpoch,
+              epochsSurvived: result.epochsSurvived,
+            })}
             className="w-full rounded-lg border border-ep-edge"
             width={1200}
             height={630}
@@ -168,7 +185,7 @@ export default function ValidatorChecker({ onResult }: Props) {
                 onChange={(e) => setShowAddress(e.target.checked)}
                 className="accent-[#14f195]"
               />
-              Show vote account
+              {t("showVoteAccount")}
             </label>
             <a
               href={`https://twitter.com/intent/tweet?text=${tweet}`}
@@ -176,33 +193,35 @@ export default function ValidatorChecker({ onResult }: Props) {
               rel="noopener noreferrer"
               className="bg-ep-ink text-ep-void font-semibold rounded-full px-5 py-2 hover:bg-ep-dim transition"
             >
-              Share
+              {t("share")}
             </a>
             <button
               onClick={copyLink}
               className="border border-ep-edge rounded-full px-5 py-2 text-ep-dim hover:text-ep-ink transition"
             >
-              {copied ? "Copied" : "Copy link"}
+              {copied ? t("copied") : t("copyLink")}
             </button>
             <a
               href={`/api/epoch1000/og?${params}`}
               download={`epoch1000-validator-${result.firstEpoch}.png`}
               className="border border-ep-edge rounded-full px-5 py-2 text-ep-dim hover:text-ep-ink transition"
             >
-              PNG
+              {t("png")}
             </a>
           </div>
 
           <p className="text-xs text-ep-dust">
-            First seen:{" "}
+            {t("firstSeen")}{" "}
             <a
               href={`https://solscan.io/account/${result.address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="underline decoration-ep-edge underline-offset-4 hover:text-ep-dim"
             >
-              epoch {result.firstEpoch} · slot{" "}
-              {result.firstSlot.toLocaleString("en-US")}
+              {t("firstSeenEpoch", {
+                epoch: result.firstEpoch,
+                slot: numberFormatter.format(result.firstSlot),
+              })}
             </a>
           </p>
         </div>

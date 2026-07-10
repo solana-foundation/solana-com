@@ -6,7 +6,7 @@ import {
 
 export const VALIDATOR_LOOKUP_CACHE_REVALIDATE_SECONDS = 60;
 
-const CACHE_KEY_VERSION = "epoch1000-validator-first-tx-v2";
+const CACHE_KEY_VERSION = "epoch1000-validator-first-tx-v3";
 const CACHE_TAG = "epoch1000-validator-lookup";
 const LOCAL_CACHE_MAX_ENTRIES = 1_000;
 
