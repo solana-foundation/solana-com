@@ -103,7 +103,8 @@ function getSolanaLogo() {
 
 const remoteImageCache = new Map<string, Promise<string | null>>();
 const MAX_REMOTE_IMAGE_CACHE = 64;
-const ALLOWED_REMOTE_IMAGE_HOSTS = new Set(["trillium.so", "s3.amazonaws.com"]);
+const MAX_REMOTE_IMAGE_BYTES = 512 * 1024;
+const ALLOWED_REMOTE_IMAGE_HOSTS = new Set(["trillium.so"]);
 
 function isAllowedRemoteImageUrl(urlString: string): boolean {
   let url: URL;
@@ -123,6 +124,40 @@ function isAllowedRemoteImageUrl(urlString: string): boolean {
   return true;
 }
 
+async function readLimitedResponseBody(
+  res: Response,
+  maxBytes: number,
+): Promise<Buffer | null> {
+  const contentLength = res.headers.get("content-length");
+  if (contentLength) {
+    const length = Number(contentLength);
+    if (!Number.isFinite(length) || length <= 0 || length > maxBytes) {
+      return null;
+    }
+  }
+
+  const body = res.body;
+  if (!body) return null;
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) return null;
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks);
+}
+
 function getRemoteImageDataUrl(url: string): Promise<string | null> {
   if (!isAllowedRemoteImageUrl(url)) {
     return Promise.resolve(null);
@@ -138,7 +173,11 @@ function getRemoteImageDataUrl(url: string): Promise<string | null> {
     cached = fetch(url)
       .then(async (res) => {
         if (!res.ok) return null;
-        const buffer = Buffer.from(await res.arrayBuffer());
+        const buffer = await readLimitedResponseBody(
+          res,
+          MAX_REMOTE_IMAGE_BYTES,
+        );
+        if (!buffer) return null;
         const contentType = res.headers.get("content-type") ?? "image/jpeg";
         return `data:${contentType};base64,${buffer.toString("base64")}`;
       })
