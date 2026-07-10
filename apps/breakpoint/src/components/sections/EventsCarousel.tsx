@@ -160,7 +160,7 @@ export default function EventsCarousel({
                 className="group block h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                 {...getAnchorLinkProps({ href: event.url })}
               >
-                <span className="relative block aspect-[3/2] overflow-hidden border border-neutral-700 bg-neutral-800">
+                <span className="relative block aspect-square overflow-hidden border border-neutral-700 bg-neutral-800">
                   {event.coverUrl && (
                     <Image
                       src={event.coverUrl}
