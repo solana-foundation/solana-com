@@ -1,4 +1,13 @@
+export type TierId =
+  | "genesis"
+  | "diamond"
+  | "obsidian"
+  | "veteran"
+  | "survivor"
+  | "settler";
+
 export interface Tier {
+  id: TierId;
   name: string;
   /** Minimum epochs survived to qualify. */
   min: number;
@@ -13,6 +22,7 @@ export interface Tier {
 /** Ordered highest to lowest. Survival = current epoch − first epoch. */
 export const TIERS: Tier[] = [
   {
+    id: "genesis",
     name: "GENESIS CLASS",
     min: 900,
     color: "#FFD66B",
@@ -20,6 +30,7 @@ export const TIERS: Tier[] = [
     line: "Here before almost everyone.",
   },
   {
+    id: "diamond",
     name: "DIAMOND CLASS",
     min: 750,
     color: "#A5F3FC",
@@ -27,6 +38,7 @@ export const TIERS: Tier[] = [
     line: "Forged under pressure.",
   },
   {
+    id: "obsidian",
     name: "OBSIDIAN CLASS",
     min: 600,
     color: "#C084FC",
@@ -34,6 +46,7 @@ export const TIERS: Tier[] = [
     line: "Cooled in the fire of the bear.",
   },
   {
+    id: "veteran",
     name: "VETERAN CLASS",
     min: 450,
     color: "#14F195",
@@ -41,6 +54,7 @@ export const TIERS: Tier[] = [
     line: "Seen some things.",
   },
   {
+    id: "survivor",
     name: "SURVIVOR CLASS",
     min: 250,
     color: "#60A5FA",
@@ -48,6 +62,7 @@ export const TIERS: Tier[] = [
     line: "Still here. Still early.",
   },
   {
+    id: "settler",
     name: "SETTLER CLASS",
     min: 0,
     color: "#9CA3AF",

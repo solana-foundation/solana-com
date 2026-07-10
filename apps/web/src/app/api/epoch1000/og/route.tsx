@@ -1,11 +1,11 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { loadMergedMessages, resolveLocale } from "@workspace/i18n/messages";
 import { tierFor } from "@/lib/epoch1000/tiers";
 import {
   GH_CELL_BORDER,
   GH_EMPTY,
-  GH_LEVELS,
   githubGreen,
 } from "@/lib/epoch1000/github-colors";
 
@@ -15,15 +15,48 @@ const CACHE_CONTROL =
   "public, max-age=0, s-maxage=86400, stale-while-revalidate=86400";
 const CELLS = 50; // 1 cell = 20 epochs of the first 1000
 const EPOCHS_PER_CELL = 1000 / CELLS;
+type MessageTree = Record<string, unknown>;
+type MessageValues = Record<string, number | string>;
 
-function fmtDate(ts: number | null): string {
-  if (!ts) return "";
-  return new Date(ts * 1000).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+const messageCache = new Map<string, Promise<MessageTree>>();
+
+function messagesFor(localeParam: string | null) {
+  const locale = resolveLocale(localeParam);
+  let messages = messageCache.get(locale);
+
+  if (!messages) {
+    messages = loadMergedMessages({
+      app: "web",
+      locale,
+    }) as Promise<MessageTree>;
+    messageCache.set(locale, messages);
+  }
+
+  return messages;
+}
+
+async function getCardMessage(localeParam: string | null) {
+  const messages = await messagesFor(localeParam);
+
+  return (key: string, values: MessageValues = {}) => {
+    const template = `epoch1000.card.${key}`
+      .split(".")
+      .reduce<unknown>(
+        (acc, part) =>
+          acc && typeof acc === "object" && part in acc
+            ? (acc as MessageTree)[part]
+            : undefined,
+        messages,
+      );
+
+    if (typeof template !== "string") {
+      return `epoch1000.card.${key}`;
+    }
+
+    return template.replace(/\{(\w+)\}/g, (match, name) =>
+      name in values ? String(values[name]) : match,
+    );
+  };
 }
 
 async function font(file: string) {
@@ -71,23 +104,17 @@ export async function GET(req: Request) {
     firstEpoch,
     parseInt(p.get("c") ?? "0", 10) || 0,
   );
-  const blockTime = parseInt(p.get("t") ?? "0", 10) || null;
   const wallet = p.get("w") ?? "";
   const capped = p.get("x") === "1";
   const tier = tierFor(survived);
   const survivedLabel = capped ? `${survived}+` : String(survived);
-  const firstSeenLabel = blockTime
-    ? `Epoch ${firstEpoch} · ${fmtDate(blockTime)}`
-    : `Epoch ${firstEpoch}`;
-  const percentOfFirst1000 = Math.min(
-    100,
-    Math.max(0, Math.round((survived / 1000) * 100)),
-  );
 
-  const [[diatype700, dsemi400, dsemi600], solanaLogo] = await Promise.all([
+  const [t, [diatype700, dsemi400, dsemi600], solanaLogo] = await Promise.all([
+    getCardMessage(p.get("l")),
     getFontData(),
     getSolanaLogo(),
   ]);
+  const tierName = t(`tiers.${tier.id}.name`);
 
   const firstCell = Math.min(
     CELLS - 1,
@@ -113,7 +140,6 @@ export async function GET(req: Request) {
         boxSizing: "border-box",
       }}
     >
-      {/* header */}
       <div
         style={{
           display: "flex",
@@ -128,45 +154,48 @@ export async function GET(req: Request) {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            border: `2px solid ${tier.color}`,
-            color: tier.color,
-            borderRadius: 999,
-            padding: "10px 26px",
+            color: "#8B8B8B",
             fontSize: 24,
-            fontWeight: 600,
-            letterSpacing: "0.14em",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
           }}
         >
-          {tier.name}
+          {t("og.epoch1000")}
         </div>
       </div>
 
-      {/* main stat */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          marginTop: 34,
+          marginTop: 54,
         }}
       >
         <div
           style={{
-            fontSize: 25,
+            display: "flex",
+            fontSize: 28,
             letterSpacing: "0.18em",
-            color: "#BDBDBD",
+            color: "#8B8B8B",
             textTransform: "uppercase",
           }}
         >
-          Epoch 1000 survivor card
+          {t("og.walletAge")}
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 30,
+            marginTop: 8,
+          }}
+        >
           <div
             style={{
               fontFamily: "Diatype",
               fontWeight: 700,
-              fontSize: 154,
-              lineHeight: 0.92,
+              fontSize: 202,
+              lineHeight: 0.88,
               color: tier.color,
             }}
           >
@@ -177,8 +206,7 @@ export async function GET(req: Request) {
             style={{
               display: "flex",
               flexDirection: "column",
-              marginBottom: 18,
-              gap: 6,
+              marginBottom: 20,
             }}
           >
             <span
@@ -186,86 +214,55 @@ export async function GET(req: Request) {
                 display: "flex",
                 fontFamily: "Diatype",
                 fontWeight: 700,
-                fontSize: 44,
+                fontSize: 54,
                 color: "#FFFFFF",
               }}
             >
-              EPOCHS SURVIVED
-            </span>
-            <span
-              style={{
-                display: "flex",
-                fontSize: 24,
-                color: "#8B8B8B",
-                letterSpacing: "0.14em",
-              }}
-            >
-              OF THE FIRST 1000
+              {t("og.epochsOld")}
             </span>
           </div>
         </div>
         <div
           style={{
             display: "flex",
-            fontSize: 26,
-            color: "#B0B0B0",
-            gap: 10,
-            marginTop: 12,
-          }}
-        >
-          <span style={{ color: "#757575" }}>First seen</span>
-          <span style={{ fontWeight: 600 }}>{firstSeenLabel}</span>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 10,
-            fontSize: 27,
+            alignItems: "center",
+            gap: 14,
+            marginTop: 18,
+            fontSize: 24,
             fontWeight: 600,
-            color: tier.color,
           }}
         >
-          {`"${tier.line}"`}
+          <div
+            style={{
+              display: "flex",
+              border: "2px solid #2A2F36",
+              color: "#BDBDBD",
+              borderRadius: 999,
+              padding: "10px 22px",
+            }}
+          >
+            {t("og.sinceEpoch", { epoch: firstEpoch })}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              border: `2px solid ${tier.color}`,
+              color: tier.color,
+              borderRadius: 999,
+              padding: "10px 22px",
+            }}
+          >
+            {tierName}
+          </div>
         </div>
       </div>
 
-      {/* thousand grid - github-contributions strip of square cells */}
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           width: 1046,
-          marginTop: 34,
-          fontSize: 21,
-        }}
-      >
-        <span
-          style={{
-            color: "#8B8B8B",
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-          }}
-        >
-          First 1000 epochs
-        </span>
-        <span
-          style={{
-            color: GH_LEVELS[3],
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          {`${percentOfFirst1000}%`}
-        </span>
-      </div>
-      <div
-        style={{
-          display: "flex",
           gap: 4,
-          width: 1046,
-          marginTop: 14,
+          marginTop: 48,
         }}
       >
         {Array.from({ length: CELLS }, (_, i) => {
@@ -294,33 +291,30 @@ export async function GET(req: Request) {
           marginTop: 12,
         }}
       >
-        <span>EPOCH 0</span>
-        <span>EPOCH 1000</span>
+        <span>{t("og.startEpoch")}</span>
+        <span>{t("og.endEpoch")}</span>
       </div>
 
-      {/* footer */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           marginTop: "auto",
-          fontSize: 24,
+          fontSize: 22,
         }}
       >
         <div
           style={{
             display: "flex",
-            color: wallet ? "#FFFFFF" : "#757575",
+            color: "#757575",
             fontWeight: 600,
           }}
         >
-          {wallet || "Anonymous survivor"}
+          {t("og.proof", { wallet: wallet || t("og.anonymousWallet") })}
         </div>
-        <div style={{ display: "flex", gap: 10, color: "#757575" }}>
-          <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Check yours</span>
-          <span>·</span>
-          <span>solana.com/epoch1000</span>
+        <div style={{ display: "flex", color: "#757575" }}>
+          {t("og.footerUrl")}
         </div>
       </div>
     </div>,
