@@ -4,7 +4,9 @@ import { unstable_cache } from "next/cache";
 import {
   buildRpcAvgLatencyQuery,
   buildRpcP50LatencyQuery,
+  buildRpcP95LatencyQuery,
   buildRpcP99LatencyQuery,
+  buildRpcSuccessRateQuery,
   getRpcLatencyConfig,
   getRpcLatencyMetricRows,
   parseRpcLatencyQueryOptions,
@@ -141,13 +143,16 @@ function getRpcLatencyCacheKey(
 ) {
   return [
     config.baseUrl,
+    options.infra,
     options.method,
     options.provider ?? "all",
     options.region,
     RPC_LATENCY_RANGE_HOURS,
     RPC_LATENCY_RANGE_STEP_SECONDS,
+    buildRpcSuccessRateQuery(options),
     buildRpcAvgLatencyQuery(options),
     buildRpcP50LatencyQuery(options),
+    buildRpcP95LatencyQuery(options),
     buildRpcP99LatencyQuery(options),
   ].join("|");
 }

@@ -15,21 +15,35 @@ export const rpcRegionOptions = [
   { label: "asia-southeast1", value: "asia-southeast1" },
 ] as const;
 
+export const rpcInfraOptions = [
+  { label: "All", value: "all" },
+  { label: "GCP", value: "gcp" },
+] as const;
+
 export const rpcMethodOptions = [
   { label: "getHealth", value: "getHealth" },
   { label: "getSlot", value: "getSlot" },
   { label: "getLatestBlockhash", value: "getLatestBlockhash" },
   { label: "getAccountInfo", value: "getAccountInfo" },
+  { label: "getMultipleAccounts", value: "getMultipleAccounts" },
   { label: "getProgramAccounts", value: "getProgramAccounts" },
+  {
+    label: "getTokenAccountsByOwner",
+    value: "getTokenAccountsByOwner",
+  },
   { label: "getBlock_recent", value: "getBlock_recent" },
+  { label: "getBlock_archival", value: "getBlock_archival" },
   { label: "getTransaction_recent", value: "getTransaction_recent" },
+  { label: "getTransactionRecent", value: "getTransactionRecent" },
   { label: "getSignaturesForAddress", value: "getSignaturesForAddress" },
 ] as const;
 
+export const defaultRpcInfra = "all";
 export const defaultRpcRegion = "us-east4";
 export const defaultRpcMethod = "getLatestBlockhash";
 export const rpcLatencyRangeHours = 6;
 
+export type RpcLatencyInfra = (typeof rpcInfraOptions)[number]["value"];
 export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type ProviderName = string;
@@ -427,6 +441,38 @@ export const chartDefinitions = [
     ],
   },
   {
+    id: "rpc-success-rate",
+    tab: "rpc",
+    title: "Success Rate",
+    valueLabel: "Percent",
+    metrics: ["RPC Success Rate"],
+    aggregation: "avg",
+    seriesField: "provider",
+    timeGranularity: "hour",
+    methodology: [
+      {
+        provider: "Alchemy",
+        description:
+          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "Helius",
+        description:
+          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "QuickNode",
+        description:
+          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "Triton",
+        description:
+          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+      },
+    ],
+  },
+  {
     id: "rpc-avg-latency",
     tab: "rpc",
     title: "Avg Latency",
@@ -441,22 +487,22 @@ export const chartDefinitions = [
       {
         provider: "Alchemy",
         description:
-          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+          "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Helius",
         description:
-          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+          "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "QuickNode",
         description:
-          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+          "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Triton",
         description:
-          "Prometheus rate over 5 minutes for the selected RPC method and region.",
+          "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
     ],
   },
@@ -474,22 +520,55 @@ export const chartDefinitions = [
       {
         provider: "Alchemy",
         description:
-          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Helius",
         description:
-          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "QuickNode",
         description:
-          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Triton",
         description:
-          "Prometheus histogram p50 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
+      },
+    ],
+  },
+  {
+    id: "rpc-p95-latency",
+    tab: "rpc",
+    title: "P95 Latency",
+    valueLabel: "Milliseconds",
+    metrics: ["RPC P95 Latency"],
+    aggregation: "avg",
+    seriesField: "provider",
+    lowerIsBetter: true,
+    timeGranularity: "hour",
+    methodology: [
+      {
+        provider: "Alchemy",
+        description:
+          "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "Helius",
+        description:
+          "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "QuickNode",
+        description:
+          "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
+      },
+      {
+        provider: "Triton",
+        description:
+          "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
     ],
   },
@@ -507,22 +586,22 @@ export const chartDefinitions = [
       {
         provider: "Alchemy",
         description:
-          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Helius",
         description:
-          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "QuickNode",
         description:
-          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
         provider: "Triton",
         description:
-          "Prometheus histogram p99 over 1 hour for the selected RPC method and region.",
+          "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
     ],
   },

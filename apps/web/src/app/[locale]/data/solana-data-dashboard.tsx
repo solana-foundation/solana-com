@@ -48,12 +48,14 @@ import { cn } from "@/app/components/utils";
 
 import {
   chartDefinitions,
+  defaultRpcInfra,
   defaultRpcMethod,
   defaultRpcRegion,
   metricColors,
   normalizeProviderName,
   providerColors,
   rangeOptions,
+  rpcInfraOptions,
   rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
@@ -64,6 +66,7 @@ import {
   type MethodologyComment,
   type MetricRow,
   type ProviderName,
+  type RpcLatencyInfra,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
 } from "./data-config";
@@ -242,6 +245,7 @@ const rpcDataSWRConfig = {
 
 type QueryUpdates = {
   days?: number;
+  infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;
   providers?: Set<ProviderName>;
   region?: RpcLatencyRegion;
@@ -270,13 +274,20 @@ export function SolanaDataDashboard() {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
   const showProviderControls = useMinWidth("(min-width: 768px)");
-  const { activeTab, providerParam, rangeDays, rpcMethod, rpcRegion } =
-    useDashboardQueryParams();
+  const {
+    activeTab,
+    providerParam,
+    rangeDays,
+    rpcInfra,
+    rpcMethod,
+    rpcRegion,
+  } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const activeTabContent = getTabContent(t, activeTab);
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const dataUrl = getDashboardDataUrl({
     activeTab,
+    rpcInfra,
     rangeDays,
     rpcMethod,
     rpcRegion,
@@ -336,6 +347,7 @@ export function SolanaDataDashboard() {
     isRpcTab ? (
       <span key="filter">
         {t("footer.rpcFilter", {
+          infra: getRpcInfraLabel(rpcInfra),
           method: rpcMethod,
           region: rpcRegion,
         })}
@@ -374,6 +386,7 @@ export function SolanaDataDashboard() {
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
             rangeDays={rangeDays}
+            rpcInfra={rpcInfra}
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
             selectedProviders={selectedProviders}
@@ -529,6 +542,7 @@ function DashboardControls({
   isRefreshing,
   onUpdateQuery,
   rangeDays,
+  rpcInfra,
   rpcMethod,
   rpcRegion,
   selectedProviders,
@@ -541,6 +555,7 @@ function DashboardControls({
   isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
   rangeDays: number;
+  rpcInfra: RpcLatencyInfra;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
   selectedProviders: Set<ProviderName>;
@@ -588,6 +603,13 @@ function DashboardControls({
                 options={rpcRegionOptions}
                 value={rpcRegion}
                 onChange={(value) => onUpdateQuery({ region: value })}
+              />
+              <FilterSelect
+                ariaLabel={t("controls.rpcInfraAriaLabel")}
+                label={t("controls.rpcInfraLabel")}
+                options={rpcInfraOptions}
+                value={rpcInfra}
+                onChange={(value) => onUpdateQuery({ infra: value })}
               />
               <FilterSelect
                 ariaLabel={t("controls.rpcMethodAriaLabel")}
@@ -1673,6 +1695,7 @@ function useDashboardQueryParams() {
     activeTab: parseTab(searchParams.get("tab")),
     providerParam: searchParams.get("providers"),
     rangeDays: parseRangeDays(searchParams.get("days")),
+    rpcInfra: parseRpcInfra(searchParams.get("infra")),
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region")),
   };
@@ -1705,6 +1728,10 @@ function applyQueryUpdates(
 
   if (updates.days) {
     params.set("days", String(updates.days));
+  }
+
+  if (updates.infra) {
+    params.set("infra", updates.infra);
   }
 
   if (updates.method) {
@@ -1747,11 +1774,13 @@ function getDashboardUrl(pathname: string, params: URLSearchParams) {
 
 function getDashboardDataUrl({
   activeTab,
+  rpcInfra,
   rangeDays,
   rpcMethod,
   rpcRegion,
 }: {
   activeTab: DashboardTab;
+  rpcInfra: RpcLatencyInfra;
   rangeDays: number;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
@@ -1761,6 +1790,7 @@ function getDashboardDataUrl({
   }
 
   const params = new URLSearchParams({
+    infra: rpcInfra,
     method: rpcMethod,
     region: rpcRegion,
   });
@@ -2136,6 +2166,12 @@ function parseRangeDays(value: string | null) {
     : defaultRangeDays;
 }
 
+function parseRpcInfra(value: string | null): RpcLatencyInfra {
+  return rpcInfraOptions.some((option) => option.value === value)
+    ? (value as RpcLatencyInfra)
+    : defaultRpcInfra;
+}
+
 function parseRpcMethod(value: string | null): RpcLatencyMethod {
   return rpcMethodOptions.some((option) => option.value === value)
     ? (value as RpcLatencyMethod)
@@ -2214,6 +2250,12 @@ function getProviderColor(providerName: ProviderName) {
   return (
     providerColors[providerName] ??
     fallbackProviderColors[getStableColorIndex(providerName)]
+  );
+}
+
+function getRpcInfraLabel(value: RpcLatencyInfra) {
+  return (
+    rpcInfraOptions.find((option) => option.value === value)?.label ?? value
   );
 }
 

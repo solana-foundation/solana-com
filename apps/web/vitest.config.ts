@@ -59,6 +59,13 @@ export default defineConfig({
         find: "next/server",
         replacement: require.resolve("next/server"),
       },
+      {
+        find: "server-only",
+        replacement: path.resolve(
+          __dirname,
+          "./src/__tests__/mocks/server-only.ts",
+        ),
+      },
     ],
   },
   ssr: {

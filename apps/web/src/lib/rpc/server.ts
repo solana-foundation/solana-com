@@ -1,12 +1,15 @@
 import "server-only";
 
 import {
+  defaultRpcInfra,
   defaultRpcMethod,
   defaultRpcRegion,
+  rpcInfraOptions,
   rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
   type MetricRow,
+  type RpcLatencyInfra,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
 } from "@/app/[locale]/data/data-config";
@@ -33,6 +36,7 @@ export const rpcLatencyProviders = [
 export type RpcLatencyProvider = (typeof rpcLatencyProviders)[number];
 
 export type RpcLatencyQueryOptions = {
+  infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;
   provider?: RpcLatencyProvider;
   region?: RpcLatencyRegion;
@@ -74,7 +78,14 @@ type RpcLatencyRowsResult = {
   truncated: boolean;
 };
 
+type PrometheusLabelMatcher = readonly [
+  key: string,
+  operator: "=" | "=~",
+  value: string,
+];
+
 const providerSet = new Set<string>(rpcLatencyProviders);
+const infraSet = new Set<string>(rpcInfraOptions.map((option) => option.value));
 const regionSet = new Set<string>(
   rpcRegionOptions.map((option) => option.value),
 );
@@ -110,6 +121,11 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
   provider?: RpcLatencyProvider;
 } {
   return {
+    infra: parseAllowedValue(
+      params.get("infra"),
+      infraSet,
+      defaultRpcInfra,
+    ) as RpcLatencyInfra,
     method: parseAllowedValue(
       params.get("method"),
       methodSet,
@@ -131,40 +147,76 @@ export async function getRpcLatencyMetricRows(
   options: RpcLatencyQueryOptions = {},
 ): Promise<RpcLatencyRowsResult> {
   const normalizedOptions = {
+    infra: options.infra ?? defaultRpcInfra,
     method: options.method ?? defaultRpcMethod,
     provider: options.provider,
     region: options.region ?? defaultRpcRegion,
   };
   const end = Math.floor(Date.now() / MS_PER_SECOND);
   const start = end - RPC_LATENCY_RANGE_HOURS * 60 * 60;
-  const [avgLatencyResults, p50LatencyResults, p99LatencyResults] =
-    await Promise.all([
-      queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
-        query: buildRpcAvgLatencyQuery(normalizedOptions),
-      }),
-      queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
-        end: String(end),
-        query: buildRpcP50LatencyQuery(normalizedOptions),
-        start: String(start),
-        step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
-      }),
-      queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
-        end: String(end),
-        query: buildRpcP99LatencyQuery(normalizedOptions),
-        start: String(start),
-        step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
-      }),
-    ]);
+  const [
+    successRateResults,
+    avgLatencyResults,
+    p50LatencyResults,
+    p95LatencyResults,
+    p99LatencyResults,
+  ] = await Promise.all([
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
+      query: buildRpcSuccessRateQuery(normalizedOptions),
+      start: String(start),
+      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+    }),
+    queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
+      query: buildRpcAvgLatencyQuery(normalizedOptions),
+    }),
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
+      query: buildRpcP50LatencyQuery(normalizedOptions),
+      start: String(start),
+      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+    }),
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
+      query: buildRpcP95LatencyQuery(normalizedOptions),
+      start: String(start),
+      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+    }),
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
+      query: buildRpcP99LatencyQuery(normalizedOptions),
+      start: String(start),
+      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+    }),
+  ]);
 
   return {
     generatedAt: new Date().toISOString(),
     rows: [
+      ...toRangeMetricRows(successRateResults, "RPC Success Rate", "Percent"),
       ...toInstantMetricRows(avgLatencyResults, "RPC Avg Latency"),
       ...toRangeMetricRows(p50LatencyResults, "RPC P50 Latency"),
+      ...toRangeMetricRows(p95LatencyResults, "RPC P95 Latency"),
       ...toRangeMetricRows(p99LatencyResults, "RPC P99 Latency"),
     ],
     truncated: false,
   };
+}
+
+export function buildRpcSuccessRateQuery(options: RpcLatencyQueryOptions = {}) {
+  const totalSelector = buildLabelSelector(options);
+  const successSelector = buildLabelSelector(options, [
+    ["status", "=", "success"],
+  ]);
+  const totalRate = `sum by (provider)(rate(rpc_requests_total${totalSelector}[5m]))`;
+  const successRate = `sum by (provider)(rate(rpc_requests_total${successSelector}[5m]))`;
+
+  return [
+    "100 *",
+    `((${successRate}) or on(provider) (0 * ${totalRate}))`,
+    "/",
+    totalRate,
+  ].join(" ");
 }
 
 export function buildRpcAvgLatencyQuery(options: RpcLatencyQueryOptions = {}) {
@@ -180,6 +232,10 @@ export function buildRpcAvgLatencyQuery(options: RpcLatencyQueryOptions = {}) {
 
 export function buildRpcP99LatencyQuery(options: RpcLatencyQueryOptions = {}) {
   return buildRpcQuantileLatencyQuery(0.99, options);
+}
+
+export function buildRpcP95LatencyQuery(options: RpcLatencyQueryOptions = {}) {
+  return buildRpcQuantileLatencyQuery(0.95, options);
 }
 
 export function buildRpcP50LatencyQuery(options: RpcLatencyQueryOptions = {}) {
@@ -198,18 +254,43 @@ function buildRpcQuantileLatencyQuery(
   ].join(" ");
 }
 
-function buildLabelSelector({
-  method = defaultRpcMethod,
-  provider,
-  region = defaultRpcRegion,
-}: RpcLatencyQueryOptions) {
-  const labels = [
-    ["method", method],
-    ["region", region],
-    provider ? ["provider", provider] : undefined,
-  ].filter((label): label is [string, string] => Boolean(label));
+function buildLabelSelector(
+  {
+    infra = defaultRpcInfra,
+    method = defaultRpcMethod,
+    provider,
+    region = defaultRpcRegion,
+  }: RpcLatencyQueryOptions,
+  extraMatchers: readonly PrometheusLabelMatcher[] = [],
+) {
+  const matchers: PrometheusLabelMatcher[] = [
+    ["method", "=", method],
+    ["region", "=", region],
+    ["infra", "=~", getRpcInfraMatcher(infra)],
+  ];
 
-  return `{${labels.map(([key, value]) => `${key}="${value}"`).join(",")}}`;
+  if (provider) {
+    matchers.push(["provider", "=", provider]);
+  }
+
+  matchers.push(...extraMatchers);
+
+  return `{${matchers.map(formatLabelMatcher).join(",")}}`;
+}
+
+function getRpcInfraMatcher(infra: RpcLatencyInfra) {
+  return infra === "all" ? ".*" : infra;
+}
+
+function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {
+  return `${key}${operator}"${escapePrometheusLabelValue(value)}"`;
+}
+
+function escapePrometheusLabelValue(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/"/g, '\\"');
 }
 
 async function queryPrometheus<T>(
@@ -254,6 +335,7 @@ async function queryPrometheus<T>(
 function toInstantMetricRows(
   results: PrometheusInstantResult[],
   metricName: string,
+  unit = "Milliseconds",
 ): MetricRow[] {
   return results.flatMap((result) => {
     const providerName = getProviderLabel(result.metric);
@@ -267,6 +349,7 @@ function toInstantMetricRows(
       metricName,
       providerName,
       timestamp: sample[0],
+      unit,
       value: sample[1],
     });
   });
@@ -275,6 +358,7 @@ function toInstantMetricRows(
 function toRangeMetricRows(
   results: PrometheusRangeResult[],
   metricName: string,
+  unit = "Milliseconds",
 ): MetricRow[] {
   return results.flatMap((result) => {
     const providerName = getProviderLabel(result.metric);
@@ -288,6 +372,7 @@ function toRangeMetricRows(
         metricName,
         providerName,
         timestamp,
+        unit,
         value,
       }),
     );
@@ -298,11 +383,13 @@ function toMetricRow({
   metricName,
   providerName,
   timestamp,
+  unit,
   value,
 }: {
   metricName: string;
   providerName: string;
   timestamp: number | string;
+  unit: string;
   value: string;
 }): MetricRow[] {
   const normalizedDate = normalizePrometheusTimestamp(timestamp);
@@ -317,7 +404,7 @@ function toMetricRow({
       date: normalizedDate,
       metricName,
       providerName,
-      unit: "Milliseconds",
+      unit,
       value: normalizedValue,
     },
   ];
