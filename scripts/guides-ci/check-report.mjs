@@ -38,8 +38,10 @@ try {
 }
 
 const { guide = "(unknown guide)", status, summary = "", issues = [] } = report;
-const blockers = issues.filter((i) => i.severity === "blocker");
-const warnings = issues.filter((i) => i.severity !== "blocker");
+// Any real defect in the guide fails CI; only pure environment noise
+// (network flakiness, missing third-party credentials) is tolerated.
+const defects = issues.filter((i) => i.severity !== "environment");
+const envNotes = issues.filter((i) => i.severity === "environment");
 
 const lines = [`### Guide walkthrough: \`${guide}\``, "", summary, ""];
 for (const issue of issues) {
@@ -52,11 +54,13 @@ for (const issue of issues) {
 const body = lines.filter(Boolean).join("\n");
 console.log(body);
 
-if (status === "fail" || blockers.length > 0) {
-  summarize(`${body}\n\n**Result: FAIL** (${blockers.length} blocker(s))`);
+if (status === "fail" || defects.length > 0) {
+  summarize(`${body}\n\n**Result: FAIL** (${defects.length} guide issue(s))`);
   process.exit(1);
 }
 if (status !== "pass") {
   fail(`Report has unexpected status ${JSON.stringify(status)}`);
 }
-summarize(`${body}\n\n**Result: PASS** (${warnings.length} warning(s))`);
+summarize(
+  `${body}\n\n**Result: PASS** (${envNotes.length} environment note(s))`,
+);

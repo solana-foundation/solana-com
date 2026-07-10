@@ -34,13 +34,14 @@ The guide file path and the report output path are given in the task prompt.
   the guide allows it or the choice of cluster doesn't matter.
 - Devnet faucets and RPC endpoints are flaky. Retry a failing network step 2-3
   times before drawing conclusions. A persistent pure-network failure (airdrop
-  rate limit, RPC timeout) is an environment issue: record it as a `warning`,
-  not a blocker, and validate the remaining steps as far as you can.
+  rate limit, RPC timeout) is not a defect in the guide: record it with severity
+  `environment` and validate the remaining steps as far as you can.
 - If a step requires credentials or third-party accounts you cannot create
   (Supabase project, paid API key, wallet with real funds, app store accounts),
   do not fail the guide. Go as far as you can without them, statically verify
-  the code for that step (compile / typecheck / lint), mark the step
-  `skipped_needs_credentials` in the report, and continue.
+  the code for that step (compile / typecheck / lint), record the step with
+  severity `environment` and `skipped_needs_credentials` in the description, and
+  continue.
 
 ## What counts as a blocker
 
@@ -55,8 +56,17 @@ The guide file path and the report output path are given in the task prompt.
 - A missing step or file: following the text literally leaves the reader in a
   state where the next step cannot work.
 
-Minor issues that don't stop a reader (typos, cosmetic drift in output,
-deprecation warnings that still work) are `warning` severity.
+Severity is about the guide, not about you:
+
+- `blocker` — a reader following the guide gets stuck (everything listed above).
+- `warning` — a real defect in the guide that doesn't stop a reader: a dead
+  link, a snippet that isn't runnable as printed even though the surrounding
+  steps work, a typo in a command that a reader would catch, output that no
+  longer matches. Warnings fail CI too.
+- `environment` — nothing wrong with the guide itself: network flakiness, rate
+  limits, third-party service outages, steps skipped for missing credentials.
+  These never fail CI, so never use `environment` for something a guide edit
+  could fix.
 
 ## Hard rules
 
@@ -82,7 +92,7 @@ shape:
   "issues": [
     {
       "section": "Heading or step where it happened",
-      "severity": "blocker" | "warning",
+      "severity": "blocker" | "warning" | "environment",
       "description": "What is wrong, as a statement about the guide",
       "evidence": "Exact command + trimmed error output proving it",
       "suggested_fix": "Smallest edit to the guide that would fix it"
@@ -91,7 +101,7 @@ shape:
 }
 ```
 
-`status` must be `fail` if and only if there is at least one `blocker` issue.
-Steps skipped for credentials go in `issues` as severity `warning` with
-`"skipped_needs_credentials"` noted in the description. The report must be valid
-JSON with no surrounding prose.
+`status` must be `fail` if and only if there is at least one `blocker` or
+`warning` issue — any real defect in the guide fails, and only
+`environment`-severity observations are tolerated on a pass. The report must be
+valid JSON with no surrounding prose.

@@ -7,8 +7,9 @@ to edit the failing guides so a reader can complete them again.
 
 Report schema:
 `{ guide, status, summary, steps_run, issues: [{ section, severity, description, evidence, suggested_fix }] }`.
-Only guides with `status: "fail"` need fixing; their `blocker` issues are what
-must be resolved.
+Only guides with `status: "fail"` need fixing. Both `blocker` and `warning`
+issues fail CI and must be resolved; `environment` issues (network flakiness,
+missing credentials) are not guide defects and need no edit.
 
 ## How to fix
 
