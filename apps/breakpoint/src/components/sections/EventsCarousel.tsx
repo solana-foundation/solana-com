@@ -143,7 +143,7 @@ export default function EventsCarousel({
       <ul
         ref={scrollRef}
         aria-label={headline}
-        className="unstyled-list scrollbar-hidden -mr-[20px] flex touch-pan-x snap-x snap-mandatory gap-m overflow-x-auto overscroll-x-contain p-0 pr-[20px] [-webkit-overflow-scrolling:touch] md:mr-0 md:pr-0"
+        className="unstyled-list scrollbar-hidden -mr-[20px] flex touch-pan-x snap-x snap-mandatory gap-m overflow-x-auto overflow-y-hidden overscroll-x-contain p-0 pr-[20px] [-webkit-overflow-scrolling:touch] md:mr-0 md:pr-0"
         role="list"
       >
         {items.map((event) => {
