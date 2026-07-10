@@ -252,6 +252,8 @@ type QueryUpdates = {
   tab?: DashboardTab;
 };
 
+export type KpiAggregation = "median" | "minimum";
+
 type KpiItem = {
   chart: ChartDefinition;
   delta: number;
@@ -326,9 +328,14 @@ export function SolanaDataDashboard() {
     () => getVisibleCharts(activeCharts, rows),
     [activeCharts, rows],
   );
+  const kpiCharts = useMemo(
+    () => getKpiCharts(visibleCharts, isRpcTab),
+    [isRpcTab, visibleCharts],
+  );
+  const kpiAggregation = isRpcTab ? "minimum" : "median";
   const kpis = useMemo(
-    () => (isRpcTab ? [] : getKpis(visibleCharts, rows, selectedProviders)),
-    [isRpcTab, visibleCharts, rows, selectedProviders],
+    () => getKpis(kpiCharts, rows, selectedProviders, kpiAggregation),
+    [kpiAggregation, kpiCharts, rows, selectedProviders],
   );
   const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
@@ -422,14 +429,16 @@ export function SolanaDataDashboard() {
 
         {!error ? (
           <>
-            {isRpcTab ? null : (
-              <KpiGrid isLoading={isInitialLoading} kpis={kpis} />
-            )}
+            <KpiGrid
+              aggregation={kpiAggregation}
+              isLoading={isInitialLoading}
+              kpis={kpis}
+            />
 
             <ChartGrid
               activeCharts={activeCharts}
               activeTab={activeTab}
-              hasKpiGrid={!isRpcTab}
+              hasKpiGrid={true}
               isLoading={isInitialLoading}
               isRefreshing={isRefreshing}
               rows={rows}
@@ -763,7 +772,15 @@ function ProviderControls({
   );
 }
 
-function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
+function KpiGrid({
+  aggregation,
+  isLoading,
+  kpis,
+}: {
+  aggregation: KpiAggregation;
+  isLoading: boolean;
+  kpis: KpiItem[];
+}) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
 
@@ -789,7 +806,7 @@ function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
                 key={kpi.chart.id}
                 label={getChartTitle(t, kpi.chart)}
                 lowerIsBetter={kpi.chart.lowerIsBetter}
-                summary={getKpiSummary(t, kpi.chart)}
+                summary={getKpiSummary(t, kpi.chart, aggregation)}
                 unit={getValueLabel(t, kpi.chart.valueLabel)}
                 value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
               />
@@ -1861,6 +1878,17 @@ function getVisibleCharts(
     : activeCharts;
 }
 
+function getKpiCharts(
+  visibleCharts: readonly ChartDefinition[],
+  isRpcTab: boolean,
+) {
+  return isRpcTab
+    ? visibleCharts
+        .filter((chart) => chart.valueLabel === "Milliseconds")
+        .slice(0, kpiCount)
+    : visibleCharts.slice(0, kpiCount);
+}
+
 function filterRowsForCharts(
   rows: readonly MetricRow[],
   charts: readonly ChartDefinition[],
@@ -1874,15 +1902,26 @@ function getKpis(
   charts: readonly ChartDefinition[],
   rows: MetricRow[],
   selectedProviders: Set<ProviderName>,
+  aggregation: KpiAggregation,
 ): KpiItem[] {
-  return charts.slice(0, kpiCount).map((chart) => ({
+  return charts.map((chart) => ({
     chart,
-    ...getKpiValue(chart, rows, selectedProviders),
+    ...getKpiValue(chart, rows, selectedProviders, aggregation),
   }));
 }
 
-function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
+function getKpiSummary(
+  t: DashboardTranslator,
+  chart: ChartDefinition,
+  aggregation: KpiAggregation,
+) {
   if (chart.seriesField === "provider") {
+    if (aggregation === "minimum") {
+      return chart.timeGranularity === "hour"
+        ? t("kpis.providerMinimumSampleTooltip")
+        : t("kpis.providerMinimumTooltip");
+    }
+
     return chart.timeGranularity === "hour"
       ? t("kpis.providerSampleTooltip")
       : t("kpis.providerTooltip");
@@ -2019,10 +2058,11 @@ function isChartDataRow(
   return metricSet.has(row.metricName) && getRowProviderName(row).length > 0;
 }
 
-function getKpiValue(
+export function getKpiValue(
   chart: ChartDefinition,
   rows: MetricRow[],
   selectedProviders: Set<ProviderName>,
+  aggregation: KpiAggregation = "median",
 ) {
   const series = buildSeries(chart, rows, selectedProviders);
   const dates = Array.from(
@@ -2035,10 +2075,20 @@ function getKpiValue(
   const latestDate = dates.at(-1);
   const previousDate = dates.at(-2);
   const latestValue = latestDate
-    ? getAggregateSeriesValue(series, latestDate, chart.seriesField)
+    ? getAggregateSeriesValue(
+        series,
+        latestDate,
+        chart.seriesField,
+        aggregation,
+      )
     : 0;
   const previousValue = previousDate
-    ? getAggregateSeriesValue(series, previousDate, chart.seriesField)
+    ? getAggregateSeriesValue(
+        series,
+        previousDate,
+        chart.seriesField,
+        aggregation,
+      )
     : latestValue;
 
   return {
@@ -2052,6 +2102,7 @@ function getAggregateSeriesValue(
   series: ChartSeries[],
   date: number,
   seriesField: ChartDefinition["seriesField"],
+  aggregation: KpiAggregation,
 ) {
   const values = series
     .map(
@@ -2065,7 +2116,7 @@ function getAggregateSeriesValue(
   }
 
   if (seriesField === "provider") {
-    return getMedian(values);
+    return aggregation === "minimum" ? Math.min(...values) : getMedian(values);
   }
 
   return values.reduce((sum, value) => sum + value, 0);
