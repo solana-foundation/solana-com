@@ -23,10 +23,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.lu.ma",
       },
-      {
-        protocol: "https",
-        hostname: "cdn.lu.ma",
-      },
     ],
   },
   experimental: {

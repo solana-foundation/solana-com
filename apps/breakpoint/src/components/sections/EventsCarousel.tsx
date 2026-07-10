@@ -84,8 +84,11 @@ export default function EventsCarousel({
 
     const firstCard =
       scrollRef.current.querySelector<HTMLElement>("[data-event-card]");
+    const gap = firstCard
+      ? Number.parseFloat(getComputedStyle(scrollRef.current).columnGap)
+      : 0;
     const scrollAmount = firstCard
-      ? firstCard.offsetWidth + 32
+      ? firstCard.offsetWidth + (Number.isFinite(gap) ? gap : 0)
       : Math.min(scrollRef.current.clientWidth, 440);
     const maxScroll =
       scrollRef.current.scrollWidth - scrollRef.current.clientWidth;

@@ -9,6 +9,8 @@ const LUMA_API_BASE = "https://api.lu.ma";
 const LUMA_REQUEST_TIMEOUT_MS = 10_000;
 const EVENTS_CACHE_SECONDS = 1800;
 const EVENTS_CACHE_TAG = "breakpoint-events";
+const LUMA_PAGE_SIZE = 50;
+const LUMA_MAX_PAGES = 20;
 
 interface LumaEventData {
   api_id?: string;
@@ -21,6 +23,12 @@ interface LumaEventData {
   geo_address_info?: {
     city?: string;
   };
+}
+
+interface LumaCalendarItemsResponse {
+  entries?: { event?: LumaEventData }[];
+  has_more?: boolean;
+  next_cursor?: string | null;
 }
 
 function lumaHeaders(): HeadersInit {
@@ -72,19 +80,46 @@ function normalizeLumaEvent(event: LumaEventData): HighlightedEvent | null {
 }
 
 async function fetchCalendarEvents(): Promise<HighlightedEvent[]> {
-  const url = new URL(`${LUMA_API_BASE}/calendar/get-items`);
-  url.searchParams.set("calendar_api_id", BREAKPOINT_LUMA_CALENDAR_ID);
-  url.searchParams.set("series_mode", "sessions");
-  url.searchParams.set("period", "future");
-  url.searchParams.set("pagination_limit", "50");
+  const events: HighlightedEvent[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
 
-  const payload = (await fetchLumaJson(url)) as {
-    entries?: { event?: LumaEventData }[];
-  } | null;
+  for (let page = 0; page < LUMA_MAX_PAGES; page += 1) {
+    const url = new URL(`${LUMA_API_BASE}/calendar/get-items`);
+    url.searchParams.set("calendar_api_id", BREAKPOINT_LUMA_CALENDAR_ID);
+    url.searchParams.set("series_mode", "sessions");
+    url.searchParams.set("period", "future");
+    url.searchParams.set("pagination_limit", String(LUMA_PAGE_SIZE));
+    if (cursor) {
+      url.searchParams.set("pagination_cursor", cursor);
+    }
 
-  return (payload?.entries ?? [])
-    .map((entry) => (entry.event ? normalizeLumaEvent(entry.event) : null))
-    .filter((event): event is HighlightedEvent => event !== null);
+    const payload = (await fetchLumaJson(
+      url,
+    )) as LumaCalendarItemsResponse | null;
+
+    events.push(
+      ...(payload?.entries ?? [])
+        .map((entry) => (entry.event ? normalizeLumaEvent(entry.event) : null))
+        .filter((event): event is HighlightedEvent => event !== null),
+    );
+
+    const nextCursor = payload?.next_cursor ?? null;
+    if (!payload?.has_more || !nextCursor) {
+      return events;
+    }
+
+    if (seenCursors.has(nextCursor)) {
+      console.warn("Luma pagination returned a repeated cursor.");
+      return events;
+    }
+
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  console.warn(`Luma pagination exceeded ${LUMA_MAX_PAGES} pages.`);
+  return events;
 }
 
 async function fetchHighlightedEvents(): Promise<HighlightedEvent[]> {
