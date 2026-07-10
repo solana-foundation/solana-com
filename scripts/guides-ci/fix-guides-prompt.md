@@ -1,10 +1,9 @@
 # Guide fix instructions
 
-A push to main was checked by the automated guide walkthrough and one or more
-guides failed. The JSON reports from those walkthroughs are in the `reports/`
-directory of the current working tree (one file per guide, schema described
-below). Your job is to edit the failing guides so a reader can complete them
-again.
+The scheduled guide walkthrough ran against main and one or more guides failed.
+The JSON reports from those walkthroughs are in the `reports/` directory of the
+current working tree (one file per guide, schema described below). Your job is
+to edit the failing guides so a reader can complete them again.
 
 Report schema:
 `{ guide, status, summary, steps_run, issues: [{ section, severity, description, evidence, suggested_fix }] }`.

@@ -1,9 +1,9 @@
 name: Guides CI
 
-# Walks through changed developer guides with an agent that follows the guide
-# exactly as a reader would, and fails if the guide is broken. On pushes to
-# main, failures additionally produce an auto-fix PR (opened by the
-# solana-docs-checker GitHub App).
+# Walks through developer guides with an agent that follows the guide exactly
+# as a reader would, and fails if the guide is broken. On PRs it tests the
+# guides the PR touches. Once a week it sweeps every guide, and failures
+# produce an auto-fix PR (opened by the solana-docs-checker GitHub App).
 #
 # Required secrets:
 #   ANTHROPIC_API_KEY                - API key used by the walkthrough agent
@@ -12,9 +12,9 @@ name: Guides CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  schedule:
+    # Weekly sweep of all guides, Mondays 08:00 UTC
+    - cron: "0 8 * * 1"
   workflow_dispatch:
     inputs:
       guides:
@@ -47,26 +47,17 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          BEFORE_SHA: ${{ github.event.before }}
           INPUT_GUIDES: ${{ inputs.guides }}
         run: |
           set -euo pipefail
           pathspec=':(glob)apps/docs/content/guides/**/*.mdx'
 
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            if [ "$INPUT_GUIDES" = "all" ]; then
-              files=$(git ls-files "$pathspec")
-            else
-              files=$(echo "$INPUT_GUIDES" | tr ',' '\n' | sed 's/^ *//;s/ *$//')
-            fi
-          elif [ "$EVENT" = "pull_request" ]; then
-            base=$(git merge-base "$BASE_SHA" HEAD)
-            files=$(git diff --name-only --diff-filter=d "$base" HEAD -- "$pathspec")
+          if [ "$EVENT" = "schedule" ] || { [ "$EVENT" = "workflow_dispatch" ] && [ "$INPUT_GUIDES" = "all" ]; }; then
+            files=$(git ls-files "$pathspec")
+          elif [ "$EVENT" = "workflow_dispatch" ]; then
+            files=$(echo "$INPUT_GUIDES" | tr ',' '\n' | sed 's/^ *//;s/ *$//')
           else
-            base="$BEFORE_SHA"
-            if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-              base=$(git rev-parse HEAD~1)
-            fi
+            base=$(git merge-base "$BASE_SHA" HEAD)
             files=$(git diff --name-only --diff-filter=d "$base" HEAD -- "$pathspec")
           fi
 
@@ -152,7 +143,8 @@ jobs:
     name: Open fix PR
     needs: [detect, test]
     if:
-      always() && github.event_name == 'push' && needs.test.result == 'failure'
+      always() && github.event_name == 'schedule' && needs.test.result ==
+      'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
