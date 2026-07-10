@@ -13,10 +13,7 @@ export default async function Page() {
 
   return (
     <main className="w-full max-w-6xl mx-auto px-5 sm:px-8 pt-6 sm:pt-8 pb-8 sm:pb-12 flex flex-col gap-10 sm:gap-14 min-h-screen">
-      <header className="flex items-center justify-between gap-4 border-b border-ep-edge/70 pb-4">
-        <p className="text-xs font-brand-mono uppercase tracking-[0.3em] text-ep-dust">
-          {t("eyebrow")}
-        </p>
+      <header className="flex justify-end border-b border-ep-edge/70 pb-4">
         <Link
           href="/epoch1000#checker"
           className="text-xs font-brand-mono text-ep-dust hover:text-ep-ink transition-colors duration-200 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"

@@ -51,13 +51,12 @@ export default function Epoch1000Experience({ title, description }: Props) {
             {live ? (
               <>
                 <span className="ep-live-dot mr-2 inline-block h-2 w-2 rounded-full bg-[#14f195] align-middle" />
-                LIVE FROM MAINNET · SLOT{" "}
-                {numberFormatter.format(live.absoluteSlot)}
+                LIVE · SLOT {numberFormatter.format(live.absoluteSlot)}
               </>
             ) : error ? (
-              "COULDN'T REACH MAINNET - REFRESH TO RETRY"
+              "MAINNET UNAVAILABLE"
             ) : (
-              <span className="animate-pulse">SYNCING WITH MAINNET…</span>
+              <span className="animate-pulse">SYNCING...</span>
             )}
           </p>
 
@@ -84,7 +83,7 @@ export default function Epoch1000Experience({ title, description }: Props) {
 
           <p className="text-sm sm:text-base text-ep-dim max-w-xl">
             {arrived
-              ? "One thousand epochs of mainnet-beta. 432,000,000,000 slots, give or take a fork. gm to everyone who was here for any of it."
+              ? "Epoch 1000 is here. Celebrate the builders, validators, apps, and users who kept mainnet moving."
               : description}
           </p>
 
@@ -100,23 +99,29 @@ export default function Epoch1000Experience({ title, description }: Props) {
                   }}
                 />
               </div>
-              <p className="font-brand-mono text-xs sm:text-sm text-ep-dust tabular-nums">
-                T-MINUS{" "}
-                <span className="text-ep-ink">
-                  {numberFormatter.format(live.slotsRemaining)}
-                </span>{" "}
-                SLOTS · ≈{" "}
-                <span className="text-ep-ink">
-                  {days}d {pad(hours)}h {pad(mins)}m {pad(secs)}s
-                </span>{" "}
-                · ARRIVING ~
-                {live.eta
-                  .toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                  .toUpperCase()}
-              </p>
+              <div className="grid grid-cols-1 gap-2 font-brand-mono text-xs text-ep-dust tabular-nums sm:grid-cols-3 sm:text-sm">
+                <div className="flex items-center justify-between gap-3 rounded-full border border-ep-edge bg-ep-panel/70 px-4 py-2">
+                  <span className="uppercase tracking-[0.12em]">Slots</span>
+                  <span className="text-ep-ink">
+                    {numberFormatter.format(live.slotsRemaining)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-full border border-ep-edge bg-ep-panel/70 px-4 py-2">
+                  <span className="uppercase tracking-[0.12em]">Time</span>
+                  <span className="text-ep-ink">
+                    {days}d {pad(hours)}h {pad(mins)}m {pad(secs)}s
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-full border border-ep-edge bg-ep-panel/70 px-4 py-2">
+                  <span className="uppercase tracking-[0.12em]">ETA</span>
+                  <span className="text-ep-ink">
+                    {live.eta.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -136,13 +141,13 @@ export default function Epoch1000Experience({ title, description }: Props) {
 
       {/* ── The thousand grid ────────────────────────────────────────── */}
       <Reveal>
-        <section id="timeline" className="flex flex-col gap-5 scroll-mt-24">
+        <section id="timeline" className="flex flex-col gap-4 scroll-mt-24">
           <div className="flex items-end justify-between gap-4">
             <h2 className="font-bold tracking-tight text-3xl sm:text-4xl">
-              Six years, <span className="text-sol-gradient">one grid.</span>
+              Mainnet timeline
             </h2>
             <p className="font-brand-mono text-[11px] sm:text-xs text-ep-dust tracking-[0.15em] whitespace-nowrap pb-1.5">
-              EPOCH 0 → 999
+              EPOCHS 0-999
             </p>
           </div>
           <ThousandGrid
@@ -152,22 +157,12 @@ export default function Epoch1000Experience({ title, description }: Props) {
             accent={tier?.color}
             accentLabel={
               result && tier
-                ? `${tier.name} · EPOCH ${result.firstEpoch} → NOW`
+                ? `${tier.name} · EPOCH ${result.firstEpoch} TO NOW`
                 : undefined
             }
           />
-          <p className="font-brand-mono text-[11px] sm:text-xs text-ep-dust">
-            one cell per epoch · bright cells mark moments · check a wallet
-            above to paint your era
-          </p>
         </section>
       </Reveal>
-
-      <footer className="border-t border-ep-edge pt-6 pb-2">
-        <p className="font-brand-mono text-[11px] sm:text-xs text-ep-dust text-center tracking-[0.15em]">
-          432,000 SLOTS PER EPOCH · ~2 DAYS EACH · MAINNET-BETA SINCE MARCH 2020
-        </p>
-      </footer>
     </div>
   );
 }
