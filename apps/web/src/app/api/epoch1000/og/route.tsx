@@ -107,7 +107,7 @@ export async function GET(req: Request) {
         flexDirection: "column",
         backgroundColor: "#000000",
         backgroundImage: `radial-gradient(ellipse 900px 500px at 85% -10%, ${tier.glow}55, transparent 70%)`,
-        padding: "56px 64px",
+        padding: "46px 64px",
         fontFamily: "DSemi",
         color: "#FFFFFF",
         boxSizing: "border-box",
@@ -147,7 +147,7 @@ export async function GET(req: Request) {
         style={{
           display: "flex",
           flexDirection: "column",
-          marginTop: 58,
+          marginTop: 34,
         }}
       >
         <div
@@ -190,7 +190,7 @@ export async function GET(req: Request) {
                 color: "#FFFFFF",
               }}
             >
-              EPOCHS
+              EPOCHS SURVIVED
             </span>
             <span
               style={{
@@ -200,7 +200,7 @@ export async function GET(req: Request) {
                 letterSpacing: "0.14em",
               }}
             >
-              SURVIVED
+              OF THE FIRST 1000
             </span>
           </div>
         </div>
@@ -210,11 +210,22 @@ export async function GET(req: Request) {
             fontSize: 26,
             color: "#B0B0B0",
             gap: 10,
-            marginTop: 16,
+            marginTop: 12,
           }}
         >
           <span style={{ color: "#757575" }}>First seen</span>
           <span style={{ fontWeight: 600 }}>{firstSeenLabel}</span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            marginTop: 10,
+            fontSize: 27,
+            fontWeight: 600,
+            color: tier.color,
+          }}
+        >
+          {`"${tier.line}"`}
         </div>
       </div>
 
@@ -225,7 +236,7 @@ export async function GET(req: Request) {
           justifyContent: "space-between",
           alignItems: "center",
           width: 1046,
-          marginTop: 62,
+          marginTop: 34,
           fontSize: 21,
         }}
       >
@@ -306,8 +317,10 @@ export async function GET(req: Request) {
         >
           {wallet || "Anonymous survivor"}
         </div>
-        <div style={{ display: "flex", color: "#757575" }}>
-          solana.com/epoch1000
+        <div style={{ display: "flex", gap: 10, color: "#757575" }}>
+          <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Check yours</span>
+          <span>·</span>
+          <span>solana.com/epoch1000</span>
         </div>
       </div>
     </div>,
