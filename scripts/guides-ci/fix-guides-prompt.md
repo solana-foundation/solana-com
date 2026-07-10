@@ -1,9 +1,11 @@
 # Guide fix instructions
 
 The scheduled guide walkthrough ran against main and one or more guides failed.
-The JSON reports from those walkthroughs are in the `reports/` directory of the
-current working tree (one file per guide, schema described below). Your job is
-to edit the failing guides so a reader can complete them again.
+The JSON reports from those walkthroughs are under the `reports/` directory of
+the current working tree, one per guide, each nested in its own subdirectory
+(`reports/guide-report-N/guide-report.json`) — find them all with a recursive
+search. Your job is to edit the failing guides so a reader can complete them
+again.
 
 Report schema:
 `{ guide, status, summary, steps_run, issues: [{ section, severity, description, evidence, suggested_fix }] }`.
