@@ -10,6 +10,7 @@ import {
   STUDENT_APPLICATION_HREF,
 } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
+import { useVariant } from "@/lib/use-variant";
 
 declare global {
   interface Window {
@@ -174,6 +175,7 @@ function HorizontalTicketCard({
 
 export default function TicketsSection() {
   const t = useTranslations("breakpoint");
+  const variant = useVariant();
 
   useEffect(() => {
     window.luma?.initCheckout?.();
@@ -186,7 +188,9 @@ export default function TicketsSection() {
     <section className="bg-black pt-2xl md:pt-[120px]">
       <div className="container flex w-full flex-col gap-l">
         <div className="flex flex-col items-center gap-6 text-center">
-          <h2 className="type-h3 text-white">{t("tickets.headline")}</h2>
+          <h2 className="type-h3 mx-auto max-w-[24ch] text-white">
+            {variant?.ticketsHeadline ?? t("tickets.headline")}
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
