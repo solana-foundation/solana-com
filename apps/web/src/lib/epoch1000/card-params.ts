@@ -11,10 +11,17 @@ export interface CheckResult {
   tier: string;
   capped: boolean;
   scanned: number;
+  logoUrl?: string | null;
 }
 
-/** Query string shared by the OG image route and the /epoch1000/card share page. */
-export function cardParams(result: CheckResult, showAddress: boolean): string {
+export type CardVariant = "wallet" | "validator";
+
+/** Query string shared by the OG image route and share pages. */
+export function cardParams(
+  result: CheckResult,
+  showAddress: boolean,
+  variant: CardVariant = "wallet",
+): string {
   const p = new URLSearchParams({
     s: String(result.epochsSurvived),
     fe: String(result.firstEpoch),
@@ -23,5 +30,7 @@ export function cardParams(result: CheckResult, showAddress: boolean): string {
   if (result.firstBlockTime) p.set("t", String(result.firstBlockTime));
   if (result.capped) p.set("x", "1");
   if (showAddress) p.set("w", shortAddress(result.address));
+  if (variant === "validator") p.set("k", "validator");
+  if (result.logoUrl) p.set("vl", result.logoUrl);
   return p.toString();
 }

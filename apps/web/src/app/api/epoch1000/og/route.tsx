@@ -35,11 +35,16 @@ function messagesFor(localeParam: string | null) {
   return messages;
 }
 
-async function getCardMessage(localeParam: string | null) {
+async function getCardMessage(
+  localeParam: string | null,
+  variant: "wallet" | "validator" = "wallet",
+) {
   const messages = await messagesFor(localeParam);
+  const rootKey =
+    variant === "validator" ? "epoch1000.validator.card" : "epoch1000.card";
 
   return (key: string, values: MessageValues = {}) => {
-    const template = `epoch1000.card.${key}`
+    const template = `${rootKey}.${key}`
       .split(".")
       .reduce<unknown>(
         (acc, part) =>
@@ -50,7 +55,7 @@ async function getCardMessage(localeParam: string | null) {
       );
 
     if (typeof template !== "string") {
-      return `epoch1000.card.${key}`;
+      return `${rootKey}.${key}`;
     }
 
     return template.replace(/\{(\w+)\}/g, (match, name) =>
@@ -96,6 +101,24 @@ function getSolanaLogo() {
   return solanaLogoPromise;
 }
 
+const remoteImageCache = new Map<string, Promise<string | null>>();
+
+function getRemoteImageDataUrl(url: string): Promise<string | null> {
+  let cached = remoteImageCache.get(url);
+  if (!cached) {
+    cached = fetch(url)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const buffer = Buffer.from(await res.arrayBuffer());
+        const contentType = res.headers.get("content-type") ?? "image/jpeg";
+        return `data:${contentType};base64,${buffer.toString("base64")}`;
+      })
+      .catch(() => null);
+    remoteImageCache.set(url, cached);
+  }
+  return cached;
+}
+
 export async function GET(req: Request) {
   const p = new URL(req.url).searchParams;
   const survived = Math.max(0, parseInt(p.get("s") ?? "0", 10) || 0);
@@ -106,14 +129,20 @@ export async function GET(req: Request) {
   );
   const wallet = p.get("w") ?? "";
   const capped = p.get("x") === "1";
+  const variant = p.get("k") === "validator" ? "validator" : "wallet";
+  const validatorLogoUrl = p.get("vl");
   const tier = tierFor(survived);
   const survivedLabel = capped ? `${survived}+` : String(survived);
 
-  const [t, [diatype700, dsemi400, dsemi600], solanaLogo] = await Promise.all([
-    getCardMessage(p.get("l")),
-    getFontData(),
-    getSolanaLogo(),
-  ]);
+  const [t, [diatype700, dsemi400, dsemi600], solanaLogo, validatorLogo] =
+    await Promise.all([
+      getCardMessage(p.get("l"), variant),
+      getFontData(),
+      getSolanaLogo(),
+      variant === "validator" && validatorLogoUrl
+        ? getRemoteImageDataUrl(validatorLogoUrl)
+        : Promise.resolve(null),
+    ]);
   const tierName = t(`tiers.${tier.id}.name`);
 
   const firstCell = Math.min(
@@ -167,94 +196,126 @@ export async function GET(req: Request) {
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginTop: 54,
+          flex: 1,
         }}
       >
         <div
           style={{
             display: "flex",
-            fontSize: 28,
-            letterSpacing: "0.18em",
-            color: "#8B8B8B",
-            textTransform: "uppercase",
-          }}
-        >
-          {t("og.walletAge")}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: 30,
-            marginTop: 8,
+            flexDirection: "column",
           }}
         >
           <div
             style={{
-              fontFamily: "Diatype",
-              fontWeight: 700,
-              fontSize: 202,
-              lineHeight: 0.88,
-              color: tier.color,
+              display: "flex",
+              fontSize: 28,
+              letterSpacing: "0.18em",
+              color: "#8B8B8B",
+              textTransform: "uppercase",
             }}
           >
-            {/* satori crashes on numeric JSX children - keep this a string */}
-            {survivedLabel}
+            {t(variant === "validator" ? "og.validatingAge" : "og.walletAge")}
           </div>
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              marginBottom: 20,
+              alignItems: "flex-end",
+              gap: 30,
+              marginTop: 8,
             }}
           >
-            <span
+            <div
               style={{
-                display: "flex",
                 fontFamily: "Diatype",
                 fontWeight: 700,
-                fontSize: 54,
-                color: "#FFFFFF",
+                fontSize: 202,
+                lineHeight: 0.88,
+                color: tier.color,
               }}
             >
-              {t("og.epochsOld")}
-            </span>
-          </div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            marginTop: 18,
-            fontSize: 24,
-            fontWeight: 600,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              border: "2px solid #2A2F36",
-              color: "#BDBDBD",
-              borderRadius: 999,
-              padding: "10px 22px",
-            }}
-          >
-            {t("og.sinceEpoch", { epoch: firstEpoch })}
+              {/* satori crashes on numeric JSX children - keep this a string */}
+              {survivedLabel}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                marginBottom: 20,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  fontFamily: "Diatype",
+                  fontWeight: 700,
+                  fontSize: 54,
+                  color: "#FFFFFF",
+                }}
+              >
+                {t("og.epochsOld")}
+              </span>
+            </div>
           </div>
           <div
             style={{
               display: "flex",
-              border: `2px solid ${tier.color}`,
-              color: tier.color,
-              borderRadius: 999,
-              padding: "10px 22px",
+              alignItems: "center",
+              gap: 14,
+              marginTop: 18,
+              fontSize: 24,
+              fontWeight: 600,
             }}
           >
-            {tierName}
+            <div
+              style={{
+                display: "flex",
+                border: "2px solid #2A2F36",
+                color: "#BDBDBD",
+                borderRadius: 999,
+                padding: "10px 22px",
+              }}
+            >
+              {t("og.sinceEpoch", { epoch: firstEpoch })}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                border: `2px solid ${tier.color}`,
+                color: tier.color,
+                borderRadius: 999,
+                padding: "10px 22px",
+              }}
+            >
+              {tierName}
+            </div>
           </div>
         </div>
+
+        {validatorLogo ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginLeft: 32,
+              marginRight: 8,
+            }}
+          >
+            <img
+              src={validatorLogo}
+              width={208}
+              height={208}
+              alt=""
+              style={{
+                borderRadius: 999,
+                border: `3px solid ${tier.color}88`,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -311,7 +372,15 @@ export async function GET(req: Request) {
             fontWeight: 600,
           }}
         >
-          {t("og.proof", { wallet: wallet || t("og.anonymousWallet") })}
+          {t("og.proof", {
+            wallet:
+              wallet ||
+              t(
+                variant === "validator"
+                  ? "og.anonymousVoteAccount"
+                  : "og.anonymousWallet",
+              ),
+          })}
         </div>
         <div style={{ display: "flex", color: "#757575" }}>
           {t("og.footerUrl")}
