@@ -93,14 +93,23 @@ export const Epoch1000Hero: React.FC = () => {
   const locale = useLocale();
   const t = useTranslations("index.epochHero");
   const { live } = useEpochData();
-  // Freeze a sensible epoch for the backdrop before live data lands
-  const gridEpoch = live?.epoch ?? 999;
+  // Epoch 1000 has passed; default the copy to the celebration state while live data loads.
+  const arrived = live?.arrived ?? true;
+  const targetEpoch = live?.targetEpoch ?? GRID_TOTAL;
+  const displayEpoch = arrived ? targetEpoch : (live?.epoch ?? targetEpoch);
+  const titleKey = arrived ? "titleArrived" : "title";
+  const subtitleKey = arrived ? "subtitleArrived" : "subtitle";
+  const gridEpoch = Math.min(live?.epoch ?? targetEpoch, targetEpoch);
   const progress = live?.progress ?? 0;
+  const progressWidth = arrived ? 100 : Math.max(1, progress * 100);
   const ctaLabel = t("cta");
   const statEpochLabel = t("statEpoch");
   const statSlotsLabel = t("statSlots");
   const statProgressLabel = t("statProgress");
   const statEtaLabel = t("statEta");
+  const statMilestoneLabel = t("statMilestone");
+  const statReachedLabel = t("statReached");
+  const statSlotLabel = t("statSlot");
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(locale),
     [locale],
@@ -154,11 +163,9 @@ export const Epoch1000Hero: React.FC = () => {
           style={{ animationDelay: "100ms" }}
         >
           <Odometer
-            value={live?.epoch ?? null}
-            arrived={live?.arrived ?? false}
-            label={`${statEpochLabel}: ${
-              live ? numberFormatter.format(live.epoch) : "—"
-            }`}
+            value={displayEpoch}
+            arrived={arrived}
+            label={`${statEpochLabel}: ${numberFormatter.format(displayEpoch)}`}
             className="ep-odo--hero"
           />
         </div>
@@ -168,7 +175,7 @@ export const Epoch1000Hero: React.FC = () => {
           id="hero-title"
           style={{ animationDelay: "200ms" }}
         >
-          {t.rich("title", {
+          {t.rich(titleKey, {
             light: (chunks) => (
               <>
                 <br />
@@ -181,7 +188,7 @@ export const Epoch1000Hero: React.FC = () => {
           className="eh-rise text-nd-mid-em-text font-medium pt-3 nd-body-xl max-w-[560px]"
           style={{ animationDelay: "300ms" }}
         >
-          {t("subtitle")}
+          {t(subtitleKey)}
         </p>
 
         <div
@@ -219,16 +226,20 @@ export const Epoch1000Hero: React.FC = () => {
         >
           <div className="rounded-xl bg-black/[0.3] px-4 py-2.5 md:px-6 md:py-4">
             <div className="flex items-baseline justify-between font-brand-mono text-[11px] md:text-xs uppercase tracking-[0.2em] text-nd-mid-em-text">
-              <span>{statProgressLabel}</span>
+              <span>{arrived ? statMilestoneLabel : statProgressLabel}</span>
               <span className="tabular-nums">
-                {live ? percentFormatter.format(progress) : "—"}
+                {arrived
+                  ? statReachedLabel
+                  : live
+                    ? percentFormatter.format(progress)
+                    : "—"}
               </span>
             </div>
             <div className="mt-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full rounded-full transition-[width] duration-300 ease-linear"
                 style={{
-                  width: `${Math.max(1, progress * 100)}%`,
+                  width: `${progressWidth}%`,
                   backgroundImage:
                     "linear-gradient(90deg, #9945ff 0%, #14f195 100%)",
                 }}
@@ -247,15 +258,19 @@ export const Epoch1000Hero: React.FC = () => {
                     </span>
                   </span>
                   <span className="whitespace-nowrap uppercase tracking-[0.1em]">
-                    {statSlotsLabel}{" "}
+                    {arrived ? statEpochLabel : statSlotsLabel}{" "}
                     <span className="text-nd-high-em-text">
-                      {numberFormatter.format(live.slotsRemaining)}
+                      {numberFormatter.format(
+                        arrived ? displayEpoch : live.slotsRemaining,
+                      )}
                     </span>
                   </span>
                   <span className="whitespace-nowrap uppercase tracking-[0.1em]">
-                    {statEtaLabel}{" "}
+                    {arrived ? statSlotLabel : statEtaLabel}{" "}
                     <span className="text-nd-high-em-text">
-                      {etaFormatter.format(live.eta)}
+                      {arrived
+                        ? numberFormatter.format(live.absoluteSlot)
+                        : etaFormatter.format(live.eta)}
                     </span>
                   </span>
                 </>
