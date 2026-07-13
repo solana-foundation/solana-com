@@ -15,7 +15,6 @@ import {
 // the pathname ends with ".md"
 const MARKDOWN_PREFIXES = [
   "/docs",
-  "/developers/guides",
   "/developers/cookbook",
   "/developers/bootcamp",
   "/learn",

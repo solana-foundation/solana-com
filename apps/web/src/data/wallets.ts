@@ -266,7 +266,7 @@ export const EVM_TO_SVM_RESOURCE_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers/guides/getstarted/hello-world-in-your-browser",
+        url: "/docs/intro/quick-start",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },
@@ -544,11 +544,11 @@ export const EVM_TO_SVM_CONTENT_IMAGES = {
 } as const;
 
 export const EVM_TO_SVM_TOKEN_EXTENSION_LINKS = [
-  "https://solana.com/developers/guides/token-extensions/mint-close-authority",
-  "https://solana.com/developers/guides/token-extensions/transfer-fee",
-  "https://solana.com/developers/guides/token-extensions/non-transferable",
-  "https://solana.com/developers/guides/token-extensions/interest-bearing-tokens",
-  "https://solana.com/developers/guides/token-extensions/permanent-delegate",
+  "https://solana.com/docs/tokens/extensions/close-mint",
+  "https://solana.com/docs/tokens/extensions/transfer-fees",
+  "https://solana.com/docs/tokens/extensions/non-transferrable-tokens",
+  "https://solana.com/docs/tokens/extensions/interest-bearing-tokens",
+  "https://solana.com/docs/tokens/extensions/permanent-delegate",
   null,
   null,
   null,

@@ -2,7 +2,6 @@ import { Link } from "./link";
 import DocsIcon from "./assets/developers/docs.inline.svg";
 import RpcApiIcon from "./assets/developers/api.inline.svg";
 import CookbookIcon from "./assets/developers/cookbook.inline.svg";
-import CoursesIcon from "./assets/developers/courses.inline.svg";
 import ToolsIcon from "./assets/developers/templates.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import SkillsIcon from "./assets/developers/skills.inline.svg";
@@ -58,6 +57,8 @@ export function DevelopersNav({
                 partiallyActiveIgnore={[
                   "/docs/rpc",
                   "/docs/payments",
+                  "/docs/tokenization",
+                  "/docs/defi",
                   "/docs/tools",
                 ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
@@ -69,46 +70,6 @@ export function DevelopersNav({
                 />
                 <span className="align-middle">
                   {t("developers.nav.documentation")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/docs/rpc"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <RpcApiIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">{t("developers.nav.rpc")}</span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/developers/cookbook"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <CookbookIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.cookbook")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/developers/bootcamp"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <CoursesIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.bootcamp")}
                 </span>
               </NavLink>
               <NavLink
@@ -127,6 +88,58 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
+                to="/docs/tokenization"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <SkillsIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.tokenization")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/defi"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <StatisticsIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.defi")}</span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/developers/cookbook"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <CookbookIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.cookbook")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/rpc"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <RpcApiIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.rpc")}</span>
+              </NavLink>
+              <NavLink
+                partiallyActive
                 to="/docs/tools"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
@@ -136,33 +149,7 @@ export function DevelopersNav({
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
-                  {t("developers.nav.tools")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/data"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <StatisticsIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">{t("developers.nav.data")}</span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/skills"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <SkillsIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.skills")}
+                  {t("developers.nav.resources")}
                 </span>
               </NavLink>
               <NavLink href="https://solana.stackexchange.com/" target="_blank">

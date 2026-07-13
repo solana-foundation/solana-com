@@ -24,7 +24,7 @@ export type DevelopersResourcesSectionProps = {
 
 export default function DevelopersResourcesSection({
   items,
-  baseHref = "/developers/guides",
+  baseHref = "/docs",
   translationKey = "guides",
 }: DevelopersResourcesSectionProps) {
   const t = useTranslations();
