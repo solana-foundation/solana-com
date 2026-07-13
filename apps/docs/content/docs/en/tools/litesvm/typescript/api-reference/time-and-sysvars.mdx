@@ -1,0 +1,270 @@
+---
+title: Time & Sysvars
+description: Clock manipulation and sysvar access in TypeScript
+---
+
+# Time & Sysvars
+
+Methods for manipulating time and accessing system variables.
+
+<Callout type="warn">
+  Enable sysvars first with `client.svm.withSysvars()` before accessing sysvar
+  methods.
+</Callout>
+
+## Clock Manipulation
+
+### warpToSlot
+
+```typescript
+warpToSlot(slot: bigint): LiteSVM
+```
+
+Advance the clock to a specific slot.
+
+```typescript
+client.svm.withSysvars();
+
+// Check current slot
+const before = client.svm.getClock();
+console.log("Current slot:", before.slot);
+
+// Warp forward
+client.svm.warpToSlot(10000n);
+
+const after = client.svm.getClock();
+console.log("New slot:", after.slot);
+```
+
+### getClock
+
+```typescript
+getClock(): Clock
+```
+
+Get the current clock sysvar values.
+
+```typescript
+const clock = client.svm.getClock();
+
+console.log("Slot:", clock.slot);
+console.log("Epoch:", clock.epoch);
+console.log("Unix timestamp:", clock.unixTimestamp);
+console.log("Epoch start timestamp:", clock.epochStartTimestamp);
+console.log("Leader schedule epoch:", clock.leaderScheduleEpoch);
+```
+
+### setClock
+
+```typescript
+setClock(clock: Clock): LiteSVM
+```
+
+Overwrite the clock sysvar. Get the clock, mutate its fields, then write it
+back. Use this when you need precise control over multiple clock fields — for
+example, setting the epoch or unix timestamp, which `warpToSlot` does not
+update.
+
+```typescript
+const clock = client.svm.getClock();
+clock.slot = 1000n;
+clock.epoch = 10n;
+clock.unixTimestamp = 1735689600n;
+client.svm.setClock(clock);
+```
+
+<Callout type="info">
+  `warpToSlot` only updates `slot`. Use `setClock` when your program reads
+  `epoch` or `unix_timestamp` from the Clock sysvar.
+</Callout>
+
+### Clock Properties
+
+| Property              | Type     | Description               |
+| --------------------- | -------- | ------------------------- |
+| `slot`                | `bigint` | Current slot number       |
+| `epoch`               | `bigint` | Current epoch number      |
+| `unixTimestamp`       | `bigint` | Unix timestamp in seconds |
+| `epochStartTimestamp` | `bigint` | Start of current epoch    |
+| `leaderScheduleEpoch` | `bigint` | Leader schedule epoch     |
+
+## Rent
+
+### getRent
+
+```typescript
+getRent(): Rent
+```
+
+Get the rent sysvar.
+
+```typescript
+const rent = client.svm.getRent();
+
+console.log("Lamports per byte-year:", rent.lamportsPerByteYear);
+console.log("Exemption threshold:", rent.exemptionThreshold);
+console.log("Burn percent:", rent.burnPercent);
+```
+
+### minimumBalanceForRentExemption
+
+```typescript
+minimumBalanceForRentExemption(dataLen: bigint): bigint
+```
+
+Calculate the minimum lamports needed for rent exemption.
+
+```typescript
+// Calculate for different data sizes
+for (const size of [0n, 100n, 1000n]) {
+  const min = client.svm.minimumBalanceForRentExemption(size);
+  console.log(`${size} bytes: ${min} lamports`);
+}
+```
+
+## Epoch Schedule
+
+### getEpochSchedule
+
+```typescript
+getEpochSchedule(): EpochSchedule
+```
+
+Get the epoch schedule sysvar.
+
+```typescript
+const epochSchedule = client.svm.getEpochSchedule();
+
+console.log("Slots per epoch:", epochSchedule.slotsPerEpoch);
+console.log(
+  "Leader schedule slot offset:",
+  epochSchedule.leaderScheduleSlotOffset
+);
+console.log("Warmup:", epochSchedule.warmup);
+console.log("First normal epoch:", epochSchedule.firstNormalEpoch);
+console.log("First normal slot:", epochSchedule.firstNormalSlot);
+```
+
+## Epoch Rewards
+
+### getEpochRewards
+
+```typescript
+getEpochRewards(): EpochRewards
+```
+
+Get the epoch rewards sysvar.
+
+```typescript
+const rewards = client.svm.getEpochRewards();
+
+console.log("Active:", rewards.active);
+console.log("Total rewards:", rewards.totalRewards);
+console.log("Distributed rewards:", rewards.distributedRewards);
+console.log("Total points:", rewards.totalPoints);
+console.log("Num partitions:", rewards.numPartitions);
+console.log(
+  "Distribution starting block height:",
+  rewards.distributionStartingBlockHeight
+);
+```
+
+## Slot Information
+
+### getSlotHashes
+
+```typescript
+getSlotHashes(): SlotHash[]
+```
+
+Get recent slot hashes.
+
+```typescript
+const slotHashes = client.svm.getSlotHashes();
+
+console.log("Slot hashes count:", slotHashes.length);
+if (slotHashes.length > 0) {
+  console.log("First hash:", {
+    slot: slotHashes[0].slot,
+    hash: slotHashes[0].hash
+  });
+}
+```
+
+### getSlotHistory
+
+```typescript
+getSlotHistory(): SlotHistory
+```
+
+Get the slot history.
+
+```typescript
+const slotHistory = client.svm.getSlotHistory();
+console.log("Next slot:", slotHistory.nextSlot);
+```
+
+### getLastRestartSlot / setLastRestartSlot
+
+```typescript
+getLastRestartSlot(): bigint
+setLastRestartSlot(slot: bigint): LiteSVM
+```
+
+Get or set the last restart slot.
+
+```typescript
+const lastRestart = client.svm.getLastRestartSlot();
+console.log("Last restart slot:", lastRestart);
+
+client.svm.setLastRestartSlot(500n);
+```
+
+## Stake History
+
+### getStakeHistory
+
+```typescript
+getStakeHistory(): StakeHistory
+```
+
+Get the stake history.
+
+```typescript
+const stakeHistory = client.svm.getStakeHistory();
+// Returns array of { epoch, entry: { effective, activating, deactivating } }
+```
+
+## Testing Time-Dependent Logic
+
+Use `warpToSlot` to test time-dependent program behavior:
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+async function testTimeLockedVault() {
+  const mySigner = await generateKeyPairSigner();
+  const client = createClient().use(signer(mySigner)).use(litesvm());
+  client.svm.withSysvars();
+
+  const unlockSlot = 10000n;
+
+  // Setup: Create time-locked account
+  // ... set up your account state ...
+
+  // Test 1: Try to withdraw before unlock (should fail)
+  const beforeClock = client.svm.getClock();
+  console.log("Current slot:", beforeClock.slot);
+  // ... attempt withdrawal, expect failure ...
+
+  // Warp time forward past unlock slot
+  client.svm.warpToSlot(unlockSlot + 1n);
+
+  // Test 2: Try to withdraw after unlock (should succeed)
+  const afterClock = client.svm.getClock();
+  console.log("New slot:", afterClock.slot);
+  // ... attempt withdrawal, expect success ...
+}
+```
