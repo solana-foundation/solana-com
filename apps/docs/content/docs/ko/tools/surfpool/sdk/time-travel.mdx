@@ -1,0 +1,143 @@
+---
+title: 시간 여행
+description:
+  Surfnet 클락을 절대 slot, epoch 또는 Unix 타임스탬프로 앞으로 이동합니다.
+  베스팅 일정, 잠금, 만료 기간 또는 epoch 경계를 테스트하는 데 유용합니다.
+---
+
+Surfpool 런타임은 세 가지 시간 여행 헬퍼를 제공합니다. 각각은 로컬 클락을 절대
+목표값(상대적 오프셋이 아님)으로 이동시키며, 런타임이 요청한 시간에 실제로
+도달했는지 테스트에서 검증할 수 있도록 업데이트된 `EpochInfo`를 반환합니다.
+
+| 헬퍼                                                 | 대상                        | 반환값                                  |
+| ---------------------------------------------------- | --------------------------- | --------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | 절대 slot 번호              | 새 `absolute_slot`가 포함된 `EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | 절대 epoch 번호             | 새 `epoch`가 포함된 `EpochInfo`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | 밀리초 단위 Unix 타임스탬프 | 해당 slot을 반영하는 `EpochInfo`        |
+
+<Callout type="warn" title="앞으로만 이동">
+  시간 여행은 클락을 **앞으로**만 이동할 수 있습니다. 과거의 목표값으로 이
+  메서드를 호출하면 아무런 동작도 하지 않으며, 헬퍼는 현재 `EpochInfo`를 그대로
+  반환합니다.
+</Callout>
+
+## Slot으로 이동
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Epoch으로 이동
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Unix 타임스탬프로 이동
+
+타임스탬프는 초가 아닌 **밀리초** 단위로 전달하세요. 런타임이 해당
+타임스탬프에서 가장 가까운 slot을 계산합니다.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## 일반적인 패턴
+
+### 잠금 또는 베스팅 기간 테스트
+
+아래 예제는 개략적인 예시이며, `assertWithdrawFails`와
+`assertWithdrawSucceeds`는 테스트 스위트에서 RPC 동작을 검증하기 위해 사용하는
+클라이언트 측 헬퍼의 플레이스홀더입니다.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### 멀티-Epoch 시나리오 구동
+
+<Callout type="warn" title="중간 slot은 건너뜁니다">
+  시간 이동은 대상으로 직접 점프합니다 — epoch 1에서 epoch 5로 이동하면 중간의
+  slot을 건너뜁니다. 프로그램이 각 중간 epoch 경계를 실행해야 하는 경우 (예:
+  epoch별 보상 지급), 중간에 필요한 트랜잭션을 포함하여 `time_travel_to_epoch`를
+  epoch마다 한 번씩 호출하세요.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## EpochInfo 구조
+
+두 SDK 모두 다음 필드를 포함하는 `EpochInfo` 형태의 객체를 반환합니다:
+
+| 필드            | Rust                             | JS                          |
+| --------------- | -------------------------------- | --------------------------- |
+| 절대 slot       | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Epoch 내 slot   | `slot_index: u64`                | `slotIndex: number`         |
+| Epoch당 slot 수 | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Epoch 번호      | `epoch: u64`                     | `epoch: number`             |
+| 블록 높이       | `block_height: u64`              | `blockHeight: number`       |
+| 트랜잭션 수     | `transaction_count: Option<u64>` | `transactionCount?: number` |

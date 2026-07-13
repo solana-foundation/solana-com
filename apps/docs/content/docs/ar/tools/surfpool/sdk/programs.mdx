@@ -1,0 +1,181 @@
+---
+title: نشر البرامج
+description:
+  انشر برامج سولانا في Surfnet من مصنوعات محلية. اكتشف تلقائيًا مساحات عمل
+  Anchor أو مرّر مسار .so صريح مع البايتات الخام وIDL.
+---
+
+يمكن لـ SDK نشر برنامج من مصنوعات البناء المحلية في استدعاء واحد. يوجد نمطان:
+**الاكتشاف التلقائي** لمساحات عمل Anchor/Agave ذات المسارات الاصطلاحية، و**النشر
+الصريح** عندما تريد التحكم في مصدر البايتات.
+
+يسجّل كلا النمطين البرنامجَ على العنوان المُعلَن في IDL (أو على المفتاح العام
+لملف keypair)، وإذا كان IDL متاحًا، يسجّله مع وقت التشغيل عبر
+`surfnet_registerIdl` حتى يتمكن عملاء RPC من فك ترميز بيانات الحسابات.
+
+## الاكتشاف التلقائي لمساحة عمل Anchor
+
+`deployProgram` / `deploy_program` يأخذان اسم البرنامج ويبحثان عن هذه الملفات
+بالنسبة إلى دليل العمل الحالي:
+
+| الملف                               | الغرض                                                           |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `target/deploy/{name}.so`           | بايتكود البرنامج المُترجَم (مطلوب)                              |
+| `target/deploy/{name}-keypair.json` | keypair البرنامج — يصبح المفتاح العام هو معرّف البرنامج (مطلوب) |
+| `target/idl/{name}.json`            | ملف Anchor IDL بصيغة JSON (اختياري؛ يُسجَّل إن وُجد)            |
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let program_id = cheats.deploy_program("my_program")?;
+println!("deployed at {program_id}");
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const programId = surfnet.deployProgram("my_program");
+  console.log("deployed at", programId);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+<Callout type="info" title="أنشئ البرنامج قبل نشره">
+  شغّل `anchor build` (أو `cargo build-sbf`) قبل استدعاء `deployProgram` حتى
+  تكون مصنوعات `.so` و keypair موجودةً فعلًا على القرص. لا يستدعي SDK عملية
+  البناء تلقائيًا.
+</Callout>
+
+## النشر الصريح
+
+عندما تكون المصنوعات في مكان غير قياسي — مصنوع CI مُنشأ، أو تجهيز اختبار مُعدّ
+مسبقًا، أو شريحة بايت مُضمَّنة — مرّر إعداد نشر صريح.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::Surfnet;
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+// Derive the program ID from a keypair file.
+let program_id = cheats.deploy(
+    DeployProgram::from_keypair_path("fixtures/my_program-keypair.json")?
+        .so_path("fixtures/my_program.so")
+        .idl_path("fixtures/my_program.idl.json"),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const programId = "DemoProgram111111111111111111111111111111111";
+
+surfnet.deploy({
+  programId,
+  soPath: "fixtures/my_program.so",
+  idlPath: "fixtures/my_program.idl.json"
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## النشر من بايتات خام
+
+عندما يكون البايتكود موجودًا بالفعل في الذاكرة — مُولَّدًا من خطوة بناء، أو
+محمَّلًا من مستودع مصنوعات، أو مُضمَّنًا عبر `include_bytes!` — تجاوز نظام
+الملفات كليًا.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+const PROGRAM_BYTES: &[u8] = include_bytes!("../fixtures/my_program.so");
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let program_id: Pubkey = "DemoProgram111111111111111111111111111111111".parse()?;
+
+cheats.deploy(
+    DeployProgram::new(program_id).so_bytes(PROGRAM_BYTES.to_vec()),
+)?;
+```
+
+```ts !! title="TypeScript"
+import { readFileSync } from "node:fs";
+
+const surfnet = Surfnet.start();
+const programBytes = readFileSync("fixtures/my_program.so");
+
+surfnet.deploy({
+  programId: "DemoProgramID11111111111111111111111111111",
+  soBytes: programBytes
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## مرجع منشئ DeployProgram (Rust)
+
+| المُنشئ / الضابط                   | التوقيع                                           | الغرض                                                                 |
+| ---------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- |
+| `DeployProgram::new`               | `(program_id: Pubkey) -> Self`                    | إنشاء عملية نشر لمعرّف برنامج معروف.                                  |
+| `DeployProgram::from_keypair_path` | `(path: impl AsRef<Path>) -> SurfnetResult<Self>` | قراءة ملف keypair الخاص بـ سولانا؛ يصبح المفتاح العام معرّف البرنامج. |
+| `.so_path`                         | `(path: impl Into<PathBuf>)`                      | المسار إلى أداة `.so` المُجمَّعة على القرص.                           |
+| `.so_bytes`                        | `(bytes: Vec<u8>)`                                | بايتات البرنامج الخام (تستثني `so_path`).                             |
+| `.idl_path`                        | `(path: impl Into<PathBuf>)`                      | ملف JSON لـ Anchor IDL اختياري للتسجيل بعد النشر.                     |
+
+## مرجع نوع DeployOptions (JS)
+
+```ts
+type ByteArrayLike = Uint8Array | number[];
+
+interface DeployOptions {
+  programId: string; // base58 address to deploy at
+  soPath?: string; // path to .so on disk
+  soBytes?: ByteArrayLike; // or raw bytes in memory
+  idlPath?: string; // optional Anchor IDL JSON
+}
+```
+
+`soPath` و `soBytes` متنافيان — يجب توفير أحدهما فقط.
+
+## ما الذي يتم تسجيله
+
+بعد نشر ناجح، يقوم وقت التشغيل بثلاثة أشياء:
+
+1. **يكتب program account** عند `programId` بـ بايتات `.so` عبر
+   `surfnet_writeProgram`.
+2. **يُعلّم الحساب كقابل للتنفيذ** حتى يمكن استدعاؤه عبر استدعاءات RPC العادية.
+3. **يُسجّل IDL** (إن تم توفيره) عبر `surfnet_registerIdl`، مما يتيح لعملاء RPC
+   فك تشفير بيانات الحساب باستخدام مخطط IDL الخاص بالبرنامج.
+
+<Callout type="info" title="نادر: program account غير قابل للتنفيذ">
+  إذا أردت كتابة بايتات البرنامج إلى حساب مع إبقائه غير قابل للتنفيذ، استخدم
+  `SetAccount` مباشرةً بدلاً من `deploy`. مسار `deploy` يُعلّم الحساب دائمًا
+  كقابل للتنفيذ.
+</Callout>
+
+## الأخطاء
+
+| السبب                                                             | العَرَض                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| ملف `.so` مفقود أو لا يمكن قراءته                                 | `SurfnetError::Cheatcode("...failed to read...")` أو خطأ JS مُطلق |
+| معرّف البرنامج لا يتطابق مع ملف keypair                           | `SurfnetError::Cheatcode("...mismatched program id...")`          |
+| ملف JSON الخاص بـ IDL مشوّه                                       | `SurfnetError::Cheatcode("...invalid IDL...")`                    |
+| Surfnet غير متصل وـ program account موجود بالفعل في المصدر الأصلي | يستمر النشر بنجاح؛ النسخة المحلية تتجاوز النسخة الأصلية           |

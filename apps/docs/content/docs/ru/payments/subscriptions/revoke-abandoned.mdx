@@ -1,0 +1,130 @@
+---
+title: Отзыв заброшенных делегирований и подписок
+description:
+  Руководство по возврату rent из делегирования или подписки, Subscription
+  Authority которой недоступен.
+---
+
+Делегирования и подписки удерживают rent, который при отзыве обычно возвращается
+записанному плательщику. Если спонсор пополнил аккаунт, а пользователь
+впоследствии закрыл или заменил свой Subscription Authority, аккаунт оказывается
+заброшенным, а его rent — заблокированным. `RevokeAbandonedDelegation` и
+`RevokeAbandonedSubscription` позволяют записанному плательщику вернуть его.
+
+## Когда это применяется
+
+Разрешено только в том случае, если Subscription Authority аккаунта явно
+недействителен — закрыт или закрыт и пересоздан (так что `init_id` больше не
+совпадает). Активное делегирование или подписка никогда не могут быть закрыты
+таким способом.
+
+|                                              | `RevokeAbandonedDelegation`                                                                                              | `RevokeAbandonedSubscription`                                                                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Закрывает                                    | PDA фиксированного или повторяющегося делегирования                                                                      | PDA подписки                                                                                                                                     |
+| Подписант                                    | Записанный плательщик                                                                                                    | Записанный плательщик                                                                                                                            |
+| Аккаунты                                     | Делегирование + записанный authority                                                                                     | Подписка + записанный authority + план                                                                                                           |
+| Условие применения                           | Authority закрыт или пересоздан (несовпадение `init_id`)                                                                 | То же, для mint плана — mint считывается из привязанного плана, поэтому подставить несвязанный authority для принудительного закрытия невозможно |
+| Вместо этого используйте обычный отзыв, если | Делегирование [истекло или полностью потрачено](/docs/payments/subscriptions/recurring-delegation#revoke-the-delegation) | Подписка [отменена и истекла](/docs/payments/subscriptions/subscription-plan#cancel-and-revoke)                                                  |
+
+`RevokeAbandonedDelegation` — также единственный способ восстановления для
+записанного плательщика в случае бессрочного делегирования (`expiry_ts == 0`),
+которое не было полностью потрачено: обычный отзыв для плательщика срабатывает
+только по истечении срока или, для фиксированного делегирования, при полном
+израсходовании.
+
+## Отзыв заброшенного делегирования
+
+Записанный плательщик подписывает транзакцию. Передайте недействительный PDA
+делегирования и его записанный Subscription Authority (который может быть уже
+закрыт). Rent возвращается плательщику.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedDelegationInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedDelegationInstruction({
+      payer: payerSigner,
+      delegationAccount: delegationPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let delegation_pda: Address = address!("DELEGATION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedDelegationBuilder::new()
+        .payer(payer)
+        .delegation_account(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Отзыв заброшенной подписки
+
+Подписавшийся плательщик подписывает транзакцию. Передайте PDA заброшенной
+подписки, её зафиксированный Subscription Authority (который к этому моменту
+может быть уже закрыт), и план, к которому принадлежит подписка. rent
+возвращается плательщику.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedSubscriptionInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedSubscriptionInstruction({
+      payer: payerSigner,
+      subscriptionAccount: subscriptionPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+      planPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let subscription_pda: Address = address!("SUBSCRIPTION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+    let plan_pda: Address = address!("PLAN_PDA_ADDRESS_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedSubscriptionBuilder::new()
+        .payer(payer)
+        .subscription_account(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .plan_pda(plan_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Примечания
+
+- Транзакцию подписывает зафиксированный плательщик, а не делегатор, делегат или
+  подписчик.
+- Оба инструкции завершатся ошибкой, если Subscription Authority всё ещё активен
+  для аккаунта — в таком случае используйте обычный отзыв.
+- `RevokeAbandonedDelegation` работает как для фиксированных, так и для
+  периодических делегирований.

@@ -1,0 +1,206 @@
+---
+title: 設定
+description:
+  起動時のSurfnetの設定 — リモートRPCフォールバック、ブロック生成モード、slot
+  タイミング、エアドロップ、フィーチャーゲート、カスタム支払者。
+---
+
+`Surfnet::start()`（Rust）と`Surfnet.start()`（JS）は、トランザクションモードのブロック生成と10
+SOLがあらかじめ入金された支払者でオフラインのSurfnetを起動します。それ以外が必要な場合 — メインネットをフォークしたSurfnet、低速クロック、決定論的な資金調達、特定の支払者keypair
+— ビルダー（Rust）または`startWithConfig`（JS）を使用してください。
+
+## デフォルト値
+
+引数なしで`start()`を呼び出した場合、以下の設定が適用されます：
+
+| 設定             | 値                                                            |
+| ---------------- | ------------------------------------------------------------- |
+| モード           | オフライン（上流RPCなし）                                     |
+| ブロック生成     | トランザクション（トランザクションごとにブロックが進む）      |
+| slot 時間        | 1 ms                                                          |
+| 支払者           | ランダムなkeypair（10 SOL / 10,000,000,000 lamports入金済み） |
+| RPC URL          | `http://127.0.0.1:<random>`                                   |
+| WS URL           | `ws://127.0.0.1:<random>`                                     |
+| フィーチャー設定 | デフォルトのメインネットフィーチャーセット                    |
+
+## カスタム設定
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{BlockProductionMode, Pubkey, Surfnet};
+
+#[tokio::test]
+async fn starts_with_custom_configuration() {
+    let alice = Pubkey::new_unique();
+
+    let surfnet = Surfnet::builder()
+        .remote_rpc_url("https://api.mainnet-beta.solana.com")
+        .block_production_mode(BlockProductionMode::Transaction)
+        .slot_time_ms(10)
+        .airdrop_addresses(vec![alice])
+        .airdrop_sol(5_000_000_000)
+        .skip_blockhash_check(true)
+        .start()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        surfnet.rpc_client().get_balance(&alice).unwrap(),
+        5_000_000_000
+    );
+}
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const alice = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com",
+  blockProductionMode: "transaction",
+  slotTimeMs: 10,
+  airdropAddresses: [alice.publicKey],
+  airdropSol: 5_000_000_000
+});
+
+try {
+  console.log(surfnet.rpcUrl);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## ビルダーリファレンス
+
+RustビルダーとJSの設定オブジェクトは、camelCase /
+snake_case の命名規則のもとで同じ論理オプションを公開しています。
+
+| オプション                 | Rustセッター                                 | JSフィールド                              | 型                                            | デフォルト             |
+| -------------------------- | -------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ---------------------- |
+| オフラインモード           | `offline(bool)`                              | `offline?: boolean`                       | `bool`                                        | `true`                 |
+| 上流RPC                    | `remote_rpc_url(impl Into<String>)`          | `remoteRpcUrl?: string`                   | URL文字列                                     | なし                   |
+| ブロック生成               | `block_production_mode(BlockProductionMode)` | `blockProductionMode?: string`            | enum / `"manual" \| "clock" \| "transaction"` | `Transaction`          |
+| slot 時間                  | `slot_time_ms(u64)`                          | `slotTimeMs?: number`                     | ミリ秒                                        | `1`                    |
+| エアドロップアドレス       | `airdrop_addresses(Vec<Pubkey>)`             | `airdropAddresses?: string[]`             | pubkeyのリスト                                | 空                     |
+| エアドロップ量             | `airdrop_sol(u64)`                           | `airdropSol?: number`                     | lamports                                      | `10_000_000_000`       |
+| ブロックハッシュをスキップ | `skip_blockhash_check(bool)`                 | n/a                                       | `bool`                                        | `false`                |
+| カスタム支払者             | `payer(Keypair)`                             | `payerSecretKey?: Uint8Array \| number[]` | Keypair / バイト列                            | 自動生成               |
+| フィーチャーを有効化       | `enable_feature(Pubkey)`                     | `enableFeatures?: string[]`               | フィーチャーID（複数可）                      | なし                   |
+| フィーチャーを無効化       | `disable_feature(Pubkey)`                    | `disableFeatures?: string[]`              | フィーチャーID（複数可）                      | なし                   |
+| 全フィーチャー             | n/a                                          | `allFeatures?: boolean`                   | `bool`                                        | `false`                |
+| フィーチャー設定           | `feature_config(SvmFeatureConfig)`           | n/a                                       | フル設定                                      | デフォルトメインネット |
+
+### リモートRPCフォールバック
+
+`remoteRpcUrl`（Rustでは`remote_rpc_url`）を設定すると、Surfnetがオフラインモードからオンラインモードになります`remoteRpcUrl`。ローカルに存在しないアカウントは、上流のRPCからオンデマンドで取得されます。これがmainnet-forkテストの仕組みです。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let surfnet = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+```
+
+</CodeTabs>
+
+<Callout type="info" title="高品質な上流RPCを使用する">
+  多数のフォークされたアカウントを扱うテストには、有料エンドポイント（Helius、Triton、QuickNode）を使用してください。公開の`mainnet-beta`はレート制限が厳しく、並列テスト負荷下では不安定になります。
+</Callout>
+
+### ブロック生成モード
+
+| モード                      | ブロックが進むタイミング                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Transaction`（デフォルト） | トランザクションごと。送信直後にアサートするテストに最適。                                                       |
+| `Clock`                     | `slot_time_ms`で設定した固定間隔。明示的なトランザクションなしに複数のslotが経過することに依存するテストに最適。 |
+| `Manual`                    | `SimnetCommand::AdvanceClock`が送信されたときのみ。テストがクロックを制御する時間に敏感なテストに最適。          |
+
+### カスタムペイヤー
+
+デフォルトでは、ペイヤーは新たに生成されたkeypairです。テストでペイヤーの公開鍵を参照するinstructionsを事前に構築する場合など、既知のアドレスが必要な場合は独自のものを指定してください。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Keypair, Signer, Surfnet};
+
+let payer = Keypair::new();
+let surfnet = Surfnet::builder().payer(payer.insecure_clone()).start().await?;
+
+assert_eq!(surfnet.payer().pubkey(), payer.pubkey());
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const kp = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  payerSecretKey: kp.secretKey
+});
+
+console.assert(surfnet.payer === kp.publicKey);
+```
+
+</CodeTabs>
+
+### フィーチャーゲート
+
+IDで個々のSVMフィーチャーゲートを切り替えるか、`allFeatures: true`（JSのみ —
+Rustビルダーは全セットに`feature_config`を使用）ですべての既知のフィーチャーをアクティブにします。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let feature_id: Pubkey = "9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"
+    .parse()
+    .unwrap();
+
+let surfnet = Surfnet::builder()
+    .enable_feature(feature_id)
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  enableFeatures: ["9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"],
+  disableFeatures: ["7Vced5VKEjQGc2GnQDfnNYf4ckEbz9b2gMRsZGYP6JeF"]
+});
+```
+
+</CodeTabs>
+
+### ブロックハッシュチェックのスキップ
+
+`skip_blockhash_check(true)`（Rustのみ）は、すべてのトランザクションのブロックハッシュ検証を無効にします。送信よりもかなり前にトランザクションに署名するテストや、有効期限を気にしないテストに役立ちます。
+
+## エラー
+
+設定が誤ったビルダーは `start()` で失敗します。Rust SDK は `SurfnetError`
+を返します：
+
+| バリアント               | 発生条件                                                              |
+| ------------------------ | --------------------------------------------------------------------- |
+| `PortAllocation(String)` | 空きの RPC または WebSocket ポートにバインドできなかった。            |
+| `Startup(String)`        | ランタイムの初期化に失敗した（設定が不正、リモート URL が無効など）。 |
+| `Runtime(String)`        | ランタイムが起動中にクラッシュし、準備完了状態に達しなかった。        |
+| `Aborted(String)`        | 起動がキャンセルされた（例：起動中のシャットダウンシグナル）。        |
+| `Cheatcode(String)`      | ビルダー内のチートコード呼び出しが失敗した。                          |
+
+JS SDK は、同じ基盤となるバリアントをメッセージでラップした `Error`
+をスローします。

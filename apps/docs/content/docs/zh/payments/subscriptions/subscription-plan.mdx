@@ -22,8 +22,8 @@ description: 设置订阅计划交易的指南。
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -132,6 +132,14 @@ description: 设置订阅计划交易的指南。
 
 商家可以在创建后更新可变的计划字段。现有订阅者保留他们接受的条款,而新订阅者则接受当前的计划条款。
 
+以下规则适用：
+
+- 有限的 `endTs` 只能缩短，不能延长或清除 (`PlanEndTsCannotExtend`)。
+- 在 `Sunset`
+  计划中，您可以移除拉取方（新集合必须是当前集合的子集）以撤销已泄露的拉取方；状态、`endTs`
+  和元数据将保持冻结。
+- 只要 `endTs` 未更改，在计划最终计费周期内均可进行编辑。
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -166,9 +174,13 @@ description: 设置订阅计划交易的指南。
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -183,7 +195,7 @@ description: 设置订阅计划交易的指南。
 
 ## 订阅
 
-订阅者接受当前计划条款。订阅 PDA 从计划 PDA 和订阅者地址派生而来。
+订阅者接受当前计划条款。订阅 PDA 由计划 PDA 和订阅者地址派生而来。
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -306,8 +318,8 @@ description: 设置订阅计划交易的指南。
 
 ## 收取付款
 
-商家或白名单中的授权扣款方对收款进行签名。当计划使用目标地址白名单时，接收代币账户的所有者必须在
-`destinations` 中列出。
+商户或已列入白名单的拉取方签署收款操作。当计划使用目标地址白名单时，接收方 token
+account 的所有者必须列于 `destinations` 中。
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -354,9 +366,9 @@ description: 设置订阅计划交易的指南。
   </Tab>
 </Tabs>
 
-## 取消和撤销
+## 取消与撤销
 
-取消操作会将订阅标记为结束状态。撤销操作会在取消到期时间过后关闭订阅 PDA。这两个交易都需要订阅者签名。
+取消操作将订阅标记为即将结束。撤销操作则在取消到期后关闭订阅的 PDA。订阅者需对两笔交易进行签名。
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -405,12 +417,53 @@ description: 设置订阅计划交易的指南。
   </Tab>
 </Tabs>
 
+## 恢复订阅
+
+已取消的订阅在被撤销之前可以重新激活。一旦撤销，订阅账户将被关闭，订阅者必须重新
+[订阅](#subscribe)。恢复订阅需要订阅者提供该计划铸币的
+`SubscriptionAuthority`，程序将对其进行验证（所有者、铸币及
+`init_id`），若已过期或被重新初始化则拒绝操作。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## 注意事项
 
-- `amount` 以基础单位表示。对于 6 位小数的代币,`5_000_000` 表示 `5` 个代币。
-- TypeScript SDK 在执行 `subscribe`
-  时会自动获取实时计划条款(当您省略这些参数时)。
-- Rust `SubscribeBuilder` 需要预期的计划条款。请先获取并解码计划账户,然后通过
-  `SubscribeData` 传递这些字段。
-- 只有商家或在 `pullers` 中列出的钱包可以收取款项。
-- 订阅者签署设置、取消和撤销交易。商家或授权的扣款方签署收款交易。
+- `amount` 以基本单位表示。对于 6 位小数的代币，`5_000_000` 表示 `5` 个代币。
+- TypeScript SDK 在调用 `subscribe` 时，若未传入计划条款，将自动获取最新条款。
+- Rust 的 `SubscribeBuilder` 需要预期的计划条款。请先获取并解码计划账户，再通过
+  `SubscribeData` 传入相应字段。
+- 只有商户或在 `pullers` 中列出的钱包才能收款。
+- 订阅者签署设置、取消和撤销交易；商户或已授权的拉取方签署收款交易。

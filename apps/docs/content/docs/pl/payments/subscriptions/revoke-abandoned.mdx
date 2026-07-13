@@ -1,0 +1,127 @@
+---
+title: Cofnij Opuszczone Delegacje i Subskrypcje
+description:
+  Przewodnik dotyczący odzyskiwania rent z delegacji lub subskrypcji, których
+  Subscription Authority wygasło.
+---
+
+Delegacje i subskrypcje przechowują rent, który normalnie wraca do
+zarejestrowanego płatnika po cofnięciu. Jeśli sponsor sfinansował konto, a
+użytkownik później zamknie lub zastąpi swoje Subscription Authority, konto
+zostaje porzucone, a jego rent zablokowany. `RevokeAbandonedDelegation` i
+`RevokeAbandonedSubscription` pozwalają zarejestrowanemu płatnikowi je odzyskać.
+
+## Kiedy to dotyczy
+
+Dozwolone tylko wtedy, gdy Subscription Authority konta jest jednoznacznie
+zakończone — zamknięte lub zamknięte i odtworzone (tak że `init_id` już nie
+pasuje). Aktywna delegacja lub subskrypcja nigdy nie może zostać zamknięta w ten
+sposób.
+
+|                             | `RevokeAbandonedDelegation`                                                                                                | `RevokeAbandonedSubscription`                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zamyka                      | PDA delegacji stałej lub cyklicznej                                                                                        | PDA subskrypcji                                                                                                                                     |
+| Podpisujący                 | Zarejestrowany płatnik                                                                                                     | Zarejestrowany płatnik                                                                                                                              |
+| Konta                       | Delegacja + zarejestrowane authority                                                                                       | Subskrypcja + zarejestrowane authority + plan                                                                                                       |
+| Kwalifikuje się gdy         | Authority zamknięte lub odtworzone (niezgodność `init_id`)                                                                 | To samo, dla mint planu — mint jest odczytywany z powiązanego planu, więc niepowiązane authority nie może zostać podstawione, by wymusić zamknięcie |
+| Użyj zwykłego cofnięcia gdy | Delegacja jest [wygasła lub w pełni wykorzystana](/docs/payments/subscriptions/recurring-delegation#revoke-the-delegation) | Subskrypcja jest [anulowana i wygasła](/docs/payments/subscriptions/subscription-plan#cancel-and-revoke)                                            |
+
+`RevokeAbandonedDelegation` jest również jedyną ścieżką odzyskania dla
+zarejestrowanego płatnika delegacji bez terminu wygaśnięcia (`expiry_ts == 0`),
+która nie jest w pełni wykorzystana: zwykłe cofnięcie działa dla płatnika tylko
+po wygaśnięciu lub, w przypadku delegacji stałej, po pełnym wykorzystaniu.
+
+## Cofnij Opuszczoną Delegację
+
+Zarejestrowany płatnik podpisuje. Przekaż porzucone PDA delegacji i jego
+zarejestrowane Subscription Authority (które może być już zamknięte). Rent wraca
+do płatnika.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedDelegationInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedDelegationInstruction({
+      payer: payerSigner,
+      delegationAccount: delegationPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let delegation_pda: Address = address!("DELEGATION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedDelegationBuilder::new()
+        .payer(payer)
+        .delegation_account(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cofnij Porzuconą Subskrypcję
+
+Zarejestrowany płatnik podpisuje transakcję. Przekaż porzucone PDA subskrypcji,
+zarejestrowany Organ Subskrypcji (który może być już zamknięty) oraz plan, do
+którego należy subskrypcja. rent wraca do płatnika.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedSubscriptionInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedSubscriptionInstruction({
+      payer: payerSigner,
+      subscriptionAccount: subscriptionPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+      planPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let subscription_pda: Address = address!("SUBSCRIPTION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+    let plan_pda: Address = address!("PLAN_PDA_ADDRESS_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedSubscriptionBuilder::new()
+        .payer(payer)
+        .subscription_account(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .plan_pda(plan_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Uwagi
+
+- Podpisuje zarejestrowany płatnik, a nie delegator, delegat ani subskrybent.
+- Obie instrukcje kończą się niepowodzeniem, jeśli Organ Subskrypcji jest nadal
+  aktywny dla danego konta — zamiast tego użyj zwykłego cofnięcia.
+- `RevokeAbandonedDelegation` działa zarówno dla delegacji stałych, jak i
+  cyklicznych.

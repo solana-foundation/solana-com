@@ -1,0 +1,158 @@
+---
+title: Installazione
+description:
+  Installa l'SDK Surfpool per Rust o TypeScript. Il pacchetto JS include binari
+  nativi pre-compilati tramite napi-rs per macOS e Linux.
+---
+
+L'SDK Surfpool è pubblicato come due artefatti che racchiudono lo stesso runtime
+Rust:
+
+| Linguaggio              | Pacchetto                   | Dove viene eseguito                                           |
+| ----------------------- | --------------------------- | ------------------------------------------------------------- |
+| Rust                    | `surfpool-sdk` su crates.io | All'interno di qualsiasi `#[tokio::test]` o runtime asincrono |
+| TypeScript / JavaScript | `@solana/surfpool` su npm   | Node.js 18+ tramite binding nativi napi-rs                    |
+
+## Rust
+
+Aggiungi il crate come dev-dependency. L'SDK è async-first e richiede un runtime
+Tokio, quindi includi `tokio` con la feature `full` per i test.
+
+```toml title="Cargo.toml"
+[dev-dependencies]
+surfpool-sdk = "1"
+tokio = { version = "1", features = ["full"] }
+```
+
+Il crate ri-esporta i tipi Solana più utilizzati, quindi un singolo
+`use surfpool_sdk::{...}` è solitamente sufficiente:
+
+```rust
+use surfpool_sdk::{
+    Keypair, Pubkey, RpcClient, Signer,        // re-exported Solana types
+    Surfnet, SurfnetBuilder, SurfnetError,     // SDK entry points
+    BlockProductionMode, SimnetEvent,          // re-exported surfpool types
+};
+```
+
+Se hai bisogno di un tipo che non viene ri-esportato, dipendi direttamente dal
+crate Solana sottostante — l'SDK non ti vincola a nessuna versione specifica di
+`solana-program` o `solana-client`.
+
+## TypeScript / JavaScript
+
+Installa come dev-dependency con il package manager che preferisci:
+
+```bash
+npm install --save-dev @solana/surfpool
+# or
+pnpm add -D @solana/surfpool
+# or
+yarn add --dev @solana/surfpool
+```
+
+Il pacchetto esporta una singola classe `Surfnet` insieme ai tipi di supporto:
+
+```ts
+import {
+  Surfnet, // entry point
+  type SurfnetConfig, // config for startWithConfig
+  type DeployOptions, // explicit program deploy
+  type SetTokenAccountUpdate,
+  type ResetAccountOptions,
+  type StreamAccountOptions,
+  type SimnetEventValue, // event drained from drainEvents()
+  type KeypairInfo, // shape returned by Surfnet.newKeypair()
+  type EpochInfoValue,
+  type ClockValue
+} from "@solana/surfpool";
+```
+
+### Piattaforme Supportate
+
+Il pacchetto JS dipende da moduli nativi specifici per piattaforma che vengono
+installati automaticamente come `optionalDependencies`:
+
+| Piattaforma          | Target triple              | Pacchetto npm                    |
+| -------------------- | -------------------------- | -------------------------------- |
+| macOS Apple Silicon  | `aarch64-apple-darwin`     | `@solana/surfpool-darwin-arm64`  |
+| macOS Intel          | `x86_64-apple-darwin`      | `@solana/surfpool-darwin-x64`    |
+| Linux x86-64 (glibc) | `x86_64-unknown-linux-gnu` | `@solana/surfpool-linux-x64-gnu` |
+
+<Callout type="warn" title="Piattaforma non supportata">
+  Se il pacchetto viene installato su una piattaforma priva di un binario
+  corrispondente, l'installazione viene completata ma `Surfnet.start()` genererà
+  un errore in fase di esecuzione. Apri una issue se hai bisogno di un target
+  aggiuntivo.
+</Callout>
+
+### Requisiti
+
+- **Node.js 18 o versione successiva.** L'SDK utilizza `Uint8Array`, `fetch`
+  nativo e `assert/strict` da `node:test`.
+- **Una directory temporanea scrivibile.** Ogni istanza di Surfnet alloca porte
+  e può scrivere dati transitori nella directory temporanea del sistema
+  operativo.
+
+## Verifica dell'Installazione
+
+Un semplice test in una riga conferma che il runtime si avvia e che l'endpoint
+RPC accetta richieste.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Signer, Surfnet};
+
+#[tokio::test]
+async fn surfpool_sdk_smoke() {
+    let surfnet = Surfnet::start().await.expect("start surfnet");
+    let balance = surfnet
+        .rpc_client()
+        .get_balance(&surfnet.payer().pubkey())
+        .expect("get balance");
+    assert!(balance > 0);
+}
+```
+
+Esegui con `cargo test --test smoke`.
+
+```ts !! title="TypeScript"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+after(() => surfnet.stop());
+
+test("surfpool sdk smoke", () => {
+  assert.match(surfnet.rpcUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.ok(surfnet.payer.length > 0);
+});
+```
+
+Esegui con `node --test smoke.test.ts` (con un loader TS) o
+`tsx --test smoke.test.ts`.
+
+</CodeTabs>
+
+## Risoluzione dei Problemi
+
+<Callout type="warn" title="`failed to bind to port` on Rust">
+  Un altro processo sta occupando la porta `0.0.0.0` in modo aggressivo.
+  Riesegui il test — l'SDK sceglie una nuova porta ad ogni chiamata. Se il
+  problema persiste, verifica la presenza di processi `surfpool` orfani.
+</Callout>
+
+<Callout type="warn" title="`Cannot find module '@solana/surfpool-...'`">
+  Il pacchetto `optionalDependencies` per la tua piattaforma non è stato
+  installato. Riesegui l'installazione con `--include=optional`, oppure verifica
+  che la tua piattaforma sia presente nella tabella delle piattaforme
+  supportate.
+</Callout>
+
+<Callout type="warn" title="`stop()` si blocca in JS">
+  Assicurati di chiamare `stop()` una volta per `start()`. Il wrapper Node
+  mantiene i server RPC e WebSocket in ascolto fino al completamento di
+  `stop()`.
+</Callout>
