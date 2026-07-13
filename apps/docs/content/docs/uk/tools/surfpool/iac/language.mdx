@@ -1,0 +1,271 @@
+---
+title: Мова та синтаксис
+description: Використовуйте txtx DSL для опису розгортань, якими керує surfpool.
+---
+
+Це документація для мови txtx. Файли Runbook, які ви пишете, визначають, які
+блокчейни та мережі використовувати, які дані отримувати та які транзакції
+транслювати. Мова txtx також дозволяє визначати залежності між ресурсами та
+створювати кілька схожих конструкцій з одного блоку.
+
+## Синтаксис
+
+Runbook містять серію блоків коду, які виглядають приблизно так:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Кожен блок має тип команди (у цьому прикладі `variable`, `action` та `output`),
+ім'я посилання (`"query_path"`, `"http_query"` та `"status_code"`), а також
+внутрішні дані блоку (все, що знаходиться між `{ ... }`). Деякі типи команд
+також вимагають вказання команди (`"std::send_http_request"`). Внутрішні дані
+блоку визначаються типом команди та вказаною командою.
+
+### Посилання на команди
+
+Одна команда може посилатися на виходи іншої команди, щоб побудувати ланцюжок
+залежних команд. Під час виконання Runbook surfpool будує граф усіх команд, щоб
+гарантувати їх виконання у правильному порядку. Це означає, що при створенні
+Runbook необхідно уникати циклічних залежностей.
+
+На виходи іншої команди можна посилатися у блоці за допомогою
+`command_type.ref_name.output_name`. Ось кілька прикладів:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Функції
+
+[Стандартна бібліотека](/docs/tools/surfpool/iac/std/functions) надає деякі
+функції, які можна використовувати вбудовано, на відміну від написання повних
+блоків команд з іменованими аргументами. Ці функції можна розширювати за
+допомогою додатків.
+
+Такі функції можуть виглядати як явні виклики функцій (наприклад,
+`add_uint(1, 3)`), або як вбудовані арифметичні операції (наприклад, `1 + 3`).
+Функції можуть посилатися на виходи інших команд або зберігатися у виходах нових
+команд. Ось приклад використання кількох функцій:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Вхідні дані маніфесту та CLI
+
+Вхідні дані можна передати до Runbook через CLI або вказати їх у файлі маніфесту
+`txtx.yml`. Якщо одні й ті самі вхідні дані передаються як через CLI, так і
+через маніфест, пріоритет матимуть вхідні дані CLI. Щоб дізнатися, як
+використовувати CLI, перегляньте
+[документацію CLI](/docs/tools/surfpool/toolchain/cli). У маніфесті ці вхідні
+дані можна згрупувати за ключем середовища, що дозволяє легко використовувати
+один і той самий Runbook у різних середовищах.
+
+Ось приклад конфігурації зі змінними середовища:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+У будь-якому з файлів `.tx`, що завантажуються цим runbook, вхідні дані
+`input.network_id` та `input.rpc_api_url` будуть доступні в глобальній області
+видимості. Коли Web UI завантажує цей runbook, перший елемент дій дозволить вам
+вибрати, яке середовище завантажити. Вибір нового середовища перезавантажить
+поточний runbook із новими змінними середовища, що будуть впроваджені у
+виконання.
+
+### Керування станом
+
+Surfpool може керувати станом між виконаннями Runbook. Під час розгортання
+контрактів керування станом можна використовувати для виявлення будь-яких змін у
+коді контракту та вхідних даних Runbook, щоб визначити, чи потрібно повторно
+виконувати Runbook. Surfpool запобігатиме повторному виконанню Runbook, якщо
+немає жодних змін у коді контракту або вхідних даних Runbook.
+
+Щоб увімкнути керування станом, вкажіть значення `state` та `location` для
+зберігання файлу стану в `txtx.yml`:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Змінні
+
+Змінні можна використовувати для зберігання значень, які можуть
+використовуватися іншими конструкціями та редагуватися користувачами у Web UI.
+Якщо поле `editable` змінної не вказано або встановлено як `false`, змінна
+відображатиметься у Web UI в розділі `Variables Review` як значення лише для
+читання, яке можна перевірити. Якщо ж поле `editable` встановлено як `true`,
+змінна відображатиметься як поле для редагування у Web UI. Необов'язкове поле
+`description` можна вказати для додавання додаткового контексту до змінної. Ось
+приклад змінної:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Додатки та налаштування за замовчуванням
+
+Блоки додатків дозволяють вказати, які додатки використовуватиме Runbook. На
+будь-які поля, оголошені всередині блоку додатка, може посилатися будь-яка дія,
+що є частиною цього додатка. Це дозволить вам пропускати поля під час
+використання власних дій з цього додатка. У наступному прикладі оголошується
+додаток `svm` та встановлюються поля `network_id` і `rpc_api_url` як значення за
+замовчуванням:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Після додавання цього значення за замовчуванням до файлу `.tx`, будь-які дії з
+додатка SVM можуть пропускати обидва поля — `network_id` і `rpc_api_url`.
+
+## Потоки
+
+Потоки дозволяють виконувати Runbook кілька разів із різними вхідними даними для
+кожного виконання. На будь-які поля, вказані в блоці потоку, може посилатися
+будь-яка дія, що є частиною цього потоку, через `flow.field_name`. Це можна
+використовувати разом із блоком `addon` у корисний спосіб:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## Підписанти
+
+Додатки можуть визначати підписантів, які забезпечують різні способи підписання
+транзакцій під час використання surfpool. Ці підписанти можуть використовуватися
+для підписання транзакцій за допомогою мнемонічної фрази або секретного ключа,
+для запиту до користувачів підключити свій веб-гаманець і підписати транзакції у
+веб-інтерфейсі Surfpool, для асинхронного підписання транзакцій через захищений
+анклав, для визначення гаманців із мультипідписом тощо. Кожна реалізація
+підписанта додатка матиме власні випадки використання та документацію.
+
+Ось приклад використання підписанта:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+У цьому прикладі визначається підписант із назвою `alice`, який використовує
+підписанта `svm::web_wallet`. Це визначення підписанта згенерує запит у
+веб-інтерфейсі для підключення гаманця, надання pubkey через підпис повідомлення
+та підписання всіх транзакцій з використанням цього гаманця як підписанта.
+
+## Дії
+
+Дії — це багатофункціональні конструкції, що визначаються додатками та
+[стандартною бібліотекою](/docs/tools/surfpool/iac/std/actions). Кожна дія
+визначає власний набір вхідних даних (деякі необов'язкові, деякі обов'язкові),
+які можна передати дії, що відбувається під час кожного виклику дії, та які
+вихідні дані створюються дією і можуть використовуватися наступними командами.
+
+Деякі приклади типів дій включають виконання HTTP-запитів і виведення
+результату, кодування даних транзакції відповідно до кодека певного ланцюжка,
+підписання транзакції за допомогою гаманця і виведення підписаних байтів
+транзакції або трансляцію транзакції в мережу.
+
+Ось приклад дії:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Модулі
+
+Незабаром.
+
+## Виведення
+
+Команда виведення може використовуватися для відображення даних після завершення
+виконання runbook. Ось приклад команди виведення:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

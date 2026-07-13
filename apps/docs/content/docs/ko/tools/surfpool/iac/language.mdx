@@ -1,0 +1,262 @@
+---
+title: 언어 및 구문
+description: txtx DSL을 사용하여 surfpool이 관리하는 배포를 설명합니다.
+---
+
+이것은 txtx 언어에 대한 문서입니다. 작성하는 Runbook 파일은 사용할 블록체인과
+네트워크, 검색할 데이터, 그리고 브로드캐스트할 트랜잭션을 설명합니다. txtx
+언어를 사용하면 리소스 간의 의존성을 정의하고 단일 블록에서 유사한 구성 요소를
+여러 개 생성할 수도 있습니다.
+
+## 구문
+
+Runbook에는 다음과 같은 형태의 코드 블록들이 포함됩니다:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+각 블록에는 명령 유형(이 예시에서는 `variable`, `action`, 그리고 `output`), 참조
+이름(`"query_path"`, `"http_query"`, 그리고 `"status_code"`), 그리고 블록의 내부
+데이터(`{ ... }` 사이의 모든 내용)가 있습니다. 일부 명령 유형은 명령이
+지정되어야 하며 (`"std::send_http_request"`), 블록의 내부 데이터는 지정된 명령
+유형과 명령에 의해 결정됩니다.
+
+### 명령 참조
+
+하나의 명령은 다른 명령의 출력을 참조하여 의존적인 명령 체인을 구성할 수
+있습니다. Runbook을 실행하면 surfpool은 모든 명령의 그래프를 생성하여 항상
+올바른 순서로 실행되도록 보장합니다. 따라서 Runbook을 생성할 때 의존성 순환이
+발생하지 않도록 주의해야 합니다.
+
+다른 명령의 출력은 `command_type.ref_name.output_name`를 사용하여 블록 내에서
+참조할 수 있습니다. 다음은 몇 가지 예시입니다:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### 함수
+
+[표준 라이브러리](/docs/tools/surfpool/iac/std/functions)는 명명된 인수를 가진
+전체 명령 블록을 작성하는 대신 인라인으로 작성할 수 있는 일부 함수를 제공합니다.
+이러한 함수는 애드온을 통해 확장할 수 있습니다.
+
+이 함수들은 명시적인 함수 호출처럼 보일 수 있으며(예: `add_uint(1, 3)`), 또는
+인라인 산술 연산처럼 보일 수도 있습니다(예: `1 + 3`). 함수는 다른 명령의 출력을
+참조하거나 새 명령 출력에 저장될 수 있습니다. 다음은 몇 가지 함수를 사용한
+예시입니다:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## 매니페스트 및 CLI 입력
+
+Runbook에 입력값을 제공하려면 CLI 입력으로 전달하거나 `txtx.yml` 매니페스트
+파일에 지정하면 됩니다. 동일한 입력값이 CLI와 매니페스트 모두에 제공된 경우, CLI
+입력이 우선합니다. CLI 사용 방법에 대한 자세한 내용은
+[CLI 문서](/docs/tools/surfpool/toolchain/cli)를 참고하세요. 매니페스트에서
+이러한 입력값은 환경 키로 그룹화할 수 있어, 여러 환경에서 동일한 Runbook을
+손쉽게 사용할 수 있습니다.
+
+다음은 환경 변수가 포함된 설정 예시입니다:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+이 Runbook에서 로드된 `.tx` 파일에서 입력값 `input.network_id` 및
+`input.rpc_api_url`는 전역 범위에서 사용할 수 있습니다. Web UI에서 이 Runbook을
+로드하면 첫 번째 작업 항목에서 로드할 환경을 선택할 수 있습니다. 새 환경을
+선택하면 새 환경 변수가 실행에 주입된 상태로 현재 Runbook이 다시 로드됩니다.
+
+### 상태 관리
+
+Surfpool은 Runbook 실행 전반에 걸쳐 상태를 관리할 수 있습니다. 컨트랙트 배포를
+실행할 때, 상태 관리를 활용하여 컨트랙트 코드 및 Runbook 입력값의 변경 사항을
+감지하고 Runbook을 재실행해야 하는지 여부를 판단할 수 있습니다. 컨트랙트 코드나
+Runbook 입력값에 변경 사항이 없는 경우, Surfpool은 Runbook의 재실행을
+방지합니다.
+
+상태 관리를 활성화하려면 `txtx.yml`에서 `state` 값과 상태 파일을 저장할
+`location`를 제공하세요:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## 변수
+
+변수는 다른 구성 요소에서 사용할 수 있는 값을 저장하고 Web UI에서 사용자가
+편집할 수 있도록 하는 데 활용됩니다. 변수의 `editable` 필드가 지정되지 않았거나
+`false`로 설정된 경우, 해당 변수는 Web UI의 `Variables Review` 섹션에 확인
+가능한 읽기 전용 값으로 표시됩니다. 반면 `editable` 필드가 `true`로 설정된 경우,
+변수는 Web UI에서 편집 가능한 필드로 표시됩니다. 선택적 `description` 필드를
+제공하여 변수에 추가적인 컨텍스트를 더할 수 있습니다. 다음은 변수 예시입니다:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## 애드온 및 기본값
+
+애드온 블록을 사용하면 Runbook에서 사용할 애드온을 지정할 수 있습니다. 애드온
+블록 내에 선언된 모든 필드는 해당 애드온에 속하는 모든 액션에서 참조할 수
+있습니다. 이를 통해 해당 애드온의 커스텀 액션을 사용할 때 필드를 생략할 수
+있습니다. 다음 예시는 `svm` 애드온을 선언하고 `network_id` 및 `rpc_api_url`
+필드를 기본값으로 설정합니다:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+이 기본값이 `.tx` 파일에 추가되면, SVM 애드온의 모든 액션에서 `network_id` 및
+`rpc_api_url` 필드를 모두 생략할 수 있습니다.
+
+## 플로우
+
+플로우를 사용하면 각 실행마다 다른 입력값으로 Runbook을 여러 번 실행할 수
+있습니다. 플로우 블록에 지정된 모든 필드는 `flow.field_name`를 통해 해당
+플로우에 속하는 모든 액션에서 참조할 수 있습니다. 이는 `addon` 블록과 함께
+유용하게 활용될 수 있습니다:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## 서명자
+
+애드온은 surfpool 사용 시 트랜잭션에 서명하는 다양한 방법을 제공하는 서명자를
+정의할 수 있습니다. 이 서명자들은 助记词 또는 시크릿 키를 통해 트랜잭션에
+서명하거나, 사용자가 웹 지갑을 연결하고 Surfpool Web UI에서 서명하도록
+유도하거나, 보안 엔클레이브를 통해 비동기적으로 트랜잭션에 서명하거나, 멀티시그
+지갑을 정의하는 등 다양한 용도로 사용할 수 있습니다. 각 애드온 서명자 구현체는
+고유한 사용 사례와 문서를 갖습니다.
+
+다음은 서명자 사용 예시입니다:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+이 예시는 `alice`라는 이름의 서명자를 정의하며, `svm::web_wallet` 서명자를
+사용합니다. 이 서명자 정의는 Web UI에서 지갑 연결, 메시지 서명을 통한 pubkey
+제공, 그리고 이 지갑을 서명자로 사용하여 모든 트랜잭션에 서명하도록 유도하는
+프롬프트를 생성합니다.
+
+## 액션
+
+액션은 애드온과 [표준 라이브러리](/docs/tools/surfpool/iac/std/actions)에 의해
+정의되는 다목적 구성 요소입니다. 각 액션은 액션에 제공할 수 있는 고유한 입력
+집합(일부는 선택 사항, 일부는 필수), 액션 호출 시 수행되는 작업, 그리고 이후
+명령에서 참조할 수 있는 액션의 출력 결과를 정의합니다.
+
+액션의 유형에는 HTTP 요청을 수행하고 결과를 출력하는 것, 특정 체인의 코덱에 맞게
+트랜잭션 데이터를 인코딩하는 것, 지갑으로 트랜잭션에 서명하고 서명된 트랜잭션
+바이트를 출력하는 것, 또는 네트워크에 트랜잭션을 브로드캐스트하는 것 등이
+있습니다.
+
+다음은 액션의 예시입니다:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## 모듈
+
+준비 중입니다.
+
+## 출력
+
+출력 명령은 런북 실행이 완료된 후 데이터를 표시하는 데 사용할 수 있습니다.
+다음은 출력 명령의 예시입니다:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

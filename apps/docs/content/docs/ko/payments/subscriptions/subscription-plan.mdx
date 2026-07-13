@@ -26,8 +26,8 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -137,6 +137,15 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 판매자는 생성 후 변경 가능한 플랜 필드를 업데이트할 수 있습니다. 기존 구독자는
 자신이 수락한 조건을 유지하며, 새로운 구독자는 현재 플랜 조건을 수락합니다.
 
+몇 가지 규칙이 적용됩니다:
+
+- 유한한 `endTs`는 단축만 가능하며, 연장하거나 초기화할 수 없습니다
+  (`PlanEndTsCannotExtend`).
+- `Sunset` 플랜에서는 풀러를 제거할 수 있으며 (새 집합은 현재 집합의
+  부분집합이어야 함), 손상된 풀러의 접근을 차단할 수 있습니다. 상태, `endTs`,
+  메타데이터는 고정된 상태로 유지됩니다.
+- `endTs`가 변경되지 않는 한, 플랜의 최종 청구 기간 중에도 편집이 가능합니다.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -171,9 +180,13 @@ description: 구독 플랜 트랜잭션 설정 가이드.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -188,8 +201,8 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 
 ## 구독
 
-구독자가 현재 플랜 약관에 동의합니다. 구독 PDA는 플랜 PDA와 구독자 주소로부터
-파생됩니다.
+구독자는 현재 플랜 약관에 동의합니다. 구독 PDA는 플랜 PDA와 구독자 주소로부터
+도출됩니다.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -310,10 +323,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 </Tabs>
 
-## 결제 수집
+## 결제 수금
 
-판매자 또는 화이트리스트에 등록된 풀러가 수집에 서명합니다. 플랜이 목적지 허용
-목록을 사용하는 경우, 수신자 토큰 계정의 소유자가 `destinations`에 등록되어
+판매자 또는 화이트리스트에 등록된 풀러가 수금에 서명합니다. 플랜에 수신지 허용
+목록이 사용되는 경우, 수신자 token account의 소유자가 `destinations`에 등록되어
 있어야 합니다.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -361,10 +374,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 </Tabs>
 
-## 취소 및 철회
+## 취소 및 해지
 
-취소는 구독이 종료됨을 표시합니다. 철회는 취소 만료 기간이 경과한 후 구독 PDA를
-닫습니다. 구독자가 두 트랜잭션 모두에 서명합니다.
+취소는 구독을 종료 예정으로 표시합니다. 해지는 취소 만료 기간이 경과한 후 구독
+PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -413,14 +426,57 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 </Tabs>
 
-## 참고사항
+## 구독 재개
 
-- `amount`는 기본 단위입니다. 소수점 6자리 토큰의 경우, `5_000_000`는 `5` 토큰을
-  의미합니다.
-- TypeScript SDK는 플랜 조건을 생략하면 `subscribe` 중에 실시간 플랜 조건을
+취소된 구독은 해지되기 전에 재활성화할 수 있습니다. 해지된 후에는 구독 계정이
+닫히며, 구독자는 다시 [구독](#subscribe)해야 합니다. 재개를 위해서는 플랜의
+민트에 대한 구독자의 `SubscriptionAuthority`가 필요하며, 프로그램은 이를
+(소유자, 민트, `init_id`) 기준으로 검증하고, 오래되었거나 재초기화된 경우
+거부합니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 참고 사항
+
+- `amount`는 기본 단위 기준입니다. 소수점 6자리 토큰의 경우, `5_000_000`는 `5`
+  토큰을 의미합니다.
+- TypeScript SDK는 `subscribe` 호출 시 플랜 약관을 생략하면 최신 값을 자동으로
   가져옵니다.
-- Rust `SubscribeBuilder`에는 예상 플랜 조건이 필요합니다. 먼저 플랜 계정을
-  가져와 디코딩한 다음, 해당 필드를 `SubscribeData`를 통해 전달하세요.
-- 판매자 또는 `pullers`에 등록된 지갑만 결제를 수금할 수 있습니다.
-- 구독자는 설정, 취소 및 철회 트랜잭션에 서명합니다. 판매자 또는 승인된 수금자는
+- Rust `SubscribeBuilder`는 예상되는 플랜 약관이 필요합니다. 먼저 플랜 계정을
+  가져와 디코딩한 후, 해당 필드를 `SubscribeData`를 통해 전달하세요.
+- 결제 수금은 판매자 또는 `pullers`에 등록된 지갑만 수행할 수 있습니다.
+- 구독자는 설정, 취소, 해지 트랜잭션에 서명합니다. 판매자 또는 승인된 수금자가
   수금 트랜잭션에 서명합니다.

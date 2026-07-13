@@ -1,0 +1,146 @@
+---
+title: Ταξίδι στο Χρόνο
+description:
+  Μετακινήστε το ρολόι του Surfnet μπροστά σε ένα απόλυτο slot, epoch, ή χρονική
+  σήμανση Unix. Χρήσιμο για δοκιμές που αφορούν χρονοδιαγράμματα αποδέσμευσης,
+  κλειδώματα, παράθυρα λήξης ή όρια epoch.
+---
+
+Το runtime του Surfpool παρέχει τρία βοηθήματα ταξιδιού στο χρόνο. Το καθένα
+μετακινεί το τοπικό ρολόι σε έναν απόλυτο στόχο (όχι σχετική μετατόπιση) και
+επιστρέφει το ενημερωμένο `EpochInfo` ώστε οι δοκιμές να μπορούν να επαληθεύσουν
+ότι το runtime έφτασε πράγματι στον ζητούμενο χρόνο.
+
+| Helper                                               | Στόχος                                             | Επιστρέφει                                         |
+| ---------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Απόλυτος αριθμός slot                              | `EpochInfo` με το νέο `absolute_slot`              |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Απόλυτος αριθμός epoch                             | `EpochInfo` με το νέο `epoch`                      |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Χρονική σήμανση Unix σε χιλιοστά του δευτερολέπτου | `EpochInfo` που αντικατοπτρίζει το εννοούμενο slot |
+
+<Callout type="warn" title="Μόνο προς τα εμπρός">
+  Το ταξίδι στο χρόνο μπορεί να μετακινήσει το ρολόι μόνο **μπροστά**. Η κλήση
+  αυτών των μεθόδων με στόχο στο παρελθόν δεν έχει αποτέλεσμα — το βοήθημα
+  επιστρέφει το τρέχον `EpochInfo` αμετάβλητο.
+</Callout>
+
+## Μετάβαση σε Slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Μετάβαση σε Epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Μετάβαση σε Χρονική Σήμανση Unix
+
+Δώστε τη χρονική σήμανση σε **χιλιοστά του δευτερολέπτου**, όχι σε δευτερόλεπτα.
+Το runtime υπολογίζει το πλησιέστερο slot σε αυτή τη χρονική σήμανση.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## Συνήθη Μοτίβα
+
+### Δοκιμή Κλειδώματος ή Παραθύρου Αποδέσμευσης
+
+Το παρακάτω παράδειγμα είναι σκίτσο — το `assertWithdrawFails` και το
+`assertWithdrawSucceeds` είναι placeholders για τα βοηθήματα στην πλευρά του
+client που χρησιμοποιεί η σουίτα δοκιμών σας για επαλήθευση συμπεριφοράς RPC.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### Οδήγηση Σεναρίου Πολλαπλών Epoch
+
+<Callout type="warn" title="Τα ενδιάμεσα slot παραλείπονται">
+  Η χρονική μετάβαση γίνεται απευθείας στον στόχο — η μετακίνηση από epoch 1 σε
+  epoch 5 παραλείπει τα slot ενδιάμεσα. Αν το πρόγραμμά σας χρειάζεται να
+  ενεργοποιείται κάθε ενδιάμεσο όριο epoch (για παράδειγμα, για να πιστωθούν
+  ανταμοιβές ανά epoch), καλέστε `time_travel_to_epoch` μία φορά ανά epoch με
+  τις απαραίτητες συναλλαγές ενδιάμεσα.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## Δομή EpochInfo
+
+Και τα δύο SDK επιστρέφουν ένα αντικείμενο τύπου `EpochInfo` με τα εξής πεδία:
+
+| Field              | Rust                             | JS                          |
+| ------------------ | -------------------------------- | --------------------------- |
+| Απόλυτο slot       | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Slot εντός epoch   | `slot_index: u64`                | `slotIndex: number`         |
+| Slot ανά epoch     | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Αριθμός epoch      | `epoch: u64`                     | `epoch: number`             |
+| Ύψος μπλοκ         | `block_height: u64`              | `blockHeight: number`       |
+| Αριθμός συναλλαγών | `transaction_count: Option<u64>` | `transactionCount?: number` |

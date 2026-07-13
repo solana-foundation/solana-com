@@ -1,0 +1,212 @@
+---
+title: 言語と構文
+description: txtx DSLを使用して、surfpoolが管理するデプロイメントを記述します。
+---
+
+これはtxtx言語のドキュメントです。作成するRunbookファイルには、使用するブロックチェーンとネットワーク、取得するデータ、ブロードキャストするトランザクションを記述します。txtx言語では、リソース間の依存関係を定義したり、単一のブロックから複数の類似した構成要素を作成したりすることもできます。
+
+## 構文
+
+Runbookには、次のような一連のコードブロックが含まれています：
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+各ブロックにはコマンドタイプ（この例では`variable`、`action`、および`output`）、参照名（`"query_path"`、`"http_query"`、および`"status_code"`）、およびブロックの内部データ（`{ ... }`の間にあるすべて）があります。一部のコマンドタイプでは、コマンドの指定も必要です（`"std::send_http_request"`）。ブロックの内部データは、指定されたコマンドタイプとコマンドによって決まります。
+
+### コマンドリファレンス
+
+あるコマンドが別のコマンドの出力を参照して、依存コマンドのチェーンを構築できます。Runbookを実行すると、surfpoolはすべてのコマンドのグラフを作成し、常に正しい順序で実行されるようにします。そのため、Runbookを作成する際は依存関係の循環を避ける必要があります。
+
+別のコマンドの出力は、`command_type.ref_name.output_name`を使用してブロック内で参照できます。以下にいくつかの例を示します：
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### 関数
+
+[標準ライブラリ](/docs/tools/surfpool/iac/std/functions)には、名前付き引数を持つ完全なコマンドブロックを記述する代わりに、インラインで記述できる関数がいくつか用意されています。これらの関数はアドオンを通じて拡張できます。
+
+これらの関数は、明示的な関数呼び出し（例：`add_uint(1, 3)`）のように記述することも、インライン算術演算（例：`1 + 3`）のように記述することもできます。関数は他のコマンドの出力を参照することも、新しいコマンドの出力に格納することもできます。いくつかの関数を使用した例を以下に示します：
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## マニフェストとCLI入力
+
+Runbookへの入力は、CLIの入力として渡すか、`txtx.yml`マニフェストファイルで指定することができます。同じ入力がCLIとマニフェストの両方に指定されている場合、CLIの入力が優先されます。CLIの使用方法については、[CLIドキュメント](/docs/tools/surfpool/toolchain/cli)をご参照ください。マニフェストでは、これらの入力を環境キーでグループ化できるため、複数の環境で同じRunbookを簡単に使用できます。
+
+環境変数を使用した設定例を以下に示します：
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+このRunbookによって読み込まれる`.tx`ファイルのいずれにおいても、入力`input.network_id`および`input.rpc_api_url`はグローバルスコープで利用可能です。Web
+UIがこのRunbookを読み込む際、最初のアクション項目で読み込む環境を選択できます。新しい環境を選択すると、新しい環境変数が実行に注入された状態で現在のRunbookが再読み込みされます。
+
+### 状態管理
+
+SurfpoolはRunbookの実行をまたいで状態を管理することができます。コントラクトのデプロイを実行する際、状態管理を使用してコントラクトコードとRunbookの入力に変更があるかどうかを検出し、Runbookを再実行する必要があるかどうかを判断できます。コントラクトコードまたはRunbookの入力に変更がない場合、SurfpoolはRunbookの再実行を防ぎます。
+
+状態管理を有効にするには、`txtx.yml`に`state`値と`location`を指定して状態ファイルを保存します：
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## 変数
+
+変数は、他の構成要素で使用できる値を格納したり、Web
+UIでユーザーが編集したりするために使用できます。変数の`editable`フィールドが未指定または`false`に設定されている場合、変数はWeb
+UIの`Variables Review`セクションに読み取り専用の値として表示され、確認することができます。一方、`editable`フィールドが`true`に設定されている場合、変数はWeb
+UIで編集可能なフィールドとして表示されます。オプションの`description`フィールドを指定すると、変数に追加のコンテキスト情報を付加できます。変数の例を以下に示します：
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## アドオンとデフォルト
+
+アドオンブロックを使用すると、Runbookで使用するアドオンを指定できます。アドオンブロック内で宣言されたフィールドは、そのアドオンに属するすべてのアクションから参照できます。これにより、そのアドオンのカスタムアクションを使用する際にフィールドを省略できます。次の例では、`svm`アドオンを宣言し、`network_id`と`rpc_api_url`フィールドをデフォルトとして設定しています：
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+このデフォルトを`.tx`ファイルに追加することで、SVMアドオンのすべてのアクションで`network_id`と`rpc_api_url`フィールドを省略できます。
+
+## フロー
+
+フローを使用すると、実行ごとに異なる入力でRunbookを複数回実行できます。フローブロックで指定されたフィールドは、`flow.field_name`を通じてそのフローに属するすべてのアクションから参照できます。これは`addon`ブロックと組み合わせることで、さまざまな活用が可能です：
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## 署名者
+
+アドオンはsurfpoolを使用する際にトランザクションに署名するためのさまざまな方法を提供する署名者を定義できます。これらの署名者は、ニーモニックまたは秘密鍵によるトランザクションへの署名、ユーザーがウェブウォレットを接続してSurfpool
+Web
+UIで署名するよう促すこと、セキュアエンクレーブを介した非同期署名、マルチシグウォレットの定義など、多様な用途に対応します。各アドオン署名者の実装には、それぞれのユースケースとドキュメントがあります。
+
+署名者の使用例を以下に示します：
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+この例では、`svm::web_wallet`署名者を使用する`alice`という名前の署名者を定義しています。この署名者定義により、Web
+UIにウォレットを接続し、メッセージ署名によってpubkeyを提供し、このウォレットを署名者としてすべてのトランザクションに署名するよう促すプロンプトが生成されます。
+
+## アクション
+
+アクションは、アドオンおよび[標準ライブラリ](/docs/tools/surfpool/iac/std/actions)によって定義される多目的な構成要素です。各アクションは、アクションに渡すことができる入力セット（任意のものと必須のもの）、アクションが呼び出されるたびに何が起こるか、そしてアクションによって生成される出力（後続のコマンドから参照可能）を独自に定義します。
+
+アクションの種類の例としては、HTTPリクエストを送信して結果を出力すること、特定のチェーンのコーデックに合わせてトランザクションデータをエンコードすること、ウォレットでトランザクションに署名して署名済みトランザクションのバイト列を出力すること、またはネットワークにトランザクションをブロードキャストすることなどが挙げられます。
+
+以下にアクションの例を示します：
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## モジュール
+
+近日公開予定。
+
+## 出力
+
+出力コマンドを使用すると、ランブックの実行終了時にデータを表示できます。以下に出力コマンドの例を示します：
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

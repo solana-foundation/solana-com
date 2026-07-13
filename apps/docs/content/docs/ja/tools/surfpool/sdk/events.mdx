@@ -1,0 +1,203 @@
+---
+title: ランタイムイベント
+description:
+  テスト内からトランザクション、slot
+  ティック、アカウントストリーミング、およびランタイムエラーを観察します。Rust
+  はチャンネルを公開し、JS はドレインメソッドを公開します。
+---
+
+Surfnet ランタイムは、トランザクション処理、slot ティック、アカウントストリーミング、タイムトラベル、およびエラーをカバーする構造化イベントのストリームを出力します。SDK はこのストリームを公開しているため、テストはログを解析することなくランタイムの動作をアサートできます。
+
+## Rust: チャンネルレシーバー
+
+`Surfnet::events()` は、ランタイムが発行する
+`crossbeam_channel::Receiver<SimnetEvent>`
+への参照を返します。`try_iter()`（ノンブロッキング）でドレインするか、`recv()` /
+`recv_timeout()` で個々のイベントを読み取ります。
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="レシーバーは共有されています">
+  バックグラウンドタスクを生成してイベントを消費する場合、メインスレッドから
+  `try_iter`
+  を呼び出さないでください。イベントは2つのコンシューマー間で予測不能に分割されます。
+</Callout>
+
+## JS: ドレインメソッド
+
+JS バインディングはイベントを内部的にバッファリングし、`drainEvents`
+を通じて公開します。各呼び出しは前回の呼び出し以降に蓄積されたものを返し、バッファをクリアします。
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="バッファに上限なし">
+  `drainEvents`
+  を一度も呼び出さない場合、バッファはインスタンスの存続期間中増大し続けます。短いテストであれば問題ありませんが、メモリが膨張しないよう、長時間実行されるフィクスチャでは定期的に呼び出してください。
+</Callout>
+
+## SimnetEventValue の形状 (JS)
+
+JS のイベント型は、`kind`
+ディスクリミネーターとオプションフィールドを持つフラットなオブジェクトです。すべてのバリアントですべてのフィールドが設定されるわけではありません。`kind`
+に基づいてデストラクチャリングしてください。
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## イベントの種類
+
+JS 側の種類文字列はキャメルケースで、対応する Rust バリアントはパスカルケースを使用します。これらの正確な文字列でマッチしてください。バージョン間で大文字小文字が区別され、安定しています。
+
+| JS `kind`                                       | Rust バリアント                                              | 発行タイミング                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | ランタイムの起動完了時。`initialTransactionCount` を含む。                                                                                        |
+| `connected`                                     | `SimnetEvent::Connected`                                     | 上流のリモート RPC に接続済み。`message`（URL）を含む。                                                                                           |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | 起動が中断された。`message`（理由）を含む。                                                                                                       |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | グレースフルシャットダウンが開始される。                                                                                                          |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | システムクロックが進んだ。`clock` を含む。                                                                                                        |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | クロックコマンド（一時停止／再開／インターバル更新）が実行された。`clockCommand` と任意で `slotIntervalMs` を含む。                               |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | 新しい epoch 情報スナップショットが利用可能になった。`epochInfo` を含む。                                                                         |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | 使用中だったブロックハッシュが期限切れになった。                                                                                                  |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | トランザクションがキューに追加された。`timestamp`、`transactionSignature` を含む。                                                                |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | トランザクションが実行された。`timestamp`、`transactionSignature`、`logs`、`computeUnitsConsumed`、`fee` を含み、失敗時は `errorMessage` も含む。 |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | アカウントが変更された。ストリーミングされたアカウントおよびチートコードによる変更を含む。`timestamp` と `accountPubkey` を含む。                 |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | ランタイムがログ行を出力した。`timestamp` と `message` を含む。                                                                                   |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Geyser プラグインがロードされた。`message`（プラグイン名）を含む。                                                                                |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | プロファイラーの結果にタグが付けられた。`tag`、`profileKey`、`profileSlot`、`logs`、`computeUnitsConsumed` を含む。                               |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | ランブックが開始または完了した。`runbookId` と（完了時）任意の `runbookErrors` を含む。                                                           |
+
+## アサーションパターン
+
+### トランザクションの着地を確認する
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### ランタイムエラーが発生していないことを確認する
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## イベントがログ解析より優れている理由
+
+<Callout type="info" title="stdoutよりもイベントストリームを優先する">
+ランタイムは`tracing`を通じて構造化イベントを出力します。これをstdoutからキャプチャして解析したくなるかもしれませんが、そうしないでください。構造化イベントストリームには次の利点があります：
+
+- **ログレベルの変更に影響されない**
+  — イベントは`RUST_LOG`に関係なく出力されます。
+- **型付きペイロードを持つ**
+  — 文字列の解析も、バージョン間のフォーマットのずれもありません。
+- **安定したイベントの種類を持つ**
+  — ログ行は人間向けにフォーマットされており自由に変更されますが、イベントの種類はSDKの仕様の一部です。
+
+</Callout>
