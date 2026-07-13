@@ -56,9 +56,6 @@ export function DevelopersNav({
                 partiallyActiveIgnore={[
                   "/docs/core",
                   "/docs/tokens",
-                  "/docs/programs",
-                  "/docs/frontend",
-                  "/docs/clients",
                   "/docs/references",
                   "/docs/rpc",
                   "/docs/payments",
@@ -80,13 +77,7 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/core"
-                partiallyActiveMatch={[
-                  "/docs/tokens",
-                  "/docs/programs",
-                  "/docs/frontend",
-                  "/docs/clients",
-                  "/docs/references",
-                ]}
+                partiallyActiveMatch={["/docs/tokens"]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <CoursesIcon
@@ -153,6 +144,7 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/tools"
+                partiallyActiveMatch={["/docs/references"]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <ToolsIcon

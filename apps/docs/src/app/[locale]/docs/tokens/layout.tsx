@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
 
+const SIDEBAR_ROUTES = ["/docs/core", "/docs/tokens"];
+
 export default async function Layout({
   children,
   params,
@@ -12,25 +14,14 @@ export default async function Layout({
 }) {
   const { locale } = await params;
   const tree = docsSource.pageTree[locale];
-  const standaloneDocsRoutes = [
-    "/docs/core",
-    "/docs/tokens",
-    "/docs/references",
-    "/docs/rpc",
-    "/docs/payments",
-    "/docs/tokenization",
-    "/docs/defi",
-    "/docs/tools",
-  ];
   const pageTree = {
     ...tree,
-    children: tree.children?.filter(
-      (child) =>
-        child.type !== "folder" ||
-        !standaloneDocsRoutes.some((route) =>
-          child.index?.url?.includes(route),
-        ),
-    ),
+    children:
+      tree.children?.filter(
+        (child) =>
+          child.type === "folder" &&
+          SIDEBAR_ROUTES.some((route) => child.index?.url?.includes(route)),
+      ) ?? [],
   };
   return (
     <DocsLayout tree={pageTree} locale={locale}>
