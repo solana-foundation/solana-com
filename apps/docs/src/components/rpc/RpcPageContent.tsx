@@ -54,16 +54,11 @@ export function RpcPageContent({ category }: RpcPageContentProps) {
         {description}
       </p>
 
-      {endpoints.map((endpoint, index) => {
-        const id = endpoint.method_name
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "-");
-        return (
-          <div key={index} id={id}>
-            <RpcMethodSolana endpoint={endpoint} />
-          </div>
-        );
-      })}
+      {endpoints.map((endpoint, index) => (
+        <div key={index}>
+          <RpcMethodSolana endpoint={endpoint} />
+        </div>
+      ))}
     </div>
   );
 }

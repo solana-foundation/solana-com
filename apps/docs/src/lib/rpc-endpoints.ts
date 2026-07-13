@@ -579,11 +579,15 @@ export function getResponseSchema(
 // =================================================================================
 
 export const cheatcodeEndpoints = extractCheatcodeEndpoints();
-export const accountsEndpoints = [
-  ...extractEndpointsFromGroup("endpoints"),
-  ...extractEndpointsFromGroup("endpoints2"),
-  ...getEndpointsByCategory("accounts"),
-];
+export const accountsEndpoints = Array.from(
+  new Map(
+    [
+      ...extractEndpointsFromGroup("endpoints"),
+      ...extractEndpointsFromGroup("endpoints2"),
+      ...getEndpointsByCategory("accounts"),
+    ].map((e) => [e.method_name, e]),
+  ).values(),
+);
 export const adminEndpoints = extractEndpointsFromGroup("endpoints3");
 export const networkEndpoints = getEndpointsByCategory("network");
 export const nodeEndpoints = getEndpointsByCategory("node");

@@ -94,7 +94,7 @@ export function extractParametersFromSchema(
       ) {
         params.push({
           name: displayName,
-          type: isOptional ? "object" : "object",
+          type: isOptional ? "object (optional)" : "object",
           description:
             getBestDescription(propDef, displayName) ||
             getBestDescription(referencedDef, displayName) ||

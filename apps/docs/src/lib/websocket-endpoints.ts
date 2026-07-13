@@ -48,7 +48,7 @@ function extractParameters(
   const required = new Set(requestSchema.required || []);
 
   const sortedProperties = Object.entries(requestSchema.properties).sort(
-    ([a]) => (required.has(a) ? -1 : 1),
+    ([a], [b]) => (required.has(a) ? 0 : 1) - (required.has(b) ? 0 : 1),
   );
 
   for (const [propName, propDef] of sortedProperties) {
