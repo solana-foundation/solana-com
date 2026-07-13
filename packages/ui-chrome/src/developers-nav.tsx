@@ -1,12 +1,11 @@
 import { Link } from "./link";
 import DocsIcon from "./assets/developers/docs.inline.svg";
 import RpcApiIcon from "./assets/developers/api.inline.svg";
-import CookbookIcon from "./assets/developers/cookbook.inline.svg";
+import CoursesIcon from "./assets/developers/courses.inline.svg";
 import ToolsIcon from "./assets/developers/templates.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import SkillsIcon from "./assets/developers/skills.inline.svg";
 import StatisticsIcon from "./assets/developers/statistics.inline.svg";
-import StackExchangeIcon from "./assets/developers/stackexchange.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
 import {
@@ -55,6 +54,12 @@ export function DevelopersNav({
                 partiallyActive
                 to="/docs"
                 partiallyActiveIgnore={[
+                  "/docs/core",
+                  "/docs/tokens",
+                  "/docs/programs",
+                  "/docs/frontend",
+                  "/docs/clients",
+                  "/docs/references",
                   "/docs/rpc",
                   "/docs/payments",
                   "/docs/tokenization",
@@ -69,7 +74,28 @@ export function DevelopersNav({
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
-                  {t("developers.nav.documentation")}
+                  {t("developers.nav.quickstart")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/core"
+                partiallyActiveMatch={[
+                  "/docs/tokens",
+                  "/docs/programs",
+                  "/docs/frontend",
+                  "/docs/clients",
+                  "/docs/references",
+                ]}
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <CoursesIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.concepts")}
                 </span>
               </NavLink>
               <NavLink
@@ -114,20 +140,6 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
-                to="/developers/cookbook"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <CookbookIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.cookbook")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
                 to="/docs/rpc"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
@@ -151,15 +163,6 @@ export function DevelopersNav({
                 <span className="align-middle">
                   {t("developers.nav.resources")}
                 </span>
-              </NavLink>
-              <NavLink href="https://solana.stackexchange.com/" target="_blank">
-                <StackExchangeIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                  fill="currentColor"
-                />
-                <span className="align-middle">Get Support</span>
               </NavLink>
             </nav>
           </div>
