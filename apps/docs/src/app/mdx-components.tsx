@@ -22,6 +22,15 @@ import { CodePlaceholder } from "./components/code/scrollycoding.client";
 import { File, Files, Folder } from "./components/ui/files";
 import { SideBySide } from "./components/side-by-side";
 import { CodeReference } from "./components/code-reference";
+import {
+  AccountsRpc,
+  AdminRpc,
+  CheatcodesRpc,
+  NetworkRpc,
+  NodeRpc,
+  TransactionsRpc,
+} from "@/components/rpc/RpcPageContent";
+import { WebSocketsRpc } from "@/components/rpc/WebSocketsRpc";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -48,6 +57,13 @@ export const mdxComponents = {
   CodePlaceholder,
   SideBySide,
   CodeReference,
+  AccountsRpc,
+  AdminRpc,
+  CheatcodesRpc,
+  NetworkRpc,
+  NodeRpc,
+  TransactionsRpc,
+  WebSocketsRpc,
   // Icons
   Download,
   Rocket,
