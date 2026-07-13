@@ -26,6 +26,16 @@ export function getToolsSidebarTree(tree: Root, activeTool?: string): Root {
   ]);
 }
 
+export function getToolBreadcrumbTree(tree: Root, activeTool?: string): Root {
+  const toolsFolder = findToolsFolder(tree);
+  if (!toolsFolder || !activeTool) {
+    return withChildren(tree, []);
+  }
+
+  const activeNode = findToolNode(toolsFolder, activeTool);
+  return withChildren(tree, activeNode ? [activeNode] : []);
+}
+
 export function getToolsNavigationTree(tree: Root, activeTool?: string): Root {
   const toolsFolder = findToolsFolder(tree);
   if (!toolsFolder || !activeTool) {
