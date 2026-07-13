@@ -13,6 +13,18 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_NAME: "breakpoint",
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.lumacdn.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.lu.ma",
+      },
+    ],
+  },
   experimental: {
     externalDir: true,
   },
