@@ -5,20 +5,38 @@ description:
   wallet functionality, and update the canonical wallet data in
   packages/ecosystem-data. Use when asked to refresh wallet filters, add new
   wallets, audit wallet features, remove stale filter claims, add newly
-  supported functionality, or reconcile The Grid wallet products with local
-  Solana ecosystem records.
+  supported functionality, reconcile The Grid wallet products with local Solana
+  ecosystem records, or change the Solana.com wallet finder page at
+  apps/web/src/app/[locale]/wallets/page.tsx and its wallet directory
+  data-loading or UI integration.
 ---
 
 # Wallet Filter Research
 
-Use this skill to keep the Solana.com wallet finder accurate. The live page uses
-The Grid for wallet URL discovery and `@workspace/ecosystem-data` for canonical
-wallet data, company identity, logos, icons, and wallet-specific filter
-functionality.
+Use this skill to keep the Solana.com wallet finder accurate. The live page at
+`apps/web/src/app/[locale]/wallets/page.tsx` uses The Grid for wallet URL
+discovery and `@workspace/ecosystem-data` for canonical wallet data, company
+identity, logos, icons, and wallet-specific filter functionality.
 
 All wallet directory source data now lives in `packages/ecosystem-data`.
 `apps/web` should not own wallet records, wallet icon assets, aliases, filter
 claims, default wallet images, or researched wallet copy.
+
+## Covered Runtime Surface
+
+- Page entrypoint: `apps/web/src/app/[locale]/wallets/page.tsx`.
+- Server data integration: `apps/web/src/lib/wallets/get-wallet-directory.ts`.
+- Directory UI: `apps/web/src/components/wallets/WalletDirectory.tsx` and its
+  styles.
+- Legacy app compatibility imports:
+  `apps/web/src/data/wallets/wallet-directory.ts`.
+- Canonical wallet records, taxonomy, aliases, icon exports, and runtime wallet
+  types: `packages/ecosystem-data/src/wallets`.
+
+Edit `apps/web` wallet files only for route, metadata, rendering, query-state,
+attribution, The Grid fetch/merge behavior, or other runtime integration
+changes. Put wallet products, filters, researched descriptions, aliases, default
+assets, and icon source-of-truth changes in `packages/ecosystem-data`.
 
 ## Source Of Truth
 
@@ -47,41 +65,47 @@ Always preserve visible attribution requirements on the site: link to
    ```bash
    node skills/wallet-filter-research/scripts/fetch_grid_wallets.mjs
    ```
-2. Identify new, renamed, or changed wallet products by comparing Grid product
+2. If the request touches the `/wallets` page experience, inspect
+   `apps/web/src/app/[locale]/wallets/page.tsx`,
+   `apps/web/src/lib/wallets/get-wallet-directory.ts`, and
+   `apps/web/src/components/wallets/WalletDirectory.tsx` together before
+   deciding whether the change belongs in `apps/web` or
+   `packages/ecosystem-data`.
+3. Identify new, renamed, or changed wallet products by comparing Grid product
    names/root slugs with `curatedWalletOverrides`, `WALLET_OVERRIDE_ALIASES`,
    and `WALLET_COMPANY_ALIASES`.
-3. When the request is a full refresh, audit every wallet currently surfaced by
+4. When the request is a full refresh, audit every wallet currently surfaced by
    The Grid plus every local curated override/fallback wallet, not just products
    that are new or renamed.
-4. For each wallet requiring research, use current public primary sources first:
+5. For each wallet requiring research, use current public primary sources first:
    official product pages, documentation, app store listings, GitHub
    organizations, support pages, and announcement posts from the wallet team.
-5. For each audited wallet, check every applicable filter in
+6. For each audited wallet, check every applicable filter in
    `references/filter-taxonomy.md`: category, platforms, and every feature. Do
    not only look for newly added features.
-6. For each audited wallet, verify all wallet data fields in
+7. For each audited wallet, verify all wallet data fields in
    `packages/ecosystem-data/src/wallets/wallet-data.ts` or the explicit
    overrides in `packages/ecosystem-data/src/wallets/index.ts`: name, canonical
    name, description, website, category, platforms, features, `lastVerified`,
    aliases, and icon.
-7. Remove any existing true feature/platform/category claim that cannot be
+8. Remove any existing true feature/platform/category claim that cannot be
    re-verified from current primary-source evidence. If evidence is unclear,
    leave the filter false/absent.
-8. Add new feature/platform/category values only when a primary source
+9. Add new feature/platform/category values only when a primary source
    explicitly supports them.
-9. Update `lastVerified` to the research date only for overrides whose filters
-   were reviewed end-to-end.
-10. Update wallet records, icon imports, aliases, and filter tags in
+10. Update `lastVerified` to the research date only for overrides whose filters
+    were reviewed end-to-end.
+11. Update wallet records, icon imports, aliases, and filter tags in
     `packages/ecosystem-data/src/wallets`. Do not derive wallet feature,
     category, platform, description, or logo claims from The Grid at runtime.
-11. Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
+12. Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
     to an existing `packages/ecosystem-data/src/companies` company slug.
-12. Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
+13. Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
     curated wallet name.
-13. If a wallet has no local company record but should use canonical Solana
+14. If a wallet has no local company record but should use canonical Solana
     branding assets, add it to `packages/ecosystem-data` following that
     package's README and audit command.
-14. Run targeted validation:
+15. Run targeted validation:
 
 ```bash
 pnpm --filter solana-com check-types

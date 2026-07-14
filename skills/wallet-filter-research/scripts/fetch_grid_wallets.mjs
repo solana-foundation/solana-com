@@ -23,15 +23,7 @@ const query = /* GraphQL */ `
       }
       limit: 250
     ) {
-      id
-      name
-      description
-      productType {
-        name
-        slug
-      }
       root {
-        slug
         urlMain
         profileInfos {
           name
@@ -39,9 +31,6 @@ const query = /* GraphQL */ `
       }
       urls {
         url
-        urlType {
-          slug
-        }
       }
     }
   }
@@ -72,24 +61,36 @@ if (payload.errors?.length) {
 
 const products = payload.data?.products ?? [];
 
+function compactString(value) {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function uniqueStrings(values) {
+  const seen = new Set();
+  return values.map(compactString).filter((value) => {
+    if (!value || seen.has(value)) {
+      return false;
+    }
+
+    seen.add(value);
+    return true;
+  });
+}
+
 console.log(
   JSON.stringify(
-    products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      rootSlug: product.root?.slug,
-      companyName: product.root?.profileInfos?.[0]?.name,
-      productType: product.productType?.slug,
-      website:
-        product.urls?.find((url) => url.urlType?.slug === "product")?.url ??
-        product.root?.urlMain,
-      urls: product.urls
-        ?.map((entry) => ({
-          type: entry.urlType?.slug,
-          url: entry.url,
-        }))
-        .filter((entry) => entry.url),
-    })),
+    products
+      .map((product) => ({
+        companyNames: uniqueStrings(
+          product.root?.profileInfos?.map((profile) => profile.name) ?? [],
+        ),
+        urls: uniqueStrings([
+          product.root?.urlMain,
+          ...(product.urls?.map((entry) => entry.url) ?? []),
+        ]),
+      }))
+      .filter((entry) => entry.companyNames.length || entry.urls.length),
     null,
     2,
   ),
