@@ -242,6 +242,8 @@ export const WALLET_COMPANY_ALIASES: Record<string, string> = {
   jupiter: "jupiter",
   "jupiter-mobile": "jupiter",
   phantom: "phantom",
+  reown: "walletconnect",
+  walletkit: "walletconnect",
   ryder: "ryder",
   safepal: "safepal-wallet",
   "safepal-wallet": "safepal-wallet",
@@ -259,28 +261,42 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   "brave-wallet": "brave",
   "base-app": "coinbase",
   "base-formerly-coinbase": "coinbase",
+  "bitgo-as-a-service": "bitgo",
   "cdp-coinbase": "cdp",
   "cdp-embedded-wallets": "cdp",
   "cdp-server-wallets": "cdp",
   coinbase: "coinbase",
   "coinbase-wallet": "coinbase",
   "coinbase-developer-platform": "cdp",
+  "cobo-portal": "cobo",
+  "coolwallet-app": "coolwallet",
+  "coolwallet-go": "coolwallet",
+  "coolwallet-pro": "coolwallet",
   crossmint: "crossmint-non-custodial",
+  "dfns-as-a-service-platform-waas": "dfns",
+  "ellipal-titan-2-0": "ellipal",
   "exodus-wallet": "exodus",
   fireblocks: "fireblocks-embedded",
   fuse: "fuse",
   "fuse-wallet": "fuse",
   "jupiter-mobile": "jupiter",
+  "keepkey-vault-desktop": "keepkey",
   metamask: "metamask",
   "meta-mask": "metamask",
   nightly: "nightly",
+  "particle-universal-accounts": "particle-network",
   paypal: "paypal-cryptocurrency-services",
   phantom: "phantom",
+  "portal-embedded": "portal",
+  "tangem-ring": "tangem",
   solflare: "solflare",
   squads: "squadsx",
   "trezor-safe-5": "trezor",
+  "universal-accounts": "particle-network",
+  "venly-as-a-service": "venly",
   walletconnect: "walletconnect",
   "wallet-connect": "walletconnect",
+  walletkit: "reown",
 };
 
 const legacyWalletOverrides = Object.fromEntries(
@@ -300,6 +316,32 @@ const legacyWalletOverrides = Object.fromEntries(
 ) as Record<string, CuratedWalletOverride>;
 
 const walletDirectoryOverrides = {
+  bitgo: {
+    canonicalName: "BitGo Wallet as a Service",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: ["spending_limits", "private_key_infrastructure", "multi_chain"],
+    description:
+      "Wallet-as-a-service infrastructure for businesses to create wallets, receive addresses, transaction signing, whitelists, velocity controls, and user permissions",
+    website: "https://www.bitgo.com/products/wallet-as-a-service",
+    lastVerified: "2026-07-14",
+  },
+  cobo: {
+    canonicalName: "Cobo Portal",
+    category: "institutional",
+    platforms: ["web", "api"],
+    features: [
+      "custodial",
+      "mpc",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Institutional wallet platform with custodial, MPC, smart contract, and exchange wallet technology for token operations across 80+ chains",
+    website: "https://www.cobo.com/products/portal",
+    lastVerified: "2026-07-14",
+  },
   coinbase: {
     canonicalName: "Base App",
     category: "consumer",
@@ -316,6 +358,58 @@ const walletDirectoryOverrides = {
     description:
       "Self-custody wallet and browser formerly known as Coinbase Wallet, with Base, Solana, Ethereum, and BNB Chain support",
     website: "https://base.app/",
+    lastVerified: "2026-07-14",
+  },
+  coolwallet: {
+    canonicalName: "CoolWallet",
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Hardware wallet and companion app for managing cold and hot wallets, buying, selling, staking, NFTs, and Solana across supported chains",
+    website: "https://www.coolwallet.io/pages/coolwallet-app",
+    lastVerified: "2026-07-14",
+  },
+  dfns: {
+    canonicalName: "DFNS Wallet-as-a-Service",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "custodial",
+      "non_custodial",
+      "mpc",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Wallet API for creating and managing custodial or delegated MPC wallets, policies, approvals, tags, and transactions across many networks",
+    website: "https://dfns.co/wallet-as-a-service/",
+    lastVerified: "2026-07-14",
+  },
+  ellipal: {
+    canonicalName: "ELLIPAL",
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Air-gapped hardware wallet family with a non-custodial mobile app for swaps, buy and sell flows, NFTs, and Solana among 40+ blockchains",
+    website: "https://www.ellipal.com/",
     lastVerified: "2026-07-14",
   },
   "fireblocks-embedded": {
@@ -343,6 +437,16 @@ const walletDirectoryOverrides = {
     website: "https://web3.gate.com/",
     lastVerified: "2026-07-14",
   },
+  keepkey: {
+    canonicalName: "KeepKey",
+    category: "hardware",
+    platforms: ["desktop", "chrome", "hardware"],
+    features: ["non_custodial", "open_source", "hardware", "multi_chain"],
+    description:
+      "Open-source hardware wallet with desktop and browser software for self-custody, swaps, and Solana among supported native chains",
+    website: "https://keepkey.com/",
+    lastVerified: "2026-07-14",
+  },
   jupiter: {
     canonicalName: "Jupiter Wallet",
     category: "consumer",
@@ -367,6 +471,16 @@ const walletDirectoryOverrides = {
     description:
       "Self-custody multi-chain wallet for managing crypto, NFTs, DeFi positions, and Solana dApps",
     website: "https://www.kraken.com/wallet",
+    lastVerified: "2026-07-14",
+  },
+  "magic-eden": {
+    canonicalName: "Magic Eden Wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    features: ["non_custodial", "hold_nfts", "multi_chain"],
+    description:
+      "Self-custodial cross-chain wallet for managing crypto portfolios, NFTs, swaps, and app connections across Solana, Bitcoin, Ethereum, and other networks",
+    website: "https://wallet.magiceden.io/",
     lastVerified: "2026-07-14",
   },
   nightly: {
@@ -418,6 +532,23 @@ const walletDirectoryOverrides = {
     website: "https://web3.okx.com/",
     lastVerified: "2026-07-14",
   },
+  "particle-network": {
+    canonicalName: "Particle Network Universal Accounts",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "mpc",
+      "gas_abstraction",
+      "social_recovery",
+      "open_source",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Chain abstraction infrastructure with Universal Accounts, account abstraction, gas sponsorship, and social-login wallets for EVM and Solana apps",
+    website: "https://particle.network/",
+    lastVerified: "2026-07-14",
+  },
   openfort: {
     canonicalName: "Openfort",
     category: "infrastructure",
@@ -458,6 +589,22 @@ const walletDirectoryOverrides = {
     website: "https://phantom.com/",
     lastVerified: "2026-07-14",
   },
+  portal: {
+    canonicalName: "Portal",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "non_custodial",
+      "mpc",
+      "social_recovery",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Embedded wallet infrastructure using non-custodial TSS MPC and TEE key management with mobile and web SDK support",
+    website: "https://www.portalhq.io/platform/mpc-wallet-as-a-service",
+    lastVerified: "2026-07-14",
+  },
   privy: {
     canonicalName: "Privy",
     category: "infrastructure",
@@ -494,6 +641,16 @@ const walletDirectoryOverrides = {
     iconUrl: resolveIconUrl(ryderIcon),
     lastVerified: "2026-07-14",
   },
+  reown: {
+    canonicalName: "Reown WalletKit",
+    category: "infrastructure",
+    platforms: ["sdk"],
+    features: ["open_source", "multi_chain"],
+    description:
+      "WalletConnect SDK for wallet builders to connect web, mobile, browser-extension, hardware, custodial, and self-custody wallets to onchain apps",
+    website: "https://walletconnect.network/sdk",
+    lastVerified: "2026-07-14",
+  },
   safepal: {
     canonicalName: "SafePal",
     category: "hardware",
@@ -525,6 +682,23 @@ const walletDirectoryOverrides = {
       "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
     lastVerified: "2026-07-14",
   },
+  tangem: {
+    canonicalName: "Tangem",
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "open_source",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Open-source hardware wallet and mobile app for buying, selling, swapping, and managing thousands of assets across 90+ networks",
+    website: "https://tangem.com/",
+    lastVerified: "2026-07-14",
+  },
   trezor: {
     canonicalName: "Trezor",
     category: "hardware",
@@ -542,6 +716,25 @@ const walletDirectoryOverrides = {
     description:
       "Open-source hardware wallet and Trezor Suite app for buying, selling, managing NFTs, and staking supported assets including Solana",
     website: "https://trezor.io/",
+    lastVerified: "2026-07-14",
+  },
+  venly: {
+    canonicalName: "Venly Wallet-as-a-Service",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "custodial",
+      "non_custodial",
+      "buy_crypto",
+      "gas_abstraction",
+      "social_recovery",
+      "private_key_infrastructure",
+      "multi_chain",
+      "multi_sig",
+    ],
+    description:
+      "Wallet-as-a-service platform with wallet APIs, social login, fiat onramp support, gasless transactions, and multi-blockchain wallet deployment",
+    website: "https://www.venly.io/product/wallet-as-a-service",
     lastVerified: "2026-07-14",
   },
   zerion: {
