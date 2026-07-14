@@ -639,9 +639,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
               target="_blank"
               rel="noopener noreferrer"
               className={styles.gridAttributionLink}
-              aria-label="Powered by The Grid"
+              aria-label="Wallet URLs sourced from The Grid"
             >
-              <span>Powered by</span>
+              <span>URLs sourced from</span>
               <img
                 src="/images/logos/the-grid-white.svg"
                 alt="The Grid"
@@ -908,9 +908,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
         </div>
 
         <p className={styles.disclaimer}>
-          Wallet information combines The Grid ecosystem metadata, Solana
-          ecosystem records, and Solana-maintained feature research. Listings
-          are informational and do not imply endorsement by the Solana
+          Wallet URLs are sourced through The Grid for research and maintained
+          in Solana ecosystem records with Solana-maintained feature research.
+          Listings are informational and do not imply endorsement by the Solana
           Foundation or The Grid.
         </p>
       </section>

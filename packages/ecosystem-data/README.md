@@ -51,10 +51,11 @@ packages/ecosystem-data/src/wallets/
 ```
 
 Wallet records include researched wallet identity, descriptions, website URLs,
-platforms, categories, feature tags, and icon assets. Apps may still compose
-runtime-only data around those records. For example, `apps/web` uses The Grid as
-the live wallet candidate and URL list, then hydrates the page from these shared
-wallet records instead of trusting Grid metadata for filters or logos.
+platforms, categories, feature tags, and icon assets. Apps should load wallet
+directory entries from these shared wallet records instead of fetching,
+hydrating, or displaying external discovery metadata at runtime. The wallet
+research workflow uses The Grid as an offline candidate and URL-list source, and
+the live wallet page acknowledges that source without using it as runtime data.
 
 Composable event or campaign data should live in the consuming app and reference
 those company records by `companyId`. For `apps/accelerate`, the JSON files
@@ -201,7 +202,7 @@ Examples:
 - sort order for a specific page
 - curated logo choice for one page or one theme treatment
 - app-only marketing copy
-- runtime-only wallet discovery metadata from The Grid
+- external wallet discovery metadata
 
 ## Using ecosystem assets
 

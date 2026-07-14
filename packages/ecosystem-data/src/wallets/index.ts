@@ -161,18 +161,16 @@ export type WalletDirectoryEntry = {
   description: string;
   website: string;
   iconUrl?: string;
-  sourceUrl?: string;
-  docsUrl?: string;
   supportedChains: string[];
   supportedAssets: string[];
   lastVerified?: string;
-  dataSources: Array<"the-grid" | "ecosystem-data" | "solana-overrides">;
+  dataSources: Array<"ecosystem-data">;
 };
 
 export type WalletDirectoryData = {
   wallets: WalletDirectoryEntry[];
   lastFetchedAt: string;
-  source: "the-grid" | "fallback";
+  source: "ecosystem-data";
 };
 
 type CuratedWallet = (typeof walletData)[number];

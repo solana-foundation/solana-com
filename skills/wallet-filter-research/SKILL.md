@@ -13,10 +13,11 @@ description:
 
 # Wallet Filter Research
 
-Use this skill to keep the Solana.com wallet finder accurate. The live page at
-`apps/web/src/app/[locale]/wallets/page.tsx` uses The Grid for wallet URL
-discovery and `@workspace/ecosystem-data` for canonical wallet data, company
-identity, logos, icons, and wallet-specific filter functionality.
+Use this skill to keep the Solana.com wallet finder accurate. The Grid is only
+an offline candidate-discovery and URL-list input for research. The live page at
+`apps/web/src/app/[locale]/wallets/page.tsx` loads wallet directory data from
+`@workspace/ecosystem-data`; it should not fetch or merge The Grid data at
+runtime.
 
 All wallet directory source data now lives in `packages/ecosystem-data`.
 `apps/web` should not own wallet records, wallet icon assets, aliases, filter
@@ -34,19 +35,20 @@ claims, default wallet images, or researched wallet copy.
   types: `packages/ecosystem-data/src/wallets`.
 
 Edit `apps/web` wallet files only for route, metadata, rendering, query-state,
-attribution, The Grid fetch/merge behavior, or other runtime integration
-changes. Put wallet products, filters, researched descriptions, aliases, default
-assets, and icon source-of-truth changes in `packages/ecosystem-data`.
+or package data-loading integration changes. Put wallet products, filters,
+researched descriptions, aliases, default assets, and icon source-of-truth
+changes in `packages/ecosystem-data`.
 
 ## Source Of Truth
 
-- Candidate discovery: The Grid GraphQL API at
+- Offline candidate discovery: The Grid GraphQL API at
   `https://beta.node.thegrid.id/graphql`.
 - Package root for all wallet data and assets: `packages/ecosystem-data`.
 - Company identity and logos: `packages/ecosystem-data/src/companies` and
   `packages/ecosystem-data/assets/companies`.
-- Wallet records, aliases, filter taxonomy, default wallet icon export, and
-  runtime-facing wallet types: `packages/ecosystem-data/src/wallets`.
+- Wallet records, aliases, filter taxonomy, default wallet icon export,
+  runtime-facing wallet types, websites, descriptions, and feature/platform
+  claims: `packages/ecosystem-data/src/wallets`.
 - Wallet icon assets: `packages/ecosystem-data/assets/wallets/icons/*.webp`.
 - Default wallet icon:
   `packages/ecosystem-data/assets/wallets/wallet-placeholder-icon.webp`.
@@ -56,8 +58,10 @@ assets, and icon source-of-truth changes in `packages/ecosystem-data`.
   `apps/web/src/data/wallets`.
 - UI labels and filter definitions: `packages/ecosystem-data/src/wallets`.
 
-Always preserve visible attribution requirements on the site: link to
-`https://thegrid.id/` with the text `Powered by The Grid`.
+Preserve visible The Grid acknowledgement on the live wallet page because the
+candidate URL list is sourced through The Grid. The Grid is not a runtime data
+source for Solana.com wallet records, filters, icons, descriptions, or website
+fields.
 
 ## Workflow
 
@@ -97,7 +101,8 @@ Always preserve visible attribution requirements on the site: link to
     were reviewed end-to-end.
 11. Update wallet records, icon imports, aliases, and filter tags in
     `packages/ecosystem-data/src/wallets`. Do not derive wallet feature,
-    category, platform, description, or logo claims from The Grid at runtime.
+    category, platform, description, website, source URL, docs URL, or logo
+    claims from The Grid at runtime.
 12. Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
     to an existing `packages/ecosystem-data/src/companies` company slug.
 13. Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
@@ -147,8 +152,8 @@ ecosystem-data commands only if that package changed.
   unsourced aggregator lists as primary evidence for feature support.
 - Treat The Grid responses as discovery metadata, not final wallet feature
   truth.
-- Do not scrape or republish The Grid data outside the Solana.com wallet finder
-  experience.
+- Do not scrape, republish, or fetch The Grid data in the Solana.com wallet
+  finder runtime experience.
 - Wallet icons are part of the wallet data set. For every wallet record, either
   import a verified wallet icon from
   `packages/ecosystem-data/assets/wallets/icons/*.webp`, reuse a verified
