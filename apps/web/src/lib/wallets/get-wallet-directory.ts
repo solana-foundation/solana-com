@@ -36,21 +36,24 @@ function getCompanyForWallet(...names: Array<string | undefined>) {
   return companyId ? getCompanyBySlug(companyId) : undefined;
 }
 
-function getWalletIconUrl(
+// Ordered best-first: square company mark, researched wallet icon, company
+// logos, then the placeholder. The client walks this chain when a candidate
+// fails to load, so every entry ends with a guaranteed local asset.
+function getWalletIconUrls(
   company: CompanyRecord | undefined,
   overrideIconUrl?: string,
 ) {
-  if (!company) {
-    return overrideIconUrl ?? DEFAULT_WALLET_ICON_URL;
-  }
+  const candidates = company
+    ? [
+        getCompanyMarkSrc(company),
+        overrideIconUrl,
+        getCompanyLogoSrc(company, { theme: "dark" }),
+        getCompanyLogoSrc(company),
+        DEFAULT_WALLET_ICON_URL,
+      ]
+    : [overrideIconUrl, DEFAULT_WALLET_ICON_URL];
 
-  return (
-    getCompanyMarkSrc(company) ??
-    overrideIconUrl ??
-    getCompanyLogoSrc(company, { theme: "dark" }) ??
-    getCompanyLogoSrc(company) ??
-    DEFAULT_WALLET_ICON_URL
-  );
+  return [...new Set(candidates.filter((url): url is string => Boolean(url)))];
 }
 
 function sortWallets(wallets: WalletDirectoryEntry[]) {
@@ -63,6 +66,7 @@ function buildWalletEntries(
   return sortWallets(
     Object.entries(overrides).map(([slug, wallet]) => {
       const company = getCompanyForWallet(slug, wallet.canonicalName);
+      const iconUrls = getWalletIconUrls(company, wallet.iconUrl);
 
       return {
         id: slug,
@@ -75,7 +79,8 @@ function buildWalletEntries(
         features: wallet.features,
         description: wallet.description,
         website: wallet.website,
-        iconUrl: getWalletIconUrl(company, wallet.iconUrl),
+        iconUrl: iconUrls[0],
+        iconUrls,
         supportedChains: [SOLANA_MAINNET],
         supportedAssets: [],
         lastVerified: wallet.lastVerified,

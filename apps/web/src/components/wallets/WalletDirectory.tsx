@@ -332,11 +332,21 @@ function WalletLogo({
   wallet: WalletDirectoryEntry;
   size?: "default" | "small";
 }) {
-  const [failed, setFailed] = useState(false);
-  const [defaultFailed, setDefaultFailed] = useState(false);
+  const [candidateIndex, setCandidateIndex] = useState(0);
   const [isWordmark, setIsWordmark] = useState(false);
-  const iconUrl =
-    !wallet.iconUrl || failed ? DEFAULT_WALLET_ICON_URL : wallet.iconUrl;
+  const iconUrls = useMemo(() => {
+    const candidates = wallet.iconUrls?.length
+      ? wallet.iconUrls
+      : [wallet.iconUrl];
+    return [
+      ...new Set(
+        [...candidates, DEFAULT_WALLET_ICON_URL].filter((url): url is string =>
+          Boolean(url),
+        ),
+      ),
+    ];
+  }, [wallet.iconUrl, wallet.iconUrls]);
+  const iconUrl = iconUrls[candidateIndex];
 
   const measure = (image: HTMLImageElement) => {
     if (image.naturalWidth && image.naturalHeight) {
@@ -346,7 +356,7 @@ function WalletLogo({
     }
   };
 
-  if (!iconUrl || defaultFailed) {
+  if (!iconUrl) {
     return (
       <span
         className={`${styles.logoFallback} ${styles[`logoFallback-${size}`]}`}
@@ -373,12 +383,7 @@ function WalletLogo({
       onLoad={(event) => measure(event.currentTarget)}
       onError={() => {
         setIsWordmark(false);
-
-        if (iconUrl === DEFAULT_WALLET_ICON_URL) {
-          setDefaultFailed(true);
-        } else {
-          setFailed(true);
-        }
+        setCandidateIndex((current) => current + 1);
       }}
     />
   );

@@ -161,6 +161,8 @@ export type WalletDirectoryEntry = {
   description: string;
   website: string;
   iconUrl?: string;
+  /** Ordered icon candidates, best first, for graceful client-side fallback. */
+  iconUrls?: string[];
   supportedChains: string[];
   supportedAssets: string[];
   lastVerified?: string;
