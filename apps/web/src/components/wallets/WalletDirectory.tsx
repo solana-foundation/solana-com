@@ -49,6 +49,8 @@ const DEFAULT_STATE: DirectoryState = {
   sort: "recommended",
 };
 
+const FEATURED_WALLET_COUNT = 4;
+
 const FEATURE_GROUPS: Array<{
   label: string;
   options: WalletFeature[];
@@ -150,6 +152,49 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
   return values.includes(value)
     ? values.filter((item) => item !== value)
     : [...values, value];
+}
+
+function isSolflareWallet(wallet: WalletDirectoryEntry) {
+  return (
+    wallet.slug === "solflare" ||
+    wallet.companyId === "solflare" ||
+    wallet.name.toLowerCase() === "solflare"
+  );
+}
+
+function shuffleItems<T>(values: T[]) {
+  const items = [...values];
+
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
+  }
+
+  return items;
+}
+
+function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
+  const solflare = wallets.find(isSolflareWallet);
+  const remaining = wallets.filter((wallet) => wallet.id !== solflare?.id);
+
+  return [
+    ...(solflare ? [solflare] : []),
+    ...remaining.slice(0, FEATURED_WALLET_COUNT - (solflare ? 1 : 0)),
+  ];
+}
+
+function getRandomFeaturedWallets(wallets: WalletDirectoryEntry[]) {
+  const solflare = wallets.find(isSolflareWallet);
+  const remaining = wallets.filter((wallet) => wallet.id !== solflare?.id);
+  const selected = [
+    ...(solflare ? [solflare] : []),
+    ...shuffleItems(remaining).slice(
+      0,
+      FEATURED_WALLET_COUNT - (solflare ? 1 : 0),
+    ),
+  ];
+
+  return shuffleItems(selected).slice(0, FEATURED_WALLET_COUNT);
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
@@ -382,6 +427,9 @@ function WalletRow({ wallet }: { wallet: WalletDirectoryEntry }) {
 
 export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
   const [state, setState] = useState<DirectoryState>(DEFAULT_STATE);
+  const [featuredWallets, setFeaturedWallets] = useState(() =>
+    getInitialFeaturedWallets(data.wallets),
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
@@ -396,6 +444,10 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  useEffect(() => {
+    setFeaturedWallets(getRandomFeaturedWallets(data.wallets));
+  }, [data.wallets]);
 
   const commitState = (
     nextState: DirectoryState,
@@ -427,11 +479,6 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
       state.sort,
     );
   }, [data.wallets, state]);
-
-  const featuredWallets = useMemo(
-    () => data.wallets.slice(0, 4),
-    [data.wallets],
-  );
 
   const platformOptions = useMemo(
     () =>

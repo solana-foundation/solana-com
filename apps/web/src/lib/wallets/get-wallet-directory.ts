@@ -1,6 +1,12 @@
 import "server-only";
 
-import { getCompanyBySlug, getCompanyLogoSrc } from "@workspace/ecosystem-data";
+import {
+  getCompanyBySlug,
+  getCompanyLogo,
+  getCompanyLogoSrc,
+  resolveImportedAssetSrc,
+  type CompanyRecord,
+} from "@workspace/ecosystem-data";
 import {
   curatedWalletOverrides,
   getCuratedWalletOverride,
