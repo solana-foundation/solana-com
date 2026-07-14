@@ -50,7 +50,7 @@ export const useSolanaWalletItems: NavItemDefinition[] = [
     id: "use-solana-wallet-directory",
     titleKey: "nav.useSolana.wallets.items.directory.title",
     descriptionKey: "nav.useSolana.wallets.items.directory.description",
-    href: "/solana-wallets",
+    href: "/wallets#wallet-directory",
     icon: WalletSolutionsIcon,
     variant: "large",
   },

@@ -32,7 +32,7 @@ export const HERO_BUTTONS = [
     hierarchy: "outline",
     size: "md",
     iconSize: "md",
-    url: "/solana-wallets",
+    url: "/wallets",
   },
 ] as const;
 
@@ -41,7 +41,7 @@ export const COMPARE_WALLETS_BUTTON = {
   hierarchy: "primary",
   size: "md",
   iconSize: "md",
-  url: "https://solana.com/solana-wallets",
+  url: "https://solana.com/wallets",
 } as const;
 
 export const APPLY_FOR_GRANT_BUTTON = {
