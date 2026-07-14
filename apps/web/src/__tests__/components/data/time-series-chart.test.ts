@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   compareTooltipValues,
+  getAxisValueFormatter,
   getSeriesDashPatterns,
   type ChartSeries,
 } from "@/app/[locale]/data/time-series-chart";
@@ -95,5 +96,21 @@ describe("compareTooltipValues", () => {
     expect(values.sort(compareTooltipValues).map((item) => item.label)).toEqual(
       ["DeFiLlama", "Dune"],
     );
+  });
+});
+
+describe("getAxisValueFormatter", () => {
+  it("keeps percent tick labels distinct when values round near 100", () => {
+    const ticks = [99.95, 100, 100.05];
+    const formatter = getAxisValueFormatter(ticks, "Percent");
+
+    expect(ticks.map(formatter)).toEqual(["99.95%", "100%", "100.05%"]);
+  });
+
+  it("keeps concise percent labels when rounded labels are already distinct", () => {
+    const ticks = [95, 100];
+    const formatter = getAxisValueFormatter(ticks, "Percent");
+
+    expect(ticks.map(formatter)).toEqual(["95%", "100%"]);
   });
 });

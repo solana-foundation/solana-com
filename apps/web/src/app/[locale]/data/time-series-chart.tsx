@@ -55,6 +55,8 @@ const baseMargin = {
 const compactChartMaxWidth = 767;
 const coincidentDashPatterns = ["6 4", "2 4"] as const;
 const dimmedSeriesOpacity = 0.25;
+const yAxisTickCount = 4;
+const maxPercentAxisFractionDigits = 6;
 
 export function TimeSeriesChart({
   series,
@@ -220,6 +222,12 @@ function ChartSvg({
     nice: true,
     range: [innerHeight, 0],
   });
+  const yTickValues = yScale.ticks(yAxisTickCount);
+  const formatYAxisValue = getAxisValueFormatter(
+    yTickValues,
+    valueLabel,
+    locale,
+  );
 
   if (width < 10 || height < 10 || innerWidth <= 0 || innerHeight <= 0) {
     return null;
@@ -232,21 +240,18 @@ function ChartSvg({
           <GridRows
             height={innerHeight}
             left={0}
-            numTicks={4}
             scale={yScale}
             stroke="var(--chart-grid)"
             strokeDasharray="2 4"
+            tickValues={yTickValues}
             width={innerWidth}
           />
 
           <AxisLeft
             hideAxisLine
             hideTicks
-            numTicks={4}
             scale={yScale}
-            tickFormat={(value) =>
-              formatAxisValue(Number(value), valueLabel, locale)
-            }
+            tickFormat={(value) => formatYAxisValue(Number(value))}
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -255,6 +260,7 @@ function ChartSvg({
               dy: "0.33em",
               dx: "-0.6em",
             })}
+            tickValues={yTickValues}
           />
 
           <AxisBottom
@@ -449,6 +455,20 @@ export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
   return b.value - a.value || a.label.localeCompare(b.label);
 }
 
+export function getAxisValueFormatter(
+  tickValues: readonly number[],
+  valueLabel: string,
+  locale = "en",
+) {
+  if (valueLabel !== "Percent") {
+    return (value: number) => formatAxisValue(value, valueLabel, locale);
+  }
+
+  const fractionDigits = getUniquePercentFractionDigits(tickValues, locale);
+
+  return (value: number) => formatPercentNumber(value, locale, fractionDigits);
+}
+
 function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
   if (a.length !== b.length) {
     return false;
@@ -580,10 +600,55 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
 
 function formatAxisValue(value: number, valueLabel: string, locale: string) {
   if (valueLabel === "Percent") {
-    return `${formatStandardNumber(value, locale)}%`;
+    return formatPercentNumber(value, locale);
   }
 
   return formatCompactNumber(value, locale);
+}
+
+function getUniquePercentFractionDigits(
+  tickValues: readonly number[],
+  locale: string,
+) {
+  const finiteValues = Array.from(
+    new Set(tickValues.filter((value) => Number.isFinite(value))),
+  );
+
+  if (finiteValues.length <= 1) {
+    return getDefaultPercentFractionDigits(finiteValues);
+  }
+
+  for (
+    let fractionDigits = getDefaultPercentFractionDigits(finiteValues);
+    fractionDigits <= maxPercentAxisFractionDigits;
+    fractionDigits += 1
+  ) {
+    const labels = new Set(
+      finiteValues.map((value) =>
+        formatPercentNumber(value, locale, fractionDigits),
+      ),
+    );
+
+    if (labels.size === finiteValues.length) {
+      return fractionDigits;
+    }
+  }
+
+  return maxPercentAxisFractionDigits;
+}
+
+function getDefaultPercentFractionDigits(values: readonly number[]) {
+  return values.some((value) => value < 10) ? 2 : 1;
+}
+
+function formatPercentNumber(
+  value: number,
+  locale: string,
+  maximumFractionDigits = getDefaultPercentFractionDigits([value]),
+) {
+  return `${new Intl.NumberFormat(locale, {
+    maximumFractionDigits,
+  }).format(value)}%`;
 }
 
 function formatCompactNumber(value: number, locale: string) {
