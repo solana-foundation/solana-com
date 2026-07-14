@@ -16,12 +16,19 @@ export default async function Layout({
   const tree = docsSource.pageTree[locale];
   const pageTree = {
     ...tree,
-    children:
-      tree.children?.filter(
+    children: (tree.children ?? [])
+      .filter(
         (child) =>
           child.type === "folder" &&
           SIDEBAR_ROUTES.some((route) => child.index?.url?.includes(route)),
-      ) ?? [],
+      )
+      // The nav item is already "Concepts", so hoist Core Concepts' pages to
+      // the top level instead of repeating the same idea as a folder header.
+      .flatMap((child) =>
+        child.type === "folder" && child.index?.url?.includes("/docs/core")
+          ? child.children
+          : [child],
+      ),
   };
   return (
     <DocsLayout tree={pageTree} locale={locale}>
