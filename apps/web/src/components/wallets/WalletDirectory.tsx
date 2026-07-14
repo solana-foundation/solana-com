@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowUpRight,
   ExternalLink,
   Grid2X2,
   List,
@@ -82,6 +84,42 @@ const FEATURE_GROUPS: Array<{
   {
     label: "Developer infrastructure",
     options: ["gas_abstraction", "private_key_infrastructure", "multi_chain"],
+  },
+];
+
+const LEARN_RESOURCES: Array<{
+  href: string;
+  topic: string;
+  title: string;
+  description: string;
+}> = [
+  {
+    href: "/learn/what-is-a-wallet",
+    topic: "Basics",
+    title: "What is a wallet?",
+    description:
+      "How wallets hold your keys, sign transactions, and connect you to applications — and how to set one up safely.",
+  },
+  {
+    href: "/learn/sending-and-receiving-sol",
+    topic: "First steps",
+    title: "Sending and receiving SOL",
+    description:
+      "Make your first transfer: how addresses work, what fees to expect, and how transactions confirm in seconds.",
+  },
+  {
+    href: "/learn/staying-safe-on-solana",
+    topic: "Security",
+    title: "Staying safe on Solana",
+    description:
+      "Protect your seed phrase, spot common scams, and review transactions before you approve them.",
+  },
+  {
+    href: "/learn/what-is-staking",
+    topic: "Earning",
+    title: "What is staking?",
+    description:
+      "Earn rewards for helping secure the network, straight from wallets in this directory that support staking.",
   },
 ];
 
@@ -595,6 +633,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             <a href="#wallet-directory" className={styles.primaryAction}>
               Find a wallet
             </a>
+            <a href="#learn-wallets" className={styles.secondaryAction}>
+              Learn the basics
+            </a>
             <a href="#build-wallets" className={styles.secondaryAction}>
               Build with wallets
             </a>
@@ -913,6 +954,40 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
           Listings are informational and do not imply endorsement by the Solana
           Foundation or The Grid.
         </p>
+      </section>
+
+      <section
+        id="learn-wallets"
+        className={styles.learnSection}
+        aria-label="Learn about wallets"
+      >
+        <div className={styles.directoryHeader}>
+          <div>
+            <p className={styles.eyebrow}>Learn</p>
+            <h2>New to wallets? Start here</h2>
+          </div>
+          <Link href="/learn" className={styles.learnIndexLink}>
+            All learn guides
+          </Link>
+        </div>
+        <div className={styles.learnGrid}>
+          {LEARN_RESOURCES.map((resource, index) => (
+            <Link
+              key={resource.href}
+              href={resource.href}
+              className={styles.learnCard}
+            >
+              <div className={styles.learnCardTop}>
+                <span className={styles.learnTopic}>
+                  {String(index + 1).padStart(2, "0")} · {resource.topic}
+                </span>
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </div>
+              <h3>{resource.title}</h3>
+              <p>{resource.description}</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section id="build-wallets" className={styles.builderSection}>
