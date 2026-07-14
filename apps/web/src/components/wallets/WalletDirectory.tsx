@@ -284,14 +284,6 @@ function sortWallets(wallets: WalletDirectoryEntry[], sort: DirectorySort) {
   });
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
 function getInitials(name: string) {
   return name
     .split(/\s+/)
@@ -363,15 +355,15 @@ function WalletTags({
   const tags = wallet.features.slice(0, limit);
   const remaining = wallet.features.length - tags.length;
 
+  if (!tags.length) {
+    return null;
+  }
+
   return (
-    <div className={styles.tags}>
-      {tags.map((feature) => (
-        <span key={feature} className={styles.tag}>
-          {WALLET_FEATURE_LABELS[feature]}
-        </span>
-      ))}
-      {remaining > 0 && <span className={styles.tagMuted}>+{remaining}</span>}
-    </div>
+    <p className={styles.featureLine}>
+      {tags.map((feature) => WALLET_FEATURE_LABELS[feature]).join(" · ")}
+      {remaining > 0 ? ` · +${remaining}` : ""}
+    </p>
   );
 }
 
@@ -384,14 +376,12 @@ function PlatformList({ wallet }: { wallet: WalletDirectoryEntry }) {
   }
 
   return (
-    <div className={styles.platforms}>
-      {platforms.map((platform) => (
-        <span key={platform} className={styles.platform}>
-          {WALLET_PLATFORM_LABELS[platform]}
-        </span>
-      ))}
-      {remaining > 0 && <span className={styles.platform}>+{remaining}</span>}
-    </div>
+    <p className={styles.platformLine}>
+      {platforms
+        .map((platform) => WALLET_PLATFORM_LABELS[platform])
+        .join(" · ")}
+      {remaining > 0 ? ` +${remaining}` : ""}
+    </p>
   );
 }
 
@@ -400,18 +390,27 @@ function WalletCard({ wallet }: { wallet: WalletDirectoryEntry }) {
     <article className={styles.walletCard}>
       <div className={styles.walletCardTop}>
         <WalletLogo wallet={wallet} />
-        <span className={styles.categoryBadge}>
-          {getWalletCategoryLabel(wallet)}
-        </span>
+        <ExternalLink
+          size={16}
+          aria-hidden="true"
+          className={styles.walletCardArrow}
+        />
       </div>
-      <h3>{wallet.name}</h3>
-      <p>{wallet.description}</p>
-      <PlatformList wallet={wallet} />
-      <WalletTags wallet={wallet} />
-      <div className={styles.walletCardActions}>
-        <a href={wallet.website} target="_blank" rel="noopener noreferrer">
-          Visit site <ExternalLink size={15} aria-hidden="true" />
+      <h3>
+        <a
+          className={styles.walletLink}
+          href={wallet.website}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {wallet.name}
         </a>
+      </h3>
+      <p className={styles.walletCategory}>{getWalletCategoryLabel(wallet)}</p>
+      <p className={styles.walletDescription}>{wallet.description}</p>
+      <div className={styles.walletMeta}>
+        <PlatformList wallet={wallet} />
+        <WalletTags wallet={wallet} />
       </div>
     </article>
   );
@@ -423,7 +422,16 @@ function WalletRow({ wallet }: { wallet: WalletDirectoryEntry }) {
       <div className={styles.walletRowLead}>
         <WalletLogo wallet={wallet} size="small" />
         <div>
-          <h3>{wallet.name}</h3>
+          <h3>
+            <a
+              className={styles.walletLink}
+              href={wallet.website}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {wallet.name}
+            </a>
+          </h3>
           <p>{wallet.description}</p>
         </div>
       </div>
@@ -432,14 +440,11 @@ function WalletRow({ wallet }: { wallet: WalletDirectoryEntry }) {
         <PlatformList wallet={wallet} />
         <WalletTags wallet={wallet} limit={4} />
       </div>
-      <a
-        className={styles.walletRowLink}
-        href={wallet.website}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Visit <ExternalLink size={15} aria-hidden="true" />
-      </a>
+      <ExternalLink
+        size={16}
+        aria-hidden="true"
+        className={styles.walletCardArrow}
+      />
     </article>
   );
 }
@@ -576,10 +581,10 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
 
   return (
     <main className={styles.page}>
-      <section className={styles.hero}>
-        <div className={styles.heroCopy}>
-          <p className={styles.eyebrow}>Wallets</p>
-          <h1>Find a wallet for how you use Solana</h1>
+      <header className={styles.hero}>
+        <p className={styles.eyebrow}>Wallet directory</p>
+        <h1>Find a wallet for how you use Solana</h1>
+        <div className={styles.heroFoot}>
           <p className={styles.heroText}>
             A wallet is where you hold assets, approve transactions, and connect
             to apps. Compare Solana wallets by platform, custody, and the
@@ -594,37 +599,37 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             </a>
           </div>
         </div>
+      </header>
 
-        <div className={styles.featuredPanel} aria-label="Featured wallets">
-          <div className={styles.featuredPanelHeader}>
-            <span>{data.wallets.length} Solana wallets</span>
-            <a href="#wallet-directory">Explore all</a>
-          </div>
-          <div className={styles.featuredList}>
-            {featuredWallets.map((wallet) => (
-              <a
-                key={wallet.id}
-                href={wallet.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.featuredWallet}
-              >
-                <WalletLogo wallet={wallet} size="small" />
-                <span>
-                  <strong>{wallet.name}</strong>
-                  <small>{getWalletCategoryLabel(wallet)}</small>
-                </span>
-                <ExternalLink size={15} aria-hidden="true" />
-              </a>
-            ))}
-          </div>
+      <section className={styles.featuredStrip} aria-label="Featured wallets">
+        <div className={styles.featuredStripHeader}>
+          <span>Featured</span>
+          <a href="#wallet-directory">All {data.wallets.length} wallets</a>
+        </div>
+        <div className={styles.featuredList}>
+          {featuredWallets.map((wallet) => (
+            <a
+              key={wallet.id}
+              href={wallet.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.featuredWallet}
+            >
+              <WalletLogo wallet={wallet} size="small" />
+              <span>
+                <strong>{wallet.name}</strong>
+                <small>{getWalletCategoryLabel(wallet)}</small>
+              </span>
+              <ExternalLink size={15} aria-hidden="true" />
+            </a>
+          ))}
         </div>
       </section>
 
       <section id="wallet-directory" className={styles.directorySection}>
         <div className={styles.directoryHeader}>
           <div>
-            <p className={styles.eyebrow}>Wallet finder</p>
+            <p className={styles.eyebrow}>Directory</p>
             <h2>Compare Solana wallets</h2>
           </div>
           <div className={styles.attribution}>
