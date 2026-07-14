@@ -467,9 +467,30 @@ const walletDirectoryOverrides = {
   },
 } satisfies Record<string, CuratedWalletOverride>;
 
+export const localWalletDirectoryOverrides = {
+  unruggable: {
+    canonicalName: "Unruggable",
+    category: "hardware",
+    platforms: ["android", "desktop", "hardware"],
+    features: [
+      "non_custodial",
+      "staking",
+      "open_source",
+      "hardware",
+      "solana_native",
+    ],
+    description:
+      "Solana-native open-source hardware wallet with desktop and Android companion apps for cold wallet signing, staking, and swapping",
+    website: "https://www.unruggable.io/",
+    iconUrl: "https://www.unruggable.io/unruggable-icon-v2.png?v=20260517",
+    lastVerified: "2026-07-14",
+  },
+} satisfies Record<string, CuratedWalletOverride>;
+
 export const curatedWalletOverrides = {
   ...legacyWalletOverrides,
   ...walletDirectoryOverrides,
+  ...localWalletDirectoryOverrides,
 } as Record<string, CuratedWalletOverride>;
 
 export function getCuratedWalletOverride(...names: Array<string | undefined>) {

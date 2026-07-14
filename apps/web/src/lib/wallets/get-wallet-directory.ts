@@ -11,6 +11,7 @@ import {
   curatedWalletOverrides,
   getCuratedWalletOverride,
   getWalletCompanyId,
+  localWalletDirectoryOverrides,
   normalizeWalletKey,
   type WalletCategory,
   type WalletDirectoryData,
@@ -547,9 +548,11 @@ function normalizeGridProduct(
   };
 }
 
-function fallbackWallets(): WalletDirectoryEntry[] {
+function fallbackWallets(
+  overrides: typeof curatedWalletOverrides = curatedWalletOverrides,
+): WalletDirectoryEntry[] {
   return sortWallets(
-    Object.entries(curatedWalletOverrides).map(([slug, wallet]) => {
+    Object.entries(overrides).map(([slug, wallet]) => {
       const companyId = getWalletCompanyId(slug, wallet.canonicalName);
       const company = companyId ? getCompanyBySlug(companyId) : undefined;
       const companyMark = company ? getCompanyMarkSrc(company) : undefined;
@@ -614,8 +617,10 @@ async function fetchGridWalletProducts() {
 export async function getWalletDirectoryData(): Promise<WalletDirectoryData> {
   try {
     const products = await fetchGridWalletProducts();
+    const gridWallets = compact(products.map(normalizeGridProduct));
+    const localWallets = fallbackWallets(localWalletDirectoryOverrides);
     const wallets = sortWallets(
-      mergeDuplicateWallets(compact(products.map(normalizeGridProduct))),
+      mergeDuplicateWallets([...gridWallets, ...localWallets]),
     );
 
     if (wallets.length > 0) {
