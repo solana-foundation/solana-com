@@ -101,10 +101,8 @@ ecosystem-data commands only if that package changed.
 - For hardware products, distinguish the physical device/platform from software
   companion apps. Merge only when the directory intentionally represents the
   product family.
-- Treat app store user reviews, Reddit, blogs from unrelated third parties, and
-  unsourced aggregator lists as non-primary evidence.
-- Do not use Reddit, user reviews, or unsourced aggregator lists as primary
-  evidence for feature support.
+- Do not use app store user reviews, Reddit, unrelated third-party blogs, or
+  unsourced aggregator lists as primary evidence for feature support.
 - Treat The Grid responses as discovery metadata, not final wallet feature
   truth.
 - Do not scrape or republish The Grid data outside the Solana.com wallet finder
