@@ -91,6 +91,18 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
+                to="/docs/rpc"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <RpcApiIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.rpc")}</span>
+              </NavLink>
+              <NavLink
+                partiallyActive
                 to="/docs/payments"
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
@@ -128,18 +140,6 @@ export function DevelopersNav({
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">{t("developers.nav.defi")}</span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/docs/rpc"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <RpcApiIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">{t("developers.nav.rpc")}</span>
               </NavLink>
               <NavLink
                 partiallyActive
