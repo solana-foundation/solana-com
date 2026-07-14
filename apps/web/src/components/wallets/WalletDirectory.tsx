@@ -645,9 +645,6 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
                 decoding="async"
               />
             </a>
-            <span className={styles.attributionUpdated}>
-              Updated {formatDate(data.lastFetchedAt)}
-            </span>
           </div>
         </div>
 
@@ -813,45 +810,53 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
               </div>
             </fieldset>
 
-            {FEATURE_GROUPS.map((group) => (
-              <fieldset key={group.label}>
-                <legend>{group.label}</legend>
-                <div className={styles.filterOptions}>
-                  {group.options.map((feature) => {
-                    const count = getFeatureCount(feature);
-                    const checked = state.features.includes(feature);
+            {FEATURE_GROUPS.map((group) => {
+              const visibleOptions = group.options.filter(
+                (feature) =>
+                  getFeatureCount(feature) > 0 ||
+                  state.features.includes(feature),
+              );
 
-                    if (count === 0 && !checked) {
-                      return null;
-                    }
+              if (!visibleOptions.length) {
+                return null;
+              }
 
-                    return (
-                      <label
-                        key={feature}
-                        className={styles.checkOption}
-                        title={WALLET_FEATURE_DESCRIPTIONS[feature]}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            updateState((current) => ({
-                              ...current,
-                              features: toggleArrayValue(
-                                current.features,
-                                feature,
-                              ),
-                            }))
-                          }
-                        />
-                        <span>{WALLET_FEATURE_LABELS[feature]}</span>
-                        <small>{count}</small>
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            ))}
+              return (
+                <fieldset key={group.label}>
+                  <legend>{group.label}</legend>
+                  <div className={styles.filterOptions}>
+                    {visibleOptions.map((feature) => {
+                      const count = getFeatureCount(feature);
+                      const checked = state.features.includes(feature);
+
+                      return (
+                        <label
+                          key={feature}
+                          className={styles.checkOption}
+                          title={WALLET_FEATURE_DESCRIPTIONS[feature]}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              updateState((current) => ({
+                                ...current,
+                                features: toggleArrayValue(
+                                  current.features,
+                                  feature,
+                                ),
+                              }))
+                            }
+                          />
+                          <span>{WALLET_FEATURE_LABELS[feature]}</span>
+                          <small>{count}</small>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              );
+            })}
 
             <button
               type="button"
