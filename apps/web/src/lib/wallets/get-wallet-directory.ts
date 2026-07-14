@@ -15,6 +15,13 @@ import {
 
 const THE_GRID_GRAPHQL_ENDPOINT = "https://beta.node.thegrid.id/graphql";
 const WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
+const CATEGORY_PRIORITY: WalletCategory[] = [
+  "consumer",
+  "payments",
+  "hardware",
+  "infrastructure",
+  "institutional",
+];
 
 type GridUrl = {
   url?: string | null;
@@ -345,6 +352,89 @@ function sortWallets(wallets: WalletDirectoryEntry[]) {
   });
 }
 
+function sortCategories(categories: WalletCategory[]) {
+  return unique(categories).sort(
+    (a, b) => CATEGORY_PRIORITY.indexOf(a) - CATEGORY_PRIORITY.indexOf(b),
+  );
+}
+
+function getWalletMergeKey(wallet: WalletDirectoryEntry) {
+  return wallet.companyId ?? wallet.slug ?? normalizeWalletKey(wallet.name);
+}
+
+function getWalletPriorityScore(wallet: WalletDirectoryEntry) {
+  return (
+    (wallet.dataSources.includes("solana-overrides") ? 10_000 : 0) +
+    (wallet.dataSources.includes("ecosystem-data") ? 1_000 : 0) +
+    (CATEGORY_PRIORITY.length - CATEGORY_PRIORITY.indexOf(wallet.category)) *
+      10 +
+    (wallet.gridRank ?? 0)
+  );
+}
+
+function getMostRecentDate(values: Array<string | undefined>) {
+  const validDates = values.filter((value): value is string => Boolean(value));
+
+  return validDates.sort((a, b) => b.localeCompare(a))[0];
+}
+
+function mergeWalletGroup(wallets: WalletDirectoryEntry[]) {
+  const primary = [...wallets].sort(
+    (a, b) => getWalletPriorityScore(b) - getWalletPriorityScore(a),
+  )[0];
+
+  const categories = sortCategories(
+    wallets.flatMap((wallet) => wallet.categories),
+  );
+  const platforms = unique(wallets.flatMap((wallet) => wallet.platforms));
+  const features = unique(wallets.flatMap((wallet) => wallet.features));
+  const supportedChains = unique(
+    wallets.flatMap((wallet) => wallet.supportedChains),
+  );
+  const supportedAssets = unique(
+    wallets.flatMap((wallet) => wallet.supportedAssets),
+  ).slice(0, 8);
+  const dataSources = unique(
+    wallets.flatMap((wallet) => wallet.dataSources),
+  ) as WalletDirectoryEntry["dataSources"];
+  const gridRank = Math.max(...wallets.map((wallet) => wallet.gridRank ?? 0));
+
+  return {
+    ...primary,
+    id: getWalletMergeKey(primary),
+    category: categories.includes(primary.category)
+      ? primary.category
+      : categories[0],
+    categories,
+    platforms,
+    features,
+    supportedChains,
+    supportedAssets,
+    lastVerified: getMostRecentDate(
+      wallets.map((wallet) => wallet.lastVerified),
+    ),
+    gridRank: gridRank > 0 ? gridRank : undefined,
+    dataSources,
+  };
+}
+
+function mergeDuplicateWallets(wallets: WalletDirectoryEntry[]) {
+  const groups = new Map<string, WalletDirectoryEntry[]>();
+
+  for (const wallet of wallets) {
+    const key = getWalletMergeKey(wallet);
+    const group = groups.get(key);
+
+    if (group) {
+      group.push(wallet);
+    } else {
+      groups.set(key, [wallet]);
+    }
+  }
+
+  return [...groups.values()].map(mergeWalletGroup);
+}
+
 function normalizeGridProduct(
   product: GridProduct,
 ): WalletDirectoryEntry | undefined {
@@ -382,6 +472,8 @@ function normalizeGridProduct(
     ...platformsFromGrid(product),
   ]);
   const dataSources: WalletDirectoryEntry["dataSources"] = ["the-grid"];
+  const productCategory = categoryFromProductType(product.productType?.slug);
+  const category = override?.category ?? productCategory;
 
   if (company) {
     dataSources.push("ecosystem-data");
@@ -398,8 +490,8 @@ function normalizeGridProduct(
       company?.slug ?? product.root?.slug ?? productName,
     ),
     companyId: company?.id,
-    category:
-      override?.category ?? categoryFromProductType(product.productType?.slug),
+    category,
+    categories: unique([category, productCategory]),
     platforms,
     features,
     description:
@@ -445,6 +537,7 @@ function fallbackWallets(): WalletDirectoryEntry[] {
         slug,
         companyId: company?.id,
         category: wallet.category,
+        categories: [wallet.category],
         platforms: wallet.platforms,
         features: wallet.features,
         description: wallet.description,
@@ -494,7 +587,9 @@ async function fetchGridWalletProducts() {
 export async function getWalletDirectoryData(): Promise<WalletDirectoryData> {
   try {
     const products = await fetchGridWalletProducts();
-    const wallets = sortWallets(compact(products.map(normalizeGridProduct)));
+    const wallets = sortWallets(
+      mergeDuplicateWallets(compact(products.map(normalizeGridProduct))),
+    );
 
     if (wallets.length > 0) {
       return {

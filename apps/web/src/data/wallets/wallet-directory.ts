@@ -122,6 +122,7 @@ export type WalletDirectoryEntry = {
   slug: string;
   companyId?: string;
   category: WalletCategory;
+  categories: WalletCategory[];
   platforms: WalletPlatform[];
   features: WalletFeature[];
   description: string;
@@ -217,8 +218,12 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   "backpack-exchange": "backpack",
   brave: "brave",
   "brave-wallet": "brave",
+  "cdp-coinbase": "cdp",
+  "cdp-embedded-wallets": "cdp",
+  "cdp-server-wallets": "cdp",
   coinbase: "coinbase",
   "coinbase-wallet": "coinbase",
+  "coinbase-developer-platform": "cdp",
   "exodus-wallet": "exodus",
   fuse: "fuse",
   "fuse-wallet": "fuse",

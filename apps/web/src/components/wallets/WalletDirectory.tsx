@@ -152,6 +152,19 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
     : [...values, value];
 }
 
+function getWalletCategories(wallet: WalletDirectoryEntry) {
+  return wallet.categories.length ? wallet.categories : [wallet.category];
+}
+
+function getWalletCategoryLabel(wallet: WalletDirectoryEntry) {
+  const categories = getWalletCategories(wallet);
+  const extraCategories = categories.filter(
+    (category) => category !== wallet.category,
+  ).length;
+
+  return `${WALLET_CATEGORY_LABELS[wallet.category]}${extraCategories > 0 ? ` +${extraCategories}` : ""}`;
+}
+
 function walletMatchesState(
   wallet: WalletDirectoryEntry,
   state: DirectoryState,
@@ -160,7 +173,7 @@ function walletMatchesState(
   if (
     ignoreGroup !== "category" &&
     state.category !== "all" &&
-    wallet.category !== state.category
+    !getWalletCategories(wallet).includes(state.category)
   ) {
     return false;
   }
@@ -190,7 +203,9 @@ function walletMatchesState(
     const searchable = [
       wallet.name,
       wallet.description,
-      WALLET_CATEGORY_LABELS[wallet.category],
+      ...getWalletCategories(wallet).map(
+        (category) => WALLET_CATEGORY_LABELS[category],
+      ),
       ...wallet.platforms.map((platform) => WALLET_PLATFORM_LABELS[platform]),
       ...wallet.features.map((feature) => WALLET_FEATURE_LABELS[feature]),
       ...wallet.supportedChains,
@@ -322,7 +337,7 @@ function WalletCard({ wallet }: { wallet: WalletDirectoryEntry }) {
       <div className={styles.walletCardTop}>
         <WalletLogo wallet={wallet} />
         <span className={styles.categoryBadge}>
-          {WALLET_CATEGORY_LABELS[wallet.category]}
+          {getWalletCategoryLabel(wallet)}
         </span>
       </div>
       <h3>{wallet.name}</h3>
@@ -349,7 +364,7 @@ function WalletRow({ wallet }: { wallet: WalletDirectoryEntry }) {
         </div>
       </div>
       <div className={styles.walletRowMeta}>
-        <span>{WALLET_CATEGORY_LABELS[wallet.category]}</span>
+        <span>{getWalletCategoryLabel(wallet)}</span>
         <PlatformList wallet={wallet} />
         <WalletTags wallet={wallet} limit={4} />
       </div>
@@ -432,7 +447,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
         return false;
       }
 
-      return category === "all" || wallet.category === category;
+      return (
+        category === "all" || getWalletCategories(wallet).includes(category)
+      );
     }).length;
   };
 
@@ -529,7 +546,7 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
                 <WalletLogo wallet={wallet} size="small" />
                 <span>
                   <strong>{wallet.name}</strong>
-                  <small>{WALLET_CATEGORY_LABELS[wallet.category]}</small>
+                  <small>{getWalletCategoryLabel(wallet)}</small>
                 </span>
                 <ExternalLink size={15} aria-hidden="true" />
               </a>
@@ -549,11 +566,22 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
               href="https://thegrid.id/"
               target="_blank"
               rel="noopener noreferrer"
+              className={styles.gridAttributionLink}
+              aria-label="Powered by The Grid"
             >
-              Powered by The Grid
+              <span>Powered by</span>
+              <img
+                src="/images/logos/the-grid-white.svg"
+                alt="The Grid"
+                width={84}
+                height={18}
+                loading="lazy"
+                decoding="async"
+              />
             </a>
-            <span>Data refreshed weekly</span>
-            <span>Updated {formatDate(data.lastFetchedAt)}</span>
+            <span className={styles.attributionUpdated}>
+              Updated {formatDate(data.lastFetchedAt)}
+            </span>
           </div>
         </div>
 
@@ -564,7 +592,7 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             <input
               type="search"
               value={state.search}
-              placeholder="Search wallets, platforms, or features"
+              placeholder="Search wallets"
               onChange={(event) =>
                 updateState(
                   (current) => ({ ...current, search: event.target.value }),
