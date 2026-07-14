@@ -270,13 +270,16 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   "coolwallet-app": "coolwallet",
   "coolwallet-go": "coolwallet",
   "coolwallet-pro": "coolwallet",
+  changenow: "now",
   crossmint: "crossmint-non-custodial",
   "dfns-as-a-service-platform-waas": "dfns",
   "ellipal-titan-2-0": "ellipal",
   "exodus-wallet": "exodus",
+  fin: "tiplink",
   fireblocks: "fireblocks-embedded",
   fuse: "fuse",
   "fuse-wallet": "fuse",
+  "helium-network": "helium",
   "jupiter-mobile": "jupiter",
   "keepkey-vault-desktop": "keepkey",
   metamask: "metamask",
@@ -292,8 +295,8 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   "trezor-safe-5": "trezor",
   "universal-accounts": "particle-network",
   "venly-as-a-service": "venly",
-  walletconnect: "walletconnect",
-  "wallet-connect": "walletconnect",
+  walletconnect: "reown",
+  "wallet-connect": "reown",
   walletkit: "reown",
 };
 
@@ -314,6 +317,27 @@ const legacyWalletOverrides = Object.fromEntries(
 ) as Record<string, CuratedWalletOverride>;
 
 const walletDirectoryOverrides = {
+  backpack: {
+    canonicalName: "Backpack",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "staking",
+      "open_source",
+      "hardware",
+      "multi_chain",
+      "solana_native",
+      "multi_sig",
+    ],
+    description:
+      "Self-custody wallet and exchange for Solana, Ethereum, and BTC, with mobile apps, a browser extension, SOL staking, hardware wallet import, and 3-of-3 multisig support",
+    website: "https://backpack.app/",
+    lastVerified: "2026-07-14",
+  },
   bitgo: {
     canonicalName: "BitGo Wallet as a Service",
     category: "infrastructure",
