@@ -56,7 +56,9 @@ const compactChartMaxWidth = 767;
 const coincidentDashPatterns = ["6 4", "2 4"] as const;
 const dimmedSeriesOpacity = 0.25;
 const yAxisTickCount = 4;
-const maxPercentAxisFractionDigits = 6;
+const percentDomainMin = 0;
+const percentDomainMax = 100;
+const percentMinimumDomainSpan = 1;
 
 export function TimeSeriesChart({
   series,
@@ -212,7 +214,7 @@ function ChartSvg({
     new Set(points.map((point) => point.date.getTime())),
   ).sort((a, b) => a - b);
   const xDomain = getDateDomain(points);
-  const yDomain = getValueDomain(points);
+  const yDomain = getValueDomain(points, valueLabel);
   const xScale = scaleTime<number>({
     domain: xDomain,
     range: [0, innerWidth],
@@ -222,12 +224,12 @@ function ChartSvg({
     nice: true,
     range: [innerHeight, 0],
   });
-  const yTickValues = yScale.ticks(yAxisTickCount);
-  const formatYAxisValue = getAxisValueFormatter(
-    yTickValues,
+  const yTickValues = getYAxisTickValues(
+    yScale.ticks(yAxisTickCount),
+    yScale.domain(),
     valueLabel,
-    locale,
   );
+  const formatYAxisValue = getAxisValueFormatter(valueLabel, locale);
 
   if (width < 10 || height < 10 || innerWidth <= 0 || innerHeight <= 0) {
     return null;
@@ -298,7 +300,7 @@ function ChartSvg({
               strokeWidth={2}
               style={{ transition: "stroke-opacity 150ms ease" }}
               x={(point) => xScale(point.date)}
-              y={(point) => yScale(point.value)}
+              y={(point) => yScale(getPlottedValue(point.value, valueLabel))}
             />
           ))}
 
@@ -334,7 +336,7 @@ function ChartSvg({
                 strokeWidth={2}
                 width={8}
                 x={xScale(point.date) - 4}
-                y={yScale(point.value) - 4}
+                y={yScale(getPlottedValue(point.value, valueLabel)) - 4}
               />
             );
           })}
@@ -455,18 +457,24 @@ export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
   return b.value - a.value || a.label.localeCompare(b.label);
 }
 
-export function getAxisValueFormatter(
-  tickValues: readonly number[],
-  valueLabel: string,
-  locale = "en",
-) {
+export function getAxisValueFormatter(valueLabel: string, locale = "en") {
   if (valueLabel !== "Percent") {
     return (value: number) => formatAxisValue(value, valueLabel, locale);
   }
 
-  const fractionDigits = getUniquePercentFractionDigits(tickValues, locale);
+  return (value: number) => formatWholePercentNumber(value, locale);
+}
 
-  return (value: number) => formatPercentNumber(value, locale, fractionDigits);
+export function getYAxisTickValues(
+  tickValues: readonly number[],
+  domain: readonly number[],
+  valueLabel: string,
+) {
+  if (valueLabel !== "Percent") {
+    return [...tickValues];
+  }
+
+  return getWholePercentTickValues(domain);
 }
 
 function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
@@ -500,7 +508,10 @@ function getDateDomain(points: SeriesPoint[]): [Date, Date] {
   return [new Date(Math.min(...values)), new Date(Math.max(...values))];
 }
 
-function getValueDomain(points: SeriesPoint[]): [number, number] {
+export function getValueDomain(
+  points: SeriesPoint[],
+  valueLabel?: string,
+): [number, number] {
   const values = points
     .map((point) => point.value)
     .filter((value) => Number.isFinite(value));
@@ -511,6 +522,10 @@ function getValueDomain(points: SeriesPoint[]): [number, number] {
 
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
+
+  if (valueLabel === "Percent") {
+    return getPercentValueDomain(minValue, maxValue);
+  }
 
   if (minValue === maxValue) {
     const padding = Math.max(Math.abs(maxValue) * 0.08, 1);
@@ -526,6 +541,150 @@ function getValueDomain(points: SeriesPoint[]): [number, number] {
     minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding,
     maxValue + padding,
   ];
+}
+
+function getPercentValueDomain(
+  minValue: number,
+  maxValue: number,
+): [number, number] {
+  const boundedMinValue = clamp(minValue, percentDomainMin, percentDomainMax);
+  const boundedMaxValue = clamp(maxValue, percentDomainMin, percentDomainMax);
+  const domain =
+    boundedMinValue === boundedMaxValue
+      ? fitBoundedDomainToMinimumSpan(
+          boundedMinValue - percentMinimumDomainSpan / 2,
+          boundedMaxValue + percentMinimumDomainSpan / 2,
+          percentDomainMin,
+          percentDomainMax,
+          percentMinimumDomainSpan,
+        )
+      : fitBoundedDomainToMinimumSpan(
+          boundedMinValue - (boundedMaxValue - boundedMinValue) * 0.08,
+          boundedMaxValue + (boundedMaxValue - boundedMinValue) * 0.08,
+          percentDomainMin,
+          percentDomainMax,
+          percentMinimumDomainSpan,
+        );
+
+  return roundPercentDomainToWholeNumbers(domain);
+}
+
+function roundPercentDomainToWholeNumbers([minValue, maxValue]: [
+  number,
+  number,
+]): [number, number] {
+  let domainMin = clamp(
+    Math.floor(minValue),
+    percentDomainMin,
+    percentDomainMax,
+  );
+  let domainMax = clamp(
+    Math.ceil(maxValue),
+    percentDomainMin,
+    percentDomainMax,
+  );
+
+  if (domainMax - domainMin < percentMinimumDomainSpan) {
+    if (domainMax >= percentDomainMax) {
+      domainMin = percentDomainMax - percentMinimumDomainSpan;
+    } else {
+      domainMax = domainMin + percentMinimumDomainSpan;
+    }
+  }
+
+  return [
+    clamp(domainMin, percentDomainMin, percentDomainMax),
+    clamp(domainMax, percentDomainMin, percentDomainMax),
+  ];
+}
+
+function getWholePercentTickValues(domain: readonly number[]) {
+  const [rawMin = percentDomainMin, rawMax = percentDomainMax] = domain;
+  const domainMin = Math.ceil(
+    clamp(Math.min(rawMin, rawMax), percentDomainMin, percentDomainMax),
+  );
+  const domainMax = Math.floor(
+    clamp(Math.max(rawMin, rawMax), percentDomainMin, percentDomainMax),
+  );
+
+  if (domainMax < domainMin) {
+    return [clamp(Math.round(rawMax), percentDomainMin, percentDomainMax)];
+  }
+
+  const span = domainMax - domainMin;
+
+  if (span <= 6) {
+    return Array.from({ length: span + 1 }, (_, index) => domainMin + index);
+  }
+
+  const step = getWholePercentTickStep(span);
+  const ticks = [domainMin];
+
+  for (
+    let tick = Math.ceil(domainMin / step) * step;
+    tick < domainMax;
+    tick += step
+  ) {
+    if (tick !== domainMin) {
+      ticks.push(tick);
+    }
+  }
+
+  if (ticks.at(-1) !== domainMax) {
+    ticks.push(domainMax);
+  }
+
+  return ticks;
+}
+
+function getWholePercentTickStep(span: number) {
+  const targetStep = span / yAxisTickCount;
+
+  return (
+    [1, 2, 5, 10, 20, 25, 50, 100].find((step) => step >= targetStep) ?? 100
+  );
+}
+
+function getPlottedValue(value: number, valueLabel: string) {
+  if (valueLabel === "Percent") {
+    return clamp(value, percentDomainMin, percentDomainMax);
+  }
+
+  return value;
+}
+
+function clamp(value: number, minValue: number, maxValue: number) {
+  return Math.min(Math.max(value, minValue), maxValue);
+}
+
+function fitBoundedDomainToMinimumSpan(
+  minValue: number,
+  maxValue: number,
+  lowerBound: number,
+  upperBound: number,
+  minimumSpan: number,
+): [number, number] {
+  let domainMin = Math.max(lowerBound, minValue);
+  let domainMax = Math.min(upperBound, maxValue);
+
+  if (domainMax - domainMin < minimumSpan) {
+    const deficit = minimumSpan - (domainMax - domainMin);
+
+    domainMin -= deficit / 2;
+    domainMax += deficit / 2;
+  }
+
+  if (domainMin < lowerBound) {
+    domainMax += lowerBound - domainMin;
+    domainMin = lowerBound;
+  }
+
+  if (domainMax > upperBound) {
+    domainMin -= domainMax - upperBound;
+    domainMax = upperBound;
+  }
+
+  return [Math.max(lowerBound, domainMin), Math.min(upperBound, domainMax)];
 }
 
 function getNearestDateValue(value: number, values: number[]) {
@@ -588,7 +747,7 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
   }
 
   if (valueLabel === "Percent") {
-    return `${formatStandardNumber(value, locale)}%`;
+    return formatWholePercentNumber(value, locale);
   }
 
   if (valueLabel === "Milliseconds") {
@@ -600,67 +759,22 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
 
 function formatAxisValue(value: number, valueLabel: string, locale: string) {
   if (valueLabel === "Percent") {
-    return formatPercentNumber(value, locale);
+    return formatWholePercentNumber(value, locale);
   }
 
   return formatCompactNumber(value, locale);
 }
 
-function getUniquePercentFractionDigits(
-  tickValues: readonly number[],
-  locale: string,
-) {
-  const finiteValues = Array.from(
-    new Set(tickValues.filter((value) => Number.isFinite(value))),
-  );
-
-  if (finiteValues.length <= 1) {
-    return getDefaultPercentFractionDigits(finiteValues);
-  }
-
-  for (
-    let fractionDigits = getDefaultPercentFractionDigits(finiteValues);
-    fractionDigits <= maxPercentAxisFractionDigits;
-    fractionDigits += 1
-  ) {
-    const labels = new Set(
-      finiteValues.map((value) =>
-        formatPercentNumber(value, locale, fractionDigits),
-      ),
-    );
-
-    if (labels.size === finiteValues.length) {
-      return fractionDigits;
-    }
-  }
-
-  return maxPercentAxisFractionDigits;
-}
-
-function getDefaultPercentFractionDigits(values: readonly number[]) {
-  return values.some((value) => value < 10) ? 2 : 1;
-}
-
-function formatPercentNumber(
-  value: number,
-  locale: string,
-  maximumFractionDigits = getDefaultPercentFractionDigits([value]),
-) {
+function formatWholePercentNumber(value: number, locale: string) {
   return `${new Intl.NumberFormat(locale, {
-    maximumFractionDigits,
-  }).format(value)}%`;
+    maximumFractionDigits: 0,
+  }).format(clamp(Math.round(value), percentDomainMin, percentDomainMax))}%`;
 }
 
 function formatCompactNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10 ? 1 : 2,
     notation: "compact",
-  }).format(value);
-}
-
-function formatStandardNumber(value: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: value >= 10 ? 1 : 2,
   }).format(value);
 }
 
