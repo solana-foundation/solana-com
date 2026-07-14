@@ -70,7 +70,7 @@ function withMdVariants(redirects: RedirectInput[]): RedirectInput[] {
 
 /**
  * The /developers/guides section was dissolved in the docs restructure.
- * Every page has a specific destination — mapped page by page, never a
+ * Every page has a specific destination - mapped page by page, never a
  * blanket redirect. Do not remove entries: external links and AI agents
  * hold these URLs indefinitely.
  */
