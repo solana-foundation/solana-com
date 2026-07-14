@@ -200,6 +200,8 @@ export const WALLET_COMPANY_ALIASES: Record<string, string> = {
   backpack: "backpack",
   brave: "brave",
   "brave-wallet": "brave",
+  "base-app": "coinbase",
+  "base-formerly-coinbase": "coinbase",
   coinbase: "coinbase",
   "coinbase-wallet": "coinbase",
   dynamic: "dynamic",
@@ -222,6 +224,8 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   "backpack-exchange": "backpack",
   brave: "brave",
   "brave-wallet": "brave",
+  "base-app": "coinbase",
+  "base-formerly-coinbase": "coinbase",
   "cdp-coinbase": "cdp",
   "cdp-embedded-wallets": "cdp",
   "cdp-server-wallets": "cdp",
@@ -263,6 +267,24 @@ const legacyWalletOverrides = Object.fromEntries(
 ) as Record<string, CuratedWalletOverride>;
 
 const walletDirectoryOverrides = {
+  coinbase: {
+    canonicalName: "Base App",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "gas_abstraction",
+      "social_recovery",
+      "multi_chain",
+    ],
+    description:
+      "Self-custody wallet and browser formerly known as Coinbase Wallet, with Base, Solana, Ethereum, and BNB Chain support",
+    website: "https://base.app/",
+    lastVerified: "2026-07-14",
+  },
   "fireblocks-embedded": {
     canonicalName: "Fireblocks Embedded Wallets",
     category: "infrastructure",
@@ -288,6 +310,22 @@ const walletDirectoryOverrides = {
     website: "https://web3.gate.com/",
     lastVerified: "2026-07-14",
   },
+  jupiter: {
+    canonicalName: "Jupiter Wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "brave", "edge"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "solana_native",
+    ],
+    description:
+      "Self-custodial Solana wallet from Jupiter for swaps, trading, portfolio management, payments, and dApp access",
+    website: "https://jup.ag/wallet",
+    lastVerified: "2026-07-14",
+  },
   kraken: {
     canonicalName: "Kraken Wallet",
     category: "consumer",
@@ -308,6 +346,85 @@ const walletDirectoryOverrides = {
     website: "https://www.paypal.com/us/digital-wallet/manage-money/crypto",
     lastVerified: "2026-07-14",
   },
+  okx: {
+    canonicalName: "OKX Wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "brave", "edge", "web"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "mpc",
+      "gas_abstraction",
+      "staking",
+      "open_source",
+      "multi_chain",
+    ],
+    description:
+      "Self-custodial multi-chain wallet for swaps, staking, NFTs, account-abstraction smart accounts, and dApp access",
+    website: "https://web3.okx.com/",
+    lastVerified: "2026-07-14",
+  },
+  openfort: {
+    canonicalName: "Openfort",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "non_custodial",
+      "gas_abstraction",
+      "social_recovery",
+      "spending_limits",
+      "open_source",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Open-source wallet infrastructure for embedded wallets, smart accounts, gas sponsorship, policy controls, and stablecoin payments",
+    website: "https://www.openfort.io/",
+    lastVerified: "2026-07-14",
+  },
+  phantom: {
+    canonicalName: "Phantom",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "brave"],
+    features: [
+      "non_custodial",
+      "te",
+      "blinks_and_actions",
+      "solana_pay",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "multi_chain",
+      "solana_native",
+    ],
+    description:
+      "Multi-chain self-custody wallet for buying, selling, staking, spending, and managing tokens and NFTs",
+    website: "https://phantom.com/",
+    lastVerified: "2026-07-14",
+  },
+  privy: {
+    canonicalName: "Privy",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "custodial",
+      "non_custodial",
+      "buy_crypto",
+      "gas_abstraction",
+      "social_recovery",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Embedded wallet and authentication infrastructure with configurable custody, policy controls, fiat onramps, cloud recovery, and Solana gas sponsorship",
+    website: "https://www.privy.io/",
+    lastVerified: "2026-07-14",
+  },
   squadsx: {
     canonicalName: "SquadsX",
     category: "institutional",
@@ -317,6 +434,25 @@ const walletDirectoryOverrides = {
       "Browser extension that lets Squads multisigs connect to Solana dApps while retaining multisig transaction approvals",
     website:
       "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
+    lastVerified: "2026-07-14",
+  },
+  trezor: {
+    canonicalName: "Trezor",
+    category: "hardware",
+    platforms: ["desktop", "web", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "staking",
+      "open_source",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Open-source hardware wallet and Trezor Suite app for buying, selling, managing NFTs, and staking supported assets including Solana",
+    website: "https://trezor.io/",
     lastVerified: "2026-07-14",
   },
   zerion: {
