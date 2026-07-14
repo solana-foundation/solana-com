@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import styles from "./WalletFilters.module.scss";
 import Wallets from "./Wallets";
-import type { walletData } from "../../data/wallets/wallet-data";
+import type { walletData } from "@workspace/ecosystem-data";
 
 const CATEGORIES = [
   { key: "all", label: "All" },

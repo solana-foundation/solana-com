@@ -33,29 +33,14 @@ const query = /* GraphQL */ `
       root {
         slug
         urlMain
-        lastPublicValidation
         profileInfos {
           name
-          descriptionShort
-          profileSector {
-            name
-            slug
-          }
         }
       }
       urls {
         url
         urlType {
-          name
           slug
-        }
-      }
-      supportsProducts {
-        supportsProduct {
-          name
-          productType {
-            slug
-          }
         }
       }
     }
@@ -98,10 +83,12 @@ console.log(
       website:
         product.urls?.find((url) => url.urlType?.slug === "product")?.url ??
         product.root?.urlMain,
-      lastPublicValidation: product.root?.lastPublicValidation,
-      supportedProducts: product.supportsProducts
-        ?.map((entry) => entry.supportsProduct?.name)
-        .filter(Boolean),
+      urls: product.urls
+        ?.map((entry) => ({
+          type: entry.urlType?.slug,
+          url: entry.url,
+        }))
+        .filter((entry) => entry.url),
     })),
     null,
     2,

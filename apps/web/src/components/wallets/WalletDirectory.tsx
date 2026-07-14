@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  DEFAULT_WALLET_ICON_URL,
   WALLET_CATEGORIES,
   WALLET_CATEGORY_LABELS,
   WALLET_FEATURE_DESCRIPTIONS,
@@ -268,20 +269,9 @@ function walletMatchesState(
 }
 
 function sortWallets(wallets: WalletDirectoryEntry[], sort: DirectorySort) {
-  return [...wallets].sort((a, b) => {
-    if (sort === "name") {
-      return a.name.localeCompare(b.name);
-    }
-
-    const rankA = a.gridRank ?? 0;
-    const rankB = b.gridRank ?? 0;
-
-    if (rankA !== rankB) {
-      return rankB - rankA;
-    }
-
-    return a.name.localeCompare(b.name);
-  });
+  return sort === "name"
+    ? [...wallets].sort((a, b) => a.name.localeCompare(b.name))
+    : wallets;
 }
 
 function getInitials(name: string) {
@@ -305,7 +295,10 @@ function WalletLogo({
   size?: "default" | "small";
 }) {
   const [failed, setFailed] = useState(false);
+  const [defaultFailed, setDefaultFailed] = useState(false);
   const [isWordmark, setIsWordmark] = useState(false);
+  const iconUrl =
+    !wallet.iconUrl || failed ? DEFAULT_WALLET_ICON_URL : wallet.iconUrl;
 
   const measure = (image: HTMLImageElement) => {
     if (image.naturalWidth && image.naturalHeight) {
@@ -315,7 +308,7 @@ function WalletLogo({
     }
   };
 
-  if (!wallet.iconUrl || failed) {
+  if (!iconUrl || defaultFailed) {
     return (
       <span
         className={`${styles.logoFallback} ${styles[`logoFallback-${size}`]}`}
@@ -327,7 +320,7 @@ function WalletLogo({
 
   return (
     <img
-      src={wallet.iconUrl}
+      src={iconUrl}
       alt=""
       width={size === "small" ? 40 : 56}
       height={size === "small" ? 40 : 56}
@@ -340,7 +333,15 @@ function WalletLogo({
         }
       }}
       onLoad={(event) => measure(event.currentTarget)}
-      onError={() => setFailed(true)}
+      onError={() => {
+        setIsWordmark(false);
+
+        if (iconUrl === DEFAULT_WALLET_ICON_URL) {
+          setDefaultFailed(true);
+        } else {
+          setFailed(true);
+        }
+      }}
     />
   );
 }

@@ -2,8 +2,8 @@
 name: wallet-filter-research
 description:
   Research Solana wallet products discovered through The Grid, verify public
-  wallet functionality, and update the Solana.com wallet directory
-  override/filter data. Use when asked to refresh wallet filters, add new
+  wallet functionality, and update the canonical wallet data in
+  packages/ecosystem-data. Use when asked to refresh wallet filters, add new
   wallets, audit wallet features, remove stale filter claims, add newly
   supported functionality, or reconcile The Grid wallet products with local
   Solana ecosystem records.
@@ -12,19 +12,31 @@ description:
 # Wallet Filter Research
 
 Use this skill to keep the Solana.com wallet finder accurate. The live page uses
-The Grid for wallet discovery, `@workspace/ecosystem-data` for canonical company
-identity/logo data, and Solana-maintained overrides for wallet-specific filter
+The Grid for wallet URL discovery and `@workspace/ecosystem-data` for canonical
+wallet data, company identity, logos, icons, and wallet-specific filter
 functionality.
+
+All wallet directory source data now lives in `packages/ecosystem-data`.
+`apps/web` should not own wallet records, wallet icon assets, aliases, filter
+claims, default wallet images, or researched wallet copy.
 
 ## Source Of Truth
 
 - Candidate discovery: The Grid GraphQL API at
   `https://beta.node.thegrid.id/graphql`.
-- Company identity and logos: `packages/ecosystem-data`.
-- Wallet feature overrides: `apps/web/src/data/wallets/wallet-directory.ts`.
-- Legacy seed data: `apps/web/src/data/wallets/wallet-data.ts`.
-- UI labels and filter definitions:
-  `apps/web/src/data/wallets/wallet-directory.ts`.
+- Package root for all wallet data and assets: `packages/ecosystem-data`.
+- Company identity and logos: `packages/ecosystem-data/src/companies` and
+  `packages/ecosystem-data/assets/companies`.
+- Wallet records, aliases, filter taxonomy, default wallet icon export, and
+  runtime-facing wallet types: `packages/ecosystem-data/src/wallets`.
+- Wallet icon assets: `packages/ecosystem-data/assets/wallets/icons/*.webp`.
+- Default wallet icon:
+  `packages/ecosystem-data/assets/wallets/wallet-placeholder-icon.webp`.
+- Legacy app compatibility imports:
+  `apps/web/src/data/wallets/wallet-directory.ts` re-exports package wallet
+  directory data for older app imports only. Do not add wallet source data to
+  `apps/web/src/data/wallets`.
+- UI labels and filter definitions: `packages/ecosystem-data/src/wallets`.
 
 Always preserve visible attribution requirements on the site: link to
 `https://thegrid.id/` with the text `Powered by The Grid`.
@@ -47,29 +59,35 @@ Always preserve visible attribution requirements on the site: link to
 5. For each audited wallet, check every applicable filter in
    `references/filter-taxonomy.md`: category, platforms, and every feature. Do
    not only look for newly added features.
-6. Remove any existing true feature/platform/category claim that cannot be
+6. For each audited wallet, verify all wallet data fields in
+   `packages/ecosystem-data/src/wallets/wallet-data.ts` or the explicit
+   overrides in `packages/ecosystem-data/src/wallets/index.ts`: name, canonical
+   name, description, website, category, platforms, features, `lastVerified`,
+   aliases, and icon.
+7. Remove any existing true feature/platform/category claim that cannot be
    re-verified from current primary-source evidence. If evidence is unclear,
    leave the filter false/absent.
-7. Add new feature/platform/category values only when a primary source
+8. Add new feature/platform/category values only when a primary source
    explicitly supports them.
-8. Update `lastVerified` to the research date only for overrides whose filters
+9. Update `lastVerified` to the research date only for overrides whose filters
    were reviewed end-to-end.
-9. Update only app-level wallet augmentation in
-   `apps/web/src/data/wallets/wallet-directory.ts`. Do not move wallet feature
-   booleans into `packages/ecosystem-data`.
-10. Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
-    to an existing `packages/ecosystem-data` company slug.
-11. Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
+10. Update wallet records, icon imports, aliases, and filter tags in
+    `packages/ecosystem-data/src/wallets`. Do not derive wallet feature,
+    category, platform, description, or logo claims from The Grid at runtime.
+11. Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
+    to an existing `packages/ecosystem-data/src/companies` company slug.
+12. Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
     curated wallet name.
-12. If a wallet has no local company record but should use canonical Solana
+13. If a wallet has no local company record but should use canonical Solana
     branding assets, add it to `packages/ecosystem-data` following that
     package's README and audit command.
-13. Run targeted validation:
+14. Run targeted validation:
 
 ```bash
 pnpm --filter solana-com check-types
 pnpm --filter solana-com lint
 pnpm --filter @workspace/ecosystem-data check-types
+pnpm --filter @workspace/ecosystem-data lint
 pnpm --filter @workspace/ecosystem-data audit:data
 ```
 
@@ -107,6 +125,19 @@ ecosystem-data commands only if that package changed.
   truth.
 - Do not scrape or republish The Grid data outside the Solana.com wallet finder
   experience.
+- Wallet icons are part of the wallet data set. For every wallet record, either
+  import a verified wallet icon from
+  `packages/ecosystem-data/assets/wallets/icons/*.webp`, reuse a verified
+  canonical company mark/logo through `WALLET_COMPANY_ALIASES`, or intentionally
+  rely on `DEFAULT_WALLET_ICON_URL` only when no reliable icon can be verified.
+- Store wallet icon assets as WebP. If a source asset is PNG/JPG/JPEG, convert
+  it with `magick` before committing, for example:
+  `magick input.png -quality 90 packages/ecosystem-data/assets/wallets/icons/<wallet-slug>.webp`.
+- Do not leave PNG/JPG/JPEG wallet icons in
+  `packages/ecosystem-data/assets/wallets`.
+- Prefer official product, brand, repository, or app-store artwork for wallet
+  icons. Do not use third-party scraped logos when an official source is
+  available.
 - Before editing, keep a short evidence matrix in notes for non-obvious changes:
   wallet, source URL, filter claim, old value, new value, and rationale.
 
@@ -124,5 +155,7 @@ When finished, summarize:
 - feature filters changed
 - platform/category filters changed
 - company aliases added
+- wallet icons added, replaced, converted, or intentionally left on the default
+  icon
 - sources used for non-obvious feature claims
 - validation commands run

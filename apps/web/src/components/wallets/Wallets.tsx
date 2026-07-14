@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import styles from "./Wallets.module.scss";
 import Button from "../shared/Button";
 import WalletCard from "./WalletCard";
-import type { walletData } from "../../data/wallets/wallet-data";
+import type { walletData } from "@workspace/ecosystem-data";
 
 type WalletEntry = (typeof walletData)[number];
 

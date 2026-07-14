@@ -8,6 +8,7 @@ import {
   type CompanyRecord,
 } from "@workspace/ecosystem-data";
 import {
+  DEFAULT_WALLET_ICON_URL,
   curatedWalletOverrides,
   getCuratedWalletOverride,
   getWalletCompanyId,
@@ -16,12 +17,20 @@ import {
   type WalletCategory,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
-  type WalletFeature,
-  type WalletPlatform,
 } from "@/data/wallets/wallet-directory";
 
 const THE_GRID_GRAPHQL_ENDPOINT = "https://beta.node.thegrid.id/graphql";
 const WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
+const SOLANA_MAINNET = "Solana Mainnet";
+const GRID_WALLET_DATA_SOURCES: WalletDirectoryEntry["dataSources"] = [
+  "the-grid",
+  "ecosystem-data",
+  "solana-overrides",
+];
+const LOCAL_WALLET_DATA_SOURCES: WalletDirectoryEntry["dataSources"] = [
+  "ecosystem-data",
+  "solana-overrides",
+];
 const CATEGORY_PRIORITY: WalletCategory[] = [
   "consumer",
   "payments",
@@ -33,14 +42,6 @@ const CATEGORY_PRIORITY: WalletCategory[] = [
 type GridUrl = {
   url?: string | null;
   urlType?: {
-    name?: string | null;
-    slug?: string | null;
-  } | null;
-};
-
-type GridMedia = {
-  url?: string | null;
-  mediaType?: {
     slug?: string | null;
   } | null;
 };
@@ -48,54 +49,14 @@ type GridMedia = {
 type GridProduct = {
   id?: string | null;
   name?: string | null;
-  description?: string | null;
-  productType?: {
-    name?: string | null;
-    slug?: string | null;
-  } | null;
   root?: {
     slug?: string | null;
     urlMain?: string | null;
-    lastPublicValidation?: string | null;
-    gridRank?: {
-      ranking?: number | null;
-      score?: number | null;
-    } | null;
     profileInfos?: Array<{
       name?: string | null;
-      descriptionShort?: string | null;
-      profileSector?: {
-        name?: string | null;
-        slug?: string | null;
-      } | null;
-    }> | null;
-    media?: GridMedia[] | null;
-    profileTags?: Array<{
-      tag?: {
-        name?: string | null;
-        slug?: string | null;
-      } | null;
     }> | null;
   } | null;
-  media?: GridMedia[] | null;
   urls?: GridUrl[] | null;
-  supportsProducts?: Array<{
-    supportsProduct?: {
-      name?: string | null;
-      productType?: {
-        slug?: string | null;
-      } | null;
-    } | null;
-  }> | null;
-  productAssetRelationships?: Array<{
-    asset?: {
-      name?: string | null;
-      ticker?: string | null;
-      assetType?: {
-        slug?: string | null;
-      } | null;
-    } | null;
-  }> | null;
 };
 
 type GridWalletResponse = {
@@ -128,68 +89,17 @@ const GRID_WALLETS_QUERY = /* GraphQL */ `
     ) {
       id
       name
-      description
-      productType {
-        name
-        slug
-      }
       root {
         slug
         urlMain
-        lastPublicValidation
-        gridRank {
-          ranking
-          score
-        }
         profileInfos {
           name
-          descriptionShort
-          profileSector {
-            name
-            slug
-          }
-        }
-        media {
-          url
-          mediaType {
-            slug
-          }
-        }
-        profileTags {
-          tag {
-            name
-            slug
-          }
-        }
-      }
-      media {
-        url
-        mediaType {
-          slug
         }
       }
       urls {
         url
         urlType {
-          name
           slug
-        }
-      }
-      supportsProducts {
-        supportsProduct {
-          name
-          productType {
-            slug
-          }
-        }
-      }
-      productAssetRelationships {
-        asset {
-          name
-          ticker
-          assetType {
-            slug
-          }
         }
       }
     }
@@ -204,96 +114,6 @@ function compact<T>(values: Array<T | null | undefined>) {
   return values.filter(
     (value): value is T => value !== null && value !== undefined,
   );
-}
-
-function parseGridDate(value?: string | null) {
-  return value?.split(" ")[0];
-}
-
-function categoryFromProductType(slug?: string | null): WalletCategory {
-  switch (slug) {
-    case "hardware_wallet":
-      return "hardware";
-    case "embedded_wallet":
-      return "infrastructure";
-    case "multi_sig_wallet":
-      return "institutional";
-    default:
-      return "consumer";
-  }
-}
-
-function platformsFromGrid(product: GridProduct): WalletPlatform[] {
-  const platforms = new Set<WalletPlatform>();
-
-  for (const url of product.urls ?? []) {
-    switch (url.urlType?.slug) {
-      case "apple_app_store":
-        platforms.add("ios");
-        break;
-      case "google_play_store":
-        platforms.add("android");
-        break;
-      case "chrome_web_store":
-        platforms.add("chrome");
-        break;
-      case "desktop_app":
-        platforms.add("desktop");
-        break;
-      case "product":
-        platforms.add("web");
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (product.productType?.slug === "hardware_wallet") {
-    platforms.add("hardware");
-  }
-
-  if (product.productType?.slug === "embedded_wallet") {
-    platforms.add("api");
-    platforms.add("sdk");
-  }
-
-  return [...platforms];
-}
-
-function featuresFromGrid(product: GridProduct): WalletFeature[] {
-  const features = new Set<WalletFeature>();
-  const supportedChains = product.supportsProducts ?? [];
-  const l1OrL2Count = supportedChains.filter(({ supportsProduct }) => {
-    const type = supportsProduct?.productType?.slug;
-    return type === "l1" || type === "l2";
-  }).length;
-
-  if (product.productType?.slug === "hardware_wallet") {
-    features.add("hardware");
-  }
-
-  if (product.productType?.slug === "embedded_wallet") {
-    features.add("private_key_infrastructure");
-  }
-
-  if (product.productType?.slug === "multi_sig_wallet") {
-    features.add("multi_sig");
-    features.add("spending_limits");
-  }
-
-  if (l1OrL2Count > 1) {
-    features.add("multi_chain");
-  }
-
-  const stablecoinAssets = product.productAssetRelationships?.some(
-    ({ asset }) => asset?.assetType?.slug === "stablecoin",
-  );
-
-  if (stablecoinAssets) {
-    features.add("buy_crypto");
-  }
-
-  return [...features];
 }
 
 function selectUrl(product: GridProduct, slug: string) {
@@ -311,24 +131,6 @@ function selectWebsite(product: GridProduct) {
   );
 }
 
-function selectGridIcon(product: GridProduct) {
-  const media = [...(product.media ?? []), ...(product.root?.media ?? [])];
-  return (
-    media.find((item) => item.mediaType?.slug === "icon")?.url ?? undefined
-  );
-}
-
-function selectGridMedia(product: GridProduct) {
-  const media = [...(product.media ?? []), ...(product.root?.media ?? [])];
-  const preferred =
-    media.find((item) => item.mediaType?.slug === "icon") ??
-    media.find((item) => item.mediaType?.slug === "logo_dark_bg") ??
-    media.find((item) => item.mediaType?.slug === "logo_light_bg") ??
-    media[0];
-
-  return preferred?.url ?? undefined;
-}
-
 // Square marks scale to the directory's fixed logo tiles; wordmark-shaped
 // logos become illegible there, so only an explicit `kind: "mark"` qualifies
 // (getCompanyLogo falls back to the default logo when no mark exists).
@@ -339,41 +141,30 @@ function getCompanyMarkSrc(company: CompanyRecord) {
     : undefined;
 }
 
-function supportedChainsFromGrid(product: GridProduct) {
-  return unique(
-    compact(
-      product.supportsProducts?.map(
-        ({ supportsProduct }) => supportsProduct?.name ?? undefined,
-      ) ?? [],
-    ),
+function getCompanyForWallet(...names: Array<string | undefined>) {
+  const companyId = getWalletCompanyId(...names);
+  return companyId ? getCompanyBySlug(companyId) : undefined;
+}
+
+function getWalletIconUrl(
+  company: CompanyRecord | undefined,
+  overrideIconUrl?: string,
+) {
+  if (!company) {
+    return overrideIconUrl ?? DEFAULT_WALLET_ICON_URL;
+  }
+
+  return (
+    getCompanyMarkSrc(company) ??
+    overrideIconUrl ??
+    getCompanyLogoSrc(company, { theme: "dark" }) ??
+    getCompanyLogoSrc(company) ??
+    DEFAULT_WALLET_ICON_URL
   );
 }
 
-function supportedAssetsFromGrid(product: GridProduct) {
-  return unique(
-    compact(
-      product.productAssetRelationships?.map(({ asset }) => {
-        if (!asset?.ticker && !asset?.name) {
-          return undefined;
-        }
-
-        return asset.ticker ?? asset.name ?? undefined;
-      }) ?? [],
-    ),
-  ).slice(0, 8);
-}
-
 function sortWallets(wallets: WalletDirectoryEntry[]) {
-  return [...wallets].sort((a, b) => {
-    const rankA = a.gridRank ?? 0;
-    const rankB = b.gridRank ?? 0;
-
-    if (rankA !== rankB) {
-      return rankB - rankA;
-    }
-
-    return a.name.localeCompare(b.name);
-  });
+  return [...wallets].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function sortCategories(categories: WalletCategory[]) {
@@ -390,9 +181,7 @@ function getWalletPriorityScore(wallet: WalletDirectoryEntry) {
   return (
     (wallet.dataSources.includes("solana-overrides") ? 10_000 : 0) +
     (wallet.dataSources.includes("ecosystem-data") ? 1_000 : 0) +
-    (CATEGORY_PRIORITY.length - CATEGORY_PRIORITY.indexOf(wallet.category)) *
-      10 +
-    (wallet.gridRank ?? 0)
+    (CATEGORY_PRIORITY.length - CATEGORY_PRIORITY.indexOf(wallet.category)) * 10
   );
 }
 
@@ -421,7 +210,6 @@ function mergeWalletGroup(wallets: WalletDirectoryEntry[]) {
   const dataSources = unique(
     wallets.flatMap((wallet) => wallet.dataSources),
   ) as WalletDirectoryEntry["dataSources"];
-  const gridRank = Math.max(...wallets.map((wallet) => wallet.gridRank ?? 0));
 
   return {
     ...primary,
@@ -437,7 +225,6 @@ function mergeWalletGroup(wallets: WalletDirectoryEntry[]) {
     lastVerified: getMostRecentDate(
       wallets.map((wallet) => wallet.lastVerified),
     ),
-    gridRank: gridRank > 0 ? gridRank : undefined,
     dataSources,
   };
 }
@@ -475,76 +262,39 @@ function normalizeGridProduct(
     profileName,
     product.root?.slug ?? undefined,
   );
-  const companyId = getWalletCompanyId(
+
+  if (!override) {
+    return undefined;
+  }
+
+  const company = getCompanyForWallet(
     product.root?.slug ?? undefined,
     profileName,
     productName,
     override?.canonicalName,
   );
-  const company = companyId ? getCompanyBySlug(companyId) : undefined;
-  const companyMark = company ? getCompanyMarkSrc(company) : undefined;
-  const companyLogo = company
-    ? getCompanyLogoSrc(company, { theme: "dark" })
-    : undefined;
-  const fallbackLogo = company ? getCompanyLogoSrc(company) : undefined;
-
-  const features = unique([
-    ...(override?.features ?? []),
-    ...featuresFromGrid(product),
-  ]);
-  const platforms = unique([
-    ...(override?.platforms ?? []),
-    ...platformsFromGrid(product),
-  ]);
-  const dataSources: WalletDirectoryEntry["dataSources"] = ["the-grid"];
-  const productCategory = categoryFromProductType(product.productType?.slug);
-  const category = override?.category ?? productCategory;
-
-  if (company) {
-    dataSources.push("ecosystem-data");
-  }
-
-  if (override) {
-    dataSources.push("solana-overrides");
-  }
+  const gridWebsite = selectWebsite(product);
 
   return {
     id: product.id ?? product.root?.slug ?? normalizeWalletKey(productName),
-    name: override?.canonicalName ?? company?.name ?? productName,
+    name: override.canonicalName ?? productName,
     slug: normalizeWalletKey(
-      company?.slug ?? product.root?.slug ?? productName,
+      override.canonicalName ?? product.root?.slug ?? productName,
     ),
     companyId: company?.id,
-    category,
-    categories: unique([category, productCategory]),
-    platforms,
-    features,
-    description:
-      override?.description ??
-      company?.profile?.summary ??
-      profileInfo?.descriptionShort ??
-      product.description ??
-      "",
-    website:
-      override?.website ??
-      company?.profile?.links?.website ??
-      selectWebsite(product),
-    iconUrl:
-      companyMark ??
-      selectGridIcon(product) ??
-      override?.iconUrl ??
-      companyLogo ??
-      fallbackLogo ??
-      selectGridMedia(product),
+    category: override.category,
+    categories: [override.category],
+    platforms: override.platforms,
+    features: override.features,
+    description: override.description,
+    website: gridWebsite === "#" ? override.website : gridWebsite,
+    iconUrl: getWalletIconUrl(company, override.iconUrl),
     sourceUrl: `https://thegrid.id/profiles/${product.root?.slug ?? normalizeWalletKey(productName)}`,
     docsUrl: selectUrl(product, "documentation"),
-    supportedChains: supportedChainsFromGrid(product),
-    supportedAssets: supportedAssetsFromGrid(product),
-    lastVerified:
-      override?.lastVerified ??
-      parseGridDate(product.root?.lastPublicValidation),
-    gridRank: product.root?.gridRank?.score ?? undefined,
-    dataSources,
+    supportedChains: [SOLANA_MAINNET],
+    supportedAssets: [],
+    lastVerified: override.lastVerified,
+    dataSources: [...GRID_WALLET_DATA_SOURCES],
   };
 }
 
@@ -553,13 +303,7 @@ function fallbackWallets(
 ): WalletDirectoryEntry[] {
   return sortWallets(
     Object.entries(overrides).map(([slug, wallet]) => {
-      const companyId = getWalletCompanyId(slug, wallet.canonicalName);
-      const company = companyId ? getCompanyBySlug(companyId) : undefined;
-      const companyMark = company ? getCompanyMarkSrc(company) : undefined;
-      const companyLogo = company
-        ? getCompanyLogoSrc(company, { theme: "dark" })
-        : undefined;
-      const fallbackLogo = company ? getCompanyLogoSrc(company) : undefined;
+      const company = getCompanyForWallet(slug, wallet.canonicalName);
 
       return {
         id: slug,
@@ -572,13 +316,11 @@ function fallbackWallets(
         features: wallet.features,
         description: wallet.description,
         website: wallet.website,
-        iconUrl: companyMark ?? wallet.iconUrl ?? companyLogo ?? fallbackLogo,
-        supportedChains: ["Solana Mainnet"],
+        iconUrl: getWalletIconUrl(company, wallet.iconUrl),
+        supportedChains: [SOLANA_MAINNET],
         supportedAssets: [],
         lastVerified: wallet.lastVerified,
-        dataSources: company
-          ? ["ecosystem-data", "solana-overrides"]
-          : ["solana-overrides"],
+        dataSources: [...LOCAL_WALLET_DATA_SOURCES],
       };
     }),
   );

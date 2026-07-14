@@ -1,7 +1,7 @@
 # Wallet Filter Taxonomy
 
 Use these definitions when researching wallet functionality for
-`apps/web/src/data/wallets/wallet-directory.ts`.
+`packages/ecosystem-data/src/wallets`.
 
 ## Categories
 

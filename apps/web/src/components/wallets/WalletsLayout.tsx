@@ -4,7 +4,7 @@ import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.p
 import { useTranslations } from "next-intl";
 import WalletFilters, { WalletFiltersProps } from "./WalletFilters";
 import { walletFiltersData } from "../../data/wallets/wallet-filters";
-import type { walletData } from "../../data/wallets/wallet-data";
+import type { walletData } from "@workspace/ecosystem-data";
 
 type WalletEntry = (typeof walletData)[number];
 

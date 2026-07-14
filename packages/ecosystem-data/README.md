@@ -1,16 +1,20 @@
 # `@workspace/ecosystem-data`
 
-Shared ecosystem company data and logo assets for the monorepo.
+Shared ecosystem company data, wallet directory data, and logo assets for the
+monorepo.
 
 ## Purpose
 
-This package stores company information as atomic records and lets apps compose
-those records into event sponsors or other ecosystem listings.
+This package stores company and wallet information as atomic records and lets
+apps compose those records into event sponsors, wallet directories, or other
+ecosystem listings.
 
 The package owns:
 
 - canonical company records
+- canonical wallet records and wallet filter tags
 - canonical imported company assets
+- canonical imported wallet icon assets
 - selectors for reading company data and logos
 - audit tooling for registry and asset completeness
 
@@ -21,7 +25,8 @@ The package does not own app-specific augmentation.
 There are two layers:
 
 1. atomic company data
-2. composable app-level references
+2. atomic wallet data
+3. composable app-level references
 
 Atomic company data lives in a single company record and includes:
 
@@ -38,6 +43,18 @@ packages/ecosystem-data/src/companies/records/<company-slug>.ts
 
 The registry composes those atomic modules into the exported lookups and
 selectors.
+
+Atomic wallet data lives in:
+
+```text
+packages/ecosystem-data/src/wallets/
+```
+
+Wallet records include researched wallet identity, descriptions, website URLs,
+platforms, categories, feature tags, and icon assets. Apps may still compose
+runtime-only data around those records. For example, `apps/web` uses The Grid as
+the live wallet candidate and URL list, then hydrates the page from these shared
+wallet records instead of trusting Grid metadata for filters or logos.
 
 Composable event or campaign data should live in the consuming app and reference
 those company records by `companyId`. For `apps/accelerate`, the JSON files
@@ -61,6 +78,12 @@ packages/ecosystem-data/assets/companies/jito/
 ```
 
 Do not add new files to a shared flat logo directory.
+
+Wallet icons live under:
+
+```text
+packages/ecosystem-data/assets/wallets/
+```
 
 ## Logo naming rules
 
@@ -178,6 +201,7 @@ Examples:
 - sort order for a specific page
 - curated logo choice for one page or one theme treatment
 - app-only marketing copy
+- runtime-only wallet discovery metadata from The Grid
 
 ## Using ecosystem assets
 
