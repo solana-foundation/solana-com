@@ -17,6 +17,9 @@ export const rpcRegionOptions = [
 
 export const rpcInfraOptions = [
   { label: "All", value: "all" },
+  { label: "TSW", value: "tsw" },
+  { label: "LAT", value: "lat" },
+  { label: "AWS", value: "aws" },
   { label: "GCP", value: "gcp" },
 ] as const;
 

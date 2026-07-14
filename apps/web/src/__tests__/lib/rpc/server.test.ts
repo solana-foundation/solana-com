@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { rpcMethodOptions } from "@/app/[locale]/data/data-config";
+import {
+  rpcInfraOptions,
+  rpcMethodOptions,
+} from "@/app/[locale]/data/data-config";
 import {
   buildRpcAvgLatencyQuery,
   buildRpcP95LatencyQuery,
@@ -28,12 +31,31 @@ describe("RPC latency query options", () => {
     expect(methods.has("getTransactionRecent")).toBe(true);
   });
 
-  it("accepts gcp infra and falls back for unknown infra", () => {
+  it("exposes the reviewed RPC infrastructure filters in preference order", () => {
+    expect(rpcInfraOptions.map((option) => option.value)).toEqual([
+      "all",
+      "tsw",
+      "lat",
+      "aws",
+      "gcp",
+    ]);
+  });
+
+  it("accepts reviewed infra and falls back for unknown infra", () => {
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=tsw")).infra,
+    ).toBe("tsw");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=lat")).infra,
+    ).toBe("lat");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=aws")).infra,
+    ).toBe("aws");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=gcp")).infra,
     ).toBe("gcp");
     expect(
-      parseRpcLatencyQueryOptions(new URLSearchParams("infra=aws")).infra,
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=unknown")).infra,
     ).toBe("all");
   });
 });
@@ -44,18 +66,18 @@ describe("RPC Prometheus queries", () => {
   });
 
   it("threads selected infra into percentile queries", () => {
-    expect(buildRpcP95LatencyQuery({ infra: "gcp" })).toContain('infra=~"gcp"');
-    expect(buildRpcP95LatencyQuery({ infra: "gcp" })).toContain(
+    expect(buildRpcP95LatencyQuery({ infra: "lat" })).toContain('infra=~"lat"');
+    expect(buildRpcP95LatencyQuery({ infra: "lat" })).toContain(
       "histogram_quantile(0.95",
     );
   });
 
   it("computes success rate as success over all requests", () => {
-    const query = buildRpcSuccessRateQuery({ infra: "gcp" });
+    const query = buildRpcSuccessRateQuery({ infra: "aws" });
 
     expect(query).toContain("rpc_requests_total");
     expect(query).toContain('status="success"');
-    expect(query).toContain('infra=~"gcp"');
+    expect(query).toContain('infra=~"aws"');
     expect(query).not.toContain("error_kind");
     expect(query).toContain("or on(provider) (0 *");
   });
