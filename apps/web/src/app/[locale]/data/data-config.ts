@@ -6,13 +6,26 @@ export const rangeOptions = [
 ] as const;
 
 export const rpcRegionOptions = [
-  { label: "us-east4", value: "us-east4" },
-  { label: "us-west2", value: "us-west2" },
-  { label: "europe-west2", value: "europe-west2" },
-  { label: "europe-west3", value: "europe-west3" },
-  { label: "asia-northeast3", value: "asia-northeast3" },
-  { label: "asia-northeast1", value: "asia-northeast1" },
-  { label: "asia-southeast1", value: "asia-southeast1" },
+  { label: "All", sourceValue: ".*", value: "all" },
+  { label: "us-east4", sourceValue: "us-east4", value: "us-east4" },
+  { label: "us-west2", sourceValue: "us-west2", value: "us-west2" },
+  { label: "europe-west2", sourceValue: "europe-west2", value: "europe-west2" },
+  { label: "europe-west3", sourceValue: "europe-west3", value: "europe-west3" },
+  {
+    label: "asia-northeast3",
+    sourceValue: "asia-northeast3",
+    value: "asia-northeast3",
+  },
+  {
+    label: "asia-northeast1",
+    sourceValue: "asia-northeast1",
+    value: "asia-northeast1",
+  },
+  {
+    label: "asia-southeast1",
+    sourceValue: "asia-southeast1",
+    value: "asia-southeast1",
+  },
 ] as const;
 
 export const rpcInfraOptions = [
@@ -42,7 +55,7 @@ export const rpcMethodOptions = [
 ] as const;
 
 export const defaultRpcInfra = "all";
-export const defaultRpcRegion = "us-east4";
+export const defaultRpcRegion = "all";
 export const defaultRpcMethod = "getLatestBlockhash";
 export const rpcLatencyRangeHours = 6;
 
@@ -51,13 +64,28 @@ export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type ProviderName = string;
 
+const rpcRegionParamAliases: Partial<Record<string, RpcLatencyRegion>> = {
+  ".*": "all",
+};
+
 const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
   latitude: "lat",
   terraswitch: "tsw",
 };
 
+export function normalizeRpcRegionParam(value: string | null) {
+  return value ? (rpcRegionParamAliases[value] ?? value) : value;
+}
+
 export function normalizeRpcInfraParam(value: string | null) {
   return value ? (rpcInfraParamAliases[value] ?? value) : value;
+}
+
+export function getRpcRegionSourceValue(value: RpcLatencyRegion) {
+  return (
+    rpcRegionOptions.find((option) => option.value === value)?.sourceValue ??
+    value
+  );
 }
 
 export function getRpcInfraSourceValue(value: RpcLatencyInfra) {

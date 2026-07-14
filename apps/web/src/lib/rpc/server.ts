@@ -4,7 +4,10 @@ import {
   defaultRpcInfra,
   defaultRpcMethod,
   defaultRpcRegion,
+  getRpcInfraSourceValue,
+  getRpcRegionSourceValue,
   normalizeRpcInfraParam,
+  normalizeRpcRegionParam,
   rpcInfraOptions,
   rpcLatencyRangeHours,
   rpcMethodOptions,
@@ -136,7 +139,7 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
       | RpcLatencyProvider
       | undefined,
     region: parseAllowedValue(
-      params.get("region"),
+      normalizeRpcRegionParam(params.get("region")),
       regionSet,
       defaultRpcRegion,
     ) as RpcLatencyRegion,
@@ -266,7 +269,7 @@ function buildLabelSelector(
 ) {
   const matchers: PrometheusLabelMatcher[] = [
     ["method", "=", method],
-    ["region", "=", region],
+    ["region", "=~", getRpcRegionMatcher(region)],
     ["infra", "=~", getRpcInfraMatcher(infra)],
   ];
 
@@ -280,7 +283,11 @@ function buildLabelSelector(
 }
 
 function getRpcInfraMatcher(infra: RpcLatencyInfra) {
-  return infra === "all" ? ".*" : infra;
+  return getRpcInfraSourceValue(infra);
+}
+
+function getRpcRegionMatcher(region: RpcLatencyRegion) {
+  return getRpcRegionSourceValue(region);
 }
 
 function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {

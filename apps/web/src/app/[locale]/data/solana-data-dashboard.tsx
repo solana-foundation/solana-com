@@ -54,6 +54,7 @@ import {
   metricColors,
   normalizeRpcInfraParam,
   normalizeProviderName,
+  normalizeRpcRegionParam,
   providerColors,
   rangeOptions,
   rpcInfraOptions,
@@ -357,7 +358,7 @@ export function SolanaDataDashboard() {
         {t("footer.rpcFilter", {
           infra: getRpcInfraLabel(rpcInfra),
           method: rpcMethod,
-          region: rpcRegion,
+          region: getRpcRegionLabel(rpcRegion),
         })}
       </span>
     ) : (
@@ -2233,8 +2234,10 @@ function parseRpcMethod(value: string | null): RpcLatencyMethod {
 }
 
 function parseRpcRegion(value: string | null): RpcLatencyRegion {
-  return rpcRegionOptions.some((option) => option.value === value)
-    ? (value as RpcLatencyRegion)
+  const normalizedValue = normalizeRpcRegionParam(value);
+
+  return rpcRegionOptions.some((option) => option.value === normalizedValue)
+    ? (normalizedValue as RpcLatencyRegion)
     : defaultRpcRegion;
 }
 
@@ -2310,6 +2313,12 @@ function getProviderColor(providerName: ProviderName) {
 function getRpcInfraLabel(value: RpcLatencyInfra) {
   return (
     rpcInfraOptions.find((option) => option.value === value)?.label ?? value
+  );
+}
+
+function getRpcRegionLabel(value: RpcLatencyRegion) {
+  return (
+    rpcRegionOptions.find((option) => option.value === value)?.label ?? value
   );
 }
 
