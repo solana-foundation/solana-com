@@ -203,14 +203,18 @@ export const WALLET_COMPANY_ALIASES: Record<string, string> = {
   coinbase: "coinbase",
   "coinbase-wallet": "coinbase",
   dynamic: "dynamic",
+  fireblocks: "fireblocks",
   jupiter: "jupiter",
   "jupiter-mobile": "jupiter",
   phantom: "phantom",
+  ryder: "ryder",
   safepal: "safepal-wallet",
   "safepal-wallet": "safepal-wallet",
   solflare: "solflare",
+  squads: "squads",
   walletconnect: "walletconnect",
   "wallet-connect": "walletconnect",
+  zerion: "zerion",
 };
 
 export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
@@ -224,21 +228,25 @@ export const WALLET_OVERRIDE_ALIASES: Record<string, string> = {
   coinbase: "coinbase",
   "coinbase-wallet": "coinbase",
   "coinbase-developer-platform": "cdp",
+  crossmint: "crossmint-non-custodial",
   "exodus-wallet": "exodus",
+  fireblocks: "fireblocks-embedded",
   fuse: "fuse",
   "fuse-wallet": "fuse",
   "jupiter-mobile": "jupiter",
   metamask: "metamask",
   "meta-mask": "metamask",
   nightly: "nightly",
+  paypal: "paypal-cryptocurrency-services",
   phantom: "phantom",
   solflare: "solflare",
+  squads: "squadsx",
   "trezor-safe-5": "trezor",
   walletconnect: "walletconnect",
   "wallet-connect": "walletconnect",
 };
 
-export const curatedWalletOverrides = Object.fromEntries(
+const legacyWalletOverrides = Object.fromEntries(
   walletData.map((wallet): [string, CuratedWalletOverride] => [
     normalizeWalletKey(wallet.name),
     {
@@ -253,6 +261,80 @@ export const curatedWalletOverrides = Object.fromEntries(
     },
   ]),
 ) as Record<string, CuratedWalletOverride>;
+
+const walletDirectoryOverrides = {
+  "fireblocks-embedded": {
+    canonicalName: "Fireblocks Embedded Wallets",
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "non_custodial",
+      "mpc",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Embedded wallet infrastructure with MPC signing and native web and mobile SDKs for businesses",
+    website: "https://www.fireblocks.com/platforms/embedded-wallets",
+    lastVerified: "2026-07-14",
+  },
+  gate: {
+    canonicalName: "Gate Wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome"],
+    features: ["non_custodial", "buy_crypto", "sell_crypto", "multi_chain"],
+    description:
+      "Self-custody multi-chain wallet for swaps, transfers, earning, and dApp access",
+    website: "https://web3.gate.com/",
+    lastVerified: "2026-07-14",
+  },
+  kraken: {
+    canonicalName: "Kraken Wallet",
+    category: "consumer",
+    platforms: ["ios", "android"],
+    features: ["non_custodial", "hold_nfts", "open_source", "multi_chain"],
+    description:
+      "Self-custody multi-chain wallet for managing crypto, NFTs, DeFi positions, and Solana dApps",
+    website: "https://www.kraken.com/wallet",
+    lastVerified: "2026-07-14",
+  },
+  "paypal-cryptocurrency-services": {
+    canonicalName: "PayPal Cryptocurrency Services",
+    category: "payments",
+    platforms: ["ios", "web"],
+    features: ["custodial", "buy_crypto", "sell_crypto", "multi_chain"],
+    description:
+      "PayPal crypto wallet services for buying, selling, holding, transferring, and checking out with supported cryptocurrencies",
+    website: "https://www.paypal.com/us/digital-wallet/manage-money/crypto",
+    lastVerified: "2026-07-14",
+  },
+  squadsx: {
+    canonicalName: "SquadsX",
+    category: "institutional",
+    platforms: ["chrome"],
+    features: ["non_custodial", "solana_native", "multi_sig"],
+    description:
+      "Browser extension that lets Squads multisigs connect to Solana dApps while retaining multisig transaction approvals",
+    website:
+      "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
+    lastVerified: "2026-07-14",
+  },
+  zerion: {
+    canonicalName: "Zerion Wallet",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "web"],
+    features: ["non_custodial", "buy_crypto", "hold_nfts", "multi_chain"],
+    description:
+      "Self-custody wallet for Solana, Ethereum, and major EVM networks with portfolio tracking, swaps, and NFT support",
+    website: "https://zerion.io/",
+    lastVerified: "2026-07-14",
+  },
+} satisfies Record<string, CuratedWalletOverride>;
+
+export const curatedWalletOverrides = {
+  ...legacyWalletOverrides,
+  ...walletDirectoryOverrides,
+} as Record<string, CuratedWalletOverride>;
 
 export function getCuratedWalletOverride(...names: Array<string | undefined>) {
   for (const name of names) {

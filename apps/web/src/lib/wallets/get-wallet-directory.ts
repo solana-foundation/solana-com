@@ -509,7 +509,7 @@ function normalizeGridProduct(
 
   return {
     id: product.id ?? product.root?.slug ?? normalizeWalletKey(productName),
-    name: company?.name ?? override?.canonicalName ?? productName,
+    name: override?.canonicalName ?? company?.name ?? productName,
     slug: normalizeWalletKey(
       company?.slug ?? product.root?.slug ?? productName,
     ),
