@@ -42,7 +42,7 @@ export async function GET() {
     "- The full corpus in a single file: https://solana.com/llms-full.txt",
     "- Scoped indexes exist per section, e.g.",
     "  https://solana.com/docs/payments/llms.txt or",
-    "  https://solana.com/docs/tokenization/llms.txt — prefer these when",
+    "  https://solana.com/docs/tokenization/llms.txt - prefer these when",
     "  working on a single task to save context.",
     "- If you are a coding agent, install the official Solana skill for",
     "  current APIs and conventions: `npx skills add",
