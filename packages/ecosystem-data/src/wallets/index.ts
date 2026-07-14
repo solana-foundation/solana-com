@@ -1,5 +1,8 @@
 import { walletData } from "./wallet-data";
 import defaultWalletIcon from "../../assets/wallets/wallet-placeholder-icon.webp";
+import nightlyIcon from "../../assets/wallets/icons/nightly.webp";
+import ryderIcon from "../../assets/wallets/icons/ryder.webp";
+import safepalIcon from "../../assets/wallets/icons/safepal.webp";
 
 export { walletData } from "./wallet-data";
 
@@ -366,6 +369,25 @@ const walletDirectoryOverrides = {
     website: "https://www.kraken.com/wallet",
     lastVerified: "2026-07-14",
   },
+  nightly: {
+    canonicalName: "Nightly",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge"],
+    features: [
+      "non_custodial",
+      "te",
+      "hold_nfts",
+      "social_recovery",
+      "staking",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Self-custody multi-chain wallet for Solana, Sui, Aptos, and EVM with staking, NFTs, and Ledger support",
+    website: "https://nightly.app/",
+    iconUrl: resolveIconUrl(nightlyIcon),
+    lastVerified: "2026-07-14",
+  },
   "paypal-cryptocurrency-services": {
     canonicalName: "PayPal Cryptocurrency Services",
     category: "payments",
@@ -453,6 +475,43 @@ const walletDirectoryOverrides = {
     description:
       "Embedded wallet and authentication infrastructure with configurable custody, policy controls, fiat onramps, cloud recovery, and Solana gas sponsorship",
     website: "https://www.privy.io/",
+    lastVerified: "2026-07-14",
+  },
+  ryder: {
+    canonicalName: "Ryder",
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "social_recovery",
+      "staking",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Seed-phrase-free hardware wallet with TapSafe recovery and a companion app for SPL tokens and SOL staking",
+    website: "https://ryder.id/",
+    iconUrl: resolveIconUrl(ryderIcon),
+    lastVerified: "2026-07-14",
+  },
+  safepal: {
+    canonicalName: "SafePal",
+    category: "hardware",
+    platforms: ["ios", "android", "chrome", "firefox", "edge", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "staking",
+      "open_source",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Hardware wallet family with companion mobile app and browser extension for SOL staking, swaps, and NFTs across 200+ chains",
+    website: "https://www.safepal.com/",
+    iconUrl: resolveIconUrl(safepalIcon),
     lastVerified: "2026-07-14",
   },
   squadsx: {
