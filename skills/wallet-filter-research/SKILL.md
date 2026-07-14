@@ -34,9 +34,10 @@ node skills/wallet-filter-research/scripts/fetch_grid_wallets.mjs
 ```
 
 This returns live Solana wallet products as `{ companyNames, urls }` pairs.
-Compare them against `curatedWalletOverrides`, `WALLET_OVERRIDE_ALIASES`, and
-`WALLET_COMPANY_ALIASES` in `packages/ecosystem-data/src/wallets` to identify
-new, renamed, or changed wallet products.
+Compare them against the `walletData` records in
+`packages/ecosystem-data/src/wallets/wallet-data.ts` — matching on record slug,
+`name`, and each record's `aliases` — to identify new, renamed, or changed
+wallet products.
 
 The Grid is discovery input only:
 
@@ -48,8 +49,8 @@ The Grid is discovery input only:
   the candidate URL list is sourced through The Grid.
 
 When the request is a full refresh, research every wallet surfaced by The Grid
-plus every local curated override/fallback wallet — not just products that are
-new or renamed.
+plus every local `walletData` record — not just products that are new or
+renamed.
 
 ## Step 2: Research each wallet independently on the web
 
@@ -123,10 +124,10 @@ research note does not get written.
 ### Icons
 
 - Icons are part of the wallet data set. For every record, either import a
-  verified icon from `packages/ecosystem-data/assets/wallets/icons/*.webp`,
-  reuse a verified canonical company mark via `WALLET_COMPANY_ALIASES`, or
-  intentionally fall back to `DEFAULT_WALLET_ICON_URL` when no reliable icon can
-  be verified.
+  verified icon from `packages/ecosystem-data/assets/wallets/icons/*.webp` and
+  set it as the record's `icon`, link a verified canonical company mark by
+  setting the record's `companyId`, or intentionally omit `icon` so the app
+  falls back to the placeholder (`DEFAULT_WALLET_ICON`).
 - During web research, pull every image version available for each wallet from
   official sources: favicon and apple-touch icons, app icons from App Store /
   Google Play / Chrome Web Store / Firefox Add-ons listings, Open Graph and
@@ -154,21 +155,24 @@ new filter keys. Then, for each researched wallet:
   wallet.
 - Check every applicable filter in the taxonomy — category, platforms, and every
   feature — not only newly added features.
-- Update or add the record in
-  `packages/ecosystem-data/src/wallets/wallet-data.ts` or the explicit overrides
-  in `packages/ecosystem-data/src/wallets/index.ts`: name, canonical name,
-  description, website, category, platforms, features, `lastVerified`, aliases,
-  and icon.
+- Update or add the record in the canonical `walletData` map in
+  `packages/ecosystem-data/src/wallets/wallet-data.ts`: name, description,
+  website, category, platforms, features, `lastVerified`, `aliases`,
+  `companyId`, and icon. There are no override layers — each wallet is exactly
+  one record, keyed by slug.
 - Remove any existing true feature/platform/category claim that cannot be
   re-verified from current primary-source evidence.
 - Add new feature/platform/category values only when a primary source explicitly
   supports them.
 - Update `lastVerified` to the research date only for wallets whose filters were
   reviewed end-to-end.
-- Add or adjust `WALLET_COMPANY_ALIASES` only when a Grid product maps cleanly
-  to an existing `packages/ecosystem-data/src/companies` company slug.
-- Add or adjust `WALLET_OVERRIDE_ALIASES` when Grid naming differs from the
-  curated wallet name.
+- Set a record's `companyId` only when the wallet maps cleanly to an existing
+  `packages/ecosystem-data/src/companies` company slug.
+- Add Grid or alternate product names to the record's `aliases` when Grid naming
+  differs from the record slug and name.
+- New filter keys or label changes go in
+  `packages/ecosystem-data/src/wallets/taxonomy.ts` (and must stay in sync with
+  `references/filter-taxonomy.md`).
 - If a wallet has no local company record but should use canonical Solana
   branding assets, add it to `packages/ecosystem-data` following that package's
   README and audit command.
@@ -177,28 +181,32 @@ new filter keys. Then, for each researched wallet:
 
 All wallet directory source data lives in `packages/ecosystem-data`:
 
-- Wallet records, aliases, filter taxonomy, default icon export, and
-  runtime-facing wallet types: `packages/ecosystem-data/src/wallets`.
+- Canonical wallet records (one record per wallet, keyed by slug, with
+  per-record `aliases` and `companyId`):
+  `packages/ecosystem-data/src/wallets/wallet-data.ts`.
+- Filter taxonomy (category/platform/feature metadata and types):
+  `packages/ecosystem-data/src/wallets/taxonomy.ts`.
 - Wallet icon assets: `packages/ecosystem-data/assets/wallets/icons/*.webp`;
   default icon:
   `packages/ecosystem-data/assets/wallets/wallet-placeholder-icon.webp`.
 - Company identity and logos: `packages/ecosystem-data/src/companies` and
   `packages/ecosystem-data/assets/companies`.
 
-`apps/web` must not own wallet records, icon assets, aliases, filter claims, or
-researched copy. Edit `apps/web` wallet files only for route, metadata,
-rendering, query-state, or package data-loading integration changes:
+The package exports data and types only. All methods and interpretation —
+directory entry building, filtering, label derivation, icon fallback chains,
+query-state, and rendering — live in the app route directory
+`apps/web/src/app/[locale]/wallets/`:
 
-- Page entrypoint: `apps/web/src/app/[locale]/wallets/page.tsx`.
-- Server data integration: `apps/web/src/lib/wallets/get-wallet-directory.ts`.
-- Directory UI: `apps/web/src/components/wallets/WalletDirectory.tsx` and its
-  styles.
-- Legacy compatibility re-export only (no source data):
-  `apps/web/src/data/wallets/wallet-directory.ts`.
+- Page entrypoint: `page.tsx`.
+- Server data integration: `get-wallet-directory.ts`.
+- Label maps, directory types, and shared helpers: `wallet-directory.ts`.
+- Directory UI: `WalletDirectory.tsx` and its styles.
 
-If the request touches the `/wallets` page experience, inspect those files
-together before deciding whether the change belongs in `apps/web` or
-`packages/ecosystem-data`.
+This skill only updates data in `packages/ecosystem-data/src/wallets`; the app
+route then displays it. `apps/web` must not own wallet records, icon assets,
+aliases, filter claims, or researched copy, and `packages/ecosystem-data` must
+not own display or filtering logic. Edit the `apps/web` wallet files only for
+route, metadata, rendering, query-state, or data-loading integration changes.
 
 ### Validation
 

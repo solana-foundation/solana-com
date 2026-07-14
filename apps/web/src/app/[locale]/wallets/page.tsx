@@ -1,6 +1,6 @@
 import { getIndexMetadata } from "@/app/metadata";
-import { WalletDirectory } from "@/components/wallets/WalletDirectory";
-import { getWalletDirectoryData } from "@/lib/wallets/get-wallet-directory";
+import { WalletDirectory } from "./WalletDirectory";
+import { getWalletDirectoryData } from "./get-wallet-directory";
 
 type Props = { params: Promise<{ locale: string }> };
 

@@ -48,14 +48,22 @@ Atomic wallet data lives in:
 
 ```text
 packages/ecosystem-data/src/wallets/
+├── wallet-data.ts   # canonical wallet records, keyed by slug (single source of truth)
+├── taxonomy.ts      # category/platform/feature metadata (labels + descriptions)
+└── index.ts         # data-only re-exports
 ```
 
 Wallet records include researched wallet identity, descriptions, website URLs,
-platforms, categories, feature tags, and icon assets. Apps should load wallet
-directory entries from these shared wallet records instead of fetching,
-hydrating, or displaying external discovery metadata at runtime. The wallet
-research workflow uses The Grid as an offline candidate and URL-list source, and
-the live wallet page acknowledges that source without using it as runtime data.
+platforms, categories, feature tags, and icon assets. There are no override
+layers or standalone alias maps: each record carries its own optional
+`companyId` (link into `src/companies`) and `aliases` (alternate product names).
+This module exports data and types only — directory entry building, filtering,
+label lookup, and icon fallback logic live in the consuming app
+(`apps/web/src/app/[locale]/wallets/`). Apps should load wallet directory
+entries from these shared wallet records instead of fetching, hydrating, or
+displaying external discovery metadata at runtime. The wallet research workflow
+uses The Grid as an offline candidate and URL-list source, and the live wallet
+page acknowledges that source without using it as runtime data.
 
 Composable event or campaign data should live in the consuming app and reference
 those company records by `companyId`. For `apps/accelerate`, the JSON files

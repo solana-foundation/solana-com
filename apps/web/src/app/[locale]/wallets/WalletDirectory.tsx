@@ -24,7 +24,7 @@ import {
   type WalletDirectoryEntry,
   type WalletFeature,
   type WalletPlatform,
-} from "@/data/wallets/wallet-directory";
+} from "./wallet-directory";
 import styles from "./WalletDirectory.module.scss";
 
 type DirectoryView = "grid" | "list";

@@ -5,17 +5,17 @@ import {
   getCompanyLogo,
   getCompanyLogoSrc,
   resolveImportedAssetSrc,
+  walletData,
   type CompanyRecord,
+  type WalletRecord,
 } from "@workspace/ecosystem-data";
 import {
   DEFAULT_WALLET_ICON_URL,
-  curatedWalletOverrides,
-  getWalletCompanyId,
+  resolveWalletAssetSrc,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
-} from "@/data/wallets/wallet-directory";
+} from "./wallet-directory";
 
-const WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
 const SOLANA_MAINNET = "Solana Mainnet";
 const ECOSYSTEM_WALLET_DATA_SOURCES: WalletDirectoryEntry["dataSources"] = [
   "ecosystem-data",
@@ -31,27 +31,25 @@ function getCompanyMarkSrc(company: CompanyRecord) {
     : undefined;
 }
 
-function getCompanyForWallet(...names: Array<string | undefined>) {
-  const companyId = getWalletCompanyId(...names);
-  return companyId ? getCompanyBySlug(companyId) : undefined;
-}
-
 // Ordered best-first: square company mark, researched wallet icon, company
 // logos, then the placeholder. The client walks this chain when a candidate
 // fails to load, so every entry ends with a guaranteed local asset.
 function getWalletIconUrls(
   company: CompanyRecord | undefined,
-  overrideIconUrl?: string,
+  recordIcon: WalletRecord["icon"],
 ) {
+  const recordIconUrl = recordIcon
+    ? resolveWalletAssetSrc(recordIcon)
+    : undefined;
   const candidates = company
     ? [
         getCompanyMarkSrc(company),
-        overrideIconUrl,
+        recordIconUrl,
         getCompanyLogoSrc(company, { theme: "dark" }),
         getCompanyLogoSrc(company),
         DEFAULT_WALLET_ICON_URL,
       ]
-    : [overrideIconUrl, DEFAULT_WALLET_ICON_URL];
+    : [recordIconUrl, DEFAULT_WALLET_ICON_URL];
 
   return [...new Set(candidates.filter((url): url is string => Boolean(url)))];
 }
@@ -60,30 +58,30 @@ function sortWallets(wallets: WalletDirectoryEntry[]) {
   return [...wallets].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function buildWalletEntries(
-  overrides: typeof curatedWalletOverrides = curatedWalletOverrides,
-): WalletDirectoryEntry[] {
+function buildWalletEntries(): WalletDirectoryEntry[] {
   return sortWallets(
-    Object.entries(overrides).map(([slug, wallet]) => {
-      const company = getCompanyForWallet(slug, wallet.canonicalName);
-      const iconUrls = getWalletIconUrls(company, wallet.iconUrl);
+    Object.entries(walletData).map(([slug, record]) => {
+      const company = record.companyId
+        ? getCompanyBySlug(record.companyId)
+        : undefined;
+      const iconUrls = getWalletIconUrls(company, record.icon);
 
       return {
         id: slug,
-        name: wallet.canonicalName ?? company?.name ?? slug,
+        name: record.name,
         slug,
         companyId: company?.id,
-        category: wallet.category,
-        categories: [wallet.category],
-        platforms: wallet.platforms,
-        features: wallet.features,
-        description: wallet.description,
-        website: wallet.website,
+        category: record.category,
+        categories: [record.category],
+        platforms: record.platforms,
+        features: record.features,
+        description: record.description,
+        website: record.website,
         iconUrl: iconUrls[0],
         iconUrls,
         supportedChains: [SOLANA_MAINNET],
         supportedAssets: [],
-        lastVerified: wallet.lastVerified,
+        lastVerified: record.lastVerified,
         dataSources: [...ECOSYSTEM_WALLET_DATA_SOURCES],
       };
     }),
@@ -97,5 +95,3 @@ export async function getWalletDirectoryData(): Promise<WalletDirectoryData> {
     source: "ecosystem-data",
   };
 }
-
-export { WEEK_IN_SECONDS as WALLET_DIRECTORY_REVALIDATE_SECONDS };

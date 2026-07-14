@@ -1,7 +1,9 @@
 # Wallet Filter Taxonomy
 
 Use these definitions when researching wallet functionality for
-`packages/ecosystem-data/src/wallets`.
+`packages/ecosystem-data/src/wallets`. The machine-readable version (keys,
+labels, descriptions) lives in
+`packages/ecosystem-data/src/wallets/taxonomy.ts`; keep the two in sync.
 
 ## Categories
 
