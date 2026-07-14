@@ -301,6 +301,10 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+// Logos above this width-to-height ratio are wordmarks: they turn illegible
+// when squeezed into a square tile, so they get a wide tile instead.
+const WORDMARK_ASPECT_RATIO = 1.45;
+
 function WalletLogo({
   wallet,
   size = "default",
@@ -309,6 +313,15 @@ function WalletLogo({
   size?: "default" | "small";
 }) {
   const [failed, setFailed] = useState(false);
+  const [isWordmark, setIsWordmark] = useState(false);
+
+  const measure = (image: HTMLImageElement) => {
+    if (image.naturalWidth && image.naturalHeight) {
+      setIsWordmark(
+        image.naturalWidth / image.naturalHeight > WORDMARK_ASPECT_RATIO,
+      );
+    }
+  };
 
   if (!wallet.iconUrl || failed) {
     return (
@@ -326,9 +339,15 @@ function WalletLogo({
       alt=""
       width={size === "small" ? 40 : 56}
       height={size === "small" ? 40 : 56}
-      className={`${styles.logo} ${styles[`logo-${size}`]}`}
+      className={`${styles.logo} ${styles[`logo-${size}`]}${isWordmark ? ` ${styles.logoWide}` : ""}`}
       loading="lazy"
       decoding="async"
+      ref={(node) => {
+        if (node?.complete) {
+          measure(node);
+        }
+      }}
+      onLoad={(event) => measure(event.currentTarget)}
       onError={() => setFailed(true)}
     />
   );

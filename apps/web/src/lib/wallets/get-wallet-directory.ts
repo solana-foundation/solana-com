@@ -310,6 +310,13 @@ function selectWebsite(product: GridProduct) {
   );
 }
 
+function selectGridIcon(product: GridProduct) {
+  const media = [...(product.media ?? []), ...(product.root?.media ?? [])];
+  return (
+    media.find((item) => item.mediaType?.slug === "icon")?.url ?? undefined
+  );
+}
+
 function selectGridMedia(product: GridProduct) {
   const media = [...(product.media ?? []), ...(product.root?.media ?? [])];
   const preferred =
@@ -319,6 +326,16 @@ function selectGridMedia(product: GridProduct) {
     media[0];
 
   return preferred?.url ?? undefined;
+}
+
+// Square marks scale to the directory's fixed logo tiles; wordmark-shaped
+// logos become illegible there, so only an explicit `kind: "mark"` qualifies
+// (getCompanyLogo falls back to the default logo when no mark exists).
+function getCompanyMarkSrc(company: CompanyRecord) {
+  const mark = getCompanyLogo(company, { kind: "mark" });
+  return mark?.kind === "mark"
+    ? resolveImportedAssetSrc(mark.source)
+    : undefined;
 }
 
 function supportedChainsFromGrid(product: GridProduct) {
@@ -464,6 +481,7 @@ function normalizeGridProduct(
     override?.canonicalName,
   );
   const company = companyId ? getCompanyBySlug(companyId) : undefined;
+  const companyMark = company ? getCompanyMarkSrc(company) : undefined;
   const companyLogo = company
     ? getCompanyLogoSrc(company, { theme: "dark" })
     : undefined;
@@ -511,9 +529,11 @@ function normalizeGridProduct(
       company?.profile?.links?.website ??
       selectWebsite(product),
     iconUrl:
+      companyMark ??
+      selectGridIcon(product) ??
+      override?.iconUrl ??
       companyLogo ??
       fallbackLogo ??
-      override?.iconUrl ??
       selectGridMedia(product),
     sourceUrl: `https://thegrid.id/profiles/${product.root?.slug ?? normalizeWalletKey(productName)}`,
     docsUrl: selectUrl(product, "documentation"),
@@ -532,6 +552,7 @@ function fallbackWallets(): WalletDirectoryEntry[] {
     Object.entries(curatedWalletOverrides).map(([slug, wallet]) => {
       const companyId = getWalletCompanyId(slug, wallet.canonicalName);
       const company = companyId ? getCompanyBySlug(companyId) : undefined;
+      const companyMark = company ? getCompanyMarkSrc(company) : undefined;
       const companyLogo = company
         ? getCompanyLogoSrc(company, { theme: "dark" })
         : undefined;
@@ -548,7 +569,7 @@ function fallbackWallets(): WalletDirectoryEntry[] {
         features: wallet.features,
         description: wallet.description,
         website: wallet.website,
-        iconUrl: companyLogo ?? fallbackLogo ?? wallet.iconUrl,
+        iconUrl: companyMark ?? wallet.iconUrl ?? companyLogo ?? fallbackLogo,
         supportedChains: ["Solana Mainnet"],
         supportedAssets: [],
         lastVerified: wallet.lastVerified,
