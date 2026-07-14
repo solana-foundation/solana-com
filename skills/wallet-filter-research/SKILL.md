@@ -67,6 +67,12 @@ description, website, category, platforms, features, aliases, and icon. Do not
 carry forward previous local values without re-verifying them; wallet
 capabilities change often.
 
+The web research is the source of every field value written in Step 3. For each
+researched wallet, capture working notes — the facts found, the source URL for
+each fact, and the images collected — and build the record from those notes, not
+from memory, The Grid, or the previous record. A field with no supporting
+research note does not get written.
+
 ### Evidence rules
 
 - Prefer explicit support statements over inference. A source saying a wallet
@@ -96,9 +102,16 @@ capabilities change often.
 
 ### Descriptions
 
+- Write every description fresh from the web-research notes for that wallet.
+  Never reuse the existing local description, Grid metadata, or a remembered
+  summary as the starting point — draft from the verified facts gathered in this
+  research pass, then compare against the old description only to decide whether
+  the record changed.
 - Ground descriptions in wallet-specific language and concrete facts from
   official sources — usually two to four verified facts, without copying long
   marketing text verbatim.
+- Every claim in the description must trace to a specific source URL in the
+  research notes. If a sentence cannot be traced to a source, cut it.
 - Do not stitch filter labels together ("self-custody", "multi-chain", "NFTs",
   "dApp access") into a description.
 - Avoid generic filler ("secure", "seamless", "easy", "powerful", "manage your
@@ -135,6 +148,10 @@ capabilities change often.
 Read `references/filter-taxonomy.md` before changing feature mappings or adding
 new filter keys. Then, for each researched wallet:
 
+- Build the record from the Step 2 research notes. Every field written —
+  especially the description — must come from evidence gathered in this research
+  pass, not from the previous record, The Grid, or general knowledge about the
+  wallet.
 - Check every applicable filter in the taxonomy — category, platforms, and every
   feature — not only newly added features.
 - Update or add the record in
