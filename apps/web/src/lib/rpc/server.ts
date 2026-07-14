@@ -4,6 +4,7 @@ import {
   defaultRpcInfra,
   defaultRpcMethod,
   defaultRpcRegion,
+  normalizeRpcInfraParam,
   rpcInfraOptions,
   rpcLatencyRangeHours,
   rpcMethodOptions,
@@ -122,7 +123,7 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
 } {
   return {
     infra: parseAllowedValue(
-      params.get("infra"),
+      normalizeRpcInfraParam(params.get("infra")),
       infraSet,
       defaultRpcInfra,
     ) as RpcLatencyInfra,
@@ -220,7 +221,7 @@ export function buildRpcSuccessRateQuery(options: RpcLatencyQueryOptions = {}) {
 }
 
 export function buildRpcAvgLatencyQuery(options: RpcLatencyQueryOptions = {}) {
-  const selector = buildLabelSelector(options);
+  const selector = buildLabelSelector(options, [["status", "=", "success"]]);
 
   return [
     "1000 *",
@@ -246,7 +247,7 @@ function buildRpcQuantileLatencyQuery(
   quantile: number,
   options: RpcLatencyQueryOptions,
 ) {
-  const selector = buildLabelSelector(options);
+  const selector = buildLabelSelector(options, [["status", "=", "success"]]);
 
   return [
     `1000 * histogram_quantile(${quantile.toFixed(2)},`,

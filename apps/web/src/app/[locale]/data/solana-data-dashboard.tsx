@@ -52,6 +52,7 @@ import {
   defaultRpcMethod,
   defaultRpcRegion,
   metricColors,
+  normalizeRpcInfraParam,
   normalizeProviderName,
   providerColors,
   rangeOptions,
@@ -2218,8 +2219,10 @@ function parseRangeDays(value: string | null) {
 }
 
 function parseRpcInfra(value: string | null): RpcLatencyInfra {
-  return rpcInfraOptions.some((option) => option.value === value)
-    ? (value as RpcLatencyInfra)
+  const normalizedValue = normalizeRpcInfraParam(value);
+
+  return rpcInfraOptions.some((option) => option.value === normalizedValue)
+    ? (normalizedValue as RpcLatencyInfra)
     : defaultRpcInfra;
 }
 

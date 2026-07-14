@@ -16,11 +16,11 @@ export const rpcRegionOptions = [
 ] as const;
 
 export const rpcInfraOptions = [
-  { label: "All", value: "all" },
-  { label: "TSW", value: "tsw" },
-  { label: "LAT", value: "lat" },
-  { label: "AWS", value: "aws" },
-  { label: "GCP", value: "gcp" },
+  { label: "All", sourceValue: ".*", value: "all" },
+  { label: "TSW", sourceValue: "terraswitch", value: "tsw" },
+  { label: "LAT", sourceValue: "latitude", value: "lat" },
+  { label: "AWS", sourceValue: "aws", value: "aws" },
+  { label: "GCP", sourceValue: "gcp", value: "gcp" },
 ] as const;
 
 export const rpcMethodOptions = [
@@ -50,6 +50,23 @@ export type RpcLatencyInfra = (typeof rpcInfraOptions)[number]["value"];
 export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type ProviderName = string;
+
+const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
+  latitude: "lat",
+  terraswitch: "tsw",
+};
+
+export function normalizeRpcInfraParam(value: string | null) {
+  return value ? (rpcInfraParamAliases[value] ?? value) : value;
+}
+
+export function getRpcInfraSourceValue(value: RpcLatencyInfra) {
+  return (
+    rpcInfraOptions.find((option) => option.value === value)?.sourceValue ??
+    value
+  );
+}
+
 export type DashboardTab =
   | "stablecoins"
   | "overview"

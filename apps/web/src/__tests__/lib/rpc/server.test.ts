@@ -35,7 +35,7 @@ describe("RPC latency query options", () => {
     expect(rpcInfraOptions.map((option) => option.value)).toEqual([
       "all",
       "tsw",
-      "lat",
+      "latitude",
       "aws",
       "gcp",
     ]);
@@ -46,8 +46,11 @@ describe("RPC latency query options", () => {
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=tsw")).infra,
     ).toBe("tsw");
     expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=latitude")).infra,
+    ).toBe("latitude");
+    expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=lat")).infra,
-    ).toBe("lat");
+    ).toBe("latitude");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=aws")).infra,
     ).toBe("aws");
@@ -65,9 +68,16 @@ describe("RPC Prometheus queries", () => {
     expect(buildRpcAvgLatencyQuery()).toContain('infra=~".*"');
   });
 
+  it("excludes failed requests from latency queries", () => {
+    expect(buildRpcAvgLatencyQuery()).toContain('status="success"');
+    expect(buildRpcP95LatencyQuery()).toContain('status="success"');
+  });
+
   it("threads selected infra into percentile queries", () => {
-    expect(buildRpcP95LatencyQuery({ infra: "lat" })).toContain('infra=~"lat"');
-    expect(buildRpcP95LatencyQuery({ infra: "lat" })).toContain(
+    expect(buildRpcP95LatencyQuery({ infra: "latitude" })).toContain(
+      'infra=~"latitude"',
+    );
+    expect(buildRpcP95LatencyQuery({ infra: "latitude" })).toContain(
       "histogram_quantile(0.95",
     );
   });
