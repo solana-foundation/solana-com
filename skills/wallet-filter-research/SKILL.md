@@ -1,12 +1,13 @@
 ---
 name: wallet-filter-research
 description:
-  Discover, verify, and maintain Solana wallet products using the canonical
-  local registry in packages/ecosystem-data and current web research. Use when
-  asked to refresh wallet data, find new Solana wallets, add or remove wallets,
-  audit wallet features or platforms, correct stale claims, reconcile wallet
-  aliases or company mappings, update wallet icons, or change the Solana.com
-  wallet directory data-loading or UI integration.
+  Discover, verify, security-screen, and maintain Solana wallet products using
+  the canonical local registry in packages/ecosystem-data and current web
+  research. Use when asked to refresh wallet data, find new Solana wallets, add
+  or remove wallets, check wallets for scam or security concerns, audit wallet
+  features or platforms, correct stale claims, reconcile wallet aliases or
+  company mappings, update wallet icons, or change the Solana.com wallet
+  directory data-loading or UI integration.
 ---
 
 # Wallet Filter Research
@@ -206,6 +207,8 @@ feature mappings. Keep it synchronized with
 
 ### Icons
 
+- Complete an icon-sourcing pass before publishing every new wallet record. A
+  new record is not complete merely because the placeholder renders correctly.
 - Prefer an official square product/app icon over a wordmark or banner. A
   reputable public asset is an acceptable fallback when its provenance and reuse
   rights are clear.
@@ -214,10 +217,126 @@ feature mappings. Keep it synchronized with
 - Store wallet icons as WebP in `packages/ecosystem-data/assets/wallets/icons/`.
 - Reuse a canonical company mark through `companyId` when it accurately
   represents the wallet product.
-- Omit `icon` intentionally when no trustworthy product icon is available; the
-  app will use `DEFAULT_WALLET_ICON`.
+- Omit `icon` only after checking the official media kit, product site,
+  distribution listings, repositories, and canonical company assets. Record the
+  sources checked and why no trustworthy mark was available; the app will then
+  use `DEFAULT_WALLET_ICON` intentionally.
 
-## 4. Reconcile and update the local registry
+## 4. Perform the security and scam check
+
+Run this check for every new candidate before publishing it, for every wallet in
+a full refresh, and whenever a targeted request raises trust or security
+concerns. Complete it before editing the registry.
+
+### Confirm the product identity
+
+1. Match the official domain, legal entity, app-store developer, extension
+   publisher, repository organization, and social accounts where available.
+2. Follow store and download links from the official product site. Treat a
+   similarly named app, token, website, or social account as a separate subject
+   until the identity is proven.
+3. Look for official warnings about fake apps, support accounts, airdrops,
+   migrations, recovery services, and seed-phrase requests.
+4. Record name collisions and impersonation campaigns without attributing them
+   to the official wallet.
+
+### Search for adverse evidence
+
+Search the product name, domain, legal entity, former names, and publisher with
+query families such as:
+
+```text
+"<wallet>" scam OR fraud OR phishing OR malware
+"<wallet>" hacked OR exploit OR breach OR drained
+"<wallet>" vulnerability OR audit OR incident OR disclosure
+"<wallet>" regulator OR warning OR enforcement OR lawsuit
+"<wallet>" frozen funds OR unauthorized transaction OR withdrawal
+site:reddit.com "<wallet>" scam OR hacked OR drained
+site:x.com "<wallet>" scam OR phishing OR hacked
+site:apps.apple.com "<wallet>"
+site:play.google.com "<wallet>"
+site:chromewebstore.google.com "<wallet>"
+```
+
+Use current web search and inspect, when applicable:
+
+- regulator, law-enforcement, court, sanctions, and consumer-warning records
+- official security disclosures, status pages, incident reports, support
+  notices, terms, custody disclosures, and privacy policies
+- reputable security research, vulnerability databases, and technical
+  postmortems
+- app-store publisher details, update history, ratings, and written reviews
+- reputable reporting and corroborated industry coverage
+- social media, Reddit, forums, Trustpilot, and complaint sites
+
+Use social and review sources to detect patterns and leads, not to establish
+fraud by themselves. Open the underlying sources and verify dates, identity, and
+product surface; search-result snippets and automated trust scores are not
+findings.
+
+For young or low-adoption products, check distribution age, update history,
+review volume, repository activity, team or company identity, and availability
+of independent evidence. Classify sparse evidence as `insufficient history`, not
+as proof of safety or fraud.
+
+### Classify each finding
+
+Maintain a security evidence matrix in the working notes:
+
+| Wallet | Finding | Source class and URL | Date | Official product affected? | Corroboration | Assessment | Rationale |
+| ------ | ------- | -------------------- | ---- | -------------------------- | ------------- | ---------- | --------- |
+
+Use these assessments:
+
+- `confirmed harmful`: authoritative or independently reproducible evidence
+  establishes fraud, malware, deliberate theft, or a compromised official
+  distribution artifact
+- `heightened concern`: credible, material evidence raises unresolved custody,
+  solvency, regulatory, security, or operator-integrity concerns
+- `monitor`: a confirmed incident, recurring complaint pattern, or credible
+  allegation exists but does not establish that the official wallet is a scam
+- `insufficient history`: too little independent adoption or operating history
+  exists for a meaningful reputation conclusion
+- `no material signal found`: the completed search found no material adverse
+  evidence; never shorten this to `safe`, `trusted`, or `not a scam`
+
+Separate these cases explicitly:
+
+- malicious behavior by the official wallet or operator
+- compromise of an official app, extension, dependency, or backend
+- an operator security incident that did not affect the wallet
+- losses caused by malicious dApps, exposed keys, social engineering, or user
+  error
+- support, KYC, account-freeze, or service-quality disputes
+- fake products and accounts impersonating a legitimate wallet
+- allegations that remain unverified or contradicted
+
+An audit, bug bounty, app-store presence, funding announcement, or official
+security claim can add context but does not prove that a wallet is safe. A past
+incident also does not prove present fraud; record its scope, date, remediation,
+and whether funds or signing keys were affected.
+
+### Apply the publication gate
+
+- Exclude a new candidate assessed as `confirmed harmful`. For an existing
+  record, present the evidence and recommended removal prominently; do not make
+  an unsupported accusation.
+- Hold a new candidate with unresolved `heightened concern` for manual review.
+  Do not silently publish it because its feature fields are otherwise verified.
+- Publish or retain `monitor` wallets only when the official product identity is
+  clear and the evidence does not establish malicious operation. Report the
+  concern separately from the public description unless the data model has a
+  reviewed field for risk disclosures.
+- Do not reject a wallet solely because of isolated reviews, anonymous posts,
+  low adoption, a domain-age score, or an incident involving an unrelated token,
+  dApp, namesake, or impersonator.
+- Link only to verified first-party domains and official distribution listings.
+  Never substitute a sponsored search result, mirror, or support contact found
+  solely through social media.
+- Date the check and preserve the decisive source URLs in working notes. Repeat
+  the search when evidence is stale, conflicting, or materially incomplete.
+
+## 5. Reconcile and update the local registry
 
 Update the single record in
 `packages/ecosystem-data/src/wallets/wallet-data.ts`. Do not create app-owned
@@ -287,5 +406,9 @@ Summarize:
 - aliases and company mappings changed
 - feature, platform, and category changes
 - icons added, replaced, or intentionally left on the placeholder
+- security disposition for each reviewed wallet, including confirmed incidents,
+  scam or impersonation reports, unresolved concerns, and insufficient history
+- the distinction between official-product findings and third-party dApp,
+  phishing, user-compromise, service-quality, or impersonation reports
 - sources supporting non-obvious claims
 - validation commands and results
