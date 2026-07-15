@@ -65,7 +65,7 @@ export const WALLET_FEATURE_METADATA = {
   },
   sell_crypto: {
     label: "Sell crypto",
-    description: "Lets users sell crypto to fiat or linked accounts.",
+    description: "Lets users directly cash out crypto to a fiat account.",
   },
   get_paid: {
     label: "Get paid",
@@ -94,7 +94,8 @@ export const WALLET_FEATURE_METADATA = {
   },
   spending_limits: {
     label: "Spending limits",
-    description: "Supports programmable spend controls or policy limits.",
+    description:
+      "Provides configurable spend controls or transaction policies.",
   },
   open_source: {
     label: "Open source",

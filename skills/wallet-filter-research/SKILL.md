@@ -111,8 +111,8 @@ begin with the best URL found during discovery. Research outward through:
 
 Build a working evidence matrix before editing:
 
-| Wallet | Field or claim | Source URL | Existing value | Proposed value | Rationale |
-| ------ | -------------- | ---------- | -------------- | -------------- | --------- |
+| Wallet | Filter or claim | Product surface | Source URL | Existing value | Verdict | Proposed value | Rationale |
+| ------ | --------------- | --------------- | ---------- | -------------- | ------- | -------------- | --------- |
 
 Review every wallet field during the current research pass: `name`, `aliases`,
 `companyId`, `category`, `platforms`, `features`, `description`, `website`,
@@ -141,6 +141,45 @@ claims.
 - When no official source exists, third-party evidence may support a field if it
   is current, credible, corroborated where practical, and appropriately caveated
   in the working notes.
+
+### Capability-attribution gate
+
+Treat primary-source evidence as necessary but not sufficient. An official page
+can describe an adjacent service, a third-party rail, or a restriction rather
+than a capability of the wallet record.
+
+Before adding any filter:
+
+1. Identify the actor and product surface that performs the action: the wallet,
+   an integrated provider, a companion product, a payment card or network, an
+   exchange, or the user outside the product.
+2. Restate the evidence using the taxonomy's exact user action. Do not map words
+   that merely sound related to the filter.
+3. Confirm that users can perform that action through the product surface owned
+   by the canonical record. Evidence about a companion product applies only when
+   that product is deliberately included in the same record and the taxonomy
+   definition covers the action.
+4. Distinguish a capability from a constraint. Mandatory ceilings, eligibility
+   rules, compliance restrictions, regional availability, and support policies
+   do not become features merely because an official source documents them.
+5. Mark the filter `unsupported` or `uncertain` when any gate fails; do not add
+   it to the registry.
+
+Apply these hard exclusions:
+
+- Add `sell_crypto` only for a direct, user-initiated off-ramp that converts
+  crypto to fiat and pays a bank, card, or other fiat account. Crypto debit-card
+  spending, point-of-sale conversion, ATM access through a spending card,
+  transfers to an external exchange, and crypto-to-crypto swaps do not qualify.
+- Add `spending_limits` only when a user, team, or administrator can configure
+  or enforce spend controls or transaction policies. Provider-imposed card or
+  ATM limits, regulatory or KYC caps, wallet balances, regional restrictions,
+  and limits changeable only by support do not qualify.
+
+For an “all filters” audit, include every category, platform, and feature key in
+the matrix with a `supported`, `unsupported`, or `uncertain` verdict. Before
+finishing, compare the edited feature list and description against rejected
+filters and remove wording that would reintroduce or imply a rejected claim.
 
 Read `references/filter-taxonomy.md` before changing category, platform, or
 feature mappings. Keep it synchronized with

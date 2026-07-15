@@ -41,8 +41,10 @@ in the Payments category as secondary matches.
 - `blinks_and_actions`: explicit support for Solana Actions or Blinks.
 - `solana_pay`: explicit support for Solana Pay.
 - `buy_crypto`: fiat on-ramp, card/bank purchase, or integrated exchange buy.
-- `sell_crypto`: fiat off-ramp, card/bank withdrawal, or integrated exchange
-  sell.
+- `sell_crypto`: direct, user-initiated fiat off-ramp that converts crypto and
+  pays a bank, card, or other fiat account. Crypto debit-card spending,
+  point-of-sale conversion, ATM access through a spending card, transfers to an
+  external exchange, and crypto-to-crypto swaps are insufficient.
 - `get_paid`: payment acceptance, payment links or requests, merchant checkout,
   invoicing, or documented payout receipt. Generic wallet address receipt alone
   is insufficient.
@@ -53,8 +55,10 @@ in the Payments category as secondary matches.
 - `social_recovery`: account recovery through guardians, social login, email,
   passkeys, or similar recovery flows.
 - `staking`: SOL staking or staking account management.
-- `spending_limits`: policy controls, spend caps, programmable limits, or
-  threshold approvals.
+- `spending_limits`: user-, team-, or administrator-configurable policy
+  controls, spend caps, programmable limits, or threshold approvals.
+  Provider-imposed card or ATM limits, regulatory or KYC caps, wallet balances,
+  regional restrictions, and support-only limit changes are insufficient.
 - `open_source`: relevant wallet app, protocol, or SDK code is public.
 - `hardware`: the wallet is hardware or integrates explicitly with hardware
   wallets.
@@ -70,4 +74,6 @@ in the Payments category as secondary matches.
 
 Use true only when a primary source explicitly supports it. Use false when the
 feature is absent, ambiguous, only user-reported, or only implied by generic
-chain support.
+chain support. Primary evidence must describe a qualifying capability on the
+product surface represented by the wallet record; documentation of an adjacent
+service or a restriction does not qualify by itself.
