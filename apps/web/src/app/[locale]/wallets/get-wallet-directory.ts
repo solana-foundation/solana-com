@@ -1,52 +1,27 @@
 import "server-only";
 
 import {
-  getCompanyBySlug,
-  getCompanyLogo,
-  getCompanyLogoSrc,
-  resolveImportedAssetSrc,
+  DEFAULT_WALLET_ICON,
   walletData,
-  type CompanyRecord,
   type WalletRecord,
-} from "@workspace/ecosystem-data";
+} from "@workspace/ecosystem-data/wallets";
 import {
-  DEFAULT_WALLET_ICON_URL,
-  resolveWalletAssetSrc,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
 } from "./wallet-directory";
 
 const SOLANA_MAINNET = "Solana Mainnet";
+const DEFAULT_WALLET_ICON_URL = resolveAssetSrc(DEFAULT_WALLET_ICON);
 
-// Square marks scale to the directory's fixed logo tiles; wordmark-shaped
-// logos become illegible there, so only an explicit `kind: "mark"` qualifies
-// (getCompanyLogo falls back to the default logo when no mark exists).
-function getCompanyMarkSrc(company: CompanyRecord) {
-  const mark = getCompanyLogo(company, { kind: "mark" });
-  return mark?.kind === "mark"
-    ? resolveImportedAssetSrc(mark.source)
-    : undefined;
+function resolveAssetSrc(asset: string | { src: string }) {
+  return typeof asset === "string" ? asset : asset.src;
 }
 
-// Ordered best-first: square company mark, researched wallet icon, company
-// logos, then the placeholder. The client walks this chain when a candidate
-// fails to load, so every entry ends with a guaranteed local asset.
-function getWalletIconUrls(
-  company: CompanyRecord | undefined,
-  recordIcon: WalletRecord["icon"],
-) {
-  const recordIconUrl = recordIcon
-    ? resolveWalletAssetSrc(recordIcon)
-    : undefined;
-  const candidates = company
-    ? [
-        getCompanyMarkSrc(company),
-        recordIconUrl,
-        getCompanyLogoSrc(company, { theme: "dark" }),
-        getCompanyLogoSrc(company),
-        DEFAULT_WALLET_ICON_URL,
-      ]
-    : [recordIconUrl, DEFAULT_WALLET_ICON_URL];
+// Every researched wallet icon is a square local asset. The placeholder keeps
+// the tile dimensions stable if an icon is missing or fails to load.
+function getWalletIconUrls(recordIcon: WalletRecord["icon"]) {
+  const recordIconUrl = recordIcon ? resolveAssetSrc(recordIcon) : undefined;
+  const candidates = [recordIconUrl, DEFAULT_WALLET_ICON_URL];
 
   return [...new Set(candidates.filter((url): url is string => Boolean(url)))];
 }
@@ -58,16 +33,13 @@ function sortWallets(wallets: WalletDirectoryEntry[]) {
 function buildWalletEntries(): WalletDirectoryEntry[] {
   return sortWallets(
     Object.entries(walletData).map(([slug, record]) => {
-      const company = record.companyId
-        ? getCompanyBySlug(record.companyId)
-        : undefined;
-      const iconUrls = getWalletIconUrls(company, record.icon);
+      const iconUrls = getWalletIconUrls(record.icon);
 
       return {
         id: slug,
         name: record.name,
         slug,
-        companyId: company?.id,
+        companyId: record.companyId,
         category: record.category,
         categories: [record.category],
         platforms: record.platforms,
@@ -84,8 +56,23 @@ function buildWalletEntries(): WalletDirectoryEntry[] {
   );
 }
 
+function getLastReviewed(wallets: WalletDirectoryEntry[]) {
+  return wallets.reduce<string | undefined>((latest, wallet) => {
+    if (!wallet.lastVerified) {
+      return latest;
+    }
+
+    return !latest || wallet.lastVerified > latest
+      ? wallet.lastVerified
+      : latest;
+  }, undefined);
+}
+
 export async function getWalletDirectoryData(): Promise<WalletDirectoryData> {
+  const wallets = buildWalletEntries();
+
   return {
-    wallets: buildWalletEntries(),
+    wallets,
+    lastReviewed: getLastReviewed(wallets),
   };
 }
