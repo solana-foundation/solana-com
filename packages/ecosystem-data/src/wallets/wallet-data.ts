@@ -2,8 +2,11 @@ import type { ImportedAssetModule } from "../types";
 import type { WalletVerificationDate } from "./metadata";
 import type { WalletCategory, WalletFeature, WalletPlatform } from "./taxonomy";
 import defaultWalletIcon from "../../assets/wallets/wallet-placeholder-icon.webp";
+import arculusIcon from "../../assets/wallets/icons/arculus.webp";
 import atomicwalletIcon from "../../assets/wallets/icons/atomicwallet.webp";
+import aviciIcon from "../../assets/wallets/icons/avici.webp";
 import backpackIcon from "../../assets/wallets/icons/backpack.webp";
+import bcVaultIcon from "../../assets/wallets/icons/bc-vault.webp";
 import binanceIcon from "../../assets/wallets/icons/binance.webp";
 import bitgetIcon from "../../assets/wallets/icons/bitget.webp";
 import bitgoIcon from "../../assets/wallets/icons/bitgo.webp";
@@ -19,6 +22,7 @@ import cakewalletIcon from "../../assets/wallets/icons/cakewallet.webp";
 import cdpIcon from "../../assets/wallets/icons/cdp.webp";
 import cfxIcon from "../../assets/wallets/icons/cfx.webp";
 import circleIcon from "../../assets/wallets/icons/circle.webp";
+import civicAuthIcon from "../../assets/wallets/icons/civic-auth.webp";
 import coboIcon from "../../assets/wallets/icons/cobo.webp";
 import cocaIcon from "../../assets/wallets/icons/coca.webp";
 import coin98Icon from "../../assets/wallets/icons/coin98.webp";
@@ -31,9 +35,12 @@ import coolwalletIcon from "../../assets/wallets/icons/coolwallet.webp";
 import cregisIcon from "../../assets/wallets/icons/cregis.webp";
 import croptyIcon from "../../assets/wallets/icons/cropty.webp";
 import crossmintIcon from "../../assets/wallets/icons/crossmint.webp";
+import cryptoComOnchainIcon from "../../assets/wallets/icons/crypto-com-onchain.webp";
 import cryptomusIcon from "../../assets/wallets/icons/cryptomus.webp";
 import cwalletIcon from "../../assets/wallets/icons/cwallet.webp";
 import cypherockIcon from "../../assets/wallets/icons/cypherock.webp";
+import d3fendersIcon from "../../assets/wallets/icons/d3fenders.webp";
+import dcentIcon from "../../assets/wallets/icons/dcent.webp";
 import decafIcon from "../../assets/wallets/icons/decaf.webp";
 import dfnsIcon from "../../assets/wallets/icons/dfns.webp";
 import dynamicIcon from "../../assets/wallets/icons/dynamic.webp";
@@ -42,8 +49,10 @@ import ellipalIcon from "../../assets/wallets/icons/ellipal.webp";
 import emcdIcon from "../../assets/wallets/icons/emcd.webp";
 import enkryptIcon from "../../assets/wallets/icons/enkrypt.webp";
 import ethosIcon from "../../assets/wallets/icons/ethos.webp";
+import espressoCashIcon from "../../assets/wallets/icons/espresso-cash.webp";
 import exodusIcon from "../../assets/wallets/icons/exodus.webp";
 import fireblocksEmbeddedIcon from "../../assets/wallets/icons/fireblocks-embedded.webp";
+import fordefiIcon from "../../assets/wallets/icons/fordefi.webp";
 import foxwalletIcon from "../../assets/wallets/icons/foxwallet.webp";
 import fuseIcon from "../../assets/wallets/icons/fuse.webp";
 import fxwalletIcon from "../../assets/wallets/icons/fxwallet.webp";
@@ -52,32 +61,40 @@ import gemIcon from "../../assets/wallets/icons/gem.webp";
 import glowIcon from "../../assets/wallets/icons/glow.webp";
 import guardaIcon from "../../assets/wallets/icons/guarda.webp";
 import heliumIcon from "../../assets/wallets/icons/helium.webp";
+import hexTrustIcon from "../../assets/wallets/icons/hex-trust.webp";
 import hotWalletIcon from "../../assets/wallets/icons/hot-wallet.webp";
 import hotcoinIcon from "../../assets/wallets/icons/hotcoin.webp";
 import infinexIcon from "../../assets/wallets/icons/infinex.webp";
 import iopayIcon from "../../assets/wallets/icons/iopay.webp";
 import jupiterIcon from "../../assets/wallets/icons/jupiter.webp";
+import kastIcon from "../../assets/wallets/icons/kast.webp";
 import keepkeyIcon from "../../assets/wallets/icons/keepkey.webp";
 import keystoneIcon from "../../assets/wallets/icons/keystone.webp";
 import krakenIcon from "../../assets/wallets/icons/kraken.webp";
 import kryptogoIcon from "../../assets/wallets/icons/kryptogo.webp";
+import lazorkitIcon from "../../assets/wallets/icons/lazorkit.webp";
 import ledgerIcon from "../../assets/wallets/icons/ledger.webp";
 import lemonIcon from "../../assets/wallets/icons/lemon.webp";
 import liminalIcon from "../../assets/wallets/icons/liminal.webp";
+import loyalIcon from "../../assets/wallets/icons/loyal.webp";
 import magicIcon from "../../assets/wallets/icons/magic.webp";
 import mathwalletIcon from "../../assets/wallets/icons/mathwallet.webp";
 import metamaskIcon from "../../assets/wallets/icons/metamask.webp";
 import moongateIcon from "../../assets/wallets/icons/moongate.webp";
+import moonpayIcon from "../../assets/wallets/icons/moonpay.webp";
 import moonshotIcon from "../../assets/wallets/icons/moonshot.webp";
+import morseIcon from "../../assets/wallets/icons/morse.webp";
 import mpcvaultIcon from "../../assets/wallets/icons/mpcvault.webp";
 import naboxIcon from "../../assets/wallets/icons/nabox.webp";
 import ngraveIcon from "../../assets/wallets/icons/ngrave.webp";
 import nightlyIcon from "../../assets/wallets/icons/nightly.webp";
+import novaIcon from "../../assets/wallets/icons/nova.webp";
 import nowwalletIcon from "../../assets/wallets/icons/nowwallet.webp";
 import nufiIcon from "../../assets/wallets/icons/nufi.webp";
 import okxIcon from "../../assets/wallets/icons/okx.webp";
 import omniIcon from "../../assets/wallets/icons/omni.webp";
 import onekeyIcon from "../../assets/wallets/icons/onekey.webp";
+import ontoIcon from "../../assets/wallets/icons/onto.webp";
 import openfortIcon from "../../assets/wallets/icons/openfort.webp";
 import opensignerIcon from "../../assets/wallets/icons/opensigner.webp";
 import owalletIcon from "../../assets/wallets/icons/owallet.webp";
@@ -92,7 +109,9 @@ import paypalCryptocurrencyServicesIcon from "../../assets/wallets/icons/paypal-
 import phantomIcon from "../../assets/wallets/icons/phantom.webp";
 import pontemIcon from "../../assets/wallets/icons/pontem.webp";
 import portalIcon from "../../assets/wallets/icons/portal.webp";
+import portoIcon from "../../assets/wallets/icons/porto.webp";
 import privyIcon from "../../assets/wallets/icons/privy.webp";
+import pumpWalletIcon from "../../assets/wallets/icons/pump-wallet.webp";
 import redotpayIcon from "../../assets/wallets/icons/redotpay.webp";
 import reownIcon from "../../assets/wallets/icons/reown.webp";
 import republicWalletIcon from "../../assets/wallets/icons/republic-wallet.webp";
@@ -101,13 +120,16 @@ import ryderIcon from "../../assets/wallets/icons/ryder.webp";
 import safeheronIcon from "../../assets/wallets/icons/safeheron.webp";
 import safepalIcon from "../../assets/wallets/icons/safepal.webp";
 import samuiIcon from "../../assets/wallets/icons/samui.webp";
+import salmonIcon from "../../assets/wallets/icons/salmon.webp";
 import secuxIcon from "../../assets/wallets/icons/secux.webp";
+import siidIcon from "../../assets/wallets/icons/siid.webp";
 import solflareIcon from "../../assets/wallets/icons/solflare.webp";
 import speedIcon from "../../assets/wallets/icons/speed.webp";
 import squadsxIcon from "../../assets/wallets/icons/squadsx.webp";
 import starkeyIcon from "../../assets/wallets/icons/starkey.webp";
 import talismanIcon from "../../assets/wallets/icons/talisman.webp";
 import tangemIcon from "../../assets/wallets/icons/tangem.webp";
+import tatumWalletsIcon from "../../assets/wallets/icons/tatum-wallets.webp";
 import tiplinkIcon from "../../assets/wallets/icons/tiplink.webp";
 import tokenpocketIcon from "../../assets/wallets/icons/tokenpocket.webp";
 import tomoIcon from "../../assets/wallets/icons/tomo.webp";
@@ -118,10 +140,13 @@ import trueMarketsIcon from "../../assets/wallets/icons/true-markets.webp";
 import trusteeWalletIcon from "../../assets/wallets/icons/trustee-wallet.webp";
 import trustwalletcoreIcon from "../../assets/wallets/icons/trustwalletcore.webp";
 import turnkeyIcon from "../../assets/wallets/icons/turnkey.webp";
+import umbraWalletIcon from "../../assets/wallets/icons/umbra-wallet.webp";
 import unhostedIcon from "../../assets/wallets/icons/unhosted.webp";
 import unitywalletIcon from "../../assets/wallets/icons/unitywallet.webp";
 import unruggableIcon from "../../assets/wallets/icons/unruggable.webp";
+import utilaIcon from "../../assets/wallets/icons/utila.webp";
 import venlyIcon from "../../assets/wallets/icons/venly.webp";
+import waiaasIcon from "../../assets/wallets/icons/waiaas.webp";
 import walletverseIcon from "../../assets/wallets/icons/walletverse.webp";
 import web3authIcon from "../../assets/wallets/icons/web3auth.webp";
 import wisdomtreePrimeIcon from "../../assets/wallets/icons/wisdomtree-prime.webp";
@@ -175,6 +200,40 @@ const walletRecords = {
     icon: atomicwalletIcon,
     lastVerified: "2026-07-15",
   },
+  arculus: {
+    name: "Arculus",
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "NFC card hardware wallet paired with a self-custody mobile app, supporting Solana assets and NFTs, native SOL staking, and 50+ blockchain networks",
+    website:
+      "https://www.getarculus.com/products/arculus-cold-storage-wallet.html",
+    icon: arculusIcon,
+    lastVerified: "2026-07-16",
+  },
+  avici: {
+    name: "Avici",
+    category: "payments",
+    platforms: ["ios", "android"],
+    features: [
+      "non_custodial",
+      "gas_abstraction",
+      "social_recovery",
+      "multi_chain",
+    ],
+    description:
+      "Self-custody mobile wallet for Solana and EVM networks with social sign-in, passkey approvals, sponsored Solana transactions, and built-in stablecoin transfers and swaps",
+    website: "https://avici.money/",
+    icon: aviciIcon,
+    lastVerified: "2026-07-16",
+  },
   backpack: {
     name: "Backpack",
     aliases: ["backpack-exchange"],
@@ -197,6 +256,17 @@ const walletRecords = {
     website: "https://backpack.app/",
     icon: backpackIcon,
     lastVerified: "2026-07-15",
+  },
+  "bc-vault": {
+    name: "BC Vault",
+    category: "hardware",
+    platforms: ["desktop", "hardware"],
+    features: ["non_custodial", "staking", "hardware", "multi_chain"],
+    description:
+      "Hardware wallet with an encrypted desktop application, Solana versioned-transaction support, WalletConnect-based SOL staking, and support for multiple blockchain networks",
+    website: "https://bc-vault.com/",
+    icon: bcVaultIcon,
+    lastVerified: "2026-07-16",
   },
   binance: {
     name: "Binance Wallet",
@@ -485,6 +555,23 @@ const walletRecords = {
     icon: circleIcon,
     lastVerified: "2026-07-15",
   },
+  "civic-auth": {
+    name: "Civic Auth Embedded Wallets",
+    aliases: ["civic-embedded-wallets"],
+    category: "infrastructure",
+    platforms: ["sdk"],
+    features: [
+      "non_custodial",
+      "social_recovery",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Embedded wallet SDK for React and Next.js that provisions non-custodial Solana and EVM wallets behind SSO login, with user-approved signing and identity-provider recovery",
+    website: "https://docs.civic.com/web3/embedded-wallets",
+    icon: civicAuthIcon,
+    lastVerified: "2026-07-16",
+  },
   cobo: {
     name: "Cobo Portal",
     aliases: ["cobo-portal"],
@@ -569,6 +656,26 @@ const walletRecords = {
     website: "https://base.app/",
     icon: coinbaseIcon,
     lastVerified: "2026-07-15",
+  },
+  "coinbase-prime-onchain": {
+    name: "Coinbase Prime Onchain Wallet",
+    companyId: "coinbase",
+    aliases: ["coinbase-prime-web3-wallet", "prime-onchain-wallet"],
+    category: "institutional",
+    platforms: ["ios", "chrome", "web"],
+    features: [
+      "non_custodial",
+      "hold_nfts",
+      "mpc",
+      "spending_limits",
+      "multi_chain",
+    ],
+    description:
+      "Institutional non-custodial MPC wallet for Solana and EVM networks with browser and mobile approvals, policy controls, dApp access, and NFT management",
+    website:
+      "https://help.coinbase.com/en/prime/onchain-wallet/introduction-to-coinbase-prime-onchain-wallet",
+    icon: coinbaseIcon,
+    lastVerified: "2026-07-16",
   },
   "coinex-wallet": {
     name: "CoinEx Wallet",
@@ -678,11 +785,29 @@ const walletRecords = {
     icon: crossmintIcon,
     lastVerified: "2026-07-15",
   },
+  "crypto-com-onchain": {
+    name: "Crypto.com Onchain",
+    aliases: ["crypto-com-defi-wallet", "crypto-com-wallet"],
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "web"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "hold_nfts",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Self-custody wallet for Solana and 40+ other networks with mobile, browser, and web access, card purchases, NFT and dApp support, and hardware-wallet connectivity",
+    website: "https://crypto.com/us/onchain",
+    icon: cryptoComOnchainIcon,
+    lastVerified: "2026-07-16",
+  },
   cryptomus: {
     name: "Cryptomus",
     category: "consumer",
     platforms: ["ios", "android", "web"],
-    features: ["custodial", "buy_crypto", "get_paid", "multi_chain"],
+    features: ["custodial", "get_paid", "multi_chain"],
     description:
       "Custodial hot wallet and merchant payment platform with web and mobile apps, SOL invoices and checkout, fee-free internal transfers, conversion, and card or bank crypto purchases",
     website: "https://cryptomus.com/",
@@ -727,6 +852,29 @@ const walletRecords = {
     website: "https://www.cypherock.com/",
     icon: cypherockIcon,
     lastVerified: "2026-07-15",
+  },
+  d3fenders: {
+    name: "D3fenders Wallet",
+    category: "consumer",
+    platforms: ["chrome"],
+    features: ["non_custodial", "hold_nfts", "multi_chain", "multi_sig"],
+    description:
+      "Self-custody browser wallet for Solana and multiple EVM networks with NFT support, Wallet Standard compatibility, and optional multi-approval vault protection",
+    website: "https://d3fenders.com/",
+    icon: d3fendersIcon,
+    lastVerified: "2026-07-16",
+  },
+  dcent: {
+    name: "D'CENT",
+    aliases: ["dcent-wallet"],
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: ["non_custodial", "hold_nfts", "hardware", "multi_chain"],
+    description:
+      "Biometric hardware wallet with a mobile companion app for SOL and SPL assets, Solana dApps and NFTs, and a broad set of additional blockchain networks",
+    website: "https://store.dcentwallet.com/pages/solana-wallet",
+    icon: dcentIcon,
+    lastVerified: "2026-07-16",
   },
   decaf: {
     name: "Decaf",
@@ -898,6 +1046,25 @@ const walletRecords = {
     icon: exodusIcon,
     lastVerified: "2026-07-15",
   },
+  "espresso-cash": {
+    name: "Espresso Cash",
+    aliases: ["espresso-wallet"],
+    category: "payments",
+    platforms: ["ios", "android"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "get_paid",
+      "open_source",
+      "solana_native",
+    ],
+    description:
+      "Open-source self-custody Solana payments wallet for sending and receiving stablecoins through shareable links, with integrated fiat on- and off-ramps",
+    website: "https://www.espressocash.com/",
+    icon: espressoCashIcon,
+    lastVerified: "2026-07-16",
+  },
   "fireblocks-embedded": {
     name: "Fireblocks Embedded Wallets",
     companyId: "fireblocks",
@@ -917,6 +1084,41 @@ const walletRecords = {
     website: "https://www.fireblocks.com/platforms/embedded-wallets",
     icon: fireblocksEmbeddedIcon,
     lastVerified: "2026-07-15",
+  },
+  "fireblocks-platform": {
+    name: "Fireblocks Platform",
+    companyId: "fireblocks",
+    aliases: ["fireblocks-institutional", "fireblocks-treasury"],
+    category: "institutional",
+    platforms: ["web", "api", "sdk"],
+    features: [
+      "mpc",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Institutional MPC wallet and treasury platform with policy-controlled signing, API and SDK access, and support for Solana payments, custody operations, and other blockchain networks",
+    website: "https://www.fireblocks.com/customers/solana",
+    icon: fireblocksEmbeddedIcon,
+    lastVerified: "2026-07-16",
+  },
+  fordefi: {
+    name: "Fordefi",
+    category: "institutional",
+    platforms: ["chrome", "web", "api", "sdk"],
+    features: [
+      "non_custodial",
+      "mpc",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Institutional non-custodial MPC wallet with a browser extension, web console, APIs and SDKs, configurable transaction policies, and native Solana and EVM support",
+    website: "https://www.fordefi.com/",
+    icon: fordefiIcon,
+    lastVerified: "2026-07-16",
   },
   foxwallet: {
     name: "FoxWallet",
@@ -1045,6 +1247,24 @@ const walletRecords = {
     icon: heliumIcon,
     lastVerified: "2026-07-15",
   },
+  "hex-trust": {
+    name: "Hex Trust",
+    category: "institutional",
+    platforms: ["web", "api"],
+    features: [
+      "custodial",
+      "mpc",
+      "staking",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Regulated institutional custody wallet with MPC and HSM-backed key management, approval policies, API access, and support for Solana assets and SOL staking",
+    website: "https://www.hextrust.com/services/custody/wallets",
+    icon: hexTrustIcon,
+    lastVerified: "2026-07-16",
+  },
   "hot-wallet": {
     name: "HOT Wallet",
     aliases: ["here-wallet", "hot-labs"],
@@ -1128,6 +1348,18 @@ const walletRecords = {
     icon: jupiterIcon,
     lastVerified: "2026-07-15",
   },
+  kast: {
+    name: "KAST",
+    companyId: "kast",
+    category: "payments",
+    platforms: ["ios", "android"],
+    features: ["custodial", "buy_crypto", "get_paid", "multi_chain"],
+    description:
+      "Account-based stablecoin payments app for receiving bank and crypto deposits, moving funds across supported networks including Solana, and spending through virtual and physical cards",
+    website: "https://www.kast.xyz/",
+    icon: kastIcon,
+    lastVerified: "2026-07-16",
+  },
   keepkey: {
     name: "KeepKey",
     aliases: ["keepkey-vault-desktop"],
@@ -1193,6 +1425,24 @@ const walletRecords = {
     icon: kryptogoIcon,
     lastVerified: "2026-07-15",
   },
+  lazorkit: {
+    name: "LazorKit",
+    aliases: ["lazor-kit"],
+    category: "infrastructure",
+    platforms: ["sdk"],
+    features: [
+      "non_custodial",
+      "gas_abstraction",
+      "spending_limits",
+      "private_key_infrastructure",
+      "solana_native",
+    ],
+    description:
+      "Passkey wallet SDK for Solana apps with user-controlled signing, sponsored transaction fees, and scoped agent permissions limited by amount and time",
+    website: "https://www.lazorkit.com/",
+    icon: lazorkitIcon,
+    lastVerified: "2026-07-16",
+  },
   ledger: {
     name: "Ledger",
     aliases: ["ledger-live", "ledger-wallet"],
@@ -1246,6 +1496,22 @@ const walletRecords = {
     website: "https://www.liminalcustody.com/",
     icon: liminalIcon,
     lastVerified: "2026-07-15",
+  },
+  loyal: {
+    name: "Loyal",
+    category: "consumer",
+    platforms: ["android", "chrome", "web"],
+    features: [
+      "non_custodial",
+      "spending_limits",
+      "open_source",
+      "solana_native",
+    ],
+    description:
+      "Open-source self-custody Solana wallet with browser, web, and Android access, smart-account security, configurable spending caps, and destination allowlists",
+    website: "https://askloyal.com/",
+    icon: loyalIcon,
+    lastVerified: "2026-07-16",
   },
   magic: {
     name: "Magic",
@@ -1315,6 +1581,19 @@ const walletRecords = {
     icon: moongateIcon,
     lastVerified: "2026-07-15",
   },
+  moonpay: {
+    name: "MoonPay Wallet",
+    aliases: ["moonpay-account", "moonpay-account-wallet"],
+    category: "consumer",
+    platforms: ["ios", "android"],
+    features: ["non_custodial", "buy_crypto", "sell_crypto", "multi_chain"],
+    description:
+      "Non-custodial mobile wallet for SOL and other supported assets with in-app buying, sending, receiving, and direct crypto sales to fiat",
+    website:
+      "https://support.moonpay.com/en/articles/383215-managing-your-wallets",
+    icon: moonpayIcon,
+    lastVerified: "2026-07-16",
+  },
   moonshot: {
     name: "Moonshot",
     category: "consumer",
@@ -1325,6 +1604,24 @@ const walletRecords = {
     website: "https://moonshot.com/",
     icon: moonshotIcon,
     lastVerified: "2026-07-15",
+  },
+  morse: {
+    name: "Morse",
+    aliases: ["sling", "sling-money"],
+    category: "payments",
+    platforms: ["ios", "android"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "get_paid",
+      "solana_native",
+    ],
+    description:
+      "Self-custody Solana payments app, formerly Sling Money, for funding, sending, receiving, and cashing out supported stablecoins through bank and local payment rails",
+    website: "https://morsemoney.com/",
+    icon: morseIcon,
+    lastVerified: "2026-07-16",
   },
   mpcvault: {
     name: "MPCVault",
@@ -1391,6 +1688,24 @@ const walletRecords = {
     website: "https://nightly.app/",
     icon: nightlyIcon,
     lastVerified: "2026-07-15",
+  },
+  nova: {
+    name: "NOVA",
+    aliases: ["nova-solana-wallet", "nshield-nova"],
+    category: "consumer",
+    platforms: ["ios", "web"],
+    features: [
+      "non_custodial",
+      "hold_nfts",
+      "hardware",
+      "solana_native",
+      "multi_sig",
+    ],
+    description:
+      "Privacy-focused self-custody Solana wallet for iOS and web with NFT management, Ledger support, and multisig vault capabilities",
+    website: "https://www.nshield.org/",
+    icon: novaIcon,
+    lastVerified: "2026-07-16",
   },
   now: {
     name: "NOW Wallet",
@@ -1485,6 +1800,18 @@ const walletRecords = {
     website: "https://onekey.so/",
     icon: onekeyIcon,
     lastVerified: "2026-07-15",
+  },
+  onto: {
+    name: "ONTO Wallet",
+    aliases: ["onto-data-wallet"],
+    category: "consumer",
+    platforms: ["ios", "android", "web"],
+    features: ["non_custodial", "multi_chain"],
+    description:
+      "Self-custodial multi-chain identity wallet with mobile and browser access, private-key import and transfer support for Solana, and integrated dApp connectivity",
+    website: "https://onto.app/en",
+    icon: ontoIcon,
+    lastVerified: "2026-07-16",
   },
   openfort: {
     name: "Openfort",
@@ -1675,6 +2002,24 @@ const walletRecords = {
     icon: phantomIcon,
     lastVerified: "2026-07-15",
   },
+  "phantom-connect": {
+    name: "Phantom Connect SDKs",
+    companyId: "phantom",
+    aliases: ["phantom-embedded-wallets", "phantom-wallet-sdk"],
+    category: "infrastructure",
+    platforms: ["sdk"],
+    features: [
+      "non_custodial",
+      "open_source",
+      "private_key_infrastructure",
+      "solana_native",
+    ],
+    description:
+      "Open-source client SDKs for embedding Phantom wallet creation and signing in web and React Native apps, with full Solana network support and social-login onboarding",
+    website: "https://docs.phantom.com/wallet-sdks-overview",
+    icon: phantomIcon,
+    lastVerified: "2026-07-16",
+  },
   pontem: {
     name: "Pontem Wallet",
     aliases: ["pontem-network", "pontem-wallet"],
@@ -1706,6 +2051,25 @@ const walletRecords = {
     icon: portalIcon,
     lastVerified: "2026-07-15",
   },
+  porto: {
+    name: "Porto",
+    companyId: "anchorage",
+    aliases: ["porto-by-anchorage-digital"],
+    category: "institutional",
+    platforms: ["web"],
+    features: [
+      "non_custodial",
+      "staking",
+      "spending_limits",
+      "multi_chain",
+      "multi_sig",
+    ],
+    description:
+      "Institutional self-custody wallet from Anchorage Digital with Solana and multichain dApp access, native SOL staking, configurable transaction policies, and quorum approvals",
+    website: "https://www.anchorage.com/platform/self-custody",
+    icon: portoIcon,
+    lastVerified: "2026-07-16",
+  },
   privy: {
     name: "Privy",
     category: "infrastructure",
@@ -1725,6 +2089,17 @@ const walletRecords = {
     website: "https://www.privy.io/",
     icon: privyIcon,
     lastVerified: "2026-07-15",
+  },
+  "pump-wallet": {
+    name: "Pump Wallet",
+    category: "consumer",
+    platforms: ["ios"],
+    features: ["non_custodial", "mpc", "solana_native"],
+    description:
+      "Self-custodial MPC wallet for iPhone designed for Solana assets and transactions, with key material split across independently secured shares",
+    website: "https://pumpwallet.com/",
+    icon: pumpWalletIcon,
+    lastVerified: "2026-07-16",
   },
   redotpay: {
     name: "RedotPay",
@@ -1840,6 +2215,18 @@ const walletRecords = {
     icon: safepalIcon,
     lastVerified: "2026-07-15",
   },
+  salmon: {
+    name: "Salmon Wallet",
+    aliases: ["salmon-wallet-v2"],
+    category: "consumer",
+    platforms: ["android", "chrome", "web"],
+    features: ["non_custodial", "open_source", "multi_chain", "solana_native"],
+    description:
+      "Open-source self-custody wallet built around Solana with Android, browser-extension, and web releases plus Bitcoin support, swaps, and bridges",
+    website: "https://www.salmonwallet.io/",
+    icon: salmonIcon,
+    lastVerified: "2026-07-16",
+  },
   samui: {
     name: "Samui",
     category: "consumer",
@@ -1869,6 +2256,18 @@ const walletRecords = {
     website: "https://secuxtech.com/",
     icon: secuxIcon,
     lastVerified: "2026-07-15",
+  },
+  siid: {
+    name: "SIID",
+    aliases: ["siid-wallet"],
+    category: "consumer",
+    platforms: ["chrome"],
+    features: ["non_custodial", "get_paid", "hold_nfts", "solana_native"],
+    description:
+      "Self-custody Solana browser wallet for SOL, SPL tokens, and NFTs with encrypted wallet-to-wallet chat, swaps, and in-chat payment requests",
+    website: "https://siid.me/",
+    icon: siidIcon,
+    lastVerified: "2026-07-16",
   },
   solflare: {
     name: "Solflare",
@@ -1992,6 +2391,25 @@ const walletRecords = {
     website: "https://tangem.com/",
     icon: tangemIcon,
     lastVerified: "2026-07-15",
+  },
+  "tatum-wallets": {
+    name: "Tatum Smart Wallets",
+    aliases: ["tatum-wallet-as-a-service", "tatum-wallet-sdk"],
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "non_custodial",
+      "mpc",
+      "gas_abstraction",
+      "open_source",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "MPC smart-wallet infrastructure for Solana, Bitcoin, and EVM networks with configurable custody, gas sponsorship, encrypted recovery shares, and an open-source SDK",
+    website: "https://tatum.io/products/wallets",
+    icon: tatumWalletsIcon,
+    lastVerified: "2026-07-16",
   },
   tiplink: {
     name: "Tiplink",
@@ -2169,6 +2587,18 @@ const walletRecords = {
     icon: turnkeyIcon,
     lastVerified: "2026-07-15",
   },
+  "umbra-wallet": {
+    name: "Umbra Wallet",
+    aliases: ["umbra-privacy-wallet"],
+    category: "consumer",
+    platforms: ["ios"],
+    features: ["non_custodial", "te", "gas_abstraction", "solana_native"],
+    description:
+      "Privacy-focused self-custody Solana wallet for iPhone with private transfer flows, sponsored transaction fees, and SPL and Token-2022 asset support",
+    website: "https://app.umbraprivacy.com/",
+    icon: umbraWalletIcon,
+    lastVerified: "2026-07-16",
+  },
   unhosted: {
     name: "Unhosted",
     aliases: ["unhosted-wallet"],
@@ -2225,6 +2655,22 @@ const walletRecords = {
     icon: unruggableIcon,
     lastVerified: "2026-07-15",
   },
+  utila: {
+    name: "Utila",
+    category: "institutional",
+    platforms: ["web", "api"],
+    features: [
+      "mpc",
+      "spending_limits",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Institutional MPC wallet and treasury platform with role-based approval policies, transaction limits, API automation, and support for Solana and other networks",
+    website: "https://utila.io/product/treasury-management",
+    icon: utilaIcon,
+    lastVerified: "2026-07-16",
+  },
   venly: {
     name: "Venly Wallet-as-a-Service",
     aliases: ["venly-as-a-service"],
@@ -2244,6 +2690,24 @@ const walletRecords = {
     website: "https://www.venly.io/product/wallet-as-a-service",
     icon: venlyIcon,
     lastVerified: "2026-07-15",
+  },
+  waiaas: {
+    name: "WAIaaS",
+    aliases: ["wallet-as-a-service-for-ai-agents"],
+    category: "infrastructure",
+    platforms: ["api", "sdk"],
+    features: [
+      "non_custodial",
+      "spending_limits",
+      "open_source",
+      "private_key_infrastructure",
+      "multi_chain",
+    ],
+    description:
+      "Open-source self-hosted wallet daemon for AI agents with locally controlled keys, policy-enforced transaction limits, APIs and SDKs, and Solana and EVM support",
+    website: "https://waiaas.ai/",
+    icon: waiaasIcon,
+    lastVerified: "2026-07-16",
   },
   walletverse: {
     name: "Walletverse",
