@@ -24,6 +24,7 @@ import {
   type WalletPlatform,
 } from "./wallet-directory";
 import styles from "./WalletDirectory.module.scss";
+import { WalletHeroScene } from "./WalletHeroScene";
 
 type DirectoryView = "grid" | "list";
 
@@ -742,24 +743,27 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
 
   return (
     <main className={styles.page}>
-      <header className={styles.hero}>
-        <p className={styles.eyebrow}>{t("hero.eyebrow")}</p>
-        <h1>{t("hero.headline")}</h1>
-        <div className={styles.heroFoot}>
-          <p className={styles.heroText}>{t("hero.body")}</p>
-          <div className={styles.heroActions}>
-            <a href="#wallet-directory" className={styles.primaryAction}>
-              {t("hero.findWallet")}
-            </a>
-            <a href="#learn-wallets" className={styles.secondaryAction}>
-              {t("hero.learnBasics")}
-            </a>
-            <a href="#build-wallets" className={styles.secondaryAction}>
-              {t("hero.buildWithWallets")}
-            </a>
+      <div className={styles.heroShell}>
+        <WalletHeroScene />
+        <header className={styles.hero}>
+          <p className={styles.eyebrow}>{t("hero.eyebrow")}</p>
+          <h1>{t("hero.headline")}</h1>
+          <div className={styles.heroFoot}>
+            <p className={styles.heroText}>{t("hero.body")}</p>
+            <div className={styles.heroActions}>
+              <a href="#wallet-directory" className={styles.primaryAction}>
+                {t("hero.findWallet")}
+              </a>
+              <a href="#learn-wallets" className={styles.secondaryAction}>
+                {t("hero.learnBasics")}
+              </a>
+              <a href="#build-wallets" className={styles.secondaryAction}>
+                {t("hero.buildWithWallets")}
+              </a>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       <section
         className={styles.featuredStrip}
