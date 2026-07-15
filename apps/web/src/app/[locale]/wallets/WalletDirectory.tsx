@@ -215,10 +215,10 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
 }
 
 function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const walletsById = new Map(wallets.map((wallet) => [wallet.id, wallet]));
+  const featuredWalletIds = new Set<string>(FEATURED_WALLET_IDS);
 
-  return FEATURED_WALLET_IDS.map((id) => walletsById.get(id))
-    .filter((wallet): wallet is WalletDirectoryEntry => Boolean(wallet))
+  return wallets
+    .filter((wallet) => featuredWalletIds.has(wallet.id))
     .slice(0, FEATURED_WALLET_COUNT);
 }
 
