@@ -1262,8 +1262,8 @@ export function WalletDirectory({
           <p>{t("builders.description")}</p>
         </div>
         <div className={styles.builderLinks}>
-          <a href="https://solana.com/docs/frontend/nextjs-solana">
-            {t("builders.nextjsWallets")}{" "}
+          <a href="https://solana.com/docs/tools/commerce-kit/quickstart/wallet-connection">
+            {t("builders.commerceKitWalletConnection")}{" "}
             <ExternalLink size={15} aria-hidden="true" />
           </a>
           <a href="https://solana.com/docs/core/transactions/signing-in-production">
