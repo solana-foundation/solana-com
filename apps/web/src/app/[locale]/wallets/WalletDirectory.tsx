@@ -1217,47 +1217,6 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
       </section>
 
       <section
-        className={styles.methodologySection}
-        aria-labelledby="wallet-methodology-heading"
-      >
-        <div className={styles.methodologyIntro}>
-          <p className={styles.eyebrow}>{t("methodology.eyebrow")}</p>
-          <h2 id="wallet-methodology-heading">{t("methodology.title")}</h2>
-          {data.lastReviewed && (
-            <p className={styles.lastReviewed}>
-              {t("methodology.updated")}{" "}
-              <time dateTime={data.lastReviewed}>
-                {formatVerificationDate(data.lastReviewed, locale)}
-              </time>
-            </p>
-          )}
-        </div>
-        <div className={styles.methodologyGrid}>
-          <article>
-            <h3>{t("methodology.reviewTitle")}</h3>
-            <p>{t("methodology.reviewBody")}</p>
-          </article>
-          <article>
-            <h3>{t("methodology.qualificationTitle")}</h3>
-            <p>{t("methodology.qualificationBody")}</p>
-          </article>
-          <article className={styles.safetyNote}>
-            <h3>{t("methodology.safetyTitle")}</h3>
-            <p>{t("methodology.safetyBody")}</p>
-          </article>
-        </div>
-        <a
-          className={styles.correctionLink}
-          href="https://github.com/solana-foundation/solana-com/issues/new"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("methodology.correction")}
-          <ExternalLink size={15} aria-hidden="true" />
-        </a>
-      </section>
-
-      <section
         id="learn-wallets"
         className={styles.learnSection}
         aria-label={t("learn.ariaLabel")}
@@ -1311,6 +1270,47 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             {t("builders.grant")} <ExternalLink size={15} aria-hidden="true" />
           </a>
         </div>
+      </section>
+
+      <section
+        className={styles.methodologySection}
+        aria-labelledby="wallet-methodology-heading"
+      >
+        <div className={styles.methodologyIntro}>
+          <p className={styles.eyebrow}>{t("methodology.eyebrow")}</p>
+          <h2 id="wallet-methodology-heading">{t("methodology.title")}</h2>
+          {data.lastReviewed && (
+            <p className={styles.lastReviewed}>
+              {t("methodology.updated")}{" "}
+              <time dateTime={data.lastReviewed}>
+                {formatVerificationDate(data.lastReviewed, locale)}
+              </time>
+            </p>
+          )}
+        </div>
+        <div className={styles.methodologyGrid}>
+          <article>
+            <h3>{t("methodology.reviewTitle")}</h3>
+            <p>{t("methodology.reviewBody")}</p>
+          </article>
+          <article>
+            <h3>{t("methodology.qualificationTitle")}</h3>
+            <p>{t("methodology.qualificationBody")}</p>
+          </article>
+          <article className={styles.safetyNote}>
+            <h3>{t("methodology.safetyTitle")}</h3>
+            <p>{t("methodology.safetyBody")}</p>
+          </article>
+        </div>
+        <a
+          className={styles.correctionLink}
+          href="https://github.com/solana-foundation/solana-com/issues/new"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t("methodology.correction")}
+          <ExternalLink size={15} aria-hidden="true" />
+        </a>
       </section>
     </main>
   );
