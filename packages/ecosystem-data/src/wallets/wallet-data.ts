@@ -1886,6 +1886,8 @@ const walletRecords = {
     ],
     features: [
       "non_custodial",
+      "te",
+      "blinks_and_actions",
       "solana_pay",
       "buy_crypto",
       "hold_nfts",
@@ -1895,10 +1897,10 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Solana self-custody wallet with mobile, web, and browser-extension apps for Solana Pay, SOL staking, swaps, and NFTs, plus the NFC Solflare Shield hardware card and a gasless USDC Mastercard debit card",
+      "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, and NFTs, plus the Solflare Shield hardware card and a gasless USDC Mastercard debit card",
     website: "https://www.solflare.com/",
     icon: solflareIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-07-16",
   },
   speed: {
     name: "Speed Wallet",

@@ -4,6 +4,7 @@
  */
 export const WALLET_VERIFICATION_DATES = {
   directoryLaunch: "2026-07-15",
+  solflareAudit: "2026-07-16",
 } as const satisfies Record<string, `${number}-${number}-${number}`>;
 
 export type WalletVerificationDate =
