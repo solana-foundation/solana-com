@@ -158,7 +158,7 @@ import zerionIcon from "../../assets/wallets/icons/zerion.webp";
 import zyptoIcon from "../../assets/wallets/icons/zypto.webp";
 
 export type WalletRecord = {
-  /** Display name for the wallet product. */
+  /** Brand display name; infrastructure SDK entries use an `SDK` suffix. */
   name: string;
   /** Slug of the owning company in `src/companies`, when one exists. */
   companyId?: string;
@@ -270,7 +270,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   binance: {
-    name: "Binance Wallet",
+    name: "Binance",
     aliases: ["binance-web3-wallet"],
     category: "consumer",
     platforms: ["ios", "android", "chrome"],
@@ -282,7 +282,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   bitget: {
-    name: "Bitget Wallet",
+    name: "Bitget",
     category: "consumer",
     platforms: ["ios", "android", "chrome"],
     features: [
@@ -304,7 +304,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   bitgo: {
-    name: "BitGo Wallet as a Service",
+    name: "BitGo SDK",
     aliases: ["bitgo-as-a-service"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -325,7 +325,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   bitnovo: {
-    name: "Bitnovo Wallet",
+    name: "Bitnovo",
     category: "consumer",
     platforms: ["ios", "android"],
     features: [
@@ -342,7 +342,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "bitpanda-vision": {
-    name: "Bitpanda Vision Wallet",
+    name: "Bitpanda Vision",
     aliases: ["bitpanda", "bitpanda-defi-wallet", "vision-wallet"],
     category: "consumer",
     platforms: ["ios", "android"],
@@ -359,7 +359,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   bitpay: {
-    name: "BitPay Wallet",
+    name: "BitPay",
     category: "payments",
     platforms: ["ios", "android", "desktop"],
     features: [
@@ -434,7 +434,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   bron: {
-    name: "Bron Wallet",
+    name: "Bron",
     aliases: ["bron-wallet"],
     category: "institutional",
     platforms: ["ios", "android", "web", "api"],
@@ -499,7 +499,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   cdp: {
-    name: "CDP Wallets",
+    name: "CDP SDK",
     companyId: "coinbase",
     aliases: [
       "cdp-coinbase",
@@ -540,7 +540,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   circle: {
-    name: "Circle",
+    name: "Circle SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -559,7 +559,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "civic-auth": {
-    name: "Civic Auth Embedded Wallets",
+    name: "Civic Auth SDK",
     aliases: ["civic-embedded-wallets"],
     category: "infrastructure",
     platforms: ["sdk"],
@@ -647,7 +647,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   coinbase: {
-    name: "Base App",
+    name: "Base",
     companyId: "coinbase",
     aliases: ["base-app", "base-formerly-coinbase", "coinbase-wallet"],
     category: "consumer",
@@ -668,7 +668,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "coinbase-prime-onchain": {
-    name: "Coinbase Prime Onchain Wallet",
+    name: "Coinbase Prime",
     companyId: "coinbase",
     aliases: ["coinbase-prime-web3-wallet", "prime-onchain-wallet"],
     category: "institutional",
@@ -688,7 +688,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   "coinex-wallet": {
-    name: "CoinEx Wallet",
+    name: "CoinEx",
     aliases: ["coinex", "viawallet"],
     category: "consumer",
     platforms: ["ios", "android"],
@@ -700,7 +700,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   coinflip: {
-    name: "CoinFlip Crypto Wallet",
+    name: "CoinFlip",
     category: "consumer",
     platforms: ["ios", "android"],
     features: ["non_custodial", "buy_crypto", "sell_crypto", "multi_chain"],
@@ -770,7 +770,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   crossmint: {
-    name: "Crossmint Wallets",
+    name: "Crossmint SDK",
     aliases: ["crossmint-custodial", "crossmint-non-custodial"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -865,7 +865,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   d3fenders: {
-    name: "D3fenders Wallet",
+    name: "D3fenders",
     category: "consumer",
     platforms: ["chrome"],
     features: ["non_custodial", "hold_nfts", "multi_chain", "multi_sig"],
@@ -908,7 +908,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   dfns: {
-    name: "DFNS Wallet-as-a-Service",
+    name: "DFNS SDK",
     aliases: ["dfns-as-a-service-platform-waas"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -928,7 +928,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   dynamic: {
-    name: "Dynamic",
+    name: "Dynamic SDK",
     companyId: "dynamic",
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -985,7 +985,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   emcd: {
-    name: "EMCD Wallet",
+    name: "EMCD",
     category: "consumer",
     platforms: ["ios", "android", "web"],
     features: [
@@ -1080,7 +1080,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   "fireblocks-embedded": {
-    name: "Fireblocks Embedded Wallets",
+    name: "Fireblocks SDK",
     companyId: "fireblocks",
     aliases: ["fireblocks"],
     category: "infrastructure",
@@ -1100,7 +1100,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "fireblocks-platform": {
-    name: "Fireblocks Platform",
+    name: "Fireblocks",
     companyId: "fireblocks",
     aliases: ["fireblocks-institutional", "fireblocks-treasury"],
     category: "institutional",
@@ -1147,7 +1147,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   fuse: {
-    name: "Fuse Wallet",
+    name: "Fuse",
     companyId: "squads",
     aliases: ["fuse-wallet"],
     category: "consumer",
@@ -1184,7 +1184,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   gate: {
-    name: "Gate Wallet",
+    name: "Gate",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "web"],
     features: ["non_custodial", "multi_chain"],
@@ -1300,7 +1300,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   hotcoin: {
-    name: "Hotcoin Web3 Wallet",
+    name: "Hotcoin",
     aliases: ["hotcoin-global", "hotcoin-web3-wallet"],
     category: "consumer",
     platforms: ["ios", "android"],
@@ -1342,7 +1342,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   jupiter: {
-    name: "Jupiter Wallet",
+    name: "Jupiter",
     companyId: "jupiter",
     aliases: ["jupiter-mobile"],
     category: "consumer",
@@ -1414,7 +1414,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   kraken: {
-    name: "Kraken Wallet",
+    name: "Kraken",
     category: "consumer",
     platforms: ["ios", "android"],
     features: [
@@ -1448,7 +1448,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   lazorkit: {
-    name: "LazorKit",
+    name: "LazorKit SDK",
     aliases: ["lazor-kit"],
     category: "infrastructure",
     platforms: ["sdk"],
@@ -1543,7 +1543,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   magic: {
-    name: "Magic",
+    name: "Magic SDK",
     aliases: ["magic-labs", "magic-link"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -1612,7 +1612,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   moonpay: {
-    name: "MoonPay Wallet",
+    name: "MoonPay",
     aliases: ["moonpay-account", "moonpay-account-wallet"],
     category: "consumer",
     platforms: ["ios", "android"],
@@ -1777,7 +1777,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   okx: {
-    name: "OKX Wallet",
+    name: "OKX",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "brave", "edge", "web"],
     features: [
@@ -1832,7 +1832,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   onto: {
-    name: "ONTO Wallet",
+    name: "ONTO",
     aliases: ["onto-data-wallet"],
     category: "consumer",
     platforms: ["ios", "android", "web"],
@@ -1844,7 +1844,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   openfort: {
-    name: "Openfort",
+    name: "Openfort SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -1863,7 +1863,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   opensigner: {
-    name: "OpenSigner",
+    name: "OpenSigner SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -1914,7 +1914,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   para: {
-    name: "Para",
+    name: "Para SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -1935,7 +1935,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "particle-network": {
-    name: "Particle Network Universal Accounts",
+    name: "Particle Network SDK",
     aliases: ["particle-universal-accounts", "universal-accounts"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -1965,7 +1965,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "passkeys-wallet": {
-    name: "Passkeys Wallet",
+    name: "Passkeys SDK",
     aliases: ["passkeys", "passkeys-foundation"],
     category: "infrastructure",
     platforms: ["web", "api", "sdk"],
@@ -1983,7 +1983,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "paybis-wallet": {
-    name: "Paybis Wallet",
+    name: "Paybis",
     aliases: ["paybis"],
     category: "consumer",
     platforms: ["ios", "android", "web"],
@@ -1995,7 +1995,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "paypal-cryptocurrency-services": {
-    name: "PayPal Cryptocurrency Services",
+    name: "PayPal",
     aliases: ["paypal"],
     category: "payments",
     platforms: ["ios", "android", "web"],
@@ -2034,7 +2034,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "phantom-connect": {
-    name: "Phantom Connect SDKs",
+    name: "Phantom SDK",
     companyId: "phantom",
     aliases: ["phantom-embedded-wallets", "phantom-wallet-sdk"],
     category: "infrastructure",
@@ -2052,7 +2052,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   pontem: {
-    name: "Pontem Wallet",
+    name: "Pontem",
     aliases: ["pontem-network", "pontem-wallet"],
     category: "consumer",
     platforms: ["ios", "android", "chrome", "firefox"],
@@ -2064,7 +2064,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   portal: {
-    name: "Portal",
+    name: "Portal SDK",
     aliases: ["portal-embedded"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -2102,7 +2102,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   privy: {
-    name: "Privy",
+    name: "Privy SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -2150,7 +2150,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   reown: {
-    name: "WalletConnect Wallet SDK",
+    name: "WalletConnect SDK",
     companyId: "walletconnect",
     aliases: [
       "reown-walletkit",
@@ -2168,7 +2168,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "republic-wallet": {
-    name: "Republic Wallet",
+    name: "Republic",
     aliases: ["republic"],
     category: "consumer",
     platforms: ["ios", "web"],
@@ -2186,7 +2186,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   robinhood: {
-    name: "Robinhood Wallet",
+    name: "Robinhood",
     category: "consumer",
     platforms: ["ios", "android"],
     features: ["non_custodial", "buy_crypto", "hold_nfts", "multi_chain"],
@@ -2254,7 +2254,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   salmon: {
-    name: "Salmon Wallet",
+    name: "Salmon",
     aliases: ["salmon-wallet-v2"],
     category: "consumer",
     platforms: ["android", "chrome", "web"],
@@ -2341,7 +2341,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   speed: {
-    name: "Speed Wallet",
+    name: "Speed",
     aliases: ["speed-wallet"],
     category: "payments",
     platforms: ["ios", "android", "chrome", "web"],
@@ -2433,7 +2433,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "tatum-wallets": {
-    name: "Tatum Smart Wallets",
+    name: "Tatum SDK",
     aliases: ["tatum-wallet-as-a-service", "tatum-wallet-sdk"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -2611,7 +2611,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   turnkey: {
-    name: "Turnkey",
+    name: "Turnkey SDK",
     category: "infrastructure",
     platforms: ["api", "sdk"],
     features: [
@@ -2630,7 +2630,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   "umbra-wallet": {
-    name: "Umbra Wallet",
+    name: "Umbra",
     aliases: ["umbra-privacy-wallet"],
     category: "consumer",
     platforms: ["ios"],
@@ -2715,7 +2715,7 @@ const walletRecords = {
     lastVerified: "2026-07-16",
   },
   venly: {
-    name: "Venly Wallet-as-a-Service",
+    name: "Venly SDK",
     aliases: ["venly-as-a-service"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -2735,7 +2735,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   waiaas: {
-    name: "WAIaaS",
+    name: "WAIaaS SDK",
     aliases: ["wallet-as-a-service-for-ai-agents"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -2771,7 +2771,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   web3auth: {
-    name: "Web3Auth",
+    name: "Web3Auth SDK",
     aliases: ["metamask-embedded-wallets"],
     category: "infrastructure",
     platforms: ["api", "sdk"],
@@ -2877,7 +2877,7 @@ const walletRecords = {
     lastVerified: "2026-07-15",
   },
   zerion: {
-    name: "Zerion Wallet",
+    name: "Zerion",
     companyId: "zerion",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "firefox", "web"],
