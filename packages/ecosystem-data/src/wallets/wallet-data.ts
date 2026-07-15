@@ -136,7 +136,7 @@ export type WalletRecord = {
   name: string;
   /** Slug of the owning company in `src/companies`, when one exists. */
   companyId?: string;
-  /** Alternate normalized product names (e.g. from The Grid) that map to this record. */
+  /** Alternate, historical, or normalized product names that map to this record. */
   aliases?: string[];
   category: WalletCategory;
   platforms: WalletPlatform[];

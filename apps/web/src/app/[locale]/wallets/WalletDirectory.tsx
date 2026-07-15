@@ -49,6 +49,15 @@ const DEFAULT_STATE: DirectoryState = {
 };
 
 const FEATURED_WALLET_COUNT = 4;
+const FEATURED_WALLET_IDS: ReadonlySet<string> = new Set([
+  "solflare",
+  "backpack",
+  "phantom",
+  "squadsx",
+  "fuse",
+  "unruggable",
+  "jupiter",
+]);
 
 type FeatureGroupId =
   | "ownership"
@@ -265,14 +274,6 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
     : [...values, value];
 }
 
-function isSolflareWallet(wallet: WalletDirectoryEntry) {
-  return (
-    wallet.slug === "solflare" ||
-    wallet.companyId === "solflare" ||
-    wallet.name.toLowerCase() === "solflare"
-  );
-}
-
 function shuffleItems<T>(values: T[]) {
   const items = [...values];
 
@@ -284,28 +285,19 @@ function shuffleItems<T>(values: T[]) {
   return items;
 }
 
-function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const solflare = wallets.find(isSolflareWallet);
-  const remaining = wallets.filter((wallet) => wallet.id !== solflare?.id);
+function getFeaturedWalletPool(wallets: WalletDirectoryEntry[]) {
+  return wallets.filter((wallet) => FEATURED_WALLET_IDS.has(wallet.id));
+}
 
-  return [
-    ...(solflare ? [solflare] : []),
-    ...remaining.slice(0, FEATURED_WALLET_COUNT - (solflare ? 1 : 0)),
-  ];
+function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
+  return getFeaturedWalletPool(wallets).slice(0, FEATURED_WALLET_COUNT);
 }
 
 function getRandomFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const solflare = wallets.find(isSolflareWallet);
-  const remaining = wallets.filter((wallet) => wallet.id !== solflare?.id);
-  const selected = [
-    ...(solflare ? [solflare] : []),
-    ...shuffleItems(remaining).slice(
-      0,
-      FEATURED_WALLET_COUNT - (solflare ? 1 : 0),
-    ),
-  ];
-
-  return shuffleItems(selected).slice(0, FEATURED_WALLET_COUNT);
+  return shuffleItems(getFeaturedWalletPool(wallets)).slice(
+    0,
+    FEATURED_WALLET_COUNT,
+  );
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
@@ -833,25 +825,6 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             <p className={styles.eyebrow}>Directory</p>
             <h2>Compare Solana wallets</h2>
           </div>
-          <div className={styles.attribution}>
-            <a
-              href="https://thegrid.id/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.gridAttributionLink}
-              aria-label="Powered by The Grid"
-            >
-              <span>Powered by</span>
-              <img
-                src="/images/logos/the-grid-white.svg"
-                alt="The Grid"
-                width={84}
-                height={18}
-                loading="lazy"
-                decoding="async"
-              />
-            </a>
-          </div>
         </div>
 
         <div className={styles.audienceSection}>
@@ -1208,10 +1181,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
         </div>
 
         <p className={styles.disclaimer}>
-          Wallet URLs are sourced through The Grid for research and maintained
-          in Solana ecosystem records with Solana-maintained feature research.
-          Listings are informational and do not imply endorsement by the Solana
-          Foundation or The Grid.
+          Wallet listings are maintained through ongoing ecosystem research.
+          Inclusion is informational and does not imply endorsement by the
+          Solana Foundation.
         </p>
       </section>
 

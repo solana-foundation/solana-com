@@ -1,237 +1,252 @@
 ---
 name: wallet-filter-research
 description:
-  Research Solana wallet products discovered through The Grid, verify public
-  wallet functionality through independent web research, and update the
-  canonical wallet data in packages/ecosystem-data. Use when asked to refresh
-  wallet filters, add new wallets, audit wallet features, remove stale filter
-  claims, add newly supported functionality, reconcile The Grid wallet products
-  with local Solana ecosystem records, or change the Solana.com wallet finder
-  page at apps/web/src/app/[locale]/wallets/page.tsx and its wallet directory
-  data-loading or UI integration.
+  Discover, verify, and maintain Solana wallet products using the canonical
+  local registry in packages/ecosystem-data and current web research. Use when
+  asked to refresh wallet data, find new Solana wallets, add or remove wallets,
+  audit wallet features or platforms, correct stale claims, reconcile wallet
+  aliases or company mappings, update wallet icons, or change the Solana.com
+  wallet directory data-loading or UI integration.
 ---
 
 # Wallet Filter Research
 
-Keep the Solana.com wallet finder accurate. The process has three steps, in
-order:
+Maintain the Solana.com wallet directory as a local, maintained dataset. Treat
+`packages/ecosystem-data/src/wallets/wallet-data.ts` as the canonical publishing
+registry.
 
-1. **Discover** — pull wallet company names and URLs from The Grid. That is all
-   The Grid provides: a candidate list. Nothing else in the wallet data comes
-   from The Grid.
-2. **Research** — independently research each wallet on the web and populate
-   every wallet data field from that research.
-3. **Update** — update existing wallet records and add new ones in
-   `packages/ecosystem-data` with the correct category, platforms, and feature
-   tags based on the research.
+Follow three rules:
 
-## Step 1: Discover candidates from The Grid
+1. Start every audit from the local registry.
+2. Use any useful discovery source: search engines, official sites, directories,
+   aggregators, community discussions, app stores, repositories, and existing
+   datasets can all provide leads or help expose gaps.
+3. Weigh evidence by source quality. Verify important or non-obvious published
+   claims against official sources when available, and never treat a single
+   third-party source as automatic truth.
+
+## 1. Build the local research queue
+
+List all canonical wallet records:
+
+```bash
+pnpm --filter @workspace/ecosystem-data wallets:research-queue
+```
+
+Limit the queue when the request is targeted:
+
+```bash
+pnpm --filter @workspace/ecosystem-data wallets:research-queue -- --slug phantom
+pnpm --filter @workspace/ecosystem-data wallets:research-queue -- --stale-before 2026-01-01
+```
+
+For a full refresh, audit every local record and then run the discovery pass
+below. For a targeted request, audit the requested records and research directly
+related renames, replacements, or product-family changes.
+
+Do not interpret absence from search results as proof that a local wallet is
+inactive. Look for affirmative evidence before removing or marking a product as
+discontinued.
+
+## 2. Discover candidates
+
+Run current web searches across each relevant product class:
+
+- consumer and mobile wallets
+- browser and desktop wallets
+- hardware wallets
+- embedded wallets, wallet SDKs, and wallet-as-a-service products
+- institutional custody, MPC, multisig, and treasury wallets
+- payment, remittance, and stablecoin wallets
+
+Use query families such as:
+
+```text
+"Solana wallet" official
+"supports Solana" wallet
+"Solana" "hardware wallet"
+"Solana" "embedded wallet" SDK
+"Solana" MPC wallet custody
+"Solana" multisig wallet
+"Solana" payment wallet USDC
+```
+
+Search official distribution surfaces separately where relevant:
+
+- Apple App Store and Google Play
+- Chrome Web Store and Firefox Add-ons
+- official GitHub or GitLab organizations and repositories
+- official product documentation, changelogs, and release announcements
+
+Also consult relevant directories, aggregators, comparison pages, community
+lists, social discussions, and public datasets. They are useful for discovery,
+cross-checking, terminology, and identifying coverage gaps. Do not bulk-copy
+their records or assume their fields are current; follow useful leads to
+stronger or corroborating evidence.
+
+Before publishing a candidate, establish the following with reliable evidence:
+
+- a distinct, currently available wallet or wallet-infrastructure product
+- explicit Solana support
+- an official product or documentation URL
+- at least one applicable local category and platform
+
+Prefer official sources. When an official source is unavailable, use multiple
+independent references and note the uncertainty. Keep ambiguous candidates in
+working notes until the evidence is sufficient instead of forcing a decision.
+
+## 3. Research and verify every field
+
+For an existing record, begin with its local `website`. For a new candidate,
+begin with the best URL found during discovery. Research outward through:
+
+- official product, documentation, security, architecture, pricing, and FAQ
+  pages
+- official app-store and browser-extension listings
+- official repositories and package registries
+- official support articles, changelogs, blog posts, and announcements
+- official brand or media kits for icon assets
+- directories, comparison pages, reputable reporting, community discussions, and
+  public datasets for discovery and cross-checking
+
+Build a working evidence matrix before editing:
+
+| Wallet | Field or claim | Source URL | Existing value | Proposed value | Rationale |
+| ------ | -------------- | ---------- | -------------- | -------------- | --------- |
+
+Review every wallet field during the current research pass: `name`, `aliases`,
+`companyId`, `category`, `platforms`, `features`, `description`, `website`,
+`icon`, and `lastVerified`. Carry values forward when they remain reasonably
+supported; focus deeper verification on changed, uncertain, or high-impact
+claims.
+
+### Evidence standards
+
+- Prefer explicit support statements over inference, especially for non-obvious
+  capabilities and security claims.
+- Treat generic Solana support as insufficient evidence for staking, Token
+  Extensions, Blinks, Solana Pay, MPC, social recovery, or gas abstraction.
+- Verify platforms from product pages, store listings, or corroborating current
+  sources.
+- Verify custody, recovery, MPC, multisig, and policy controls separately.
+- Verify buy and sell flows separately; an on-ramp does not prove an off-ramp.
+- Verify open source from the relevant wallet app, protocol, firmware, or SDK
+  repository. An unrelated public SDK is insufficient.
+- Use conservative values when evidence is unclear: omit the feature or record
+  the uncertainty in working notes.
+- Use app-store reviews, social posts, Reddit, community forums, and third-party
+  pages to find candidates, terminology, reported issues, and conflicting
+  claims. Do not use one such source as the sole support for capabilities,
+  custody, recovery, or security claims.
+- When no official source exists, third-party evidence may support a field if it
+  is current, credible, corroborated where practical, and appropriately caveated
+  in the working notes.
+
+Read `references/filter-taxonomy.md` before changing category, platform, or
+feature mappings. Keep it synchronized with
+`packages/ecosystem-data/src/wallets/taxonomy.ts`.
+
+### Names and aliases
+
+- Use the current official product name as `name`.
+- Add `aliases` for supported former names, abbreviations, acquisition-era
+  names, or normalized variants needed for local reconciliation.
+- Treat aliases found in third-party sources as leads. Confirm them through
+  official usage or multiple reliable references before publishing.
+- Set `companyId` only when the wallet maps cleanly to an existing canonical
+  company record.
+
+### Descriptions
+
+- Draft original descriptions from the evidence matrix and existing local copy;
+  do not copy source wording.
+- Use two to four concrete, verified product facts when available.
+- Trace non-obvious or changed claims to a source URL in the working notes.
+- Avoid generic marketing language and lists of filter labels.
+- Keep narrow descriptions when official materials are vague.
+
+### Icons
+
+- Prefer an official square product/app icon over a wordmark or banner. A
+  reputable public asset is an acceptable fallback when its provenance and reuse
+  rights are clear.
+- Check official media kits, product assets, app stores, browser stores,
+  repositories, favicons, and social preview images before choosing.
+- Store wallet icons as WebP in `packages/ecosystem-data/assets/wallets/icons/`.
+- Reuse a canonical company mark through `companyId` when it accurately
+  represents the wallet product.
+- Omit `icon` intentionally when no trustworthy product icon is available; the
+  app will use `DEFAULT_WALLET_ICON`.
+
+## 4. Reconcile and update the local registry
+
+Update the single record in
+`packages/ecosystem-data/src/wallets/wallet-data.ts`. Do not create app-owned
+overrides, external-ID maps, or runtime enrichment layers.
+
+For each researched record:
+
+- remove claims that current evidence no longer supports
+- add supported category, platform, and feature values
+- update `lastVerified` only after an end-to-end review
+- merge duplicate products under one stable local slug when they represent the
+  same product
+- preserve distinct products from the same company when their users,
+  capabilities, or custody models differ
+- remove a record only when reliable evidence confirms discontinuation,
+  replacement, or lack of Solana support
+
+For new records, add a verified local icon or intentionally use the placeholder.
+Add a company record only when the identity should be reusable outside the
+wallet directory; follow `packages/ecosystem-data/README.md`.
+
+## Data ownership boundaries
+
+`packages/ecosystem-data` owns all wallet source data:
+
+- `src/wallets/wallet-data.ts`: canonical records, aliases, company links, and
+  verification dates
+- `src/wallets/taxonomy.ts`: categories, platforms, features, labels, and
+  descriptions
+- `assets/wallets/icons/`: wallet product icons
+- `assets/wallets/wallet-placeholder-icon.webp`: default icon
+- `src/companies/` and `assets/companies/`: reusable company identity and marks
+
+`apps/web/src/app/[locale]/wallets/` owns only presentation and interpretation:
+
+- `page.tsx`: route entrypoint
+- `get-wallet-directory.ts`: local record-to-view-model integration
+- `wallet-directory.ts`: view-model types and label helpers
+- `WalletDirectory.tsx` and its stylesheet: filtering and rendering
+
+The web app reads package-owned wallet data at runtime; research and enrichment
+happen offline before reviewed changes are published to the local registry. The
+package must not own React components, query-state, or filtering behavior.
+
+## Validation
 
 Run:
 
 ```bash
-node skills/wallet-filter-research/scripts/fetch_grid_wallets.mjs
-```
-
-This returns live Solana wallet products as `{ companyNames, urls }` pairs.
-Compare them against the `walletData` records in
-`packages/ecosystem-data/src/wallets/wallet-data.ts` — matching on record slug,
-`name`, and each record's `aliases` — to identify new, renamed, or changed
-wallet products.
-
-The Grid is discovery input only:
-
-- Treat Grid responses as a candidate name/URL list, never as wallet feature,
-  category, platform, description, or logo truth.
-- Do not fetch, scrape, or merge The Grid data in the Solana.com wallet finder
-  runtime experience.
-- Preserve the visible The Grid acknowledgement on the live wallet page, because
-  the candidate URL list is sourced through The Grid.
-
-When the request is a full refresh, research every wallet surfaced by The Grid
-plus every local `walletData` record — not just products that are new or
-renamed.
-
-## Step 2: Research each wallet independently on the web
-
-For each wallet, start from its URL (the canonical website from local data if it
-exists, otherwise the Grid-discovered URL after resolving redirects) and
-research outward through current public primary sources:
-
-- official product pages, docs, security/architecture pages, pricing, FAQs
-- official app store, Chrome Web Store, and Firefox Add-ons listings
-- the wallet team's official GitHub/GitLab organizations
-- official support articles, changelogs, blog posts, and announcements
-
-Populate **all** wallet data fields from this research — name, canonical name,
-description, website, category, platforms, features, aliases, and icon. Do not
-carry forward previous local values without re-verifying them; wallet
-capabilities change often.
-
-The web research is the source of every field value written in Step 3. For each
-researched wallet, capture working notes — the facts found, the source URL for
-each fact, and the images collected — and build the record from those notes, not
-from memory, The Grid, or the previous record. A field with no supporting
-research note does not get written.
-
-### Evidence rules
-
-- Prefer explicit support statements over inference. A source saying a wallet
-  supports Solana is not enough to infer staking, Token Extensions, Blinks,
-  Solana Pay, MPC, social recovery, or gas abstraction.
-- Record conservative values when sources are unclear: leave the filter
-  false/absent.
-- Verify platform availability through product pages or official app store /
-  browser extension listings.
-- Verify open source through the wallet team's official repos, packages, docs,
-  or product page. A public SDK is not enough for `open_source` unless it is the
-  relevant wallet app, wallet protocol, or wallet infrastructure code.
-- Verify payments filters separately: stablecoin support does not imply Solana
-  Pay, buy crypto, sell crypto, card spend, remittance, or checkout.
-- Verify custody filters separately. Passkeys, MPC, social login, and cloud
-  backup can be custodial, non-custodial, or hybrid depending on the product.
-- For infrastructure wallets, distinguish `mpc`, `private_key_infrastructure`,
-  `spending_limits`, `social_recovery`, and `gas_abstraction`; do not mark all
-  infrastructure features true by default.
-- For hardware products, distinguish the physical device/platform from software
-  companion apps. Merge only when the directory intentionally represents the
-  product family.
-- Do not use app store user reviews, Reddit, unrelated third-party blogs, or
-  unsourced aggregator lists as primary evidence.
-- Keep a short evidence matrix in notes for non-obvious changes: wallet, source
-  URL, filter claim, old value, new value, and rationale.
-
-### Descriptions
-
-- Write every description fresh from the web-research notes for that wallet.
-  Never reuse the existing local description, Grid metadata, or a remembered
-  summary as the starting point — draft from the verified facts gathered in this
-  research pass, then compare against the old description only to decide whether
-  the record changed.
-- Ground descriptions in wallet-specific language and concrete facts from
-  official sources — usually two to four verified facts, without copying long
-  marketing text verbatim.
-- Every claim in the description must trace to a specific source URL in the
-  research notes. If a sentence cannot be traced to a source, cut it.
-- Do not stitch filter labels together ("self-custody", "multi-chain", "NFTs",
-  "dApp access") into a description.
-- Avoid generic filler ("secure", "seamless", "easy", "powerful", "manage your
-  crypto", "access web3") unless the surrounding sentence contains concrete
-  verified product detail.
-- If official copy is vague, keep the description narrow and factual rather than
-  inventing specificity, and note the source limitation.
-
-### Icons
-
-- Icons are part of the wallet data set. For every record, either import a
-  verified icon from `packages/ecosystem-data/assets/wallets/icons/*.webp` and
-  set it as the record's `icon`, link a verified canonical company mark by
-  setting the record's `companyId`, or intentionally omit `icon` so the app
-  falls back to the placeholder (`DEFAULT_WALLET_ICON`).
-- During web research, pull every image version available for each wallet from
-  official sources: favicon and apple-touch icons, app icons from App Store /
-  Google Play / Chrome Web Store / Firefox Add-ons listings, Open Graph and
-  Twitter card images, brand/media-kit assets, GitHub organization and
-  repository avatars, and light/dark logo variants. Collect them all before
-  choosing.
-- From the collected versions, choose the highest-resolution official wallet
-  product icon (square app-icon style preferred over wordmarks or OG banners) as
-  the stored icon. Note in research notes which versions were found and which
-  was chosen.
-- Prefer official product, brand, repository, or app-store artwork. Do not use
-  third-party scraped logos when an official source is available.
-- Store icons as WebP. Convert PNG/JPG/JPEG sources with `magick`, e.g.
-  `magick input.png -quality 90 packages/ecosystem-data/assets/wallets/icons/<wallet-slug>.webp`.
-  Do not leave PNG/JPG/JPEG icons in `packages/ecosystem-data/assets/wallets`.
-
-## Step 3: Update and add wallet records
-
-Read `references/filter-taxonomy.md` before changing feature mappings or adding
-new filter keys. Then, for each researched wallet:
-
-- Build the record from the Step 2 research notes. Every field written —
-  especially the description — must come from evidence gathered in this research
-  pass, not from the previous record, The Grid, or general knowledge about the
-  wallet.
-- Check every applicable filter in the taxonomy — category, platforms, and every
-  feature — not only newly added features.
-- Update or add the record in the canonical `walletData` map in
-  `packages/ecosystem-data/src/wallets/wallet-data.ts`: name, description,
-  website, category, platforms, features, `lastVerified`, `aliases`,
-  `companyId`, and icon. There are no override layers — each wallet is exactly
-  one record, keyed by slug.
-- Remove any existing true feature/platform/category claim that cannot be
-  re-verified from current primary-source evidence.
-- Add new feature/platform/category values only when a primary source explicitly
-  supports them.
-- Update `lastVerified` to the research date only for wallets whose filters were
-  reviewed end-to-end.
-- Set a record's `companyId` only when the wallet maps cleanly to an existing
-  `packages/ecosystem-data/src/companies` company slug.
-- Add Grid or alternate product names to the record's `aliases` when Grid naming
-  differs from the record slug and name.
-- New filter keys or label changes go in
-  `packages/ecosystem-data/src/wallets/taxonomy.ts` (and must stay in sync with
-  `references/filter-taxonomy.md`).
-- If a wallet has no local company record but should use canonical Solana
-  branding assets, add it to `packages/ecosystem-data` following that package's
-  README and audit command.
-
-### Where the data lives
-
-All wallet directory source data lives in `packages/ecosystem-data`:
-
-- Canonical wallet records (one record per wallet, keyed by slug, with
-  per-record `aliases` and `companyId`):
-  `packages/ecosystem-data/src/wallets/wallet-data.ts`.
-- Filter taxonomy (category/platform/feature metadata and types):
-  `packages/ecosystem-data/src/wallets/taxonomy.ts`.
-- Wallet icon assets: `packages/ecosystem-data/assets/wallets/icons/*.webp`;
-  default icon:
-  `packages/ecosystem-data/assets/wallets/wallet-placeholder-icon.webp`.
-- Company identity and logos: `packages/ecosystem-data/src/companies` and
-  `packages/ecosystem-data/assets/companies`.
-
-The package exports data and types only. All methods and interpretation —
-directory entry building, filtering, label derivation, icon fallback chains,
-query-state, and rendering — live in the app route directory
-`apps/web/src/app/[locale]/wallets/`:
-
-- Page entrypoint: `page.tsx`.
-- Server data integration: `get-wallet-directory.ts`.
-- Label maps, directory types, and shared helpers: `wallet-directory.ts`.
-- Directory UI: `WalletDirectory.tsx` and its styles.
-
-This skill only updates data in `packages/ecosystem-data/src/wallets`; the app
-route then displays it. `apps/web` must not own wallet records, icon assets,
-aliases, filter claims, or researched copy, and `packages/ecosystem-data` must
-not own display or filtering logic. Edit the `apps/web` wallet files only for
-route, metadata, rendering, query-state, or data-loading integration changes.
-
-### Validation
-
-```bash
-pnpm --filter solana-com check-types
-pnpm --filter solana-com lint
+pnpm --filter @workspace/ecosystem-data wallets:research-queue -- --slug phantom
 pnpm --filter @workspace/ecosystem-data check-types
 pnpm --filter @workspace/ecosystem-data lint
 pnpm --filter @workspace/ecosystem-data audit:data
+pnpm --filter solana-com exec tsc --noEmit
+pnpm --filter solana-com lint
 ```
 
-If a workspace does not define `check-types`, run its TypeScript compiler
-directly, for example `pnpm --filter solana-com exec tsc --noEmit`. Run the
-ecosystem-data commands only if that package changed.
+Run the app commands only when wallet integration or UI files changed. If a
+workspace command is unavailable, report it and use the closest targeted
+equivalent.
 
 ## Reporting
 
-When finished, summarize:
+Summarize:
 
-- wallets added, removed, or renamed
-- stale or unsupported filters removed
-- feature filters changed
-- platform/category filters changed
-- company aliases added
-- wallet icons added, replaced, converted, or intentionally left on the default
-  icon
-- sources used for non-obvious feature claims
-- validation commands run
+- wallets added, removed, renamed, merged, or excluded
+- aliases and company mappings changed
+- feature, platform, and category changes
+- icons added, replaced, or intentionally left on the placeholder
+- sources supporting non-obvious claims
+- validation commands and results

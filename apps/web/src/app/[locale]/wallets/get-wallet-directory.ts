@@ -17,9 +17,6 @@ import {
 } from "./wallet-directory";
 
 const SOLANA_MAINNET = "Solana Mainnet";
-const ECOSYSTEM_WALLET_DATA_SOURCES: WalletDirectoryEntry["dataSources"] = [
-  "ecosystem-data",
-];
 
 // Square marks scale to the directory's fixed logo tiles; wordmark-shaped
 // logos become illegible there, so only an explicit `kind: "mark"` qualifies
@@ -82,7 +79,6 @@ function buildWalletEntries(): WalletDirectoryEntry[] {
         supportedChains: [SOLANA_MAINNET],
         supportedAssets: [],
         lastVerified: record.lastVerified,
-        dataSources: [...ECOSYSTEM_WALLET_DATA_SOURCES],
       };
     }),
   );
@@ -91,7 +87,5 @@ function buildWalletEntries(): WalletDirectoryEntry[] {
 export async function getWalletDirectoryData(): Promise<WalletDirectoryData> {
   return {
     wallets: buildWalletEntries(),
-    lastFetchedAt: new Date().toISOString(),
-    source: "ecosystem-data",
   };
 }

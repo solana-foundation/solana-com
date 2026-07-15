@@ -61,9 +61,11 @@ This module exports data and types only — directory entry building, filtering,
 label lookup, and icon fallback logic live in the consuming app
 (`apps/web/src/app/[locale]/wallets/`). Apps should load wallet directory
 entries from these shared wallet records instead of fetching, hydrating, or
-displaying external discovery metadata at runtime. The wallet research workflow
-uses The Grid as an offline candidate and URL-list source, and the live wallet
-page acknowledges that source without using it as runtime data.
+displaying external discovery metadata at runtime. Wallet research starts from
+these canonical records and uses current web research to discover and
+cross-check candidates before reviewed fields are published back into the
+package. The live wallet page uses package-owned data only; it does not fetch or
+merge an external wallet dataset at runtime.
 
 Composable event or campaign data should live in the consuming app and reference
 those company records by `companyId`. For `apps/accelerate`, the JSON files

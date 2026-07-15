@@ -83,11 +83,8 @@ export type WalletDirectoryEntry = {
   supportedChains: string[];
   supportedAssets: string[];
   lastVerified?: string;
-  dataSources: Array<"ecosystem-data">;
 };
 
 export type WalletDirectoryData = {
   wallets: WalletDirectoryEntry[];
-  lastFetchedAt: string;
-  source: "ecosystem-data";
 };
