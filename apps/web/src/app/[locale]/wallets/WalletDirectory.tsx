@@ -1287,12 +1287,12 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
           <p>{t("builders.description")}</p>
         </div>
         <div className={styles.builderLinks}>
-          <a href="https://solana.com/docs/intro/wallets">
-            {t("builders.walletDocs")}{" "}
+          <a href="https://solana.com/docs/frontend/nextjs-solana">
+            {t("builders.nextjsWallets")}{" "}
             <ExternalLink size={15} aria-hidden="true" />
           </a>
-          <a href="https://solana.com/solutions/actions">
-            {t("builders.actions")}{" "}
+          <a href="https://solana.com/docs/core/transactions/signing-in-production">
+            {t("builders.productionSigning")}{" "}
             <ExternalLink size={15} aria-hidden="true" />
           </a>
           <a href="https://share.hsforms.com/1GE1hYdApQGaDiCgaiWMXHA5lohw">
