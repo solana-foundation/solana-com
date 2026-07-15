@@ -541,10 +541,10 @@ const walletRecords = {
   coin98: {
     name: "Coin98",
     category: "consumer",
-    platforms: ["ios", "android", "chrome"],
+    platforms: ["ios", "android", "chrome", "web"],
     features: ["non_custodial", "hold_nfts", "hardware", "multi_chain"],
     description:
-      "Non-custodial multi-chain wallet with mobile apps and a Chrome extension covering 140+ blockchains including Solana, with NFT management, cross-chain swaps via its SpaceGate bridge, and Ledger and Trezor support",
+      "Non-custodial multi-chain wallet with mobile apps, a Chrome extension, and a web wallet covering 140+ blockchains including Solana, with NFT management, cross-chain swaps via its SpaceGate bridge, and Ledger and Trezor support",
     website: "https://coin98.com/",
     icon: coin98Icon,
     lastVerified: "2026-07-15",
@@ -596,10 +596,10 @@ const walletRecords = {
   coinpayments: {
     name: "CoinPayments",
     category: "payments",
-    platforms: ["web"],
+    platforms: ["ios", "android", "web"],
     features: ["custodial", "get_paid", "multi_chain"],
     description:
-      "Crypto payment gateway with a hosted custodial Personal Wallet for storing, sending, and receiving SOL, USDC, and USDT on Solana alongside Bitcoin, Ethereum, and stablecoins",
+      "Crypto payment gateway with custodial web and mobile Personal Wallets for storing, sending, and receiving SOL, USDC, and USDT on Solana alongside Bitcoin, Ethereum, and stablecoins",
     website: "https://www.coinpayments.net/",
     icon: coinpaymentsIcon,
     lastVerified: "2026-07-15",
@@ -713,7 +713,7 @@ const walletRecords = {
   cypherock: {
     name: "Cypherock",
     category: "hardware",
-    platforms: ["ios", "android", "desktop", "hardware"],
+    platforms: ["desktop", "hardware"],
     features: [
       "non_custodial",
       "buy_crypto",
@@ -723,7 +723,7 @@ const walletRecords = {
       "multi_chain",
     ],
     description:
-      "Seedless hardware wallet splitting keys across an X1 Vault and four NFC cards via Shamir Secret Sharing, with open-source cySync desktop and mobile apps covering Solana among 9,000+ assets",
+      "Seedless hardware wallet splitting keys across an X1 Vault and four NFC cards via Shamir Secret Sharing, with the open-source cySync desktop app covering Solana among 9,000+ assets",
     website: "https://www.cypherock.com/",
     icon: cypherockIcon,
     lastVerified: "2026-07-15",
@@ -1132,10 +1132,10 @@ const walletRecords = {
     name: "KeepKey",
     aliases: ["keepkey-vault-desktop"],
     category: "hardware",
-    platforms: ["chrome", "desktop", "hardware"],
+    platforms: ["ios", "chrome", "desktop", "hardware"],
     features: ["non_custodial", "open_source", "hardware", "multi_chain"],
     description:
-      "Hardware wallet with open-source firmware and the KeepKey Vault desktop app for send, receive, and no-KYC cross-chain swaps across Solana, Bitcoin, Ethereum, and 11 native chains",
+      "Hardware wallet with open-source firmware, the KeepKey Vault desktop app for send, receive, and no-KYC cross-chain swaps across Solana and 10 other native chains, and an iOS companion app for portfolio monitoring",
     website: "https://keepkey.com/",
     icon: keepkeyIcon,
     lastVerified: "2026-07-15",
@@ -1268,7 +1268,7 @@ const walletRecords = {
     name: "MathWallet",
     aliases: ["math-wallet"],
     category: "consumer",
-    platforms: ["ios", "android", "chrome", "brave", "edge", "web", "hardware"],
+    platforms: ["ios", "android", "chrome", "brave", "edge", "web"],
     features: ["non_custodial", "hold_nfts", "hardware", "multi_chain"],
     description:
       "Multichain wallet covering 228+ networks including Solana, with mobile apps, Chrome, Brave, and Edge extensions, a web wallet, NFT support, and Ledger and WOOKONG hardware integration",
@@ -1301,7 +1301,7 @@ const walletRecords = {
     name: "Moongate",
     aliases: ["moongate-labs"],
     category: "consumer",
-    platforms: ["ios", "android", "web", "sdk"],
+    platforms: ["web", "sdk"],
     features: [
       "buy_crypto",
       "gas_abstraction",
@@ -1310,7 +1310,7 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Solana wallet and trading app that creates a wallet instantly via Google, Apple, X, or Ethereum sign-in, with card purchases, cross-chain swaps, and a Wallet Standard adapter SDK for dApps",
+      "Hosted multichain wallet and trading app with social sign-in, card purchases, cross-chain swaps, tokenized assets, and an SDK for embedding its wallet experience in other apps",
     website: "https://moongate.one/",
     icon: moongateIcon,
     lastVerified: "2026-07-15",
@@ -1759,7 +1759,7 @@ const walletRecords = {
     name: "Republic Wallet",
     aliases: ["republic"],
     category: "consumer",
-    platforms: ["web"],
+    platforms: ["ios", "web"],
     features: [
       "non_custodial",
       "buy_crypto",
@@ -1768,7 +1768,7 @@ const walletRecords = {
       "multi_chain",
     ],
     description:
-      "Self-custody wallet built into the Republic investing platform, holding tokenized equity, funds, and crypto across Solana, Ethereum, and other chains with passkey and Face ID login instead of seed phrases",
+      "Self-custody wallet available through Republic's web platform and iOS app, holding tokenized equity, funds, and crypto across Solana, Ethereum, and other chains with passkey and Face ID login instead of seed phrases",
     website: "https://republic.com/wallet",
     icon: republicWalletIcon,
     lastVerified: "2026-07-15",
@@ -1805,7 +1805,7 @@ const walletRecords = {
   safeheron: {
     name: "Safeheron",
     category: "institutional",
-    platforms: ["ios", "web", "api", "sdk"],
+    platforms: ["ios", "android", "web", "api", "sdk"],
     features: [
       "non_custodial",
       "mpc",
@@ -1814,7 +1814,7 @@ const walletRecords = {
       "multi_chain",
     ],
     description:
-      "Enterprise MPC self-custody platform with TEE-hardened key sharding, a policy engine for approval workflows, wallet-as-a-service APIs, and Solana access alongside EVM, TRON, and TON",
+      "Enterprise MPC self-custody platform with iOS and Android apps, a web console, TEE-hardened key sharding, approval policies, wallet-as-a-service APIs, and Solana access alongside EVM, TRON, and TON",
     website: "https://safeheron.com/",
     icon: safeheronIcon,
     lastVerified: "2026-07-15",
@@ -1874,7 +1874,16 @@ const walletRecords = {
     name: "Solflare",
     companyId: "solflare",
     category: "consumer",
-    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge", "web"],
+    platforms: [
+      "ios",
+      "android",
+      "chrome",
+      "firefox",
+      "brave",
+      "edge",
+      "web",
+      "hardware",
+    ],
     features: [
       "non_custodial",
       "solana_pay",
@@ -2004,7 +2013,7 @@ const walletRecords = {
   tokenpocket: {
     name: "TokenPocket",
     category: "consumer",
-    platforms: ["ios", "android", "chrome"],
+    platforms: ["ios", "android", "chrome", "hardware"],
     features: [
       "non_custodial",
       "buy_crypto",
@@ -2162,7 +2171,7 @@ const walletRecords = {
     name: "Unhosted",
     aliases: ["unhosted-wallet"],
     category: "consumer",
-    platforms: ["chrome"],
+    platforms: ["ios", "chrome"],
     features: [
       "non_custodial",
       "buy_crypto",
@@ -2173,7 +2182,7 @@ const walletRecords = {
       "multi_chain",
     ],
     description:
-      "Self-custodial smart-account wallet in beta with a Chrome extension, Apple, Google, or email sign-in with passkey recovery, an account-abstraction module marketplace, and buy, sell, and swap coverage listing Solana",
+      "Self-custodial smart-account wallet in beta on iOS through TestFlight and as a Chrome extension, with social or email sign-in, passkey recovery, modular account abstraction, and buy, sell, and swap coverage listing Solana",
     website: "https://unhosted.com/",
     icon: unhostedIcon,
     lastVerified: "2026-07-15",
@@ -2372,7 +2381,7 @@ const walletRecords = {
   zypto: {
     name: "Zypto",
     category: "consumer",
-    platforms: ["ios", "android"],
+    platforms: ["ios", "android", "hardware"],
     features: [
       "non_custodial",
       "buy_crypto",
