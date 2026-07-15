@@ -747,7 +747,15 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
         <WalletHeroScene />
         <header className={styles.hero}>
           <p className={styles.eyebrow}>{t("hero.eyebrow")}</p>
-          <h1>{t("hero.headline")}</h1>
+          <h1>
+            {t.rich("hero.headline", {
+              strong: (chunks) => (
+                <strong className={styles.heroHeadlineEmphasis}>
+                  {chunks}
+                </strong>
+              ),
+            })}
+          </h1>
           <div className={styles.heroFoot}>
             <p className={styles.heroText}>{t("hero.body")}</p>
             <div className={styles.heroActions}>
