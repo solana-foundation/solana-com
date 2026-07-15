@@ -17,6 +17,10 @@ labels, descriptions) lives in
 - `payments`: wallets or wallet infrastructure primarily positioned around
   payments, commerce, remittance, or card-like flows.
 
+The canonical `category` remains the product's primary category. The web
+directory also includes records with `buy_crypto`, `sell_crypto`, or `get_paid`
+in the Payments category as secondary matches.
+
 ## Platforms
 
 - `ios`: official iOS app.
@@ -39,6 +43,9 @@ labels, descriptions) lives in
 - `buy_crypto`: fiat on-ramp, card/bank purchase, or integrated exchange buy.
 - `sell_crypto`: fiat off-ramp, card/bank withdrawal, or integrated exchange
   sell.
+- `get_paid`: payment acceptance, payment links or requests, merchant checkout,
+  invoicing, or documented payout receipt. Generic wallet address receipt alone
+  is insufficient.
 - `hold_nfts`: displays, sends, receives, or manages NFTs/collectibles.
 - `mpc`: explicit multi-party computation key management.
 - `gas_abstraction`: sponsored fees, fee abstraction, gasless transactions, or

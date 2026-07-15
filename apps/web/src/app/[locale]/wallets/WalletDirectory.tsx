@@ -78,7 +78,7 @@ const FEATURE_GROUPS: Array<{
   },
   {
     id: "everyday",
-    options: ["buy_crypto", "sell_crypto", "staking", "hold_nfts"],
+    options: ["buy_crypto", "sell_crypto", "get_paid", "staking", "hold_nfts"],
   },
   {
     id: "solana",

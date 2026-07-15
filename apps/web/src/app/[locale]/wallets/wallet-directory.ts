@@ -39,3 +39,30 @@ export type WalletDirectoryData = {
   wallets: WalletDirectoryEntry[];
   lastReviewed?: string;
 };
+
+const PAYMENT_CATEGORY_FEATURES = [
+  "buy_crypto",
+  "sell_crypto",
+  "get_paid",
+] as const satisfies readonly WalletFeature[];
+
+/**
+ * Categories describe both the wallet's primary product type and the
+ * capabilities promised by category landing URLs. A wallet belongs in the
+ * Payments results when users can buy, sell, or get paid with it.
+ */
+export function buildWalletCategories(
+  category: WalletCategory,
+  features: readonly WalletFeature[],
+) {
+  const categories: WalletCategory[] = [category];
+  const supportsPayments = PAYMENT_CATEGORY_FEATURES.some((feature) =>
+    features.includes(feature),
+  );
+
+  if (supportsPayments && !categories.includes("payments")) {
+    categories.push("payments");
+  }
+
+  return categories;
+}

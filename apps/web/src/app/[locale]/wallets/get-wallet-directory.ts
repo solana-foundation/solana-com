@@ -6,6 +6,7 @@ import {
   type WalletRecord,
 } from "@workspace/ecosystem-data/wallets";
 import {
+  buildWalletCategories,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
 } from "./wallet-directory";
@@ -41,7 +42,7 @@ function buildWalletEntries(): WalletDirectoryEntry[] {
         slug,
         companyId: record.companyId,
         category: record.category,
-        categories: [record.category],
+        categories: buildWalletCategories(record.category, record.features),
         platforms: record.platforms,
         features: record.features,
         description: record.description,

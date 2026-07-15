@@ -67,6 +67,11 @@ export const WALLET_FEATURE_METADATA = {
     label: "Sell crypto",
     description: "Lets users sell crypto to fiat or linked accounts.",
   },
+  get_paid: {
+    label: "Get paid",
+    description:
+      "Lets users or businesses accept payments, payment requests, or payouts.",
+  },
   hold_nfts: {
     label: "NFTs",
     description: "Displays or manages NFTs and collectibles.",
