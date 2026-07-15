@@ -405,10 +405,6 @@ function walletMatchesState(
   return true;
 }
 
-function sortWallets(wallets: WalletDirectoryEntry[]) {
-  return [...wallets].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 function getInitials(name: string) {
   return name
     .split(/\s+/)
@@ -687,9 +683,7 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
   };
 
   const visibleWallets = useMemo(() => {
-    return sortWallets(
-      data.wallets.filter((wallet) => walletMatchesState(wallet, state)),
-    );
+    return data.wallets.filter((wallet) => walletMatchesState(wallet, state));
   }, [data.wallets, state]);
 
   const platformOptions = useMemo(
