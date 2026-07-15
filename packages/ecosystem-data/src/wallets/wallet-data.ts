@@ -192,7 +192,7 @@ const walletRecords = {
       "multi_sig",
     ],
     description:
-      "Self-custody wallet with integrated exchange for Solana, Ethereum, and BTC offering native and bpSOL liquid staking, NFT listing and locking, USD wire on/off-ramps, and 3-of-3 multisig via Ledger, Trezor, and Keystone",
+      "Self-custody wallet for Solana and multiple EVM networks with browser and mobile apps, in-wallet MoonPay purchases and sales, staking and NFT controls, and Ledger, Trezor, and Keystone-backed multisig workflows",
     website: "https://backpack.app/",
     icon: backpackIcon,
     lastVerified: "2026-07-15",
@@ -945,6 +945,7 @@ const walletRecords = {
     features: [
       "non_custodial",
       "buy_crypto",
+      "sell_crypto",
       "gas_abstraction",
       "social_recovery",
       "staking",
@@ -955,7 +956,7 @@ const walletRecords = {
       "multi_sig",
     ],
     description:
-      "Solana smart wallet on Squads Protocol with 2-of-3 multisig approvals, spending limits, email recovery, sponsored network fees, SOL staking, and a virtual Visa card for stablecoins",
+      "Solana smart wallet on Squads Protocol with multifactor approvals and recovery keys, programmable spending limits, sponsored transactions, SOL staking, bank on/off-ramps, and a virtual Visa card",
     website: "https://www.fusewallet.com/",
     icon: fuseIcon,
     lastVerified: "2026-07-15",
@@ -1123,6 +1124,7 @@ const walletRecords = {
       "sell_crypto",
       "hold_nfts",
       "gas_abstraction",
+      "spending_limits",
       "hardware",
       "solana_native",
     ],
@@ -1881,14 +1883,16 @@ const walletRecords = {
     platforms: ["ios", "android", "chrome", "firefox", "brave", "edge", "web"],
     features: [
       "non_custodial",
+      "solana_pay",
       "buy_crypto",
       "hold_nfts",
+      "gas_abstraction",
       "staking",
       "hardware",
       "solana_native",
     ],
     description:
-      "Solana self-custody wallet with mobile, web, and browser-extension apps for SOL staking, swaps, and NFTs, plus the NFC Solflare Shield hardware card and a USDC Mastercard debit card",
+      "Solana self-custody wallet with mobile, web, and browser-extension apps for Solana Pay, SOL staking, swaps, and NFTs, plus the NFC Solflare Shield hardware card and a gasless USDC Mastercard debit card",
     website: "https://www.solflare.com/",
     icon: solflareIcon,
     lastVerified: "2026-07-15",
@@ -1911,9 +1915,16 @@ const walletRecords = {
     aliases: ["squads"],
     category: "institutional",
     platforms: ["chrome"],
-    features: ["non_custodial", "solana_native", "multi_sig"],
+    features: [
+      "non_custodial",
+      "gas_abstraction",
+      "spending_limits",
+      "open_source",
+      "solana_native",
+      "multi_sig",
+    ],
     description:
-      "Browser extension from Squads that connects Squads multisigs to Solana dApps, turning dApp transactions into proposals that execute only after member approvals",
+      "Browser extension from Squads that connects Squads multisigs to Solana dApps, turns dApp actions into proposals for member approval, and can relay transaction fees from the vault",
     website:
       "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
     icon: squadsxIcon,
