@@ -25,7 +25,7 @@ solana-com/
 
 ## Tech Stack
 
-- **Runtime**: Node.js with pnpm 10.15.1 (workspace protocol)
+- **Runtime**: Node.js 24 with pnpm 11.13.0 (workspace protocol)
 - **Framework**: Next.js 15.5.9 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.1.2
