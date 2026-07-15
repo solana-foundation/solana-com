@@ -839,9 +839,9 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
               target="_blank"
               rel="noopener noreferrer"
               className={styles.gridAttributionLink}
-              aria-label="Wallet URLs sourced from The Grid"
+              aria-label="Powered by The Grid"
             >
-              <span>URLs sourced from</span>
+              <span>Powered by</span>
               <img
                 src="/images/logos/the-grid-white.svg"
                 alt="The Grid"
