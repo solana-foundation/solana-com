@@ -79,7 +79,14 @@ const FEATURE_GROUPS: Array<{
   },
   {
     id: "everyday",
-    options: ["buy_crypto", "sell_crypto", "get_paid", "staking", "hold_nfts"],
+    options: [
+      "buy_crypto",
+      "sell_crypto",
+      "get_paid",
+      "card_spending",
+      "staking",
+      "hold_nfts",
+    ],
   },
   {
     id: "solana",
@@ -105,15 +112,6 @@ const CATEGORY_ORDER: WalletCategory[] = [
   "institutional",
   "payments",
   "infrastructure",
-];
-
-const QUICK_FILTERS: WalletFeature[] = [
-  "non_custodial",
-  "buy_crypto",
-  "staking",
-  "hold_nfts",
-  "hardware",
-  "multi_sig",
 ];
 
 const PLATFORM_GROUPS: Array<{
@@ -519,7 +517,13 @@ function WalletRow({
   );
 }
 
-export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
+export function WalletDirectory({
+  data,
+  quickFeatureFilters,
+}: {
+  data: WalletDirectoryData;
+  quickFeatureFilters: readonly WalletFeature[];
+}) {
   const t = useTranslations("wallets");
   const locale = useLocale();
   const [state, setState] = useState<DirectoryState>(DEFAULT_STATE);
@@ -875,7 +879,7 @@ export function WalletDirectory({ data }: { data: WalletDirectoryData }) {
             role="group"
             aria-labelledby="popular-needs-heading"
           >
-            {QUICK_FILTERS.map((feature) => {
+            {quickFeatureFilters.map((feature) => {
               const checked = state.features.includes(feature);
               const count = getFeatureCount(feature);
 

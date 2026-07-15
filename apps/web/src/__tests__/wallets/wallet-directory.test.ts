@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildWalletCategories } from "@/app/[locale]/wallets/wallet-directory";
 
 describe("buildWalletCategories", () => {
-  it.each(["buy_crypto", "sell_crypto", "get_paid"] as const)(
+  it.each(["buy_crypto", "sell_crypto", "get_paid", "card_spending"] as const)(
     "adds Payments for the %s capability",
     (feature) => {
       expect(buildWalletCategories("consumer", [feature])).toEqual([

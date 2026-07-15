@@ -44,12 +44,14 @@ const PAYMENT_CATEGORY_FEATURES = [
   "buy_crypto",
   "sell_crypto",
   "get_paid",
+  "card_spending",
 ] as const satisfies readonly WalletFeature[];
 
 /**
  * Categories describe both the wallet's primary product type and the
  * capabilities promised by category landing URLs. A wallet belongs in the
- * Payments results when users can buy, sell, or get paid with it.
+ * Payments results when users can buy, sell, get paid, or spend through an
+ * integrated card with it.
  */
 export function buildWalletCategories(
   category: WalletCategory,

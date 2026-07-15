@@ -3,6 +3,7 @@ import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { WalletDirectory } from "./WalletDirectory";
 import { getWalletDirectoryData } from "./get-wallet-directory";
+import type { WalletFeature } from "./wallet-directory";
 import {
   buildWalletDirectoryJsonLd,
   serializeJsonLd,
@@ -13,6 +14,16 @@ import {
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 604800;
+
+const QUICK_FEATURE_FILTERS = [
+  "non_custodial",
+  "buy_crypto",
+  "card_spending",
+  "staking",
+  "hold_nfts",
+  "hardware",
+  "multi_sig",
+] as const satisfies readonly WalletFeature[];
 
 function shuffle<T>(items: T[]) {
   const shuffledItems = [...items];
@@ -63,6 +74,7 @@ export default async function Page({ params }: Props) {
           ...data,
           wallets: shuffle(data.wallets),
         }}
+        quickFeatureFilters={QUICK_FEATURE_FILTERS}
       />
     </>
   );
