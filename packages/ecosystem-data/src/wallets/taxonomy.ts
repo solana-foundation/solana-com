@@ -72,6 +72,11 @@ export const WALLET_FEATURE_METADATA = {
     description:
       "Lets users or businesses accept payments, payment requests, or payouts.",
   },
+  card_spending: {
+    label: "Card spending",
+    description:
+      "Provides an integrated payment card for spending wallet or account balances.",
+  },
   hold_nfts: {
     label: "NFTs",
     description: "Displays or manages NFTs and collectibles.",

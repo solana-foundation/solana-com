@@ -172,6 +172,11 @@ Apply these hard exclusions:
   crypto to fiat and pays a bank, card, or other fiat account. Crypto debit-card
   spending, point-of-sale conversion, ATM access through a spending card,
   transfers to an external exchange, and crypto-to-crypto swaps do not qualify.
+- Add `card_spending` only for an integrated physical or virtual credit, debit,
+  or prepaid payment card that spends the wallet or account balance at card-
+  network merchants. Buying crypto with an external card, cashing out to an
+  external card, gift cards, hardware signing cards, and a separate company or
+  exchange card outside the canonical product surface do not qualify.
 - Add `spending_limits` only when a user, team, or administrator can configure
   or enforce spend controls or transaction policies. Provider-imposed card or
   ATM limits, regulatory or KYC caps, wallet balances, regional restrictions,

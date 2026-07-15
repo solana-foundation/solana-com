@@ -48,6 +48,11 @@ in the Payments category as secondary matches.
 - `get_paid`: payment acceptance, payment links or requests, merchant checkout,
   invoicing, or documented payout receipt. Generic wallet address receipt alone
   is insufficient.
+- `card_spending`: an integrated physical or virtual credit, debit, or prepaid
+  payment card that lets users spend the wallet or account balance at merchants
+  on a card network. Buying crypto with an external card, cashing out to an
+  external card, gift cards, hardware signing cards, and a separate company or
+  exchange card outside the canonical product surface are insufficient.
 - `hold_nfts`: displays, sends, receives, or manages NFTs/collectibles.
 - `mpc`: explicit multi-party computation key management.
 - `gas_abstraction`: sponsored fees, fee abstraction, gasless transactions, or
