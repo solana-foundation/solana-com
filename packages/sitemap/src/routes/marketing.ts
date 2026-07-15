@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { WALLET_DIRECTORY_LAST_VERIFIED } from "@workspace/ecosystem-data/wallets/metadata";
 import { repoRoot } from "../constants";
 import type { RouteGenerator } from "../types";
 import {
@@ -8,15 +9,6 @@ import {
   getFileLastModified,
   walkFiles,
 } from "../utils";
-
-const walletDataPath = path.join(
-  repoRoot,
-  "packages",
-  "ecosystem-data",
-  "src",
-  "wallets",
-  "wallet-data.ts",
-);
 
 const appLocaleRoot = path.join(
   repoRoot,
@@ -58,24 +50,9 @@ function getPriority(routePath: string) {
   return 0.8;
 }
 
-function getWalletDirectoryLastModified() {
-  if (!fs.existsSync(walletDataPath)) {
-    return undefined;
-  }
-
-  const source = fs.readFileSync(walletDataPath, "utf8");
-  const verificationDates = Array.from(
-    source.matchAll(/lastVerified:\s*"(\d{4}-\d{2}-\d{2})"/g),
-    (match) => match[1],
-  ).sort();
-  const latestDate = verificationDates.at(-1);
-
-  return latestDate ? `${latestDate}T00:00:00.000Z` : undefined;
-}
-
 function getRouteLastModified(routePath: string, filePath: string) {
   if (routePath === "/wallets") {
-    return getWalletDirectoryLastModified() || getFileLastModified(filePath);
+    return `${WALLET_DIRECTORY_LAST_VERIFIED}T00:00:00.000Z`;
   }
 
   return getFileLastModified(filePath);

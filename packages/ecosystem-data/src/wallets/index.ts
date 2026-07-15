@@ -12,6 +12,12 @@ export {
 } from "./wallet-data";
 
 export {
+  WALLET_DIRECTORY_LAST_VERIFIED,
+  WALLET_VERIFICATION_DATES,
+  type WalletVerificationDate,
+} from "./metadata";
+
+export {
   WALLET_CATEGORIES,
   WALLET_CATEGORY_METADATA,
   WALLET_FEATURES,

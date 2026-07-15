@@ -1,4 +1,5 @@
 import type { ImportedAssetModule } from "../types";
+import type { WalletVerificationDate } from "./metadata";
 import type { WalletCategory, WalletFeature, WalletPlatform } from "./taxonomy";
 import defaultWalletIcon from "../../assets/wallets/wallet-placeholder-icon.webp";
 import atomicwalletIcon from "../../assets/wallets/icons/atomicwallet.webp";
@@ -146,7 +147,7 @@ export type WalletRecord = {
   /** Verified wallet product icon; omit to fall back to the placeholder. */
   icon?: ImportedAssetModule;
   /** Date (YYYY-MM-DD) the record was last researched end-to-end. */
-  lastVerified?: string;
+  lastVerified?: WalletVerificationDate;
 };
 
 export const DEFAULT_WALLET_ICON: ImportedAssetModule = defaultWalletIcon;
