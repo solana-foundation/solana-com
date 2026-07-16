@@ -76,6 +76,7 @@ export const rpcMethodOptions = [
   { label: "getBlock_recent", value: "getBlock_recent" },
   { label: "getBlock_archival", value: "getBlock_archival" },
   { label: "getTransaction_recent", value: "getTransaction_recent" },
+  { label: "getTransaction_archival", value: "getTransaction_archival" },
   { label: "getTransactionRecent", value: "getTransactionRecent" },
   { label: "getSignaturesForAddress", value: "getSignaturesForAddress" },
 ] as const;

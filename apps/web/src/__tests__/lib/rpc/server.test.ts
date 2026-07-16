@@ -75,6 +75,7 @@ describe("RPC latency query options", () => {
     expect(methods.has("getMultipleAccounts")).toBe(true);
     expect(methods.has("getSignaturesForAddress")).toBe(true);
     expect(methods.has("getTokenAccountsByOwner")).toBe(true);
+    expect(methods.has("getTransaction_archival")).toBe(true);
     expect(methods.has("getTransactionRecent")).toBe(true);
   });
 
