@@ -161,6 +161,13 @@ Podcast episodes link to Simplecast:
 - `SIMPLECAST_API_KEY` - API access
 - `SIMPLECAST_PODCAST_ID` - Podcast identifier
 
+### Upgrade Articles
+
+Articles in `content/upgrades/` follow a specific voice, structure, and
+Keystatic frontmatter shape. See
+[`content/upgrades/AGENTS.md`](./content/upgrades/AGENTS.md) before drafting or
+editing one.
+
 ## Key Dependencies (App-Specific)
 
 - `@keystatic/core`, `@keystatic/next` - CMS framework
