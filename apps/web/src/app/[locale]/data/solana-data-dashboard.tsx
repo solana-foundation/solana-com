@@ -50,7 +50,9 @@ import {
   chartDefinitions,
   defaultRpcInfra,
   defaultRpcMethod,
-  defaultRpcRegion,
+  fallbackRpcRegionsByInfra,
+  getDefaultRpcRegion,
+  getRpcRegionOptions,
   metricColors,
   normalizeRpcInfraParam,
   normalizeProviderName,
@@ -69,6 +71,7 @@ import {
   type MetricRow,
   type ProviderName,
   type RpcLatencyInfra,
+  type RpcLatencyFiltersResponse,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
 } from "./data-config";
@@ -119,6 +122,7 @@ const dataRefreshIntervalMs = 12 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
 const rpcDataRefreshIntervalMs = 60 * 1000;
 const rpcDataDedupingIntervalMs = 15 * 1000;
+const rpcFiltersRefreshIntervalMs = 5 * 60 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
 const rpcLatencyRepositoryUrl =
@@ -244,6 +248,13 @@ const rpcDataSWRConfig = {
   dedupingInterval: rpcDataDedupingIntervalMs,
   refreshInterval: rpcDataRefreshIntervalMs,
 } as const;
+const rpcFiltersSWRConfig = {
+  dedupingInterval: rpcFiltersRefreshIntervalMs,
+  keepPreviousData: true,
+  refreshInterval: rpcFiltersRefreshIntervalMs,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+} as const;
 
 type QueryUpdates = {
   days?: number;
@@ -287,6 +298,15 @@ export function SolanaDataDashboard() {
     rpcRegion,
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
+  const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
+    isRpcTab ? "/api/rpc/filters" : null,
+    fetchRpcFilters,
+    rpcFiltersSWRConfig,
+  );
+  const rpcRegionsByInfra = useMemo(
+    () => getRpcRegionsByInfra(rpcFilters),
+    [rpcFilters],
+  );
   const activeTabContent = getTabContent(t, activeTab);
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const dataUrl = getDashboardDataUrl({
@@ -326,6 +346,30 @@ export function SolanaDataDashboard() {
     [availableProviders, selectedProviders],
   );
   const updateQuery = useDashboardQueryUpdater(availableProviders);
+  const availableRpcRegionOptions = useMemo(
+    () => getRpcRegionOptions(rpcInfra, rpcRegionsByInfra),
+    [rpcInfra, rpcRegionsByInfra],
+  );
+
+  useEffect(() => {
+    if (
+      !isRpcTab ||
+      availableRpcRegionOptions.some((option) => option.value === rpcRegion)
+    ) {
+      return;
+    }
+
+    updateQuery({
+      region: getDefaultRpcRegion(rpcInfra, rpcRegionsByInfra),
+    });
+  }, [
+    availableRpcRegionOptions,
+    isRpcTab,
+    rpcInfra,
+    rpcRegion,
+    rpcRegionsByInfra,
+    updateQuery,
+  ]);
   const visibleCharts = useMemo(
     () => getVisibleCharts(activeCharts, rows),
     [activeCharts, rows],
@@ -398,6 +442,7 @@ export function SolanaDataDashboard() {
             rpcInfra={rpcInfra}
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
+            rpcRegionsByInfra={rpcRegionsByInfra}
             selectedProviders={selectedProviders}
             showProviderControls={showProviderControls}
             showRangeControl={!isRpcTab}
@@ -556,6 +601,7 @@ function DashboardControls({
   rpcInfra,
   rpcMethod,
   rpcRegion,
+  rpcRegionsByInfra,
   selectedProviders,
   showProviderControls,
   showRangeControl,
@@ -569,6 +615,7 @@ function DashboardControls({
   rpcInfra: RpcLatencyInfra;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
+  rpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"];
   selectedProviders: Set<ProviderName>;
   showProviderControls: boolean;
   showRangeControl: boolean;
@@ -611,7 +658,7 @@ function DashboardControls({
               <FilterSelect
                 ariaLabel={t("controls.rpcRegionAriaLabel")}
                 label={t("controls.rpcRegionLabel")}
-                options={rpcRegionOptions}
+                options={getRpcRegionOptions(rpcInfra, rpcRegionsByInfra)}
                 value={rpcRegion}
                 onChange={(value) => onUpdateQuery({ region: value })}
               />
@@ -620,7 +667,19 @@ function DashboardControls({
                 label={t("controls.rpcInfraLabel")}
                 options={rpcInfraOptions}
                 value={rpcInfra}
-                onChange={(value) => onUpdateQuery({ infra: value })}
+                onChange={(value) => {
+                  const nextRegionOptions = getRpcRegionOptions(
+                    value,
+                    rpcRegionsByInfra,
+                  );
+                  const nextRegion = nextRegionOptions.some(
+                    (option) => option.value === rpcRegion,
+                  )
+                    ? rpcRegion
+                    : getDefaultRpcRegion(value, rpcRegionsByInfra);
+
+                  onUpdateQuery({ infra: value, region: nextRegion });
+                }}
               />
               <FilterSelect
                 ariaLabel={t("controls.rpcMethodAriaLabel")}
@@ -1709,14 +1768,15 @@ function ProviderToggle({
 
 function useDashboardQueryParams() {
   const searchParams = useSearchParams();
+  const rpcInfra = parseRpcInfra(searchParams.get("infra"));
 
   return {
     activeTab: parseTab(searchParams.get("tab")),
     providerParam: searchParams.get("providers"),
     rangeDays: parseRangeDays(searchParams.get("days")),
-    rpcInfra: parseRpcInfra(searchParams.get("infra")),
+    rpcInfra,
     rpcMethod: parseRpcMethod(searchParams.get("method")),
-    rpcRegion: parseRpcRegion(searchParams.get("region")),
+    rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
   };
 }
 
@@ -2152,6 +2212,69 @@ async function fetchData(url: string, errorMessages: DataFetchErrorMessages) {
   return payload;
 }
 
+async function fetchRpcFilters(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error("RPC latency filters are unavailable");
+  }
+
+  const payload = (await response.json()) as unknown;
+
+  if (!isRpcLatencyFiltersResponse(payload)) {
+    throw new Error("RPC latency filters returned an invalid response");
+  }
+
+  return payload;
+}
+
+function isRpcLatencyFiltersResponse(
+  value: unknown,
+): value is RpcLatencyFiltersResponse {
+  if (!value || typeof value !== "object" || !("regionsByInfra" in value)) {
+    return false;
+  }
+
+  const regionsByInfra = value.regionsByInfra;
+  const validRegions = new Set<string>(
+    rpcRegionOptions.map((regionOption) => regionOption.value),
+  );
+
+  return (
+    !!regionsByInfra &&
+    typeof regionsByInfra === "object" &&
+    rpcInfraOptions.every((infraOption) => {
+      const regions = (regionsByInfra as Record<string, unknown>)[
+        infraOption.value
+      ];
+
+      return (
+        Array.isArray(regions) &&
+        regions.every(
+          (region) => typeof region === "string" && validRegions.has(region),
+        )
+      );
+    })
+  );
+}
+
+function getRpcRegionsByInfra(
+  filters?: RpcLatencyFiltersResponse,
+): RpcLatencyFiltersResponse["regionsByInfra"] {
+  return Object.fromEntries(
+    rpcInfraOptions.map((infraOption) => {
+      const regions = filters?.regionsByInfra[infraOption.value];
+
+      return [
+        infraOption.value,
+        regions && regions.length > 0
+          ? regions
+          : fallbackRpcRegionsByInfra[infraOption.value],
+      ];
+    }),
+  ) as RpcLatencyFiltersResponse["regionsByInfra"];
+}
+
 async function readDataPayload(
   response: Response,
   errorMessages: DataFetchErrorMessages,
@@ -2233,12 +2356,15 @@ function parseRpcMethod(value: string | null): RpcLatencyMethod {
     : defaultRpcMethod;
 }
 
-function parseRpcRegion(value: string | null): RpcLatencyRegion {
+function parseRpcRegion(
+  value: string | null,
+  infra: RpcLatencyInfra,
+): RpcLatencyRegion {
   const normalizedValue = normalizeRpcRegionParam(value);
 
   return rpcRegionOptions.some((option) => option.value === normalizedValue)
     ? (normalizedValue as RpcLatencyRegion)
-    : defaultRpcRegion;
+    : getDefaultRpcRegion(infra);
 }
 
 export function getAvailableProviders(rows: readonly MetricRow[]) {

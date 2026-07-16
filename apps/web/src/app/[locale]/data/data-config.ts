@@ -6,31 +6,16 @@ export const rangeOptions = [
 ] as const;
 
 export const rpcRegionOptions = [
-  { label: "All", sourceValue: ".*", value: "all" },
-  { label: "us-east4", sourceValue: "us-east4", value: "us-east4" },
-  { label: "us-west2", sourceValue: "us-west2", value: "us-west2" },
-  { label: "europe-west2", sourceValue: "europe-west2", value: "europe-west2" },
-  { label: "europe-west3", sourceValue: "europe-west3", value: "europe-west3" },
-  {
-    label: "asia-northeast3",
-    sourceValue: "asia-northeast3",
-    value: "asia-northeast3",
-  },
-  {
-    label: "asia-northeast1",
-    sourceValue: "asia-northeast1",
-    value: "asia-northeast1",
-  },
-  {
-    label: "asia-southeast1",
-    sourceValue: "asia-southeast1",
-    value: "asia-southeast1",
-  },
+  { label: "us-east", value: "us-east" },
+  { label: "us-west", value: "us-west" },
+  { label: "eu-central", value: "eu-central" },
+  { label: "eu-west", value: "eu-west" },
+  { label: "ap-northeast", value: "ap-northeast" },
+  { label: "ap-southeast", value: "ap-southeast" },
 ] as const;
 
 export const rpcInfraOptions = [
-  { label: "All", sourceValue: ".*", value: "all" },
-  { label: "TSW", sourceValue: "terraswitch", value: "tsw" },
+  { label: "TSW", sourceValue: "tsw", value: "tsw" },
   { label: "LAT", sourceValue: "latitude", value: "lat" },
   { label: "AWS", sourceValue: "aws", value: "aws" },
   { label: "GCP", sourceValue: "gcp", value: "gcp" },
@@ -54,8 +39,8 @@ export const rpcMethodOptions = [
   { label: "getSignaturesForAddress", value: "getSignaturesForAddress" },
 ] as const;
 
-export const defaultRpcInfra = "all";
-export const defaultRpcRegion = "all";
+export const defaultRpcInfra = "tsw";
+export const defaultRpcRegion = "us-west";
 export const defaultRpcMethod = "getLatestBlockhash";
 export const rpcLatencyRangeHours = 6;
 
@@ -64,8 +49,50 @@ export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type ProviderName = string;
 
+export type RpcLatencyFiltersResponse = {
+  regionsByInfra: Record<RpcLatencyInfra, RpcLatencyRegion[]>;
+};
+
+export const fallbackRpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"] =
+  {
+    tsw: ["us-west", "eu-central", "eu-west", "ap-northeast"],
+    lat: rpcRegionOptions.map((option) => option.value),
+    aws: rpcRegionOptions.map((option) => option.value),
+    gcp: rpcRegionOptions.map((option) => option.value),
+  };
+
 const rpcRegionParamAliases: Partial<Record<string, RpcLatencyRegion>> = {
-  ".*": "all",
+  "us-east4": "us-east",
+  "us-east-1": "us-east",
+  nyc: "us-east",
+  ewr: "us-east",
+  ewr2: "us-east",
+  pit: "us-east",
+  pit1: "us-east",
+  "us-west2": "us-west",
+  "us-west-1": "us-west",
+  lax: "us-west",
+  lax1: "us-west",
+  "europe-west3": "eu-central",
+  "eu-central-1": "eu-central",
+  fra: "eu-central",
+  fra2: "eu-central",
+  "europe-west4": "eu-central",
+  ams: "eu-central",
+  ams3: "eu-central",
+  "europe-west2": "eu-west",
+  "eu-west-2": "eu-west",
+  "eu-west-1": "eu-west",
+  lon: "eu-west",
+  lon1: "eu-west",
+  "asia-northeast1": "ap-northeast",
+  "ap-northeast-1": "ap-northeast",
+  tyo: "ap-northeast",
+  tyo2: "ap-northeast",
+  "asia-southeast1": "ap-southeast",
+  "ap-southeast-1": "ap-southeast",
+  sgp: "ap-southeast",
+  sgp2: "ap-southeast",
 };
 
 const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
@@ -73,25 +100,42 @@ const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
   terraswitch: "tsw",
 };
 
-export function normalizeRpcRegionParam(value: string | null) {
+export function normalizeRpcRegionParam(value: string | null | undefined) {
   return value ? (rpcRegionParamAliases[value] ?? value) : value;
 }
 
-export function normalizeRpcInfraParam(value: string | null) {
+export function normalizeRpcInfraParam(value: string | null | undefined) {
   return value ? (rpcInfraParamAliases[value] ?? value) : value;
 }
 
 export function getRpcRegionSourceValue(value: RpcLatencyRegion) {
-  return (
-    rpcRegionOptions.find((option) => option.value === value)?.sourceValue ??
-    value
-  );
+  return value;
 }
 
 export function getRpcInfraSourceValue(value: RpcLatencyInfra) {
   return (
     rpcInfraOptions.find((option) => option.value === value)?.sourceValue ??
     value
+  );
+}
+
+export function getRpcRegionOptions(
+  infra: RpcLatencyInfra,
+  regionsByInfra = fallbackRpcRegionsByInfra,
+) {
+  const availableRegions = new Set(regionsByInfra[infra]);
+
+  return rpcRegionOptions.filter((option) =>
+    availableRegions.has(option.value),
+  );
+}
+
+export function getDefaultRpcRegion(
+  infra: RpcLatencyInfra,
+  regionsByInfra = fallbackRpcRegionsByInfra,
+): RpcLatencyRegion {
+  return (
+    getRpcRegionOptions(infra, regionsByInfra)[0]?.value ?? defaultRpcRegion
   );
 }
 

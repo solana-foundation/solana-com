@@ -3,7 +3,7 @@ import "server-only";
 import {
   defaultRpcInfra,
   defaultRpcMethod,
-  defaultRpcRegion,
+  getDefaultRpcRegion,
   getRpcInfraSourceValue,
   getRpcRegionSourceValue,
   normalizeRpcInfraParam,
@@ -14,6 +14,7 @@ import {
   rpcRegionOptions,
   type MetricRow,
   type RpcLatencyInfra,
+  type RpcLatencyFiltersResponse,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
 } from "@/app/[locale]/data/data-config";
@@ -50,6 +51,8 @@ export type RpcLatencyConfig = {
   baseUrl: string;
   token: string;
 };
+
+export type RpcLatencyFilterOptions = RpcLatencyFiltersResponse;
 
 type RpcLatencyConfigError = {
   invalidEnv: string[];
@@ -124,12 +127,14 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
 > & {
   provider?: RpcLatencyProvider;
 } {
+  const infra = parseAllowedValue(
+    normalizeRpcInfraParam(params.get("infra")),
+    infraSet,
+    defaultRpcInfra,
+  ) as RpcLatencyInfra;
+
   return {
-    infra: parseAllowedValue(
-      normalizeRpcInfraParam(params.get("infra")),
-      infraSet,
-      defaultRpcInfra,
-    ) as RpcLatencyInfra,
+    infra,
     method: parseAllowedValue(
       params.get("method"),
       methodSet,
@@ -141,8 +146,52 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
     region: parseAllowedValue(
       normalizeRpcRegionParam(params.get("region")),
       regionSet,
-      defaultRpcRegion,
+      getDefaultRpcRegion(infra),
     ) as RpcLatencyRegion,
+  };
+}
+
+export async function getRpcLatencyFilterOptions(
+  config: RpcLatencyConfig,
+): Promise<RpcLatencyFilterOptions> {
+  const results = await queryPrometheus<PrometheusInstantResult>(
+    config,
+    QUERY_API_PATH,
+    { query: "count by (infra, geo) (rpc_up)" },
+  );
+  const availableRegions = new Map<RpcLatencyInfra, Set<RpcLatencyRegion>>();
+
+  for (const result of results) {
+    const infra = normalizeRpcInfraParam(
+      getMetricLabel(result.metric, "infra"),
+    );
+    const region = normalizeRpcRegionParam(
+      getMetricLabel(result.metric, "geo"),
+    );
+
+    if (!infra || !infraSet.has(infra) || !region || !regionSet.has(region)) {
+      continue;
+    }
+
+    const normalizedInfra = infra as RpcLatencyInfra;
+    const normalizedRegion = region as RpcLatencyRegion;
+    const regions = availableRegions.get(normalizedInfra) ?? new Set();
+
+    regions.add(normalizedRegion);
+    availableRegions.set(normalizedInfra, regions);
+  }
+
+  return {
+    regionsByInfra: Object.fromEntries(
+      rpcInfraOptions.map((infraOption) => [
+        infraOption.value,
+        rpcRegionOptions
+          .filter((regionOption) =>
+            availableRegions.get(infraOption.value)?.has(regionOption.value),
+          )
+          .map((regionOption) => regionOption.value),
+      ]),
+    ) as RpcLatencyFilterOptions["regionsByInfra"],
   };
 }
 
@@ -154,7 +203,8 @@ export async function getRpcLatencyMetricRows(
     infra: options.infra ?? defaultRpcInfra,
     method: options.method ?? defaultRpcMethod,
     provider: options.provider,
-    region: options.region ?? defaultRpcRegion,
+    region:
+      options.region ?? getDefaultRpcRegion(options.infra ?? defaultRpcInfra),
   };
   const end = Math.floor(Date.now() / MS_PER_SECOND);
   const start = end - RPC_LATENCY_RANGE_HOURS * 60 * 60;
@@ -263,13 +313,13 @@ function buildLabelSelector(
     infra = defaultRpcInfra,
     method = defaultRpcMethod,
     provider,
-    region = defaultRpcRegion,
+    region = getDefaultRpcRegion(infra),
   }: RpcLatencyQueryOptions,
   extraMatchers: readonly PrometheusLabelMatcher[] = [],
 ) {
   const matchers: PrometheusLabelMatcher[] = [
     ["method", "=", method],
-    ["region", "=~", getRpcRegionMatcher(region)],
+    ["geo", "=~", getRpcRegionMatcher(region)],
     ["infra", "=~", getRpcInfraMatcher(infra)],
   ];
 
@@ -419,11 +469,18 @@ function toMetricRow({
 }
 
 function getProviderLabel(metric: Record<string, unknown> | undefined) {
-  const provider = metric?.provider;
+  const provider = getMetricLabel(metric, "provider");
 
-  return typeof provider === "string" && providerSet.has(provider)
-    ? provider
-    : undefined;
+  return provider && providerSet.has(provider) ? provider : undefined;
+}
+
+function getMetricLabel(
+  metric: Record<string, unknown> | undefined,
+  label: string,
+) {
+  const value = metric?.[label];
+
+  return typeof value === "string" ? value : undefined;
 }
 
 function normalizePrometheusTimestamp(value: number | string) {
@@ -443,7 +500,7 @@ function normalizePrometheusNumber(value: string) {
 }
 
 function parseAllowedValue<T extends string>(
-  value: string | null,
+  value: string | null | undefined,
   allowedValues: ReadonlySet<string>,
   fallback?: T,
 ) {

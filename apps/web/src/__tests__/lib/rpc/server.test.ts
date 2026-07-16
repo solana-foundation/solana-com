@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   rpcInfraOptions,
@@ -9,18 +9,19 @@ import {
   buildRpcAvgLatencyQuery,
   buildRpcP95LatencyQuery,
   buildRpcSuccessRateQuery,
+  getRpcLatencyFilterOptions,
   parseRpcLatencyQueryOptions,
 } from "@/lib/rpc/server";
 
 describe("RPC latency query options", () => {
-  it("defaults infra and region to all and accepts the new method values", () => {
+  it("defaults to TSW and its first available region", () => {
     const options = parseRpcLatencyQueryOptions(
       new URLSearchParams("method=getTransactionRecent"),
     );
 
-    expect(options.infra).toBe("all");
+    expect(options.infra).toBe("tsw");
     expect(options.method).toBe("getTransactionRecent");
-    expect(options.region).toBe("all");
+    expect(options.region).toBe("us-west");
   });
 
   it("exposes the reviewed RPC method filters", () => {
@@ -35,7 +36,6 @@ describe("RPC latency query options", () => {
 
   it("exposes the reviewed RPC infrastructure filters in preference order", () => {
     expect(rpcInfraOptions.map((option) => option.value)).toEqual([
-      "all",
       "tsw",
       "lat",
       "aws",
@@ -43,16 +43,14 @@ describe("RPC latency query options", () => {
     ]);
   });
 
-  it("exposes all regions before concrete RPC region filters", () => {
+  it("exposes canonical cross-infrastructure regions without all", () => {
     expect(rpcRegionOptions.map((option) => option.value)).toEqual([
-      "all",
-      "us-east4",
-      "us-west2",
-      "europe-west2",
-      "europe-west3",
-      "asia-northeast3",
-      "asia-northeast1",
-      "asia-southeast1",
+      "us-east",
+      "us-west",
+      "eu-central",
+      "eu-west",
+      "ap-northeast",
+      "ap-southeast",
     ]);
   });
 
@@ -78,30 +76,35 @@ describe("RPC latency query options", () => {
     ).toBe("gcp");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=unknown")).infra,
-    ).toBe("all");
+    ).toBe("tsw");
   });
 
-  it("accepts all-region source aliases and falls back for unknown regions", () => {
+  it("maps provider-specific regions to canonical regions", () => {
     expect(
-      parseRpcLatencyQueryOptions(new URLSearchParams("region=all")).region,
-    ).toBe("all");
+      parseRpcLatencyQueryOptions(
+        new URLSearchParams("infra=gcp&region=us-east4"),
+      ).region,
+    ).toBe("us-east");
     expect(
-      parseRpcLatencyQueryOptions(new URLSearchParams("region=.*")).region,
-    ).toBe("all");
+      parseRpcLatencyQueryOptions(
+        new URLSearchParams("infra=aws&region=eu-west-1"),
+      ).region,
+    ).toBe("eu-west");
     expect(
-      parseRpcLatencyQueryOptions(new URLSearchParams("region=us-east4"))
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=lat&region=tyo"))
         .region,
-    ).toBe("us-east4");
+    ).toBe("ap-northeast");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("region=unknown")).region,
-    ).toBe("all");
+    ).toBe("us-west");
   });
 });
 
 describe("RPC Prometheus queries", () => {
-  it("threads the default all-infra and all-region regex matchers into latency queries", () => {
-    expect(buildRpcAvgLatencyQuery()).toContain('infra=~".*"');
-    expect(buildRpcAvgLatencyQuery()).toContain('region=~".*"');
+  it("threads the default TSW and canonical region into latency queries", () => {
+    expect(buildRpcAvgLatencyQuery()).toContain('infra=~"tsw"');
+    expect(buildRpcAvgLatencyQuery()).toContain('geo=~"us-west"');
+    expect(buildRpcAvgLatencyQuery()).not.toContain("region=");
   });
 
   it("excludes failed requests from latency queries", () => {
@@ -119,9 +122,7 @@ describe("RPC Prometheus queries", () => {
   });
 
   it("maps dropdown infra values to source infra labels", () => {
-    expect(buildRpcAvgLatencyQuery({ infra: "tsw" })).toContain(
-      'infra=~"terraswitch"',
-    );
+    expect(buildRpcAvgLatencyQuery({ infra: "tsw" })).toContain('infra=~"tsw"');
     expect(buildRpcAvgLatencyQuery({ infra: "lat" })).toContain(
       'infra=~"latitude"',
     );
@@ -129,15 +130,15 @@ describe("RPC Prometheus queries", () => {
     expect(buildRpcAvgLatencyQuery({ infra: "gcp" })).toContain('infra=~"gcp"');
   });
 
-  it("matches Grafana's AWS all-region filter shape", () => {
+  it("matches Grafana's AWS canonical-region filter shape", () => {
     const query = buildRpcP95LatencyQuery({
       infra: "aws",
       method: "getLatestBlockhash",
-      region: "all",
+      region: "us-east",
     });
 
     expect(query).toContain('method="getLatestBlockhash"');
-    expect(query).toContain('region=~".*"');
+    expect(query).toContain('geo=~"us-east"');
     expect(query).toContain('infra=~"aws"');
     expect(query).toContain('status="success"');
   });
@@ -150,5 +151,58 @@ describe("RPC Prometheus queries", () => {
     expect(query).toContain('infra=~"aws"');
     expect(query).not.toContain("error_kind");
     expect(query).toContain("or on(provider) (0 *");
+  });
+});
+
+describe("RPC filter options", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("derives infra-specific canonical regions in display order", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "success",
+          data: {
+            result: [
+              { metric: { geo: "eu-west", infra: "tsw" }, value: [1, "1"] },
+              { metric: { geo: "us-west", infra: "tsw" }, value: [1, "1"] },
+              {
+                metric: { geo: "ap-southeast", infra: "latitude" },
+                value: [1, "1"],
+              },
+              {
+                metric: { geo: "us-east", infra: "latitude" },
+                value: [1, "1"],
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getRpcLatencyFilterOptions({
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      }),
+    ).resolves.toEqual({
+      regionsByInfra: {
+        tsw: ["us-west", "eu-west"],
+        lat: ["us-east", "ap-southeast"],
+        aws: [],
+        gcp: [],
+      },
+    });
+
+    const url = new URL(fetchMock.mock.calls[0][0]);
+
+    expect(url.searchParams.get("query")).toBe(
+      "count by (infra, geo) (rpc_up)",
+    );
   });
 });
