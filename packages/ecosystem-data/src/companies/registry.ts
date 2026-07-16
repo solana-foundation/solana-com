@@ -22,6 +22,7 @@ import { byreal } from "./records/byreal";
 import { cherryServers } from "./records/cherry-servers";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
+import { colosseum } from "./records/colosseum";
 import { comicbook } from "./records/comicbook";
 import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
@@ -46,6 +47,7 @@ import { jupiter } from "./records/jupiter";
 import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
+import { lambda256 } from "./records/lambda256";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
 import { loopscale } from "./records/loopscale";
@@ -75,6 +77,7 @@ import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sanctum } from "./records/sanctum";
+import { sec3 } from "./records/sec3";
 import { sidley } from "./records/sidley";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
@@ -130,6 +133,7 @@ export const companies = [
   cherryServers,
   citi,
   coinbase,
+  colosseum,
   comicbook,
   d3,
   dabba,
@@ -154,6 +158,7 @@ export const companies = [
   kamino,
   kast,
   kazakhstan,
+  lambda256,
   libeara,
   listingHelp,
   loopscale,
@@ -183,6 +188,7 @@ export const companies = [
   ryder,
   safepalWallet,
   sanctum,
+  sec3,
   sidley,
   societeGenerale,
   sofi,
