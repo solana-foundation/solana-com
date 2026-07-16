@@ -67,7 +67,6 @@ import hotcoinIcon from "../../assets/wallets/icons/hotcoin.webp";
 import infinexIcon from "../../assets/wallets/icons/infinex.webp";
 import iopayIcon from "../../assets/wallets/icons/iopay.webp";
 import jupiterIcon from "../../assets/wallets/icons/jupiter.webp";
-import kastIcon from "../../assets/wallets/icons/kast.webp";
 import keepkeyIcon from "../../assets/wallets/icons/keepkey.webp";
 import keystoneIcon from "../../assets/wallets/icons/keystone.webp";
 import krakenIcon from "../../assets/wallets/icons/kraken.webp";
@@ -1362,24 +1361,6 @@ const walletRecords = {
     website: "https://jup.ag/wallet",
     icon: jupiterIcon,
     lastVerified: "2026-07-15",
-  },
-  kast: {
-    name: "KAST",
-    companyId: "kast",
-    category: "payments",
-    platforms: ["ios", "android"],
-    features: [
-      "custodial",
-      "buy_crypto",
-      "get_paid",
-      "card_spending",
-      "multi_chain",
-    ],
-    description:
-      "Account-based stablecoin payments app for receiving bank and crypto deposits, moving funds across supported networks including Solana, and spending through virtual and physical cards",
-    website: "https://www.kast.xyz/",
-    icon: kastIcon,
-    lastVerified: "2026-07-16",
   },
   keepkey: {
     name: "KeepKey",
