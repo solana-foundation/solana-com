@@ -21,7 +21,7 @@ const navigationHubStaticConfigs = {
     heroImageSrc: "/src/img/index/hero-bg.webp",
     bgJsonFilePath: "/src/img/navigation-hubs/use-solana-bg.json",
     primaryCta: {
-      href: "/solana-wallets",
+      href: "/wallets",
     },
     secondaryCta: {
       href: "/learn",
@@ -31,11 +31,11 @@ const navigationHubStaticConfigs = {
     },
     pathways: [
       {
-        href: "/solana-wallets",
+        href: "/wallets",
         featured: true,
         links: [
           {
-            href: "/solana-wallets",
+            href: "/wallets",
           },
           {
             href: "/learn/what-is-a-wallet",
@@ -82,9 +82,6 @@ const navigationHubStaticConfigs = {
         links: [
           {
             href: "/wallets",
-          },
-          {
-            href: "/solana-wallets",
           },
           {
             href: "/learn/what-is-solana",
