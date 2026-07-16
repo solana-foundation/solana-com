@@ -1,0 +1,142 @@
+---
+title: Pruebas de Programas
+description: Carga y prueba programas personalizados de Solana con LiteSVM
+---
+
+# Ejemplo de Pruebas de Programas
+
+Probar un programa personalizado de Solana implica cargar su archivo `.so`
+compilado en la SVM, configurar las cuentas que espera y enviar instrucciones
+contra él. LiteSVM gestiona todo esto en proceso — no se necesita ningún
+validator. Recomendamos generar clientes de programa con el
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js) para tener
+acceso a un Plugin de Kit compatible.
+
+## Carga de un Programa
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## Configuración Completa de Pruebas de Programas
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## Uso de Programas Predeterminados
+
+Para pruebas que requieren programas estándar:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  Compila tu programa de Solana con `cargo build-sbf` para generar el archivo
+  `.so`.
+</Callout>
+
+El patrón es siempre el mismo:
+
+1. **Carga del Programa**: Usa `addProgramFromFile` para cargar programas
+   compilados e importa myProgramPlugin() desde tu cliente
+2. **Configuración**: Habilita sysvars, builtins y precompiles según sea
+   necesario
+3. **Configuración de Cuentas**: Precarga cuentas de datos con `setAccount`
+4. **Envío**: Usa `client.myProgram.testInstruction({..}).sendTransaction()` —
+   sin construcción manual de transacciones
+5. **Verificación**: Comprueba el estado de la cuenta tras la ejecución
+   (`client.myProgram.myAccount.fetch`)
+
+Una vez que tengas este esqueleto funcionando, puedes construir una suite de
+pruebas completa agregando más instrucciones y aserciones.

@@ -1,0 +1,142 @@
+---
+title: Program Testi
+description: LiteSVM ile özel Solana programlarını yükleyin ve test edin
+---
+
+# Program Testi Örneği
+
+Özel bir Solana programını test etmek, derlenmiş `.so` dosyasını SVM'ye
+yüklemek, programın beklediği hesapları kurmak ve programa karşı talimatlar
+göndermek anlamına gelir. LiteSVM tüm bunları işlem içinde gerçekleştirir —
+validator gerekmez. Program istemcilerini
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js) ile
+oluşturmanızı öneririz; böylece uyumlu bir Kit Eklentisine erişebilirsiniz.
+
+## Program Yükleme
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## Tam Program Testi Kurulumu
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## Varsayılan Programları Kullanma
+
+Standart programlar gerektiren testler için:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  Solana programınızı `cargo build-sbf` ile derleyerek `.so` dosyasını
+  oluşturun.
+</Callout>
+
+Yapı her zaman aynıdır:
+
+1. **Program Yükleme**: Derlenmiş programları yüklemek için `addProgramFromFile`
+   kullanın ve istemcinizden myProgramPlugin() içe aktarın
+2. **Yapılandırma**: Gerektiğinde sysvar'ları, yerleşik bileşenleri ve ön
+   derleme modüllerini etkinleştirin
+3. **Hesap Kurulumu**: `setAccount` ile veri hesaplarını önceden doldurun
+4. **Gönderme**: `client.myProgram.testInstruction({..}).sendTransaction()`
+   kullanın — manuel işlem oluşturmaya gerek yok
+5. **Doğrulama**: Çalıştırma sonrasında hesap durumunu kontrol edin
+   (`client.myProgram.myAccount.fetch`)
+
+Bu temel yapıyı çalışır hale getirdikten sonra, daha fazla talimat ve doğrulama
+ekleyerek kapsamlı bir test paketi oluşturabilirsiniz.

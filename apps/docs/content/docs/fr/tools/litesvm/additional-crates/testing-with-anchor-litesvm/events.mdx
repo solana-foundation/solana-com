@@ -1,0 +1,303 @@
+---
+title: Événements
+description:
+  Parser et valider les événements Anchor à partir des journaux de transactions
+---
+
+## Comprendre les événements Anchor
+
+Les programmes Anchor peuvent émettre des événements qui sont enregistrés lors
+de l'exécution des transactions. Ces événements sont encodés en Base64 dans les
+journaux de transactions avec le préfixe `Program data:`. Le crate
+`anchor-litesvm` fournit des utilitaires pour parser et valider ces événements.
+
+```
+┌─────────────────────────────────────────────────┐
+│ Anchor Event Structure                          │
+├────────────────┬────────────────────────────────┤
+│ Discriminator  │ Event Data                     │
+│ (8 bytes)      │ (serialized fields)            │
+└────────────────┴────────────────────────────────┘
+```
+
+## Définir les événements
+
+Commencez par définir vos événements dans votre programme Anchor :
+
+```rust
+use anchor_lang::prelude::*;
+
+#[event]
+pub struct TransferEvent {
+    pub from: Pubkey,
+    pub to: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct InitializeEvent {
+    pub authority: Pubkey,
+    pub name: String,
+}
+```
+
+## Parser les événements
+
+### Parser tous les événements d'un type
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers};
+use solana_signer::Signer;
+
+#[test]
+fn test_parse_events() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Execute instruction that emits events
+    let ix = ctx.program()
+        .accounts(Transfer { /* ... */ })
+        .args(TransferArgs { amount: 1000 })
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(ix, &[&user]).unwrap();
+
+    // Parse all TransferEvent events from the transaction
+    let events: Vec<TransferEvent> = result.parse_events().unwrap();
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].amount, 1000);
+}
+```
+
+### Parser un événement unique
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers};
+
+#[test]
+fn test_parse_single_event() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    // ... execute instruction ...
+
+    // Get the first event of the type
+    let event: TransferEvent = result.parse_event().unwrap();
+
+    println!("Transfer: {} -> {} ({})", event.from, event.to, event.amount);
+}
+```
+
+## Valider les événements
+
+### Vérifier qu'un événement a été émis
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers};
+
+#[test]
+fn test_assert_event_emitted() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    let ix = ctx.program()
+        .accounts(Initialize { /* ... */ })
+        .args(InitializeArgs { name: "test".to_string() })
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(ix, &[&user]).unwrap();
+
+    // Assert that at least one InitializeEvent was emitted
+    result.assert_event_emitted::<InitializeEvent>();
+}
+```
+
+<Callout type="info">
+  `assert_event_emitted` lèvera une panique si aucun événement du type spécifié
+  n'est trouvé dans les journaux de transactions.
+</Callout>
+
+### Vérifier le nombre d'événements
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers};
+
+#[test]
+fn test_assert_event_count() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    // Execute instruction that emits multiple events
+    let ix = ctx.program()
+        .accounts(BatchTransfer { /* ... */ })
+        .args(BatchTransferArgs { recipients: vec![...], amounts: vec![...] })
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(ix, &[&user]).unwrap();
+
+    // Assert exactly 3 TransferEvent events were emitted
+    result.assert_event_count::<TransferEvent>(3);
+}
+```
+
+### Vérifier l'existence d'un événement
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers};
+
+#[test]
+fn test_has_event() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    // ... execute instruction ...
+
+    // Check without panicking
+    if result.has_event::<TransferEvent>() {
+        let event: TransferEvent = result.parse_event().unwrap();
+        println!("Transfer occurred: {}", event.amount);
+    } else {
+        println!("No transfer in this transaction");
+    }
+}
+```
+
+## Parsing manuel des événements
+
+Pour les cas d'utilisation avancés, vous pouvez parser les données d'événements
+directement :
+
+```rust
+use anchor_litesvm::parse_event_data;
+
+#[test]
+fn test_manual_parse() {
+    // If you have the base64-encoded event data
+    let base64_data = "SGVsbG8gV29ybGQ="; // Example
+
+    let event: TransferEvent = parse_event_data(base64_data).unwrap();
+}
+```
+
+## Erreurs d'événements
+
+L'énumération `EventError` fournit des informations détaillées sur les erreurs :
+
+```rust
+use anchor_litesvm::EventError;
+
+match result.parse_event::<TransferEvent>() {
+    Ok(event) => println!("Amount: {}", event.amount),
+    Err(EventError::EventNotFound) => println!("No event found"),
+    Err(EventError::ParseError(msg)) => println!("Parse error: {}", msg),
+    Err(EventError::Base64Error) => println!("Invalid Base64 encoding"),
+    Err(EventError::InvalidFormat) => println!("Malformed event data"),
+    Err(EventError::AnchorError(msg)) => println!("Anchor error: {}", msg),
+}
+```
+
+| Erreur                | Description                                           |
+| --------------------- | ----------------------------------------------------- |
+| `EventNotFound`       | Aucun événement du type spécifié dans les logs        |
+| `ParseError(String)`  | Échec de l'analyse des données de l'événement         |
+| `Base64Error`         | Échec du décodage Base64                              |
+| `InvalidFormat`       | Les données de l'événement ont une structure invalide |
+| `AnchorError(String)` | La désérialisation Anchor a échoué                    |
+
+## Exemple complet
+
+Voici un exemple complet illustrant la gestion des événements :
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, EventHelpers, TestHelpers};
+use anchor_lang::{prelude::*, system_program};
+use solana_signer::Signer;
+
+// declare_program! generates client types AND re-exports event structs
+anchor_lang::declare_program!(vault);
+
+#[test]
+fn test_vault_events() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        VAULT_PROGRAM_ID,
+        include_bytes!("../target/deploy/vault.so"),
+    );
+
+    let authority = ctx.svm.create_funded_account(100_000_000_000).unwrap();
+    let depositor = ctx.svm.create_funded_account(50_000_000_000).unwrap();
+
+    let vault_pda = ctx.svm.get_pda(
+        &[b"vault", authority.pubkey().as_ref()],
+        &VAULT_PROGRAM_ID,
+    );
+
+    // Create vault
+    let create_ix = ctx.program()
+        .accounts(vault::client::accounts::CreateVault {
+            authority: authority.pubkey(),
+            vault: vault_pda,
+            system_program: system_program::ID,
+        })
+        .args(vault::client::args::CreateVault {})
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(create_ix, &[&authority]).unwrap();
+
+    // Assert VaultCreated event
+    result.assert_event_emitted::<vault::VaultCreated>();
+    let created_event: vault::VaultCreated = result.parse_event().unwrap();
+    assert_eq!(created_event.vault, vault_pda);
+    assert_eq!(created_event.authority, authority.pubkey());
+
+    // Deposit
+    let deposit_ix = ctx.program()
+        .accounts(vault::client::accounts::DepositToVault {
+            vault: vault_pda,
+            depositor: depositor.pubkey(),
+            system_program: system_program::ID,
+        })
+        .args(vault::client::args::Deposit { amount: 10_000_000_000 })
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(deposit_ix, &[&depositor]).unwrap();
+
+    // Assert Deposit event
+    result.assert_event_emitted::<vault::Deposit>();
+    let deposit_event: vault::Deposit = result.parse_event().unwrap();
+    assert_eq!(deposit_event.amount, 10_000_000_000);
+    assert_eq!(deposit_event.depositor, depositor.pubkey());
+
+    // Withdrawal
+    let withdraw_ix = ctx.program()
+        .accounts(vault::client::accounts::WithdrawFromVault {
+            vault: vault_pda,
+            authority: authority.pubkey(),
+            recipient: authority.pubkey(),
+        })
+        .args(vault::client::args::Withdraw { amount: 5_000_000_000 })
+        .instruction()
+        .unwrap();
+
+    let result = ctx.execute_instruction(withdraw_ix, &[&authority]).unwrap();
+
+    // Check withdrawal event
+    assert!(result.has_event::<vault::Withdrawal>());
+    let withdraw_event: vault::Withdrawal = result.parse_event().unwrap();
+    assert_eq!(withdraw_event.amount, 5_000_000_000);
+
+    println!("All event tests passed!");
+}
+```
+
+<Callout type="info">
+  Les événements sont un excellent moyen de vérifier que votre programme s'est
+  exécuté correctement sans avoir à récupérer et désérialiser des comptes. Ils
+  sont particulièrement utiles pour suivre les changements d'état au fil du
+  temps.
+</Callout>

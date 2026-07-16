@@ -1,0 +1,187 @@
+---
+title: 빠른 시작
+description:
+  간소화된 Solana 프로그램 테스트를 위한 litesvm-utils 크레이트 사용 방법
+  알아보기
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/litesvm-utils"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    crates.io에서 <code>litesvm-utils</code> 보기
+  </a>
+</div>
+
+## 설치
+
+필요한 모든 종속성이 있는지 확인하세요:
+
+```bash
+cargo add --dev litesvm litesvm-utils
+```
+
+## litesvm-utils란?
+
+`litesvm-utils` 크레이트는 Solana 프로그램 테스트를 간소화하는 핵심 헬퍼
+트레이트와 유틸리티를 제공합니다. 인체공학적인 API를 통해 30줄 이상의 반복적인
+테스트 코드를 간결하고 읽기 쉬운 코드로 줄여줍니다.
+
+<Steps>
+<Step>
+**TestHelpers 트레이트**
+- 단일 메서드 호출로 자금이 충전된 계정 생성
+- 토큰 민트 및 token account 간편 설정
+- 보일러플레이트 없이 PDA 도출
+- 시간 기반 테스트를 위한 slot 관리
+</Step>
+
+<Step>
+  **AssertionHelpers 트레이트** - 계정 상태 검증 (존재 여부, 닫힘 여부, 소유자)
+  - 토큰 잔액 및 민트 공급량 확인 - SOL 잔액 확인 - 계정 데이터 길이 유효성 검사
+</Step>
+
+<Step>
+  **TransactionHelpers 트레이트** - 풍부한 결과 처리로 명령어 실행 - 트랜잭션
+  성공 또는 실패 검증 - 특정 오류 코드 확인 - 트랜잭션 로그 및 컴퓨트 유닛 검사
+</Step>
+
+<Step>
+**LiteSVMBuilder**
+- 테스트 환경 설정을 위한 플루언트 빌더 패턴
+- 메서드 체이닝으로 프로그램 배포
+- 편리한 정적 팩토리 메서드
+</Step>
+</Steps>
+
+## 빠른 예제
+
+다음은 litesvm-utils의 강력함을 보여주는 완전한 예제입니다:
+
+```rust
+use litesvm_utils::{AssertionHelpers, LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_with_utils() {
+    let mut svm = LiteSVM::new();
+
+    // Create funded accounts in one line
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    // Create a token mint easily
+    let mint = svm.create_token_mint(&alice, 9).unwrap();
+
+    // Create associated token accounts (returns Pubkey)
+    let alice_ata = svm.create_associated_token_account(&mint.pubkey(), &alice).unwrap();
+    let bob_ata = svm.create_associated_token_account(&mint.pubkey(), &bob).unwrap();
+
+    // Mint tokens
+    svm.mint_to(&mint.pubkey(), &alice_ata, &alice, 1000).unwrap();
+
+    // Assert balances
+    svm.assert_token_balance(&alice_ata, 1000);
+    svm.assert_token_balance(&bob_ata, 0);
+
+    // Execute a SOL transfer with rich result handling
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        LAMPORTS_PER_SOL,
+    );
+
+    let result = svm.send_instruction(transfer_ix, &[&alice]).unwrap();
+    result.assert_success();
+
+    // Verify the transfer
+    svm.assert_sol_balance(&bob.pubkey(), LAMPORTS_PER_SOL);
+}
+```
+
+## 주요 이점
+
+### litesvm-utils 도입 전
+
+```rust
+// Creating a funded account manually
+let keypair = Keypair::new();
+let airdrop_tx = Transaction::new_signed_with_payer(
+    &[system_instruction::transfer(
+        &payer.pubkey(),
+        &keypair.pubkey(),
+        lamports,
+    )],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(airdrop_tx).unwrap();
+```
+
+### litesvm-utils 도입 후
+
+```rust
+// One line to create a funded account
+let keypair = svm.create_funded_account(lamports).unwrap();
+```
+
+## 트레이트 개요
+
+### TestHelpers
+
+| 메서드                                         | 반환값                 | 설명                                         |
+| ---------------------------------------------- | ---------------------- | -------------------------------------------- |
+| `create_funded_account(lamports)`              | `Result<Keypair>`      | keypair를 생성하고 자금을 충전합니다         |
+| `create_funded_accounts(count, lamports)`      | `Result<Vec<Keypair>>` | 여러 개의 자금이 충전된 keypair를 생성합니다 |
+| `create_token_mint(authority, decimals)`       | `Result<Keypair>`      | SPL 토큰 민트를 생성합니다                   |
+| `create_token_account(mint, owner)`            | `Result<Keypair>`      | 일반 token account를 생성합니다              |
+| `create_associated_token_account(mint, owner)` | `Result<Pubkey>`       | ATA를 생성하고 주소를 반환합니다             |
+| `mint_to(mint, account, authority, amount)`    | `Result<()>`           | 계정에 토큰을 민팅합니다                     |
+| `derive_pda(seeds, program_id)`                | `(Pubkey, u8)`         | bump seed와 함께 PDA를 도출합니다            |
+| `get_pda(seeds, program_id)`                   | `Pubkey`               | PDA 주소만 가져옵니다                        |
+| `get_pda_with_bump(seeds, program_id)`         | `(Pubkey, u8)`         | `derive_pda`의 별칭                          |
+| `get_current_slot()`                           | `u64`                  | 현재 slot을 반환합니다                       |
+| `advance_slot(slots)`                          | `()`                   | N개의 slot만큼 시간을 앞당깁니다             |
+
+### AssertionHelpers
+
+| 메서드                                  | 설명                                                       |
+| --------------------------------------- | ---------------------------------------------------------- |
+| `assert_account_exists(pubkey)`         | 계정이 존재하지 않으면 패닉이 발생합니다                   |
+| `assert_account_closed(pubkey)`         | 계정이 존재하고 데이터/lamports가 있으면 패닉이 발생합니다 |
+| `assert_token_balance(account, amount)` | 토큰 잔액을 검증합니다                                     |
+| `assert_sol_balance(pubkey, lamports)`  | SOL 잔액을 검증합니다                                      |
+| `assert_mint_supply(mint, supply)`      | 민트 총 공급량을 검증합니다                                |
+| `assert_account_owner(pubkey, owner)`   | 계정 소유자를 검증합니다                                   |
+| `assert_account_data_len(pubkey, len)`  | 데이터 길이를 검증합니다                                   |
+
+### TransactionHelpers
+
+| 메서드                            | 반환값                                        | 설명                                         |
+| --------------------------------- | --------------------------------------------- | -------------------------------------------- |
+| `send_instruction(ix, signers)`   | `Result<TransactionResult, TransactionError>` | 단일 명령어를 전송합니다                     |
+| `send_instructions(ixs, signers)` | `Result<TransactionResult, TransactionError>` | 여러 명령어를 하나의 트랜잭션으로 전송합니다 |
+| `send_transaction_result(tx)`     | `Result<TransactionResult, TransactionError>` | 원시 `Transaction`를 전송합니다              |
+
+## 문제 해결
+
+### 일반적인 오류
+
+| 오류                | 원인                                  | 해결 방법                         |
+| ------------------- | ------------------------------------- | --------------------------------- |
+| `AccountNotFound`   | 존재하지 않는 계정을 사용하려 함      | 먼저 `create_funded_account` 사용 |
+| `InsufficientFunds` | 트랜잭션에 필요한 lamport가 부족함    | 초기 충전 금액 증가               |
+| `OwnerMismatch`     | 잘못된 프로그램이 계정을 소유함       | 올바른 프로그램 ID 확인           |
+| `AssertionFailed`   | 잔액 또는 상태가 예상과 일치하지 않음 | 테스트 로직 확인                  |

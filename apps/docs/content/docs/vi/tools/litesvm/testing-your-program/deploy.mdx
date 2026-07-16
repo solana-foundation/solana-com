@@ -1,0 +1,355 @@
+---
+title: Triển Khai Chương Trình
+description:
+  Tìm hiểu cách triển khai chương trình lên một phiên bản kiểm thử LiteSVM
+---
+
+## Bắt Đầu
+
+```rust
+let mut svm = LiteSVM::new();
+```
+
+Lệnh này tạo ra phiên bản kiểm thử litesvm cơ bản, bao gồm tất cả các tính năng
+runtime được kích hoạt, sysvars mặc định, precompiles, các chương trình spl,
+sigverify, và tất cả các chương trình tích hợp sẵn như System Program.
+
+Để tương tác với bất kỳ chương trình nào khác trong các bài kiểm thử của bạn,
+bạn phải triển khai chương trình đó vào môi trường kiểm thử của mình.
+
+1. Build và triển khai chương trình bạn muốn kiểm thử
+
+2. Tìm tất cả các chương trình mà chương trình trên thực hiện lời gọi CPI và
+   triển khai các chương trình đó
+
+<Callout type="info">
+  **Ví dụ:** Nếu chương trình của bạn đang sử dụng nguồn dữ liệu từ Pyth, bạn sẽ
+  cần triển khai chương trình Pyth vào phiên bản kiểm thử của mình.
+</Callout>
+
+## Triển Khai Chương Trình Cơ Bản
+
+### Phương Pháp 1: Triển Khai Từ Bytes
+
+Triển khai chương trình trực tiếp từ mảng byte để đạt tốc độ thực thi kiểm thử
+nhanh nhất:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read the program's keypair to get correct ID
+let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json")
+    .expect("Program keypair file not found");
+let program_id = program_keypair.pubkey();
+
+// Include bytes at compile time
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+// Deploy from bytes
+svm.add_program(program_id, program_bytes)
+    .expect("Failed to deploy program");
+
+// Verify deployment
+assert!(svm.get_account(&program_id).is_some(), "Program account not created");
+assert!(svm.get_account(&program_id).unwrap().executable, "Program not executable");
+```
+
+`include_bytes!` nhúng binary trực tiếp vào tệp thực thi kiểm thử tại thời điểm
+biên dịch, loại bỏ I/O trong quá trình thực thi kiểm thử.
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Ưu điểm
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Nhanh hơn khi chạy (không đọc đĩa)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Tệp binary kiểm thử độc lập</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Hoạt động ngay cả khi tệp .so bị xóa sau khi biên dịch</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nhược điểm
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Kích thước tệp binary kiểm thử lớn hơn</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Phải biên dịch lại các bài kiểm thử khi tệp .so thay đổi</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+### Phương pháp 2: Triển khai từ tệp (.so)
+
+Tải chương trình từ hệ thống tệp khi chúng thay đổi thường xuyên:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read keypair for correct program ID
+let program_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = program_keypair.pubkey();
+
+// Deploy from file
+svm.add_program_from_file(program_id, "target/deploy/program.so")
+    .expect("Failed to deploy program from file");
+
+// Always verify
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Ưu điểm
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Tệp nhị phân kiểm thử nhỏ hơn</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Có thể nhận thay đổi .so mà không cần biên dịch lại các bài kiểm thử</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Linh hoạt hơn cho các pipeline CI/CD</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nhược điểm
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Chậm hơn (I/O đĩa khi chạy)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Yêu cầu tệp .so phải tồn tại tại thời điểm thực thi kiểm thử</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Đường dẫn tệp phải chính xác so với thư mục thực thi kiểm thử</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+## Lấy chương trình từ Mainnet/Devnet
+
+Khi bạn cần một chương trình mà bạn không có mã nguồn, hãy sử dụng Solana CLI để
+kết xuất các chương trình từ các cluster đang hoạt động và sử dụng chúng trong
+các bài kiểm thử:
+
+```bash
+# Dump a program from mainnet
+solana program dump gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s pyth.so --url mainnet-beta
+
+# Dump from devnet
+solana program dump YourProgramID program.so --url devnet
+```
+
+Sau đó tải nó trong các bài kiểm thử của bạn:
+
+```rust
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+```
+
+## Các phương pháp hay nhất
+
+### 1. Chọn phương pháp triển khai phù hợp
+
+- **Sử dụng `add_program()`** khi:
+  - Các chương trình được nhúng vào tệp nhị phân kiểm thử của bạn tại thời điểm
+    biên dịch
+  - Bạn muốn thực thi kiểm thử nhanh hơn (không có I/O khi chạy)
+  - Các bài kiểm thử khép kín
+
+- **Sử dụng `add_program_from_file()`** khi:
+  - Các chương trình được build riêng biệt (tức là lấy từ devnet)
+  - Chương trình thay đổi thường xuyên trong quá trình phát triển (có thể chạy
+    lại các bài kiểm tra mà không cần biên dịch lại)
+  - Bạn có môi trường CI/CD nơi các file .so là các artifact
+
+### Hiểu về Program keypair
+
+Khi bạn build một chương trình Solana:
+
+1. **Anchor** tạo `target/deploy/program-keypair.json`
+2. **Native** build tạo một file keypair cùng với file `.so`
+3. **Địa chỉ on-chain** của chương trình là khóa công khai của keypair này, còn
+   được gọi là program ID.
+4. Đối với **PDAs**, `find_program_address()` yêu cầu program ID là một seed
+5. Đối với **CPIs**, program ID được dùng để gọi các chương trình khác
+
+## Các Vấn Đề Thường Gặp và Giải Pháp
+
+### Lỗi Triển Khai Âm Thầm
+
+**Vấn đề**: Chương trình có vẻ được triển khai nhưng các giao dịch thất bại với
+lỗi "InvalidProgramForExecution".
+
+**Nguyên nhân**: Program ID không khớp với keypair.
+
+**Giải pháp**:
+
+```rust
+// Always use the keypair-derived ID
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// Verify with detailed checks
+let account = svm.get_account(&program_id)
+    .expect("Program account doesn't exist");
+
+assert!(account.executable, "Program not executable");
+assert_eq!(account.owner, solana_sdk::bpf_loader::id(), "Wrong owner");
+assert!(!account.data.is_empty(), "Program data is empty");
+
+println!("✅ Program verified at {}", program_id);
+```
+
+### Lỗi Không Tìm Thấy Chương Trình
+
+**Lỗi**: `TransactionError::InvalidProgramForExecution`
+
+**Nguyên nhân Thường Gặp**:
+
+1. Chương trình chưa được triển khai
+2. Sử dụng sai program ID trong lệnh
+3. Program ID không khớp với keypair
+
+**Các Bước Gỡ Lỗi**:
+
+```rust
+// Step 1: Check if program exists
+if let Some(account) = svm.get_account(&program_id) {
+    println!("Program exists");
+    println!("  Executable: {}", account.executable);
+    println!("  Owner: {}", account.owner);
+    println!("  Data length: {}", account.data.len());
+} else {
+    println!("Program does not exist at {}", program_id);
+}
+
+// Step 2: Verify the ID matches keypair
+let expected_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let expected_id = expected_keypair.pubkey();
+
+if program_id != expected_id {
+    println!("  ID mismatch!");
+    println!("  Used: {}", program_id);
+    println!("  Expected: {}", expected_id);
+}
+
+// Step 3: Check instruction program ID
+println!("Instruction program_id: {}", instruction.program_id);
+assert_eq!(instruction.program_id, program_id, "Instruction uses wrong program ID");
+```
+
+### CPI Đến Các Chương Trình Chưa Triển Khai
+
+**Vấn đề**: Chương trình của bạn thực hiện lời gọi CPI đến một chương trình chưa
+được triển khai.
+
+**Giải pháp**: Triển khai tất cả các chương trình phụ thuộc:
+
+```rust
+// Find all dependency programs and make sure they are deployed
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+
+```
+
+Nếu bạn cần lấy chương trình từ một cluster, hãy xem lại
+[phần này](#pulling-programs-from-mainnetdevnet).
+
+### Không Đủ lamport để Triển Khai
+
+**Lưu ý**: LiteSVM tự động xử lý số dư miễn phí tiền thuê cho các chương trình.
+
+```rust
+// No need to manually fund - LiteSVM handles this
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// But you can check the rent if needed
+let program_len = program_bytes.len();
+let required_lamports = svm.minimum_balance_for_rent_exemption(program_len);
+println!("Program requires {} lamports for rent exemption", required_lamports);
+```
+
+## Danh Sách Kiểm Tra Xác Minh Triển Khai
+
+<Steps>
+<Step>
+**Đọc keypair của chương trình**
+
+```rust
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+```
+
+</Step>
+
+<Step>
+**Triển khai với ID khớp**
+
+```rust
+svm.add_program(program_id, &program_bytes).unwrap();
+```
+
+</Step>
+
+<Step>
+**Xác minh việc triển khai**
+
+```rust
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+</Step>
+
+<Step>
+Triển khai bất kỳ chương trình nào mà chương trình của bạn gọi qua CPI vào instance kiểm thử litesvm
+
+</Step>
+</Steps>
+
+## Các Bước Tiếp Theo
+
+Trong phần tiếp theo, chúng ta sẽ tìm hiểu cách thực thi các lệnh của chương
+trình và xử lý các mẫu giao dịch phức tạp.

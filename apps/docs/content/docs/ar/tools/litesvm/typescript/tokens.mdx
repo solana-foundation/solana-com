@@ -1,0 +1,210 @@
+---
+title: اختبار الرموز المميزة
+description: اختبر باستخدام رموز SPL المميزة عبر @solana-program/token وLiteSVM
+---
+
+يعني اختبار منطق الرموز المميزة على سولانا إعداد عمليات الإصدار، وtoken account،
+والصلاحيات قبل أن تتمكن من اختبار منطق التحويل الذي يهمك فعلاً. إضافة
+`tokenProgram()` من `@solana-program/token` تُبسّط هذا الإعداد إلى عدد قليل من
+استدعاءات الوظائف — وتتولى إنشاء associated token account تلقائياً.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    عرض <code>@solana-program/token</code> على npm
+  </a>
+</div>
+
+## التثبيت
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## إنشاء عملية إصدار
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## إصدار الرموز المميزة
+
+`mintToATA` يُصدر الرموز المميزة إلى associated token account الخاص بالمالك. إذا
+لم يكن associated token account موجوداً، فسيتم إنشاؤه في نفس المعاملة.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+المعامل `decimals` هو فحص أمان — يجب أن يتطابق مع عدد الخانات العشرية للإصدار
+بدقة، وإلا سيرفض Token Program المعاملة بالخطأ `0x24`. وهذا يمنع الإصدار الخاطئ
+لعدد أكبر من الرموز المميزة بمقدار 1000 مرة.
+
+## تحويل الرموز المميزة
+
+`transferToATA` ينقل الرموز المميزة بين المستخدمين. يتم إنشاء associated token
+account الخاص بالمستلم تلقائياً عند الحاجة.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`authority` هو الموقّع الذي يمتلك الرموز المميزة المصدر. تستنتج الإضافة كلاً من
+associated token account المصدر والوجهة من عناوينهما مضافاً إليها عملية الإصدار.
+
+## التحقق من الأرصدة
+
+لقراءة أرصدة الرموز المميزة، استخرج عنوان associated token account باستخدام
+`findAssociatedTokenPda` وجلب الحساب المفكوك:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## الكسور العشرية
+
+تكون كميات الرموز المميزة دائمًا بالوحدات الخام. 1000 رمز مميز بـ 9 كسور عشرية
+يساوي `1_000_000_000_000n`، وليس `1000n`.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  استخدم دائمًا `BigInt` لكميات الرموز المميزة. دالة `Number` في JavaScript تفقد
+  الدقة فوق 2^53.
+</Callout>
+
+## مرجع الإضافة
+
+| الطريقة                                     | الوصف                                                                                                      |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `client.token.instructions.createMint()`    | إنشاء mint account جديد لرمز SPL                                                                           |
+| `client.token.instructions.mintToATA()`     | صك الرموز المميزة إلى associated token account الخاص بالمالك (يُنشئ associated token account عند الحاجة)   |
+| `client.token.instructions.transferToATA()` | نقل الرموز المميزة إلى associated token account الخاص بالمستلم (يُنشئ associated token account عند الحاجة) |
+| `client.token.accounts.mint.fetch()`        | جلب mint account وفك ترميزه                                                                                |
+| `client.token.accounts.token.fetch()`       | جلب token account وفك ترميزه                                                                               |
+
+## الأخطاء الشائعة
+
+| الخطأ                        | السبب                                | الحل                                                        |
+| ---------------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| `custom program error: 0x24` | `decimals` لا يتطابق مع mint account | استخدم نفس قيمة الكسور العشرية التي مررتها إلى `createMint` |
+| `AccountNotFound`            | الحساب غير موجود بعد                 | تأكد من إنشاء mint account قبل الصك                         |
+| `InsufficientFunds`          | لا توجد lamport كافية لدفع rent      | قم بإسقاط جوي لـ SOL إضافي إلى الدافع                       |
+| `OwnerMismatch`              | البرنامج الخاطئ يمتلك الحساب         | تحقق من معرّف البرنامج                                      |

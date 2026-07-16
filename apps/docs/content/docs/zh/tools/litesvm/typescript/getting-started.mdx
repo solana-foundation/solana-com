@@ -1,0 +1,242 @@
+---
+title: 快速入门
+description: 使用 LiteSVM 与 @solana/kit 进行快速、进程内 Solana 测试
+---
+
+# LiteSVM TypeScript 版
+
+每个测试需要数秒才能启动 `solana-test-validator`
+的 Solana 测试套件 —你在等待进程启动、RPC 连接和网络往返。LiteSVM 能在毫秒内运行相同的测试。无需外部进程，无需网络，一切都在你的测试运行器内存中完成。
+
+<Callout type="info">
+  **测试版本：** `@solana/kit@6.8.0`、`@solana/kit-plugin-litesvm@0.10.0`、
+  `@solana/kit-plugin-signer@0.10.0`、`@solana-program/system@0.12.0`、
+  `@solana-program/token@0.13.0`。这些插件包较新且迭代迅速 —
+  如果遇到版本不匹配，请查阅
+  [`testing/package.json`](https://github.com/solana-foundation/litesvm-docs/blob/main/testing/package.json)
+  以获取文档和测试套件所使用的精确版本。
+</Callout>
+
+你可以从 `@solana/kit` 组装一个 Kit 客户端，通过 `.use()`
+安装插件：签名插件（[`@solana/kit-plugin-signer`](https://www.npmjs.com/package/@solana/kit-plugin-signer)）、LiteSVM 插件（[`@solana/kit-plugin-litesvm`](https://www.npmjs.com/package/@solana/kit-plugin-litesvm)），以及你所需的任意程序插件。最终结果提供
+`client.sendTransaction()`、
+`client.rpc`，以及对账户状态、时钟和 sysvar 的直接访问 —全程无需离开你的进程。
+
+## 快速开始
+
+<Steps>
+
+<Step>
+### 安装依赖
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+### 创建你的客户端
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+// Payer first, then the LiteSVM transport.
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Fund the payer
+client.svm.airdrop(client.payer.address, lamports(5_000_000_000n));
+
+// Check the balance
+const balance = client.svm.getBalance(client.payer.address);
+console.log("Balance:", balance, "lamports");
+```
+
+<Callout type="info">
+  `createClient()` 返回一个空壳 — 每个 `.use(plugin)` 会在其上叠加
+  新的功能。`signer()` 插件必须在 `litesvm()` **之前**安装，
+  因为传输插件需要绑定一个付款方。`signer(mySigner)` 是 将同一个 keypair
+  同时安装为 `payer` 和 `identity` 的简写 — 如果你想拆分这两个
+  角色，可以使用同一包中的 `payer()` 或 `identity()`。
+  当你使用真实网络时，`solanaRpc()` 的安装顺序相同。
+</Callout>
+
+<Callout type="info">
+  想要一行代码快速完成设置？`litesvm()` 包含了空投功能， 因此你可以从
+  `@solana/kit-plugin-signer` 链式调用
+  `.use(generatedPayerWithSol(lamports(10_000_000_000n)))`，自动生成并为付款方充值。
+</Callout>
+
+</Step>
+
+</Steps>
+
+## 了解客户端
+
+在 `.use(signer(...)).use(litesvm())` 之后，客户端暴露了以下内容：
+
+| 属性                        | 描述                                                                                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.payer`              | 你通过 `signer()` 插件安装的 `TransactionSigner`（也设置为 `client.identity`）                                                                                                                      |
+| `client.identity`           | 拥有账户、代币和权限的钱包签名者                                                                                                                                                                    |
+| `client.svm`                | 用于账户管理、交易和配置的 [`LiteSVM`](https://www.npmjs.com/package/litesvm) 直接实例                                                                                                              |
+| `client.rpc`                | 兼容 Kit 的 RPC 接口（支持子集：`getAccountInfo`、`getBalance`、`getEpochSchedule`、`getLatestBlockhash`、`getMinimumBalanceForRentExemption`、`getMultipleAccounts`、`getSlot`、`requestAirdrop`） |
+| `client.sendTransaction(s)` | 规划、签名并将指令作为交易发送                                                                                                                                                                      |
+| `client.airdrop`            | 从 LiteSVM 水龙头请求 SOL                                                                                                                                                                           |
+| `client.getMinimumBalance`  | 计算 rent 豁免所需的最低 lamport 数量                                                                                                                                                               |
+
+### 使用 client.svm
+
+直接访问 LiteSVM，用于：
+
+- 账户管理（`setAccount`、`getAccount`、`airdrop`）
+- 交易执行（`sendTransaction`、`simulateTransaction`）
+- 配置（`withSigverify`、`withBlockhashCheck` 等）
+- 时间操控（`warpToSlot`、`getClock`）
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Fund an account
+client.svm.airdrop(address, lamports(1_000_000_000n));
+
+// Set account state directly
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([1, 2, 3]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 3n
+});
+
+// Get the latest blockhash
+const blockhash = client.svm.latestBlockhash();
+```
+
+### 使用 client.rpc
+
+兼容 Kit 的 RPC 接口，用于标准操作：
+
+```typescript
+// Get account info (returns base64-encoded data)
+const { value: account } = await client.rpc.getAccountInfo(address).send();
+
+// Get multiple accounts in one call
+const { value: accounts } = await client.rpc
+  .getMultipleAccounts([addr1, addr2, addr3])
+  .send();
+
+// Get latest blockhash
+const { value: blockhash } = await client.rpc.getLatestBlockhash().send();
+```
+
+<Callout type="warn">
+  RPC 层仅支持 **base64 编码**。请求其他编码方式 将会抛出错误。
+</Callout>
+
+## 配置
+
+使用 `client.svm` 上的构建器方法配置 LiteSVM：
+
+```typescript
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Configure for testing
+client.svm
+  .withSigverify(false) // Skip signature verification
+  .withBlockhashCheck(false) // Skip blockhash validation
+  .withSysvars() // Enable Clock, Rent, etc.
+  .withBuiltins() // Enable ed25519, secp256k1
+  .withTransactionHistory(100n); // Store transaction history
+```
+
+## 发送交易
+
+在传输层之后添加程序插件——它们将指令构建器挂载到客户端上，这样你就无需直接操作原始的
+`TransactionMessage`：
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { systemProgram } from "@solana-program/system";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(systemProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const recipient = await generateKeyPairSigner();
+
+// Build and send in one call
+await client.system.instructions
+  .transferSol({
+    source: client.payer,
+    destination: recipient.address,
+    amount: lamports(1_000_000_000n)
+  })
+  .sendTransaction();
+```
+
+## SVM → RPC 流程
+
+你可以通过 SVM 设置状态，并通过 RPC 读取状态：
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Set account directly via SVM
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 4n
+});
+
+// Read via RPC (returns base64-encoded data)
+const { value } = await client.rpc.getAccountInfo(myAddress).send();
+console.log("Data:", value?.data); // ['3q2+7w==', 'base64']
+```
+
+## 下一步
+
+本节介绍了核心客户端的使用——创建账户、发送指令以及读取状态。如果你的测试涉及 SPL 代币（铸币、ATA、转账），[代币测试指南](/docs/tools/litesvm/typescript/tokens)展示了
+`tokenProgram()`
+插件如何将约 40 行的初始化代码精简为 3 次调用。完整的 API 参考请参阅
+[API 文档](/docs/tools/litesvm/typescript/api-reference)。

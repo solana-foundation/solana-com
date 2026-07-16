@@ -1,0 +1,342 @@
+---
+title: プログラムのデプロイ
+description: LiteSVMテストインスタンスへのプログラムのデプロイ方法を学ぶ
+---
+
+## はじめに
+
+```rust
+let mut svm = LiteSVM::new();
+```
+
+これにより、基本的なlitesvmテストインスタンスが作成されます。このインスタンスには、有効化されたすべてのランタイム機能、デフォルトのsysvar、プリコンパイル済みプログラム、SPLプログラム、署名検証、そしてSystem
+Programを含むすべての組み込みプログラムが含まれています。
+
+テスト内で他のプログラムと連携するには、そのプログラムをテスト環境にデプロイする必要があります。
+
+1. テスト対象のプログラムをビルドしてデプロイする
+
+2. 上記プログラムがCPI呼び出しを行うすべてのプログラムを特定し、それらをデプロイする
+
+<Callout type="info">
+  **例:**
+  プログラムがPythのデータフィードを使用している場合、Pythプログラムをテストインスタンスにデプロイする必要があります。
+</Callout>
+
+## 基本的なプログラムのデプロイ
+
+### 方法1: バイト配列からデプロイ
+
+最速のテスト実行のために、バイト配列から直接プログラムをデプロイします：
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read the program's keypair to get correct ID
+let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json")
+    .expect("Program keypair file not found");
+let program_id = program_keypair.pubkey();
+
+// Include bytes at compile time
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+// Deploy from bytes
+svm.add_program(program_id, program_bytes)
+    .expect("Failed to deploy program");
+
+// Verify deployment
+assert!(svm.get_account(&program_id).is_some(), "Program account not created");
+assert!(svm.get_account(&program_id).unwrap().executable, "Program not executable");
+```
+
+`include_bytes!`はコンパイル時にバイナリをテスト実行ファイルへ直接埋め込むため、テスト実行中のI/Oが不要になります。
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> メリット
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>実行時が高速（ディスク読み込み不要）</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>自己完結型のテストバイナリ</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>コンパイル後に.soファイルが削除されても動作する</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> デメリット
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>テストバイナリのサイズが大きくなる</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>.soが変更された際にテストを再コンパイルする必要がある</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+### 方法2：ファイル（.so）からデプロイ
+
+頻繁に変更されるプログラムをファイルシステムから読み込む場合：
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read keypair for correct program ID
+let program_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = program_keypair.pubkey();
+
+// Deploy from file
+svm.add_program_from_file(program_id, "target/deploy/program.so")
+    .expect("Failed to deploy program from file");
+
+// Always verify
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> メリット
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>テストバイナリのサイズが小さい</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>テストを再コンパイルせずに .so の変更を反映できる</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>CI/CDパイプラインに対して柔軟に対応できる</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> デメリット
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>低速（実行時にディスクI/Oが発生する）</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>テスト実行時に .so ファイルが存在している必要がある</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>テスト実行ディレクトリからの相対パスが正確である必要がある</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+## Mainnet／Devnetからのプログラムの取得
+
+コードが手元にないプログラムが必要な場合は、Solana
+CLIを使用してライブクラスターからプログラムをダンプし、テストで利用します：
+
+```bash
+# Dump a program from mainnet
+solana program dump gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s pyth.so --url mainnet-beta
+
+# Dump from devnet
+solana program dump YourProgramID program.so --url devnet
+```
+
+次に、テスト内で読み込みます：
+
+```rust
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+```
+
+## ベストプラクティス
+
+### 1. 適切なデプロイ方法を選択する
+
+- **`add_program()`** を使用する場合：
+  - プログラムがコンパイル時にテストバイナリに埋め込まれる
+  - テストの実行を高速化したい（実行時I/Oが不要）
+  - 自己完結型のテスト
+
+- **`add_program_from_file()`** を使用する場合：
+  - プログラムが別途ビルドされている場合（devnetから取得するなど）
+  - 開発中にプログラムが頻繁に変更される場合（再コンパイルなしでテストを再実行可能）
+  - .soファイルがアーティファクトとなるCI/CD環境がある場合
+
+### プログラムkeypairの理解
+
+Solanaプログラムをビルドする際：
+
+1. **Anchor** は `target/deploy/program-keypair.json` を作成します
+2. **ネイティブ**ビルドでは、`.so` ファイルと並んでkeypairファイルが生成されます
+3. プログラムの**オンチェーンアドレス**は、このkeypairの公開鍵であり、プログラムIDとも呼ばれます。
+4. **PDA**の場合、`find_program_address()`
+   はプログラムIDをseedとして必要とします
+5. **CPI**の場合、プログラムIDを使用して他のプログラムを呼び出します
+
+## よくある問題と解決策
+
+### サイレントデプロイの失敗
+
+**問題**：プログラムがデプロイされたように見えるが、トランザクションが "InvalidProgramForExecution" で失敗する。
+
+**原因**：プログラムIDがkeypairと一致していない。
+
+**解決策**：
+
+```rust
+// Always use the keypair-derived ID
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// Verify with detailed checks
+let account = svm.get_account(&program_id)
+    .expect("Program account doesn't exist");
+
+assert!(account.executable, "Program not executable");
+assert_eq!(account.owner, solana_sdk::bpf_loader::id(), "Wrong owner");
+assert!(!account.data.is_empty(), "Program data is empty");
+
+println!("✅ Program verified at {}", program_id);
+```
+
+### プログラムが見つからないエラー
+
+**エラー**：`TransactionError::InvalidProgramForExecution`
+
+**よくある原因**：
+
+1. プログラムがデプロイされていない
+2. instructionsに誤ったプログラムIDが使用されている
+3. プログラムIDとkeypairが一致していない
+
+**デバッグ手順**：
+
+```rust
+// Step 1: Check if program exists
+if let Some(account) = svm.get_account(&program_id) {
+    println!("Program exists");
+    println!("  Executable: {}", account.executable);
+    println!("  Owner: {}", account.owner);
+    println!("  Data length: {}", account.data.len());
+} else {
+    println!("Program does not exist at {}", program_id);
+}
+
+// Step 2: Verify the ID matches keypair
+let expected_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let expected_id = expected_keypair.pubkey();
+
+if program_id != expected_id {
+    println!("  ID mismatch!");
+    println!("  Used: {}", program_id);
+    println!("  Expected: {}", expected_id);
+}
+
+// Step 3: Check instruction program ID
+println!("Instruction program_id: {}", instruction.program_id);
+assert_eq!(instruction.program_id, program_id, "Instruction uses wrong program ID");
+```
+
+### 未デプロイプログラムへのCPI
+
+**問題**：プログラムがデプロイされていないプログラムへCPI呼び出しを行っている。
+
+**解決策**：すべての依存プログラムをデプロイする：
+
+```rust
+// Find all dependency programs and make sure they are deployed
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+
+```
+
+クラスターからプログラムを取得する必要がある場合は、[このセクション](#pulling-programs-from-mainnetdevnet)を参照してください。
+
+### デプロイに必要なlamportが不足している
+
+**注記**：LiteSVMはプログラムのrent-exempt残高を自動的に処理します。
+
+```rust
+// No need to manually fund - LiteSVM handles this
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// But you can check the rent if needed
+let program_len = program_bytes.len();
+let required_lamports = svm.minimum_balance_for_rent_exemption(program_len);
+println!("Program requires {} lamports for rent exemption", required_lamports);
+```
+
+## デプロイ確認チェックリスト
+
+<Steps>
+<Step>
+**プログラムのkeypairを読み込む**
+
+```rust
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+```
+
+</Step>
+
+<Step>
+**一致するIDでデプロイする**
+
+```rust
+svm.add_program(program_id, &program_bytes).unwrap();
+```
+
+</Step>
+
+<Step>
+**デプロイメントを確認する**
+
+```rust
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+</Step>
+
+<Step>
+プログラムがCPI経由で呼び出すプログラムをlitesvm テストインスタンスにデプロイする
+
+</Step>
+</Steps>
+
+## 次のステップ
+
+次のセクションでは、プログラムのinstructionsを実行し、複雑なトランザクションパターンを処理する方法を学びます。

@@ -1,0 +1,210 @@
+---
+title: 토큰 테스트
+description: "@solana-program/token과 LiteSVM을 사용하여 SPL 토큰으로 테스트"
+---
+
+Solana에서 토큰 로직을 테스트하려면 실제로 테스트하려는 전송 로직을 검증하기
+전에 민트, token account, 권한을 먼저 설정해야 합니다. `@solana-program/token`의
+`tokenProgram()` 플러그인을 사용하면 해당 설정을 몇 가지 메서드 호출로 줄일 수
+있으며, ATA 생성도 자동으로 처리됩니다.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    npm에서 <code>@solana-program/token</code> 보기
+  </a>
+</div>
+
+## 설치
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## 민트 생성
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## 토큰 발행
+
+`mintToATA`는 소유자의 associated token account로 토큰을 발행합니다. ATA가
+존재하지 않으면 동일한 트랜잭션 내에서 생성됩니다.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`decimals` 파라미터는 안전 검사 항목으로, 민트의 소수점 자릿수와 정확히 일치해야
+합니다. 일치하지 않으면 Token Program이 `0x24` 오류와 함께 트랜잭션을
+거부합니다. 이를 통해 실수로 1000배 많은 토큰이 발행되는 것을 방지합니다.
+
+## 토큰 전송
+
+`transferToATA`는 사용자 간에 토큰을 이동합니다. 필요한 경우 수신자의 ATA가
+자동으로 생성됩니다.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`authority`는 소스 토큰을 소유한 서명자입니다. 플러그인은 주소와 민트를 기반으로
+소스 및 대상 ATA를 모두 도출합니다.
+
+## 잔액 확인
+
+토큰 잔액을 다시 읽으려면 `findAssociatedTokenPda`로 ATA 주소를 도출하고
+디코딩된 계정을 가져옵니다:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## 소수점
+
+토큰 수량은 항상 원시 단위로 표현됩니다. 소수점 9자리를 가진 토큰 1000개는
+`1000n`이 아니라 `1_000_000_000_000n`입니다.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  토큰 수량에는 항상 `BigInt`를 사용하세요. JavaScript의 `Number`는 2^53을
+  초과하면 정밀도를 잃습니다.
+</Callout>
+
+## 플러그인 레퍼런스
+
+| 메서드                                      | 설명                                        |
+| ------------------------------------------- | ------------------------------------------- |
+| `client.token.instructions.createMint()`    | 새 SPL 토큰 mint account 생성               |
+| `client.token.instructions.mintToATA()`     | 소유자의 ATA에 토큰 발행 (필요 시 ATA 생성) |
+| `client.token.instructions.transferToATA()` | 수신자의 ATA로 토큰 전송 (필요 시 ATA 생성) |
+| `client.token.accounts.mint.fetch()`        | mint account 가져오기 및 디코딩             |
+| `client.token.accounts.token.fetch()`       | token account 가져오기 및 디코딩            |
+
+## 일반적인 오류
+
+| 오류                         | 원인                              | 해결 방법                                          |
+| ---------------------------- | --------------------------------- | -------------------------------------------------- |
+| `custom program error: 0x24` | `decimals`가 mint와 일치하지 않음 | `createMint`에 전달한 것과 동일한 decimals 값 사용 |
+| `AccountNotFound`            | 계정이 아직 존재하지 않음         | 토큰 발행 전 mint account가 생성되었는지 확인      |
+| `InsufficientFunds`          | rent에 필요한 lamport 부족        | 지불자에게 SOL 에어드롭 추가                       |
+| `OwnerMismatch`              | 잘못된 프로그램이 계정을 소유함   | 프로그램 ID 확인                                   |

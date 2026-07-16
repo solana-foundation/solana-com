@@ -1,0 +1,342 @@
+---
+title: 部署程序
+description: 了解如何将程序部署到 LiteSVM 测试实例
+---
+
+## 入门指南
+
+```rust
+let mut svm = LiteSVM::new();
+```
+
+这将创建基本的 litesvm 测试实例，其中包含所有已启用的运行时功能、默认系统变量、预编译项、spl 程序、签名验证以及所有内置程序（如 System
+Program）。
+
+要在测试中与其他任何程序交互，您必须将该程序部署到测试环境中。
+
+1. 构建并部署您要测试的程序
+
+2. 找出上述程序通过 CPI 调用的所有程序，并将这些程序一并部署
+
+<Callout type="info">
+  **示例：** 如果您的程序正在使用 Pyth 的数据源，则需要将 Pyth
+  程序部署到您的测试实例中。
+</Callout>
+
+## 基本程序部署
+
+### 方法一：从字节数组部署
+
+直接从字节数组部署程序，以实现最快的测试执行速度：
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read the program's keypair to get correct ID
+let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json")
+    .expect("Program keypair file not found");
+let program_id = program_keypair.pubkey();
+
+// Include bytes at compile time
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+// Deploy from bytes
+svm.add_program(program_id, program_bytes)
+    .expect("Failed to deploy program");
+
+// Verify deployment
+assert!(svm.get_account(&program_id).is_some(), "Program account not created");
+assert!(svm.get_account(&program_id).unwrap().executable, "Program not executable");
+```
+
+`include_bytes!`
+在编译时将二进制文件直接嵌入测试可执行文件中，从而在测试执行期间消除 I/O 开销。
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> 优点
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>运行时速度更快（无磁盘读取）</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>测试二进制文件自包含</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>即使编译后 .so 文件被删除也能正常运行</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> 缺点
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>测试二进制文件体积较大</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>.so 文件变更后必须重新编译测试</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+### 方法二：从文件（.so）部署
+
+当程序频繁变更时，从文件系统加载程序：
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read keypair for correct program ID
+let program_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = program_keypair.pubkey();
+
+// Deploy from file
+svm.add_program_from_file(program_id, "target/deploy/program.so")
+    .expect("Failed to deploy program from file");
+
+// Always verify
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> 优点
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>测试二进制文件更小</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>无需重新编译测试即可获取 .so 文件的变更</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>对 CI/CD 流水线更加灵活</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> 缺点
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>速度较慢（运行时存在磁盘 I/O）</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>测试执行时需确保 .so 文件已存在</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>文件路径须相对于测试执行目录正确无误</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+## 从主网/开发网拉取程序
+
+当您需要某个没有源代码的程序时，可使用 Solana
+CLI 从线上集群导出程序，并在测试中使用：
+
+```bash
+# Dump a program from mainnet
+solana program dump gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s pyth.so --url mainnet-beta
+
+# Dump from devnet
+solana program dump YourProgramID program.so --url devnet
+```
+
+然后在测试中加载它：
+
+```rust
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+```
+
+## 最佳实践
+
+### 1. 选择合适的部署方式
+
+- **使用 `add_program()`** 的场景：
+  - 程序在编译时已嵌入测试二进制文件
+  - 希望更快地执行测试（无运行时 I/O）
+  - 测试自包含
+
+- **当满足以下条件时，使用 `add_program_from_file()`**：
+  - 程序是单独构建的（即从 devnet 拉取）
+  - 程序在开发过程中频繁变更（无需重新编译即可重新运行测试）
+  - 您的 CI/CD 环境中 .so 文件作为构建产物存在
+
+### 理解程序 keypair
+
+当您构建 Solana 程序时：
+
+1. **Anchor** 会创建 `target/deploy/program-keypair.json`
+2. **Native** 构建会在 `.so` 文件旁生成一个 keypair 文件
+3. 程序的**链上地址**即为该 keypair 的公钥，也称为程序 ID。
+4. 对于 **PDA**，`find_program_address()` 需要将程序 ID 作为 seed
+5. 对于 **CPI**，程序 ID 用于调用其他程序
+
+## 常见问题与解决方案
+
+### 静默部署失败
+
+**问题**：程序看似已成功部署，但交易失败并报错 "InvalidProgramForExecution"。
+
+**原因**：程序 ID 与 keypair 不匹配。
+
+**解决方案**：
+
+```rust
+// Always use the keypair-derived ID
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// Verify with detailed checks
+let account = svm.get_account(&program_id)
+    .expect("Program account doesn't exist");
+
+assert!(account.executable, "Program not executable");
+assert_eq!(account.owner, solana_sdk::bpf_loader::id(), "Wrong owner");
+assert!(!account.data.is_empty(), "Program data is empty");
+
+println!("✅ Program verified at {}", program_id);
+```
+
+### 程序未找到错误
+
+**错误**：`TransactionError::InvalidProgramForExecution`
+
+**常见原因**：
+
+1. 程序未部署
+2. 指令中使用了错误的程序 ID
+3. 程序 ID 与 keypair 不匹配
+
+**调试步骤**：
+
+```rust
+// Step 1: Check if program exists
+if let Some(account) = svm.get_account(&program_id) {
+    println!("Program exists");
+    println!("  Executable: {}", account.executable);
+    println!("  Owner: {}", account.owner);
+    println!("  Data length: {}", account.data.len());
+} else {
+    println!("Program does not exist at {}", program_id);
+}
+
+// Step 2: Verify the ID matches keypair
+let expected_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let expected_id = expected_keypair.pubkey();
+
+if program_id != expected_id {
+    println!("  ID mismatch!");
+    println!("  Used: {}", program_id);
+    println!("  Expected: {}", expected_id);
+}
+
+// Step 3: Check instruction program ID
+println!("Instruction program_id: {}", instruction.program_id);
+assert_eq!(instruction.program_id, program_id, "Instruction uses wrong program ID");
+```
+
+### CPI 调用未部署的程序
+
+**问题**：您的程序向一个尚未部署的程序发起了 CPI 调用。
+
+**解决方案**：部署所有依赖程序：
+
+```rust
+// Find all dependency programs and make sure they are deployed
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+
+```
+
+如果您需要从集群中拉取程序，请参阅[本节](#pulling-programs-from-mainnetdevnet)。
+
+### 部署所需 lamport 不足
+
+**注意**：LiteSVM 会自动处理程序的免租金余额。
+
+```rust
+// No need to manually fund - LiteSVM handles this
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// But you can check the rent if needed
+let program_len = program_bytes.len();
+let required_lamports = svm.minimum_balance_for_rent_exemption(program_len);
+println!("Program requires {} lamports for rent exemption", required_lamports);
+```
+
+## 部署验证清单
+
+<Steps>
+<Step>
+**读取程序 keypair**
+
+```rust
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+```
+
+</Step>
+
+<Step>
+**使用匹配的 ID 进行部署**
+
+```rust
+svm.add_program(program_id, &program_bytes).unwrap();
+```
+
+</Step>
+
+<Step>
+**验证部署**
+
+```rust
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+</Step>
+
+<Step>
+将您的程序通过 CPI 调用的所有程序部署到 litesvm 测试实例
+
+</Step>
+</Steps>
+
+## 下一步
+
+在下一节中，我们将学习如何执行程序指令并处理复杂的交易模式。
