@@ -388,6 +388,7 @@ export function SolanaDataDashboard() {
     () => getKpis(kpiCharts, rows, selectedProviders, kpiAggregation),
     [kpiAggregation, kpiCharts, rows, selectedProviders],
   );
+  const hasKpiGrid = !isRpcTab;
   const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
   const footerMetaItems = [
@@ -482,16 +483,18 @@ export function SolanaDataDashboard() {
 
         {!error ? (
           <>
-            <KpiGrid
-              aggregation={kpiAggregation}
-              isLoading={isInitialLoading}
-              kpis={kpis}
-            />
+            {hasKpiGrid ? (
+              <KpiGrid
+                aggregation={kpiAggregation}
+                isLoading={isInitialLoading}
+                kpis={kpis}
+              />
+            ) : null}
 
             <ChartGrid
               activeCharts={activeCharts}
               activeTab={activeTab}
-              hasKpiGrid={true}
+              hasKpiGrid={hasKpiGrid}
               isLoading={isInitialLoading}
               isRefreshing={isRefreshing}
               rows={rows}
