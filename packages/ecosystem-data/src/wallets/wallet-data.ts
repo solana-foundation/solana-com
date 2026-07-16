@@ -136,7 +136,6 @@ import tomoIcon from "../../assets/wallets/icons/tomo.webp";
 import totalsigIcon from "../../assets/wallets/icons/totalsig.webp";
 import trezorIcon from "../../assets/wallets/icons/trezor.webp";
 import triaIcon from "../../assets/wallets/icons/tria.webp";
-import trueMarketsIcon from "../../assets/wallets/icons/true-markets.webp";
 import trusteeWalletIcon from "../../assets/wallets/icons/trustee-wallet.webp";
 import trustwalletcoreIcon from "../../assets/wallets/icons/trustwalletcore.webp";
 import turnkeyIcon from "../../assets/wallets/icons/turnkey.webp";
@@ -1645,10 +1644,11 @@ const walletRecords = {
       "buy_crypto",
       "sell_crypto",
       "get_paid",
+      "card_spending",
       "solana_native",
     ],
     description:
-      "Self-custody Solana payments app, formerly Sling Money, for funding, sending, receiving, and cashing out supported stablecoins through bank and local payment rails",
+      "Self-custody Solana payments app, formerly Sling Money, for holding stablecoins, getting paid, sending money, and cashing out through bank and local payment rails, with exportable keys and a virtual Visa card",
     website: "https://morsemoney.com/",
     icon: morseIcon,
     lastVerified: "2026-07-16",
@@ -2550,24 +2550,6 @@ const walletRecords = {
       "Self-custodial trading and spending app with Visa cards, cross-chain swaps, and on-chain yield across Solana and 15+ networks, plus TSS-based embedded wallet SDKs with gasless transactions",
     website: "https://tria.so",
     icon: triaIcon,
-    lastVerified: "2026-07-15",
-  },
-  "true-markets": {
-    name: "True Markets",
-    category: "consumer",
-    platforms: ["ios"],
-    features: [
-      "non_custodial",
-      "buy_crypto",
-      "sell_crypto",
-      "gas_abstraction",
-      "multi_chain",
-      "solana_native",
-    ],
-    description:
-      "Stablecoin-native iOS trading app with an embedded non-custodial wallet, gasless execution for 120+ Solana and 30+ Base tokens, and PayPal deposits and withdrawals",
-    website: "https://www.truemarkets.co/",
-    icon: trueMarketsIcon,
     lastVerified: "2026-07-15",
   },
   trust: {
