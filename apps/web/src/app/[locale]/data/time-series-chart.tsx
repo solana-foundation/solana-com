@@ -271,7 +271,7 @@ function ChartSvg({
             numTicks={Math.max(2, Math.floor(innerWidth / 140))}
             scale={xScale}
             tickFormat={(value) =>
-              formatDateTick(value as Date, locale, timeGranularity)
+              formatDateTick(value as Date, locale, timeGranularity, xDomain)
             }
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
@@ -707,11 +707,35 @@ function formatDateTick(
   value: Date,
   locale: string,
   timeGranularity: TimeGranularity,
+  domain: [Date, Date],
 ) {
   if (timeGranularity === "hour") {
+    const rangeMilliseconds = domain[1].getTime() - domain[0].getTime();
+
+    if (rangeMilliseconds <= 12 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(value);
+    }
+
+    if (rangeMilliseconds <= 2 * 24 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        hour: "numeric",
+        month: "short",
+      }).format(value);
+    }
+
+    if (rangeMilliseconds > 180 * 24 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        month: "short",
+        year: "2-digit",
+      }).format(value);
+    }
+
     return new Intl.DateTimeFormat(locale, {
       day: "numeric",
-      hour: "numeric",
       month: "short",
     }).format(value);
   }

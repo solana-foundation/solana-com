@@ -3,20 +3,23 @@ import "server-only";
 import {
   defaultRpcInfra,
   defaultRpcMethod,
+  defaultRpcTimeframe,
   getDefaultRpcRegion,
   getRpcInfraSourceValue,
   getRpcRegionSourceValue,
+  getRpcTimeframeOption,
   normalizeRpcInfraParam,
   normalizeRpcRegionParam,
   rpcInfraOptions,
-  rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
+  rpcTimeframeOptions,
   type MetricRow,
   type RpcLatencyInfra,
   type RpcLatencyFiltersResponse,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
+  type RpcTimeframe,
 } from "@/app/[locale]/data/data-config";
 
 const ENV_KEYS = {
@@ -26,8 +29,6 @@ const ENV_KEYS = {
 
 const QUERY_API_PATH = "/api/v1/query";
 const QUERY_RANGE_API_PATH = "/api/v1/query_range";
-export const RPC_LATENCY_RANGE_HOURS = rpcLatencyRangeHours;
-export const RPC_LATENCY_RANGE_STEP_SECONDS = 3600;
 const RPC_LATENCY_QUANTILE_RANGE = "1h";
 const MS_PER_SECOND = 1000;
 
@@ -45,6 +46,7 @@ export type RpcLatencyQueryOptions = {
   method?: RpcLatencyMethod;
   provider?: RpcLatencyProvider;
   region?: RpcLatencyRegion;
+  timeframe?: RpcTimeframe;
 };
 
 export type RpcLatencyConfig = {
@@ -99,6 +101,9 @@ const regionSet = new Set<string>(
 const methodSet = new Set<string>(
   rpcMethodOptions.map((option) => option.value),
 );
+const timeframeSet = new Set<string>(
+  rpcTimeframeOptions.map((option) => option.value),
+);
 
 export function getRpcLatencyConfig():
   | { ok: true; config: RpcLatencyConfig }
@@ -148,7 +153,35 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
       regionSet,
       getDefaultRpcRegion(infra),
     ) as RpcLatencyRegion,
+    timeframe: parseAllowedValue(
+      params.get("timeframe"),
+      timeframeSet,
+      defaultRpcTimeframe,
+    ) as RpcTimeframe,
   };
+}
+
+export function getRpcLatencyCacheKey(
+  config: RpcLatencyConfig,
+  options: RpcLatencyQueryOptions,
+) {
+  const timeframe = getRpcTimeframeOption(options.timeframe);
+
+  return [
+    config.baseUrl,
+    options.infra,
+    options.method,
+    options.provider ?? "all",
+    options.region,
+    timeframe.value,
+    timeframe.durationSeconds,
+    timeframe.stepSeconds,
+    buildRpcSuccessRateQuery(options),
+    buildRpcAvgLatencyQuery(options),
+    buildRpcP50LatencyQuery(options),
+    buildRpcP95LatencyQuery(options),
+    buildRpcP99LatencyQuery(options),
+  ].join("|");
 }
 
 export async function getRpcLatencyFilterOptions(
@@ -199,15 +232,17 @@ export async function getRpcLatencyMetricRows(
   config: RpcLatencyConfig,
   options: RpcLatencyQueryOptions = {},
 ): Promise<RpcLatencyRowsResult> {
+  const timeframe = getRpcTimeframeOption(options.timeframe);
   const normalizedOptions = {
     infra: options.infra ?? defaultRpcInfra,
     method: options.method ?? defaultRpcMethod,
     provider: options.provider,
     region:
       options.region ?? getDefaultRpcRegion(options.infra ?? defaultRpcInfra),
+    timeframe: timeframe.value,
   };
   const end = Math.floor(Date.now() / MS_PER_SECOND);
-  const start = end - RPC_LATENCY_RANGE_HOURS * 60 * 60;
+  const start = end - timeframe.durationSeconds;
   const [
     successRateResults,
     avgLatencyResults,
@@ -219,7 +254,7 @@ export async function getRpcLatencyMetricRows(
       end: String(end),
       query: buildRpcSuccessRateQuery(normalizedOptions),
       start: String(start),
-      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      step: String(timeframe.stepSeconds),
     }),
     queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
       query: buildRpcAvgLatencyQuery(normalizedOptions),
@@ -228,19 +263,19 @@ export async function getRpcLatencyMetricRows(
       end: String(end),
       query: buildRpcP50LatencyQuery(normalizedOptions),
       start: String(start),
-      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      step: String(timeframe.stepSeconds),
     }),
     queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
       end: String(end),
       query: buildRpcP95LatencyQuery(normalizedOptions),
       start: String(start),
-      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      step: String(timeframe.stepSeconds),
     }),
     queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
       end: String(end),
       query: buildRpcP99LatencyQuery(normalizedOptions),
       start: String(start),
-      step: String(RPC_LATENCY_RANGE_STEP_SECONDS),
+      step: String(timeframe.stepSeconds),
     }),
   ]);
 

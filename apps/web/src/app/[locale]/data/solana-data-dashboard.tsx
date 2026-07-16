@@ -50,6 +50,7 @@ import {
   chartDefinitions,
   defaultRpcInfra,
   defaultRpcMethod,
+  defaultRpcTimeframe,
   fallbackRpcRegionsByInfra,
   getDefaultRpcRegion,
   getRpcRegionOptions,
@@ -60,9 +61,9 @@ import {
   providerColors,
   rangeOptions,
   rpcInfraOptions,
-  rpcLatencyRangeHours,
   rpcMethodOptions,
   rpcRegionOptions,
+  rpcTimeframeOptions,
   type Aggregation,
   type ChartDefinition,
   type DashboardTab,
@@ -74,6 +75,7 @@ import {
   type RpcLatencyFiltersResponse,
   type RpcLatencyMethod,
   type RpcLatencyRegion,
+  type RpcTimeframe,
 } from "./data-config";
 import {
   formatValue,
@@ -263,6 +265,7 @@ type QueryUpdates = {
   providers?: Set<ProviderName>;
   region?: RpcLatencyRegion;
   tab?: DashboardTab;
+  timeframe?: RpcTimeframe;
 };
 
 export type KpiAggregation = "median" | "minimum";
@@ -296,6 +299,7 @@ export function SolanaDataDashboard() {
     rpcInfra,
     rpcMethod,
     rpcRegion,
+    rpcTimeframe,
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
@@ -315,6 +319,7 @@ export function SolanaDataDashboard() {
     rangeDays,
     rpcMethod,
     rpcRegion,
+    rpcTimeframe,
   });
   const errorMessages = useMemo(
     () => ({
@@ -443,6 +448,7 @@ export function SolanaDataDashboard() {
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
             rpcRegionsByInfra={rpcRegionsByInfra}
+            rpcTimeframe={rpcTimeframe}
             selectedProviders={selectedProviders}
             showProviderControls={showProviderControls}
             showRangeControl={!isRpcTab}
@@ -509,7 +515,7 @@ export function SolanaDataDashboard() {
                 className="h-1 w-1 rounded-full bg-nd-border-prominent"
               />
               {isRpcTab
-                ? t("footer.lastHours", { hours: rpcLatencyRangeHours })
+                ? t("footer.lastTimeframe", { timeframe: rpcTimeframe })
                 : t("footer.lastDays", { days: rangeDays })}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
@@ -602,6 +608,7 @@ function DashboardControls({
   rpcMethod,
   rpcRegion,
   rpcRegionsByInfra,
+  rpcTimeframe,
   selectedProviders,
   showProviderControls,
   showRangeControl,
@@ -616,6 +623,7 @@ function DashboardControls({
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
   rpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"];
+  rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
   showProviderControls: boolean;
   showRangeControl: boolean;
@@ -655,6 +663,13 @@ function DashboardControls({
           <>
             <Separator />
             <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect
+                ariaLabel={t("controls.rpcTimeframeAriaLabel")}
+                label={t("controls.rpcTimeframeLabel")}
+                options={rpcTimeframeOptions}
+                value={rpcTimeframe}
+                onChange={(value) => onUpdateQuery({ timeframe: value })}
+              />
               <FilterSelect
                 ariaLabel={t("controls.rpcRegionAriaLabel")}
                 label={t("controls.rpcRegionLabel")}
@@ -1777,6 +1792,7 @@ function useDashboardQueryParams() {
     rpcInfra,
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
+    rpcTimeframe: parseRpcTimeframe(searchParams.get("timeframe")),
   };
 }
 
@@ -1824,6 +1840,10 @@ function applyQueryUpdates(
   if (updates.region) {
     params.set("region", updates.region);
   }
+
+  if (updates.timeframe) {
+    params.set("timeframe", updates.timeframe);
+  }
 }
 
 export function updateProvidersParam(
@@ -1857,12 +1877,14 @@ function getDashboardDataUrl({
   rangeDays,
   rpcMethod,
   rpcRegion,
+  rpcTimeframe,
 }: {
   activeTab: DashboardTab;
   rpcInfra: RpcLatencyInfra;
   rangeDays: number;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
+  rpcTimeframe: RpcTimeframe;
 }) {
   if (activeTab !== "rpc") {
     return `/api/databricks/data?days=${rangeDays}`;
@@ -1872,6 +1894,7 @@ function getDashboardDataUrl({
     infra: rpcInfra,
     method: rpcMethod,
     region: rpcRegion,
+    timeframe: rpcTimeframe,
   });
 
   return `/api/rpc/data?${params.toString()}`;
@@ -2354,6 +2377,12 @@ function parseRpcMethod(value: string | null): RpcLatencyMethod {
   return rpcMethodOptions.some((option) => option.value === value)
     ? (value as RpcLatencyMethod)
     : defaultRpcMethod;
+}
+
+function parseRpcTimeframe(value: string | null): RpcTimeframe {
+  return rpcTimeframeOptions.some((option) => option.value === value)
+    ? (value as RpcTimeframe)
+    : defaultRpcTimeframe;
 }
 
 function parseRpcRegion(

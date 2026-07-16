@@ -1,15 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getRpcTimeframeOption,
   rpcInfraOptions,
   rpcMethodOptions,
   rpcRegionOptions,
+  rpcTimeframeOptions,
 } from "@/app/[locale]/data/data-config";
 import {
   buildRpcAvgLatencyQuery,
   buildRpcP95LatencyQuery,
   buildRpcSuccessRateQuery,
+  getRpcLatencyCacheKey,
   getRpcLatencyFilterOptions,
+  getRpcLatencyMetricRows,
   parseRpcLatencyQueryOptions,
 } from "@/lib/rpc/server";
 
@@ -22,6 +26,46 @@ describe("RPC latency query options", () => {
     expect(options.infra).toBe("tsw");
     expect(options.method).toBe("getTransactionRecent");
     expect(options.region).toBe("us-west");
+    expect(options.timeframe).toBe("6h");
+  });
+
+  it("exposes the requested time frames in display order", () => {
+    expect(rpcTimeframeOptions.map((option) => option.value)).toEqual([
+      "30m",
+      "1h",
+      "6h",
+      "24h",
+      "7d",
+      "30d",
+      "90d",
+      "1y",
+    ]);
+  });
+
+  it("accepts supported time frames and falls back for unknown values", () => {
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("timeframe=30m"))
+        .timeframe,
+    ).toBe("30m");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("timeframe=1y"))
+        .timeframe,
+    ).toBe("1y");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("timeframe=forever"))
+        .timeframe,
+    ).toBe("6h");
+  });
+
+  it("caps every time frame at 200 Prometheus range samples", () => {
+    for (const option of rpcTimeframeOptions) {
+      expect(
+        Math.ceil(option.durationSeconds / option.stepSeconds),
+      ).toBeLessThanOrEqual(200);
+    }
+
+    expect(getRpcTimeframeOption("30m").stepSeconds).toBe(60);
+    expect(getRpcTimeframeOption("1y").stepSeconds).toBe(2 * 24 * 60 * 60);
   });
 
   it("exposes the reviewed RPC method filters", () => {
@@ -97,6 +141,80 @@ describe("RPC latency query options", () => {
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("region=unknown")).region,
     ).toBe("us-west");
+  });
+});
+
+describe("RPC latency query ranges", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the selected duration and sampling step for range queries", async () => {
+    const nowSeconds = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            status: "success",
+            data: { result: [] },
+          }),
+          { status: 200 },
+        ),
+    );
+
+    vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    const rangeUrls = fetchMock.mock.calls
+      .map(([input]) => new URL(String(input)))
+      .filter((url) => url.pathname.endsWith("/query_range"));
+
+    expect(rangeUrls).toHaveLength(4);
+    for (const url of rangeUrls) {
+      expect(url.searchParams.get("start")).toBe(String(nowSeconds - 30 * 60));
+      expect(url.searchParams.get("end")).toBe(String(nowSeconds));
+      expect(url.searchParams.get("step")).toBe("60");
+    }
+  });
+});
+
+describe("RPC latency cache identity", () => {
+  const config = {
+    baseUrl: "https://prometheus.example.com",
+    token: "test-token",
+  };
+
+  it("keeps each time frame in a distinct server cache entry", () => {
+    const thirtyMinutes = getRpcLatencyCacheKey(config, {
+      timeframe: "30m",
+    });
+    const oneYear = getRpcLatencyCacheKey(config, { timeframe: "1y" });
+
+    expect(thirtyMinutes).not.toBe(oneYear);
+    expect(thirtyMinutes).toContain("|30m|1800|60|");
+    expect(oneYear).toContain("|1y|31536000|172800|");
+  });
+
+  it("returns a stable key for equivalent requests", () => {
+    const options = {
+      infra: "aws",
+      method: "getSlot",
+      region: "us-east",
+      timeframe: "24h",
+    } as const;
+
+    expect(getRpcLatencyCacheKey(config, options)).toBe(
+      getRpcLatencyCacheKey(config, options),
+    );
   });
 });
 

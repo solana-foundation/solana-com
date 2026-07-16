@@ -5,6 +5,47 @@ export const rangeOptions = [
   { label: "1Y", value: 365 },
 ] as const;
 
+export const rpcTimeframeOptions = [
+  { durationSeconds: 30 * 60, label: "30m", stepSeconds: 60, value: "30m" },
+  { durationSeconds: 60 * 60, label: "1h", stepSeconds: 60, value: "1h" },
+  {
+    durationSeconds: 6 * 60 * 60,
+    label: "6h",
+    stepSeconds: 5 * 60,
+    value: "6h",
+  },
+  {
+    durationSeconds: 24 * 60 * 60,
+    label: "24h",
+    stepSeconds: 15 * 60,
+    value: "24h",
+  },
+  {
+    durationSeconds: 7 * 24 * 60 * 60,
+    label: "7d",
+    stepSeconds: 60 * 60,
+    value: "7d",
+  },
+  {
+    durationSeconds: 30 * 24 * 60 * 60,
+    label: "30d",
+    stepSeconds: 4 * 60 * 60,
+    value: "30d",
+  },
+  {
+    durationSeconds: 90 * 24 * 60 * 60,
+    label: "90d",
+    stepSeconds: 12 * 60 * 60,
+    value: "90d",
+  },
+  {
+    durationSeconds: 365 * 24 * 60 * 60,
+    label: "1y",
+    stepSeconds: 2 * 24 * 60 * 60,
+    value: "1y",
+  },
+] as const;
+
 export const rpcRegionOptions = [
   { label: "us-east", value: "us-east" },
   { label: "us-west", value: "us-west" },
@@ -42,12 +83,20 @@ export const rpcMethodOptions = [
 export const defaultRpcInfra = "tsw";
 export const defaultRpcRegion = "us-west";
 export const defaultRpcMethod = "getLatestBlockhash";
-export const rpcLatencyRangeHours = 6;
+export const defaultRpcTimeframe = "6h";
 
 export type RpcLatencyInfra = (typeof rpcInfraOptions)[number]["value"];
 export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
+export type RpcTimeframe = (typeof rpcTimeframeOptions)[number]["value"];
 export type ProviderName = string;
+
+export function getRpcTimeframeOption(value?: RpcTimeframe) {
+  return (
+    rpcTimeframeOptions.find((option) => option.value === value) ??
+    rpcTimeframeOptions.find((option) => option.value === defaultRpcTimeframe)!
+  );
+}
 
 export type RpcLatencyFiltersResponse = {
   regionsByInfra: Record<RpcLatencyInfra, RpcLatencyRegion[]>;

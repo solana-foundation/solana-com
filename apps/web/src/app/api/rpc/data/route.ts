@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 
+import type { DataApiResponse } from "@/app/[locale]/data/data-config";
 import {
-  buildRpcAvgLatencyQuery,
-  buildRpcP50LatencyQuery,
-  buildRpcP95LatencyQuery,
-  buildRpcP99LatencyQuery,
-  buildRpcSuccessRateQuery,
+  getRpcLatencyCacheKey,
   getRpcLatencyConfig,
   getRpcLatencyMetricRows,
   parseRpcLatencyQueryOptions,
-  RPC_LATENCY_RANGE_HOURS,
-  RPC_LATENCY_RANGE_STEP_SECONDS,
   type RpcLatencyConfig,
   type RpcLatencyQueryOptions,
 } from "@/lib/rpc/server";
-import type { DataApiResponse } from "@/app/[locale]/data/data-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +17,7 @@ export const revalidate = 0;
 
 const RPC_CACHE_REVALIDATE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 5 * 60;
-const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v3";
+const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v4";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DATA_UNAVAILABLE_ERROR =
@@ -135,26 +129,6 @@ function getInMemoryCachedRpcLatencyData(
   rpcLatencyDataRequests.set(cacheKey, request);
 
   return request;
-}
-
-function getRpcLatencyCacheKey(
-  config: RpcLatencyConfig,
-  options: RpcLatencyQueryOptions,
-) {
-  return [
-    config.baseUrl,
-    options.infra,
-    options.method,
-    options.provider ?? "all",
-    options.region,
-    RPC_LATENCY_RANGE_HOURS,
-    RPC_LATENCY_RANGE_STEP_SECONDS,
-    buildRpcSuccessRateQuery(options),
-    buildRpcAvgLatencyQuery(options),
-    buildRpcP50LatencyQuery(options),
-    buildRpcP95LatencyQuery(options),
-    buildRpcP99LatencyQuery(options),
-  ].join("|");
 }
 
 function getSuccessCacheControl() {
