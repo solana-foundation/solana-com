@@ -47,7 +47,6 @@ import { jupiter } from "./records/jupiter";
 import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
-import { lambda256 } from "./records/lambda256";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
 import { loopscale } from "./records/loopscale";
@@ -58,6 +57,7 @@ import { meta } from "./records/meta";
 import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
+import { nodit } from "./records/nodit";
 import { openmined } from "./records/openmined";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
@@ -158,7 +158,6 @@ export const companies = [
   kamino,
   kast,
   kazakhstan,
-  lambda256,
   libeara,
   listingHelp,
   loopscale,
@@ -169,6 +168,7 @@ export const companies = [
   metaplex,
   monkeDao,
   morganStanley,
+  nodit,
   openmined,
   orbitflare,
   osl,

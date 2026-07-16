@@ -64,7 +64,7 @@ const platinumSponsors = [
     height: 55.2,
   },
   {
-    companyId: "lambda256",
+    companyId: "nodit",
     width: 1000,
     height: 381.62,
   },
