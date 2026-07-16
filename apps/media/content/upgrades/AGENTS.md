@@ -25,8 +25,8 @@ Every new article follows this 6-part skeleton, in order:
 2. Byline line: `<Timeframe> • Solana Foundation` (e.g.
    `Q3 2026 • Solana Foundation`)
 3. Intro paragraph — what the upgrade is and why it matters
-4. Key-facts table (2 columns; common rows: Status, Breaking Change?, Indexing
-   Changes Required?, Action Required?)
+4. Key-facts table (2 columns; common rows: Expected Mainnet Activation Date,
+   Devnet Activation, Breaking Change?, Indexing Changes Required?)
 5. `## Technical Details` with `###` subsections, one per sub-topic
 6. `## About This Upgrade` closing section, ending with the fixed line:
    `**Learn more:** [Solana Upgrades](/upgrades)`
@@ -70,11 +70,12 @@ tags:
 
 <Intro paragraph: what this upgrade is and why it matters.>
 
-|                            |     |
-| -------------------------- | --- |
-| Status                     |     |
-| Breaking Change?           |     |
-| Indexing Changes Required? |     |
+|                                  |     |
+| -------------------------------- | --- |
+| Expected Mainnet Activation Date |     |
+| Devnet Activation                |     |
+| Breaking Change?                 |     |
+| Indexing Changes Required?       |     |
 
 ## Technical Details
 
