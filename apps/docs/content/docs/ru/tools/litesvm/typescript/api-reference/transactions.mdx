@@ -1,0 +1,158 @@
+---
+title: Транзакции
+description: Выполнение и симуляция транзакций с LiteSVM на TypeScript
+---
+
+# Транзакции
+
+Методы для отправки, симуляции и управления транзакциями.
+
+## sendTransaction
+
+```typescript
+sendTransaction(tx: Transaction): TransactionMetadata | FailedTransactionMetadata
+```
+
+Выполнить транзакцию. При успехе возвращает метаданные, при ошибке — детали
+сбоя.
+
+```typescript
+const result = client.svm.sendTransaction(signedTx);
+
+// Check for errors
+if ("err" in result && result.err()) {
+  console.error("Transaction failed:", result.err());
+  return;
+}
+
+// Access result properties (note: these are getter functions)
+console.log("Signature:", result.signature());
+console.log("Compute units:", result.computeUnitsConsumed());
+console.log("Logs:", result.logs());
+```
+
+<Callout type="warn">
+  Такие свойства результата транзакции, как `err()`, `computeUnitsConsumed()`,
+  `logs()` и `signature()` — это **геттер-функции**, а не свойства. Всегда
+  вызывайте их со скобками.
+</Callout>
+
+### Методы TransactionMetadata
+
+| Метод                    | Возвращает              | Описание                              |
+| ------------------------ | ----------------------- | ------------------------------------- |
+| `signature()`            | `Uint8Array`            | Байты подписи транзакции              |
+| `computeUnitsConsumed()` | `bigint`                | Использованные вычислительные единицы |
+| `logs()`                 | `string[]`              | Логи программы                        |
+| `innerInstructions()`    | `InnerInstruction[]`    | Внутренние инструкции (CPI)           |
+| `returnData()`           | `TransactionReturnData` | Возвращаемые данные программ          |
+| `prettyLogs()`           | `string`                | Форматированные логи с цветами        |
+
+## simulateTransaction
+
+```typescript
+simulateTransaction(tx: Transaction): SimulatedTransactionInfo | FailedTransactionMetadata
+```
+
+Симулировать транзакцию без изменения состояния.
+
+```typescript
+const simResult = client.svm.simulateTransaction(signedTx);
+
+if ("err" in simResult && simResult.err()) {
+  console.error("Simulation failed:", simResult.err());
+  return;
+}
+
+// Use .meta() to get TransactionMetadata
+const meta = simResult.meta();
+console.log("Would use", meta.computeUnitsConsumed(), "compute units");
+console.log("Logs:", meta.logs());
+
+// Get post-execution account states
+const postAccounts = simResult.postAccounts();
+console.log("Post-state accounts:", postAccounts);
+```
+
+<Callout type="info">
+  Симуляция не изменяет состояние. Используйте её для проверки транзакций перед
+  отправкой.
+</Callout>
+
+## Управление блокхешами
+
+### latestBlockhash
+
+```typescript
+latestBlockhash(): Blockhash
+```
+
+Получить текущий блокхеш.
+
+```typescript
+const blockhash = client.svm.latestBlockhash();
+console.log("Blockhash:", blockhash);
+```
+
+### getLatestBlockhash (через client.rpc)
+
+Получить блокхеш с информацией о времени жизни для ручного построения
+транзакций. Используйте RPC-хелпер, поскольку он возвращает одновременно
+`blockhash` и `lastValidBlockHeight`.
+
+```typescript
+import {
+  createTransactionMessage,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const { value: blockhashLifetime } = await client.rpc
+  .getLatestBlockhash()
+  .send();
+
+const tx = setTransactionMessageLifetimeUsingBlockhash(
+  blockhashLifetime,
+  createTransactionMessage({ version: 0 })
+);
+```
+
+<Callout type="info">
+  При использовании плагинов программ, таких как `systemProgram()` или
+  `tokenProgram()`, вам никогда не нужно самостоятельно запрашивать блокхеш —
+  `client.sendTransaction()` (а также хелпер `.sendTransaction()` в цепочках
+  инструкций) сделают это за вас.
+</Callout>
+
+### expireBlockhash
+
+```typescript
+expireBlockhash(): LiteSVM
+```
+
+Переходит к новому хешу блока. Полезно для тестирования сценариев с истечением
+срока действия хеша блока.
+
+```typescript
+const oldBlockhash = client.svm.latestBlockhash();
+client.svm.expireBlockhash();
+const newBlockhash = client.svm.latestBlockhash();
+
+console.log("Old:", oldBlockhash);
+console.log("New:", newBlockhash);
+// Blockhashes will be different
+```
+
+## История транзакций
+
+Включите историю транзакций для получения транзакций после отправки:
+
+```typescript
+// Enable history storage (stores last N transactions)
+client.svm.withTransactionHistory(100n);
+
+// Send a transaction
+const result = client.svm.sendTransaction(signedTx);
+
+// Later, retrieve it by signature (base58 string)
+// Note: getTransaction expects a base58-encoded signature string
+```

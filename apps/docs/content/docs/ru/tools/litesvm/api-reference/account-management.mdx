@@ -1,0 +1,157 @@
+---
+title: Управление аккаунтом
+description: Методы для управления аккаунтами, балансами и rent
+---
+
+## airdrop
+
+```rust
+pub fn airdrop(&mut self, address: &Address, lamports: u64) -> TransactionResult
+```
+
+Где `TransactionResult` —
+`Result<TransactionMetadata, FailedTransactionMetadata>`.
+
+Пополнить аккаунт lamport'ами. В случае успеха возвращает метаданные транзакции.
+
+```rust
+let keypair = Keypair::new();
+
+// Option 1: Ignore result if you don't care about tx details
+svm.airdrop(&keypair.pubkey(), 10_000_000_000).unwrap();
+
+// Option 2: Check transaction metadata
+match svm.airdrop(&keypair.pubkey(), 10_000_000_000) {
+    Ok(meta) => {
+        println!("Airdrop successful");
+        println!("Compute units: {}", meta.compute_units_consumed);
+    }
+    Err(e) => {
+        println!("Airdrop failed: {:?}", e.err);
+    }
+}
+```
+
+## get_account
+
+```rust
+pub fn get_account(&self, address: &Address) -> Option<Account>
+```
+
+Получить данные аккаунта.
+
+```rust
+let account = svm.get_account(&pubkey)?;
+println!("Lamports: {}", account.lamports);
+println!("Owner: {}", account.owner);
+println!("Data length: {}", account.data.len());
+```
+
+## set_account
+
+```rust
+pub fn set_account(&mut self, address: Address, account: Account) -> Result<(), LiteSVMError>
+```
+
+Напрямую задать состояние аккаунта.
+
+```rust
+use solana_account::Account;
+
+svm.set_account(pubkey, Account {
+    lamports: 1_000_000,
+    data: vec![0; 100],
+    owner: program_id,
+    executable: false,
+    rent_epoch: 0,
+}).unwrap();
+```
+
+## get_balance
+
+```rust
+pub fn get_balance(&self, address: &Address) -> Option<u64>
+```
+
+Получить баланс аккаунта в lamport. Возвращает `None`, если аккаунт не
+существует.
+
+```rust
+// Check if account exists and get balance
+if let Some(balance) = svm.get_balance(&pubkey) {
+    println!("Balance: {} lamports", balance);
+} else {
+    println!("Account doesn't exist");
+}
+
+// Or use unwrap_or for default
+let balance = svm.get_balance(&pubkey).unwrap_or(0);
+println!("Balance: {} lamports", balance);
+```
+
+## minimum_balance_for_rent_exemption
+
+```rust
+pub fn minimum_balance_for_rent_exemption(&self, data_len: usize) -> u64
+```
+
+Вычислить минимальное количество lamport, необходимое для освобождения от rent.
+
+```rust
+let data_len = 100;
+let min_balance = svm.minimum_balance_for_rent_exemption(data_len);
+
+use solana_account::Account;
+
+svm.set_account(pubkey, Account {
+    lamports: min_balance,
+    data: vec![0; data_len],
+    owner: program_id,
+    executable: false,
+    rent_epoch: 0,
+}).unwrap();
+```
+
+## Советы по производительности
+
+### Пакетное создание аккаунтов
+
+```rust
+// Slow - individual operations
+for i in 0..100 {
+    let account = Keypair::new();
+    svm.airdrop(&account.pubkey(), 1_000_000_000).unwrap();
+}
+
+// Fast - batch with set_account
+let accounts: Vec<_> = (0..100)
+    .map(|_| {
+        let keypair = Keypair::new();
+        svm.set_account(keypair.pubkey(), Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        }).unwrap();
+        keypair
+    })
+    .collect();
+```
+
+### Проверка состояния аккаунта
+
+```rust
+// Before transaction
+let before = svm.get_account(&pubkey).unwrap();
+
+// Execute
+svm.send_transaction(tx).unwrap();
+
+// After transaction
+let after = svm.get_account(&pubkey).unwrap();
+
+// Compare
+assert_ne!(before.lamports, after.lamports);
+assert_ne!(before.data, after.data);
+```

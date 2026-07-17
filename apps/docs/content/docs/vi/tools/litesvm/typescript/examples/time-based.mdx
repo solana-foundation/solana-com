@@ -1,0 +1,210 @@
+---
+title: Kiểm Thử Dựa Trên Thời Gian
+description:
+  Kiểm thử logic phụ thuộc thời gian với tính năng điều chỉnh đồng hồ của
+  LiteSVM
+---
+
+# Ví Dụ Kiểm Thử Dựa Trên Thời Gian
+
+Minh họa cách sử dụng `warpToSlot` để kiểm thử logic chương trình phụ thuộc thời
+gian.
+
+## Điều Chỉnh Đồng Hồ Cơ Bản
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Enable sysvars for clock access
+client.svm.withSysvars();
+
+// Check initial clock
+const initialClock = client.svm.getClock();
+console.log("Initial state:");
+console.log("  Slot:", initialClock.slot);
+console.log("  Epoch:", initialClock.epoch);
+console.log("  Unix timestamp:", initialClock.unixTimestamp);
+
+// Warp to slot 1000
+client.svm.warpToSlot(1000n);
+
+const afterWarp = client.svm.getClock();
+console.log("\nAfter warpToSlot(1000):");
+console.log("  Slot:", afterWarp.slot);
+console.log("  Epoch:", afterWarp.epoch);
+
+// Warp further
+client.svm.warpToSlot(100000n);
+
+const afterWarp2 = client.svm.getClock();
+console.log("\nAfter warpToSlot(100000):");
+console.log("  Slot:", afterWarp2.slot);
+console.log("  Epoch:", afterWarp2.epoch);
+```
+
+## Kiểm Thử Logic Khóa Theo Thời Gian
+
+Mẫu ví dụ để kiểm thử chức năng khóa theo thời gian:
+
+```typescript
+import {
+  createClient,
+  address,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+client.svm.withSigverify(false).withBlockhashCheck(false).withSysvars();
+
+// Fund payer
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+// Set up a time-locked vault account
+// Structure: [u8 discriminator, u64 unlock_slot, u64 amount]
+const unlockSlot = 10000n;
+const lockedAmount = 5_000_000_000n;
+
+const vaultData = new Uint8Array(1 + 8 + 8);
+const view = new DataView(vaultData.buffer);
+vaultData[0] = 0x01; // discriminator
+view.setBigUint64(1, unlockSlot, true); // unlock_slot
+view.setBigUint64(9, lockedAmount, true); // amount
+
+const programId = address("TimeLockedVault11111111111111111111111"); // replace or generateKeyPairSigner()
+const vaultAddress = address("Vault111111111111111111111111111"); // replace or generateKeyPairSigner()
+const minBalance = client.svm.minimumBalanceForRentExemption(
+  BigInt(vaultData.length)
+);
+
+client.svm.setAccount({
+  address: vaultAddress,
+  data: vaultData,
+  executable: false,
+  lamports: lamports(minBalance + lockedAmount),
+  programAddress: programId,
+  space: BigInt(vaultData.length)
+});
+
+console.log("Vault created with unlock slot:", unlockSlot);
+console.log("Locked amount:", Number(lockedAmount) / 1e9, "SOL");
+
+// Test 1: Try to withdraw before unlock (should fail)
+console.log("\n--- Test 1: Before unlock ---");
+const currentClock = client.svm.getClock();
+console.log("Current slot:", currentClock.slot);
+
+// In a real test, you would:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to fail
+console.log("Withdrawal attempt: EXPECTED TO FAIL (too early)");
+
+// Test 2: Warp to after unlock slot
+console.log("\n--- Test 2: After unlock ---");
+client.svm.warpToSlot(unlockSlot + 100n);
+
+const newClock = client.svm.getClock();
+console.log("Current slot:", newClock.slot);
+
+// In a real test:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to succeed
+console.log("Withdrawal attempt: EXPECTED TO SUCCEED (after unlock)");
+
+// Verify vault state
+const updatedVault = client.svm.getAccount(vaultAddress);
+if (updatedVault.exists) {
+  console.log("\nVault balance:", updatedVault.lamports);
+}
+```
+
+## Đọc Lịch Trình Epoch
+
+Bạn có thể đọc lịch trình epoch để hiểu mối quan hệ slot/epoch trên cluster:
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+const epochSchedule = client.svm.getEpochSchedule();
+console.log("Slots per epoch:", epochSchedule.slotsPerEpoch);
+console.log("First normal epoch:", epochSchedule.firstNormalEpoch);
+console.log("First normal slot:", epochSchedule.firstNormalSlot);
+```
+
+<Callout type="warn">
+  `warpToSlot` chỉ tăng trường `slot` của đồng hồ nhưng **không** tự động cập
+  nhật `epoch` hoặc `unixTimestamp`. Hãy dùng `setClock` để kiểm soát hoàn toàn
+  các trường của đồng hồ.
+</Callout>
+
+## Điều Chỉnh Đồng Hồ Thủ Công
+
+Khi chương trình của bạn đọc `epoch` hoặc `unix_timestamp` từ Clock sysvar, hãy
+dùng `setClock` để đặt trực tiếp các trường đó:
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+// Get clock, mutate, write back
+const clock = client.svm.getClock();
+clock.slot = 50000n;
+clock.epoch = 5n;
+clock.unixTimestamp = 1700000000n;
+client.svm.setClock(clock);
+
+const after = client.svm.getClock();
+console.log("Slot:", after.slot); // 50000n
+console.log("Epoch:", after.epoch); // 5n
+console.log("Timestamp:", after.unixTimestamp); // 1700000000n
+```
+
+Cách này phản ánh mẫu `set_sysvar(&clock)` trong Rust. Dùng `warpToSlot` để tăng
+slot đơn giản, `setClock` khi bạn cần kiểm soát epoch hoặc timestamp.
+
+## Các Trường Hợp Sử Dụng
+
+Thao tác thời gian hữu ích để kiểm thử:
+
+| Kịch bản                     | Cách tiếp cận                                  |
+| ---------------------------- | ---------------------------------------------- |
+| Vesting token                | Dịch chuyển qua mốc/ngưỡng vesting             |
+| Kết thúc đấu giá             | Dịch chuyển qua slot kết thúc đấu giá          |
+| Phần thưởng staking          | Dùng `setClock` để đặt epoch                   |
+| Rút tiền khóa theo thời gian | Dịch chuyển qua slot mở khóa                   |
+| Giới hạn tốc độ              | Dịch chuyển giữa các khoảng thời gian cho phép |
+| Lệnh hết hạn                 | Dịch chuyển qua thời điểm hết hạn lệnh         |
+
+<Callout type="info">
+  Lưu ý rằng `warpToSlot` chỉ thay đổi slot. Unix timestamp có thể không cập
+  nhật theo tỷ lệ tương ứng tùy thuộc vào cách triển khai SVM.
+</Callout>
+
+## Những Điểm Chính
+
+1. **Bật Sysvar**: Gọi `withSysvars()` trước khi sử dụng các phương thức đồng hồ
+2. **Dịch Chuyển Về Trước**: Dùng `warpToSlot(slot)` để tăng slot
+3. **Kiểm Soát Hoàn Toàn**: Dùng `setClock` khi bạn cần đặt `epoch`,
+   `unixTimestamp` hoặc các trường đồng hồ khác
+4. **Đọc Đồng Hồ**: Dùng `getClock()` để đọc slot, epoch, timestamp hiện tại
+5. **Mẫu Kiểm Thử**: Kiểm thử trước và sau các mốc thời gian

@@ -1,0 +1,139 @@
+---
+title: اختبار البرامج
+description: تحميل واختبار برامج سولانا المخصصة باستخدام LiteSVM
+---
+
+# مثال على اختبار البرامج
+
+يعني اختبار برنامج سولانا مخصص تحميل ملف `.so` المُجمَّع إلى SVM، وإعداد
+الحسابات التي يتوقعها، وإرسال التعليمات إليه. يتولى LiteSVM كل هذا داخل العملية
+— دون الحاجة إلى validator. نوصي بإنشاء عملاء البرنامج باستخدام
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js) للحصول على
+إمكانية الوصول إلى Kit Plugin متوافق.
+
+## تحميل برنامج
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## إعداد اختبار برنامج كامل
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## استخدام البرامج الافتراضية
+
+للاختبار الذي يتطلب برامج قياسية:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  قم ببناء برنامج سولانا الخاص بك باستخدام `cargo build-sbf` لإنشاء ملف `.so`.
+</Callout>
+
+النمط دائمًا هو نفسه:
+
+1. **تحميل البرنامج**: استخدم `addProgramFromFile` لتحميل البرامج المُجمَّعة
+   واستيراد myProgramPlugin() من العميل الخاص بك
+2. **الإعداد**: تفعيل sysvars والمدمجات والمُجمَّعات المسبقة حسب الحاجة
+3. **إعداد الحسابات**: ملء حسابات البيانات مسبقًا باستخدام `setAccount`
+4. **الإرسال**: استخدم
+   `client.myProgram.testInstruction({..}).sendTransaction()` — دون الحاجة إلى
+   بناء المعاملات يدويًا
+5. **التحقق**: فحص حالة الحساب بعد التنفيذ (`client.myProgram.myAccount.fetch`)
+
+بمجرد أن يعمل هذا الهيكل الأساسي، يمكنك بناء مجموعة اختبارات كاملة من خلال إضافة
+المزيد من التعليمات والتأكيدات.

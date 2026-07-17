@@ -1,0 +1,101 @@
+---
+title: エラーハンドリング
+description: エラー条件とエッジケースのテスト方法
+---
+
+## 完全なテスト
+
+```rust title="tests/error_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
+};
+use solana_transaction_error::TransactionError;
+
+#[test]
+fn test_insufficient_funds_error() {
+    let mut svm = LiteSVM::new();
+
+    let alice = Keypair::new();
+    let bob = Keypair::new();
+
+    // Give Alice only 0.5 SOL
+    svm.airdrop(&alice.pubkey(), 500_000_000).unwrap();
+
+    // Try to transfer 1 SOL (should fail)
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        1_000_000_000, // More than Alice has
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix],
+        Some(&alice.pubkey()),
+        &[&alice],
+        svm.latest_blockhash(),
+    );
+
+    // Verify it fails with expected error
+    let result = svm.send_transaction(tx);
+    assert!(result.is_err());
+
+    let err = result.unwrap_err();
+    match err.err {
+        TransactionError::InstructionError(0, _) => {
+            println!("Got expected error: InstructionError (insufficient funds)");
+        }
+        _ => panic!("Got unexpected error: {:?}", err.err),
+    }
+
+    // Verify no funds were transferred
+    assert_eq!(svm.get_balance(&bob.pubkey()).unwrap_or(0), 0);
+}
+```
+
+## さまざまなエラータイプのテスト
+
+### 無効なアカウント
+
+```rust
+#[test]
+fn test_account_not_found() {
+    let mut svm = LiteSVM::new();
+    let non_existent = Pubkey::new_unique();
+
+    // This should return None
+    assert!(svm.get_account(&non_existent).is_none());
+}
+```
+
+### カスタムプログラムエラー
+
+```rust
+#[test]
+fn test_custom_program_error() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy program and trigger custom error
+    let result = svm.send_transaction(tx);
+
+    if let Err(e) = result {
+        match e.err {
+            TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
+                assert_eq!(code, YOUR_ERROR_CODE);
+            }
+            _ => panic!("Expected custom error"),
+        }
+    }
+}
+```
+
+## 重要なポイント
+
+1. **エラーアサーション**: `assert!(result.is_err())`
+   を使用してエラーの発生を検証する
+2. **エラーマッチング**: 特定のエラータイプに対してマッチングを行い、正しいエラーハンドリングを確保する
+3. **状態の検証**: エラー発生時に状態が変化していないことを確認する
+4. **カスタムエラー**: プログラムのカスタムエラーコードをテストする
+5. **エッジケース**: 境界条件と無効な入力をテストする

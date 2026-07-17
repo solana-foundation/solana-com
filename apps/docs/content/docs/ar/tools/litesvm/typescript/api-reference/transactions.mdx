@@ -1,0 +1,152 @@
+---
+title: المعاملات
+description: تنفيذ ومحاكاة المعاملات باستخدام LiteSVM في TypeScript
+---
+
+# المعاملات
+
+أساليب لإرسال المعاملات ومحاكاتها وإدارتها.
+
+## sendTransaction
+
+```typescript
+sendTransaction(tx: Transaction): TransactionMetadata | FailedTransactionMetadata
+```
+
+تنفيذ معاملة. يُعيد بيانات وصفية عند النجاح أو تفاصيل الخطأ عند الفشل.
+
+```typescript
+const result = client.svm.sendTransaction(signedTx);
+
+// Check for errors
+if ("err" in result && result.err()) {
+  console.error("Transaction failed:", result.err());
+  return;
+}
+
+// Access result properties (note: these are getter functions)
+console.log("Signature:", result.signature());
+console.log("Compute units:", result.computeUnitsConsumed());
+console.log("Logs:", result.logs());
+```
+
+<Callout type="warn">
+  خصائص نتيجة المعاملة مثل `err()` و `computeUnitsConsumed()` و `logs()` و
+  `signature()` هي **دوال getter**، وليست خصائص. يجب دائماً استدعاؤها بالأقواس.
+</Callout>
+
+### أساليب TransactionMetadata
+
+| الأسلوب                  | القيمة المُعادة         | الوصف                     |
+| ------------------------ | ----------------------- | ------------------------- |
+| `signature()`            | `Uint8Array`            | بايتات توقيع المعاملة     |
+| `computeUnitsConsumed()` | `bigint`                | وحدات الحوسبة المستخدمة   |
+| `logs()`                 | `string[]`              | سجلات البرنامج            |
+| `innerInstructions()`    | `InnerInstruction[]`    | التعليمات الداخلية (CPI)  |
+| `returnData()`           | `TransactionReturnData` | بيانات الإرجاع من البرامج |
+| `prettyLogs()`           | `string`                | سجلات منسّقة بالألوان     |
+
+## simulateTransaction
+
+```typescript
+simulateTransaction(tx: Transaction): SimulatedTransactionInfo | FailedTransactionMetadata
+```
+
+محاكاة معاملة دون تعديل الحالة.
+
+```typescript
+const simResult = client.svm.simulateTransaction(signedTx);
+
+if ("err" in simResult && simResult.err()) {
+  console.error("Simulation failed:", simResult.err());
+  return;
+}
+
+// Use .meta() to get TransactionMetadata
+const meta = simResult.meta();
+console.log("Would use", meta.computeUnitsConsumed(), "compute units");
+console.log("Logs:", meta.logs());
+
+// Get post-execution account states
+const postAccounts = simResult.postAccounts();
+console.log("Post-state accounts:", postAccounts);
+```
+
+<Callout type="info">
+  المحاكاة لا تُغيّر الحالة. استخدمها للتحقق من المعاملات قبل إرسالها.
+</Callout>
+
+## إدارة Blockhash
+
+### latestBlockhash
+
+```typescript
+latestBlockhash(): Blockhash
+```
+
+الحصول على الـ blockhash الحالي.
+
+```typescript
+const blockhash = client.svm.latestBlockhash();
+console.log("Blockhash:", blockhash);
+```
+
+### getLatestBlockhash (عبر client.rpc)
+
+الحصول على الـ blockhash مع معلومات الصلاحية الزمنية لبناء المعاملات يدوياً.
+استخدم مساعد RPC إذ يُعيد كلاً من `blockhash` و `lastValidBlockHeight`.
+
+```typescript
+import {
+  createTransactionMessage,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const { value: blockhashLifetime } = await client.rpc
+  .getLatestBlockhash()
+  .send();
+
+const tx = setTransactionMessageLifetimeUsingBlockhash(
+  blockhashLifetime,
+  createTransactionMessage({ version: 0 })
+);
+```
+
+<Callout type="info">
+  عند استخدام إضافات البرامج مثل `systemProgram()` أو `tokenProgram()`، لن تحتاج
+  أبداً إلى جلب الـ blockhash بنفسك — إذ يتولى ذلك `client.sendTransaction()` (و
+  المساعد `.sendTransaction()` في سلاسل التعليمات) عنك.
+</Callout>
+
+### expireBlockhash
+
+```typescript
+expireBlockhash(): LiteSVM
+```
+
+التقدم إلى تجزئة كتلة جديدة. مفيد لاختبار سيناريوهات انتهاء صلاحية تجزئة الكتلة.
+
+```typescript
+const oldBlockhash = client.svm.latestBlockhash();
+client.svm.expireBlockhash();
+const newBlockhash = client.svm.latestBlockhash();
+
+console.log("Old:", oldBlockhash);
+console.log("New:", newBlockhash);
+// Blockhashes will be different
+```
+
+## سجل المعاملات
+
+قم بتفعيل سجل المعاملات لاسترداد المعاملات بعد الإرسال:
+
+```typescript
+// Enable history storage (stores last N transactions)
+client.svm.withTransactionHistory(100n);
+
+// Send a transaction
+const result = client.svm.sendTransaction(signedTx);
+
+// Later, retrieve it by signature (base58 string)
+// Note: getTransaction expects a base58-encoded signature string
+```

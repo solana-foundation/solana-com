@@ -1,0 +1,313 @@
+---
+title: Trợ Năng Giao Dịch
+description: Thực thi giao dịch và phân tích kết quả với xử lý lỗi toàn diện
+---
+
+## Gửi Giao Dịch
+
+Trait `TransactionHelpers` cung cấp các phương thức tiện lợi để gửi các lệnh và
+phân tích kết quả.
+
+### Gửi Một Lệnh Đơn
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_send_instruction() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    // Create a transfer instruction
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        LAMPORTS_PER_SOL,
+    );
+
+    // Send and get result (returns Result<TransactionResult, TransactionError>)
+    let result = svm.send_instruction(transfer_ix, &[&alice]).unwrap();
+
+    // Assert it succeeded
+    result.assert_success();
+}
+```
+
+### Gửi Nhiều Lệnh
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_send_multiple_instructions() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+    let carol = svm.create_funded_account(0).unwrap();
+
+    // Create multiple transfer instructions
+    let instructions = vec![
+        system_instruction::transfer(&alice.pubkey(), &bob.pubkey(), LAMPORTS_PER_SOL),
+        system_instruction::transfer(&alice.pubkey(), &carol.pubkey(), LAMPORTS_PER_SOL),
+    ];
+
+    // Send all in one transaction
+    let result = svm.send_instructions(&instructions, &[&alice]).unwrap();
+    result.assert_success();
+}
+```
+
+## TransactionResult
+
+Các phương thức `send_instruction` và `send_instructions` trả về một
+`TransactionResult` bao bọc metadata giao dịch cùng với các tiện ích kiểm thử
+hữu ích.
+
+### Xác Nhận Thành Công
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_assert_success() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    let ix = system_instruction::transfer(&alice.pubkey(), &bob.pubkey(), LAMPORTS_PER_SOL);
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    // Panics with detailed logs if the transaction failed
+    result.assert_success();
+}
+```
+
+<Callout type="info">
+  `assert_success()` sẽ panic kèm toàn bộ nhật ký giao dịch nếu giao dịch thất
+  bại, giúp việc gỡ lỗi dễ dàng hơn nhiều.
+</Callout>
+
+### Xác Nhận Thất Bại
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_assert_failure() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(1 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    // Try to transfer more than Alice has
+    let ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        100 * LAMPORTS_PER_SOL, // Alice only has 1 SOL
+    );
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    // This should fail
+    result.assert_failure();
+}
+```
+
+### Xác Nhận Lỗi Cụ Thể
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_assert_error() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(1 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    let ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        100 * LAMPORTS_PER_SOL,
+    );
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    // Assert a specific error message is present
+    result.assert_error("insufficient lamports");
+}
+```
+
+### Xác Nhận Mã Lỗi
+
+Đối với các lỗi chương trình tùy chỉnh, bạn có thể xác nhận theo mã lỗi:
+
+```rust
+// Assert a specific custom error code
+result.assert_error_code(6000); // Custom error code from your program
+```
+
+### Xác Nhận Lỗi Anchor
+
+Đối với các chương trình Anchor, xác nhận theo tên lỗi:
+
+```rust
+// Assert an Anchor-specific error
+result.assert_anchor_error("InsufficientFunds");
+```
+
+## Kiểm Tra Giao Dịch
+
+### Xem Nhật Ký Giao Dịch
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_check_logs() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    let ix = system_instruction::transfer(&alice.pubkey(), &bob.pubkey(), LAMPORTS_PER_SOL);
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    // Check if a specific message is in the logs
+    if result.has_log("Transfer") {
+        println!("Found transfer log!");
+    }
+
+    // Find a log matching a pattern
+    if let Some(log) = result.find_log("Program") {
+        println!("Found log: {}", log);
+    }
+
+    // Get all logs
+    let logs = result.logs();
+    for log in logs {
+        println!("{}", log);
+    }
+}
+```
+
+### In Ra Nhật Ký Để Gỡ Lỗi
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_print_logs() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    let ix = system_instruction::transfer(&alice.pubkey(), &bob.pubkey(), LAMPORTS_PER_SOL);
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    // Print formatted logs for debugging
+    result.print_logs();
+}
+```
+
+### Kiểm Tra Đơn Vị Tính Toán
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_compute_units() {
+    let mut svm = LiteSVM::new();
+
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    let ix = system_instruction::transfer(&alice.pubkey(), &bob.pubkey(), LAMPORTS_PER_SOL);
+    let result = svm.send_instruction(ix, &[&alice]).unwrap();
+
+    let compute_units = result.compute_units();
+    println!("Compute units consumed: {}", compute_units);
+
+    // Assert compute usage is within expected bounds
+    assert!(compute_units < 10_000, "Transaction used too many compute units");
+}
+```
+
+<Callout type="info">
+  Theo dõi đơn vị tính toán rất hữu ích cho việc tối ưu hóa. Solana giới hạn các
+  giao dịch ở mức 1,4 triệu đơn vị tính toán, và mức sử dụng cao hơn sẽ tốn kém
+  hơn.
+</Callout>
+
+## Ví Dụ Hoàn Chỉnh
+
+Đây là một ví dụ toàn diện minh họa các trợ năng giao dịch:
+
+```rust
+use litesvm_utils::{AssertionHelpers, LiteSVM, Signer, TestHelpers, TransactionHelpers};
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, system_instruction};
+
+#[test]
+fn test_transaction_workflow() {
+    let mut svm = LiteSVM::new();
+
+    // Setup accounts
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let bob = svm.create_funded_account(0).unwrap();
+
+    // Test successful transfer
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        2 * LAMPORTS_PER_SOL,
+    );
+
+    let result = svm.send_instruction(transfer_ix, &[&alice]).unwrap();
+
+    // Verify success
+    result.assert_success();
+
+    // Check compute usage
+    let cu = result.compute_units();
+    println!("Transfer used {} compute units", cu);
+
+    // Verify balances
+    svm.assert_sol_balance(&bob.pubkey(), 2 * LAMPORTS_PER_SOL);
+
+    // Test expected failure
+    let bad_transfer = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        100 * LAMPORTS_PER_SOL, // More than Alice has
+    );
+
+    let fail_result = svm.send_instruction(bad_transfer, &[&alice]).unwrap();
+    fail_result.assert_failure();
+
+    // Print logs for debugging
+    fail_result.print_logs();
+
+    println!("Transaction workflow test passed!");
+}
+```
+
+## Các Loại Lỗi
+
+Enum `TransactionError` cung cấp thông tin lỗi có cấu trúc:
+
+| Biến thể                  | Mô tả                                     |
+| ------------------------- | ----------------------------------------- |
+| `ExecutionFailed(String)` | Thực thi giao dịch thất bại kèm thông báo |
+| `BuildError(String)`      | Không thể xây dựng giao dịch              |
+| `AssertionFailed(String)` | Một xác nhận trên kết quả đã thất bại     |

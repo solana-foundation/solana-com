@@ -1,0 +1,325 @@
+---
+title: Executando Instruções
+description:
+  Aprenda como chamar uma instrução de um programa Solana em seu teste
+---
+
+## Visão Geral
+
+Após implantar um programa no LiteSVM, você precisará executar instruções para
+interagir com o programa implantado.
+
+O LiteSVM fornece uma API simples para criar, enviar e simular transações que é
+totalmente compatível com o modelo de transações da Solana.
+
+## Fluxo Básico de Transação
+
+O fluxo típico para executar uma instrução é:
+
+1. **Criar uma Instrução** - Defina qual programa chamar e com quais dados
+2. **Construir uma Mensagem** - Combine uma ou mais instruções
+3. **Criar uma Transação** - Assine a mensagem com os signatários necessários
+4. **Enviar ou Simular** - Execute a transação e trate os resultados
+
+## Criando Instruções
+
+### Estrutura Básica de Instrução
+
+```rust
+use solana_instruction::{Instruction, AccountMeta};
+use solana_pubkey::Pubkey;
+
+let instruction = Instruction {
+    program_id: Pubkey::new_unique(),  // The program to call
+    accounts: vec![                     // Accounts the program needs
+        AccountMeta::new(account_pubkey, false),        // Writable, not signer
+        AccountMeta::new_readonly(readonly_pubkey, false), // Read-only, not signer
+        AccountMeta::new(signer_pubkey, true),          // Writable, signer
+    ],
+    data: vec![0, 1, 2, 3],             // Instruction data (program-specific)
+};
+```
+
+## Construindo e Enviando Transações
+
+### Método 1: Transação Básica
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_message::Message;
+use solana_transaction::Transaction;
+use solana_signer::Signer;
+
+let mut svm = LiteSVM::new();
+let payer = Keypair::new();
+
+// Airdrop SOL for fees
+svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+// Create instruction
+let instruction = /* your instruction */;
+
+// Build message with payer
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+
+// Create and sign transaction
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],                 // Your instructions
+    Some(&payer.pubkey()),          // Who pays transaction fees
+    &[&payer],                      // All required signers
+    svm.latest_blockhash(),         // Recent blockhash
+);
+
+// Send transaction
+let result = svm.send_transaction(tx);
+```
+
+<div className="ml-4 my-2">
+  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+    O que `new_signed_with_payer` faz:
+  </div>
+  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
+    <li>Constrói automaticamente uma Message a partir das suas instruções</li>
+    <li>Assina automaticamente a transação com todos os keypairs fornecidos</li>
+    <li>Retorna uma transação completamente assinada e pronta para envio</li>
+  </ul>
+</div>
+
+### Método 2: Transação com Mensagem Personalizada
+
+```rust
+let payer = Keypair::new();
+
+// Manually construct message
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+
+// Create transaction with signers, message, and blockhash
+let tx = Transaction::new(
+    &[&payer],
+    message,
+    svm.latest_blockhash(),
+);
+
+let result = svm.send_transaction(tx);
+```
+
+<div className="ml-4 my-2">
+  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+    Use este método quando precisar de controle sobre o `Message` como:
+  </div>
+  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
+    <li>Transações versionadas (v0 com tabelas de lookup)</li>
+    <li>Fluxos de assinatura parcial/múltipla</li>
+    <li>Nonces duráveis</li>
+    <li>Simulação ou inspeção pré-assinatura</li>
+    <li>Lógica de pagador de taxas personalizada</li>
+    <li>Otimização do tamanho da transação</li>
+  </ul>
+</div>
+
+## Transações Versionadas
+
+O LiteSVM suporta transações legadas e versionadas:
+
+```rust
+use solana_transaction::versioned::VersionedTransaction;
+use solana_message::VersionedMessage;
+
+// Legacy transaction (most common)
+let legacy_msg = Message::new(&[instruction], Some(&payer.pubkey()));
+let versioned_tx = VersionedTransaction::try_new(
+    VersionedMessage::Legacy(legacy_msg),
+    &[&payer]
+).unwrap();
+
+// Send versioned transaction
+let result = svm.send_transaction(versioned_tx);
+```
+
+## Resultados da Transação
+
+### Transação Bem-sucedida
+
+```rust
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Logs:");
+        for log in &meta.logs {
+            println!("  {}", log);
+        }
+    }
+    Err(err) => {
+        println!("Transaction failed: {:?}", err.err);
+        // Logs are still available on failure
+        println!("Failure logs: {:?}", err.meta.logs);
+    }
+}
+```
+
+### Campos de Metadados da Transação
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+## Simulando Transações
+
+Simular transação permite testar transações sem alterar o estado:
+
+```rust
+// Simulate instead of sending
+match svm.simulate_transaction(tx) {
+    Ok(sim_result) => {
+        println!("Simulation successful!");
+        println!("Logs: {:?}", sim_result.meta.logs);
+        println!("Compute units: {}", sim_result.meta.compute_units_consumed);
+    }
+    Err(err) => {
+        println!("Simulation failed: {:?}", err.err);
+    }
+}
+```
+
+## Tratamento de Erros
+
+### Erros Comuns de Transação
+
+```rust
+use solana_transaction_error::TransactionError;
+use solana_instruction::error::InstructionError;
+
+match svm.send_transaction(tx) {
+    Err(failed_tx) => {
+        match failed_tx.err {
+            TransactionError::InsufficientFundsForFee => {
+                println!("Not enough SOL for fees");
+            }
+            TransactionError::InvalidProgramForExecution => {
+                println!("Program doesn't exist or isn't executable");
+            }
+            TransactionError::InstructionError(index, err) => {
+                println!("Instruction {} failed: {:?}", index, err);
+                match err {
+                    InstructionError::Custom(code) => {
+                        println!("Custom error code: {}", code);
+                    }
+                    InstructionError::AccountNotFound => {
+                        println!("An account doesn't exist");
+                    }
+                    _ => {}
+                }
+            }
+            TransactionError::BlockhashNotFound => {
+                println!("Blockhash expired or invalid");
+            }
+            _ => println!("Other error: {:?}", failed_tx.err),
+        }
+    }
+    Ok(_) => {}
+}
+```
+
+## Trabalhando com Logs de Programa
+
+### Acessando Logs
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// All logs (including system logs)
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Pretty-printed logs (formatted)
+println!("{}", result.pretty_logs());
+```
+
+### Exemplo de Saída de Log
+
+```
+Program 11111111111111111111111111111111 invoke [1]
+Program log: Processing instruction
+Program 11111111111111111111111111111111 consumed 2000 compute units
+Program 11111111111111111111111111111111 success
+```
+
+## Configuração de Orçamento de Computação
+
+### Definindo o Orçamento Global de Computação
+
+```rust
+use solana_compute_budget::compute_budget::ComputeBudget;
+
+let mut svm = LiteSVM::new()
+    .with_compute_budget(ComputeBudget {
+        compute_unit_limit: 200_000,
+        ..Default::default()
+    });
+```
+
+### Orçamento de Computação por Transação
+
+```rust
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+
+let instructions = vec![
+    // Set compute budget for this transaction
+    ComputeBudgetInstruction::set_compute_unit_limit(400_000),
+    ComputeBudgetInstruction::set_compute_unit_price(1),
+
+    // Your actual instruction
+    your_instruction,
+];
+```
+
+## Instruções do System Program
+
+O LiteSVM inclui suporte ao System Program:
+
+```rust
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_system_interface::instruction as system_instruction;
+use solana_transaction::Transaction;
+
+// Transfer SOL
+let transfer_ix = system_instruction::transfer(
+    &alice.pubkey(),
+    &bob.pubkey(),
+    1_000_000_000, // 1 SOL
+);
+
+// Create new account
+let create_ix = system_instruction::create_account(
+    &payer_pubkey,
+    &new_account_pubkey,
+    lamports,
+    space as u64,
+    &owner_program_id,
+);
+```
+
+## Resumo
+
+A execução de instruções no LiteSVM segue o modelo padrão de transações Solana:
+
+1. Crie objetos `Instruction` com o ID do programa, contas e dados
+2. Construa um `Transaction` com a instrução e os assinantes necessários
+3. Use `send_transaction()` para executar ou `simulate_transaction()` para
+   testar
+4. Trate os resultados verificando o `TransactionMetadata` ou os detalhes do
+   erro
+
+O LiteSVM oferece execução instantânea com logs detalhados e informações de
+depuração, tornando-o ideal para testar programas Solana de forma eficiente.

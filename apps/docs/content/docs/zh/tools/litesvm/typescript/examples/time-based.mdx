@@ -1,0 +1,206 @@
+---
+title: 基于时间的测试
+description: 使用 LiteSVM 时钟操控测试时间相关逻辑
+---
+
+# 基于时间的测试示例
+
+演示如何使用 `warpToSlot` 测试与时间相关的程序逻辑。
+
+## 基本时钟操控
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Enable sysvars for clock access
+client.svm.withSysvars();
+
+// Check initial clock
+const initialClock = client.svm.getClock();
+console.log("Initial state:");
+console.log("  Slot:", initialClock.slot);
+console.log("  Epoch:", initialClock.epoch);
+console.log("  Unix timestamp:", initialClock.unixTimestamp);
+
+// Warp to slot 1000
+client.svm.warpToSlot(1000n);
+
+const afterWarp = client.svm.getClock();
+console.log("\nAfter warpToSlot(1000):");
+console.log("  Slot:", afterWarp.slot);
+console.log("  Epoch:", afterWarp.epoch);
+
+// Warp further
+client.svm.warpToSlot(100000n);
+
+const afterWarp2 = client.svm.getClock();
+console.log("\nAfter warpToSlot(100000):");
+console.log("  Slot:", afterWarp2.slot);
+console.log("  Epoch:", afterWarp2.epoch);
+```
+
+## 测试时间锁定逻辑
+
+以下是测试时间锁定功能的示例模式：
+
+```typescript
+import {
+  createClient,
+  address,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+client.svm.withSigverify(false).withBlockhashCheck(false).withSysvars();
+
+// Fund payer
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+// Set up a time-locked vault account
+// Structure: [u8 discriminator, u64 unlock_slot, u64 amount]
+const unlockSlot = 10000n;
+const lockedAmount = 5_000_000_000n;
+
+const vaultData = new Uint8Array(1 + 8 + 8);
+const view = new DataView(vaultData.buffer);
+vaultData[0] = 0x01; // discriminator
+view.setBigUint64(1, unlockSlot, true); // unlock_slot
+view.setBigUint64(9, lockedAmount, true); // amount
+
+const programId = address("TimeLockedVault11111111111111111111111"); // replace or generateKeyPairSigner()
+const vaultAddress = address("Vault111111111111111111111111111"); // replace or generateKeyPairSigner()
+const minBalance = client.svm.minimumBalanceForRentExemption(
+  BigInt(vaultData.length)
+);
+
+client.svm.setAccount({
+  address: vaultAddress,
+  data: vaultData,
+  executable: false,
+  lamports: lamports(minBalance + lockedAmount),
+  programAddress: programId,
+  space: BigInt(vaultData.length)
+});
+
+console.log("Vault created with unlock slot:", unlockSlot);
+console.log("Locked amount:", Number(lockedAmount) / 1e9, "SOL");
+
+// Test 1: Try to withdraw before unlock (should fail)
+console.log("\n--- Test 1: Before unlock ---");
+const currentClock = client.svm.getClock();
+console.log("Current slot:", currentClock.slot);
+
+// In a real test, you would:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to fail
+console.log("Withdrawal attempt: EXPECTED TO FAIL (too early)");
+
+// Test 2: Warp to after unlock slot
+console.log("\n--- Test 2: After unlock ---");
+client.svm.warpToSlot(unlockSlot + 100n);
+
+const newClock = client.svm.getClock();
+console.log("Current slot:", newClock.slot);
+
+// In a real test:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to succeed
+console.log("Withdrawal attempt: EXPECTED TO SUCCEED (after unlock)");
+
+// Verify vault state
+const updatedVault = client.svm.getAccount(vaultAddress);
+if (updatedVault.exists) {
+  console.log("\nVault balance:", updatedVault.lamports);
+}
+```
+
+## 读取 epoch 时间表
+
+您可以读取 epoch 时间表，以了解集群上 slot 与 epoch 之间的关系：
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+const epochSchedule = client.svm.getEpochSchedule();
+console.log("Slots per epoch:", epochSchedule.slotsPerEpoch);
+console.log("First normal epoch:", epochSchedule.firstNormalEpoch);
+console.log("First normal slot:", epochSchedule.firstNormalSlot);
+```
+
+<Callout type="warn">
+  `warpToSlot` 会推进时钟的 `slot` 字段，但**不会**自动更新 `epoch` 或
+  `unixTimestamp`。如需完全控制时钟字段，请使用 `setClock`。
+</Callout>
+
+## 手动时钟操控
+
+当您的程序从 Clock sysvar 读取 `epoch` 或 `unix_timestamp` 时，请使用 `setClock`
+直接设置这些字段：
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+// Get clock, mutate, write back
+const clock = client.svm.getClock();
+clock.slot = 50000n;
+clock.epoch = 5n;
+clock.unixTimestamp = 1700000000n;
+client.svm.setClock(clock);
+
+const after = client.svm.getClock();
+console.log("Slot:", after.slot); // 50000n
+console.log("Epoch:", after.epoch); // 5n
+console.log("Timestamp:", after.unixTimestamp); // 1700000000n
+```
+
+这与 Rust 的 `set_sysvar(&clock)` 模式相对应。使用 `warpToSlot`
+进行简单的 slot 推进，当需要控制 epoch 或时间戳时，则使用 `setClock`。
+
+## 使用场景
+
+时间操控适用于以下测试场景：
+
+| 场景         | 方法                             |
+| ------------ | -------------------------------- |
+| 代币归属     | 跨越归属悬崖/里程碑进行时间跳转  |
+| 拍卖结束     | 跨越拍卖结束 slot 进行时间跳转   |
+| 质押奖励     | 使用 `setClock` 设置 epoch       |
+| 时间锁定提款 | 跨越解锁 slot 进行时间跳转       |
+| 频率限制     | 在允许的时间间隔之间进行时间跳转 |
+| 过期订单     | 跨越订单过期时间进行时间跳转     |
+
+<Callout type="info">
+  请注意，`warpToSlot` 仅更改 slot。根据 SVM 实现的不同，Unix
+  时间戳可能不会按比例更新。
+</Callout>
+
+## 关键要点
+
+1. **启用 Sysvars**：在使用时钟方法之前调用 `withSysvars()`
+2. **向前跳转**：使用 `warpToSlot(slot)` 推进 slot
+3. **完全控制**：当需要设置 `epoch`、 `unixTimestamp` 或其他时钟字段时，使用
+   `setClock`
+4. **读取时钟**：使用 `getClock()` 读取当前 slot、epoch 和时间戳
+5. **测试模式**：在时间边界前后分别进行测试
