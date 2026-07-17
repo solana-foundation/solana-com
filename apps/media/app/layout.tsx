@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 
-import "katex/dist/katex.min.css";
 import "@/styles.css";
 
 const fontSans = localFont({
