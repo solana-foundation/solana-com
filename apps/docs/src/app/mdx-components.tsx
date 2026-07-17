@@ -136,7 +136,7 @@ function TerminalPicker(props: unknown) {
 
 function betterError(error: z.ZodError, componentName: string) {
   const { issues } = error;
-  if (issues.length == 1 && issues[0]?.path[0] == "code") {
+  if (issues.length == 1 && issues[0].path[0] == "code") {
     return new Error(
       `<${componentName}> should contain at least one codeblock marked with \`!!\``,
     );

@@ -89,8 +89,6 @@ const RampLayout = ({
       const matchingRamp = data.filter(
         (item) => item.fields.RampName === title,
       );
-      const firstMatch = matchingRamp[0];
-      if (!firstMatch) return;
 
       const {
         RampName,
@@ -102,7 +100,7 @@ const RampLayout = ({
         Countries,
         FiatAssets,
         PaymentRails,
-      } = firstMatch.fields;
+      } = matchingRamp[0].fields;
 
       placeholderRamps.push({
         title: RampName,
@@ -165,14 +163,10 @@ const RampLayout = ({
 
       onlyTitles.forEach((title) => {
         const data = dataArray.filter((item) => item.fields.Name === title);
-        const firstItem = data[0];
-        if (!firstItem) return;
         sortedData.push({
-          value: firstItem.id,
+          value: data[0].id,
           title:
-            checkboxName === "fiat-assets"
-              ? firstItem.id
-              : firstItem.fields?.Name,
+            checkboxName === "fiat-assets" ? data[0].id : data[0].fields?.Name,
           name: checkboxName,
         });
       });

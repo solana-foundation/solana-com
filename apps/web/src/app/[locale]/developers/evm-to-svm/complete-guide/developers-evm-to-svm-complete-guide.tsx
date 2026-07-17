@@ -48,7 +48,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     id?: string;
     styleKey?: keyof typeof BLOCK_STYLES;
   }) => {
-    const html = contentBlocks[index] ?? "";
+    const html = contentBlocks[index];
     const content = (
       <div className="tw-html_parser" id={id}>
         <HtmlParser rawHtml={html} />
@@ -300,10 +300,7 @@ pub struct Counter {
           })}
         </div>
         <div key="table-18">
-          {renderHtmlBlock({
-            html: tableBlocks[0] ?? "",
-            styleKey: "tableWrapper",
-          })}
+          {renderHtmlBlock({ html: tableBlocks[0], styleKey: "tableWrapper" })}
         </div>
         <div key="copy-19">
           {renderCopyBlock({ index: 12, styleKey: "spacing" })}
@@ -329,19 +326,13 @@ pub struct Counter {
           {renderCopyBlock({ index: 16, id: "languages", styleKey: "spacing" })}
         </div>
         <div key="table-24">
-          {renderHtmlBlock({
-            html: tableBlocks[1] ?? "",
-            styleKey: "tableWrapper",
-          })}
+          {renderHtmlBlock({ html: tableBlocks[1], styleKey: "tableWrapper" })}
         </div>
         <div key="copy-25">
           {renderCopyBlock({ index: 17, id: "tools", styleKey: "spacing" })}
         </div>
         <div key="table-26">
-          {renderHtmlBlock({
-            html: tableBlocks[2] ?? "",
-            styleKey: "tableWrapper",
-          })}
+          {renderHtmlBlock({ html: tableBlocks[2], styleKey: "tableWrapper" })}
         </div>
         <div key="code-27">
           {renderCopyBlock({

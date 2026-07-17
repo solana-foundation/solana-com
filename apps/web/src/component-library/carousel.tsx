@@ -251,7 +251,6 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const handleTouchStart = useCallback(
       (e: React.TouchEvent) => {
         const touch = e.touches[0];
-        if (!touch) return;
         handleStart(touch.clientX, touch.clientY);
       },
       [handleStart],
@@ -260,7 +259,6 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const handleTouchMove = useCallback(
       (e: React.TouchEvent) => {
         const touch = e.touches[0];
-        if (!touch) return;
         handleMove(touch.clientX);
       },
       [handleMove],
@@ -360,7 +358,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
 
       const observer = new window.IntersectionObserver(
         ([entry]) => {
-          if (entry) setIsVisible(entry.isIntersecting);
+          setIsVisible(entry.isIntersecting);
         },
         { threshold: 0.1 },
       );

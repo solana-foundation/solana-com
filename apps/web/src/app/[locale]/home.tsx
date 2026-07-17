@@ -179,15 +179,15 @@ export function HomePage({
           ]}
           getStartedLinks={{
             institution: GET_STARTED_LINKS.institution.map((item, index) => ({
-              title: translations.getStartedLinksInstitution[index] ?? "",
+              title: translations.getStartedLinksInstitution[index],
               href: item.href,
             })),
             developer: GET_STARTED_LINKS.developer.map((item, index) => ({
-              title: translations.getStartedLinksDeveloper[index] ?? "",
+              title: translations.getStartedLinksDeveloper[index],
               href: item.href,
             })),
             user: GET_STARTED_LINKS.user.map((item, index) => ({
-              title: translations.getStartedLinksUser[index] ?? "",
+              title: translations.getStartedLinksUser[index],
               href: item.href,
             })),
           }}
@@ -238,12 +238,12 @@ export function HomePage({
         counters={[
           {
             value: <TransactionsStat variant="total" />,
-            label: translations.performanceCounterLabels[0] ?? "",
+            label: translations.performanceCounterLabels[0],
             Icon: "/src/img/index/icons/steps.svg",
           },
           {
             value: <TransactionsStat variant="per-sec" />,
-            label: translations.performanceCounterLabels[1] ?? "",
+            label: translations.performanceCounterLabels[1],
             Icon: "/src/img/index/icons/speed.svg",
           },
         ]}
@@ -265,15 +265,12 @@ export function HomePage({
       <Projects
         className="z-10"
         title={translations.projectsTitle}
-        projects={PROJECTS.map((item, index) => {
-          const project = translations.projectsTranslations[index];
-          return {
-            ...item,
-            name: project?.name ?? "",
-            stat: project?.stat ?? "",
-            statLabel: project?.statLabel ?? "",
-          };
-        })}
+        projects={PROJECTS.map((item, index) => ({
+          ...item,
+          name: translations.projectsTranslations[index].name,
+          stat: translations.projectsTranslations[index].stat,
+          statLabel: translations.projectsTranslations[index].statLabel,
+        }))}
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
         cta={translations.projectsCta}
@@ -328,14 +325,12 @@ export function HomePage({
         subtitle={translations.communitySubtitle}
         bgJsonFilePath="/src/img/index/community-bg.json"
         bgImageSrc="/src/img/index/projects-bg.webp"
-        links={LINKS.map((item, index) => {
-          const link = translations.communityLinksTranslations[index];
-          return {
-            ...item,
-            title: link?.title ?? "",
-            description: link?.description ?? "",
-          };
-        })}
+        links={LINKS.map((item, index) => ({
+          ...item,
+          title: translations.communityLinksTranslations[index].title,
+          description:
+            translations.communityLinksTranslations[index].description,
+        }))}
       />
 
       <VideoPlayerModal />

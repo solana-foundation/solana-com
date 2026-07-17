@@ -17,7 +17,6 @@ export const useViewportVisibility = <T extends HTMLElement>(
   const handleIntersection = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const [entry] = entries;
-      if (!entry) return;
       const isCurrentlyVisible = entry.isIntersecting;
 
       // If node just became visible and wasn't visible before

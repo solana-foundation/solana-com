@@ -29,7 +29,10 @@ export function RpcMethodSolana({ endpoint }: RpcMethodSolanaProps) {
   const nestedByParent: Record<string, typeof endpoint.params> = {};
   endpoint.params.forEach((param) => {
     if (param.parentName) {
-      (nestedByParent[param.parentName] ??= []).push(param);
+      if (!nestedByParent[param.parentName]) {
+        nestedByParent[param.parentName] = [];
+      }
+      nestedByParent[param.parentName].push(param);
     }
   });
 

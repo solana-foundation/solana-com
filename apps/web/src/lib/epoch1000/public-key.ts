@@ -26,7 +26,7 @@ function decodedBase58ByteLength(value: string): number | null {
     let carry = base58Value;
 
     for (let i = 0; i < bytes.length; i++) {
-      carry += bytes[i]! * 58;
+      carry += bytes[i] * 58;
       bytes[i] = carry & 0xff;
       carry >>= 8;
     }

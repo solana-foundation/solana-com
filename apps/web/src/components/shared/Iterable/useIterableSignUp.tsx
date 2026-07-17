@@ -9,8 +9,8 @@ async function sendFormRequest(
 ) {
   const data = new FormData();
 
-  Object.entries(dataObject).map(([key, value]) => {
-    data.append(key, value);
+  Object.keys(dataObject).map((key) => {
+    data.append(key, dataObject[key]);
   });
 
   const request = new Request(actionUrl, {

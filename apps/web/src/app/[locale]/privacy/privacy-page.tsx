@@ -62,11 +62,9 @@ const PROJECT_PRIVACY_TYPES: Record<string, string> = {
   confidentialTransfer: "confidential",
 };
 
-const ANONYMOUS_BADGE = { className: "pp-badge pp-anon", label: "Anonymous" };
-
 const BADGE_FOR_TYPE: Record<string, { className: string; label: string }> = {
   fullyPrivate: { className: "pp-badge pp-fully", label: "Fully Private" },
-  anonymous: ANONYMOUS_BADGE,
+  anonymous: { className: "pp-badge pp-anon", label: "Anonymous" },
   confidential: { className: "pp-badge pp-conf", label: "Confidential" },
   pseudonymous: { className: "pp-badge pp-anon", label: "Pseudonymous" },
 };
@@ -569,7 +567,8 @@ function Ecosystem({ title }: { title: string }) {
               `privacy.ecosystem.${key}.description`,
             );
             const privacyType = PROJECT_PRIVACY_TYPES[key] ?? "anonymous";
-            const badge = BADGE_FOR_TYPE[privacyType] ?? ANONYMOUS_BADGE;
+            const badge =
+              BADGE_FOR_TYPE[privacyType] ?? BADGE_FOR_TYPE.anonymous;
             const mark = projectTitle.charAt(0).toUpperCase();
             const meta = PROJECT_META_TAGS[key] ?? "";
 
@@ -850,7 +849,6 @@ function Unlocks({
         <div className="pp-bento">
           {translations.useCasesList.slice(0, 6).map((item, i) => {
             const slot = BENTO_SLOTS[i];
-            if (!slot) return null;
             return (
               <div key={i} className={`pp-b ${slot.cls}`} data-c={slot.c}>
                 <div>

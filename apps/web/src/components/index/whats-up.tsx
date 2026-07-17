@@ -147,7 +147,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
     [t],
   );
   const [activeCategory, setActiveCategory] = useState<string>(
-    categories[0]?.id ?? "all",
+    categories[0].id,
   );
   const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
     threshold: 0.2,

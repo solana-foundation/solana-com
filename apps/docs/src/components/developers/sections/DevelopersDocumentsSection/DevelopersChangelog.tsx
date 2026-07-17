@@ -32,7 +32,7 @@ export default function DevelopersChangelog({
           (
             latestVideo.snippet?.description ||
             "Latest changes for the Solana blockchain"
-          ).split("---")[0] ?? "",
+          ).split("---")[0],
           160,
           "...",
         )}

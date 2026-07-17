@@ -3,10 +3,7 @@ import classNames from "classnames";
 import dynamic from "next/dynamic";
 import styles from "./DevelopersResources.module.scss";
 import DevelopersResourcesGrid from "../DevelopersResourcesGrid/DevelopersResourcesGrid";
-import type {
-  FilterGroup,
-  FilterMap,
-} from "../DevelopersResourcesFilters/DevelopersResourcesFilters";
+import type { FilterMap } from "../DevelopersResourcesFilters/DevelopersResourcesFilters";
 
 const DevelopersResourcesFilters = dynamic(
   () => import("../DevelopersResourcesFilters/DevelopersResourcesFilters"),
@@ -23,15 +20,8 @@ type ResourceItem = {
   [key: string]: unknown;
 };
 
-type ResourceFilterMap = FilterMap & {
-  difficulty: FilterGroup;
-  labels: FilterGroup;
-  category: FilterGroup;
-  tags: FilterGroup;
-};
-
 const mapItemsIntoFilters =
-  (itemFilters: ResourceFilterMap) => (item: ResourceItem) => {
+  (itemFilters: FilterMap) => (item: ResourceItem) => {
     if (item?.category) {
       if (!itemFilters.category.items.includes(item.category)) {
         itemFilters.category.items.push(item.category);
@@ -63,7 +53,7 @@ const mapItemsIntoFilters =
     return item;
   };
 
-const baseFilters: ResourceFilterMap = {
+const baseFilters: FilterMap = {
   difficulty: {
     label: "Difficulty",
     items: [],
@@ -109,7 +99,7 @@ export default memo(function DevelopersResources({
       new Set(filters.labels.items.map((item) => item.toLowerCase())),
     );
 
-    for (const key in filters) filters[key]?.items.sort();
+    for (const key in filters) filters[key].items.sort();
 
     return filters;
   }, [items]);

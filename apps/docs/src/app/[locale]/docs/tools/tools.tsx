@@ -20,11 +20,12 @@ export async function ToolsDocsPage({
 }) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
-  const tree = docsSource.pageTree[locale];
-  if (!tree) notFound();
   const { body: MDX, toc } = await page.data.load();
   const markdown = await page.data.getText("raw");
-  const breadcrumbTree = getToolBreadcrumbTree(tree, slug[1]);
+  const breadcrumbTree = getToolBreadcrumbTree(
+    docsSource.pageTree[locale],
+    slug[1],
+  );
   return (
     <TreeContextProvider tree={breadcrumbTree}>
       <DocsPage

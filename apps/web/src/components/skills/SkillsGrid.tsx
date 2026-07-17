@@ -14,9 +14,9 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { cn } from "@/app/components/utils";
 
 function getPinnedRefLabel(url: string) {
-  const ref = url.match(/\/tree\/([0-9a-f]{7,40})(?:\/|$)/i)?.[1];
-  if (ref) {
-    return `@ ${ref.slice(0, 7)}`;
+  const match = url.match(/\/tree\/([0-9a-f]{7,40})(?:\/|$)/i);
+  if (match) {
+    return `@ ${match[1].slice(0, 7)}`;
   }
 
   return undefined;

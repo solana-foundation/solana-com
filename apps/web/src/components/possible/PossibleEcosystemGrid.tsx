@@ -30,7 +30,7 @@ function divideIntoSixGroups<T>(inputObj: T[], numGroups = 6): T[][] {
   const output: T[][] = Array.from({ length: numGroups }, () => []);
 
   inputObj.forEach((item, index) => {
-    output[index % numGroups]?.push(item);
+    output[index % numGroups].push(item);
   });
 
   return output;

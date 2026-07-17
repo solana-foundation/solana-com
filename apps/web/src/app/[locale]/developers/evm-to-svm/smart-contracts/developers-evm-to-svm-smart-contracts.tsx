@@ -48,7 +48,7 @@ export function DevelopersEvmToSvmSmartContractsPage() {
     id?: string;
     styleKey?: keyof typeof BLOCK_STYLES;
   }) => {
-    const html = contentBlocks[index] ?? "";
+    const html = contentBlocks[index];
     const content = (
       <div className="tw-html_parser" id={id}>
         <HtmlParser rawHtml={html} />

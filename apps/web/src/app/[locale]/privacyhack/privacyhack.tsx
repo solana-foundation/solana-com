@@ -95,7 +95,6 @@ function useTypingEffect(
 
   useEffect(() => {
     const currentText = texts[textIndex];
-    if (currentText === undefined) return;
 
     const timeout = setTimeout(
       () => {
@@ -139,7 +138,7 @@ function useScrollReveal() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
+        if (entry.isIntersecting) {
           setIsVisible(true);
         }
       },
@@ -166,7 +165,7 @@ function useScrollScrambleText(text: string, duration = 750) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting && !hasStarted) {
+        if (entry.isIntersecting && !hasStarted) {
           setHasStarted(true);
         }
       },
@@ -266,9 +265,7 @@ function MatrixRain() {
       ctx.font = `${fontSize}px monospace`;
 
       for (let i = 0; i < drops.length; i++) {
-        const drop = drops[i];
-        if (drop === undefined) continue;
-        const y = drop * fontSize;
+        const y = drops[i] * fontSize;
         // Fade characters based on vertical position (fade to black at bottom)
         const fadeStart = canvas.height * 0.5;
         const alpha =
@@ -280,14 +277,13 @@ function MatrixRain() {
             : 0.35;
 
         ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`;
-        const char = chars.charAt(Math.floor(Math.random() * chars.length));
+        const char = chars[Math.floor(Math.random() * chars.length)];
         ctx.fillText(char, i * fontSize, y);
 
-        if (drop * fontSize > canvas.height && Math.random() > 0.975) {
-          drops[i] = 1;
-        } else {
-          drops[i] = drop + 1;
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
         }
+        drops[i]++;
       }
     };
 

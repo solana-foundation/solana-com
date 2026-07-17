@@ -21,7 +21,6 @@ function useTypingAnimation(texts: string[], isEnabled: boolean) {
     function tick() {
       const s = state.current;
       const current = texts[s.promptIndex];
-      if (current === undefined) return;
 
       if (s.isDeleting) {
         s.charCount -= 1;

@@ -5,9 +5,8 @@ import type { YTVideoItem } from "@/utils/followerFunctions";
 
 export default function FeaturedVideos({ videos }: { videos: YTVideoItem[] }) {
   const t = useTranslations();
-  const featuredVideo = videos[0];
 
-  return featuredVideo ? (
+  return videos.length ? (
     <section className="mt-36 pb-16">
       <div className="container">
         <div className="grid grid-cols-12 gap-5 md:gap-10">
@@ -25,7 +24,7 @@ export default function FeaturedVideos({ videos }: { videos: YTVideoItem[] }) {
         </div>
         <div className="videos grid grid-cols-12 gap-5 md:gap-10 mt-2">
           <div className="col-span-12 md:col-span-9 pt-8 hidden md:block">
-            <VideoCard video={featuredVideo} showThumbnail={true} isFeatured />
+            <VideoCard video={videos[0]} showThumbnail={true} isFeatured />
           </div>
           {/* related videos list */}
           <div className="col-span-12 md:col-span-3">

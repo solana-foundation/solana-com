@@ -17,11 +17,10 @@ export function TerminalClient({
 }) {
   const [currentName, setCurrentName] = useStateOrLocalStorage(
     storeKey && "terminal-picker-" + storeKey,
-    tabs[0]?.name ?? "",
+    tabs[0]?.name,
   );
 
   const current = tabs.find((tab) => tab.name === currentName) || tabs[0];
-  if (!current) return null;
   return (
     <div className="border rounded border-ch-border overflow-hidden my-4 relative">
       <div

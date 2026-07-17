@@ -141,7 +141,6 @@ export function LiveFeed() {
       const d = new Date();
       const ts = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       const sample = SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
-      if (!sample) return;
       let value = sample[1];
       if (sample[0] === "slot") {
         slotRef.current += 1;

@@ -21,7 +21,7 @@ export default function Reveal({ children, className = "" }: Props) {
     }
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
+        if (entry.isIntersecting) {
           setInView(true);
           io.disconnect();
         }

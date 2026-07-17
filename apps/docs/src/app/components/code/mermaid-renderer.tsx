@@ -10,7 +10,7 @@ function useIsVisible(ref: RefObject<HTMLElement | null>) {
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) {
+      if (entry.isIntersecting) {
         // disconnect after once visible to avoid re-rendering of chart when `isIntersecting` will
         // be changed to true/false
         observer.disconnect();

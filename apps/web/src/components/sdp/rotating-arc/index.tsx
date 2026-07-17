@@ -131,7 +131,6 @@ export function RotatingArc({ className }: { className?: string }) {
       }
     }
     const audio = audioPoolRef.current[audioPoolIndexRef.current % poolSize];
-    if (!audio) return;
     audio.volume = volume;
     audioPoolIndexRef.current++;
     audio.currentTime = 0;
@@ -158,7 +157,7 @@ export function RotatingArc({ className }: { className?: string }) {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
+        if (entry.isIntersecting) {
           setInView(true);
           observer.disconnect();
         }

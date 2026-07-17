@@ -69,7 +69,8 @@ function getFileTree(codeblocks: Record<string, React.ReactNode>) {
     const parts = title.split("/");
     let node: TreeNode = { name: "", title: "", children: tree };
 
-    for (const [i, part] of parts.entries()) {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
       let nextNode = node.children.find((child) => child.name === part);
       if (!nextNode) {
         nextNode = {

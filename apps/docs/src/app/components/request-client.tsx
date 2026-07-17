@@ -90,7 +90,7 @@ export function useRequestParam(name: string): { param: Param; value: string } {
   }
   return {
     param,
-    value: values[name] ?? String(param.value),
+    value: values[name],
   };
 }
 
@@ -133,10 +133,8 @@ export function RequestClientContent() {
   const { values, setValue, params, body } = useRequestClient();
 
   const sendRequest = async () => {
-    const server = values["SERVER"];
-    if (!server) return;
     setResponse(null);
-    const response = await fetch(server, {
+    const response = await fetch(values["SERVER"], {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
@@ -169,7 +167,7 @@ export function RequestClientContent() {
               <ParamInput
                 key={param.name}
                 param={param}
-                value={values[param.name] ?? String(param.value)}
+                value={values[param.name]}
                 onChange={(value) => setValue(param.name, value)}
               />
             ))}
@@ -243,10 +241,10 @@ function fillParamsInJSON(
   params
     .filter((p) => p.name !== "SERVER")
     .forEach((param) => {
-      const line = lines[param.lineNumber - 1];
-      const value = values[param.name];
-      if (line === undefined || value === undefined) return;
-      lines[param.lineNumber - 1] = line.replace(`${param.value}`, value);
+      lines[param.lineNumber - 1] = lines[param.lineNumber - 1].replace(
+        `${param.value}`,
+        values[param.name],
+      );
     });
   return lines.join("\n");
 }

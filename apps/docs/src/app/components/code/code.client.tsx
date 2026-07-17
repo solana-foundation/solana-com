@@ -20,19 +20,16 @@ export function MultiCode({
   group: CodeGroup;
   className?: string;
 }) {
-  const firstTab = group.tabs[0];
   const [storedTitle, setCurrentTitle] = useStateOrLocalStorage(
     group.storage,
-    firstTab?.title ?? "",
+    group.tabs[0].title,
   );
   const current =
-    group.tabs.find((tab) => tab.title === storedTitle) || firstTab;
-  const runnable = group.options.runnable;
-
-  if (!current) return null;
+    group.tabs.find((tab) => tab.title === storedTitle) || group.tabs[0];
 
   const { code } = current;
-  const currentTitle = current.title;
+  const currentTitle = current?.title;
+  const runnable = group.options.runnable;
 
   const tabs = (
     <Tabs

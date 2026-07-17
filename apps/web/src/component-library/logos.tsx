@@ -61,7 +61,7 @@ export const Logos: React.FC<LogosProps> = ({
     // Watch the real visible wrapper — fires when accordion/tab reveals the component
     const intersectionObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) checkOverflow();
+        if (entry.isIntersecting) checkOverflow();
       },
       { threshold: 0 },
     );

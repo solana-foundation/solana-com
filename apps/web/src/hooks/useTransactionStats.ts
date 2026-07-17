@@ -141,7 +141,7 @@ export const useTransactionStats = ({
                 },
                 [],
               );
-              const avgTps = Math.round(short[0] ?? NaN);
+              const avgTps = Math.round(short[0]);
               setAvgTps(avgTps);
               setAvailableStats(true);
             })(),

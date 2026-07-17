@@ -13,32 +13,14 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 export function SolutionsIndexPage() {
   const t = useTranslations("solutions-index");
 
-  const toolsCard = (index: number) => ({
+  const toolsCards = Array.from({ length: 8 }, (_, index) => ({
     heading: t(`cardsTools.${index}.heading`),
-  });
-  const toolsCards = [
-    toolsCard(0),
-    toolsCard(1),
-    toolsCard(2),
-    toolsCard(3),
-    toolsCard(4),
-    toolsCard(5),
-    toolsCard(6),
-    toolsCard(7),
-  ] as const;
+  }));
 
-  const useCaseCard = (index: number) => ({
+  const useCaseCards = Array.from({ length: 6 }, (_, index) => ({
     heading: t(`cardsUseCases.${index}.heading`),
     body: t(`cardsUseCases.${index}.body`),
-  });
-  const useCaseCards = [
-    useCaseCard(0),
-    useCaseCard(1),
-    useCaseCard(2),
-    useCaseCard(3),
-    useCaseCard(4),
-    useCaseCard(5),
-  ] as const;
+  }));
 
   const stats = Array.from({ length: 3 }, (_, index) => ({
     stat: t(`stats.${index}.stat`),

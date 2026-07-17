@@ -406,7 +406,7 @@ async function getCurlTab(codeblock: RawCode) {
           (a as BlockAnnotation).toLineNumber,
     )
     .map((a) => {
-      let line = lines[a.fromLineNumber - 1] ?? "";
+      let line = lines[a.fromLineNumber - 1];
       // remove potential trailing commas
       line = line.trim().replace(/,$/, "");
       const param = parseLineToParam(line, a);
@@ -478,7 +478,6 @@ async function getCurlTab(codeblock: RawCode) {
 
 async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   const [codeblock, ...rest] = codeblocks;
-  if (!codeblock) return null;
   const withClient = codeblock.meta.includes("curl");
 
   let group: CodeGroup | null = null;
@@ -562,7 +561,7 @@ function parseLineToParam(line: string, annotation: BlockAnnotation) {
     value = JSON.parse(line);
   } catch {
     const obj = JSON.parse(`{${line}}`);
-    name = Object.keys(obj)[0] ?? name;
+    name = Object.keys(obj)[0];
     value = obj[name];
   }
   return {
