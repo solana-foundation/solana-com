@@ -134,6 +134,12 @@ The main editor supports rich text and MDX-style structured content. Use the
 toolbar to add headings, lists, quotes, links, embeds, and other supported
 blocks.
 
+For mathematical notation, insert **Inline formula (LaTeX)** inside a paragraph
+or **Display formula (LaTeX)** for a centered equation on its own line. Enter
+the TeX expression without `$` or `$$` delimiters. For example, enter `E = mc^2`
+or `\frac{a}{b}` directly in the LaTeX field. The editor preview shows the
+rendered formula before you save.
+
 ### Step 4: Save the Post as a Draft on `staging`
 
 When the article is still in progress:
