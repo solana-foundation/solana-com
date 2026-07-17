@@ -177,7 +177,7 @@ function extractWebSocketEndpoints(): WebSocketEndpoint[] {
       );
       if (categoryKey) {
         const category = categories[categoryKey];
-        if (!endpoints.some((e) => e.method_name === methodName)) {
+        if (category && !endpoints.some((e) => e.method_name === methodName)) {
           const endpoint = createWebSocketEndpoint(methodName, category);
           if (endpoint) {
             endpoints.push(endpoint);

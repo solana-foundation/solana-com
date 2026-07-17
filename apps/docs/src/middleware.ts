@@ -135,7 +135,9 @@ export default async function middleware(
     req.nextUrl.searchParams.delete("slug");
   }
 
-  const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const firstSegment = pathSegments[0];
+  const hasLocalePrefix =
+    firstSegment !== undefined && locales.includes(firstSegment);
   const normalizedSegments = hasLocalePrefix
     ? pathSegments.slice(1)
     : pathSegments;
@@ -170,7 +172,10 @@ export default async function middleware(
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
     trackMarkdownRequestInBackground(event, normalizedPath, "md-extension");
     const segments = [...normalizedSegments];
-    segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
+    const lastSegment = segments[segments.length - 1];
+    if (lastSegment !== undefined) {
+      segments[segments.length - 1] = lastSegment.slice(0, -3);
+    }
     return rewriteToMarkdownApi(req, segments);
   }
 

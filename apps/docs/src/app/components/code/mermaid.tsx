@@ -11,6 +11,7 @@ import { useState } from "react";
 export function Mermaid(props: { codeblocks: RawCode[] }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const codeblock = props.codeblocks[0];
+  if (!codeblock) return null;
   const content = codeblock.value;
   const title = extractTitle(codeblock);
 
@@ -77,7 +78,7 @@ function extractTitle(codeblock: RawCode): string | null {
 
   const match = meta.match(/title=(["'])(.*?)\1/);
   if (match) {
-    return match[2];
+    return match[2] ?? null;
   }
 
   return null;

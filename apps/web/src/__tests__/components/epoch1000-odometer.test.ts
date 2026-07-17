@@ -21,14 +21,14 @@ describe("epoch odometer wheel math", () => {
     const at999 = nextWheelTargets(at998, 999, 4);
     expect(shownDigits(at999)).toEqual([0, 9, 9, 9]);
     // every wheel moved forward or stayed
-    at999.forEach((t, i) => expect(t).toBeGreaterThanOrEqual(at998[i]));
+    at999.forEach((t, i) => expect(t).toBeGreaterThanOrEqual(at998[i]!));
   });
 
   it("rolls 999 → 1000 forward on every wheel — the thousands wheel turns", () => {
     const at999 = nextWheelTargets(null, 999, 4);
     const at1000 = nextWheelTargets(at999, 1000, 4);
     expect(shownDigits(at1000)).toEqual([1, 0, 0, 0]);
-    at1000.forEach((t, i) => expect(t).toBeGreaterThan(at999[i]));
+    at1000.forEach((t, i) => expect(t).toBeGreaterThan(at999[i]!));
   });
 
   it("normalize folds an offset back one revolution without changing digits", () => {

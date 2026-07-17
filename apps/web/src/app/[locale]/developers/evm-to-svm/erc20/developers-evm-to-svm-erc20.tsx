@@ -61,6 +61,10 @@ export function DevelopersEvmToSvmErc20Page() {
   const renderCodeBlock = (index: number) => {
     const codeBlock = CODE_BLOCKS[index];
 
+    if (!codeBlock) {
+      return null;
+    }
+
     return (
       <CodeBlock
         code={codeBlock.code}

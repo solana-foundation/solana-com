@@ -80,7 +80,7 @@ describe("epoch1000 wallet checker rate limit", () => {
     expect(limited.ok).toBe(false);
 
     const firstLease = leases[0];
-    if (firstLease.ok) firstLease.release();
+    if (firstLease?.ok) firstLease.release();
 
     const allowedAfterRelease = checkEpoch1000LookupRateLimit({
       ip: "203.0.113.2",

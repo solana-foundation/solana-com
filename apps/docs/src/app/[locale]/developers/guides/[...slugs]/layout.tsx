@@ -1,4 +1,5 @@
 import { guidesSource } from "@@/src/app/sources/guides";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
@@ -12,6 +13,7 @@ export default async function Layout({
 }) {
   const { locale } = await params;
   const tree = guidesSource.pageTree[locale];
+  if (!tree) notFound();
   return (
     <DocsLayout tree={tree} sidebarEnabled={false} locale={locale}>
       {children}

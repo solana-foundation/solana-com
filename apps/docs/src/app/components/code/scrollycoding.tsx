@@ -139,6 +139,7 @@ function getStickers(steps: Steps) {
   for (let i = intermediateStickers.length - 2; i >= 0; i--) {
     const current = intermediateStickers[i];
     const next = intermediateStickers[i + 1];
+    if (!current || !next) continue;
     for (const [title, code] of Object.entries(current.codes)) {
       // if next step doesn't have the same code, add it without focus annotation
       if (!next.codes[title] && code.value.includes("!focus")) {

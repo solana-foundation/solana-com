@@ -99,10 +99,12 @@ export async function findFirstTransaction(
     ]);
     if (batch.length === 0) break;
     scanned += batch.length;
-    oldest = batch[batch.length - 1];
-    before = oldest.signature;
+    const last = batch[batch.length - 1];
+    if (!last) break;
+    oldest = last;
+    before = last.signature;
     if (batch.length < PAGE_LIMIT) {
-      return { ...oldest, capped: false, scanned };
+      return { ...last, capped: false, scanned };
     }
   }
 

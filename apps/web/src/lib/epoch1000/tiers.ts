@@ -19,6 +19,15 @@ export interface Tier {
   line: string;
 }
 
+const SETTLER_TIER: Tier = {
+  id: "settler",
+  name: "SETTLER CLASS",
+  min: 0,
+  color: "#9CA3AF",
+  glow: "#374151",
+  line: "Welcome aboard. Epoch 2000 awaits.",
+};
+
 /** Ordered highest to lowest. Survival = current epoch − first epoch. */
 export const TIERS: Tier[] = [
   {
@@ -61,16 +70,9 @@ export const TIERS: Tier[] = [
     glow: "#1e3a8a",
     line: "Still here. Still early.",
   },
-  {
-    id: "settler",
-    name: "SETTLER CLASS",
-    min: 0,
-    color: "#9CA3AF",
-    glow: "#374151",
-    line: "Welcome aboard. Epoch 2000 awaits.",
-  },
+  SETTLER_TIER,
 ];
 
 export function tierFor(epochsSurvived: number): Tier {
-  return TIERS.find((t) => epochsSurvived >= t.min) ?? TIERS[TIERS.length - 1];
+  return TIERS.find((t) => epochsSurvived >= t.min) ?? SETTLER_TIER;
 }

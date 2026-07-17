@@ -33,10 +33,10 @@ const collections = {
   docs,
 };
 function getImageProps(slugItems: Array<string>) {
-  if (slugItems.length === 0) {
+  const [first, ...rest] = slugItems;
+  if (first === undefined) {
     return { title: "Solana Developers", heading: "Solana Developers" };
   }
-  const [first, ...rest] = slugItems;
   const name = first.toLowerCase();
   let title: string | null = null;
   if (collections[name as keyof typeof collections]) {

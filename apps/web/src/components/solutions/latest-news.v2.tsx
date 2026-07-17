@@ -42,7 +42,8 @@ export type LatestNewsProps = {
  * />
  */
 export const LatestNews = ({ title, items }: LatestNewsProps) => {
-  if (items.length === 0) {
+  const firstItem = items[0];
+  if (!firstItem) {
     return null;
   }
 
@@ -61,22 +62,22 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
           )}
           <div className="flex flex-col">
             <Link
-              href={items[0].link}
+              href={firstItem.link}
               target="_blank"
               rel="noopener noreferrer"
               className="block text-inherit group"
             >
               <div
                 className="relative w-full rounded-xl overflow-hidden cursor-pointer group"
-                style={{ aspectRatio: getImageAspectRatio(items[0]) }}
+                style={{ aspectRatio: getImageAspectRatio(firstItem) }}
               >
                 <Image
-                  src={items[0].image}
-                  alt={items[0].title}
+                  src={firstItem.image}
+                  alt={firstItem.title}
                   fill
                   className={cn(
                     "z-0",
-                    items[0].imageFit === "contain"
+                    firstItem.imageFit === "contain"
                       ? "object-contain bg-black"
                       : "object-cover",
                   )}
@@ -84,17 +85,17 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                 />
               </div>
               <div className="mt-4 xl:mt-6">
-                {items[0].date && (
+                {firstItem.date && (
                   <div className="text-[#ABABBC] text-sm md:text-base mb-1 uppercase tracking-wide">
                     <FormattedDate
-                      value={new Date(items[0].date)}
+                      value={new Date(firstItem.date)}
                       month="short"
                       day="numeric"
                     />
                   </div>
                 )}
                 <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-0 mb-0 group-hover:underline tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px] leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
-                  {items[0].title}
+                  {firstItem.title}
                 </h3>
               </div>
             </Link>

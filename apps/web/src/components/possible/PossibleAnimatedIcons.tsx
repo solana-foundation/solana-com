@@ -18,7 +18,7 @@ const PossibleAnimatedIcons = ({
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting) {
+        if (entry?.isIntersecting) {
           if (videoRef.current) videoRef.current.load();
         }
       },

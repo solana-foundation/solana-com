@@ -40,7 +40,9 @@ export function SingleCode({
   group: CodeGroup;
   className?: string;
 }) {
-  const { pre, title, code, icon, lang } = group.tabs[0];
+  const firstTab = group.tabs[0];
+  if (!firstTab) return null;
+  const { pre, title, code, icon, lang } = firstTab;
   const isRunnable = group.options.runnable;
 
   const content = (

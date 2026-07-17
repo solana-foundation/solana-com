@@ -27,8 +27,10 @@ const scrapeMeetupMemberCount = async (): Promise<number> => {
     const node = meetupMemberCountTag[0] as {
       children: Array<{ data: string }>;
     };
-    const meetupCountString = node.children[0].data;
-    return parseInt(meetupCountString.replace(",", ""), 10);
+    const meetupCountString = node.children[0]?.data;
+    if (meetupCountString) {
+      return parseInt(meetupCountString.replace(",", ""), 10);
+    }
   }
   return 0;
 };
@@ -51,7 +53,7 @@ const getYoutubeSubscriberCount = async (): Promise<number> => {
     };
 
     if (data.items && data.items.length > 0) {
-      return parseInt(data.items[0].statistics?.subscriberCount ?? "0", 10);
+      return parseInt(data.items[0]?.statistics?.subscriberCount ?? "0", 10);
     }
 
     throw new Error("Channel statistics not found");
@@ -76,7 +78,10 @@ const getStableCoins = async (): Promise<number> => {
     const stableCoins = (await jsonData.json()) as {
       data: Array<{ chains: Array<{ chain: string; amount: number }> }>;
     };
-    const chainData = stableCoins.data[0].chains;
+    const chainData = stableCoins.data[0]?.chains;
+    if (!chainData) {
+      throw new Error("No stablecoin data returned");
+    }
     let solAmount = 0;
     for (const chain of chainData) {
       if (chain.chain === "SOL") {

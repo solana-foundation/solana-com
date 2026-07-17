@@ -2,11 +2,11 @@ import { memo } from "react";
 import Loader from "@@/public/src/img/icons/Loader.inline.svg";
 
 function getYoutubeVideoId(url: string) {
-  const match = url.match(/[=/]([\w\d_-]{10,12})/);
-  if (!match) {
+  const id = url.match(/[=/]([\w\d_-]{10,12})/)?.[1];
+  if (!id) {
     throw new Error(`${url} is not a YouTube URL or regex couldn't find id`);
   }
-  return match[1];
+  return id;
 }
 
 function getYoutubeThumbnail(id: string) {

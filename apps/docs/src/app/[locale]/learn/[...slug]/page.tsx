@@ -47,11 +47,15 @@ export default async function LearnContentPage(props: Props) {
 
   // Get current tutorial index and navigation info
   const currentSlug = slug[0];
+  if (!currentSlug) {
+    notFound();
+  }
   const currentIndex = tutorialOrder.indexOf(currentSlug);
-  const prevSlug = currentIndex > 0 ? tutorialOrder[currentIndex - 1] : null;
+  const prevSlug =
+    currentIndex > 0 ? (tutorialOrder[currentIndex - 1] ?? null) : null;
   const nextSlug =
     currentIndex < tutorialOrder.length - 1
-      ? tutorialOrder[currentIndex + 1]
+      ? (tutorialOrder[currentIndex + 1] ?? null)
       : null;
 
   // Get titles and categories for navigation links

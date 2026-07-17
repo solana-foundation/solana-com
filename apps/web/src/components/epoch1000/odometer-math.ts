@@ -22,6 +22,7 @@ export function nextWheelTargets(
     const d = digitOf(value, w, wheels);
     if (!prev) return SETTLE_BASE + d;
     const cur = prev[w];
+    if (cur === undefined) return SETTLE_BASE + d;
     return cur + ((d - (cur % 10) + 10) % 10);
   });
 }

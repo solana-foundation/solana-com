@@ -1,4 +1,5 @@
 import { cookbookSource } from "@@/src/app/sources/cookbook";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
@@ -10,8 +11,10 @@ export default async function Layout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const tree = cookbookSource.pageTree[locale];
+  if (!tree) notFound();
   return (
-    <DocsLayout tree={cookbookSource.pageTree[locale]} locale={locale}>
+    <DocsLayout tree={tree} locale={locale}>
       {children}
       <InkeepChatButton />
     </DocsLayout>

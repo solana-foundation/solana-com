@@ -9,7 +9,13 @@ interface FormField {
   required?: boolean;
 }
 
-type FormValues = Record<string, FormField>;
+interface FormValues {
+  email: FormField;
+  firstName: FormField;
+  lastName: FormField;
+  source: FormField;
+  Country?: FormField;
+}
 
 interface ArtistsAndCreatorsNewsletterProps {
   modalCloseHandler?: (() => void) | null;
@@ -53,18 +59,16 @@ const ArtistsAndCreatorsNewsletter = ({
     const updatedValues = { ...values };
     const veryBasicEmailCheck = new RegExp("[a-z0-9]+@[a-z]+.[a-z]{2,3}");
 
-    Object.keys(values).forEach((key) => {
+    (Object.keys(values) as (keyof FormValues)[]).forEach((key) => {
+      const field = updatedValues[key];
       if (key === "email" && !veryBasicEmailCheck.test(values.email.value)) {
         updatedValues.email.error = true;
         isValid = false;
-      } else if (key === "Country" && values.Country?.value === "default") {
-        updatedValues.Country.error = true;
+      } else if (key === "Country" && field?.value === "default") {
+        field.error = true;
         isValid = false;
-      } else if (
-        values[key].required &&
-        (!values[key].value || values[key].value === "")
-      ) {
-        updatedValues[key].error = true;
+      } else if (field?.required && (!field.value || field.value === "")) {
+        field.error = true;
         isValid = false;
       }
     });
@@ -76,8 +80,11 @@ const ArtistsAndCreatorsNewsletter = ({
   const onValueChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const updatedValues = { ...values };
-      updatedValues[e.target.name].error = false;
-      updatedValues[e.target.name].value = e.target.value;
+      const field = updatedValues[e.target.name as keyof FormValues];
+      if (field) {
+        field.error = false;
+        field.value = e.target.value;
+      }
 
       setValues(updatedValues);
     },
@@ -89,13 +96,13 @@ const ArtistsAndCreatorsNewsletter = ({
     const formIsValid = await validate();
 
     if (formIsValid) {
-      const formState = Object.keys(values).reduce<Record<string, string>>(
-        (acc, key) => {
-          acc[key] = values[key].value;
-          return acc;
-        },
-        {},
-      );
+      const formState = (Object.keys(values) as (keyof FormValues)[]).reduce<
+        Record<string, string>
+      >((acc, key) => {
+        const field = values[key];
+        if (field) acc[key] = field.value;
+        return acc;
+      }, {});
 
       try {
         setIsSubmitting(true);

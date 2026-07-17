@@ -1,4 +1,5 @@
 import { docsSource } from "@@/src/app/sources/docs";
+import { notFound } from "next/navigation";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
 import { ToolsDocsPage, getMetadataFromSlug } from "./tools";
@@ -9,6 +10,7 @@ type Props = { params: Promise<{ locale: string }> };
 export default async function Page(props: Props) {
   const { locale } = await props.params;
   const tree = docsSource.pageTree[locale];
+  if (!tree) notFound();
   const sidebarTree = getToolsSidebarTree(tree);
   const navigationTree = getToolsNavigationTree(tree);
 

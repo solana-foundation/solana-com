@@ -1655,8 +1655,8 @@ export function getMedian(values: number[]) {
   const middle = Math.floor(sorted.length / 2);
 
   return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
+    ? ((sorted[middle - 1] ?? NaN) + (sorted[middle] ?? NaN)) / 2
+    : (sorted[middle] ?? NaN);
 }
 
 function aggregate(sum: number, count: number, aggregation: Aggregation) {
@@ -1807,7 +1807,8 @@ function hasAllProvidersSelected(
 function getProviderColor(providerName: ProviderName) {
   return (
     providerColors[providerName] ??
-    fallbackProviderColors[getStableColorIndex(providerName)]
+    fallbackProviderColors[getStableColorIndex(providerName)] ??
+    fallbackProviderColors[0]
   );
 }
 

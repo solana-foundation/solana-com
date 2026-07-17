@@ -50,6 +50,8 @@ export default function LearnPageContent({
   tutorials,
   translations,
 }: LearnPageContentProps) {
+  const firstTutorial = tutorials[0];
+
   const resources = [
     {
       href: "/docs",
@@ -75,7 +77,7 @@ export default function LearnPageContent({
       description: translations.walletsDescription,
       ariaLabel: translations.walletsAriaLabel,
     },
-  ];
+  ] as const;
 
   return (
     <div className="overflow-hidden">
@@ -89,8 +91,7 @@ export default function LearnPageContent({
         buttons={{
           cta: {
             label: translations.heroStartLearning || "Start Learning",
-            href:
-              tutorials.length > 0 ? `/learn/${tutorials[0].slug}` : "/learn",
+            href: firstTutorial ? `/learn/${firstTutorial.slug}` : "/learn",
           },
           secondary: {
             label: translations.heroDeveloperDocs || "Developer Docs",

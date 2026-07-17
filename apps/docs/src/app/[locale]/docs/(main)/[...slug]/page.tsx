@@ -15,7 +15,7 @@ export async function generateStaticParams() {
   const standaloneDocsSections = new Set(["rpc", "payments", "tools"]);
   const params = toStaticParams(docsSource)
     .filter((param) => param.slug.length > 0)
-    .filter((param) => !standaloneDocsSections.has(param.slug[0]));
+    .filter((param) => !standaloneDocsSections.has(param.slug[0] ?? ""));
 
   return params;
 }

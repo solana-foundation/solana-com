@@ -1,4 +1,5 @@
 import { docsSource } from "@@/src/app/sources/docs";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
@@ -12,6 +13,7 @@ export default async function Layout({
 }) {
   const { locale } = await params;
   const tree = docsSource.pageTree[locale];
+  if (!tree) notFound();
   const paymentsFolder = tree.children.find(
     (child) =>
       child.type === "folder" && child.index?.url?.includes("/docs/payments"),

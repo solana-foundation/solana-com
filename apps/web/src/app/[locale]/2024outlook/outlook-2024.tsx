@@ -71,7 +71,7 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
       heading: headingText,
       body: translations.researchBodies[index],
       callToAction: {
-        ...RESEARCH_CARDS[index].callToAction,
+        ...RESEARCH_CARDS[index]?.callToAction,
         label: translations.buttonsReadUpper,
       },
     }),
@@ -80,7 +80,7 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
     ...CTA_CARDS[index],
     heading: headingText,
     callToAction: {
-      ...CTA_CARDS[index].callToAction,
+      ...CTA_CARDS[index]?.callToAction,
       label: translations.buttonsRead,
     },
   }));

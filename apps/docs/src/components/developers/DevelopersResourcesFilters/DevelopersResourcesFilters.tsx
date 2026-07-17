@@ -35,17 +35,17 @@ function Filters({
       >
         reset filters
       </button>
-      {Object.keys(filters)
-        .filter((item) => !!filters[item].items.length)
-        .map((key) => (
+      {Object.entries(filters)
+        .filter(([, group]) => !!group.items.length)
+        .map(([key, group]) => (
           <Fragment key={key}>
             <div
               className={styles["developers-resources-filters__filters-title"]}
             >
-              {filters[key].label}
+              {group.label}
             </div>
             <div className={styles["developers-resources-filters__filters"]}>
-              {filters[key].items.map((filter) =>
+              {group.items.map((filter) =>
                 filter ? (
                   <div
                     key={filter}
@@ -56,11 +56,10 @@ function Filters({
                       onClick={() => onToggle(key, filter)}
                       className={classNames(
                         styles["developers-resources-filters__filter-btn"],
-                        {
-                          [styles[
+                        activeFilters.get(key)?.includes(filter) &&
+                          styles[
                             "developers-resources-filters__filter-btn--active"
-                          ]]: activeFilters.get(key)?.includes(filter),
-                        },
+                          ],
                       )}
                     >
                       {filter}

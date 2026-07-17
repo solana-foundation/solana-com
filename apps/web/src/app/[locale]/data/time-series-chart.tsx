@@ -424,12 +424,14 @@ export function getSeriesDashPatterns(series: ChartSeries[]) {
       ).length;
 
     if (coincidentCount > 0) {
-      patterns.set(
-        item.id,
+      const pattern =
         coincidentDashPatterns[
           (coincidentCount - 1) % coincidentDashPatterns.length
-        ],
-      );
+        ];
+
+      if (pattern) {
+        patterns.set(item.id, pattern);
+      }
     }
   });
 
@@ -447,6 +449,10 @@ function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
 
   return a.every((pointA, index) => {
     const pointB = b[index];
+
+    if (!pointB) {
+      return false;
+    }
 
     return (
       pointA.date.getTime() === pointB.date.getTime() &&
@@ -501,6 +507,11 @@ function getValueDomain(points: SeriesPoint[]): [number, number] {
 
 function getNearestDateValue(value: number, values: number[]) {
   let nearest = values[0];
+
+  if (nearest === undefined) {
+    return undefined;
+  }
+
   let nearestDistance = Math.abs(value - nearest);
 
   for (const item of values) {
