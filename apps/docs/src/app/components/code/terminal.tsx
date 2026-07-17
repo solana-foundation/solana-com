@@ -74,7 +74,7 @@ function extractAnnotations(code: string) {
       });
     } else {
       const last = annotations[annotations.length - 1];
-      if (last.name === "command" && last.query.endsWith("\\")) {
+      if (last && last.name === "command" && last.query.endsWith("\\")) {
         last.query = last.query + "\n" + line;
         last.toLineNumber = index + 1;
       } else if (!last || last.name !== "output") {
