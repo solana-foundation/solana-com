@@ -19,9 +19,15 @@ type MessageTree = Record<string, unknown>;
 type MessageValues = Record<string, number | string>;
 
 const messageCache = new Map<string, Promise<MessageTree>>();
+const OG_LOCALE_FALLBACKS: Record<string, string> = {
+  // Satori cannot shape the Arabic translations with the current embedded
+  // fonts. Keep the card available in English instead of returning a 500.
+  ar: "en",
+};
 
 function messagesFor(localeParam: string | null) {
-  const locale = resolveLocale(localeParam);
+  const requestedLocale = resolveLocale(localeParam);
+  const locale = OG_LOCALE_FALLBACKS[requestedLocale] ?? requestedLocale;
   let messages = messageCache.get(locale);
 
   if (!messages) {
