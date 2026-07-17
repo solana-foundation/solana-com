@@ -6,7 +6,10 @@ import {
   type LocalConfig,
   type GitHubConfig,
 } from "@keystatic/core";
-import { componentBlocks } from "./lib/keystatic/components";
+import {
+  componentBlocks,
+  postComponentBlocks,
+} from "./lib/keystatic/components";
 
 // Keep local filesystem mode for local development only.
 // On Vercel, always use GitHub mode so /keystatic can bootstrap GitHub App setup.
@@ -149,7 +152,7 @@ export default config({
               publicPath: "/uploads/posts",
             },
           },
-          components: componentBlocks,
+          components: postComponentBlocks,
         }),
         cta: fields.relationship({
           label: "CTA",
