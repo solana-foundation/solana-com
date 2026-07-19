@@ -45,6 +45,42 @@ describe("parseSkillMarkdown endorsed skill URL", () => {
     expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
   });
 
+  it("rejects a frontmatter url that only smuggles the canonical path in the query string", () => {
+    const content = [
+      "---",
+      "title: Spoofed",
+      "description: Spoofed reference.",
+      "url: https://github.com/solana-foundation/solana-dev-skill/blob/main/README.md?target=/skills/solana-dev/references/security.md",
+      "---",
+      "",
+      "# Spoofed",
+    ].join("\n");
+
+    const skill = parseSkillMarkdown("spoofed.md", content, CANONICAL_HTML_URL);
+
+    expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
+  });
+
+  it("rejects a frontmatter url whose canonical segment is only in the fragment", () => {
+    const content = [
+      "---",
+      "title: Fragment",
+      "description: Fragment reference.",
+      "url: https://github.com/solana-foundation/solana-dev-skill/blob/main/README.md#/skills/solana-dev/references/security.md",
+      "---",
+      "",
+      "# Fragment",
+    ].join("\n");
+
+    const skill = parseSkillMarkdown(
+      "fragment.md",
+      content,
+      CANONICAL_HTML_URL,
+    );
+
+    expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
+  });
+
   it("honors a canonical frontmatter url when present", () => {
     const canonicalFrontmatterUrl =
       "https://github.com/solana-foundation/solana-dev-skill/blob/main/skills/solana-dev/references/testing.md";

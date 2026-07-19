@@ -18,16 +18,24 @@ function resolveEndorsedSkillUrl(
   htmlUrl: string,
 ): string {
   // Prefer the canonical GitHub `html_url` returned by the contents API.
-  // Only honor a frontmatter `url` when it is a canonical solana-dev-skill
-  // reference blob URL; stale/invalid metadata (e.g. the singular
-  // `/skill/references/...` path) falls back to `html_url` so links never
-  // point at a 404 or the wrong page.
+  // Only honor a frontmatter `url` when its parsed pathname is a canonical
+  // solana-dev-skill reference blob path; stale/invalid metadata (e.g. the
+  // singular `/skill/references/...` path, or a canonical segment smuggled
+  // into a query/fragment) falls back to `html_url` so links never point at
+  // a 404 or the wrong page.
   if (
     typeof frontmatterUrl === "string" &&
-    frontmatterUrl.startsWith(CANONICAL_SKILLS_URL_PREFIX) &&
-    frontmatterUrl.includes(CANONICAL_SKILLS_PATH_SEGMENT)
+    frontmatterUrl.startsWith(CANONICAL_SKILLS_URL_PREFIX)
   ) {
-    return frontmatterUrl;
+    try {
+      if (
+        new URL(frontmatterUrl).pathname.includes(CANONICAL_SKILLS_PATH_SEGMENT)
+      ) {
+        return frontmatterUrl;
+      }
+    } catch {
+      // Malformed URL: fall back to the canonical html_url below.
+    }
   }
 
   return htmlUrl;
