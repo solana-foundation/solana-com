@@ -9,7 +9,31 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 import { SOLANA_DEV_SKILLS_GITHUB_API_URL } from "@/components/skills/skills";
 
-function parseSkillMarkdown(
+const CANONICAL_SKILLS_URL_PREFIX =
+  "https://github.com/solana-foundation/solana-dev-skill/blob/";
+const CANONICAL_SKILLS_PATH_SEGMENT = "/skills/solana-dev/references/";
+
+function resolveEndorsedSkillUrl(
+  frontmatterUrl: unknown,
+  htmlUrl: string,
+): string {
+  // Prefer the canonical GitHub `html_url` returned by the contents API.
+  // Only honor a frontmatter `url` when it is a canonical solana-dev-skill
+  // reference blob URL; stale/invalid metadata (e.g. the singular
+  // `/skill/references/...` path) falls back to `html_url` so links never
+  // point at a 404 or the wrong page.
+  if (
+    typeof frontmatterUrl === "string" &&
+    frontmatterUrl.startsWith(CANONICAL_SKILLS_URL_PREFIX) &&
+    frontmatterUrl.includes(CANONICAL_SKILLS_PATH_SEGMENT)
+  ) {
+    return frontmatterUrl;
+  }
+
+  return htmlUrl;
+}
+
+export function parseSkillMarkdown(
   filename: string,
   content: string,
   htmlUrl: string,
@@ -21,7 +45,7 @@ function parseSkillMarkdown(
     slug,
     title: data.title ?? slug,
     description: data.description ?? "",
-    githubUrl: htmlUrl,
+    githubUrl: resolveEndorsedSkillUrl(data.url, htmlUrl),
     sourceType: "official",
   };
 }
