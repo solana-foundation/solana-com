@@ -9,27 +9,29 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 import { SOLANA_DEV_SKILLS_GITHUB_API_URL } from "@/components/skills/skills";
 
-const CANONICAL_SKILLS_URL_PREFIX =
-  "https://github.com/solana-foundation/solana-dev-skill/blob/";
-const CANONICAL_SKILLS_PATH_SEGMENT = "/skills/solana-dev/references/";
+const CANONICAL_SKILLS_URL_ORIGIN = "https://github.com";
+const CANONICAL_SKILLS_PATH_PREFIX =
+  "/solana-foundation/solana-dev-skill/blob/main/skills/solana-dev/references/";
 
 function resolveEndorsedSkillUrl(
   frontmatterUrl: unknown,
   htmlUrl: string,
 ): string {
   // Prefer the canonical GitHub `html_url` returned by the contents API.
-  // Only honor a frontmatter `url` when its parsed pathname is a canonical
-  // solana-dev-skill reference blob path; stale/invalid metadata (e.g. the
-  // singular `/skill/references/...` path, or a canonical segment smuggled
-  // into a query/fragment) falls back to `html_url` so links never point at
-  // a 404 or the wrong page.
-  if (
-    typeof frontmatterUrl === "string" &&
-    frontmatterUrl.startsWith(CANONICAL_SKILLS_URL_PREFIX)
-  ) {
+  // Only honor a frontmatter `url` when its parsed origin is github.com and
+  // its pathname *starts with* the fully-qualified canonical reference blob
+  // path. Anchoring with `startsWith` on the parsed pathname keeps the check
+  // position-sensitive: stale/invalid metadata (e.g. the singular
+  // `/skill/references/...` path, a canonical segment smuggled into a
+  // query/fragment, or the segment planted inside a crafted branch ref such
+  // as `/blob/skills/solana-dev/references/main/evil.md`) all fall back to
+  // `html_url` so links never point at a 404 or the wrong page.
+  if (typeof frontmatterUrl === "string") {
     try {
+      const parsed = new URL(frontmatterUrl);
       if (
-        new URL(frontmatterUrl).pathname.includes(CANONICAL_SKILLS_PATH_SEGMENT)
+        parsed.origin === CANONICAL_SKILLS_URL_ORIGIN &&
+        parsed.pathname.startsWith(CANONICAL_SKILLS_PATH_PREFIX)
       ) {
         return frontmatterUrl;
       }

@@ -81,6 +81,46 @@ describe("parseSkillMarkdown endorsed skill URL", () => {
     expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
   });
 
+  it("rejects a frontmatter url that plants the canonical segment in the branch ref", () => {
+    const content = [
+      "---",
+      "title: Branch Ref",
+      "description: Branch ref reference.",
+      "url: https://github.com/solana-foundation/solana-dev-skill/blob/skills/solana-dev/references/main/evil.md",
+      "---",
+      "",
+      "# Branch Ref",
+    ].join("\n");
+
+    const skill = parseSkillMarkdown(
+      "branch-ref.md",
+      content,
+      CANONICAL_HTML_URL,
+    );
+
+    expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
+  });
+
+  it("rejects a frontmatter url on a look-alike host", () => {
+    const content = [
+      "---",
+      "title: Look-alike",
+      "description: Look-alike host.",
+      "url: https://github.com.evil.example/solana-foundation/solana-dev-skill/blob/main/skills/solana-dev/references/security.md",
+      "---",
+      "",
+      "# Look-alike",
+    ].join("\n");
+
+    const skill = parseSkillMarkdown(
+      "look-alike.md",
+      content,
+      CANONICAL_HTML_URL,
+    );
+
+    expect(skill.githubUrl).toBe(CANONICAL_HTML_URL);
+  });
+
   it("honors a canonical frontmatter url when present", () => {
     const canonicalFrontmatterUrl =
       "https://github.com/solana-foundation/solana-dev-skill/blob/main/skills/solana-dev/references/testing.md";
