@@ -1,6 +1,3 @@
-"use client";
-
-import { InkeepSearchBar } from "@solana-com/ui-chrome";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
 
 interface DocsHeroProps {
@@ -28,12 +25,7 @@ export function DocsHero({ title, description, markdown }: DocsHeroProps) {
         <p className="mt-3 text-base text-[hsl(var(--fd-muted-foreground))] md:text-lg">
           {description}
         </p>
-        <div className="mt-8 flex w-full justify-center">
-          <div className="w-full max-w-2xl">
-            <InkeepSearchBar className="!w-full !max-w-none" expanded />
-          </div>
-        </div>
-        <div className="mt-6 flex flex-row justify-center gap-2">
+        <div className="mt-8 flex flex-row justify-center gap-2">
           <LLMCopyButton markdown={markdown} />
           <ViewOptions markdown={markdown} />
         </div>
