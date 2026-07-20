@@ -27,6 +27,7 @@ export default async function Layout({
     "/docs/tokens",
     "/docs/references",
     "/docs/rpc",
+    "/docs/finance",
     "/docs/payments",
     "/docs/tokenization",
     "/docs/defi",

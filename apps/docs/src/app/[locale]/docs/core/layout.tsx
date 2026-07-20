@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
 
-const SIDEBAR_ROUTES = ["/docs/core", "/docs/tokens"];
+const SIDEBAR_ROUTES = ["/docs/core"];
 
 export default async function Layout({
   children,

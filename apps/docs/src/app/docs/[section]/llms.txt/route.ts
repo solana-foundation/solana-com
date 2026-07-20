@@ -8,6 +8,8 @@ const SITE_ORIGIN = "https://solana.com";
 
 /** One-line routing hints shown to agents at the top of each scoped index. */
 const SECTION_NOTES: Record<string, string> = {
+  finance:
+    "Financial products on Solana - how the ledger works, assets, payments, markets, and DeFi.",
   payments:
     "Sending, accepting, and processing payments on Solana - subscriptions, batching, and agentic flows.",
   tokenization:

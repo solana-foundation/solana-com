@@ -16,21 +16,21 @@ const featuredResources = [
     href: "/docs/payments",
   },
   {
-    category: "Tokenization",
+    category: "Assets",
     title: "Issue a stablecoin",
     description:
       "Launch a fiat-backed stablecoin with built-in compliance controls.",
     href: "/docs/tokenization/stablecoins",
   },
   {
-    category: "DeFi",
+    category: "Markets & Trading",
     title: "Build a trading bot",
     description:
       "Automated trading on Solana, from market data to landed transaction.",
     href: "/docs/defi/trading-bot",
   },
   {
-    category: "Tokenization",
+    category: "Assets",
     title: "Tokenize a real-world asset",
     description: "Bring funds, treasuries, and securities onchain.",
     href: "/docs/tokenization/real-world-assets",
