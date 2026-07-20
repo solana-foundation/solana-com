@@ -181,10 +181,10 @@ export const buildResourceItems: NavItemDefinition[] = [
     icon: ApiConnectionNetworkIcon,
   },
   {
-    id: "build-tokens-docs",
-    titleKey: "nav.build.resources.items.tokensDocs.title",
-    href: "/docs/tokens",
-    icon: CoinsIcon,
+    id: "build-finance-docs",
+    titleKey: "nav.build.resources.items.financeDocs.title",
+    href: "/docs/finance",
+    icon: MoneyIcon,
   },
 ];
 

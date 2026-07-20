@@ -3,8 +3,6 @@ import DocsIcon from "./assets/developers/docs.inline.svg";
 import RpcApiIcon from "./assets/developers/api.inline.svg";
 import CoursesIcon from "./assets/developers/courses.inline.svg";
 import ToolsIcon from "./assets/developers/templates.inline.svg";
-import WalletIcon from "./assets/developers/wallet.inline.svg";
-import SkillsIcon from "./assets/developers/skills.inline.svg";
 import StatisticsIcon from "./assets/developers/statistics.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
@@ -58,6 +56,7 @@ export function DevelopersNav({
                   "/docs/tokens",
                   "/docs/references",
                   "/docs/rpc",
+                  "/docs/finance",
                   "/docs/payments",
                   "/docs/tokenization",
                   "/docs/defi",
@@ -77,7 +76,6 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/core"
-                partiallyActiveMatch={["/docs/tokens"]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <CoursesIcon
@@ -103,35 +101,13 @@ export function DevelopersNav({
               </NavLink>
               <NavLink
                 partiallyActive
-                to="/docs/payments"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <WalletIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.payments")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/docs/tokenization"
-                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-              >
-                <SkillsIcon
-                  height="16"
-                  width="16"
-                  className="inline-block mr-2"
-                />
-                <span className="align-middle">
-                  {t("developers.nav.tokenization")}
-                </span>
-              </NavLink>
-              <NavLink
-                partiallyActive
-                to="/docs/defi"
+                to="/docs/finance"
+                partiallyActiveMatch={[
+                  "/docs/tokens",
+                  "/docs/tokenization",
+                  "/docs/payments",
+                  "/docs/defi",
+                ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <StatisticsIcon
@@ -139,7 +115,9 @@ export function DevelopersNav({
                   width="16"
                   className="inline-block mr-2"
                 />
-                <span className="align-middle">{t("developers.nav.defi")}</span>
+                <span className="align-middle">
+                  {t("developers.nav.finance")}
+                </span>
               </NavLink>
               <NavLink
                 partiallyActive
