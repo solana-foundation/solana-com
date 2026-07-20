@@ -1,4 +1,5 @@
 import { defaultLocale } from "@workspace/i18n/config";
+import { DEFAULT_SOCIAL_IMAGE_URL } from "@solana-com/ui-chrome/social-image";
 
 const routePrefix = "/breakpoint";
 const assetPrefix = "/breakpoint-assets";
@@ -100,7 +101,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card.jpg")}`,
+    socialShare: DEFAULT_SOCIAL_IMAGE_URL,
     googleAnalytics: {
       trackingId: "G-94WS0LRZRS",
       adWordsId: "AW-302884864",

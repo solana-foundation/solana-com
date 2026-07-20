@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { defaultLocale, locales } from "@workspace/i18n/config";
 import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 
 export function getBaseMetadata(locale: string = "en"): Metadata {
   const { siteMetadata, publicUrl, siteIcon, social } = config;
@@ -25,14 +26,7 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
       siteName: siteMetadata.title,
       title: siteMetadata.title,
       description: siteMetadata.description,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          width: 1200,
-          height: 630,
-          alt: siteMetadata.title,
-        },
-      ],
+      images: [createDefaultSocialImage(siteMetadata.title)],
     },
     twitter: {
       card: "summary_large_image",
@@ -40,7 +34,7 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
       creator: siteMetadata.author,
       title: siteMetadata.title,
       description: siteMetadata.description,
-      images: [siteMetadata.socialShare],
+      images: [createDefaultSocialImage(siteMetadata.title)],
     },
     icons: {
       icon: [
@@ -138,14 +132,7 @@ export function getPageMetadata({
       siteName: config.siteMetadata.title,
       title,
       description,
-      images: [
-        {
-          url: config.siteMetadata.socialShare,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
+      images: [createDefaultSocialImage(title)],
     },
     twitter: {
       card: "summary_large_image",
@@ -153,7 +140,7 @@ export function getPageMetadata({
       creator: config.siteMetadata.author,
       title,
       description,
-      images: [config.siteMetadata.socialShare],
+      images: [createDefaultSocialImage(title)],
     },
   };
 }

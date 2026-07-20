@@ -1,4 +1,8 @@
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import {
+  DEFAULT_SOCIAL_IMAGE,
+  DEFAULT_SOCIAL_IMAGE_URL,
+} from "@solana-com/ui-chrome/social-image";
 
 const PUBLIC_SITE_URL = "https://solana.com";
 
@@ -6,7 +10,7 @@ export const config = {
   siteMetadata: {
     title: `Solana`,
     description: `Fast. Decentralized. Scalable. Energy efficient. Solana can power thousands of transactions per second.`,
-    socialShare: `https://solana.com/social/solana.jpg`,
+    socialShare: DEFAULT_SOCIAL_IMAGE_URL,
     author: `@solana`,
     googleAnalytics: {
       trackingId: `G-94WS0LRZRS`,
@@ -24,8 +28,8 @@ export const config = {
 
   publicUrl: PUBLIC_SITE_URL,
 
-  shareImageWidth: 1000,
-  shareImageHeight: 523,
+  shareImageWidth: DEFAULT_SOCIAL_IMAGE.width,
+  shareImageHeight: DEFAULT_SOCIAL_IMAGE.height,
   social: {
     twitter: {
       name: `solana`,
