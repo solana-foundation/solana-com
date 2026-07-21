@@ -2055,7 +2055,16 @@ function buildSeries(
   const metricSet = new Set<string>(chart.metrics);
   const buckets = new Map<
     string,
-    Map<string, { color: string; count: number; label: string; sum: number }>
+    Map<
+      string,
+      {
+        color: string;
+        count: number;
+        details?: MetricRow["details"];
+        label: string;
+        sum: number;
+      }
+    >
   >();
 
   for (const row of rows) {
@@ -2085,6 +2094,7 @@ function buildSeries(
 
     bucket.sum += row.value;
     bucket.count += 1;
+    bucket.details = row.details ?? bucket.details;
     seriesBucket.set(row.date, bucket);
     buckets.set(seriesId, seriesBucket);
   }
@@ -2112,6 +2122,7 @@ function buildSeries(
             ? [
                 {
                   date: parsedDate,
+                  details: bucket.details,
                   value: aggregate(bucket.sum, bucket.count, chart.aggregation),
                 },
               ]
@@ -2394,7 +2405,9 @@ function parseRpcRegion(
 ): RpcLatencyRegion {
   const normalizedValue = normalizeRpcRegionParam(value);
 
-  return rpcRegionOptions.some((option) => option.value === normalizedValue)
+  return getRpcRegionOptions(infra).some(
+    (option) => option.value === normalizedValue,
+  )
     ? (normalizedValue as RpcLatencyRegion)
     : getDefaultRpcRegion(infra);
 }

@@ -47,12 +47,18 @@ export const rpcTimeframeOptions = [
 ] as const;
 
 export const rpcRegionOptions = [
-  { label: "us-east", value: "us-east" },
-  { label: "us-west", value: "us-west" },
-  { label: "eu-central", value: "eu-central" },
-  { label: "eu-west", value: "eu-west" },
-  { label: "ap-northeast", value: "ap-northeast" },
-  { label: "ap-southeast", value: "ap-southeast" },
+  { label: "iad", value: "iad" },
+  { label: "nyc", value: "nyc" },
+  { label: "ewr", value: "ewr" },
+  { label: "pit", value: "pit" },
+  { label: "lax", value: "lax" },
+  { label: "sfo", value: "sfo" },
+  { label: "lon", value: "lon" },
+  { label: "fra", value: "fra" },
+  { label: "ams", value: "ams" },
+  { label: "dub", value: "dub" },
+  { label: "tyo", value: "tyo" },
+  { label: "sgp", value: "sgp" },
 ] as const;
 
 export const rpcInfraOptions = [
@@ -82,7 +88,7 @@ export const rpcMethodOptions = [
 ] as const;
 
 export const defaultRpcInfra = "tsw";
-export const defaultRpcRegion = "us-west";
+export const defaultRpcRegion = "lax";
 export const defaultRpcMethod = "getLatestBlockhash";
 export const defaultRpcTimeframe = "6h";
 
@@ -105,44 +111,80 @@ export type RpcLatencyFiltersResponse = {
 
 export const fallbackRpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"] =
   {
-    tsw: ["us-west", "eu-central", "eu-west", "ap-northeast"],
-    lat: rpcRegionOptions.map((option) => option.value),
-    aws: rpcRegionOptions.map((option) => option.value),
-    gcp: rpcRegionOptions.map((option) => option.value),
+    tsw: ["ewr", "pit", "lax", "lon", "fra", "ams", "tyo", "sgp"],
+    lat: ["nyc", "lax", "lon", "fra", "ams", "tyo", "sgp"],
+    aws: ["iad", "sfo", "lon", "fra", "dub", "tyo", "sgp"],
+    gcp: ["iad", "lax", "lon", "fra", "ams", "tyo", "sgp"],
   };
 
 const rpcRegionParamAliases: Partial<Record<string, RpcLatencyRegion>> = {
-  "us-east4": "us-east",
-  "us-east-1": "us-east",
-  nyc: "us-east",
-  ewr: "us-east",
-  ewr2: "us-east",
-  pit: "us-east",
-  pit1: "us-east",
-  "us-west2": "us-west",
-  "us-west-1": "us-west",
-  lax: "us-west",
-  lax1: "us-west",
-  "europe-west3": "eu-central",
-  "eu-central-1": "eu-central",
-  fra: "eu-central",
-  fra2: "eu-central",
-  "europe-west4": "eu-central",
-  ams: "eu-central",
-  ams3: "eu-central",
-  "europe-west2": "eu-west",
-  "eu-west-2": "eu-west",
-  "eu-west-1": "eu-west",
-  lon: "eu-west",
-  lon1: "eu-west",
-  "asia-northeast1": "ap-northeast",
-  "ap-northeast-1": "ap-northeast",
-  tyo: "ap-northeast",
-  tyo2: "ap-northeast",
-  "asia-southeast1": "ap-southeast",
-  "ap-southeast-1": "ap-southeast",
-  sgp: "ap-southeast",
-  sgp2: "ap-southeast",
+  "us-east4": "iad",
+  "us-east-1": "iad",
+  ewr2: "ewr",
+  pit1: "pit",
+  pitt: "pit",
+  pitt1: "pit",
+  "us-west2": "lax",
+  lax1: "lax",
+  "us-west-1": "sfo",
+  "europe-west2": "lon",
+  "eu-west-2": "lon",
+  lon1: "lon",
+  "europe-west3": "fra",
+  "eu-central-1": "fra",
+  fra2: "fra",
+  "europe-west4": "ams",
+  ams3: "ams",
+  "eu-west-1": "dub",
+  "asia-northeast1": "tyo",
+  "ap-northeast-1": "tyo",
+  tyo2: "tyo",
+  "asia-southeast1": "sgp",
+  "ap-southeast-1": "sgp",
+  sgp2: "sgp",
+};
+
+const rpcRegionSourceValues: Record<
+  RpcLatencyInfra,
+  Partial<Record<RpcLatencyRegion, string>>
+> = {
+  tsw: {
+    ewr: "ewr2",
+    pit: "pit1|pitt1",
+    lax: "lax1",
+    lon: "lon1",
+    fra: "fra2",
+    tyo: "tyo2",
+    ams: "ams3",
+    sgp: "sgp2",
+  },
+  lat: {
+    nyc: "nyc",
+    lax: "lax",
+    lon: "lon",
+    fra: "fra",
+    ams: "ams",
+    sgp: "sgp",
+    tyo: "tyo",
+  },
+  aws: {
+    iad: "us-east-1",
+    sfo: "us-west-1",
+    lon: "eu-west-2",
+    fra: "eu-central-1",
+    dub: "eu-west-1",
+    tyo: "ap-northeast-1",
+    sgp: "ap-southeast-1",
+  },
+  gcp: {
+    iad: "us-east4",
+    lax: "us-west2",
+    lon: "europe-west2",
+    fra: "europe-west3",
+    ams: "europe-west4",
+    tyo: "asia-northeast1",
+    sgp: "asia-southeast1",
+  },
 };
 
 const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
@@ -158,8 +200,11 @@ export function normalizeRpcInfraParam(value: string | null | undefined) {
   return value ? (rpcInfraParamAliases[value] ?? value) : value;
 }
 
-export function getRpcRegionSourceValue(value: RpcLatencyRegion) {
-  return value;
+export function getRpcRegionSourceValue(
+  infra: RpcLatencyInfra,
+  value: RpcLatencyRegion,
+) {
+  return rpcRegionSourceValues[infra][value] ?? value;
 }
 
 export function getRpcInfraSourceValue(value: RpcLatencyInfra) {
@@ -184,9 +229,11 @@ export function getDefaultRpcRegion(
   infra: RpcLatencyInfra,
   regionsByInfra = fallbackRpcRegionsByInfra,
 ): RpcLatencyRegion {
-  return (
-    getRpcRegionOptions(infra, regionsByInfra)[0]?.value ?? defaultRpcRegion
-  );
+  const options = getRpcRegionOptions(infra, regionsByInfra);
+
+  return options.some((option) => option.value === defaultRpcRegion)
+    ? defaultRpcRegion
+    : (options[0]?.value ?? defaultRpcRegion);
 }
 
 export type DashboardTab =
@@ -222,11 +269,104 @@ export type ChartDefinition = {
 export type MetricRow = {
   /** ISO date for daily data, or ISO timestamp for intraday data. */
   date: string;
+  details?: MetricRowDetail[];
   metricName: string;
   unit: string;
   providerName: string;
   value: number;
 };
+
+export type MetricRowDetail = {
+  description: string;
+  id: string;
+  label: string;
+  value: number;
+};
+
+export const rpcErrorKindOptions = [
+  {
+    value: "timeout",
+    label: "Timeout",
+    description: "No response within the 10-second deadline.",
+  },
+  {
+    value: "transport",
+    label: "Connection failed",
+    description: "DNS, TLS, or connection-level failure.",
+  },
+  {
+    value: "http_5xx",
+    label: "Server error",
+    description: "The provider returned HTTP 500–599.",
+  },
+  {
+    value: "http_429",
+    label: "Rate limited",
+    description:
+      "The provider returned HTTP 429. This is normally treated as a neutral skipped outcome.",
+  },
+  {
+    value: "http_4xx",
+    label: "Client error",
+    description:
+      "The provider returned another HTTP 4xx. This is normally treated as a neutral skipped outcome.",
+  },
+  {
+    value: "rpc_block_unavailable",
+    label: "Block unavailable",
+    description: "The node does not have the requested block (-32004).",
+  },
+  {
+    value: "rpc_node_unhealthy",
+    label: "Node behind",
+    description: "The node is unhealthy or behind the cluster (-32005).",
+  },
+  {
+    value: "rpc_slot_skipped",
+    label: "Slot skipped",
+    description:
+      "A skipped slot was returned for a method that should not hit one (-32007/-32009).",
+  },
+  {
+    value: "rpc_tx_history_unavailable",
+    label: "History unavailable",
+    description: "Transaction history is not available (-32011).",
+  },
+  {
+    value: "rpc_method_not_found",
+    label: "Method not supported",
+    description: "The provider does not support this method (-32601).",
+  },
+  {
+    value: "rpc_invalid_params",
+    label: "Invalid params",
+    description: "The provider rejected the request parameters (-32602).",
+  },
+  {
+    value: "rpc_error",
+    label: "RPC error",
+    description: "Another JSON-RPC error was returned.",
+  },
+  {
+    value: "decode",
+    label: "Malformed response",
+    description: "The HTTP 200 response was not valid JSON-RPC.",
+  },
+  {
+    value: "empty",
+    label: "Empty result",
+    description: "The HTTP 200 response did not contain usable data.",
+  },
+  {
+    value: "stale",
+    label: "Stale data",
+    description: "The response slot trailed the chain tip beyond its budget.",
+  },
+] as const;
+
+export function getRpcErrorKindOption(value: string) {
+  return rpcErrorKindOptions.find((option) => option.value === value);
+}
 
 export type DataApiResponse = {
   generatedAt: string;
@@ -583,34 +723,35 @@ export const chartDefinitions = [
     ],
   },
   {
-    id: "rpc-success-rate",
+    id: "rpc-error-rate",
     tab: "rpc",
-    title: "Success Rate",
+    title: "Error Rate",
     valueLabel: "Percent",
-    metrics: ["RPC Success Rate"],
+    metrics: ["RPC Error Rate"],
     aggregation: "avg",
     seriesField: "provider",
+    lowerIsBetter: true,
     timeGranularity: "hour",
     methodology: [
       {
         provider: "Alchemy",
         description:
-          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+          "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
       {
         provider: "Helius",
         description:
-          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+          "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
       {
         provider: "QuickNode",
         description:
-          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+          "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
       {
         provider: "Triton",
         description:
-          "Successful rpc_requests_total divided by all rpc_requests_total for the selected RPC method, region, and infrastructure filter.",
+          "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
     ],
   },

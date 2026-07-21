@@ -13,8 +13,11 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
 
+import type { MetricRowDetail } from "./data-config";
+
 export type SeriesPoint = {
   date: Date;
+  details?: MetricRowDetail[];
   value: number;
 };
 
@@ -34,6 +37,7 @@ type TimeSeriesChartProps = {
 
 type TooltipValue = {
   color: string;
+  details?: MetricRowDetail[];
   label: string;
   value: number;
 };
@@ -365,10 +369,11 @@ function ChartSvg({
 
               const tooltipDate = new Date(nearestTime);
               const values = series
-                .map((item) => {
-                  const value = item.points.find(
+                .map((item): TooltipValue | null => {
+                  const seriesPoint = item.points.find(
                     (seriesPoint) => seriesPoint.date.getTime() === nearestTime,
-                  )?.value;
+                  );
+                  const value = seriesPoint?.value;
 
                   if (typeof value !== "number") {
                     return null;
@@ -376,6 +381,7 @@ function ChartSvg({
 
                   return {
                     color: item.color,
+                    details: seriesPoint?.details,
                     label: item.label,
                     value,
                   };
@@ -408,19 +414,37 @@ function ChartSvg({
           </div>
           <div className="mt-2 grid gap-1.5">
             {tooltipData.values.map((item) => (
-              <div
-                className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
-                key={item.label}
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-nd-mid-em-text">{item.label}</span>
-                <span className="font-medium tabular-nums text-nd-high-em-text">
-                  {formatValue(item.value, valueLabel, locale)}
-                </span>
+              <div className="grid gap-1" key={item.label}>
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-nd-mid-em-text">{item.label}</span>
+                  <span className="font-medium tabular-nums text-nd-high-em-text">
+                    {formatValue(item.value, valueLabel, locale)}
+                  </span>
+                </div>
+                {item.details?.length ? (
+                  <div className="ml-3.5 grid gap-1 border-l border-nd-border-light pl-2.5">
+                    {item.details.map((detail) => (
+                      <div className="grid gap-0.5" key={detail.id}>
+                        <div className="grid grid-cols-[1fr_auto] gap-3">
+                          <span className="font-medium text-nd-high-em-text">
+                            {detail.label}
+                          </span>
+                          <span className="font-medium tabular-nums text-nd-high-em-text">
+                            {formatValue(detail.value, valueLabel, locale)}
+                          </span>
+                        </div>
+                        <span className="max-w-[300px] text-[11px] leading-[1.35] text-nd-mid-em-text">
+                          {detail.description}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>

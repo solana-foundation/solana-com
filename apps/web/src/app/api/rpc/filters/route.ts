@@ -14,7 +14,7 @@ export const revalidate = 0;
 
 const FILTER_CACHE_REVALIDATE_SECONDS = 5 * 60;
 const EDGE_STALE_SECONDS = 60 * 60;
-const FILTER_CACHE_KEY_VERSION = "solana-data-rpc-filters-v1";
+const FILTER_CACHE_KEY_VERSION = "solana-data-rpc-filters-v2";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 

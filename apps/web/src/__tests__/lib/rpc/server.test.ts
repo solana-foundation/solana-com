@@ -9,8 +9,9 @@ import {
 } from "@/app/[locale]/data/data-config";
 import {
   buildRpcAvgLatencyQuery,
+  buildRpcErrorRateBreakdownQuery,
+  buildRpcErrorRateQuery,
   buildRpcP95LatencyQuery,
-  buildRpcSuccessRateQuery,
   getRpcLatencyCacheKey,
   getRpcLatencyFilterOptions,
   getRpcLatencyMetricRows,
@@ -18,14 +19,14 @@ import {
 } from "@/lib/rpc/server";
 
 describe("RPC latency query options", () => {
-  it("defaults to TSW and its first available region", () => {
+  it("defaults to TSW in Los Angeles", () => {
     const options = parseRpcLatencyQueryOptions(
       new URLSearchParams("method=getTransactionRecent"),
     );
 
     expect(options.infra).toBe("tsw");
     expect(options.method).toBe("getTransactionRecent");
-    expect(options.region).toBe("us-west");
+    expect(options.region).toBe("lax");
     expect(options.timeframe).toBe("6h");
   });
 
@@ -88,14 +89,20 @@ describe("RPC latency query options", () => {
     ]);
   });
 
-  it("exposes canonical cross-infrastructure regions without all", () => {
+  it("exposes canonical colo regions without all", () => {
     expect(rpcRegionOptions.map((option) => option.value)).toEqual([
-      "us-east",
-      "us-west",
-      "eu-central",
-      "eu-west",
-      "ap-northeast",
-      "ap-southeast",
+      "iad",
+      "nyc",
+      "ewr",
+      "pit",
+      "lax",
+      "sfo",
+      "lon",
+      "fra",
+      "ams",
+      "dub",
+      "tyo",
+      "sgp",
     ]);
   });
 
@@ -129,19 +136,31 @@ describe("RPC latency query options", () => {
       parseRpcLatencyQueryOptions(
         new URLSearchParams("infra=gcp&region=us-east4"),
       ).region,
-    ).toBe("us-east");
+    ).toBe("iad");
     expect(
       parseRpcLatencyQueryOptions(
         new URLSearchParams("infra=aws&region=eu-west-1"),
       ).region,
-    ).toBe("eu-west");
+    ).toBe("dub");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=lat&region=tyo"))
         .region,
-    ).toBe("ap-northeast");
+    ).toBe("tyo");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=tsw&region=ewr2"))
+        .region,
+    ).toBe("ewr");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=tsw&region=pitt1"))
+        .region,
+    ).toBe("pit");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("region=unknown")).region,
-    ).toBe("us-west");
+    ).toBe("lax");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("infra=aws&region=lax"))
+        .region,
+    ).toBe("iad");
   });
 });
 
@@ -179,12 +198,67 @@ describe("RPC latency query ranges", () => {
       .map(([input]) => new URL(String(input)))
       .filter((url) => url.pathname.endsWith("/query_range"));
 
-    expect(rangeUrls).toHaveLength(4);
+    expect(rangeUrls).toHaveLength(5);
     for (const url of rangeUrls) {
       expect(url.searchParams.get("start")).toBe(String(nowSeconds - 30 * 60));
       expect(url.searchParams.get("end")).toBe(String(nowSeconds));
       expect(url.searchParams.get("step")).toBe("60");
     }
+  });
+
+  it("attaches human-readable error kinds to error-rate samples", async () => {
+    const timestamp = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("provider, error_kind")
+        ? [
+            {
+              metric: { error_kind: "timeout", provider: "helius" },
+              values: [[timestamp, "2.5"]],
+            },
+          ]
+        : query.includes("rpc_requests_total")
+          ? [
+              {
+                metric: { provider: "helius" },
+                values: [[timestamp, "2.5"]],
+              },
+            ]
+          : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    expect(result.rows).toEqual([
+      {
+        date: new Date(timestamp * 1000).toISOString(),
+        details: [
+          {
+            description: "No response within the 10-second deadline.",
+            id: "timeout",
+            label: "Timeout",
+            value: 2.5,
+          },
+        ],
+        metricName: "RPC Error Rate",
+        providerName: "helius",
+        unit: "Percent",
+        value: 2.5,
+      },
+    ]);
   });
 });
 
@@ -209,7 +283,7 @@ describe("RPC latency cache identity", () => {
     const options = {
       infra: "aws",
       method: "getSlot",
-      region: "us-east",
+      region: "iad",
       timeframe: "24h",
     } as const;
 
@@ -220,10 +294,10 @@ describe("RPC latency cache identity", () => {
 });
 
 describe("RPC Prometheus queries", () => {
-  it("threads the default TSW and canonical region into latency queries", () => {
+  it("threads the default TSW colo into latency queries", () => {
     expect(buildRpcAvgLatencyQuery()).toContain('infra=~"tsw"');
-    expect(buildRpcAvgLatencyQuery()).toContain('geo=~"us-west"');
-    expect(buildRpcAvgLatencyQuery()).not.toContain("region=");
+    expect(buildRpcAvgLatencyQuery()).toContain('region=~"lax1"');
+    expect(buildRpcAvgLatencyQuery()).not.toContain("geo=");
   });
 
   it("excludes failed requests from latency queries", () => {
@@ -249,27 +323,54 @@ describe("RPC Prometheus queries", () => {
     expect(buildRpcAvgLatencyQuery({ infra: "gcp" })).toContain('infra=~"gcp"');
   });
 
-  it("matches Grafana's AWS canonical-region filter shape", () => {
+  it("maps canonical colos back to each infrastructure's region label", () => {
     const query = buildRpcP95LatencyQuery({
       infra: "aws",
       method: "getLatestBlockhash",
-      region: "us-east",
+      region: "iad",
     });
 
     expect(query).toContain('method="getLatestBlockhash"');
-    expect(query).toContain('geo=~"us-east"');
+    expect(query).toContain('region=~"us-east-1"');
     expect(query).toContain('infra=~"aws"');
     expect(query).toContain('status="success"');
+
+    expect(buildRpcAvgLatencyQuery({ infra: "gcp", region: "fra" })).toContain(
+      'region=~"europe-west3"',
+    );
+    expect(buildRpcAvgLatencyQuery({ infra: "lat", region: "fra" })).toContain(
+      'region=~"fra"',
+    );
+    expect(buildRpcAvgLatencyQuery({ infra: "tsw", region: "fra" })).toContain(
+      'region=~"fra2"',
+    );
+    expect(buildRpcAvgLatencyQuery({ infra: "tsw", region: "pit" })).toContain(
+      'region=~"pit1|pitt1"',
+    );
   });
 
-  it("computes success rate as success over all requests", () => {
-    const query = buildRpcSuccessRateQuery({ infra: "aws" });
+  it("computes error rate over success and error outcomes", () => {
+    const query = buildRpcErrorRateQuery({ infra: "aws", region: "iad" });
 
     expect(query).toContain("rpc_requests_total");
-    expect(query).toContain('status="success"');
+    expect(query).toContain('status="error"');
+    expect(query).toContain('status=~"success|error"');
     expect(query).toContain('infra=~"aws"');
     expect(query).not.toContain("error_kind");
     expect(query).toContain("or on(provider) (0 *");
+  });
+
+  it("breaks error rate down by the monitor's error_kind label", () => {
+    const query = buildRpcErrorRateBreakdownQuery({
+      infra: "gcp",
+      region: "ams",
+    });
+
+    expect(query).toContain("sum by (provider, error_kind)");
+    expect(query).toContain("/ on(provider) group_left");
+    expect(query).toContain('region=~"europe-west4"');
+    expect(query).toContain('status="error"');
+    expect(query).toContain('status=~"success|error"');
   });
 });
 
@@ -285,14 +386,24 @@ describe("RPC filter options", () => {
           status: "success",
           data: {
             result: [
-              { metric: { geo: "eu-west", infra: "tsw" }, value: [1, "1"] },
-              { metric: { geo: "us-west", infra: "tsw" }, value: [1, "1"] },
+              { metric: { infra: "tsw", region: "lon1" }, value: [1, "1"] },
+              { metric: { infra: "tsw", region: "ewr2" }, value: [1, "1"] },
+              { metric: { infra: "tsw", region: "pit1" }, value: [1, "1"] },
+              { metric: { infra: "tsw", region: "ams3" }, value: [1, "1"] },
               {
-                metric: { geo: "ap-southeast", infra: "latitude" },
+                metric: { infra: "latitude", region: "sgp" },
                 value: [1, "1"],
               },
               {
-                metric: { geo: "us-east", infra: "latitude" },
+                metric: { infra: "latitude", region: "nyc" },
+                value: [1, "1"],
+              },
+              {
+                metric: { infra: "aws", region: "eu-central-1" },
+                value: [1, "1"],
+              },
+              {
+                metric: { infra: "gcp", region: "europe-west3" },
                 value: [1, "1"],
               },
             ],
@@ -311,17 +422,17 @@ describe("RPC filter options", () => {
       }),
     ).resolves.toEqual({
       regionsByInfra: {
-        tsw: ["us-west", "eu-west"],
-        lat: ["us-east", "ap-southeast"],
-        aws: [],
-        gcp: [],
+        tsw: ["ewr", "pit", "lon", "ams"],
+        lat: ["nyc", "sgp"],
+        aws: ["fra"],
+        gcp: ["fra"],
       },
     });
 
     const url = new URL(fetchMock.mock.calls[0][0]);
 
     expect(url.searchParams.get("query")).toBe(
-      "count by (infra, geo) (rpc_up)",
+      "count by (infra, region) (rpc_up)",
     );
   });
 });

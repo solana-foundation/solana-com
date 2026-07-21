@@ -17,7 +17,7 @@ export const revalidate = 0;
 
 const RPC_CACHE_REVALIDATE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 5 * 60;
-const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v4";
+const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v5";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DATA_UNAVAILABLE_ERROR =

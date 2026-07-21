@@ -5,7 +5,9 @@ import {
   defaultRpcMethod,
   defaultRpcTimeframe,
   getDefaultRpcRegion,
+  getRpcErrorKindOption,
   getRpcInfraSourceValue,
+  getRpcRegionOptions,
   getRpcRegionSourceValue,
   getRpcTimeframeOption,
   normalizeRpcInfraParam,
@@ -15,6 +17,7 @@ import {
   rpcRegionOptions,
   rpcTimeframeOptions,
   type MetricRow,
+  type MetricRowDetail,
   type RpcLatencyInfra,
   type RpcLatencyFiltersResponse,
   type RpcLatencyMethod,
@@ -137,6 +140,16 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
     infraSet,
     defaultRpcInfra,
   ) as RpcLatencyInfra;
+  const defaultRegion = getDefaultRpcRegion(infra);
+  const requestedRegion = parseAllowedValue(
+    normalizeRpcRegionParam(params.get("region")),
+    regionSet,
+  ) as RpcLatencyRegion | undefined;
+  const region = getRpcRegionOptions(infra).some(
+    (option) => option.value === requestedRegion,
+  )
+    ? requestedRegion
+    : defaultRegion;
 
   return {
     infra,
@@ -148,11 +161,7 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
     provider: parseAllowedValue(params.get("provider"), providerSet) as
       | RpcLatencyProvider
       | undefined,
-    region: parseAllowedValue(
-      normalizeRpcRegionParam(params.get("region")),
-      regionSet,
-      getDefaultRpcRegion(infra),
-    ) as RpcLatencyRegion,
+    region: region ?? defaultRegion,
     timeframe: parseAllowedValue(
       params.get("timeframe"),
       timeframeSet,
@@ -176,7 +185,8 @@ export function getRpcLatencyCacheKey(
     timeframe.value,
     timeframe.durationSeconds,
     timeframe.stepSeconds,
-    buildRpcSuccessRateQuery(options),
+    buildRpcErrorRateQuery(options),
+    buildRpcErrorRateBreakdownQuery(options),
     buildRpcAvgLatencyQuery(options),
     buildRpcP50LatencyQuery(options),
     buildRpcP95LatencyQuery(options),
@@ -190,7 +200,7 @@ export async function getRpcLatencyFilterOptions(
   const results = await queryPrometheus<PrometheusInstantResult>(
     config,
     QUERY_API_PATH,
-    { query: "count by (infra, geo) (rpc_up)" },
+    { query: "count by (infra, region) (rpc_up)" },
   );
   const availableRegions = new Map<RpcLatencyInfra, Set<RpcLatencyRegion>>();
 
@@ -199,7 +209,7 @@ export async function getRpcLatencyFilterOptions(
       getMetricLabel(result.metric, "infra"),
     );
     const region = normalizeRpcRegionParam(
-      getMetricLabel(result.metric, "geo"),
+      getMetricLabel(result.metric, "region"),
     );
 
     if (!infra || !infraSet.has(infra) || !region || !regionSet.has(region)) {
@@ -244,7 +254,8 @@ export async function getRpcLatencyMetricRows(
   const end = Math.floor(Date.now() / MS_PER_SECOND);
   const start = end - timeframe.durationSeconds;
   const [
-    successRateResults,
+    errorRateResults,
+    errorRateBreakdownResults,
     avgLatencyResults,
     p50LatencyResults,
     p95LatencyResults,
@@ -252,7 +263,13 @@ export async function getRpcLatencyMetricRows(
   ] = await Promise.all([
     queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
       end: String(end),
-      query: buildRpcSuccessRateQuery(normalizedOptions),
+      query: buildRpcErrorRateQuery(normalizedOptions),
+      start: String(start),
+      step: String(timeframe.stepSeconds),
+    }),
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
+      query: buildRpcErrorRateBreakdownQuery(normalizedOptions),
       start: String(start),
       step: String(timeframe.stepSeconds),
     }),
@@ -282,7 +299,7 @@ export async function getRpcLatencyMetricRows(
   return {
     generatedAt: new Date().toISOString(),
     rows: [
-      ...toRangeMetricRows(successRateResults, "RPC Success Rate", "Percent"),
+      ...toErrorRateMetricRows(errorRateResults, errorRateBreakdownResults),
       ...toInstantMetricRows(avgLatencyResults, "RPC Avg Latency"),
       ...toRangeMetricRows(p50LatencyResults, "RPC P50 Latency"),
       ...toRangeMetricRows(p95LatencyResults, "RPC P95 Latency"),
@@ -292,19 +309,35 @@ export async function getRpcLatencyMetricRows(
   };
 }
 
-export function buildRpcSuccessRateQuery(options: RpcLatencyQueryOptions = {}) {
-  const totalSelector = buildLabelSelector(options);
-  const successSelector = buildLabelSelector(options, [
-    ["status", "=", "success"],
+export function buildRpcErrorRateQuery(options: RpcLatencyQueryOptions = {}) {
+  const eligibleSelector = buildLabelSelector(options, [
+    ["status", "=~", "success|error"],
   ]);
-  const totalRate = `sum by (provider)(rate(rpc_requests_total${totalSelector}[5m]))`;
-  const successRate = `sum by (provider)(rate(rpc_requests_total${successSelector}[5m]))`;
+  const errorSelector = buildLabelSelector(options, [["status", "=", "error"]]);
+  const eligibleRate = `sum by (provider)(rate(rpc_requests_total${eligibleSelector}[5m]))`;
+  const errorRate = `sum by (provider)(rate(rpc_requests_total${errorSelector}[5m]))`;
 
   return [
     "100 *",
-    `((${successRate}) or on(provider) (0 * ${totalRate}))`,
+    `((${errorRate}) or on(provider) (0 * ${eligibleRate}))`,
     "/",
-    totalRate,
+    eligibleRate,
+  ].join(" ");
+}
+
+export function buildRpcErrorRateBreakdownQuery(
+  options: RpcLatencyQueryOptions = {},
+) {
+  const eligibleSelector = buildLabelSelector(options, [
+    ["status", "=~", "success|error"],
+  ]);
+  const errorSelector = buildLabelSelector(options, [["status", "=", "error"]]);
+
+  return [
+    "100 *",
+    `sum by (provider, error_kind)(rate(rpc_requests_total${errorSelector}[5m]))`,
+    "/ on(provider) group_left",
+    `sum by (provider)(rate(rpc_requests_total${eligibleSelector}[5m]))`,
   ].join(" ");
 }
 
@@ -354,7 +387,7 @@ function buildLabelSelector(
 ) {
   const matchers: PrometheusLabelMatcher[] = [
     ["method", "=", method],
-    ["geo", "=~", getRpcRegionMatcher(region)],
+    ["region", "=~", getRpcRegionMatcher(infra, region)],
     ["infra", "=~", getRpcInfraMatcher(infra)],
   ];
 
@@ -371,8 +404,8 @@ function getRpcInfraMatcher(infra: RpcLatencyInfra) {
   return getRpcInfraSourceValue(infra);
 }
 
-function getRpcRegionMatcher(region: RpcLatencyRegion) {
-  return getRpcRegionSourceValue(region);
+function getRpcRegionMatcher(infra: RpcLatencyInfra, region: RpcLatencyRegion) {
+  return getRpcRegionSourceValue(infra, region);
 }
 
 function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {
@@ -423,6 +456,80 @@ async function queryPrometheus<T>(
   }
 
   return payload.data.result;
+}
+
+function toErrorRateMetricRows(
+  errorRateResults: PrometheusRangeResult[],
+  breakdownResults: PrometheusRangeResult[],
+) {
+  const detailsBySample = getErrorRateDetailsBySample(breakdownResults);
+
+  return toRangeMetricRows(errorRateResults, "RPC Error Rate", "Percent").map(
+    (row) => {
+      const details = detailsBySample.get(
+        getMetricSampleKey(row.providerName, row.date),
+      );
+
+      return details?.length ? { ...row, details } : row;
+    },
+  );
+}
+
+function getErrorRateDetailsBySample(results: PrometheusRangeResult[]) {
+  const detailsBySample = new Map<string, MetricRowDetail[]>();
+
+  for (const result of results) {
+    const providerName = getProviderLabel(result.metric);
+    const errorKind = getMetricLabel(result.metric, "error_kind");
+
+    if (!providerName || !errorKind || !Array.isArray(result.values)) {
+      continue;
+    }
+
+    const option = getRpcErrorKindOption(errorKind);
+    const detailMetadata = {
+      description: option?.description ?? `The monitor reported ${errorKind}.`,
+      id: errorKind,
+      label: option?.label ?? formatErrorKindLabel(errorKind),
+    };
+
+    for (const [timestamp, value] of result.values) {
+      const date = normalizePrometheusTimestamp(timestamp);
+      const normalizedValue = normalizePrometheusNumber(value);
+
+      if (
+        !date ||
+        typeof normalizedValue !== "number" ||
+        normalizedValue <= 0
+      ) {
+        continue;
+      }
+
+      const key = getMetricSampleKey(providerName, date);
+      const details = detailsBySample.get(key) ?? [];
+
+      details.push({ ...detailMetadata, value: normalizedValue });
+      detailsBySample.set(key, details);
+    }
+  }
+
+  for (const details of detailsBySample.values()) {
+    details.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  }
+
+  return detailsBySample;
+}
+
+function getMetricSampleKey(providerName: string, date: string) {
+  return `${providerName}\u0000${date}`;
+}
+
+function formatErrorKindLabel(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function toInstantMetricRows(
