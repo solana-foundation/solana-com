@@ -220,6 +220,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/ai",
   },
   {
+    source: "/developers/guides/getstarted/how-to-verify-a-token",
+    destination: "/docs/tokens/how-to-verify-a-token",
+  },
+  {
     source: "/developers/guides/getstarted/solana-token-airdrop-and-faucets",
     destination: "/developers/cookbook/development/airdrops-and-faucets",
   },

@@ -16,8 +16,6 @@ const SECTIONS: {
     | typeof cookbookSource
     | typeof learnSource
     | typeof developersLearnSource;
-  /** limit to URLs starting with this prefix (after baseUrl) */
-  prefix?: string;
 }[] = [
   { heading: "Core documentation", source: docsSource },
   { heading: "Cookbook", source: cookbookSource },
