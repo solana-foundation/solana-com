@@ -166,6 +166,10 @@ const nextConfig: NextConfig = {
     scrollRestoration: true,
     // Allow importing/transpiling code from the workspace package
     externalDir: true,
+    // The custom SVG rules disable Next's build worker by default. Keep the
+    // Webpack heap isolated so Vercel has memory available for type-checking.
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
   },
 
   // Cookbook MDX uses async compile (lazy at request time) and the
