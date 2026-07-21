@@ -5,16 +5,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      target:
-        description: Translation scope to run
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - ui
-          - docs
 
 concurrency:
   group: ${{ github.workflow }}-main
@@ -25,64 +15,29 @@ permissions:
   pull-requests: write
 
 jobs:
-  i18n-ui:
-    name: Run i18n for shared UI catalogs
+  i18n:
+    name: Run continuous localization
     concurrency:
       group: ${{ github.workflow }}-i18n
       cancel-in-progress: false
-    if:
-      github.event_name == 'push' || github.event.inputs.target == 'all' ||
-      github.event.inputs.target == 'ui'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: node scripts/i18n/verify-source-locales.mjs
-      - name: Run Lingo.dev
-        working-directory: packages/i18n
-        env:
-          LINGO_API_KEY: ${{ secrets.LINGODOTDEV_API_KEY }}
-          LINGODOTDEV_API_KEY: ${{ secrets.LINGODOTDEV_API_KEY }}
-        run: npx --yes lingo.dev@latest run
-      - name: Create signed pull request
-        id: create-pr
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+      - uses: actions/setup-node@v4
         with:
-          sign-commits: true
-          commit-message: "i18n: Lingo Translation Update (ui)"
-          title: "i18n: Lingo (ui)"
-          body: "Automated Lingo.dev translation update for shared UI catalogs."
-          branch: i18n/lingo-ui
-          base: main
-          delete-branch: true
-          add-paths: |
-            packages/i18n/messages
-            packages/i18n/i18n.lock
-      - name: Verify pull request commits
-        if:
-          steps.create-pr.outputs.pull-request-operation != 'none' &&
-          steps.create-pr.outputs.pull-request-commits-verified != 'true'
-        run: |
-          echo "Pull request commits were not verified by GitHub."
-          exit 1
-
-  i18n-docs:
-    name: Run i18n for docs content
-    concurrency:
-      group: ${{ github.workflow }}-i18n
-      cancel-in-progress: false
-    if:
-      github.event_name == 'push' || github.event.inputs.target == 'all' ||
-      github.event.inputs.target == 'docs'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          node-version-file: .node-version
       - run: node scripts/i18n/verify-source-locales.mjs
+      - name: Install Lingo.dev CLI
+        run: npm install -g @lingo.dev/cli
       - name: Run Lingo.dev
-        working-directory: apps/docs
         env:
-          LINGO_API_KEY: ${{ secrets.LINGODOTDEV_API_KEY }}
-          LINGODOTDEV_API_KEY: ${{ secrets.LINGODOTDEV_API_KEY }}
-        run: npx --yes lingo.dev@latest run
+          LINGO_API_KEY:
+            ${{ secrets.LINGO_API_KEY || secrets.LINGODOTDEV_API_KEY }}
+        run: |
+          if [[ ! -f .lingo/lock.json ]]; then
+            node scripts/i18n/verify-target-coverage.mjs
+          fi
+          lingo push --wait
       - name: Verify docs frontmatter
         run: node scripts/i18n/verify-docs-frontmatter.mjs
       - name: Create signed pull request
@@ -90,15 +45,18 @@ jobs:
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           sign-commits: true
-          commit-message: "i18n: Lingo Translation Update (docs)"
-          title: "i18n: Lingo (docs)"
-          body: "Automated Lingo.dev translation update for docs content."
-          branch: i18n/lingo-docs
+          commit-message: "i18n: Lingo Translation Update"
+          title: "i18n: Lingo"
+          body:
+            "Automated Lingo.dev translation update for UI catalogs and docs
+            content."
+          branch: i18n/lingo
           base: main
           delete-branch: true
           add-paths: |
+            packages/i18n/messages
             apps/docs/content
-            apps/docs/i18n.lock
+            .lingo/lock.json
       - name: Verify pull request commits
         if:
           steps.create-pr.outputs.pull-request-operation != 'none' &&
