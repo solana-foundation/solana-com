@@ -48,6 +48,196 @@ function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
   });
 }
 
+/**
+ * Adds a `.md` twin for each redirect so the raw-markdown variants of moved
+ * pages (served via the docs app's markdown middleware) keep working.
+ * Skipped for external destinations and destinations with anchors.
+ */
+function withMdVariants(redirects: RedirectInput[]): RedirectInput[] {
+  return redirects.flatMap((redirect) => {
+    const { source, destination } = redirect;
+    const isExternalDest =
+      destination.startsWith("https://") || destination.startsWith("http://");
+    if (isExternalDest || destination.includes("#")) {
+      return [redirect];
+    }
+    return [
+      redirect,
+      { ...redirect, source: `${source}.md`, destination: `${destination}.md` },
+    ];
+  });
+}
+
+/**
+ * The /developers/guides section was dissolved in the docs restructure.
+ * Every page has a specific destination — mapped page by page, never a
+ * blanket redirect. Do not remove entries: external links and AI agents
+ * hold these URLs indefinitely.
+ */
+const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
+  // Section and category indexes
+  { source: "/developers/guides", destination: "/docs" },
+  { source: "/developers/guides/advanced", destination: "/docs" },
+  {
+    source: "/developers/guides/games",
+    destination: "/developers/cookbook/games",
+  },
+  {
+    source: "/developers/guides/getstarted",
+    destination: "/docs/intro/quick-start",
+  },
+  {
+    source: "/developers/guides/dapps",
+    destination: "/developers/bootcamp/fullstack-apps",
+  },
+  {
+    source: "/developers/guides/depin",
+    destination: "/developers/cookbook/depin/playbook",
+  },
+  {
+    source: "/developers/guides/token-extensions",
+    destination: "/docs/tokens/extensions",
+  },
+  // advanced/* → verticals, programs, tools, and cookbook
+  {
+    source: "/developers/guides/advanced/acl",
+    destination: "/docs/tokenization/token-acl",
+  },
+  {
+    source: "/developers/guides/advanced/dvp",
+    destination: "/docs/tokenization/dvp",
+  },
+  {
+    source: "/developers/guides/advanced/nav-strikes",
+    destination: "/docs/tokenization/nav-strikes",
+  },
+  {
+    source: "/developers/guides/advanced/exchange",
+    destination: "/docs/defi/exchange",
+  },
+  {
+    source: "/developers/guides/advanced/mev-protection",
+    destination: "/docs/defi/mev-protection",
+  },
+  {
+    source: "/developers/guides/advanced/stake-weighted-qos",
+    destination: "/docs/defi/stake-weighted-qos",
+  },
+  {
+    source: "/developers/guides/advanced/idls",
+    destination: "/docs/programs/idls",
+  },
+  {
+    source: "/developers/guides/advanced/actions",
+    destination: "/docs/tools/actions",
+  },
+  {
+    source: "/developers/guides/advanced/confirmation",
+    destination: "/developers/cookbook/transactions/confirmation",
+  },
+  {
+    source: "/developers/guides/advanced/retry",
+    destination: "/developers/cookbook/transactions/retry",
+  },
+  {
+    source: "/developers/guides/advanced/versions",
+    destination: "/developers/cookbook/transactions/versions",
+  },
+  {
+    source: "/developers/guides/advanced/lookup-tables",
+    destination: "/developers/cookbook/transactions/lookup-tables",
+  },
+  {
+    source: "/developers/guides/advanced/introduction-to-durable-nonces",
+    destination: "/developers/cookbook/transactions/durable-nonces",
+  },
+  {
+    source: "/developers/guides/advanced/how-to-optimize-compute",
+    destination: "/developers/cookbook/transactions/optimize-compute",
+  },
+  {
+    source: "/developers/guides/advanced/auto-approve",
+    destination: "/developers/cookbook/wallets/auto-approve",
+  },
+  // dapps and depin → bootcamp
+  {
+    source: "/developers/guides/dapps/journal",
+    destination: "/developers/cookbook/development/crud-dapp",
+  },
+  {
+    source: "/developers/guides/depin/getting-started",
+    destination: "/developers/cookbook/depin/playbook",
+  },
+  // games/* → cookbook games category
+  {
+    source: "/developers/guides/games/energy-system",
+    destination: "/developers/cookbook/games/energy-system",
+  },
+  {
+    source: "/developers/guides/games/game-examples",
+    destination: "/developers/cookbook/games/game-examples",
+  },
+  {
+    source: "/developers/guides/games/getting-started-with-game-development",
+    destination:
+      "/developers/cookbook/games/getting-started-with-game-development",
+  },
+  {
+    source: "/developers/guides/games/hello-world",
+    destination: "/developers/cookbook/games/hello-world",
+  },
+  {
+    source: "/developers/guides/games/interact-with-tokens",
+    destination: "/developers/cookbook/games/interact-with-tokens",
+  },
+  {
+    source: "/developers/guides/games/nfts-in-games",
+    destination: "/developers/cookbook/games/nfts-in-games",
+  },
+  {
+    source: "/developers/guides/games/porting-anchor-to-unity",
+    destination: "/developers/cookbook/games/porting-anchor-to-unity",
+  },
+  {
+    source: "/developers/guides/games/saving-game-state",
+    destination: "/developers/cookbook/games/saving-game-state",
+  },
+  {
+    source: "/developers/guides/games/store-sol-in-pda",
+    destination: "/developers/cookbook/games/store-sol-in-pda",
+  },
+  // getstarted/* → payments, tools, cookbook
+  {
+    source: "/developers/guides/getstarted/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/intro-to-x402",
+  },
+  {
+    source: "/developers/guides/getstarted/build-a-x402-facilitator",
+    destination: "/docs/payments/agentic-payments/x402-facilitator",
+  },
+  {
+    source: "/developers/guides/getstarted/intro-to-ai",
+    destination: "/docs/tools/ai",
+  },
+  {
+    source: "/developers/guides/getstarted/solana-token-airdrop-and-faucets",
+    destination: "/developers/cookbook/development/airdrops-and-faucets",
+  },
+  {
+    source: "/developers/guides/getstarted/supabase-auth-guide",
+    destination: "/developers/cookbook/wallets/supabase-auth",
+  },
+  // token-extensions/* → tokens extensions reference
+  {
+    source: "/developers/guides/token-extensions/transfer-hook",
+    destination: "/docs/tokens/extensions/transfer-hook",
+  },
+  {
+    source: "/developers/guides/token-extensions/dynamic-meta-data-nft",
+    destination: "/docs/tokens/extensions/dynamic-metadata-nft",
+  },
+]);
+
 const breakpointSubrouteRedirects: RedirectInput[] = [
   { source: "/agenda", destination: "/breakpoint/schedule" },
   { source: "/faq", destination: "/breakpoint/faq" },
@@ -294,6 +484,16 @@ export default {
         locale: false,
       },
       {
+        source: "/llms.txt",
+        destination: `${DOCS_APP_URL}/llms.txt`,
+        locale: false,
+      },
+      {
+        source: "/llms-full.txt",
+        destination: `${DOCS_APP_URL}/llms-full.txt`,
+        locale: false,
+      },
+      {
         source: "/docs",
         destination: `${DOCS_APP_URL}/docs`,
         locale: false,
@@ -445,6 +645,7 @@ export default {
   },
 
   redirects: withLocaleRedirects([
+    ...dissolvedGuideRedirects,
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     {
@@ -586,7 +787,7 @@ export default {
     {
       source: "/solutions/games-tooling",
       destination:
-        "/developers/guides/games/getting-started-with-game-development",
+        "/developers/cookbook/games/getting-started-with-game-development",
     },
     {
       source: "/solutions/solana-permissioned-environments",
@@ -617,7 +818,7 @@ export default {
     {
       source: "/verifiable-builds",
       destination:
-        "/developers/guides/advanced/verified-builds#install-the-solana-verify-cli",
+        "/docs/programs/verified-builds#install-the-solana-verify-cli",
     },
     // content redirects:
     {
@@ -1122,11 +1323,11 @@ export default {
     },
     {
       source: "/developers/guides/introduction-to-durable-nonces",
-      destination: "/developers/guides/advanced/introduction-to-durable-nonces",
+      destination: "/developers/cookbook/transactions/durable-nonces",
     },
     {
       source: "/developers/guides/advanced/stake-weighted-qos-guide",
-      destination: "/developers/guides/advanced/stake-weighted-qos",
+      destination: "/docs/defi/stake-weighted-qos",
     },
     {
       source: "/developers/guides/hello-world-in-your-browser",
@@ -1150,23 +1351,23 @@ export default {
     },
     {
       source: "/developers/guides/local-rust-hello-world",
-      destination: "/developers/guides/getstarted/local-rust-hello-world",
+      destination: "/docs/programs/rust",
     },
     {
       source: "/developers/guides/wallets-explained",
-      destination: "/developers/guides/intro/wallets-explained",
+      destination: "/wallets",
     },
     {
       source: "/developers/guides/compressed-nfts",
-      destination: "/developers/guides/javascript/compressed-nfts",
+      destination: "https://www.zkcompression.com",
     },
     {
       source: "/developers/guides/get-program-accounts",
-      destination: "/developers/guides/javascript/get-program-accounts",
+      destination: "/docs/rpc/http/getprogramaccounts",
     },
     {
       source: "/docs/more/exchange",
-      destination: "/developers/guides/advanced/exchange",
+      destination: "/docs/defi/exchange",
     },
     {
       source: "/developers/guides/getstarted/intro-to-native-rust",
@@ -1206,7 +1407,7 @@ export default {
     },
     {
       source: "/developers/guides/games/game-sdks",
-      destination: "/docs/clients/game-sdks",
+      destination: "/docs/clients/community/game-sdks",
     },
     {
       source: "/accelerate/scale-or-die",
@@ -1464,7 +1665,7 @@ export default {
     },
     {
       source: "/developers/guides/immutable-owner",
-      destination: "/developers/guides/token-extensions/immutable-owner",
+      destination: "/docs/tokens/extensions/immutable-owner",
     },
     {
       source: "/developers/guides/token-extensions/default-account-state",
@@ -1520,7 +1721,7 @@ export default {
     },
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
-      destination: "/developers/guides/dapps/journal",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/developers/guides/getstarted/solana-test-validator",

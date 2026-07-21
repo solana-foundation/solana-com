@@ -41,7 +41,7 @@ export function SolutionsTokenExtensionsPage() {
             size: "lg",
             iconSize: "md",
             label: t("buttons.startBuilding"),
-            url: "https://solana.com/developers/guides/token-extensions/getting-started",
+            url: "https://solana.com/docs/tokens/extensions",
           },
         ]}
         image={{
@@ -68,7 +68,7 @@ export function SolutionsTokenExtensionsPage() {
               hierarchy="outline"
               size="lg"
               iconSize="md"
-              url="https://solana.com/developers/guides/token-extensions/getting-started"
+              url="https://solana.com/docs/tokens/extensions"
             />
             <Button
               key="get-in-touch"
@@ -250,7 +250,7 @@ export function SolutionsTokenExtensionsPage() {
           {
             hierarchy: "outline",
             size: "lg",
-            url: "https://solana.com/developers/guides/token-extensions/getting-started",
+            url: "https://solana.com/docs/tokens/extensions",
             label: t("buttons.seeDocs"),
           },
         ]}
