@@ -14,6 +14,7 @@ import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 
 const { publicUrl, siteMetadata, social } = config;
 
@@ -70,12 +71,7 @@ async function getNewsMetadataMessages(locale?: string) {
 // ---------------------------------------------------------------------------
 
 function fallbackImage() {
-  return {
-    url: siteMetadata.socialShare,
-    width: 1200,
-    height: 630,
-    alt: siteMetadata.title,
-  };
+  return createDefaultSocialImage(siteMetadata.title);
 }
 
 function twitterBase() {

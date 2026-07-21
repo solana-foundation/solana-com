@@ -6,6 +6,7 @@ import { TemplatesUiLayoutList } from "@/components/templates/templates-ui-layou
 import { fetchTemplatesFromGitHub } from "@/lib/fetch-templates";
 import { AppProviders } from "@/components/app-providers";
 import { TemplatesProviderWrapper } from "@/components/providers/templates-provider-wrapper";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 
 export const revalidate = 3600;
 
@@ -22,6 +23,14 @@ export const metadata: Metadata = {
       "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",
     type: "website",
     url: "/developers/templates",
+    images: [createDefaultSocialImage("Solana Developer Templates")],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Solana Developer Templates",
+    description:
+      "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",
+    images: [createDefaultSocialImage("Solana Developer Templates")],
   },
 };
 

@@ -238,12 +238,6 @@ export default config({
             itemLabel: (props) => props.fields.value.value || "Metric",
           },
         ),
-        heroImage: fields.image({
-          label: "Hero Image",
-          description: "Used as og:image",
-          directory: "public/uploads/upgrades",
-          publicPath: "/uploads/upgrades",
-        }),
         author: defaultAuthorRelationship(),
         publishedAt: fields.datetime({
           label: "Publish Date",

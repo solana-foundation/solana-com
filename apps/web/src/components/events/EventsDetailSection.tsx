@@ -3,7 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import SocialShareButtons from "../sharedPageSections/SocialShareButtons";
 import FormattedDate from "../shared/FormattedDate";
 import { useTranslations } from "next-intl";
-import defaultImg from "../../../public/social/solana.jpg";
+import defaultImg from "../../../public/social/solana.png";
 import { Link } from "@/utils/Link";
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 import { hasDifferentEndDay } from "@/lib/events/utils";

@@ -187,8 +187,5 @@ export async function generateMetadata({ params }: Props) {
   });
   return {
     ...base,
-    openGraph: {
-      images: ["/src/img/index/og-image.jpeg"],
-    },
   };
 }

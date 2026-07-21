@@ -6,6 +6,8 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
+import { config } from "@/lib/config";
+import { createUpgradeSocialImage } from "@/lib/upgrades/social-image";
 
 export const revalidate = 300;
 
@@ -208,12 +210,18 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const entry = await reader.collections.upgrades.read(slug);
   if (!entry) return {};
 
   const title = String(entry.title);
-  const description = entry.description ?? undefined;
+  const description = entry.description ?? entry.subtitle ?? undefined;
+  const canonicalUrl = `${config.publicUrl}/upgrades/${slug}`;
+  const socialImage = createUpgradeSocialImage(slug, title, config.publicUrl);
+  const authorEntry = entry.author
+    ? await reader.collections.authors.read(entry.author)
+    : null;
+  const authorName = String(authorEntry?.name ?? "Solana Foundation");
   const languages: Record<string, string> = {
     "x-default": `/upgrades/${slug}`,
     en: `/upgrades/${slug}`,
@@ -226,13 +234,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     alternates: {
-      canonical: `/upgrades/${slug}`,
+      canonical: canonicalUrl,
       languages,
     },
     openGraph: {
       title,
       description,
+      url: canonicalUrl,
       type: "article",
+      siteName: config.siteMetadata.title,
+      locale,
+      publishedTime: entry.publishedAt ?? undefined,
+      authors: [authorName],
+      images: [socialImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      site: `@${config.social.twitter.name}`,
+      creator: `@${config.social.twitter.name}`,
+      title,
+      description,
+      images: [socialImage],
     },
   };
 }

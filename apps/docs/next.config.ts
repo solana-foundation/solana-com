@@ -130,6 +130,11 @@ const nextConfig: NextConfig = {
         hostname: "*.vercel.app",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "solana.com",
+        pathname: "/social/**",
+      },
     ],
   },
 
