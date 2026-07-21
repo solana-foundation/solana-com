@@ -64,7 +64,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           </p>
           <div className="flex flex-col gap-3 mb-6">
             <Link
-              href="/developers/guides/depin/getting-started"
+              href="/developers/cookbook/depin/playbook"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("depin.cta.quickstartGuide")}
