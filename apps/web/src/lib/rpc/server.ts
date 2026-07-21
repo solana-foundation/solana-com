@@ -3,19 +3,21 @@ import "server-only";
 import {
   defaultRpcInfra,
   defaultRpcMethod,
-  defaultRpcTimeframe,
   getDefaultRpcRegion,
   getRpcErrorKindOption,
   getRpcInfraSourceValue,
-  getRpcRegionOptions,
   getRpcRegionSourceValue,
   getRpcTimeframeOption,
+  isRpcLatencyInfra,
+  isRpcLatencyRegion,
   normalizeRpcInfraParam,
   normalizeRpcRegionParam,
+  parseRpcInfra,
+  parseRpcMethod,
+  parseRpcRegion,
+  parseRpcTimeframe,
   rpcInfraOptions,
-  rpcMethodOptions,
   rpcRegionOptions,
-  rpcTimeframeOptions,
   type MetricRow,
   type MetricRowDetail,
   type RpcLatencyInfra,
@@ -97,16 +99,6 @@ type PrometheusLabelMatcher = readonly [
 ];
 
 const providerSet = new Set<string>(rpcLatencyProviders);
-const infraSet = new Set<string>(rpcInfraOptions.map((option) => option.value));
-const regionSet = new Set<string>(
-  rpcRegionOptions.map((option) => option.value),
-);
-const methodSet = new Set<string>(
-  rpcMethodOptions.map((option) => option.value),
-);
-const timeframeSet = new Set<string>(
-  rpcTimeframeOptions.map((option) => option.value),
-);
 
 export function getRpcLatencyConfig():
   | { ok: true; config: RpcLatencyConfig }
@@ -135,38 +127,16 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
 > & {
   provider?: RpcLatencyProvider;
 } {
-  const infra = parseAllowedValue(
-    normalizeRpcInfraParam(params.get("infra")),
-    infraSet,
-    defaultRpcInfra,
-  ) as RpcLatencyInfra;
-  const defaultRegion = getDefaultRpcRegion(infra);
-  const requestedRegion = parseAllowedValue(
-    normalizeRpcRegionParam(params.get("region")),
-    regionSet,
-  ) as RpcLatencyRegion | undefined;
-  const region = getRpcRegionOptions(infra).some(
-    (option) => option.value === requestedRegion,
-  )
-    ? requestedRegion
-    : defaultRegion;
+  const infra = parseRpcInfra(params.get("infra"));
 
   return {
     infra,
-    method: parseAllowedValue(
-      params.get("method"),
-      methodSet,
-      defaultRpcMethod,
-    ) as RpcLatencyMethod,
+    method: parseRpcMethod(params.get("method")),
     provider: parseAllowedValue(params.get("provider"), providerSet) as
       | RpcLatencyProvider
       | undefined,
-    region: region ?? defaultRegion,
-    timeframe: parseAllowedValue(
-      params.get("timeframe"),
-      timeframeSet,
-      defaultRpcTimeframe,
-    ) as RpcTimeframe,
+    region: parseRpcRegion(params.get("region"), infra),
+    timeframe: parseRpcTimeframe(params.get("timeframe")),
   };
 }
 
@@ -212,16 +182,14 @@ export async function getRpcLatencyFilterOptions(
       getMetricLabel(result.metric, "region"),
     );
 
-    if (!infra || !infraSet.has(infra) || !region || !regionSet.has(region)) {
+    if (!isRpcLatencyInfra(infra) || !isRpcLatencyRegion(region)) {
       continue;
     }
 
-    const normalizedInfra = infra as RpcLatencyInfra;
-    const normalizedRegion = region as RpcLatencyRegion;
-    const regions = availableRegions.get(normalizedInfra) ?? new Set();
+    const regions = availableRegions.get(infra) ?? new Set();
 
-    regions.add(normalizedRegion);
-    availableRegions.set(normalizedInfra, regions);
+    regions.add(region);
+    availableRegions.set(infra, regions);
   }
 
   return {

@@ -87,16 +87,28 @@ export const rpcMethodOptions = [
   { label: "getSignaturesForAddress", value: "getSignaturesForAddress" },
 ] as const;
 
-export const defaultRpcInfra = "tsw";
-export const defaultRpcRegion = "lax";
-export const defaultRpcMethod = "getLatestBlockhash";
-export const defaultRpcTimeframe = "6h";
-
 export type RpcLatencyInfra = (typeof rpcInfraOptions)[number]["value"];
 export type RpcLatencyRegion = (typeof rpcRegionOptions)[number]["value"];
 export type RpcLatencyMethod = (typeof rpcMethodOptions)[number]["value"];
 export type RpcTimeframe = (typeof rpcTimeframeOptions)[number]["value"];
 export type ProviderName = string;
+
+export const defaultRpcInfra = "tsw" satisfies RpcLatencyInfra;
+export const defaultRpcRegion = "lax" satisfies RpcLatencyRegion;
+export const defaultRpcMethod = "getLatestBlockhash" satisfies RpcLatencyMethod;
+export const defaultRpcTimeframe = "6h" satisfies RpcTimeframe;
+
+export function isRpcLatencyInfra(
+  value: string | null | undefined,
+): value is RpcLatencyInfra {
+  return rpcInfraOptions.some((option) => option.value === value);
+}
+
+export function isRpcLatencyRegion(
+  value: string | null | undefined,
+): value is RpcLatencyRegion {
+  return rpcRegionOptions.some((option) => option.value === value);
+}
 
 export function getRpcTimeframeOption(value?: RpcTimeframe) {
   return (
@@ -109,84 +121,131 @@ export type RpcLatencyFiltersResponse = {
   regionsByInfra: Record<RpcLatencyInfra, RpcLatencyRegion[]>;
 };
 
-export const fallbackRpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"] =
-  {
-    tsw: ["ewr", "pit", "lax", "lon", "fra", "ams", "tyo", "sgp"],
-    lat: ["nyc", "lax", "lon", "fra", "ams", "tyo", "sgp"],
-    aws: ["iad", "sfo", "lon", "fra", "dub", "tyo", "sgp"],
-    gcp: ["iad", "lax", "lon", "fra", "ams", "tyo", "sgp"],
-  };
+type RpcRegionSourceValues = Partial<
+  Record<RpcLatencyRegion, readonly string[]>
+>;
 
-const rpcRegionParamAliases: Partial<Record<string, RpcLatencyRegion>> = {
-  "us-east4": "iad",
-  "us-east-1": "iad",
-  ewr2: "ewr",
-  pit1: "pit",
-  pitt: "pit",
-  pitt1: "pit",
-  "us-west2": "lax",
-  lax1: "lax",
-  "us-west-1": "sfo",
-  "europe-west2": "lon",
-  "eu-west-2": "lon",
-  lon1: "lon",
-  "europe-west3": "fra",
-  "eu-central-1": "fra",
-  fra2: "fra",
-  "europe-west4": "ams",
-  ams3: "ams",
-  "eu-west-1": "dub",
-  "asia-northeast1": "tyo",
-  "ap-northeast-1": "tyo",
-  tyo2: "tyo",
-  "asia-southeast1": "sgp",
-  "ap-southeast-1": "sgp",
-  sgp2: "sgp",
-};
-
-const rpcRegionSourceValues: Record<
+// Canonical UI colos mapped to the region labels emitted by each infra.
+const rpcRegionSourceValuesByInfra: Record<
   RpcLatencyInfra,
-  Partial<Record<RpcLatencyRegion, string>>
+  RpcRegionSourceValues
 > = {
   tsw: {
-    ewr: "ewr2",
-    pit: "pit1|pitt1",
-    lax: "lax1",
-    lon: "lon1",
-    fra: "fra2",
-    tyo: "tyo2",
-    ams: "ams3",
-    sgp: "sgp2",
+    ewr: ["ewr2"],
+    pit: ["pit1", "pitt1"],
+    lax: ["lax1"],
+    lon: ["lon1"],
+    fra: ["fra2"],
+    ams: ["ams3"],
+    tyo: ["tyo2"],
+    sgp: ["sgp2"],
   },
   lat: {
-    nyc: "nyc",
-    lax: "lax",
-    lon: "lon",
-    fra: "fra",
-    ams: "ams",
-    sgp: "sgp",
-    tyo: "tyo",
+    nyc: ["nyc"],
+    lax: ["lax"],
+    lon: ["lon"],
+    fra: ["fra"],
+    ams: ["ams"],
+    tyo: ["tyo"],
+    sgp: ["sgp"],
   },
   aws: {
-    iad: "us-east-1",
-    sfo: "us-west-1",
-    lon: "eu-west-2",
-    fra: "eu-central-1",
-    dub: "eu-west-1",
-    tyo: "ap-northeast-1",
-    sgp: "ap-southeast-1",
+    iad: ["us-east-1"],
+    sfo: ["us-west-1"],
+    lon: ["eu-west-2"],
+    fra: ["eu-central-1"],
+    dub: ["eu-west-1"],
+    tyo: ["ap-northeast-1"],
+    sgp: ["ap-southeast-1"],
   },
   gcp: {
-    iad: "us-east4",
-    lax: "us-west2",
-    lon: "europe-west2",
-    fra: "europe-west3",
-    ams: "europe-west4",
-    tyo: "asia-northeast1",
-    sgp: "asia-southeast1",
+    iad: ["us-east4"],
+    lax: ["us-west2"],
+    lon: ["europe-west2"],
+    fra: ["europe-west3"],
+    ams: ["europe-west4"],
+    tyo: ["asia-northeast1"],
+    sgp: ["asia-southeast1"],
   },
 };
 
+function getConfiguredRpcRegions(infra: RpcLatencyInfra) {
+  const sourceValues = rpcRegionSourceValuesByInfra[infra];
+
+  return rpcRegionOptions
+    .filter(({ value }) => sourceValues[value])
+    .map(({ value }) => value);
+}
+
+export const fallbackRpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"] =
+  {
+    tsw: getConfiguredRpcRegions("tsw"),
+    lat: getConfiguredRpcRegions("lat"),
+    aws: getConfiguredRpcRegions("aws"),
+    gcp: getConfiguredRpcRegions("gcp"),
+  };
+
+export function isRpcLatencyFiltersResponse(
+  value: unknown,
+): value is RpcLatencyFiltersResponse {
+  if (!value || typeof value !== "object" || !("regionsByInfra" in value)) {
+    return false;
+  }
+
+  const regionsByInfra = value.regionsByInfra;
+
+  if (!regionsByInfra || typeof regionsByInfra !== "object") {
+    return false;
+  }
+
+  return rpcInfraOptions.every(({ value: infra }) => {
+    const regions = (regionsByInfra as Record<string, unknown>)[infra];
+
+    return (
+      Array.isArray(regions) &&
+      regions.every(
+        (region) => typeof region === "string" && isRpcLatencyRegion(region),
+      )
+    );
+  });
+}
+
+export function getRpcRegionsByInfra(
+  filters?: RpcLatencyFiltersResponse,
+): RpcLatencyFiltersResponse["regionsByInfra"] {
+  function getRegions(infra: RpcLatencyInfra) {
+    const regions = filters?.regionsByInfra[infra];
+
+    return regions?.length ? regions : fallbackRpcRegionsByInfra[infra];
+  }
+
+  return {
+    tsw: getRegions("tsw"),
+    lat: getRegions("lat"),
+    aws: getRegions("aws"),
+    gcp: getRegions("gcp"),
+  };
+}
+
+function buildRpcRegionParamAliases() {
+  const aliases: Partial<Record<string, RpcLatencyRegion>> = {
+    pitt: "pit",
+  };
+
+  for (const { value: infra } of rpcInfraOptions) {
+    for (const { value: region } of rpcRegionOptions) {
+      const sourceValues = rpcRegionSourceValuesByInfra[infra][region] ?? [];
+
+      for (const sourceValue of sourceValues) {
+        aliases[sourceValue] = region;
+      }
+    }
+  }
+
+  return aliases;
+}
+
+const rpcRegionParamAliases = buildRpcRegionParamAliases();
 const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
   latitude: "lat",
   terraswitch: "tsw",
@@ -204,7 +263,7 @@ export function getRpcRegionSourceValue(
   infra: RpcLatencyInfra,
   value: RpcLatencyRegion,
 ) {
-  return rpcRegionSourceValues[infra][value] ?? value;
+  return rpcRegionSourceValuesByInfra[infra][value]?.join("|") ?? value;
 }
 
 export function getRpcInfraSourceValue(value: RpcLatencyInfra) {
@@ -234,6 +293,38 @@ export function getDefaultRpcRegion(
   return options.some((option) => option.value === defaultRpcRegion)
     ? defaultRpcRegion
     : (options[0]?.value ?? defaultRpcRegion);
+}
+
+export function parseRpcInfra(value: string | null | undefined) {
+  const normalizedValue = normalizeRpcInfraParam(value);
+
+  return isRpcLatencyInfra(normalizedValue) ? normalizedValue : defaultRpcInfra;
+}
+
+export function parseRpcMethod(value: string | null | undefined) {
+  return (
+    rpcMethodOptions.find((option) => option.value === value)?.value ??
+    defaultRpcMethod
+  );
+}
+
+export function parseRpcRegion(
+  value: string | null | undefined,
+  infra: RpcLatencyInfra,
+) {
+  const normalizedValue = normalizeRpcRegionParam(value);
+  const matchingRegion = getRpcRegionOptions(infra).find(
+    (option) => option.value === normalizedValue,
+  );
+
+  return matchingRegion?.value ?? getDefaultRpcRegion(infra);
+}
+
+export function parseRpcTimeframe(value: string | null | undefined) {
+  return (
+    rpcTimeframeOptions.find((option) => option.value === value)?.value ??
+    defaultRpcTimeframe
+  );
 }
 
 export type DashboardTab =

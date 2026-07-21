@@ -48,16 +48,16 @@ import { cn } from "@/app/components/utils";
 
 import {
   chartDefinitions,
-  defaultRpcInfra,
-  defaultRpcMethod,
-  defaultRpcTimeframe,
-  fallbackRpcRegionsByInfra,
   getDefaultRpcRegion,
   getRpcRegionOptions,
+  getRpcRegionsByInfra,
+  isRpcLatencyFiltersResponse,
   metricColors,
-  normalizeRpcInfraParam,
   normalizeProviderName,
-  normalizeRpcRegionParam,
+  parseRpcInfra,
+  parseRpcMethod,
+  parseRpcRegion,
+  parseRpcTimeframe,
   providerColors,
   rangeOptions,
   rpcInfraOptions,
@@ -2265,53 +2265,6 @@ async function fetchRpcFilters(url: string) {
   return payload;
 }
 
-function isRpcLatencyFiltersResponse(
-  value: unknown,
-): value is RpcLatencyFiltersResponse {
-  if (!value || typeof value !== "object" || !("regionsByInfra" in value)) {
-    return false;
-  }
-
-  const regionsByInfra = value.regionsByInfra;
-  const validRegions = new Set<string>(
-    rpcRegionOptions.map((regionOption) => regionOption.value),
-  );
-
-  return (
-    !!regionsByInfra &&
-    typeof regionsByInfra === "object" &&
-    rpcInfraOptions.every((infraOption) => {
-      const regions = (regionsByInfra as Record<string, unknown>)[
-        infraOption.value
-      ];
-
-      return (
-        Array.isArray(regions) &&
-        regions.every(
-          (region) => typeof region === "string" && validRegions.has(region),
-        )
-      );
-    })
-  );
-}
-
-function getRpcRegionsByInfra(
-  filters?: RpcLatencyFiltersResponse,
-): RpcLatencyFiltersResponse["regionsByInfra"] {
-  return Object.fromEntries(
-    rpcInfraOptions.map((infraOption) => {
-      const regions = filters?.regionsByInfra[infraOption.value];
-
-      return [
-        infraOption.value,
-        regions && regions.length > 0
-          ? regions
-          : fallbackRpcRegionsByInfra[infraOption.value],
-      ];
-    }),
-  ) as RpcLatencyFiltersResponse["regionsByInfra"];
-}
-
 async function readDataPayload(
   response: Response,
   errorMessages: DataFetchErrorMessages,
@@ -2377,39 +2330,6 @@ function parseRangeDays(value: string | null) {
   return rangeOptions.some((option) => option.value === parsed)
     ? parsed
     : defaultRangeDays;
-}
-
-function parseRpcInfra(value: string | null): RpcLatencyInfra {
-  const normalizedValue = normalizeRpcInfraParam(value);
-
-  return rpcInfraOptions.some((option) => option.value === normalizedValue)
-    ? (normalizedValue as RpcLatencyInfra)
-    : defaultRpcInfra;
-}
-
-function parseRpcMethod(value: string | null): RpcLatencyMethod {
-  return rpcMethodOptions.some((option) => option.value === value)
-    ? (value as RpcLatencyMethod)
-    : defaultRpcMethod;
-}
-
-function parseRpcTimeframe(value: string | null): RpcTimeframe {
-  return rpcTimeframeOptions.some((option) => option.value === value)
-    ? (value as RpcTimeframe)
-    : defaultRpcTimeframe;
-}
-
-function parseRpcRegion(
-  value: string | null,
-  infra: RpcLatencyInfra,
-): RpcLatencyRegion {
-  const normalizedValue = normalizeRpcRegionParam(value);
-
-  return getRpcRegionOptions(infra).some(
-    (option) => option.value === normalizedValue,
-  )
-    ? (normalizedValue as RpcLatencyRegion)
-    : getDefaultRpcRegion(infra);
 }
 
 export function getAvailableProviders(rows: readonly MetricRow[]) {
