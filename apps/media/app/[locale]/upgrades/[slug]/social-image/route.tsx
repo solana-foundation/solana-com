@@ -15,10 +15,23 @@ type RouteContext = {
   params: Promise<{ slug: string; locale: string }>;
 };
 
-const fontFiles = Promise.all([
-  readFile(path.join(process.cwd(), "fonts/ABCDiatype-Regular.woff")),
-  readFile(path.join(process.cwd(), "fonts/ABCDiatype-Medium.woff")),
-]);
+type FontFiles = [regularFont: Buffer, mediumFont: Buffer];
+
+let fontFilesPromise: Promise<FontFiles> | undefined;
+
+function loadFontFiles(): Promise<FontFiles> {
+  if (!fontFilesPromise) {
+    fontFilesPromise = Promise.all([
+      readFile(path.join(process.cwd(), "fonts/ABCDiatype-Regular.woff")),
+      readFile(path.join(process.cwd(), "fonts/ABCDiatype-Medium.woff")),
+    ]).catch((error) => {
+      fontFilesPromise = undefined;
+      throw error;
+    });
+  }
+
+  return fontFilesPromise;
+}
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const { slug } = await params;
@@ -31,7 +44,20 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
     : null;
-  const [regularFont, mediumFont] = await fontFiles;
+  let regularFont: Buffer;
+  let mediumFont: Buffer;
+
+  try {
+    [regularFont, mediumFont] = await loadFontFiles();
+  } catch (error) {
+    console.error(
+      `Failed to load social-image fonts for upgrade "${slug}":`,
+      error,
+    );
+    return new Response("Unable to generate upgrade social image", {
+      status: 500,
+    });
+  }
 
   return new ImageResponse(
     <UpgradeSocialImage

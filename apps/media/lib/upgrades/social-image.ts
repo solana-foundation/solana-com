@@ -17,8 +17,11 @@ export function createUpgradeSocialImage(
   title: string,
   publicUrl?: string,
 ) {
+  const url = getUpgradeSocialImageUrl(slug, publicUrl);
+
   return {
-    url: getUpgradeSocialImageUrl(slug, publicUrl),
+    url,
+    secureUrl: url,
     width: UPGRADE_SOCIAL_IMAGE_SIZE.width,
     height: UPGRADE_SOCIAL_IMAGE_SIZE.height,
     type: UPGRADE_SOCIAL_IMAGE_TYPE,

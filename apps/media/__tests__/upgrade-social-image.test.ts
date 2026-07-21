@@ -23,6 +23,7 @@ describe("upgrade social images", () => {
   it("creates a complete Open Graph image descriptor", () => {
     expect(createUpgradeSocialImage("alpenglow", "Alpenglow")).toEqual({
       url: "https://solana.com/upgrades/alpenglow/social-image",
+      secureUrl: "https://solana.com/upgrades/alpenglow/social-image",
       width: UPGRADE_SOCIAL_IMAGE_SIZE.width,
       height: UPGRADE_SOCIAL_IMAGE_SIZE.height,
       type: "image/png",
