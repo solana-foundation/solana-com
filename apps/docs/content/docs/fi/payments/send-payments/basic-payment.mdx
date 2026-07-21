@@ -19,11 +19,11 @@ voidaan luoda osana samaa transaktiota.
   peruskäsitteistä.
 </Callout>
 
-`splToken`-apufunktio
-[`@solana/client`](https://solana.com/docs/frontend/client)-kirjastosta
-käsittelee ATA-johdannaisen, desimaalien muunnoksen ja transaktioiden
-rakentamisen automaattisesti. Tämä on ihanteellinen yksittäisiin
-maksusiirtoihin.
+`token2022Program()`-lisäosa `@solana-program/token-2022`-paketista laajentaa
+[`@solana/kit`](/docs/frontend/client)-asiakastasi
+`client.token2022`-apuvälineellä. Sen `transferToATA`-metodi käsittelee
+ATA-johdannan ja tapahtuman rakentamisen automaattisesti, mikä tekee siitä
+ihanteellisen yksittäisten maksusiirtojen käyttöön.
 
 Alla olevat vaiheet näyttävät peruskulun. Katso [Demo](#demo) täydellisestä
 ajettavasta koodista.
@@ -32,93 +32,100 @@ ajettavasta koodista.
 
 ## !!steps Luo token-apufunktio
 
-Konfiguroi `splToken()`-apufunktio kutsumalla `client.splToken()`-metodia
-mint-osoitteella. Apufunktio tarjoaa metodeja yleisiin token-operaatioihin.
+Lisää `token2022Program()`-lisäosa asiakkaallesi
+`.use(token2022Program())`-komennolla. Tämä paljastaa
+`client.token2022`-objektin, jonka `instructions` tarjoavat metodeja yleisiin
+token-operaatioihin.
 
-Asettamalla `tokenProgram: "auto"` tunnistetaan automaattisesti, omistaako mint
-accountin Token- vai Token-2022-ohjelma.
+Käytä `token2022Program()`-lisäosaa Token-2022-ohjelman omistamille minteille
+tai `tokenProgram()`-lisäosaa `@solana-program/token`-paketista alkuperäisen
+Token Program -ohjelman omistamille minteille.
 
 <CodePlaceholder title="Perusmaksu" />
 
 ```ts !! title="Basic Payment"
-const client = createClient({
-  endpoint: "http://localhost:8899",
-  websocketEndpoint: "ws://localhost:8900",
-  commitment: "confirmed"
-});
-
 // !focus(1:4)
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
+const client = createClient()
+  .use(signer(sender))
+  .use(solanaLocalRpc())
+  .use(token2022Program());
 ```
 
 ## !!steps Lähetä maksu
 
-Käytä `sendTransfer()`-metodia siirtääksesi tokeneita lompakoiden välillä.
+Käytä `transferToATA()`-metodia tokenien siirtämiseen lompakkojen välillä.
 Metodi käsittelee:
 
-- **ATA-selvitys**: Johtaa automaattisesti Associated Token Accountit (ATA:t)
-  lähettäjälle ja vastaanottajalle. Jos vastaanottajan ATA:ta ei ole olemassa,
-  ohje tilin luomiseksi lisätään automaattisesti samaan transaktioon.
-- **Desimaalien muunnos**: Hyväksyy token-määrät ja muuntaa ne automaattisesti
-  perusyksiköiksi mintin desimaalien perusteella (esim. 0,25 tokenia -> 250000
-  perusyksikköä, jos mintillä on 6 desimaalia)
-- **Transaktioiden rakentaminen**: Luo, allekirjoittaa ja lähettää transaktion
-  siirto-ohjeen kanssa
+- **ATA-selvitys**: Johtaa automaattisesti Associated Token Accounts (ATAs)
+  -tilit lähettäjälle ja vastaanottajalle. Jos vastaanottajan ATA ei ole
+  olemassa, tilin luomisohje lisätään automaattisesti samaan tapahtumaan.
+- **Tarkistetut määrät**: Anna `amount` perusyksiköissä yhdessä mintin
+  `decimals`-arvon kanssa. Siirto tarkistetaan mintin desimaaleja vastaan
+  ketjussa (esim. 250000 perusyksikköä -> 0,25 tokenia, jos mintillä on 6
+  desimaalia)
+- **Tapahtuman rakentaminen**: `sendTransaction()` rakentaa, allekirjoittaa ja
+  lähettää tapahtuman, palauttaen tuloksen, jonka `context.signature` sisältää
+  tapahtuman allekirjoituksen
 
 <CodePlaceholder title="Basic Payment" />
 
 ```ts !! title="Basic Payment"
-const client = createClient({
-  endpoint: "http://localhost:8899",
-  websocketEndpoint: "ws://localhost:8900",
-  commitment: "confirmed"
-});
+const client = createClient()
+  .use(signer(sender))
+  .use(solanaLocalRpc())
+  .use(token2022Program());
 
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
-
-// !focus(1:5)
-const signature = await splToken.sendTransfer({
-  amount: 0.25,
-  authority: sender,
-  destinationOwner: recipient.address
-});
+// !focus(1:9)
+const result = await client.token2022.instructions
+  .transferToATA({
+    mint: mint.address,
+    authority: sender,
+    recipient: recipient.address,
+    amount: 250_000n,
+    decimals: 6
+  })
+  .sendTransaction();
 ```
 
 ## !!steps Tarkista saldot
 
-Siirron valmistuttua käytä `fetchBalance()` -metodia token-saldojen
-tarkistamiseen. Tämä metodi ottaa vastaan lompakon osoitteen ja johtaa
-automaattisesti vastaavan ATA:n saldon hakemista varten.
+Siirron valmistuttua lue token-saldot RPC:ltä. Johda kunkin lompakon ATA
+`findAssociatedTokenPda()`-metodilla, sitten kutsu `getTokenAccountBalance()`
+hakeaksesi kyseisen tilin saldon.
 
 <CodePlaceholder title="Basic Payment" />
 
 ```ts !! title="Basic Payment"
-const client = createClient({
-  endpoint: "http://localhost:8899",
-  websocketEndpoint: "ws://localhost:8900",
-  commitment: "confirmed"
-});
+const client = createClient()
+  .use(signer(sender))
+  .use(solanaLocalRpc())
+  .use(token2022Program());
 
-const splToken = client.splToken({
+const result = await client.token2022.instructions
+  .transferToATA({
+    mint: mint.address,
+    authority: sender,
+    recipient: recipient.address,
+    amount: 250_000n,
+    decimals: 6
+  })
+  .sendTransaction();
+
+// !focus(1:14)
+const [senderAta] = await findAssociatedTokenPda({
   mint: mint.address,
-  tokenProgram: "auto"
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
-
-const signature = await splToken.sendTransfer({
-  amount: 0.25,
-  authority: sender,
-  destinationOwner: recipient.address
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
-
-// !focus(1:2)
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipientBalance = await splToken.fetchBalance(recipient.address);
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipientBalance = await client.rpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
 ```
 
 </ScrollyCoding>
@@ -128,30 +135,31 @@ const recipientBalance = await splToken.fetchBalance(recipient.address);
 <CodeTabs flags="r">
 
 ```ts !! title="Demo"
-// !collapse(1:13) collapsed
+// !collapse(1:14) collapsed
 // Click ">" icon on left to expand demo imports
-import { createClient, lamports } from "@solana/client";
-import { generateKeypair } from "@solana/client/server";
-import type { ServerKeypair } from "@solana/client/server";
-import { getCreateAccountInstruction } from "@solana-program/system";
 import {
-  getCreateAssociatedTokenInstructionAsync,
-  getInitializeMintInstruction,
-  getMintSize,
+  createClient,
+  generateKeyPairSigner,
+  lamports,
+  type TransactionSigner
+} from "@solana/kit";
+import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
+import {
+  token2022Program,
   findAssociatedTokenPda,
-  getMintToInstruction,
   TOKEN_2022_PROGRAM_ADDRESS
 } from "@solana-program/token-2022";
 
-// Generate keypairs for sender and recipient
-const sender = (await generateKeypair()).signer;
-const recipient = (await generateKeypair()).signer;
+// Generate signers for sender and recipient
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
 
 console.log("Sender Address:", sender.address);
 console.log("Recipient Address:", recipient.address);
 
-// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
-const { client, mint } = await demoSetup(sender, recipient);
+// Demo Setup: Create client, mint account, and fund the sender with initial tokens
+const { client, mint } = await demoSetup(sender);
 
 console.log("\nMint Address:", mint.address);
 
@@ -159,29 +167,47 @@ console.log("\nMint Address:", mint.address);
 // Basic Token Payment Demo
 // =============================================================================
 
-// Create splToken helper for this mint using @solana/client
-// !mark(1:4)
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
-
-// Transfer tokens from sender to recipient (ATA and decimals handled automatically)
-// !mark(1:5)
-const signature = await splToken.sendTransfer({
-  amount: 0.25,
-  authority: sender,
-  destinationOwner: recipient.address
-});
+// Transfer tokens from sender to recipient. The source and destination ATAs are
+// derived automatically, and the recipient's ATA is created if it does not exist.
+// !mark(1:9)
+const result = await client.token2022.instructions
+  .transferToATA({
+    mint: mint.address,
+    authority: sender,
+    recipient: recipient.address,
+    amount: 250_000n, // 0.25 tokens (base units for a mint with 6 decimals)
+    decimals: 6
+  })
+  .sendTransaction();
 
 console.log("\n=== Token Payment Complete ===");
-console.log("Transaction Signature:", signature.toString());
+console.log("Transaction Signature:", result.context.signature);
 
-// Fetch final token account balances using splToken helper
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipientBalance = await splToken.fetchBalance(recipient.address);
-console.log("\nSender Token Account Balance:", senderBalance);
-console.log("Recipient Token Account Balance:", recipientBalance);
+// Derive the sender and recipient ATAs to read their balances
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Fetch final token account balances via RPC
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipientBalance = await client.rpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
+console.log(
+  "\nSender Token Account Balance:",
+  senderBalance.value.uiAmountString
+);
+console.log(
+  "Recipient Token Account Balance:",
+  recipientBalance.value.uiAmountString
+);
 
 // =============================================================================
 // Demo Setup Helper Function
@@ -190,106 +216,49 @@ console.log("Recipient Token Account Balance:", recipientBalance);
 
 /**
  * Sets up for a token transfer demo:
- * - Creates @solana/client instance
- * - Airdrops SOL to sender for transaction fees
- * - Generates mint keypair and creates/initializes mint account
- * - Creates associated token accounts for sender and recipient
- * - Mints initial tokens to sender
+ * - Creates a @solana/kit client with the Token-2022 program plugin
+ * - Airdrops SOL to the sender for transaction fees
+ * - Creates and initializes the mint (6 decimals)
+ * - Mints initial tokens to the sender's ATA (created automatically)
  *
- * @param sender - The sender's keypair (will be funded and used as mint authority)
- * @param recipient - The recipient's keypair
- * @returns Returns client instance and mint address
+ * @param sender - The sender's signer (funded and used as the mint authority)
+ * @returns The client instance and the mint signer
  */
-async function demoSetup(
-  sender: ServerKeypair["signer"],
-  recipient: ServerKeypair["signer"]
-) {
-  // Create @solana/client instance pointing to local validator
-  const client = createClient({
-    endpoint: "http://localhost:8899",
-    websocketEndpoint: "ws://localhost:8900",
-    commitment: "confirmed",
-    logger: () => {} // Disable all logs
-  });
+async function demoSetup(sender: TransactionSigner) {
+  // Create a @solana/kit client pointing to the local validator.
+  // signer(sender) sets the fee payer; solanaLocalRpc() targets 127.0.0.1:8899;
+  // token2022Program() adds the client.token2022 helper.
+  const client = createClient()
+    .use(signer(sender))
+    .use(solanaLocalRpc())
+    .use(token2022Program());
 
-  // Fund sender with SOL for transaction fees using @solana/client actions
-  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+  // Fund the sender with SOL for transaction fees
+  await client.airdrop(sender.address, lamports(1_000_000_000n));
 
-  // Generate keypair to use as address of mint
-  const mint = (await generateKeypair()).signer;
+  // Generate the signer to use as the mint's address
+  const mint = await generateKeyPairSigner();
 
-  // Get default mint account size (in bytes), no extensions enabled
-  const space = BigInt(getMintSize());
+  // Create and initialize the mint account.
+  // Invokes the System program (create account) and the Token-2022 program.
+  await client.token2022.instructions
+    .createMint({
+      newMint: mint,
+      decimals: 6,
+      mintAuthority: sender
+    })
+    .sendTransaction();
 
-  // Get minimum balance for rent exemption
-  const rent = await client.runtime.rpc
-    .getMinimumBalanceForRentExemption(space)
-    .send();
-
-  // Instruction to create new account for mint (token program)
-  // Invokes the system program
-  const createAccountInstruction = getCreateAccountInstruction({
-    payer: sender,
-    newAccount: mint,
-    lamports: rent,
-    space,
-    programAddress: TOKEN_2022_PROGRAM_ADDRESS
-  });
-
-  // Instruction to initialize mint account data
-  // Invokes the token 2022 program
-  const initializeMintInstruction = getInitializeMintInstruction({
-    mint: mint.address,
-    decimals: 6,
-    mintAuthority: sender.address
-  });
-
-  // Derive sender's associated token account address (ATA)
-  const [senderAta] = await findAssociatedTokenPda({
-    mint: mint.address,
-    owner: sender.address,
-    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
-  });
-
-  // Create instruction for sender's ATA
-  const createSenderAtaInstruction =
-    await getCreateAssociatedTokenInstructionAsync({
-      payer: sender,
+  // Mint initial tokens to the sender's ATA (created if it does not exist)
+  await client.token2022.instructions
+    .mintToATA({
       mint: mint.address,
-      owner: sender.address
-    });
-
-  // Create instruction for recipient's ATA
-  const createRecipientAtaInstruction =
-    await getCreateAssociatedTokenInstructionAsync({
-      payer: sender,
-      mint: mint.address,
-      owner: recipient.address
-    });
-
-  // Create instruction to mint initial tokens to sender
-  const mintToInstruction = getMintToInstruction({
-    mint: mint.address,
-    token: senderAta,
-    mintAuthority: sender.address,
-    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
-  });
-
-  // Combine all instructions and send using @solana/client transaction helper
-  const setupInstructions = [
-    createAccountInstruction, // Create mint account
-    initializeMintInstruction, // Initialize mint
-    createSenderAtaInstruction, // Create sender's ATA
-    createRecipientAtaInstruction, // Create recipient's ATA
-    mintToInstruction // Mint tokens to sender
-  ];
-
-  // Prepare and send transaction using @solana/client
-  await client.transaction.prepareAndSend({
-    authority: sender,
-    instructions: setupInstructions,
-    version: 0
-  });
+      owner: sender.address,
+      mintAuthority: sender,
+      amount: 1_000_000n, // 1.00 tokens (1,000,000 base units with 6 decimals)
+      decimals: 6
+    })
+    .sendTransaction();
 
   return {
     client,

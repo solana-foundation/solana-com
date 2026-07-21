@@ -100,13 +100,11 @@ const memoInstruction = getAddMemoInstruction({
   memo: "Payment for services rendered - Invoice #12345"
 });
 
-// !focus(1:5)
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
+// !focus(1:3)
+const {
+  context: { signature }
   // !mark
-  instructions: [transferInstruction, memoInstruction],
-  version: 0
-});
+} = await client.sendTransaction([transferInstruction, memoInstruction]);
 ```
 
 ## !!steps Näytä muistiinpano tapahtumalokissa
@@ -144,14 +142,12 @@ const memoInstruction = getAddMemoInstruction({
   memo: "Payment for services rendered - Invoice #12345"
 });
 
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
-  instructions: [transferInstruction, memoInstruction],
-  version: 0
-});
+const {
+  context: { signature }
+} = await client.sendTransaction([transferInstruction, memoInstruction]);
 
 // !focus(1:9)
-const transaction = await client.runtime.rpc
+const transaction = await client.rpc
   .getTransaction(signature, {
     encoding: "jsonParsed",
     maxSupportedTransactionVersion: 0
@@ -169,11 +165,12 @@ console.log(transaction?.meta?.logMessages);
 <CodeTabs flags="r">
 
 ```ts !! title="Demo"
-// !collapse(1:15) collapsed
+// !collapse(1:16) collapsed
 // Click ">" icon on left to expand demo imports
-import { createClient, lamports } from "@solana/client";
-import { generateKeypair } from "@solana/client/server";
-import type { ServerKeypair } from "@solana/client/server";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import type { KeyPairSigner } from "@solana/kit";
+import { signer } from "@solana/kit-plugin-signer";
+import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   getCreateAssociatedTokenInstructionAsync,
@@ -188,8 +185,8 @@ import {
 import { getAddMemoInstruction } from "@solana-program/memo";
 
 // Generate keypairs for sender and recipient
-const sender = (await generateKeypair()).signer;
-const recipient = (await generateKeypair()).signer;
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
 
 console.log("Sender Address:", sender.address);
 console.log("Recipient Address:", recipient.address);
@@ -234,31 +231,29 @@ const memoInstruction = getAddMemoInstruction({
   memo: "Payment for services rendered - Invoice #12345"
 });
 
-// Prepare and send transaction with both transfer and memo using @solana/client
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
+// Send transaction with both transfer and memo
+const {
+  context: { signature }
   // !mark
-  instructions: [transferInstruction, memoInstruction],
-  version: 0
-});
+} = await client.sendTransaction([transferInstruction, memoInstruction]);
 
 console.log("\n=== Token Payment with Memo Complete ===");
 console.log("Transaction Signature:", signature.toString());
 
-// Fetch final token account balances using @solana/client SPL token helper
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
+// Fetch final token account balances
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipientBalance = await client.rpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
 
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipientBalance = await splToken.fetchBalance(recipient.address);
-
-console.log("\nSender Token Account Balance:", senderBalance);
-console.log("Recipient Token Account Balance:", recipientBalance);
+console.log("\nSender Token Account Balance:", senderBalance.value.uiAmount);
+console.log(
+  "Recipient Token Account Balance:",
+  recipientBalance.value.uiAmount
+);
 
 // Fetch transaction details to view the memo in the logs
-const transaction = await client.runtime.rpc
+const transaction = await client.rpc
   .getTransaction(signature, {
     encoding: "jsonParsed",
     maxSupportedTransactionVersion: 0
@@ -275,7 +270,7 @@ console.log(transaction?.meta?.logMessages);
 
 /**
  * Sets up for a token transfer with memo demo:
- * - Creates @solana/client instance
+ * - Creates @solana/kit client
  * - Airdrops SOL to sender for transaction fees
  * - Generates mint keypair and creates/initializes mint account
  * - Creates associated token accounts for sender and recipient
@@ -285,31 +280,21 @@ console.log(transaction?.meta?.logMessages);
  * @param recipient - The recipient's keypair
  * @returns Returns client instance and mint address
  */
-async function demoSetup(
-  sender: ServerKeypair["signer"],
-  recipient: ServerKeypair["signer"]
-) {
-  // Create @solana/client instance pointing to local validator
-  const client = createClient({
-    endpoint: "http://localhost:8899",
-    websocketEndpoint: "ws://localhost:8900",
-    commitment: "confirmed",
-    logger: () => {} // Disable all logs
-  });
+async function demoSetup(sender: KeyPairSigner, recipient: KeyPairSigner) {
+  // Create @solana/kit client pointing to local validator
+  const client = createClient().use(signer(sender)).use(solanaLocalRpc());
 
-  // Fund sender with SOL for transaction fees using @solana/client actions
-  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+  // Fund sender with SOL for transaction fees
+  await client.airdrop(sender.address, lamports(1_000_000_000n));
 
   // Generate keypair to use as address of mint
-  const mint = (await generateKeypair()).signer;
+  const mint = await generateKeyPairSigner();
 
   // Get default mint account size (in bytes), no extensions enabled
   const space = BigInt(getMintSize());
 
   // Get minimum balance for rent exemption
-  const rent = await client.runtime.rpc
-    .getMinimumBalanceForRentExemption(space)
-    .send();
+  const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
   // Instruction to create new account for mint (token program)
   // Invokes the system program
@@ -341,7 +326,8 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sender,
       mint: mint.address,
-      owner: sender.address
+      owner: sender.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction for recipient's ATA
@@ -349,7 +335,8 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sender,
       mint: mint.address,
-      owner: recipient.address
+      owner: recipient.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction to mint initial tokens to sender
@@ -360,7 +347,7 @@ async function demoSetup(
     amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
   });
 
-  // Combine all instructions and send using @solana/client transaction helper
+  // Combine all instructions and send
   const setupInstructions = [
     createAccountInstruction, // Create mint account
     initializeMintInstruction, // Initialize mint
@@ -369,12 +356,8 @@ async function demoSetup(
     mintToInstruction // Mint tokens to sender
   ];
 
-  // Prepare and send transaction using @solana/client
-  await client.transaction.prepareAndSend({
-    authority: sender,
-    instructions: setupInstructions,
-    version: 0
-  });
+  // Send transaction
+  await client.sendTransaction(setupInstructions);
 
   return {
     client,

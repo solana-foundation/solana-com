@@ -1,131 +1,173 @@
 ---
-title: "@solana/client"
+title: Kit istemcisi
 description:
-  Headless Solana istemci çalışma zamanı ile yalın Solana ön yüzleri oluşturun.
+  RPC, imzalama ve işlem gönderme için Kit eklentilerinden bir Solana istemcisi
+  oluşturun.
 ---
 
-`@solana/client` çalışma zamanı yüzeyini yalın tutar. Tek bir depo, tek bir RPC
-yığını ve bir cüzdan kaydı, farklı yardımcılara güç sağlar; böylece aynı örnek
-CLI'ları, betikleri veya tam kullanıcı arayüzlerini destekleyebilir. Eylemler,
-izleyiciler ve yardımcılar, bu tek istemci aracılığıyla önbelleği, abonelikleri
-ve cüzdan oturumlarını paylaşır.
+`@solana/kit`, eklentilerle genişlettiğiniz küçük bir konak olan
+`createClient`'i içerir. Her eklenti bir yetenek ekler — RPC bağlantısı,
+imzalayıcı, işlem planlama — ve oluşturulan istemci; betikleri, sunucu
+rotalarını ve kullanıcı arayüzlerini eşit biçimde destekler.
 
 <Callout type="info">
-  Tamamen React tabanlı bir deneyim oluştururken genellikle
-  [`@solana/react-hooks`](/docs/frontend/react-hooks) ile başlamak daha
-  hızlıdır. Hooks paketi aynı istemci çalışma zamanını sarar ve hazır hook'lar
-  sunar; böylece headless istemciye yalnızca ekstra kontrole ihtiyaç
-  duyduğunuzda inersiniz.
+  Bir React uygulaması mı geliştiriyorsunuz? [React
+  rehberi](/docs/frontend/react-hooks), bu istemciyi `@solana/react` ile sararak
+  bileşenlerin cüzdan durumunu ve RPC verilerini hook'lar aracılığıyla okumasını
+  sağlar. Oradan başlayın ve daha ince kontrole ihtiyaç duyduğunuzda buraya
+  dönün.
 </Callout>
 
 ## Kurulum
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Herhangi bir paket yöneticisi kullanabilirsiniz; istemci tarayıcılarda,
-worker'larda, React'te, Svelte'de veya sunucu tarafı çalışma zamanlarında
-çalışır.
+Herhangi bir paket yöneticisi kullanabilirsiniz. Kit v7+ sürümündedir ve
+`@solana/kit-plugin-*` paketleri 0.13+ sürümündedir.
 
-## Bir kez istemci oluşturun
+## İstemci oluşturma
 
-Wallet Standard bağlayıcılarını seçin (otomatik keşif başlamak için en hızlı
-yoldur), ardından istemciyi oluşturun. Bu tek nesne depoyu, eylemleri,
-izleyicileri ve yardımcıları ortaya çıkarır.
+Eklentileri `.use(...)` ile birleştirin. Önce imzalayıcıyı, ardından RPC
+bağlantısını ayarlayın. `solanaDevnetRpc()`; `client.rpc`, abonelikler, işlem
+planlayıcısı/yürütücüsü ve `client.sendTransaction` yardımcısını ekler — bu
+sayede bir uygulama bu parçaları nadiren kendisi birleştirmek zorunda kalır.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-İstemci deposu küme yapılandırmasını, abonelikleri, bekleyen işlemleri ve cüzdan
-oturumlarını takip eder. Kalıcılığa veya çoklu sekme koordinasyonuna ihtiyacınız
-varsa kendi Zustand deponuzu sağlayabilirsiniz.
+`signer` eklentisi hem ücret ödeyiciyi hem de uygulama kimliğini ayarlar. RPC
+paketi, önce bir ödeyicinin tanımlanmasını gerektirdiğinden sıra önem taşır.
 
-## Cüzdan orkestrasyon
+### İmzalayıcı varyantları
 
-Bağlayıcılar, Wallet Standard meta verilerini ve bağlanma/bağlantıyı kesme
-mantığını kapsüller. Yerleşik `phantom()`, `solflare()`, `backpack()` veya
-`autoDiscover()` yardımcılarını kaydedin ya da özel sağlayıcıları
-`createWalletStandardConnector` ile sarın. Tüm cüzdan eylemleri (bağlanma,
-bağlantıyı kesme, imzalama, gönderme) istemci kaydından geçer; böylece her
-tüketici senkronize kalır.
+`@solana/kit-plugin-signer`, bir istemcinin yalnızca ihtiyaç duyduğu yetkiyi
+vermek için üç rol sunar:
 
-## Eylemler, izleyiciler ve yardımcılar
+- `signer(x)` — hem `client.payer` hem de `client.identity`'i ayarlar.
+- `payer(x)` — yalnızca ücret ödeyici.
+- `identity(x)` — yalnızca uygulama yetkisi.
 
-- **Eylemler** depoyu güncellerken yaygın RPC okuma ve yazma işlemlerini sarar
-  (örn. `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **İzleyiciler** websocket aboneliklerini çoğullar, güncellemeleri depoya
-  akıtır ve temizlik için iptal tutamaçları verir.
-- **Yardımcılar** SOL transferleri, SPL token yardımcıları, imza yoklaması ve
-  işlem havuzları gibi üst düzey akışları ortaya çıkarır.
+Her birinin testler ve betikler için `*FromFile(path)` (Node), `generated*()`,
+`generated*WithSol(amount)` ve `airdrop*()` varyantları mevcuttur.
+
+## İşlem gönderme
+
+Oluşturulmuş bir program istemcisiyle talimatlar oluşturun, ardından bunları
+`client.sendTransaction`'e iletin. Planlayıcı blok hash'ini çözümler,
+hesaplamayı tahmin eder, istemcinin ödeyicisiyle imzalar ve gönderir.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## İşlem yardımcı deseni
+`sendTransaction` bir sonuç nesnesine dönüşür; işlem imzası
+`result.context.signature` konumundadır. Planın tek bir işleme sığdığını
+doğrular ve aksi hâlde hata fırlatır — bir toplu iş birden fazla işleme
+yayılabilecekse `sendTransactions` kullanın.
 
-İşlem yardımcısı blockhash yenileme, ücret ödeyici çözümlemesi ve imzalamayı
-yönetir. Tercih ettiğiniz UX ile hazırlayabilir, inceleyebilir ve
-gönderebilirsiniz.
+## Bir RPC paketi seçin
+
+`@solana/kit-plugin-rpc` küme ön ayarlarıyla birlikte gelir:
+
+- `solanaDevnetRpc()` — devnet varsayılanları, airdrop etkin (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; airdrop derleme zamanı hatasıdır.
+- `solanaLocalRpc()` — yerel validator için `http://127.0.0.1:8899`.
+- `solanaRpc({ rpcUrl })` — herhangi bir uç nokta.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Önceden hazırlanmış bir akış (simülasyon artı günlükleme) için `prepareAndSend`
-kullanın veya tel formatını kendiniz aktarmadan önce imzaları manuel olarak
-toplamak için `sign` / `toWire` çağırın.
+### Ayrıntılı düzeyde oluşturun
 
-<Callout type="info">
-  Tarayıcı cüzdanı olmayan bir API rotasında, worker'da veya komut dosyasında
-  başsız mı çalışıyorsunuz? Ham bir keypair yerine bir arka uç anahtar yönetim
-  hizmeti ile imzalayın. Bkz. [Keychain](/docs/tools/keychain) ve [Üretimde
-  İmzalama](/docs/core/transactions/signing-in-production).
+Ön ayarlar; RPC bağlantısını, planlayıcıyı, yürütücüyü ve gönderme
+yardımcılarını bir araya getirir; bu nedenle çoğu uygulama parçalara ayrı ayrı
+ihtiyaç duymaz. Yalnızca birini özelleştirmek istediğinizde — örneğin özel bir
+planlayıcı veya farklı bir abonelik kanalı için — ayrıntılı eklentilere geçin.
+Bu yol aynı zamanda `@solana/kit-plugin-instruction-plan` gerektirir; ön ayarlar
+bunu sizin için otomatik olarak içerir:
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Program istemcileri ekleyin
+
+Oluşturulan `@solana-program/*` paketleri, program çağrılarının istemci
+üzerinden gerçekleştirilebilmesi için istemci eklentileri sunar. İhtiyacınız
+olan programı yükleyin ve eklentisini `.use()` ile ekleyin:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="Eş bağımlılık aralıkları">
+  Bazı `@solana-program/*` sürümleri, Kit 7.x sürümündeyken hâlâ `@solana/kit
+  ^6.x` eş bağımlılığı bildirir. Kit 7 ile birlikte çalışırlar — paket
+  yöneticiniz şikâyet ederse eş bağımlılık aralığını geçersiz kılın.
 </Callout>
 
-## Solana geliştiricileri için yaygın kalıplar
+## Tarayıcı cüzdanı olmadan imzalama
 
-- **Başsız durum makineleri**: İstemciyi API rotalarında, komut dosyalarında
-  veya worker'larda çalıştırarak kullanıcı arayüzünüzü destekleyen aynı cüzdan +
-  RPC orkestrasyon mantığını yeniden kullanın.
-- **Gerçek zamanlı gösterge panelleri**: İzleyicileri (bakiyeler, hesaplar,
-  imzalar) tercih ettiğiniz UI kütüphanesiyle birleştirin; istemci websocket
-  dağıtımını ve önbellek geçersiz kılmayı yönetir.
-- **Özel depolar**: IndexedDB/localStorage'dan beslemek, durumu sunucu
-  oturumlarına yansıtmak veya tarayıcı sekmeleri arasında koordinasyon sağlamak
-  için kendi Zustand deponuzu enjekte edin.
-- **React hook'larına köprü**: Aynı çalışma zamanının üzerinde ergonomik
-  hook'lar istediğinizde yapılandırılmış bir istemci örneğini
-  `@solana/react-hooks`'e aktarın.
-- **Test edilebilirlik**: Tek istemci arayüzü birim testlerinde taklit
-  edilebilir; bu sayede tarayıcı cüzdanı olmadan RPC yanıtlarını veya cüzdan
-  oturumlarını simüle etmek kolaylaşır.
+Bir API rotasında, worker'da veya betikte başsız (headless) olarak mı
+çalışıyorsunuz? Ham keypair yerine bir arka uç anahtar yönetim hizmetiyle
+imzalayın. Bkz. [Keychain](/docs/tools/keychain) ve
+[Üretimde İmzalama](/docs/core/transactions/signing-in-production).
+
+## Solana geliştiricileri için yaygın desenler
+
+- **Paylaşılan kurulum**: İstemciyi bir çekirdek modülde tek seferinde oluşturun
+  ve betiklere, sunucu rotalarına ve kullanıcı arayüzünüze aktarın.
+- **Sunucu taraflı okumalar**: Yalnızca `signer` + `solanaRpc` içeren bir
+  istemci (cüzdan eklentisi olmadan) sunucudan hesapları okur ve işlemleri
+  simüle eder.
+- **Yerel test**: RPC paketini `@solana/kit-plugin-litesvm` içindeki
+  `.use(litesvm())` ile değiştirerek bellek içi validator'a karşı çalıştırın
+  (yalnızca Node).
+- **Test edilebilirlik**: Oluşturulan istemci kolayca taklit edilebilir —
+  tarayıcı cüzdanı olmadan RPC yanıtlarını veya imzalayıcıları taklit edin.

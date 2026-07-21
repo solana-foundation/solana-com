@@ -1,129 +1,173 @@
 ---
-title: "@solana/client"
+title: Kit klien
 description:
-  Bangun frontend Solana yang ramping dengan runtime klien Solana headless.
+  Bangun klien Solana dari plugin Kit untuk RPC, penandatanganan, dan pengiriman
+  transaksi.
 ---
 
-`@solana/client` menjaga permukaan runtime tetap ramping. Satu store, satu stack
-RPC, dan registry wallet menggerakkan berbagai helper sehingga instance yang
-sama dapat mendukung CLI, skrip, atau UI lengkap. Action, watcher, dan helper
-semuanya berbagi cache, subscription, dan sesi wallet melalui klien tunggal
-tersebut.
+`@solana/kit` dilengkapi dengan `createClient`, sebuah host kecil yang dapat
+diperluas dengan plugin. Setiap plugin menambahkan kemampuan — koneksi RPC,
+penanda tangan, perencanaan transaksi — dan klien yang tersusun mendukung skrip,
+rute server, maupun antarmuka pengguna.
 
 <Callout type="info">
-  Ketika Anda membangun pengalaman React murni, biasanya lebih cepat untuk
-  memulai dengan [`@solana/react-hooks`](/docs/frontend/react-hooks). Paket
-  hooks membungkus runtime klien yang sama ini dan menyediakan hooks siap pakai
-  sehingga Anda hanya turun ke klien headless ketika Anda memerlukan kontrol
-  ekstra.
+  Membangun aplikasi React? [Panduan React](/docs/frontend/react-hooks)
+  membungkus klien yang sama ini dengan `@solana/react` agar komponen dapat
+  membaca status dompet dan data RPC melalui hook. Mulailah dari sana dan
+  kembali ke sini ketika Anda membutuhkan kendali yang lebih detail.
 </Callout>
 
 ## Install
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Gunakan package manager apa pun; klien berjalan di browser, worker, React,
-Svelte, atau runtime sisi server.
+Gunakan manajer paket apa pun. Kit versi 7+ dan paket `@solana/kit-plugin-*`
+adalah 0.13+.
 
-## Buat klien sekali
+## Buat klien
 
-Pilih konektor Wallet Standard (auto discovery adalah cara tercepat untuk
-memulai), kemudian buat klien. Objek tunggal ini menyediakan store, action,
-watcher, dan helper.
+Susun plugin dengan `.use(...)`. Tetapkan penanda tangan terlebih dahulu, lalu
+koneksi RPC. `solanaDevnetRpc()` menambahkan `client.rpc`, langganan,
+perencana/eksekutor transaksi, dan pembantu `client.sendTransaction` — sehingga
+sebuah aplikasi jarang perlu menghubungkan komponen-komponen tersebut secara
+manual.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-Store klien melacak konfigurasi cluster, subscription, transaksi pending, dan
-sesi wallet. Anda dapat menyediakan store Zustand Anda sendiri jika Anda
-memerlukan persistensi atau koordinasi multi-tab.
+Plugin `signer` menetapkan pembayar biaya sekaligus identitas aplikasi. Bundel
+RPC mensyaratkan pembayar sudah ada terlebih dahulu, itulah mengapa urutan ini
+penting.
 
-## Orkestrasi wallet
+### Varian penanda tangan
 
-Konektor mengenkapsulasi metadata Wallet Standard ditambah logika
-connect/disconnect. Daftarkan helper bawaan `phantom()`, `solflare()`,
-`backpack()`, atau `autoDiscover()`, atau bungkus provider kustom dengan
-`createWalletStandardConnector`. Semua action wallet (connect, disconnect, sign,
-send) mengalir melalui registry klien sehingga setiap konsumen tetap sinkron.
+`@solana/kit-plugin-signer` menyediakan tiga peran agar Anda hanya memberikan
+izin sesuai kebutuhan klien:
 
-## Action, watcher, dan helper
+- `signer(x)` — menetapkan `client.payer` dan `client.identity` sekaligus.
+- `payer(x)` — pembayar biaya saja.
+- `identity(x)` — otoritas aplikasi saja.
 
-- **Action** membungkus pembacaan dan penulisan RPC umum sambil memperbarui
-  store (misalnya, `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **Watcher** melakukan multipleks subscription websocket, mengalirkan update ke
-  dalam store, dan memberi Anda handle abort untuk cleanup.
-- **Helper** menyediakan alur tingkat tinggi seperti transfer SOL, helper token
-  SPL, polling signature, dan pool transaksi.
+Masing-masing memiliki varian `*FromFile(path)` (Node), `generated*()`,
+`generated*WithSol(amount)`, dan `airdrop*()` untuk pengujian dan skrip.
+
+## Kirim transaksi
+
+Bangun instruksi dengan klien program yang telah dibuat, lalu serahkan ke
+`client.sendTransaction`. Perencana akan mengambil blockhash, memperkirakan
+komputasi, menandatangani dengan pembayar klien, dan mengirimkan transaksi.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## Pola transaction helper
+`sendTransaction` menghasilkan objek hasil; tanda tangan transaksi ada di
+`result.context.signature`. Fungsi ini memastikan rencana tersebut memenuhi satu
+transaksi dan melempar error jika tidak — gunakan `sendTransactions` ketika
+sebuah batch dapat mencakup beberapa transaksi.
 
-Transaction helper mengelola pembaruan blockhash, resolusi fee payer, dan
-penandatanganan. Anda dapat mempersiapkan, memeriksa, dan mengirim dengan UX apa
-pun yang Anda inginkan.
+## Pilih paket RPC
+
+`@solana/kit-plugin-rpc` menyediakan preset kluster:
+
+- `solanaDevnetRpc()` — default devnet, airdrop diaktifkan (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; airdrop adalah error saat kompilasi.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` untuk validator lokal.
+- `solanaRpc({ rpcUrl })` — endpoint apa pun.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Gunakan `prepareAndSend` untuk alur yang sudah jadi (simulasi plus logging) atau
-panggil `sign` / `toWire` untuk mengumpulkan tanda tangan secara manual sebelum
-meneruskan format wire sendiri.
+### Susun secara granular
 
-<Callout type="info">
-  Menjalankan headless — di rute API, worker, atau skrip tanpa wallet browser?
-  Tandatangani dengan layanan manajemen kunci backend alih-alih keypair mentah.
-  Lihat [Keychain](/docs/tools/keychain) dan [Penandatanganan dalam
-  Produksi](/docs/core/transactions/signing-in-production).
+Preset menggabungkan koneksi RPC, perencana, eksekutor, dan helper pengiriman,
+sehingga sebagian besar aplikasi tidak perlu menggunakan komponen-komponen
+tersebut secara individual. Gunakan plugin granular hanya untuk menyesuaikan
+salah satunya — misalnya perencana kustom atau kanal langganan yang berbeda.
+Jalur ini juga membutuhkan `@solana/kit-plugin-instruction-plan`, yang sudah
+disertakan oleh preset secara otomatis:
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Tambahkan klien program
+
+Paket `@solana-program/*` yang dihasilkan mengekspos plugin klien sehingga
+pemanggilan program terhubung ke klien. Instal program yang Anda butuhkan dan
+`.use()` plugin-nya:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="Peer dependency ranges">
+  Beberapa rilis `@solana-program/*` masih mendeklarasikan peer `@solana/kit
+  ^6.x` sementara Kit berada di versi 7.x. Paket ini tetap kompatibel dengan Kit
+  7 — timpa rentang peer di package manager Anda jika ada peringatan.
 </Callout>
+
+## Penandatanganan tanpa dompet browser
+
+Menjalankan proses tanpa antarmuka di rute API, worker, atau skrip? Tandatangani
+menggunakan layanan manajemen kunci backend, bukan keypair mentah. Lihat
+[Keychain](/docs/tools/keychain) dan
+[Penandatanganan di Produksi](/docs/core/transactions/signing-in-production).
 
 ## Pola umum untuk pengembang Solana
 
-- **State machine headless**: Jalankan klien di dalam rute API, skrip, atau
-  worker untuk menggunakan kembali logika orkestrasi wallet + RPC yang sama yang
-  menggerakkan UI Anda.
-- **Dasbor realtime**: Gabungkan watcher (saldo, akun, tanda tangan) dengan
-  pustaka UI pilihan Anda; klien menangani fan-out websocket dan invalidasi
-  cache.
-- **Store kustom**: Injeksikan store Zustand Anda sendiri untuk menghidrasi dari
-  IndexedDB/localStorage, mencerminkan state ke sesi server, atau berkoordinasi
-  antar tab browser.
-- **Jembatan ke React hooks**: Teruskan instance klien yang telah dikonfigurasi
-  ke `@solana/react-hooks` saat Anda menginginkan hooks yang ergonomis di atas
-  runtime yang sama.
-- **Kemampuan pengujian**: Antarmuka klien tunggal dapat di-mock dalam pengujian
-  unit, sehingga mudah untuk mensimulasikan respons RPC atau sesi wallet tanpa
-  wallet browser.
+- **Pengaturan bersama**: Bangun klien sekali di modul inti dan impor ke dalam
+  skrip, rute server, dan UI Anda.
+- **Pembacaan sisi server**: Klien hanya dengan `signer` + `solanaRpc` (tanpa
+  plugin dompet) membaca akun dan mensimulasikan transaksi dari server.
+- **Pengujian lokal**: Ganti paket RPC dengan `.use(litesvm())` dari
+  `@solana/kit-plugin-litesvm` untuk menjalankan terhadap validator dalam memori
+  (khusus Node).
+- **Kemudahan pengujian**: Klien yang disusun mudah di-mock — stub respons RPC
+  atau penanda tangan tanpa dompet browser yang aktif.

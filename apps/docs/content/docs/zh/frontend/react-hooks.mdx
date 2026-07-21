@@ -1,72 +1,109 @@
 ---
-title: "@solana/react-hooks"
-description: 通过即用型 hooks，在你的 React 应用中共享 @solana/client 的状态。
+title: React
+description:
+  通过 @solana/react 和钱包插件钩子，在整个 React 应用中共享 Kit 客户端。
 ---
 
-`@solana/react-hooks` 在 `@solana/client` 之上，集成了 React
-provider、hooks 以及支持 suspense 的查询辅助工具。你仍然只需配置一个 client，但这些 hooks 能直接暴露钱包状态、余额、交易和程序查询，无需手动管理 store 或订阅。
+`@solana/react`
+通过一个提供者将 Kit 客户端发布到组件树中，钩子随后从中读取 RPC 数据、订阅和钱包状态。浏览器钱包钩子位于
+`@solana/kit-plugin-wallet/react` 中，并读取同一个提供者——无需单独的钱包提供者。
 
 ## 安装
 
 ```terminal
-$ npm install @solana/client @solana/react-hooks
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react
 ```
 
-这两个包都是必需的，因为 hooks 会复用 client runtime 来管理钱包、RPC 和缓存。
+## 构建客户端
 
-## 只需包裹一次你的组件树
+在模块作用域内、React 树之外一次性构建客户端。在浏览器中，`walletSigner`
+将已连接的钱包同时设为手续费支付方和身份标识。
 
-创建 client，可选地选择钱包连接器，然后用 `SolanaProvider`
-包裹你的 React 组件树。每个 hook 都会从共享的 client 实例中读取数据。
+```tsx title="client.ts"
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl: "https://api.devnet.solana.com" }));
+
+export type AppClient = Awaited<typeof client>;
+```
+
+`walletSigner` 添加了 `client.wallet`（Wallet Standard 发现与连接），`solanaRpc`
+添加了 `client.rpc` 以及 `client.sendTransaction` 辅助函数。将客户端类型导出为
+`Awaited<>` 包装的形式，以便在日后添加异步解析插件时保持类型正确，并将该
+`AppClient` 传递给每个 `useClient` 调用。
+
+## 包裹组件树（仅需一次）
+
+`ClientProvider` 负责发布客户端，以下所有钩子均从中读取数据。
+
+```tsx title="providers.tsx"
+"use client";
+
+import { ClientProvider } from "@solana/react";
+import { client } from "./client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ClientProvider client={client}>{children}</ClientProvider>;
+}
+```
+
+## 钱包钩子
+
+钱包钩子读取客户端的 `wallet` 能力，因此它们只能在安装了钱包插件的客户端所对应的
+`ClientProvider` 内部使用。
+
+- `useWallets()` — 为当前客户端链发现的 Wallet Standard 钱包。
+- `useWalletStatus()` —
+  `"pending" | "disconnected" | "connecting" | "connected" | "disconnecting" | "reconnecting"`。
+- `useConnectedWallet()` — `{ account, signer, wallet }` 或
+  `null`。对于只读钱包，值为 `signer`，即 `null`。
+- `useConnect()` / `useDisconnect()` — 返回一个 `ActionResult`，其
+  `dispatch`（以及
+  `dispatchAsync`）用于执行操作，`isRunning`、`status`、`data`、`error` 和
+  `reset` 用于追踪操作结果。
 
 ```tsx
 "use client";
 
-import { autoDiscover, createClient } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import {
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
-}
-```
-
-## Hooks 与 client runtime 一致
-
-- **钱包 + 连接器**：`useWallet`、`useWalletConnection`、`useConnectWallet` 和
-  `useDisconnectWallet` 暴露了同样的注册表，驱动 client。
-- **余额 + 账户监听**：`useBalance`、`useAccount`、`useSolBalance` 和
-  `useProgramAccounts` 会从底层监听器流式更新，并与操作共享缓存。
-- **交易 + SPL 辅助工具**：`useSolTransfer`、`useSplToken`、`useTransactionPool`
-  和 `useSendTransaction`
-  依赖于 client 的辅助工具集，因此 hooks 继承了区块哈希刷新、手续费支付人解析和日志记录等功能。
-
-```tsx
 function WalletPanel() {
-  const { connectors, connect, disconnect, wallet, status } =
-    useWalletConnection();
-  const balance = useBalance(wallet?.account.address);
+  const status = useWalletStatus();
+  const wallets = useWallets();
+  const connected = useConnectedWallet();
+  const connect = useConnect();
+  const disconnect = useDisconnect();
 
-  if (status === "connected") {
+  if (status === "pending") return null; // wait out auto-reconnect
+
+  if (connected) {
     return (
       <div>
-        <p>{wallet?.account.address.toString()}</p>
-        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
-        <button onClick={disconnect}>Disconnect</button>
+        <p>{connected.account.address}</p>
+        <button onClick={() => disconnect.dispatch()}>Disconnect</button>
       </div>
     );
   }
 
   return (
     <div>
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect(connector.id)}>
-          Connect {connector.name}
+      {wallets.map((wallet) => (
+        <button
+          key={wallet.name}
+          disabled={connect.isRunning}
+          onClick={() => connect.dispatch(wallet)}
+        >
+          Connect {wallet.name}
         </button>
       ))}
     </div>
@@ -74,114 +111,107 @@ function WalletPanel() {
 }
 ```
 
-## 查询与缓存模式
+## 发送交易
 
-`SolanaQueryProvider` 在 client store 之上集成了兼容 React
-Query 的基础工具，因此 Solana 专属查询可以挂起、重新获取并与程序订阅同步。
-
-```tsx
-import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
-
-function ProgramAccounts({ program }: { program: string }) {
-  const query = useProgramAccounts(program);
-
-  if (query.isLoading) return <p>Loading…</p>;
-  if (query.isError) return <p role="alert">RPC error</p>;
-
-  return (
-    <div>
-      <button onClick={() => query.refresh()}>Refresh</button>
-      <ul>
-        {query.accounts.map(({ pubkey }) => (
-          <li key={pubkey.toString()}>{pubkey.toString()}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function ProgramAccountsSection({ program }: { program: string }) {
-  return (
-    <SolanaQueryProvider>
-      <ProgramAccounts program={program} />
-    </SolanaQueryProvider>
-  );
-}
-```
-
-## 让交易流程声明式
-
-Hooks 暴露了与 client 相同的交易辅助工具，但会自动为你管理加载和错误状态。你可以用它们进行 SOL 转账、SPL 代币流转或任意指令批处理。
+`useClient` 返回你已发布的同一客户端。使用生成的程序客户端构建指令，并通过
+`client.sendTransaction` 发送。
 
 ```tsx
-import { useSolTransfer } from "@solana/react-hooks";
+"use client";
 
-function SolTransferForm({ destination }: { destination: string }) {
-  const transfer = useSolTransfer();
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void transfer.send({ destination, lamports: 100_000_000n });
-      }}
-    >
-      <button type="submit" disabled={transfer.isSending}>
-        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
-      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
-    </form>
-  );
-}
-```
-
-需要原始指令吗？`useSendTransaction` 支持 `instructions` 以及可选的 `prepare`
-覆盖项，在请求完成时为你提供签名和状态跟踪。
-
-```tsx
-import { useSendTransaction, useWallet } from "@solana/react-hooks";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import type { AppClient } from "./client";
 
-function CustomTransactionForm({ destination }: { destination: string }) {
-  const wallet = useWallet();
-  const { send, isSending, signature, error } = useSendTransaction();
+function SendSol({ destination }: { destination: string }) {
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet();
 
   async function handleSend() {
-    if (wallet.status !== "connected") return;
-
-    const instruction = getTransferSolInstruction({
-      source: wallet.session.account,
+    if (!connected?.signer) return;
+    const transfer = getTransferSolInstruction({
+      source: connected.signer,
       destination: address(destination),
-      amount: lamports(100_000_000n)
+      amount: lamports(10_000_000n) // 0.01 SOL
     });
-
-    await send({ instructions: [instruction] });
+    const result = await client.sendTransaction([transfer]);
+    console.log("sent", result.context.signature);
   }
 
   return (
+    <button disabled={!connected?.signer} onClick={handleSend}>
+      Send 0.01 SOL
+    </button>
+  );
+}
+```
+
+将导出的 `AppClient` 类型传递给
+`useClient`，可使钩子获得完整的插件扩展客户端，从而对 `client.rpc` 和
+`client.sendTransaction` 进行类型标注。
+
+## 读取数据
+
+`@solana/react` 提供了通过客户端读取数据的钩子：
+
+- `useRequest(source)` — 单次 RPC 读取；返回
+  `{ data, error, status, refresh }`。
+- `useSubscription(source)` — 实时订阅；返回
+  `{ data, error, reconnect, status }`。
+- `useTrackedData(spec)` — 由 RPC 初始化并通过订阅保持最新的值。
+
+```tsx
+"use client";
+
+import { address } from "@solana/kit";
+import { useClient, useRequest } from "@solana/react";
+import { useMemo } from "react";
+import type { AppClient } from "./client";
+
+function Balance({ owner }: { owner: string }) {
+  const client = useClient<AppClient>();
+  const source = useMemo(
+    () => client.rpc.getBalance(address(owner)),
+    [client, owner]
+  );
+  const { data, status, refresh } = useRequest(source);
+
+  if (status === "fetching") return <p>Loading…</p>;
+  if (status === "error") return <p role="alert">RPC error</p>;
+
+  return (
     <div>
-      <button onClick={handleSend} disabled={isSending}>
-        {isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {signature ? <p>Signature: {signature}</p> : null}
-      {error ? <p role="alert">{String(error)}</p> : null}
+      <p>Lamports: {data?.value.toString()}</p>
+      <button onClick={() => refresh()}>Refresh</button>
     </div>
   );
 }
 ```
 
-## Solana 开发者常见模式
+对数据源进行记忆化（使用 `useMemo`，或对函数使用
+`useCallback`），使钩子仅在输入变化时重新获取数据，而非在每次渲染时触发。
 
-- **共享运行时，多应用**：只需在核心包中配置一次客户端，即可在 Web、移动 Web 或嵌入式 React 岛中复用。
-- **以 UI 为先的开发**：Hooks 反映了最常见的 Solana 流程（连接钱包、获取余额、发送 SOL、读取 SPL 余额），让你专注于用户体验，而无需关心 RPC 细节。
-- **渐进式增强**：可以先用 `@solana/client`
-  实现无界面逻辑，然后在需要 React 状态和 suspense 友好数据获取的地方添加 hooks。
-- **测试**：可以模拟 hook 的返回值，或将模拟的客户端传递给
-  `SolanaProvider`，以在单元测试中模拟钱包、RPC 成功或失败。
-- **支持服务端组件**：只需为调用 hooks 的叶子组件标记
-  `"use client"`，其余部分可保留在服务端，并通过 hooks 驱动的子组件接收已注水的 props。
+对于缓存和重新验证，`@solana/react/swr` 和 `@solana/react/query` 子路径为
+[SWR](https://swr.vercel.app) 和 [TanStack Query](https://tanstack.com/query)
+封装了相同的钩子。
 
-建议结合 [@solana/client 概览](/docs/frontend/client)
-一起阅读，以了解每个 hook 所依赖的运行时。
+## Solana 开发者常用模式
+
+- **单一 Provider**：`ClientProvider`
+  是你唯一需要的 Provider；钱包钩子通过客户端的 `wallet` 能力读取它。
+- **服务端组件感知**：仅对调用钩子的叶子组件标记
+  `"use client"`；服务端读取可使用不带钱包的普通 Kit RPC 客户端。
+- **测试**：通过 `ClientProvider` 注入模拟客户端，以模拟钱包和 RPC 响应。
+
+<Callout type="warn" title="两个钩子家族，名称相同">
+  `useSignIn` 和 `useSignMessage` 同时存在于 `@solana/react`（接受
+  `UiWalletAccount` 参数）和
+  `@solana/kit-plugin-wallet/react`（基于客户端，无账户参数，返回
+  `ActionResult`）中。请使用上述客户端模式中的 `@solana/kit-plugin-wallet/react`
+  版本；旧版 `@solana/react` 钱包钩子正逐步被取代。
+</Callout>
+
+请将本指南与 [Kit 客户端概览](/docs/frontend/client)
+配合阅读，以了解每个钩子所读取的客户端。

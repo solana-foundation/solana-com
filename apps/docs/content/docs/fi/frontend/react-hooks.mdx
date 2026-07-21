@@ -1,81 +1,115 @@
 ---
-title: "@solana/react-hooks"
+title: React
 description:
-  Jaa @solana/client-tila React-sovelluksessasi valmiiden hookien avulla.
+  Jaa Kit-asiakas koko React-sovelluksessasi @solana/react-paketin ja
+  lompakkoliitännäisten koukkujen avulla.
 ---
 
-`@solana/react-hooks` kerrostaa React-providerin, hookit ja
-suspense-yhteensopivat kyselyapurit `@solana/client`-paketin päälle. Määrität
-edelleen yhden clientin, mutta hookit paljastavat lompakon tilan, saldot,
-transaktiot ja ohjelmakyselyt ilman että sinun tarvitsee rakentaa storeja tai
-tilauksia käsin.
+`@solana/react` julkaisee Kit-asiakkaan komponenttipuuhusi yhden tarjoajan
+kautta, minkä jälkeen koukut lukevat RPC-dataa, tilauksia ja lompakkotilaa
+siitä. Selaimen lompakkokoukut sijaitsevat
+`@solana/kit-plugin-wallet/react`-paketissa ja lukevat samaa tarjoajaa —
+erillistä lompakkotarjoajaa ei tarvita.
 
 ## Asennus
 
 ```terminal
-$ npm install @solana/client @solana/react-hooks
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react
 ```
 
-Molemmat paketit ovat pakollisia, koska hookit käyttävät uudelleen
-client-runtimea lompakoiden, RPC:n ja välimuistien hallintaan.
+## Rakenna asiakas
+
+Rakenna asiakas kerran, moduulitasolla, React-puun ulkopuolella. Selaimessa
+`walletSigner` asettaa yhdistetyn lompakon sekä maksunmaksajaksi että
+identiteetiksi.
+
+```tsx title="client.ts"
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl: "https://api.devnet.solana.com" }));
+
+export type AppClient = Awaited<typeof client>;
+```
+
+`walletSigner` lisää `client.wallet` -ominaisuuden (Wallet Standard -löytäminen
+ja yhdistäminen), ja `solanaRpc` lisää `client.rpc` sekä
+`client.sendTransaction`-apufunktion. Vie asiakastyyppi `Awaited<>`-kääreeseen,
+jotta se pysyy oikeana, jos lisäät myöhemmin asynkronisesti ratkeavan
+liitännäisen, ja välitä kyseinen `AppClient` jokaiselle `useClient`-kutsulle.
 
 ## Kääri puusi kerran
 
-Luo client, valitse halutessasi lompakkoliittimet ja kääri sitten React-puusi
-`SolanaProvider`-komponentilla. Jokainen hook lukee jaetusta
-client-instanssista.
+`ClientProvider` julkaisee asiakkaan. Kaikki alla olevat koukut lukevat siitä.
+
+```tsx title="providers.tsx"
+"use client";
+
+import { ClientProvider } from "@solana/react";
+import { client } from "./client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ClientProvider client={client}>{children}</ClientProvider>;
+}
+```
+
+## Lompakkokoukut
+
+Lompakkokoukut lukevat asiakkaan `wallet`-ominaisuutta, joten ne toimivat vain
+`ClientProvider`-komponentin sisällä, jonka asiakas on asentanut
+lompakkoliitännäisen.
+
+- `useWallets()` — Wallet Standard -lompakot, jotka on löydetty asiakkaan
+  ketjulle.
+- `useWalletStatus()` —
+  `"pending" | "disconnected" | "connecting" | "connected" | "disconnecting" | "reconnecting"`.
+- `useConnectedWallet()` — `{ account, signer, wallet }` tai `null`. `signer` on
+  `null` vain luettaville lompakoille.
+- `useConnect()` / `useDisconnect()` — palauttavat `ActionResult`-olion, jonka
+  `dispatch` (ja `dispatchAsync`) suorittaa toiminnon ja jonka `isRunning`,
+  `status`, `data`, `error` ja `reset` seuraavat sen tulosta.
 
 ```tsx
 "use client";
 
-import { autoDiscover, createClient } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import {
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
-}
-```
-
-## Hookit heijastavat client-runtimea
-
-- **Lompakko + liittimet**: `useWallet`, `useWalletConnection`,
-  `useConnectWallet` ja `useDisconnectWallet` paljastavat saman rekisterin, joka
-  toimii clientin taustalla.
-- **Saldo- ja tilitarkkailijat**: `useBalance`, `useAccount`, `useSolBalance` ja
-  `useProgramAccounts` suoratoistavat päivityksiä taustalla olevista
-  tarkkailijista ja jakavat välimuistin actionien kanssa.
-- **Transaktiot + SPL-apurit**: `useSolTransfer`, `useSplToken`,
-  `useTransactionPool` ja `useSendTransaction` nojaavat clientin
-  apurikokoelmaan, joten hookit perivät blockhash-päivityksen, maksajan
-  selvityksen ja lokituksen.
-
-```tsx
 function WalletPanel() {
-  const { connectors, connect, disconnect, wallet, status } =
-    useWalletConnection();
-  const balance = useBalance(wallet?.account.address);
+  const status = useWalletStatus();
+  const wallets = useWallets();
+  const connected = useConnectedWallet();
+  const connect = useConnect();
+  const disconnect = useDisconnect();
 
-  if (status === "connected") {
+  if (status === "pending") return null; // wait out auto-reconnect
+
+  if (connected) {
     return (
       <div>
-        <p>{wallet?.account.address.toString()}</p>
-        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
-        <button onClick={disconnect}>Disconnect</button>
+        <p>{connected.account.address}</p>
+        <button onClick={() => disconnect.dispatch()}>Disconnect</button>
       </div>
     );
   }
 
   return (
     <div>
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect(connector.id)}>
-          Connect {connector.name}
+      {wallets.map((wallet) => (
+        <button
+          key={wallet.name}
+          disabled={connect.isRunning}
+          onClick={() => connect.dispatch(wallet)}
+        >
+          Connect {wallet.name}
         </button>
       ))}
     </div>
@@ -83,125 +117,114 @@ function WalletPanel() {
 }
 ```
 
-## Kysely- ja välimuistimallit
+## Lähetä transaktio
 
-`SolanaQueryProvider` kerrostaa React Query -yhteensopivia primitiivejä
-client-storen päälle, jotta Solana-spesifiset kyselyt voivat suspendata, hakea
-uudelleen ja synkronoitua ohjelmatilausten kanssa.
-
-```tsx
-import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
-
-function ProgramAccounts({ program }: { program: string }) {
-  const query = useProgramAccounts(program);
-
-  if (query.isLoading) return <p>Loading…</p>;
-  if (query.isError) return <p role="alert">RPC error</p>;
-
-  return (
-    <div>
-      <button onClick={() => query.refresh()}>Refresh</button>
-      <ul>
-        {query.accounts.map(({ pubkey }) => (
-          <li key={pubkey.toString()}>{pubkey.toString()}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function ProgramAccountsSection({ program }: { program: string }) {
-  return (
-    <SolanaQueryProvider>
-      <ProgramAccounts program={program} />
-    </SolanaQueryProvider>
-  );
-}
-```
-
-## Transaktiovirrat deklaratiivisiksi
-
-Hookit paljastavat samat transaktioapurit kuin client, mutta hallitsevat lataus-
-ja virhetilat puolestasi. Käytä niitä SOL-siirtoihin, SPL-token-virtoihin tai
-mielivaltaisiin käskyeriin.
+`useClient` palauttaa saman asiakkaan, jonka julkaisit. Rakenna käskyt
+generoidun ohjelma-asiakkaan avulla ja lähetä ne
+`client.sendTransaction`-funktion kautta.
 
 ```tsx
-import { useSolTransfer } from "@solana/react-hooks";
+"use client";
 
-function SolTransferForm({ destination }: { destination: string }) {
-  const transfer = useSolTransfer();
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void transfer.send({ destination, lamports: 100_000_000n });
-      }}
-    >
-      <button type="submit" disabled={transfer.isSending}>
-        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
-      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
-    </form>
-  );
-}
-```
-
-Tarvitsetko sen sijaan raakoja ohjeita? `useSendTransaction` hyväksyy
-`instructions` ja valinnaiset `prepare` ylikirjoitukset, antaen sinulle
-allekirjoituksen ja tilanneseurannan, kun pyyntö valmistuu.
-
-```tsx
-import { useSendTransaction, useWallet } from "@solana/react-hooks";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import type { AppClient } from "./client";
 
-function CustomTransactionForm({ destination }: { destination: string }) {
-  const wallet = useWallet();
-  const { send, isSending, signature, error } = useSendTransaction();
+function SendSol({ destination }: { destination: string }) {
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet();
 
   async function handleSend() {
-    if (wallet.status !== "connected") return;
-
-    const instruction = getTransferSolInstruction({
-      source: wallet.session.account,
+    if (!connected?.signer) return;
+    const transfer = getTransferSolInstruction({
+      source: connected.signer,
       destination: address(destination),
-      amount: lamports(100_000_000n)
+      amount: lamports(10_000_000n) // 0.01 SOL
     });
-
-    await send({ instructions: [instruction] });
+    const result = await client.sendTransaction([transfer]);
+    console.log("sent", result.context.signature);
   }
 
   return (
+    <button disabled={!connected?.signer} onClick={handleSend}>
+      Send 0.01 SOL
+    </button>
+  );
+}
+```
+
+Viennän `AppClient`-tyypin välittäminen `useClient`:lle antaa hookille täyden
+laajennuksilla varustetun asiakkaan, joten `client.rpc` ja
+`client.sendTransaction` ovat tyypitettyjä.
+
+## Lue tietoja
+
+`@solana/react` sisältää hookit, jotka lukevat asiakkaan kautta:
+
+- `useRequest(source)` — kertaluonteinen RPC-luku; palauttaa
+  `{ data, error, status, refresh }`.
+- `useSubscription(source)` — reaaliaikainen tilaus; palauttaa
+  `{ data, error, reconnect, status }`.
+- `useTrackedData(spec)` — RPC:llä alustettu arvo, joka pidetään ajantasaisena
+  tilauksen avulla.
+
+```tsx
+"use client";
+
+import { address } from "@solana/kit";
+import { useClient, useRequest } from "@solana/react";
+import { useMemo } from "react";
+import type { AppClient } from "./client";
+
+function Balance({ owner }: { owner: string }) {
+  const client = useClient<AppClient>();
+  const source = useMemo(
+    () => client.rpc.getBalance(address(owner)),
+    [client, owner]
+  );
+  const { data, status, refresh } = useRequest(source);
+
+  if (status === "fetching") return <p>Loading…</p>;
+  if (status === "error") return <p role="alert">RPC error</p>;
+
+  return (
     <div>
-      <button onClick={handleSend} disabled={isSending}>
-        {isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {signature ? <p>Signature: {signature}</p> : null}
-      {error ? <p role="alert">{String(error)}</p> : null}
+      <p>Lamports: {data?.value.toString()}</p>
+      <button onClick={() => refresh()}>Refresh</button>
     </div>
   );
 }
 ```
 
-## Yleisiä malleja Solana-kehittäjille
+Muistita lähde (käyttämällä `useMemo`:a tai `useCallback` funktiota varten),
+jotta hook hakee uudelleen vain syötteiden muuttuessa eikä jokaisella
+renderöintikerralla.
 
-- **Jaettu suoritusympäristö, useita sovelluksia**: Määritä asiakas kerran (ehkä
-  ydinpaketissa) ja käytä sitä webissä, mobiiliwebissä tai upotetuissa
-  React-saarekkeissa.
-- **UI-ensin kehitys**: Hookit heijastavat yleisimpiä Solana-työnkulkuja
-  (lompakon yhdistäminen, saldojen hakeminen, SOL:n lähettäminen, SPL-saldojen
-  lukeminen), joten voit keskittyä käyttökokemukseen RPC-putkiston sijaan.
-- **Progressiivinen parantaminen**: Aloita headless-tilassa `@solana/client`:lla
-  ja lisää sitten hookeja alueille, joissa haluat React-tilan ja
-  suspense-ystävällisen datan haun.
-- **Testaus**: Mockaa hookin paluuarvot tai välitä mockattu asiakas
-  `SolanaProvider`:lle simuloidaksesi lompakoita, RPC-onnistumisia tai
-  epäonnistumisia yksikkötesteissä.
-- **Server components -tietoinen**: Merkitse vain lehtikomponentit, jotka
-  kutsuvat hookeja `"use client"`:lla; kaikki muu voi pysyä palvelimella ja
-  vastaanottaa hydratoituja propseja hook-pohjaisilta lapsilta.
+Välimuistitusta ja uudelleenvalidointia varten `@solana/react/swr`- ja
+`@solana/react/query`- alipolut käärivät samat hookit
+[SWR](https://swr.vercel.app)- ja
+[TanStack Query](https://tanstack.com/query)-kirjastoja varten.
 
-Yhdistä tämä opas [@solana/client-yleiskatsaukseen](/docs/frontend/client)
-ymmärtääksesi suoritusympäristön, jonka päälle jokainen hook rakentuu.
+## Yleiset käytännöt Solana-kehittäjille
+
+- **Yksi provider**: `ClientProvider` on ainoa tarvitsemasi provider;
+  lompakkohookit lukevat sen asiakkaan `wallet`-kyvyn kautta.
+- **Palvelinkomponentit huomioitu**: Merkitse vain lehtikomponentit, jotka
+  kutsuvat hookkeja `"use client"`:llä; palvelinluvut voivat käyttää tavallista
+  Kit RPC -asiakasta ilman lompakkoa.
+- **Testaus**: Julkaise mockattu asiakas `ClientProvider`:n kautta lompakkojen
+  ja RPC-vastausten simuloimiseksi.
+
+<Callout type="warn" title="Kaksi hookki-perhettä, samat nimet">
+  `useSignIn` ja `useSignMessage` esiintyvät sekä `@solana/react`:ssä (ne
+  ottavat `UiWalletAccount`-argumentin) että
+  `@solana/kit-plugin-wallet/react`:ssä (asiakaspohjainen, ei tiliargumenttia,
+  palauttaa `ActionResult`:n). Käytä `@solana/kit-plugin-wallet/react`-versioita
+  yllä olevan asiakasmallin kanssa; vanhemmat `@solana/react`-lompakkohookit
+  ovat jäämässä pois käytöstä.
+</Callout>
+
+Yhdistä tämä opas [Kit-asiakkaan yleiskatsaukseen](/docs/frontend/client)
+ymmärtääksesi asiakkaan, josta kukin hookki lukee.

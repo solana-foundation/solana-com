@@ -163,19 +163,18 @@ const transfer2Instruction = getTransferInstruction({
   amount: 250_000n
 });
 
-// !focus(1:5)
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
-  // !mark
-  instructions: [transfer1Instruction, transfer2Instruction],
-  version: 0
-});
+// !focus(1:4)
+const result = await client.sendTransaction([
+  // !mark(1:2)
+  transfer1Instruction,
+  transfer2Instruction
+]);
 ```
 
 ## !!steps Zweryfikuj salda
 
-Po przeprowadzeniu transferu zbiorczego zweryfikuj salda tokenów dla wszystkich
-stron za pomocą pomocnika `splToken`.
+Po zbiorczym transferze zweryfikuj salda tokenów wszystkich stron, pobierając
+każdy token account za pomocą połączenia RPC klienta.
 
 <CodePlaceholder title="Batch Payments" />
 
@@ -212,21 +211,19 @@ const transfer2Instruction = getTransferInstruction({
   amount: 250_000n
 });
 
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
-  instructions: [transfer1Instruction, transfer2Instruction],
-  version: 0
-});
+const result = await client.sendTransaction([
+  transfer1Instruction,
+  transfer2Instruction
+]);
 
-// !focus(1:8)
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
-
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipient1Balance = await splToken.fetchBalance(recipient1.address);
-const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+// !focus(1:7)
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipient1Balance = await client.rpc
+  .getTokenAccountBalance(recipient1Ata)
+  .send();
+const recipient2Balance = await client.rpc
+  .getTokenAccountBalance(recipient2Ata)
+  .send();
 ```
 
 </ScrollyCoding>
@@ -236,11 +233,12 @@ const recipient2Balance = await splToken.fetchBalance(recipient2.address);
 <CodeTabs flags="r">
 
 ```ts !! title="Demo"
-// !collapse(1:14) collapsed
+// !collapse(1:16) collapsed
 // Click ">" icon on left to expand demo imports
-import { createClient, lamports } from "@solana/client";
-import { generateKeypair } from "@solana/client/server";
-import type { ServerKeypair } from "@solana/client/server";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import type { KeyPairSigner } from "@solana/kit";
+import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   getCreateAssociatedTokenInstructionAsync,
@@ -253,9 +251,9 @@ import {
 } from "@solana-program/token-2022";
 
 // Generate keypairs for sender and two recipients
-const sender = (await generateKeypair()).signer;
-const recipient1 = (await generateKeypair()).signer;
-const recipient2 = (await generateKeypair()).signer;
+const sender = await generateKeyPairSigner();
+const recipient1 = await generateKeyPairSigner();
+const recipient2 = await generateKeyPairSigner();
 
 console.log("Sender Address:", sender.address);
 console.log("Recipient 1 Address:", recipient1.address);
@@ -314,30 +312,37 @@ const transfer2Instruction = getTransferInstruction({
   amount: 250_000n // 0.25 tokens
 });
 
-// Prepare and send both transfers in a single transaction using @solana/client
-const signature = await client.transaction.prepareAndSend({
-  authority: sender,
-  // !mark
-  instructions: [transfer1Instruction, transfer2Instruction],
-  version: 0
-});
+// Send both transfers in a single transaction using @solana/kit
+const result = await client.sendTransaction([
+  // !mark(1:2)
+  transfer1Instruction,
+  transfer2Instruction
+]);
 
 console.log("\n=== Batch Token Payment Complete ===");
-console.log("Transaction Signature:", signature.toString());
+console.log("Transaction Signature:", result.context.signature);
 
-// Fetch final token account balances using @solana/client SPL token helper
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
+// Fetch final token account balances using the client's RPC connection
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipient1Balance = await client.rpc
+  .getTokenAccountBalance(recipient1Ata)
+  .send();
+const recipient2Balance = await client.rpc
+  .getTokenAccountBalance(recipient2Ata)
+  .send();
 
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipient1Balance = await splToken.fetchBalance(recipient1.address);
-const recipient2Balance = await splToken.fetchBalance(recipient2.address);
-
-console.log("\nSender Token Account Balance:", senderBalance);
-console.log("Recipient 1 Token Account Balance:", recipient1Balance);
-console.log("Recipient 2 Token Account Balance:", recipient2Balance);
+console.log(
+  "\nSender Token Account Balance:",
+  senderBalance.value.uiAmountString
+);
+console.log(
+  "Recipient 1 Token Account Balance:",
+  recipient1Balance.value.uiAmountString
+);
+console.log(
+  "Recipient 2 Token Account Balance:",
+  recipient2Balance.value.uiAmountString
+);
 
 // =============================================================================
 // Demo Setup Helper Function
@@ -346,43 +351,37 @@ console.log("Recipient 2 Token Account Balance:", recipient2Balance);
 
 /**
  * Sets up for a batch token transfer demo:
- * - Creates @solana/client instance
+ * - Creates a @solana/kit client with the sender as fee payer
  * - Airdrops SOL to sender for transaction fees
  * - Generates mint keypair and creates/initializes mint account
  * - Creates associated token accounts for sender and both recipients
  * - Mints initial tokens to sender
  *
- * @param sender - The sender's keypair (will be funded and used as mint authority)
- * @param recipient1 - The first recipient's keypair
- * @param recipient2 - The second recipient's keypair
- * @returns Returns client instance and mint address
+ * @param sender - The sender's signer (fee payer and mint authority)
+ * @param recipient1 - The first recipient's signer
+ * @param recipient2 - The second recipient's signer
+ * @returns Returns client instance and mint signer
  */
 async function demoSetup(
-  sender: ServerKeypair["signer"],
-  recipient1: ServerKeypair["signer"],
-  recipient2: ServerKeypair["signer"]
+  sender: KeyPairSigner,
+  recipient1: KeyPairSigner,
+  recipient2: KeyPairSigner
 ) {
-  // Create @solana/client instance pointing to local validator
-  const client = createClient({
-    endpoint: "http://localhost:8899",
-    websocketEndpoint: "ws://localhost:8900",
-    commitment: "confirmed",
-    logger: () => {} // Disable all logs
-  });
+  // Create @solana/kit client pointing to local validator
+  // The signer plugin sets the sender as the fee payer and must be applied before the RPC plugin
+  const client = createClient().use(signer(sender)).use(solanaLocalRpc());
 
-  // Fund sender with SOL for transaction fees using @solana/client actions
-  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+  // Fund sender with SOL for transaction fees
+  await client.airdrop(sender.address, lamports(1_000_000_000n));
 
   // Generate keypair to use as address of mint
-  const mint = (await generateKeypair()).signer;
+  const mint = await generateKeyPairSigner();
 
   // Get default mint account size (in bytes), no extensions enabled
   const space = BigInt(getMintSize());
 
   // Get minimum balance for rent exemption
-  const rent = await client.runtime.rpc
-    .getMinimumBalanceForRentExemption(space)
-    .send();
+  const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
   // Instruction to create new account for mint (token program)
   // Invokes the system program
@@ -414,7 +413,8 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sender,
       mint: mint.address,
-      owner: sender.address
+      owner: sender.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction for recipient 1's ATA
@@ -422,7 +422,8 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sender,
       mint: mint.address,
-      owner: recipient1.address
+      owner: recipient1.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction for recipient 2's ATA
@@ -430,7 +431,8 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sender,
       mint: mint.address,
-      owner: recipient2.address
+      owner: recipient2.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction to mint initial tokens to sender
@@ -441,7 +443,7 @@ async function demoSetup(
     amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
   });
 
-  // Combine all instructions and send using @solana/client transaction helper
+  // Combine all setup instructions
   const setupInstructions = [
     createAccountInstruction, // Create mint account
     initializeMintInstruction, // Initialize mint
@@ -451,12 +453,8 @@ async function demoSetup(
     mintToInstruction // Mint tokens to sender
   ];
 
-  // Prepare and send transaction using @solana/client
-  await client.transaction.prepareAndSend({
-    authority: sender,
-    instructions: setupInstructions,
-    version: 0
-  });
+  // Send all setup instructions in a single transaction using @solana/kit
+  await client.sendTransaction(setupInstructions);
 
   return {
     client,
