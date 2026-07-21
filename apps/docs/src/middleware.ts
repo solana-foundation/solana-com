@@ -160,6 +160,7 @@ export default async function middleware(
   if (
     wantsMarkdown &&
     !normalizedPath.endsWith(".md") &&
+    !normalizedPath.endsWith("/llms.txt") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
     trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");
