@@ -151,12 +151,6 @@ export const buildStartItems: NavItemDefinition[] = [
 
 export const buildResourceItems: NavItemDefinition[] = [
   {
-    id: "build-guides",
-    titleKey: "nav.build.resources.items.guides.title",
-    href: "/developers/guides",
-    icon: DocumentsIcon,
-  },
-  {
     id: "build-cookbook",
     titleKey: "nav.build.resources.items.cookbook.title",
     href: "/developers/cookbook",
