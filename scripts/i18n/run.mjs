@@ -81,6 +81,8 @@ function runContinuousLocalization(requestedScope) {
     return;
   }
 
+  // Lingo accepts positional glob patterns and resolves them itself. Keep the
+  // patterns unexpanded so scoped pushes match the entries in .lingo/config.json.
   const sourcePatterns = sourcePatternsByScope[requestedScope] ?? [];
   const args = [
     "--yes",
