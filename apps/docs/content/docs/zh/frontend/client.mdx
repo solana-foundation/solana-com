@@ -1,110 +1,154 @@
 ---
-title: "@solana/client"
-description: 使用无界面 Solana 客户端运行时，构建精简的 Solana 前端。
+title: Kit 客户端
+description: 从 Kit 插件构建 Solana 客户端，支持 RPC、签名和发送交易。
 ---
 
-`@solana/client`
-保持运行时接口精简。一个 store，一个 RPC 栈，以及一个钱包注册表为不同的辅助工具提供支持，因此同一个实例可以为 CLI、脚本或完整 UI 提供服务。actions、watchers 和 helpers 都通过这个单一客户端共享缓存、订阅和钱包会话。
+`@solana/kit` 提供了
+`createClient`，一个可通过插件扩展的轻量宿主。每个插件添加一项能力——RPC 连接、签名器、交易规划——组合后的客户端可同时支持脚本、服务端路由和 UI。
 
 <Callout type="info">
-  如果你正在构建纯 React 体验，通常建议直接从
-  [`@solana/react-hooks`](/docs/frontend/react-hooks) 开始，这样速度更快。hooks
-  包封装了同样的客户端运行时，并提供现成的
-  hooks，只有在需要更高控制时才需要使用无界面客户端。
+  正在构建 React 应用？[React 指南](/docs/frontend/react-hooks) 使用
+  `@solana/react` 封装了 同一客户端，让组件通过 hooks 读取钱包状态和 RPC 数据。
+  建议从那里开始，需要更精细控制时再回到本文。
 </Callout>
 
 ## 安装
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-可使用任意包管理器；该客户端可运行于浏览器、worker、React、Svelte 或服务端运行时环境。
+可使用任意包管理器。Kit 版本要求 v7+，`@solana/kit-plugin-*` 包版本要求 0.13+。
 
-## 只需创建一个客户端
+## 创建客户端
 
-选择 Wallet
-Standard 连接器（自动发现是最快的启动方式），然后创建客户端。这个单一对象暴露了 store、actions、watchers 和 helpers。
+使用 `.use(...)` 组合插件。先设置签名器，再配置 RPC 连接。 `solanaDevnetRpc()`
+会添加 `client.rpc`、订阅、交易规划器/执行器以及 `client.sendTransaction`
+辅助函数——因此应用通常无需自行连接这些模块。
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-客户端 store 跟踪集群配置、订阅、待处理交易和钱包会话。如果你需要持久化或多标签页协同，也可以自定义 Zustand
-store。
+`signer`
+插件同时设置手续费支付方和应用身份。RPC 套件要求支付方已就位，这正是顺序重要的原因。
 
-## 钱包编排
+### 签名器变体
 
-连接器封装了 Wallet Standard 元数据以及连接/断开逻辑。你可以注册内置的
-`phantom()`、`solflare()`、`backpack()` 或 `autoDiscover()` 辅助工具，或用
-`createWalletStandardConnector`
-封装自定义 provider。所有钱包操作（连接、断开、签名、发送）都通过客户端注册表流转，确保每个使用者都保持同步。
+`@solana/kit-plugin-signer` 提供三种角色，确保客户端仅获得所需权限：
 
-## Actions、watchers 和 helpers
+- `signer(x)` — 同时设置 `client.payer` 和 `client.identity`。
+- `payer(x)` — 仅作为手续费支付方。
+- `identity(x)` — 仅作为应用权限方。
 
-- **Actions** 封装常见的 RPC 读写操作，并自动更新 store（如
-  `fetchAccount`、`requestAirdrop`、`setCluster`）。
-- **Watchers**
-  复用 websocket 订阅，将更新流式写入 store，并为你提供中止句柄以便清理。
-- **Helpers** 提供更高层的流程，比如 SOL 转账、SPL
-  token 辅助、签名轮询和交易池。
+每种角色均提供
+`*FromFile(path)`（Node）、`generated*()`、`generated*WithSol(amount)` 和
+`airdrop*()` 变体，适用于测试和脚本场景。
+
+## 发送交易
+
+使用生成的程序客户端构建指令，然后将其传递给
+`client.sendTransaction`。规划器会解析区块哈希、估算计算量，使用客户端的支付方签名并提交交易。
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## 交易助手模式
+`sendTransaction` 返回一个结果对象；交易签名位于
+`result.context.signature`。该方法断言计划适合单笔交易，否则抛出异常——若批次可能跨越多笔交易，请使用
+`sendTransactions`。
 
-交易助手负责刷新区块哈希、解决手续费支付者以及签名。你可以根据自己的用户体验需求进行准备、检查和发送。
+## 选择 RPC 套件
+
+`@solana/kit-plugin-rpc` 提供集群预设：
+
+- `solanaDevnetRpc()` — 开发网默认配置，支持空投（`client.airdrop`）。
+- `solanaMainnetRpc()` — 主网；空投在编译时会报错。
+- `solanaLocalRpc()` — 用于本地 validator 的 `http://127.0.0.1:8899`。
+- `solanaRpc({ rpcUrl })` — 任意端点。
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-使用 `prepareAndSend` 可获得预设流程（模拟加日志），或者调用 `sign` / `toWire`
-手动收集签名，再自行转发 wire 格式。
+### 细粒度组合
 
-<Callout type="info">
-  在无头模式下运行——在没有浏览器钱包的 API 路由、Worker 或脚本中？
-  请使用后端密钥管理服务而非原始 keypair 进行签名。请参阅
-  [Keychain](/docs/tools/keychain) 和
-  [生产环境中的签名](/docs/core/transactions/signing-in-production)。
+预设套件已捆绑 RPC 连接、规划器、执行器及发送助手，因此大多数应用无需单独使用各个组件。仅在需要自定义某一部分时才使用细粒度插件——例如自定义规划器或不同的订阅通道。此路径还需要
+`@solana/kit-plugin-instruction-plan`，该组件在使用预设时会自动包含：
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## 添加程序客户端
+
+生成的 `@solana-program/*`
+包提供客户端插件，使程序调用挂载在客户端上。安装所需程序并通过 `.use()`
+注册其插件：
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="对等依赖版本范围">
+  部分 `@solana-program/*` 版本仍声明 `@solana/kit ^6.x` 对等依赖， 而 Kit
+  当前为 7.x。它们可与 Kit 7
+  正常配合使用——如果包管理器报错，请覆盖对等版本范围。
 </Callout>
 
-## Solana 开发者的常见模式
+## 不使用浏览器钱包进行签名
 
-- **无头状态机**：在 API 路由、脚本或 Worker 中运行客户端，以复用驱动 UI 的相同钱包 +
-  RPC 编排逻辑。
-- **实时仪表盘**：将观察器（余额、账户、签名）与您偏好的 UI 库结合使用；客户端负责处理 WebSocket 分发和缓存失效。
-- **自定义存储**：注入您自己的 Zustand 存储，以从 IndexedDB/localStorage 进行水合、将状态镜像到服务器会话，或在浏览器标签页之间进行协调。
-- **桥接至 React
-  Hooks**：当您希望在相同运行时之上使用符合人体工学的 Hooks 时，将已配置的客户端实例传递给
-  `@solana/react-hooks`。
-- **可测试性**：单一客户端接口可在单元测试中进行模拟，使其易于在无需浏览器钱包的情况下模拟 RPC 响应或钱包会话。
+在 API 路由、Worker 或脚本中以无头模式运行？请使用后端密钥管理服务进行签名，而非直接使用原始 keypair。请参阅
+[Keychain](/docs/tools/keychain) 和
+[生产环境签名](/docs/core/transactions/signing-in-production)。
+
+## Solana 开发者常用模式
+
+- **共享初始化**：在核心模块中构建一次客户端，并将其导入脚本、服务端路由和 UI 中。
+- **服务端读取**：仅配置 `signer` +
+  `solanaRpc`（无钱包插件）的客户端，可从服务端读取账户并模拟交易。
+- **本地测试**：将 RPC 套件替换为 `@solana/kit-plugin-litesvm` 中的
+  `.use(litesvm())`，以针对内存中的 validator 运行（仅限 Node）。
+- **可测试性**：组合客户端易于模拟——无需浏览器钱包即可桩化 RPC 响应或签名者。

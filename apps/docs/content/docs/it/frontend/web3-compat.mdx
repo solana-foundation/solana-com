@@ -1,109 +1,69 @@
 ---
-title: "@solana/web3-compat"
+title: Migrazione a Kit
 description:
-  Livello di compatibilità drop-in che consente al codice legacy di
-  @solana/web3.js di funzionare con le primitive di Kit.
+  Come i concetti di @solana/web3.js e wallet-adapter si mappano su @solana/kit.
 ---
 
-`@solana/web3-compat` è il ponte tra le app `@solana/web3.js` di lunga durata e
-il runtime più recente di Kit. Sostituisci l'import, mantieni la superficie che
-la tua app conosce già e adotta progressivamente le funzionalità di Kit senza
-riscrivere ogni helper o istruzione in una volta.
+Se provieni da `@solana/web3.js` (v1), `@solana/wallet-adapter-*`, o dai
+precedenti pacchetti framework-kit (`@solana/client`, `@solana/react-hooks`,
+`@solana/web3-compat`), questi approcci sono stati superati. Le nuove app
+vengono costruite direttamente su `@solana/kit` e i plugin kit. Questa pagina
+mappa i concetti che già conosci sui loro equivalenti in Kit.
 
-## Installa con le dipendenze peer di Kit
+## Mappatura dei concetti
 
-```terminal
-$ npm install @solana/web3-compat @solana/kit @solana/client
-```
+| web3.js v1 / wallet-adapter            | Kit                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| `new Connection(url)`                  | `createSolanaRpc(url)`, oppure `.use(solanaRpc({ rpcUrl }))` su un client |
+| `PublicKey`                            | `Address` — converti una stringa con `address("...")`                     |
+| `Keypair`                              | `generateKeyPairSigner()` o i plugin `@solana/kit-plugin-signer`          |
+| `SystemProgram.transfer(...)`          | `getTransferSolInstruction(...)` da `@solana-program/system`              |
+| `LAMPORTS_PER_SOL` math                | `lamports(...)` da `@solana/kit`                                          |
+| `Transaction` / `VersionedTransaction` | Messaggi di transazione costruiti e pianificati dal transaction planner   |
+| `sendAndConfirmTransaction(...)`       | `client.sendTransaction([...])` (il planner firma, invia e conferma)      |
+| `@solana/wallet-adapter-*`             | `@solana/kit-plugin-wallet` + scoperta tramite Wallet Standard            |
 
-Il livello di compatibilità ri-esporta i tipi classici di Web3 (`Connection`,
-`PublicKey`, `Transaction`, ecc.) delegando internamente al networking e ai
-codec di Kit. Mantieni i tuoi endpoint RPC esistenti, ma beneficia della
-gestione più prevedibile dei blockhash e delle astrazioni wallet di Kit.
+## Provieni da web3.js?
 
-## Sostituisci gli import (nessun'altra modifica al codice)
+Se mantieni un ampio codebase `@solana/web3.js` v1 e una riscrittura completa a
+Kit non è ancora praticabile, web3.js v3 rappresenta il ponte. Attualmente viene
+distribuito come `@solana/web3.js@rc` (la linea `3.0.0-rc`) e ricostruisce la
+classica API basata su classi — `Connection`, `Keypair`, `Transaction` — sopra
+gli internals di `@solana/kit`. Poiché si appoggia su Kit, l'interoperabilità è
+stretta: `PublicKey` è un alias deprecato di `Address`, e un `Keypair` v3
+soddisfa strutturalmente `KeyPairSigner` di Kit, quindi puoi passarlo
+direttamente alle API di Kit, ai plugin e ai client generati da Codama.
 
-La maggior parte dei progetti può migrare file per file cambiando la sorgente
-dell'import. Sia gli import nominati che quelli namespace rispecchiano il
-vecchio package.
+v3 è ancora una **release candidate** — blocca le versioni esatte e aspettati
+alcune variazioni dell'API tra le RC. È un percorso di interoperabilità con il
+codice legacy, non una scelta predefinita per i nuovi progetti; le nuove app
+dovrebbero essere costruite direttamente su Kit. Per la migrazione stessa,
+consulta la guida ufficiale
+[web3.js v1 → v3 migration guide](https://github.com/solana-foundation/solana-web3.js/blob/v3.x/docs/web3js-v1-to-v3-migration.md).
 
-```ts title="Before"
-import { Connection, PublicKey } from "@solana/web3.js";
-```
+## Portafogli
 
-```ts title="After"
-import { Connection, PublicKey } from "@solana/web3-compat";
-```
+Kit non utilizza wallet-adapter. `@solana/kit-plugin-wallet` rileva i portafogli
+Wallet Standard e li espone tramite `client.wallet` e gli
+[hook React](/docs/frontend/react-hooks). I portafogli moderni (Phantom,
+Solflare, Backpack e altri) si pubblicizzano tramite Wallet Standard, quindi non
+è necessario alcun pacchetto adattatore per singolo portafoglio.
 
-Funziona anche con CommonJS:
+Puoi anche utilizzare strumenti preconfigurati come
+[@solana/connector](https://www.npmjs.com/package/@solana/connector), che usa
+direttamente le primitive di Kit per connettersi ai portafogli.
 
-```js
-const solanaWeb3 = require("@solana/web3-compat");
-const connection = new solanaWeb3.Connection("https://api.devnet.solana.com");
-```
-
-Dietro le quinte `Connection` inoltra letture e scritture attraverso
-`@solana/client`, quindi helper come `sendAndConfirmTransaction`,
-`simulateTransaction` e `getProgramAccounts` beneficiano del runtime più recente
-senza toccare la tua logica di business.
-
-## Helper bridge quando hai bisogno dei tipi Kit
-
-Man mano che adotti Kit direttamente (magari in nuovi componenti usando
-`@solana/client` o `@solana/react-hooks`), usa gli helper bridge forniti nel
-package compat per convertire tra i due ecosistemi:
-
-```ts
-import {
-  PublicKey,
-  toAddress,
-  toPublicKey,
-  toWeb3Instruction,
-  toKitSigner
-} from "@solana/web3-compat";
-
-const legacyKey = new PublicKey("11111111111111111111111111111111");
-const kitAddress = toAddress(legacyKey);
-const backToWeb3 = toPublicKey(kitAddress);
-```
-
-Mescolare i runtime diventa sicuro: gli hook più recenti possono emettere
-istruzioni Kit, poi `toWeb3Instruction` le avvolgerà per i flussi legacy finché
-l'intero progetto non sarà migrato.
-
-## Pattern di migrazione progressiva
-
-- **Rollout incrementali**: aggiorna una cartella di funzionalità alla volta.
-  Quando un modulo non necessita più di compat, puntalo direttamente a
-  `@solana/client`/`@solana/react-hooks` senza toccare il resto dell'albero.
-- **Ottimizzazione RPC condivisa**: poiché compat si basa sulle connessioni Kit,
-  l'ottimizzazione dei livelli di commitment, delle commissioni di
-  prioritizzazione o degli URL RPC passa attraverso un singolo oggetto di
-  configurazione.
-- **Helper SPL + transazioni**: mantieni per ora i builder di transazioni
-  legacy, ma passa a `client.helpers.transaction.prepare` quando sei pronto.
-  Compat può comunque inviare gli stessi payload firmati.
-- **Testing**: riutilizza i mock Web3 esistenti poiché la superficie pubblica
-  rimane identica, ma durante i test puoi sostituire il client Kit per
-  simulazioni più ricche.
-
-## Cosa viene fornito nella fase 0
-
-- `Connection` con `getLatestBlockhash`, `getBalance`, `getAccountInfo`,
-  `getProgramAccounts`, `getSignatureStatuses`, `sendRawTransaction`,
-  `confirmTransaction`, e `simulateTransaction`.
-- Utility come `LAMPORTS_PER_SOL`, `sendAndConfirmTransaction`, e
-  `compileFromCompat`.
-- `SystemProgram.transfer` più tutte le primitive Web3 core (`Keypair`,
-  `Transaction`, `VersionedTransaction`, `TransactionInstruction`).
-
-<Callout type="warn" title="La copertura è ancora in espansione">
-  I metodi al di fuori dell'elenco sopra ricadono oggi sul legacy
-  `@solana/web3.js`. Mantieni la vecchia dipendenza fino a quando il resto della
-  tua superficie non arriva in compat, e monitora le versioni future per il
-  supporto alle sottoscrizioni e una copertura RPC più ampia.
+<Callout type="info" title="Stai ancora usando wallet-adapter?">
+  Se gestisci un'app basata su `@solana/wallet-adapter-*` e non sei ancora
+  pronto a migrare, il [repository wallet-adapter
+  ](https://github.com/anza-xyz/wallet-adapter) rimane il riferimento per quello
+  stack. Per qualsiasi nuovo progetto, preferisci il plugin wallet di Kit.
 </Callout>
 
-Abbina questa guida alla [panoramica di @solana/client](/docs/frontend/client) e
-alla [guida di @solana/react-hooks](/docs/frontend/react-hooks) quando sei
-pronto per initare a costruire nuove UI sulla base dello stesso runtime Kit.
+## Dove andare dopo
+
+- [Client Kit](/docs/frontend/client) — assembla un client dai plugin.
+- [React](/docs/frontend/react-hooks) — binding `@solana/react` e hook per i
+  portafogli.
+- [Tutorial Next.js](/docs/frontend/nextjs-solana) — un'app completa dall'inizio
+  alla fine.

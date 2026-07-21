@@ -1,128 +1,174 @@
 ---
-title: "@solana/client"
+title: Kit client
 description:
-  Costruisci frontend Solana leggeri con il runtime client Solana headless.
+  Costruisci un client Solana dai plugin Kit per RPC, firma e invio di
+  transazioni.
 ---
 
-`@solana/client` mantiene la superficie del runtime leggera. Un unico store, uno
-stack RPC e un registry di wallet alimentano i diversi helper in modo che la
-stessa istanza possa supportare CLI, script o UI complete. Actions, watcher e
-helper condividono tutti cache, subscription e sessioni wallet attraverso quel
-singolo client.
+`@solana/kit` include `createClient`, un piccolo host che si estende tramite
+plugin. Ogni plugin aggiunge una funzionalità — una connessione RPC, un
+firmatario, la pianificazione delle transazioni — e il client composto supporta
+script, route server e UI allo stesso modo.
 
 <Callout type="info">
-  Quando stai costruendo un'esperienza puramente React è solitamente più veloce
-  iniziare con [`@solana/react-hooks`](/docs/frontend/react-hooks). Il pacchetto
-  hooks avvolge questo stesso runtime client ed espone hook pronti all'uso così
-  da ricorrere al client headless solo quando hai bisogno di controllo extra.
+  Stai costruendo un'app React? La [guida React](/docs/frontend/react-hooks)
+  avvolge questo stesso client con `@solana/react` così i componenti leggono lo
+  stato del wallet e i dati RPC tramite hook. Inizia da lì e torna qui quando
+  hai bisogno di un controllo più granulare.
 </Callout>
 
 ## Installazione
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Usa qualsiasi package manager; il client funziona in browser, worker, React,
-Svelte o runtime server-side.
+Usa qualsiasi package manager. Kit è v7+ e i pacchetti `@solana/kit-plugin-*`
+sono 0.13+.
 
-## Crea un client una volta sola
+## Creare un client
 
-Scegli i connector Wallet Standard (l'auto discovery è il modo più veloce per
-iniziare), poi crea il client. Questo singolo oggetto espone lo store, le
-actions, i watcher e gli helper.
+Componi i plugin con `.use(...)`. Imposta prima un firmatario, poi la
+connessione RPC. `solanaDevnetRpc()` aggiunge `client.rpc`, le sottoscrizioni,
+il pianificatore/esecutore di transazioni e il helper `client.sendTransaction` —
+così un'app raramente deve collegare questi elementi da sola.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-Lo store del client tiene traccia della configurazione del cluster, delle
-subscription, delle transazioni in sospeso e delle sessioni wallet. Puoi fornire
-il tuo store Zustand se hai bisogno di persistenza o coordinamento multi-tab.
+Il plugin `signer` imposta sia il fee payer che l'identità dell'app. Il bundle
+RPC richiede che un payer sia già configurato, ed è per questo che l'ordine è
+importante.
 
-## Orchestrazione wallet
+### Varianti del firmatario
 
-I connector incapsulano i metadata Wallet Standard più la logica di
-connect/disconnect. Registra gli helper integrati `phantom()`, `solflare()`,
-`backpack()`, o `autoDiscover()`, oppure avvolgi provider personalizzati con
-`createWalletStandardConnector`. Tutte le azioni wallet (connect, disconnect,
-sign, send) passano attraverso il registry del client così ogni consumer rimane
-sincronizzato.
+`@solana/kit-plugin-signer` espone tre ruoli in modo da concedere solo ciò di
+cui un client ha bisogno:
 
-## Actions, watcher e helper
+- `signer(x)` — imposta sia `client.payer` che `client.identity`.
+- `payer(x)` — solo fee payer.
+- `identity(x)` — solo autorità dell'app.
 
-- **Actions** avvolgono letture e scritture RPC comuni aggiornando lo store
-  (es., `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **Watcher** multiplexano le subscription websocket, trasmettono aggiornamenti
-  nello store e ti forniscono handle di abort per la pulizia.
-- **Helper** espongono flussi di livello superiore come trasferimenti SOL,
-  helper per token SPL, polling delle signature e pool di transazioni.
+Ognuno ha varianti `*FromFile(path)` (Node), `generated*()`,
+`generated*WithSol(amount)` e `airdrop*()` per test e script.
+
+## Inviare una transazione
+
+Costruisci le istruzioni con un client di programma generato, poi passale a
+`client.sendTransaction`. Il pianificatore risolve il blockhash, stima il
+compute, firma con il payer del client e invia.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## Pattern helper per transazioni
+`sendTransaction` restituisce un oggetto risultato; la firma della transazione
+si trova in `result.context.signature`. Verifica che il piano rientri in una
+singola transazione e generava un errore in caso contrario — usa
+`sendTransactions` quando un batch può estendersi su più transazioni.
 
-L'helper per transazioni gestisce l'aggiornamento del blockhash, la risoluzione
-del fee payer e la firma. Puoi preparare, ispezionare e inviare con la UX che
-preferisci.
+## Scegli un bundle RPC
+
+`@solana/kit-plugin-rpc` include preset per cluster:
+
+- `solanaDevnetRpc()` — impostazioni predefinite per devnet, airdrop abilitato
+  (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; l'airdrop genera un errore in fase di
+  compilazione.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` per un validator locale.
+- `solanaRpc({ rpcUrl })` — qualsiasi endpoint.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Usa `prepareAndSend` per un flusso preconfigurato (simulazione più logging)
-oppure chiama `sign` / `toWire` per raccogliere le firme manualmente prima di
-trasmettere il formato wire tu stesso.
+### Composizione granulare
 
-<Callout type="info">
-  Esecuzione headless — in una route API, un worker o uno script senza wallet
-  browser? Firma con un servizio di gestione delle chiavi backend invece di un
-  keypair grezzo. Consulta [Keychain](/docs/tools/keychain) e [Firma in
-  Produzione](/docs/core/transactions/signing-in-production).
+I preset raggruppano la connessione RPC, il planner, l'executor e gli helper per
+l'invio, quindi la maggior parte delle applicazioni non ha mai bisogno dei
+singoli componenti. Ricorri ai plugin granulari solo per personalizzarne uno —
+ad esempio un planner personalizzato o un canale di sottoscrizione diverso.
+Questo percorso richiede anche `@solana/kit-plugin-instruction-plan`, che i
+preset includono automaticamente:
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Aggiungi client per i programmi
+
+I pacchetti `@solana-program/*` generati espongono plugin client, così le
+chiamate ai programmi sono disponibili direttamente sul client. Installa il
+programma di cui hai bisogno e aggiungi il suo plugin con `.use()`:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="Peer dependency ranges">
+  Alcune versioni di `@solana-program/*` dichiarano ancora un peer `@solana/kit
+  ^6.x` mentre Kit è alla versione 7.x. Funzionano con Kit 7 — sovrascrivi
+  l'intervallo del peer nel tuo package manager se genera errori.
 </Callout>
+
+## Firma senza un wallet browser
+
+Stai eseguendo operazioni headless in una route API, un worker o uno script?
+Firma con un servizio di gestione delle chiavi backend invece di un keypair
+grezzo. Consulta [Keychain](/docs/tools/keychain) e
+[Firma in Produzione](/docs/core/transactions/signing-in-production).
 
 ## Pattern comuni per gli sviluppatori Solana
 
-- **State machine headless**: Esegui il client all'interno di route API, script
-  o worker per riutilizzare la stessa logica di orchestrazione wallet + RPC che
-  alimenta la tua UI.
-- **Dashboard in tempo reale**: Combina i watcher (saldi, account, firme) con la
-  tua libreria UI preferita; il client gestisce il fan-out dei websocket e
-  l'invalidazione della cache.
-- **Store personalizzati**: Inietta il tuo store Zustand per idratare da
-  IndexedDB/localStorage, sincronizzare lo stato con le sessioni server o
-  coordinare tra tab del browser.
-- **Bridge verso gli hook React**: Passa un'istanza client configurata a
-  `@solana/react-hooks` quando desideri hook ergonomici sopra lo stesso runtime.
-- **Testabilità**: L'interfaccia del client singolo può essere simulata nei test
-  unitari, rendendo semplice simulare risposte RPC o sessioni wallet senza un
-  wallet browser presente.
+- **Setup condiviso**: Costruisci il client una sola volta in un modulo centrale
+  e importalo in script, route server e interfaccia utente.
+- **Letture lato server**: Un client con solo `signer` + `solanaRpc` (senza
+  plugin wallet) legge account e simula transazioni dal server.
+- **Test in locale**: Sostituisci il bundle RPC con `.use(litesvm())` da
+  `@solana/kit-plugin-litesvm` per eseguire operazioni su un validator in
+  memoria (solo Node).
+- **Testabilità**: Il client composto è facile da simulare — stub delle risposte
+  RPC o dei firmatari senza un wallet browser presente.
