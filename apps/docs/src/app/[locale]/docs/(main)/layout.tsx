@@ -5,9 +5,9 @@ import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
 
 function folderContainsRoute(node: PageTree.Node, route: string): boolean {
-  if (node.type === "page") return node.url?.startsWith(route) ?? false;
+  if (node.type === "page") return node.url?.includes(route) ?? false;
   if (node.type === "folder") {
-    if (node.index?.url?.startsWith(route)) return true;
+    if (node.index?.url?.includes(route)) return true;
     return node.children.some((child) => folderContainsRoute(child, route));
   }
   return false;
