@@ -9,7 +9,7 @@ export const ECOSYSTEM_PROJECTS = [
   },
   {
     key: "confidentialTransfer",
-    href: "/developers/guides/token-extensions/confidential-transfer",
+    href: "/docs/tokens/extensions/confidential-transfer",
   },
   {
     key: "contra",
