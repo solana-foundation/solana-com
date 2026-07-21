@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { defaultLocale } from "@workspace/i18n/config";
 import { docsSource } from "@@/src/app/sources/docs";
-import { guidesSource } from "@@/src/app/sources/guides";
 import { cookbookSource } from "@@/src/app/sources/cookbook";
 import { learnSource } from "@@/src/app/sources/learn";
 import { developersLearnSource } from "@@/src/app/sources/developers-learn";
@@ -17,7 +16,6 @@ export async function GET(
 
   let page:
     | ReturnType<typeof docsSource.getPage>
-    | ReturnType<typeof guidesSource.getPage>
     | ReturnType<typeof cookbookSource.getPage>
     | ReturnType<typeof learnSource.getPage>
     | ReturnType<typeof developersLearnSource.getPage>
@@ -32,8 +30,6 @@ export async function GET(
     } else {
       page = docsSource.getPage(rest, defaultLocale);
     }
-  } else if (slug[0] === "developers" && slug[1] === "guides") {
-    page = guidesSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "developers" && slug[1] === "cookbook") {
     page = cookbookSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "developers" && slug[1] === "bootcamp") {

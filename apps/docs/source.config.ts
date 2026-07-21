@@ -42,14 +42,6 @@ const cookbookData = defineDocs({
 export const cookbook = cookbookData.docs;
 export const cookbookMeta = cookbookData.meta;
 
-const guidesData = defineDocs({
-  dir: "content/guides",
-  docs: { schema, async: true },
-});
-
-export const guides = guidesData.docs;
-export const guidesMeta = guidesData.meta;
-
 const learnData = defineDocs({
   dir: "content/learn",
   docs: { schema, async: true },
