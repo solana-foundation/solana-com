@@ -27,7 +27,6 @@ export function getImagePath(path: string): string {
 }
 
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
-import { DEFAULT_SOCIAL_IMAGE_URL } from "@solana-com/ui-chrome/social-image";
 
 const PUBLIC_SITE_URL = "https://solana.com/accelerate";
 
@@ -42,6 +41,10 @@ const getSiteUrl = () => {
 };
 
 const siteUrl = getSiteUrl();
+// Assets are served from the root with an /accelerate-assets prefix; in production
+// the site URL includes /accelerate, so strip it to build absolute asset URLs.
+const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
+
 export const config = {
   siteMetadata: {
     title: `Solana Accelerate 2026`,
@@ -60,7 +63,7 @@ export const config = {
       "crypto event",
       "blockchain conference",
     ],
-    socialShare: DEFAULT_SOCIAL_IMAGE_URL,
+    socialShare: `${assetBaseUrl}${getImagePath("/images/social-card.jpg")}`,
     author: `@solana`,
   },
   siteUrl,

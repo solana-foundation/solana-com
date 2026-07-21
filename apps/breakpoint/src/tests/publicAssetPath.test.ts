@@ -7,7 +7,6 @@ import {
   publicAssetPath,
   routePath,
 } from "@/config";
-import { DEFAULT_SOCIAL_IMAGE_URL } from "@solana-com/ui-chrome/social-image";
 
 describe("routePath", () => {
   it("prefixes Breakpoint app routes", () => {
@@ -63,7 +62,7 @@ describe("publicAssetPath", () => {
 
   it("leaves non-Breakpoint asset paths unchanged", () => {
     expect(publicAssetPath("/breakpoint")).toBe("/breakpoint");
-    expect(publicAssetPath("/social-card.webp")).toBe("/social-card.webp");
+    expect(publicAssetPath("/social-card.jpg")).toBe("/social-card.jpg");
     expect(publicAssetPath("/breakpoint-assets/assets/home-hero.webp")).toBe(
       "/breakpoint-assets/assets/home-hero.webp",
     );
@@ -77,7 +76,12 @@ describe("publicAssetPath", () => {
 });
 
 describe("site metadata", () => {
-  it("uses the shared default social card URL", () => {
-    expect(config.siteMetadata.socialShare).toBe(DEFAULT_SOCIAL_IMAGE_URL);
+  it("uses an absolute Breakpoint social card URL", () => {
+    expect(config.siteMetadata.socialShare).toMatch(
+      /^https?:\/\/.+\/breakpoint\/social-card\.jpg$/,
+    );
+    expect(config.siteMetadata.socialShare).not.toContain(
+      "/breakpoint/breakpoint/",
+    );
   });
 });

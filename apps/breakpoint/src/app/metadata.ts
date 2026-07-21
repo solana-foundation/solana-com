@@ -5,7 +5,22 @@ import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
-import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
+
+const socialImageAlt =
+  "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
+
+function createBreakpointSocialImage() {
+  const url = config.siteMetadata.socialShare;
+
+  return {
+    url,
+    secureUrl: url,
+    width: 1200,
+    height: 630,
+    alt: socialImageAlt,
+    type: "image/jpeg",
+  };
+}
 
 type PageMetadataConfig = {
   description: string;
@@ -58,14 +73,14 @@ export async function getBaseMetadata(
       siteName,
       title: ogTitle,
       description: ogDescription,
-      images: [createDefaultSocialImage(siteName)],
+      images: [createBreakpointSocialImage()],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
       title: ogTitle,
       description: ogDescription,
-      images: [createDefaultSocialImage(siteName)],
+      images: [createBreakpointSocialImage()],
     },
     icons: [
       { url: faviconPng.src, rel: "icon", type: "image/png" },
