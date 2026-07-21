@@ -3,7 +3,6 @@ import Link from "next/link";
 import React from "react";
 
 const roots = {
-  guides: "Guides",
   cookbook: "Cookbook",
   docs: "Docs",
   developers: "Developers",
