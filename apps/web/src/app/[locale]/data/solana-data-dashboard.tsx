@@ -778,13 +778,16 @@ function DataResourceCarousel() {
     if (
       !scrollElement ||
       isAutoAdvancePaused ||
-      (!scrollState.canScrollLeft && !scrollState.canScrollRight)
+      scrollElement.scrollWidth <= scrollElement.clientWidth + 1
     ) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
-      if (scrollState.canScrollRight) {
+      const maxScrollLeft =
+        scrollElement.scrollWidth - scrollElement.clientWidth;
+
+      if (scrollElement.scrollLeft < maxScrollLeft - 1) {
         scrollCards(1);
         return;
       }
@@ -800,7 +803,6 @@ function DataResourceCarousel() {
     isPointerInside,
     prefersReducedMotion,
     scrollCards,
-    scrollState,
   ]);
 
   return (
@@ -922,12 +924,15 @@ function DataResourceCard({
 
   return (
     <article
+      aria-label={`${index + 1} / ${resourceCards.length}: ${title}`}
+      aria-roledescription="slide"
       className={cn(
         "relative flex min-h-[186px] shrink-0 snap-start basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
         index > 0 ? "border-l border-nd-border-light" : "",
       )}
       data-node-id={card.nodeId}
       ref={cardRef}
+      role="group"
     >
       <img
         alt=""
