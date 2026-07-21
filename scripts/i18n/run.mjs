@@ -2,13 +2,34 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import process from "node:process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = process.cwd();
-const uiCatalogPathByApp = {
-  web: "messages/web/",
-  accelerate: "messages/accelerate/",
-  media: "messages/media/",
-  templates: "messages/templates/",
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "../..");
+const appTargets = new Set([
+  "accelerate",
+  "breakpoint",
+  "docs",
+  "media",
+  "templates",
+  "web",
+]);
+const sourcePatternsByScope = {
+  accelerate: ["packages/i18n/messages/accelerate/en/*.json"],
+  docs: [
+    "apps/docs/content/docs/en/**/*.mdx",
+    "apps/docs/content/learn/en/*.mdx",
+    "apps/docs/content/docs/en/**/meta.json",
+  ],
+  media: ["packages/i18n/messages/media/en/*.json"],
+  templates: ["packages/i18n/messages/templates/en/*.json"],
+  ui: [
+    "packages/i18n/messages/accelerate/en/*.json",
+    "packages/i18n/messages/media/en/*.json",
+    "packages/i18n/messages/templates/en/*.json",
+    "packages/i18n/messages/web/en/*.json",
+  ],
+  web: ["packages/i18n/messages/web/en/*.json"],
 };
 
 function loadEnvFileIfPresent(filePath) {
@@ -43,28 +64,39 @@ function run(command, args, cwd) {
   }
 }
 
-function runUi(bucket) {
-  if (bucket) {
-    const fileFilter = uiCatalogPathByApp[bucket];
+function runContinuousLocalization(requestedScope) {
+  const lockPath = path.join(rootDir, ".lingo/lock.json");
 
-    if (!fileFilter) {
-      console.error(`Unknown shared UI catalog: ${bucket}`);
-      process.exit(1);
+  if (!fs.existsSync(lockPath)) {
+    console.log(
+      "No .lingo/lock.json found; adopting existing translations without overwriting them.",
+    );
+    run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+    run("npx", ["--yes", "@lingo.dev/cli@latest", "push", "--wait"], rootDir);
+
+    if (requestedScope === "all" || requestedScope === "docs") {
+      run("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
     }
 
-    run(
-      "npx",
-      ["lingo.dev@latest", "run", "--bucket", "json", "--file", fileFilter],
-      `${rootDir}/packages/i18n`,
-    );
     return;
   }
 
-  run("pnpm", ["--dir", "packages/i18n", "i18n:lingo"], rootDir);
-}
+  // Lingo accepts positional glob patterns and resolves them itself. Keep the
+  // patterns unexpanded so scoped pushes match the entries in .lingo/config.json.
+  const sourcePatterns = sourcePatternsByScope[requestedScope] ?? [];
+  const args = [
+    "--yes",
+    "@lingo.dev/cli@latest",
+    "push",
+    ...sourcePatterns,
+    "--wait",
+  ];
 
-function runDocsContent() {
-  run("pnpm", ["--dir", "apps/docs", "i18n:lingo:content"], rootDir);
+  run("npx", args, rootDir);
+
+  if (requestedScope === "all" || requestedScope === "docs") {
+    run("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
+  }
 }
 
 const [, , target, app] = process.argv;
@@ -73,14 +105,9 @@ run("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
 
 switch (target) {
   case "all":
-    runUi();
-    runDocsContent();
-    break;
   case "ui":
-    runUi();
-    break;
   case "docs":
-    runDocsContent();
+    runContinuousLocalization(target);
     break;
   case "app":
     if (!app) {
@@ -88,9 +115,9 @@ switch (target) {
       process.exit(1);
     }
 
-    if (app === "docs") {
-      runDocsContent();
-      break;
+    if (!appTargets.has(app)) {
+      console.error(`Unknown localization app: ${app}`);
+      process.exit(1);
     }
 
     if (app === "breakpoint") {
@@ -98,7 +125,7 @@ switch (target) {
       break;
     }
 
-    runUi(app);
+    runContinuousLocalization(app);
     break;
   default:
     console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");
