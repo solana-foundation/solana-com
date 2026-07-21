@@ -79,7 +79,6 @@ const FOOTER_COLUMNS: FooterColumnConfig[] = [
     links: [
       { labelKey: "footer.build.developers", href: "/developers" },
       { labelKey: "footer.build.docs", href: "/docs" },
-      { labelKey: "footer.build.guides", href: "/developers/guides" },
       { labelKey: "footer.build.templates", href: "/developers/templates" },
     ],
   },
