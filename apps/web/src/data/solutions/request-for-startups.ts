@@ -17,7 +17,7 @@ export const SWITCHBACK_BUTTON = {
   hierarchy: "primary",
   size: "md",
   iconSize: "md",
-  url: "https://solana.com/docs/advanced/actions",
+  url: "https://solana.com/docs/tools/actions",
 } as const;
 
 export const CONTENT_BLOCKS = [

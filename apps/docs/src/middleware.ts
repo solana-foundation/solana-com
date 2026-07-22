@@ -15,7 +15,6 @@ import {
 // the pathname ends with ".md"
 const MARKDOWN_PREFIXES = [
   "/docs",
-  "/developers/guides",
   "/developers/cookbook",
   "/developers/bootcamp",
   "/learn",
@@ -161,6 +160,7 @@ export default async function middleware(
   if (
     wantsMarkdown &&
     !normalizedPath.endsWith(".md") &&
+    !normalizedPath.endsWith("/llms.txt") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
     trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");

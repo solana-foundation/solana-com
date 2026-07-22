@@ -13,7 +13,6 @@ import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
-import { DocsHero } from "./docs-hero";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -65,10 +64,9 @@ export function DocsPage(props: {
       }}
     >
       {props.hideHeader ? null : props.isRoot ? (
-        <DocsHero
+        <DocsLandingHeader
           title={props.title}
           description={props.description}
-          markdown={props.markdown}
         />
       ) : (
         <DocsHeader
@@ -81,6 +79,27 @@ export function DocsPage(props: {
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
+  );
+}
+
+function DocsLandingHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-10 pt-2">
+      <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
+        {title}
+      </h1>
+      {description ? (
+        <p className="mt-3 max-w-3xl text-base text-[hsl(var(--fd-muted-foreground))] md:text-lg">
+          {description}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

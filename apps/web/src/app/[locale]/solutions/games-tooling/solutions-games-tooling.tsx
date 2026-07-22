@@ -32,7 +32,7 @@ export function SolutionsGamesToolingPage() {
           {
             hierarchy: "primary",
             size: "lg",
-            url: "/developers/guides/games/getting-started-with-game-development",
+            url: "/developers/cookbook/games/getting-started-with-game-development",
             label: t("buttons.startBuilding"),
           },
         ]}
@@ -145,7 +145,7 @@ export function SolutionsGamesToolingPage() {
               src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
-              url: "/developers/guides/getstarted/hello-world-in-your-browser",
+              url: "/docs/intro/quick-start",
               label: "",
               endIcon: "arrow-right",
               hierarchy: "outline",
