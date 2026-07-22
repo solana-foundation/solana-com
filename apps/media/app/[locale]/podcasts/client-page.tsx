@@ -9,7 +9,11 @@ import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { PodcastCard } from "@/components/podcast/podcast-card";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
-import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
+import {
+  formatDuration,
+  formatEpisodeDate,
+  sortPodcastsByLatestEpisode,
+} from "@/lib/podcast-utils";
 import { usePlayerOptional } from "@/components/podcast/player-context";
 import { trackPodcastPlay } from "@/lib/podcast-analytics";
 import type { PodcastShow } from "@/lib/podcast-types";
@@ -26,11 +30,16 @@ export default function PodcastsClientPage({
 }: PodcastsClientPageProps) {
   const player = usePlayerOptional();
 
+  const podcastsByLatestEpisode = useMemo(
+    () => sortPodcastsByLatestEpisode(podcasts),
+    [podcasts],
+  );
+
   const { internalPodcasts, externalPodcasts } = useMemo(() => {
     const internal: PodcastShow[] = [];
     const external: PodcastShow[] = [];
 
-    for (const podcast of podcasts) {
+    for (const podcast of podcastsByLatestEpisode) {
       if (podcast.tags?.includes(INTERNAL_TAG)) {
         internal.push(podcast);
       } else {
@@ -39,22 +48,18 @@ export default function PodcastsClientPage({
     }
 
     return { internalPodcasts: internal, externalPodcasts: external };
-  }, [podcasts]);
+  }, [podcastsByLatestEpisode]);
 
   // Get latest podcast (one with the most recent episode upload)
   const latestPodcast = useMemo(() => {
-    const podcastsWithEpisodes = podcasts.filter(
+    const podcastsWithEpisodes = podcastsByLatestEpisode.filter(
       (p) => p.latestEpisode?.publishedDate,
     );
 
     if (podcastsWithEpisodes.length === 0) return null;
 
-    return podcastsWithEpisodes.sort((a, b) => {
-      const dateA = new Date(a.latestEpisode!.publishedDate).getTime();
-      const dateB = new Date(b.latestEpisode!.publishedDate).getTime();
-      return dateB - dateA;
-    })[0];
-  }, [podcasts]);
+    return podcastsWithEpisodes[0];
+  }, [podcastsByLatestEpisode]);
 
   const handlePlayLatest = () => {
     if (!player || !latestPodcast?.latestEpisode) return;
