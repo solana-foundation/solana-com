@@ -4,7 +4,7 @@ import * as mdx from "eslint-plugin-mdx";
 
 const config = withPrettier([
   ...createNextJsConfig({
-    ignores: ["out/**", "tina/__generated__/**", "**/*.md"],
+    ignores: ["out/**", "**/*.md"],
     rules: {
       "react/jsx-no-undef": "off",
       "react/no-unescaped-entities": "off",
