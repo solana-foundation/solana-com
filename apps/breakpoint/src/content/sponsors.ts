@@ -63,6 +63,11 @@ const platinumSponsors = [
     width: 279.68,
     height: 55.2,
   },
+  {
+    companyId: "nodit",
+    width: 1000,
+    height: 381.62,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -141,6 +146,26 @@ const goldSponsors = [
     companyId: "render-network",
     width: 1933,
     height: 233,
+  },
+  {
+    companyId: "sec3",
+    width: 450,
+    height: 149,
+  },
+  {
+    companyId: "quicknode",
+    width: 2193,
+    height: 512,
+  },
+  {
+    companyId: "galaxy",
+    width: 3602,
+    height: 1031,
+  },
+  {
+    companyId: "colosseum",
+    width: 1777,
+    height: 230,
   },
 ] satisfies SponsorLogo[];
 

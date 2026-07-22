@@ -1,4 +1,8 @@
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import {
+  DEFAULT_SOCIAL_IMAGE,
+  DEFAULT_SOCIAL_IMAGE_URL,
+} from "@solana-com/ui-chrome/social-image";
 
 export const config = {
   siteMetadata: {
@@ -6,7 +10,7 @@ export const config = {
     tagline: `News & Podcasts from the Solana Ecosystem`,
     description: `Breaking news, in-depth analysis, and exclusive podcasts from the Solana blockchain ecosystem. Stay informed on DeFi, NFTs, developer updates, and Web3 innovation.`,
     shortDescription: `Breaking news, in-depth analysis, and exclusive podcasts from the Solana blockchain ecosystem.`,
-    socialShare: `https://solana.com/social/solana.jpg`,
+    socialShare: DEFAULT_SOCIAL_IMAGE_URL,
     author: `@solana`,
     keywords: [
       "Solana",
@@ -37,8 +41,8 @@ export const config = {
   /** Public-facing base URL for canonical links, OG tags, and social sharing */
   publicUrl: `https://solana.com`,
 
-  shareImageWidth: 1000,
-  shareImageHeight: 523,
+  shareImageWidth: DEFAULT_SOCIAL_IMAGE.width,
+  shareImageHeight: DEFAULT_SOCIAL_IMAGE.height,
   social: {
     twitter: {
       name: `solana`,

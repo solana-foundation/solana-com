@@ -1,81 +1,113 @@
 ---
-title: "@solana/react-hooks"
+title: React
 description:
-  Діліться станом @solana/client у вашому React-додатку за допомогою готових
-  хуків.
+  Спільний доступ до Kit-клієнта у вашому React-застосунку за допомогою
+  @solana/react і хуків плагіна гаманця.
 ---
 
-`@solana/react-hooks` додає React-провайдер, хуки та сумісні з suspense
-допоміжні функції запитів поверх `@solana/client`. Ви як і раніше налаштовуєте
-один клієнт, але хуки надають доступ до стану гаманця, балансів, транзакцій та
-запитів до програм без необхідності вручну налаштовувати сховища чи підписки.
+`@solana/react` публікує Kit-клієнт у дерево компонентів через один провайдер, а
+хуки зчитують дані RPC, підписки та стан гаманця з нього. Хуки браузерного
+гаманця розміщені в `@solana/kit-plugin-wallet/react` і читають той самий
+провайдер — окремий провайдер гаманця не потрібен.
 
 ## Встановлення
 
 ```terminal
-$ npm install @solana/client @solana/react-hooks
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react
 ```
 
-Обидва пакети необхідні, оскільки хуки використовують клієнтське середовище
-виконання для керування гаманцями, RPC та кешами.
+## Створення клієнта
 
-## Обгорніть ваше дерево один раз
+Створіть клієнт один раз на рівні модуля, поза деревом React. У браузері
+`walletSigner` робить підключений гаманець одночасно платником комісій та
+ідентифікатором.
 
-Створіть клієнт, за бажанням оберіть конектори гаманця, потім обгорніть ваше
-React-дерево за допомогою `SolanaProvider`. Кожен хук читає зі спільного
-екземпляра клієнта.
+```tsx title="client.ts"
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl: "https://api.devnet.solana.com" }));
+
+export type AppClient = Awaited<typeof client>;
+```
+
+`walletSigner` додає `client.wallet` (виявлення та підключення за стандартом
+Wallet Standard), а `solanaRpc` додає `client.rpc` і хелпер
+`client.sendTransaction`. Експортуйте тип клієнта, обгорнутий у `Awaited<>`, щоб
+він залишався коректним, якщо пізніше ви додасте плагін з асинхронним
+виконанням, і передавайте цей `AppClient` у кожен виклик `useClient`.
+
+## Оберніть дерево один раз
+
+`ClientProvider` публікує клієнт. Усі хуки нижче читають дані з нього.
+
+```tsx title="providers.tsx"
+"use client";
+
+import { ClientProvider } from "@solana/react";
+import { client } from "./client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ClientProvider client={client}>{children}</ClientProvider>;
+}
+```
+
+## Хуки гаманця
+
+Хуки гаманця зчитують можливість `wallet` клієнта, тому вони працюють лише
+всередині `ClientProvider`, чий клієнт встановив плагін гаманця.
+
+- `useWallets()` — гаманці за стандартом Wallet Standard, виявлені для ланцюга
+  клієнта.
+- `useWalletStatus()` —
+  `"pending" | "disconnected" | "connecting" | "connected" | "disconnecting" | "reconnecting"`.
+- `useConnectedWallet()` — `{ account, signer, wallet }` або `null`. `signer`
+  має значення `null` для гаманців лише для читання.
+- `useConnect()` / `useDisconnect()` — повертають `ActionResult`, чий `dispatch`
+  (і `dispatchAsync`) виконує дію, а `isRunning`, `status`, `data`, `error` та
+  `reset` відстежують її результат.
 
 ```tsx
 "use client";
 
-import { autoDiscover, createClient } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import {
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
-}
-```
-
-## Хуки відображають клієнтське середовище виконання
-
-- **Гаманець + конектори**: `useWallet`, `useWalletConnection`,
-  `useConnectWallet` та `useDisconnectWallet` надають доступ до того самого
-  реєстру, який використовує клієнт.
-- **Баланс + спостерігачі акаунтів**: `useBalance`, `useAccount`,
-  `useSolBalance` та `useProgramAccounts` транслюють оновлення від базових
-  спостерігачів і діляться кешем з діями.
-- **Транзакції + SPL-допоміжні функції**: `useSolTransfer`, `useSplToken`,
-  `useTransactionPool` та `useSendTransaction` спираються на набір допоміжних
-  функцій клієнта, тому хуки успадковують оновлення blockhash, визначення
-  платника комісій та логування.
-
-```tsx
 function WalletPanel() {
-  const { connectors, connect, disconnect, wallet, status } =
-    useWalletConnection();
-  const balance = useBalance(wallet?.account.address);
+  const status = useWalletStatus();
+  const wallets = useWallets();
+  const connected = useConnectedWallet();
+  const connect = useConnect();
+  const disconnect = useDisconnect();
 
-  if (status === "connected") {
+  if (status === "pending") return null; // wait out auto-reconnect
+
+  if (connected) {
     return (
       <div>
-        <p>{wallet?.account.address.toString()}</p>
-        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
-        <button onClick={disconnect}>Disconnect</button>
+        <p>{connected.account.address}</p>
+        <button onClick={() => disconnect.dispatch()}>Disconnect</button>
       </div>
     );
   }
 
   return (
     <div>
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect(connector.id)}>
-          Connect {connector.name}
+      {wallets.map((wallet) => (
+        <button
+          key={wallet.name}
+          disabled={connect.isRunning}
+          onClick={() => connect.dispatch(wallet)}
+        >
+          Connect {wallet.name}
         </button>
       ))}
     </div>
@@ -83,125 +115,112 @@ function WalletPanel() {
 }
 ```
 
-## Патерни запитів + кешування
+## Надіслати транзакцію
 
-`SolanaQueryProvider` додає сумісні з React Query примітиви поверх сховища
-клієнта, щоб специфічні для Solana запити могли призупинятися, повторно
-завантажуватися та синхронізуватися з підписками на програми.
-
-```tsx
-import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
-
-function ProgramAccounts({ program }: { program: string }) {
-  const query = useProgramAccounts(program);
-
-  if (query.isLoading) return <p>Loading…</p>;
-  if (query.isError) return <p role="alert">RPC error</p>;
-
-  return (
-    <div>
-      <button onClick={() => query.refresh()}>Refresh</button>
-      <ul>
-        {query.accounts.map(({ pubkey }) => (
-          <li key={pubkey.toString()}>{pubkey.toString()}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function ProgramAccountsSection({ program }: { program: string }) {
-  return (
-    <SolanaQueryProvider>
-      <ProgramAccounts program={program} />
-    </SolanaQueryProvider>
-  );
-}
-```
-
-## Декларативні потоки транзакцій
-
-Хуки надають ті самі допоміжні функції для транзакцій, що й клієнт, але керують
-станами завантаження та помилок за вас. Використовуйте їх для переказів SOL,
-потоків SPL-токенів або довільних пакетів інструкцій.
+`useClient` повертає той самий клієнт, який ви опублікували. Створюйте
+інструкції за допомогою згенерованого клієнта програми та надсилайте їх через
+`client.sendTransaction`.
 
 ```tsx
-import { useSolTransfer } from "@solana/react-hooks";
+"use client";
 
-function SolTransferForm({ destination }: { destination: string }) {
-  const transfer = useSolTransfer();
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void transfer.send({ destination, lamports: 100_000_000n });
-      }}
-    >
-      <button type="submit" disabled={transfer.isSending}>
-        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
-      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
-    </form>
-  );
-}
-```
-
-Потрібні необроблені інструкції? `useSendTransaction` приймає `instructions` та
-необов'язкові перевизначення `prepare`, надаючи вам підпис і відстеження
-статусу, коли запит завершується.
-
-```tsx
-import { useSendTransaction, useWallet } from "@solana/react-hooks";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import type { AppClient } from "./client";
 
-function CustomTransactionForm({ destination }: { destination: string }) {
-  const wallet = useWallet();
-  const { send, isSending, signature, error } = useSendTransaction();
+function SendSol({ destination }: { destination: string }) {
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet();
 
   async function handleSend() {
-    if (wallet.status !== "connected") return;
-
-    const instruction = getTransferSolInstruction({
-      source: wallet.session.account,
+    if (!connected?.signer) return;
+    const transfer = getTransferSolInstruction({
+      source: connected.signer,
       destination: address(destination),
-      amount: lamports(100_000_000n)
+      amount: lamports(10_000_000n) // 0.01 SOL
     });
-
-    await send({ instructions: [instruction] });
+    const result = await client.sendTransaction([transfer]);
+    console.log("sent", result.context.signature);
   }
 
   return (
+    <button disabled={!connected?.signer} onClick={handleSend}>
+      Send 0.01 SOL
+    </button>
+  );
+}
+```
+
+Передача експортованого типу `AppClient` до `useClient` надає хуку повний
+розширений плагінами клієнт, тому `client.rpc` і `client.sendTransaction` є
+типізованими.
+
+## Читання даних
+
+`@solana/react` постачає хуки для читання через клієнт:
+
+- `useRequest(source)` — одноразове RPC-читання; повертає
+  `{ data, error, status, refresh }`.
+- `useSubscription(source)` — живе підписування; повертає
+  `{ data, error, reconnect, status }`.
+- `useTrackedData(spec)` — значення, засіяне через RPC та підтримуване
+  актуальним за допомогою підписки.
+
+```tsx
+"use client";
+
+import { address } from "@solana/kit";
+import { useClient, useRequest } from "@solana/react";
+import { useMemo } from "react";
+import type { AppClient } from "./client";
+
+function Balance({ owner }: { owner: string }) {
+  const client = useClient<AppClient>();
+  const source = useMemo(
+    () => client.rpc.getBalance(address(owner)),
+    [client, owner]
+  );
+  const { data, status, refresh } = useRequest(source);
+
+  if (status === "fetching") return <p>Loading…</p>;
+  if (status === "error") return <p role="alert">RPC error</p>;
+
+  return (
     <div>
-      <button onClick={handleSend} disabled={isSending}>
-        {isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {signature ? <p>Signature: {signature}</p> : null}
-      {error ? <p role="alert">{String(error)}</p> : null}
+      <p>Lamports: {data?.value.toString()}</p>
+      <button onClick={() => refresh()}>Refresh</button>
     </div>
   );
 }
 ```
 
-## Поширені патерни для Solana-розробників
+Мемоізуйте джерело (за допомогою `useMemo` або `useCallback` для функції), щоб
+хук повторно отримував дані лише при зміні вхідних значень, а не при кожному
+рендері.
 
-- **Спільне середовище виконання, кілька застосунків**: налаштуйте клієнт один
-  раз (можливо, у основному пакеті) та використовуйте його у вебі, мобільному
-  вебі або вбудованих React-островах.
-- **UI-орієнтована розробка**: хуки відображають найпоширеніші Solana-процеси
-  (підключення гаманця, отримання балансів, надсилання SOL, читання
-  SPL-балансів), щоб ви могли зосередитися на UX замість RPC-підключень.
-- **Прогресивне покращення**: почніть без інтерфейсу з `@solana/client`, потім
-  додайте хуки в тих місцях, де потрібен React-стан і зручне для suspense
-  отримання даних.
-- **Тестування**: імітуйте значення, що повертаються хуками, або передайте
-  імітований клієнт до `SolanaProvider`, щоб симулювати гаманці, успішні
-  RPC-запити або помилки в юніт-тестах.
-- **Підтримка серверних компонентів**: позначайте лише кінцеві компоненти, що
-  викликають хуки, як `"use client"`; все інше може залишатися на сервері та
-  отримувати гідратовані пропси від дочірніх компонентів на основі хуків.
+Для кешування та ревалідації підшляхи `@solana/react/swr` і
+`@solana/react/query` огортають ті самі хуки для [SWR](https://swr.vercel.app) і
+[TanStack Query](https://tanstack.com/query).
 
-Поєднайте цей посібник з [оглядом @solana/client](/docs/frontend/client), щоб
-зрозуміти середовище виконання, на якому базується кожен хук.
+## Типові патерни для розробників Solana
+
+- **Один провайдер**: `ClientProvider` — єдиний провайдер, який вам потрібен;
+  хуки гаманця читають його через можливість `wallet` клієнта.
+- **Сумісність із серверними компонентами**: Позначайте лише листові компоненти,
+  що викликають хуки, за допомогою `"use client"`; серверні читання можуть
+  використовувати простий RPC-клієнт Kit без гаманця.
+- **Тестування**: Передайте замокований клієнт через `ClientProvider` для
+  симуляції гаманців і RPC-відповідей.
+
+<Callout type="warn" title="Дві родини хуків з однаковими іменами">
+  `useSignIn` і `useSignMessage` існують як у `@solana/react` (вони приймають
+  аргумент `UiWalletAccount`), так і в `@solana/kit-plugin-wallet/react` (на
+  основі клієнта, без аргументу account, повертають `ActionResult`).
+  Використовуйте версії `@solana/kit-plugin-wallet/react` з патерном клієнта
+  вище; старіші хуки гаманця `@solana/react` поступово замінюються.
+</Callout>
+
+Поєднайте цей посібник з [оглядом клієнта Kit](/docs/frontend/client), щоб
+зрозуміти клієнт, з якого читає кожен хук.

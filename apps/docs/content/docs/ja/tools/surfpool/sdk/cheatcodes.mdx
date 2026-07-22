@@ -1,0 +1,304 @@
+---
+title: チートコード
+description: トランザクションをスキップしてSurfnetの状態を直接変更します。SOLとトークンの資金供給、任意のアカウントデータの設定、上流キャッシュアカウントのリセット、ライブメインネットアカウントのストリーミングが可能です。
+---
+
+チートコードとは、通常のトランザクションフローをバイパスする状態変更です。ブロックハッシュを消費したり手数料を支払ったりすることなく即座に実行されるため、テストのセットアップに最適です。
+
+Rustでは、チートコードは`Surfnet::cheatcodes()`配下に存在します。JSでは、`Surfnet`インスタンスのメソッドとして直接利用できます。
+
+## SOLの資金供給
+
+`fundSol` / `fund_sol`
+は、任意のアカウントのlamport残高を設定し、アカウントが存在しない場合は新規作成します。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+let wallet = Pubkey::new_unique();
+
+cheats.fund_sol(&wallet, 1_000_000_000)?;
+
+// Fund several accounts in one call.
+let bob = Pubkey::new_unique();
+let carol = Pubkey::new_unique();
+cheats.fund_sol_many(&[(&bob, 2_000_000_000), (&carol, 3_000_000_000)])?;
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+
+surfnet.fundSol(wallet.publicKey, 1_000_000_000);
+
+const bob = Surfnet.newKeypair();
+const carol = Surfnet.newKeypair();
+surfnet.fundSolMany([
+  { address: bob.publicKey, lamports: 2_000_000_000 },
+  { address: carol.publicKey, lamports: 3_000_000_000 }
+]);
+```
+
+</CodeTabs>
+
+## トークンの資金供給
+
+`fundToken` / `fund_token` は、associated token
+accountを算出してウォレットにトークンをミントし、必要に応じてtoken
+accountを作成して残高を設定します。
+
+<Callout type="info" title="Token-2022 mints">
+  デフォルトでは、`fundToken` はクラシックなSPL Token
+  Programを使用します。Token-2022のミントには、最後の引数としてToken-2022のプログラムID
+  (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`) を渡してください。
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let wallet = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    .parse()
+    .unwrap();
+
+// Classic SPL Token mint.
+cheats.fund_token(&wallet, &mint, 5_000_000, None)?;
+
+// Token-2022 mint — pass the program id explicitly.
+let token_2022: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    .parse()
+    .unwrap();
+cheats.fund_token(&wallet, &mint, 5_000_000, Some(&token_2022))?;
+
+// Fund many wallets with the same mint.
+let mob = vec![Pubkey::new_unique(), Pubkey::new_unique()];
+cheats.fund_token_many(&mob.iter().collect::<Vec<_>>(), &mint, 1_000_000, None)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000);
+
+// Token-2022 mint — pass the program id explicitly.
+const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000, TOKEN_2022);
+
+// Fund many wallets at once.
+const mob = [Surfnet.newKeypair().publicKey, Surfnet.newKeypair().publicKey];
+surfnet.fundTokenMany(mob, USDC, 1_000_000);
+```
+
+</CodeTabs>
+
+資金供給なしでATAを導出するには、`getAta` / `get_ata` を使用します：
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let ata = cheats.get_ata(&wallet, &mint, None);
+```
+
+```ts !! title="TypeScript"
+const ata = surfnet.getAta(wallet.publicKey, USDC);
+```
+
+</CodeTabs>
+
+## 任意のアカウント状態の設定
+
+`setAccount`
+メソッドは、1回の呼び出しで任意のアカウントのlamport、オーナー、生のデータバイトを書き込みます。Rust
+SDKにはさらに、`rent_epoch` や `executable`
+などの高度なフィールドに対応した`SetAccount` ビルダーも用意されています。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let address = Pubkey::new_unique();
+let owner = Pubkey::new_unique();
+
+// Direct method.
+cheats.set_account(&address, 500_000, &[1, 2, 3], &owner)?;
+
+// Builder when you need finer control.
+cheats.execute(
+    SetAccount::new(address)
+        .lamports(500_000)
+        .owner(owner)
+        .data(vec![1, 2, 3])
+        .rent_epoch(0)
+        .executable(false),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const address = Surfnet.newKeypair();
+const owner = Surfnet.newKeypair();
+
+surfnet.setAccount(
+  address.publicKey,
+  500_000,
+  new Uint8Array([1, 2, 3]),
+  owner.publicKey
+);
+```
+
+</CodeTabs>
+
+## Token Accountフィールドの変更
+
+`setTokenAccount` は、既存のtoken
+accountの高度なフィールド（デリゲート、状態、クローズ権限、委任済み残高）を更新します。`fundToken`
+だけでは不十分な場合に使用してください。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetTokenAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+let owner = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse()?;
+let delegate = Pubkey::new_unique();
+
+cheats.execute(
+    SetTokenAccount::new(owner, mint)
+        .amount(2_000_000)
+        .delegate(delegate)
+        .delegated_amount(500_000)
+        .state("initialized"),
+)?;
+
+// Later: clear the delegation.
+cheats.execute(SetTokenAccount::new(owner, mint).clear_delegate())?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const owner = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const delegate = Surfnet.newKeypair();
+
+surfnet.setTokenAccount(owner.publicKey, USDC, {
+  amount: 2_000_000,
+  delegate: delegate.publicKey,
+  delegatedAmount: 500_000,
+  state: "initialized"
+});
+
+// Later: clear the delegation.
+surfnet.setTokenAccount(owner.publicKey, USDC, { clearDelegate: true });
+```
+
+</CodeTabs>
+
+## アカウントをアップストリーム状態にリセット
+
+`resetAccount`
+は、ローカルへの変更を破棄し、アップストリームRPCからアカウントを再取得します。対象のプログラムが所有するすべてのアカウントもリセットするには、`includeOwnedAccounts: true`
+を渡してください。プログラムとそのすべてのPDAをリセットする際に便利です。
+
+<Callout type="info" title="再取得には`remoteRpcUrl`が必要">
+  オフラインのSurfnetでは、`resetAccount`
+  はローカルコピーをクリアしますが、取得元のアップストリームが存在しません。リセット時にアップストリームの状態を復元するには、起動時に`remoteRpcUrl`を設定してください。
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::ResetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let token_program: Pubkey = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".parse()?;
+
+cheats.execute(
+    ResetAccount::new(token_program).include_owned_accounts(true),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
+surfnet.resetAccount(TOKEN_PROGRAM, { includeOwnedAccounts: true });
+```
+
+</CodeTabs>
+
+## ライブアカウントのストリーミング
+
+`streamAccount`
+は、アップストリームRPCからのバックグラウンドポーリング対象としてアカウントを登録します。テスト側が明示的にポーリングしなくても、ローカルのSurfnetコピーがメインネットと同期された状態を維持します。`includeOwnedAccounts`
+と組み合わせることで、プログラムが所有するすべてのPDAをストリーミングできます。
+
+<Callout type="warn" title="`remoteRpcUrl`が必要">
+  `streamAccount`
+  は、`remoteRpcUrl`（またはRustでは`remote_rpc_url`）を指定して起動したSurfnetでのみ動作します。アップストリームRPCがない場合はストリーミング元が存在せず、呼び出しはエラーを返します。
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::StreamAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?
+    .cheatcodes();
+
+let oracle: Pubkey = "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG".parse()?;
+
+cheats.execute(StreamAccount::new(oracle).include_owned_accounts(false))?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+surfnet.streamAccount("H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG");
+```
+
+</CodeTabs>
+
+## チートコードビルダー（Rust）
+
+Rust SDKは、`surfpool_sdk::cheatcodes::builders`
+配下に型付きビルダーを公開しており、便利なメソッドだけでは対応できないケースに対応しています。すべてのビルダーは`CheatcodeBuilder`
+トレイトを実装しており、`cheats.execute(builder)` を通じて実行されます。
+
+| ビルダー          | コンストラクタ                                       | 共通セッター                                                                                                                     |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SetAccount`      | `new(address: Pubkey)`                               | `lamports`, `data`, `owner`, `rent_epoch`, `executable`                                                                          |
+| `SetTokenAccount` | `new(owner: Pubkey, mint: Pubkey)`                   | `amount`, `delegate`, `clear_delegate`, `state`, `delegated_amount`, `close_authority`, `clear_close_authority`, `token_program` |
+| `ResetAccount`    | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `StreamAccount`   | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `DeployProgram`   | `new(program_id: Pubkey)`, `from_keypair_path(path)` | `so_path`, `so_bytes`, `idl_path`                                                                                                |
+
+完全なJSサーフェスについては、[JSリファレンス](/docs/tools/surfpool/sdk/js-reference)を参照してください。完全なRustサーフェスについては、[Rustリファレンス](/docs/tools/surfpool/sdk/rust-reference)を参照してください。

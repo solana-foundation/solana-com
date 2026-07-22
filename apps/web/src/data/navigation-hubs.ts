@@ -21,7 +21,7 @@ const navigationHubStaticConfigs = {
     heroImageSrc: "/src/img/index/hero-bg.webp",
     bgJsonFilePath: "/src/img/navigation-hubs/use-solana-bg.json",
     primaryCta: {
-      href: "/solana-wallets",
+      href: "/wallets",
     },
     secondaryCta: {
       href: "/learn",
@@ -31,11 +31,11 @@ const navigationHubStaticConfigs = {
     },
     pathways: [
       {
-        href: "/solana-wallets",
+        href: "/wallets",
         featured: true,
         links: [
           {
-            href: "/solana-wallets",
+            href: "/wallets",
           },
           {
             href: "/learn/what-is-a-wallet",
@@ -82,9 +82,6 @@ const navigationHubStaticConfigs = {
         links: [
           {
             href: "/wallets",
-          },
-          {
-            href: "/solana-wallets",
           },
           {
             href: "/learn/what-is-solana",
@@ -691,7 +688,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function mergeHubConfig(
+export function mergeHubConfig(
   staticValue: unknown,
   translatedValue: unknown,
 ): unknown {
@@ -704,7 +701,13 @@ function mergeHubConfig(
     const translatedArray = Array.isArray(translatedValue)
       ? translatedValue
       : [];
-    const length = Math.max(staticArray.length, translatedArray.length);
+    // Static arrays define the page structure (and contain non-translatable
+    // values such as hrefs). Ignore stale translated entries that no longer
+    // have a static counterpart, while preserving translation-only arrays
+    // such as metrics and overview points.
+    const length = Array.isArray(staticValue)
+      ? staticArray.length
+      : translatedArray.length;
 
     return Array.from({ length }, (_, index) =>
       mergeHubConfig(staticArray[index], translatedArray[index]),

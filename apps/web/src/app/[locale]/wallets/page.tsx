@@ -1,132 +1,114 @@
-import { WalletsPage } from "./wallets";
-import { getIndexMetadata } from "@/app/metadata";
+import type { Metadata } from "next";
+import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
-import { CardDeck, ConversionPanel, Hero } from "@solana-foundation/solana-lib";
+import { WalletDirectory } from "./WalletDirectory";
+import { getWalletDirectoryData } from "./get-wallet-directory";
+import type { WalletFeature } from "./wallet-directory";
 import {
-  CARD_DECKS,
-  COMPARE_WALLETS_BUTTON,
-  APPLY_FOR_GRANT_BUTTON,
-  HERO_BUTTONS,
-} from "@/data/wallets";
+  buildWalletDirectoryJsonLd,
+  serializeJsonLd,
+  WALLETS_PATH,
+  WALLETS_SOCIAL_IMAGE,
+} from "./structured-data";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export default async function Page(_props: Props) {
-  const t = await getTranslations("wallets-landing");
+export const revalidate = 604800;
 
-  const heroButtons = HERO_BUTTONS.map(({ labelKey, ...button }) => ({
-    ...button,
-    label: t(labelKey),
-  })) as React.ComponentProps<typeof Hero>["buttons"];
+const QUICK_FEATURE_FILTERS = [
+  "non_custodial",
+  "buy_crypto",
+  "card_spending",
+  "staking",
+  "hold_nfts",
+  "hardware",
+  "multi_sig",
+] as const satisfies readonly WalletFeature[];
 
-  const buildCards = CARD_DECKS.build.map(
-    ({ headingKey, bodyKey, callToAction: { labelKey, ...cta }, ...card }) => ({
-      ...card,
-      heading: t(headingKey),
-      body: t(bodyKey),
-      callToAction: {
-        ...cta,
-        label: t(labelKey),
-      },
-    }),
-  ) as React.ComponentProps<typeof CardDeck>["cards"];
+function shuffle<T>(items: T[]) {
+  const shuffledItems = [...items];
 
-  const buyCards = CARD_DECKS.buy.map(
-    ({ headingKey, bodyKey, callToAction: { labelKey, ...cta }, ...card }) => ({
-      ...card,
-      heading: t(headingKey),
-      body: t(bodyKey),
-      callToAction: {
-        ...cta,
-        label: t(labelKey),
-      },
-    }),
-  ) as React.ComponentProps<typeof CardDeck>["cards"];
+  for (let index = shuffledItems.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffledItems[index], shuffledItems[randomIndex]] = [
+      shuffledItems[randomIndex],
+      shuffledItems[index],
+    ];
+  }
 
-  const developerCards = CARD_DECKS.developerResources.map(
-    ({ headingKey, bodyKey, callToAction: { labelKey, ...cta }, ...card }) => ({
-      ...card,
-      heading: t(headingKey),
-      body: t(bodyKey),
-      callToAction: {
-        ...cta,
-        label: t(labelKey),
-      },
-    }),
-  ) as React.ComponentProps<typeof CardDeck>["cards"];
+  return shuffledItems;
+}
 
-  const { labelKey: _cmpKey, ...cmpRest } = COMPARE_WALLETS_BUTTON;
-  const compareWalletsButton = {
-    ...cmpRest,
-    label: t(COMPARE_WALLETS_BUTTON.labelKey),
-  } as NonNullable<
-    React.ComponentProps<typeof ConversionPanel>["buttons"]
-  >[number];
-
-  const { labelKey: _appKey, ...appRest } = APPLY_FOR_GRANT_BUTTON;
-  const applyForGrantButton = {
-    ...appRest,
-    label: t(APPLY_FOR_GRANT_BUTTON.labelKey),
-  } as NonNullable<
-    React.ComponentProps<typeof ConversionPanel>["buttons"]
-  >[number];
-
-  const translations = {
-    heroEyebrow: t("hero.eyebrow"),
-    heroHeadline: t("hero.headline"),
-    heroBody: t.raw("hero.body"),
-    unlockProgrammableMoneyHeading: t(
-      "conversionPanels.unlockProgrammableMoney.heading",
-    ),
-    unlockProgrammableMoneyBody: t(
-      "conversionPanels.unlockProgrammableMoney.body",
-    ),
-    complianceHeadline: t("sections.compliance.headline"),
-    complianceBody: t.raw("sections.compliance.body"),
-    oneClickCommerceHeadline: t("sections.oneClickCommerce.headline"),
-    oneClickCommerceBody: t.raw("sections.oneClickCommerce.body"),
-    feelessTransactionsHeadline: t("sections.feelessTransactions.headline"),
-    feelessTransactionsBody: t.raw("sections.feelessTransactions.body"),
-    unrivaledSecurityHeading: t("conversionPanels.unrivaledSecurity.heading"),
-    unrivaledSecurityBody: t("conversionPanels.unrivaledSecurity.body"),
-    keyManagementHeadline: t("sections.keyManagement.headline"),
-    keyManagementBody: t.raw("sections.keyManagement.body"),
-    advancedMultisigHeadline: t("sections.advancedMultisig.headline"),
-    advancedMultisigBody: t.raw("sections.advancedMultisig.body"),
-    poweredBySvmHeading: t("conversionPanels.poweredBySvm.heading"),
-    poweredBySvmBody: t("conversionPanels.poweredBySvm.body"),
-    svmBulletListBody: t.raw("sections.svmBulletList.body"),
-    buildHeadline: t("sections.build.headline"),
-    buildBody: t("sections.build.body"),
-    buyHeadline: t("sections.buy.headline"),
-    buyBody: t("sections.buy.body"),
-    exploreOptionsHeading: t("conversionPanels.exploreOptions.heading"),
-    exploreOptionsBody: t("conversionPanels.exploreOptions.body"),
-    developerResourcesHeadline: t("sections.developerResources.headline"),
-    developerResourcesBody: t("sections.developerResources.body"),
-    applyForGrantHeading: t("conversionPanels.applyForGrant.heading"),
-    applyForGrantBody: t("conversionPanels.applyForGrant.body"),
-  };
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  const [data, t] = await Promise.all([
+    getWalletDirectoryData(),
+    getTranslations({ locale, namespace: "wallets" }),
+  ]);
+  const title = t("meta.title");
+  const description = t("meta.description");
+  const alternates = getAlternates(WALLETS_PATH, locale);
+  const structuredData = buildWalletDirectoryJsonLd({
+    data,
+    title,
+    description,
+    locale,
+    path: alternates.canonical,
+    translations: {
+      aboutName: t("schema.aboutName"),
+      listName: t("schema.listName"),
+      category: (category) => t(`taxonomy.categories.${category}`),
+      platform: (platform) => t(`taxonomy.platforms.${platform}`),
+      feature: (feature) => t(`taxonomy.features.${feature}`),
+    },
+  });
 
   return (
-    <WalletsPage
-      translations={translations}
-      heroButtons={heroButtons}
-      buildCards={buildCards}
-      buyCards={buyCards}
-      developerCards={developerCards}
-      compareWalletsButton={compareWalletsButton}
-      applyForGrantButton={applyForGrantButton}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
+      <WalletDirectory
+        data={{
+          ...data,
+          wallets: shuffle(data.wallets),
+        }}
+        quickFeatureFilters={QUICK_FEATURE_FILTERS}
+      />
+    </>
   );
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  return await getIndexMetadata({
-    titleKey: "wallets-landing.meta.seoTitle",
-    descriptionKey: "wallets-landing.meta.seoDescription",
-    path: "/wallets",
-    locale,
-  });
+  const t = await getTranslations({ locale, namespace: "wallets" });
+  const title = t("meta.title");
+  const description = t("meta.description");
+  const alternates = getAlternates(WALLETS_PATH, locale);
+
+  return {
+    title,
+    description,
+    alternates,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: alternates.canonical,
+      images: [
+        {
+          url: WALLETS_SOCIAL_IMAGE,
+          width: 1920,
+          height: 1080,
+          alt: t("socialImageAlt"),
+        },
+      ],
+    },
+    twitter: {
+      title,
+      description,
+      images: [WALLETS_SOCIAL_IMAGE],
+    },
+  };
 }

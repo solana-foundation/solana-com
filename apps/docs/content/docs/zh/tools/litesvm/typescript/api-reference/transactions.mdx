@@ -1,0 +1,152 @@
+---
+title: 交易
+description: 在 TypeScript 中使用 LiteSVM 执行和模拟交易
+---
+
+# 交易
+
+用于发送、模拟和管理交易的方法。
+
+## sendTransaction
+
+```typescript
+sendTransaction(tx: Transaction): TransactionMetadata | FailedTransactionMetadata
+```
+
+执行一笔交易。成功时返回元数据，失败时返回错误详情。
+
+```typescript
+const result = client.svm.sendTransaction(signedTx);
+
+// Check for errors
+if ("err" in result && result.err()) {
+  console.error("Transaction failed:", result.err());
+  return;
+}
+
+// Access result properties (note: these are getter functions)
+console.log("Signature:", result.signature());
+console.log("Compute units:", result.computeUnitsConsumed());
+console.log("Logs:", result.logs());
+```
+
+<Callout type="warn">
+  交易结果属性（如 `err()`、`computeUnitsConsumed()`、 `logs()` 和
+  `signature()`）是 **getter 函数**，而非普通属性。调用时请务必加上括号。
+</Callout>
+
+### TransactionMetadata 方法
+
+| 方法                     | 返回值                  | 描述               |
+| ------------------------ | ----------------------- | ------------------ |
+| `signature()`            | `Uint8Array`            | 交易签名字节       |
+| `computeUnitsConsumed()` | `bigint`                | 已消耗的计算单元   |
+| `logs()`                 | `string[]`              | 程序日志           |
+| `innerInstructions()`    | `InnerInstruction[]`    | 内部（CPI）指令    |
+| `returnData()`           | `TransactionReturnData` | 程序返回数据       |
+| `prettyLogs()`           | `string`                | 带颜色的格式化日志 |
+
+## simulateTransaction
+
+```typescript
+simulateTransaction(tx: Transaction): SimulatedTransactionInfo | FailedTransactionMetadata
+```
+
+在不修改状态的情况下模拟一笔交易。
+
+```typescript
+const simResult = client.svm.simulateTransaction(signedTx);
+
+if ("err" in simResult && simResult.err()) {
+  console.error("Simulation failed:", simResult.err());
+  return;
+}
+
+// Use .meta() to get TransactionMetadata
+const meta = simResult.meta();
+console.log("Would use", meta.computeUnitsConsumed(), "compute units");
+console.log("Logs:", meta.logs());
+
+// Get post-execution account states
+const postAccounts = simResult.postAccounts();
+console.log("Post-state accounts:", postAccounts);
+```
+
+<Callout type="info">
+  模拟不会改变状态。在发送交易前可使用它进行预检查。
+</Callout>
+
+## 区块哈希管理
+
+### latestBlockhash
+
+```typescript
+latestBlockhash(): Blockhash
+```
+
+获取当前区块哈希。
+
+```typescript
+const blockhash = client.svm.latestBlockhash();
+console.log("Blockhash:", blockhash);
+```
+
+### getLatestBlockhash（通过 client.rpc）
+
+获取带有生命周期信息的区块哈希，用于手动构建交易。建议使用 RPC 辅助方法，因为它会同时返回
+`blockhash` 和 `lastValidBlockHeight`。
+
+```typescript
+import {
+  createTransactionMessage,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const { value: blockhashLifetime } = await client.rpc
+  .getLatestBlockhash()
+  .send();
+
+const tx = setTransactionMessageLifetimeUsingBlockhash(
+  blockhashLifetime,
+  createTransactionMessage({ version: 0 })
+);
+```
+
+<Callout type="info">
+  使用 `systemProgram()` 或 `tokenProgram()` 等程序插件时，
+  无需自行获取区块哈希——`client.sendTransaction()`（以及指令链上的
+  `.sendTransaction()` 辅助方法）会自动为您处理。
+</Callout>
+
+### expireBlockhash
+
+```typescript
+expireBlockhash(): LiteSVM
+```
+
+前进到新的区块哈希。适用于测试区块哈希过期场景。
+
+```typescript
+const oldBlockhash = client.svm.latestBlockhash();
+client.svm.expireBlockhash();
+const newBlockhash = client.svm.latestBlockhash();
+
+console.log("Old:", oldBlockhash);
+console.log("New:", newBlockhash);
+// Blockhashes will be different
+```
+
+## 交易历史
+
+启用交易历史记录以在发送后检索交易：
+
+```typescript
+// Enable history storage (stores last N transactions)
+client.svm.withTransactionHistory(100n);
+
+// Send a transaction
+const result = client.svm.sendTransaction(signedTx);
+
+// Later, retrieve it by signature (base58 string)
+// Note: getTransaction expects a base58-encoded signature string
+```

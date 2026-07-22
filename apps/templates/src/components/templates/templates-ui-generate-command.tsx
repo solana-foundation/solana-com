@@ -15,6 +15,8 @@ function getCommand(pm: string, template: string) {
     case "yarn":
       // Yarn only supports the `latest` tag
       return `yarn create solana-dapp -t ${template}`;
+    case "bun":
+      return `bunx create-solana-dapp@latest -t ${template}`;
     default:
       // All other package managers support the `@latest` tag and best practice is to always use it explicitly
       return `${pm} create solana-dapp@latest -t ${template}`;

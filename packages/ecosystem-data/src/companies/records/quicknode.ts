@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import quicknodeBreakpoint2026White from "../../../assets/companies/quicknode/breakpoint-2026-white.svg";
 import quicknodeLogo from "../../../assets/companies/quicknode/logo.svg";
 import quicknodeLogoLight from "../../../assets/companies/quicknode/logo-light.png";
 
@@ -7,11 +8,11 @@ export const quicknode = {
   slug: "quicknode",
   name: "Quicknode",
   profile: {
-    tagline: "Build, scale, and ship without compromise",
+    tagline: "Build without compromise",
     summary:
-      "QuickNode provides high-performance RPC endpoints and developer tooling for building and scaling applications on Solana and other blockchains.",
+      "QuickNode provides blockchain infrastructure, real-time and indexed data, and developer tools for applications across Solana and other networks.",
     description:
-      "QuickNode is a multi-chain blockchain infrastructure platform that provides dedicated RPC endpoints, WebSocket subscriptions, and developer tools for production applications. On Solana, QuickNode serves over 50% of Solana projects with sub-100ms response times and 99.99% uptime. The platform offers Solana-specific add-ons including Jito bundles, Metaplex DAS for NFT data, Priority Fee API, and Jupiter swap routing.",
+      "QuickNode offers managed RPC, dedicated clusters, gRPC, streams, webhooks, indexed data, and validator services. Solana developers can use its infrastructure and data APIs to build, monitor, and scale production applications.",
     sector: "Infrastructure",
     type: "Company",
     links: {
@@ -26,6 +27,15 @@ export const quicknode = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: quicknodeBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

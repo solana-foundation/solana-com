@@ -27,8 +27,8 @@ PDA'sından ödemeleri tahsil eder.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -140,6 +140,16 @@ Satıcı, oluşturulduktan sonra değiştirilebilir plan alanlarını güncelley
 Mevcut aboneler kabul ettikleri koşulları korurken, yeni aboneler mevcut plan
 koşullarını kabul eder.
 
+Birkaç kural geçerlidir:
+
+- Sonlu bir `endTs` yalnızca kısaltılabilir, hiçbir zaman uzatılamaz veya
+  temizlenemez (`PlanEndTsCannotExtend`).
+- `Sunset` planında, ele geçirilmiş bir çekiciyi iptal etmek için çekicileri
+  kaldırabilirsiniz (yeni küme, mevcut kümenin bir alt kümesi olmalıdır); durum,
+  `endTs` ve meta veriler dondurulmuş kalır.
+- Düzenlemeler, `endTs` değişmediği sürece bir planın son faturalandırma
+  döneminde de geçerlidir.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -174,9 +184,13 @@ koşullarını kabul eder.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -191,7 +205,7 @@ koşullarını kabul eder.
 
 ## Abone Ol
 
-Abone, mevcut plan şartlarını kabul eder. Abonelik PDA'sı, plan PDA'sından ve
+Abone, mevcut plan koşullarını kabul eder. Abonelik PDA'sı, plan PDA'sından ve
 abone adresinden türetilir.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -315,9 +329,9 @@ abone adresinden türetilir.
 
 ## Ödeme Tahsil Et
 
-Tüccar veya beyaz listeye alınmış bir çekici, tahsilatı imzalar. Plan bir hedef
-izin listesi kullandığında, alıcı token hesabının sahibi `destinations` içinde
-listelenmiş olmalıdır.
+Ödemeyi merchant veya beyaz listedeki bir çekici imzalar. Plan bir hedef izin
+listesi kullandığında, alıcı token account sahibi `destinations` listesinde yer
+almalıdır.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -364,10 +378,11 @@ listelenmiş olmalıdır.
   </Tab>
 </Tabs>
 
-## İptal Et ve Geri Al
+## İptal Et ve İptal Yetki Kaldır
 
-İptal etme, aboneliği sona eriyor olarak işaretler. Geri alma, iptal süresinin
-dolmasının ardından abonelik PDA'sını kapatır. Her iki işlemi de abone imzalar.
+İptal etmek, aboneliği sona erecek şekilde işaretler. Yetki kaldırma ise iptal
+süresinin dolmasının ardından abonelik PDA'sını kapatır. Abone her iki işlemi de
+imzalar.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -416,16 +431,60 @@ dolmasının ardından abonelik PDA'sını kapatır. Her iki işlemi de abone im
   </Tab>
 </Tabs>
 
+## Aboneliği Sürdür
+
+İptal edilmiş bir abonelik, yetkisi kaldırılmadan önce yeniden
+etkinleştirilebilir. Yetki kaldırıldıktan sonra abonelik hesabı kapatılır ve
+abonenin yeniden [abone olması](#subscribe) gerekir. Sürdürme işlemi, aboneden
+planın mint'i için `SubscriptionAuthority` gerektirir; program bu bilgiyi
+(sahip, mint ve `init_id`) doğrular ve bilgi güncel değilse ya da yeniden
+başlatılmışsa reddeder.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Notlar
 
 - `amount` temel birimler cinsindendir. 6 ondalık basamaklı bir token için
   `5_000_000`, `5` token anlamına gelir.
-- TypeScript SDK, bunları atladığınızda `subscribe` sırasında canlı plan
-  koşullarını getirir.
+- TypeScript SDK, `subscribe` sırasında plan koşullarını atladığınızda bunları
+  canlı olarak çeker.
 - Rust `SubscribeBuilder`, beklenen plan koşullarına ihtiyaç duyar. Önce plan
-  hesabını getirin ve çözümleyin, ardından bu alanları `SubscribeData` üzerinden
+  hesabını çekip çözümleyin, ardından bu alanları `SubscribeData` aracılığıyla
   iletin.
-- Yalnızca satıcı veya `pullers` içinde listelenen bir cüzdan ödeme tahsil
-  edebilir.
-- Abone kurulum, iptal ve geri alma işlemlerini imzalar. Satıcı veya onaylı
-  çekici tahsilat işlemlerini imzalar.
+- Yalnızca merchant veya `pullers` listesinde yer alan bir cüzdan ödeme
+  toplayabilir.
+- Abone, kurulum, iptal ve yetki kaldırma işlemlerini imzalar. Merchant veya
+  onaylı toplayıcı ise ödeme toplama işlemlerini imzalar.

@@ -1,0 +1,356 @@
+---
+title: Programma's Deployen
+description: Leer hoe je programma's deployt naar een LiteSVM-testinstantie
+---
+
+## Aan de slag
+
+```rust
+let mut svm = LiteSVM::new();
+```
+
+Dit maakt de basis LiteSVM-testinstantie aan, die alle ingeschakelde
+runtime-functies bevat, standaard sysvars, precompiles, spl-programma's,
+sigverify en alle ingebouwde programma's zoals het System Program.
+
+Om met andere programma's in je tests te werken, moet je dat programma deployen
+naar je testomgeving.
+
+1. Bouw en deploy het programma dat je wilt testen
+
+2. Zoek alle programma's waarnaar het bovenstaande programma CPI-aanroepen doet
+   en deploy die programma's
+
+<Callout type="info">
+  **Voorbeeld:** Als je programma gegevensfeeds van Pyth gebruikt, moet je het
+  Pyth-programma deployen naar je testinstantie.
+</Callout>
+
+## Basisimplementatie van Programma's
+
+### Methode 1: Deployen vanuit Bytes
+
+Deploy programma's rechtstreeks vanuit byte-arrays voor de snelste
+testuitvoering:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read the program's keypair to get correct ID
+let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json")
+    .expect("Program keypair file not found");
+let program_id = program_keypair.pubkey();
+
+// Include bytes at compile time
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+// Deploy from bytes
+svm.add_program(program_id, program_bytes)
+    .expect("Failed to deploy program");
+
+// Verify deployment
+assert!(svm.get_account(&program_id).is_some(), "Program account not created");
+assert!(svm.get_account(&program_id).unwrap().executable, "Program not executable");
+```
+
+`include_bytes!` sluit het binaire bestand direct in het uitvoerbare testbestand
+in tijdens het compileren, waardoor er geen I/O plaatsvindt tijdens de
+testuitvoering.
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Voordelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Sneller tijdens uitvoering (geen schijfleesbewerkingen)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Op zichzelf staand testbestand</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Werkt zelfs als het .so-bestand na compilatie is verwijderd</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nadelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Groter testbestand</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Tests moeten opnieuw worden gecompileerd wanneer het .so-bestand wijzigt</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+### Methode 2: Implementeren vanuit bestand (.so)
+
+Laad programma's vanuit het bestandssysteem wanneer ze regelmatig veranderen:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read keypair for correct program ID
+let program_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = program_keypair.pubkey();
+
+// Deploy from file
+svm.add_program_from_file(program_id, "target/deploy/program.so")
+    .expect("Failed to deploy program from file");
+
+// Always verify
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Voordelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Kleiner testbestand</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Kan .so-wijzigingen oppikken zonder tests opnieuw te compileren</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Flexibeler voor CI/CD-pipelines</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nadelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Trager (schijf-I/O tijdens uitvoering)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Vereist dat het .so-bestand aanwezig is op het moment van testuitvoering</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Bestandspad moet correct zijn ten opzichte van de testuitvoeringsmap</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+## Programma's ophalen van Mainnet/Devnet
+
+Wanneer je een programma nodig hebt waarvoor je de broncode niet hebt, gebruik
+dan de Solana CLI om programma's van live clusters te exporteren en te gebruiken
+in tests:
+
+```bash
+# Dump a program from mainnet
+solana program dump gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s pyth.so --url mainnet-beta
+
+# Dump from devnet
+solana program dump YourProgramID program.so --url devnet
+```
+
+Laad het vervolgens in je tests:
+
+```rust
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+```
+
+## Best Practices
+
+### 1. Kies de juiste implementatiemethode
+
+- **Gebruik `add_program()`** wanneer:
+  - Programma's zijn ingebed in je testbestand tijdens het compileren
+  - Je snellere testuitvoering wilt (geen I/O tijdens uitvoering)
+  - Zelfstandige tests
+
+- **Gebruik `add_program_from_file()`** wanneer:
+  - Programma's afzonderlijk worden gebouwd (d.w.z. ophalen van devnet)
+  - Programma's regelmatig wijzigen tijdens ontwikkeling (tests kunnen opnieuw
+    worden uitgevoerd zonder opnieuw te compileren)
+  - U CI/CD-omgevingen heeft waarbij .so-bestanden artefacten zijn
+
+### Inzicht in Program keypair
+
+Wanneer u een Solana-programma bouwt:
+
+1. **Anchor** maakt `target/deploy/program-keypair.json` aan
+2. **Native** builds maken een keypair-bestand naast het `.so`-bestand
+3. Het **on-chain adres** van het programma is de publieke sleutel van dit
+   keypair, ook wel bekend als de programma-ID.
+4. Voor **PDA's** vereist `find_program_address()` de programma-ID als seed
+5. Voor **CPI's** wordt de programma-ID gebruikt om andere programma's aan te
+   roepen
+
+## Veelvoorkomende problemen en oplossingen
+
+### Stille implementatiefouten
+
+**Probleem**: Het programma lijkt te implementeren, maar transacties mislukken
+met "InvalidProgramForExecution".
+
+**Oorzaak**: Programma-ID komt niet overeen met de keypair.
+
+**Oplossing**:
+
+```rust
+// Always use the keypair-derived ID
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// Verify with detailed checks
+let account = svm.get_account(&program_id)
+    .expect("Program account doesn't exist");
+
+assert!(account.executable, "Program not executable");
+assert_eq!(account.owner, solana_sdk::bpf_loader::id(), "Wrong owner");
+assert!(!account.data.is_empty(), "Program data is empty");
+
+println!("✅ Program verified at {}", program_id);
+```
+
+### Fout: programma niet gevonden
+
+**Fout**: `TransactionError::InvalidProgramForExecution`
+
+**Veelvoorkomende oorzaken**:
+
+1. Programma niet geïmplementeerd
+2. Verkeerde programma-ID gebruikt in instructie
+3. Programma-ID komt niet overeen met keypair
+
+**Stappen voor foutopsporing**:
+
+```rust
+// Step 1: Check if program exists
+if let Some(account) = svm.get_account(&program_id) {
+    println!("Program exists");
+    println!("  Executable: {}", account.executable);
+    println!("  Owner: {}", account.owner);
+    println!("  Data length: {}", account.data.len());
+} else {
+    println!("Program does not exist at {}", program_id);
+}
+
+// Step 2: Verify the ID matches keypair
+let expected_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let expected_id = expected_keypair.pubkey();
+
+if program_id != expected_id {
+    println!("  ID mismatch!");
+    println!("  Used: {}", program_id);
+    println!("  Expected: {}", expected_id);
+}
+
+// Step 3: Check instruction program ID
+println!("Instruction program_id: {}", instruction.program_id);
+assert_eq!(instruction.program_id, program_id, "Instruction uses wrong program ID");
+```
+
+### CPI naar niet-geïmplementeerde programma's
+
+**Probleem**: Uw programma doet een CPI-aanroep naar een programma dat niet is
+geïmplementeerd.
+
+**Oplossing**: Implementeer alle afhankelijkheidsprogramma's:
+
+```rust
+// Find all dependency programs and make sure they are deployed
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+
+```
+
+Als u het programma van een cluster wilt ophalen, raadpleeg dan
+[dit gedeelte](#pulling-programs-from-mainnetdevnet).
+
+### Onvoldoende lamports voor implementatie
+
+**Opmerking**: LiteSVM verwerkt automatisch het rent-vrijgestelde saldo voor
+programma's.
+
+```rust
+// No need to manually fund - LiteSVM handles this
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// But you can check the rent if needed
+let program_len = program_bytes.len();
+let required_lamports = svm.minimum_balance_for_rent_exemption(program_len);
+println!("Program requires {} lamports for rent exemption", required_lamports);
+```
+
+## Controlelijst voor implementatieverificatie
+
+<Steps>
+<Step>
+**Lees de programma keypair**
+
+```rust
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+```
+
+</Step>
+
+<Step>
+**Implementeer met overeenkomend ID**
+
+```rust
+svm.add_program(program_id, &program_bytes).unwrap();
+```
+
+</Step>
+
+<Step>
+**Verifieer de implementatie**
+
+```rust
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+</Step>
+
+<Step>
+Implementeer alle programma's die uw programma aanroept via CPI naar de litesvm-testinstantie
+
+</Step>
+</Steps>
+
+## Volgende stappen
+
+In het volgende gedeelte leren we hoe we programma-instructies uitvoeren en
+complexe transactiepatronen verwerken.

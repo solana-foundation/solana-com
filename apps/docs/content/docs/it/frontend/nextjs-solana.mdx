@@ -1,21 +1,22 @@
 ---
-title: Next.js + Solana React Hooks
-seoTitle: Integrazione wallet Solana con Next.js e @solana/react-hooks
+title: Next.js + Kit
+seoTitle: Integrazione wallet Solana con Next.js e @solana/kit
 description:
-  Configura l'integrazione del wallet Solana in Next.js con @solana/client e
-  @solana/react-hooks per inviare trasferimenti SOL.
+  Configura l'integrazione del wallet Solana in Next.js con @solana/kit e
+  @solana/react per inviare trasferimenti SOL.
 ---
 
-Configura un'integrazione wallet Solana minimale in Next.js (App Router) con
-`@solana/client` e `@solana/react-hooks`. Creerai un menu a tendina per
-connettere il wallet e un componente per trasferimenti SOL.
+Configura un'integrazione minimale del wallet Solana in Next.js (App Router) con
+`@solana/kit`, i plugin del kit e `@solana/react`. Creerai un dropdown per
+connettere il wallet e un componente per i trasferimenti SOL.
 
-![Next.js Hooks App](/assets/docs/frontend/01-hero-wallet.webp)
+![App Next.js Kit](/assets/docs/frontend/01-hero-wallet.webp)
 
 ## Risorse
 
-- [Repository Framework Kit](https://github.com/solana-foundation/framework-kit)
-- [Solana JSON RPC](https://docs.solana.com/cluster/rpc-endpoints)
+- [Solana Kit](https://github.com/anza-xyz/kit)
+- [Plugin Kit](https://github.com/anza-xyz/kit-plugins)
+- [Solana JSON RPC](/docs/rpc)
 
 ## Prerequisiti
 
@@ -32,42 +33,62 @@ $ cd my-app
 Quando richiesto, accetta tutte le impostazioni predefinite (lo starter include
 Tailwind, che questo tutorial utilizza per semplici stili di utilità).
 
+<Callout type="info" title="Due modifiche allo scaffold">
+L'output predefinito di `create-next-app` richiede due piccole modifiche per questo tutorial:
+
+- In `tsconfig.json`, imposta `"target": "ES2020"` (o versione successiva). Gli
+  importi dei trasferimenti usano letterali `bigint` come `1_000_000_000n`, che
+  richiedono ES2020.
+- In `app/globals.css`, rimuovi il blocco `@media (prefers-color-scheme: dark)`
+  generato e la regola di sfondo `body`. Questa UI è solo in modalità chiara; le
+  impostazioni scure predefinite altrimenti sovrascrivono l'utility `bg-white` e
+  rendono la pagina illeggibile in modalità scura.
+
+</Callout>
+
 ### Installa le dipendenze Solana
 
 ```terminal
-$ npm install @solana/client@latest @solana/react-hooks@latest @solana/kit@latest
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react @solana-program/system
 ```
 
-Usa `@latest` per rimanere aggiornato. Se il tuo package manager mostra avvisi
-sui peer, puoi fissare il set testato corrente
-(`@solana/client@1.1.0 @solana/react-hooks@1.1.0 @solana/kit@5.0.0`) e
-aggiornare quando vengono rilasciate nuove versioni.
+Questo tutorial ha come target Kit 7+, i pacchetti `@solana/kit-plugin-*` dalla
+versione 0.13+ e `@solana/react` 7+. Se il tuo package manager segnala avvisi di
+peer da un pacchetto `@solana-program/*` che dichiara un intervallo di peer Kit
+precedente, ignoralo — i pacchetti funzionano con Kit 7.
 
 <ScrollyCoding>
 
-## !!steps 1. Crea Solana Provider
+## !!steps 1. Crea il Provider Solana
 
-`app/providers.tsx` utilizza le props semplificate `SolanaProvider`. Imposta il
-cluster (Devnet per impostazione predefinita).
+`app/providers.tsx` crea un client a livello di modulo e lo pubblica con
+`ClientProvider`. Il plugin `walletSigner` imposta il wallet connesso come
+pagatore delle commissioni e come identità; esporta il tipo di client in modo
+che i componenti possano tipizzare `useClient`.
 
 ```tsx !! title="app/providers.tsx"
 "use client";
 
-import type { SolanaClientConfig } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+import { ClientProvider } from "@solana/react";
 
-const defaultConfig: SolanaClientConfig = {
-  cluster: "devnet",
-  rpc: "https://api.devnet.solana.com",
-  websocket: "wss://api.devnet.solana.com"
-};
+const rpcUrl =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl }));
+
+export type AppClient = Awaited<typeof client>;
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider config={defaultConfig}>{children}</SolanaProvider>;
+  return <ClientProvider client={client}>{children}</ClientProvider>;
 }
 ```
 
-## !!steps 2. Aggiorna layout
+## !!steps 2. Aggiorna il Layout
 
 Avvolgi la tua applicazione con il componente `Providers`. Aggiorna
 `app/layout.tsx` per importarlo e utilizzarlo:
@@ -111,64 +132,41 @@ export default function RootLayout({
 ```
 
 Questo avvolge l'intera app con il contesto Solana in modo che tutti i
-componenti figli possano accedere allo stato del wallet e agli hooks.
+componenti figlio possano accedere al client e agli hook del wallet.
 
-## !!steps 3. Pulsante connessione wallet
+## !!steps 3. Pulsante di Connessione Wallet
 
-Menu a tendina per connettere/disconnettere wallet Wallet Standard tramite
-`useConnectWallet` / `useDisconnectWallet`.
+Menu a tendina per connettere/disconnettere i wallet Wallet Standard.
+`useWallets` restituisce i wallet rilevati nel browser; `useConnect` /
+`useDisconnect` restituiscono un `ActionResult` — questo componente utilizza i
+suoi campi `dispatch`, `isRunning` e `error`.
 
 ```tsx !! title="app/components/wallet-connect-button.tsx"
 "use client";
 
 import { useState } from "react";
 import {
-  useConnectWallet,
-  useDisconnectWallet,
-  useWallet
-} from "@solana/react-hooks";
-
-const CONNECTORS = [
-  { id: "wallet-standard:phantom", label: "Phantom" },
-  { id: "wallet-standard:solflare", label: "Solflare" },
-  { id: "wallet-standard:backpack", label: "Backpack" }
-];
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
 
 function truncate(address: string) {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
 export function WalletConnectButton() {
-  const wallet = useWallet();
-  const connectWallet = useConnectWallet();
-  const disconnectWallet = useDisconnectWallet();
-  const [error, setError] = useState<string | null>(null);
+  const status = useWalletStatus();
+  const wallets = useWallets();
+  const connected = useConnectedWallet();
+  const connect = useConnect();
+  const disconnect = useDisconnect();
   const [open, setOpen] = useState(false);
 
-  const isConnected = wallet.status === "connected";
-  const address = isConnected
-    ? wallet.session.account.address.toString()
-    : null;
-
-  async function handleConnect(connectorId: string) {
-    setError(null);
-    try {
-      await connectWallet(connectorId, { autoConnect: true });
-      setOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to connect");
-    }
-  }
-
-  async function handleDisconnect() {
-    setError(null);
-    try {
-      await disconnectWallet();
-      setOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to disconnect");
-    }
-  }
+  const address = connected ? String(connected.account.address) : null;
+  const error = connect.error ?? disconnect.error;
 
   return (
     <div className="relative">
@@ -187,7 +185,7 @@ export function WalletConnectButton() {
 
       {open ? (
         <div className="absolute z-10 mt-2 w-full min-w-[240px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
-          {isConnected ? (
+          {connected ? (
             <div className="space-y-3">
               <div className="rounded border border-slate-100 bg-slate-50 px-3 py-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -202,7 +200,10 @@ export function WalletConnectButton() {
               </div>
               <button
                 type="button"
-                onClick={() => void handleDisconnect()}
+                onClick={() => {
+                  void disconnect.dispatch();
+                  setOpen(false);
+                }}
                 className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Disconnect
@@ -214,22 +215,32 @@ export function WalletConnectButton() {
                 Wallet Standard
               </p>
               <div className="space-y-1.5">
-                {CONNECTORS.map((connector) => (
-                  <button
-                    key={connector.id}
-                    type="button"
-                    onClick={() => void handleConnect(connector.id)}
-                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    <span>{connector.label}</span>
-                    <span className="text-xs text-slate-500">Connect</span>
-                  </button>
-                ))}
+                {wallets.length === 0 ? (
+                  <p className="text-sm text-slate-500">No wallets detected.</p>
+                ) : (
+                  wallets.map((wallet) => (
+                    <button
+                      key={wallet.name}
+                      type="button"
+                      disabled={connect.isRunning || status === "pending"}
+                      onClick={() => {
+                        void connect.dispatch(wallet);
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <span>{wallet.name}</span>
+                      <span className="text-xs text-slate-500">Connect</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           )}
           {error ? (
-            <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
+            <p className="mt-2 text-sm font-semibold text-red-600">
+              {error instanceof Error ? error.message : String(error)}
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -238,48 +249,57 @@ export function WalletConnectButton() {
 }
 ```
 
-![Opzioni dropdown del wallet](/assets/docs/frontend/02-wallet-dropdown-options.webp)
+![Opzioni del menu a tendina del wallet](/assets/docs/frontend/02-wallet-dropdown-options.webp)
 
-![Dropdown del wallet connesso](/assets/docs/frontend/03-wallet-dropdown-connected.webp)
+![Wallet connesso nel menu a tendina](/assets/docs/frontend/03-wallet-dropdown-connected.webp)
 
 ## !!steps 4. Trasferimento SOL
 
-Usa `useSolTransfer` per inviare un trasferimento SOL (lamport) a qualsiasi
-indirizzo.
+Costruisce un'istruzione di trasferimento con `@solana-program/system` e la
+invia tramite `client.sendTransaction`. Il wallet connesso firma e paga le
+commissioni.
 
 ```tsx !! title="app/components/sol-transfer-card.tsx"
 "use client";
 
-import { address } from "@solana/kit";
+import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useState } from "react";
-import { useSolTransfer, useWallet } from "@solana/react-hooks";
+import type { AppClient } from "../providers";
 
 const LAMPORTS_PER_SOL = 1_000_000_000n;
 
 function parseLamports(input: string) {
-  const value = Number(input);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  const lamports = BigInt(Math.floor(value * Number(LAMPORTS_PER_SOL)));
-  return lamports > 0 ? lamports : null;
+  const sol = Number(input);
+  if (!Number.isFinite(sol) || sol <= 0) return null;
+  const whole = Math.trunc(sol);
+  const frac = sol - whole;
+  const amount =
+    BigInt(whole) * LAMPORTS_PER_SOL +
+    BigInt(Math.round(frac * Number(LAMPORTS_PER_SOL)));
+  return amount > 0n ? amount : null;
 }
 
 export function SolTransferCard() {
-  const wallet = useWallet();
-  const { send, isSending, signature } = useSolTransfer();
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet();
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("0.001");
+  const [signature, setSignature] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const statusText =
-    wallet.status === "connected" ? "Wallet connected" : "Wallet disconnected";
+  const statusText = connected ? "Wallet connected" : "Wallet disconnected";
 
   async function sendSol() {
-    if (wallet.status !== "connected") {
+    if (!connected?.signer) {
       setError("Connect a wallet first.");
       return;
     }
-    const lamports = parseLamports(amount);
-    if (!lamports) {
+    const amountLamports = parseLamports(amount);
+    if (!amountLamports) {
       setError("Enter an amount greater than 0.");
       return;
     }
@@ -289,16 +309,21 @@ export function SolTransferCard() {
       return;
     }
     setError(null);
+    setIsSending(true);
     try {
-      await send({
+      const transfer = getTransferSolInstruction({
+        source: connected.signer,
         destination: address(dest),
-        amount: lamports
+        amount: lamports(amountLamports)
       });
+      const result = await client.sendTransaction([transfer]);
+      setSignature(result.context.signature);
+      setAmount("0.001");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send SOL");
-      return;
+    } finally {
+      setIsSending(false);
     }
-    setAmount("0.001");
   }
 
   return (
@@ -352,7 +377,7 @@ export function SolTransferCard() {
         <button
           type="button"
           onClick={() => void sendSol()}
-          disabled={wallet.status !== "connected" || isSending}
+          disabled={!connected?.signer || isSending}
           className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSending ? "Sending…" : "Send SOL"}
@@ -381,16 +406,16 @@ export function SolTransferCard() {
 
 ![Modulo di trasferimento SOL compilato](/assets/docs/frontend/04-sol-transfer-filled.webp)
 
-![Trasferimento SOL riuscito](/assets/docs/frontend/05-sol-transfer-success.webp)
+![Trasferimento SOL completato con successo](/assets/docs/frontend/05-sol-transfer-success.webp)
 
-I connettori sono lo stesso set Wallet Standard
-(Phantom/Solflare/Backpack/rilevamento automatico); una volta connesso, i
-trasferimenti SOL utilizzano il firmatario connesso.
+I wallet provengono dal rilevamento tramite Wallet Standard; una volta connesso,
+il trasferimento SOL utilizza il firmatario connesso come pagante delle
+commissioni.
 
 ## !!steps 5. Pagina
 
-`app/page.tsx` renderizza i componenti di connessione del wallet e trasferimento
-SOL (non è necessario Suspense):
+`app/page.tsx` renderizza i componenti per la connessione del wallet e il
+trasferimento SOL:
 
 ```tsx !! title="app/page.tsx"
 import { SolTransferCard } from "./components/sol-transfer-card";
@@ -401,7 +426,7 @@ export default function HomePage() {
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-10">
       <header className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-          @solana/react-hooks + Next.js
+          @solana/kit + Next.js
         </p>
         <h1 className="text-3xl font-bold text-slate-900">
           Solana wallet + SOL transfer
@@ -432,7 +457,7 @@ export default function HomePage() {
 }
 ```
 
-## !!steps 6. Esegui l'applicazione
+## !!steps 6. Avvia l'Applicazione
 
 ```terminal
 $ npm run dev

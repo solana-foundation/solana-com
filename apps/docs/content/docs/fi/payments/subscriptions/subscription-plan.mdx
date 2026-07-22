@@ -26,8 +26,8 @@ tilaus-PDA:sta.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -139,6 +139,16 @@ Kauppias voi päivittää muokattavat suunnitelmakentät luomisen jälkeen. Olem
 olevat tilaajat pitävät hyväksymänsä ehdot, kun taas uudet tilaajat hyväksyvät
 nykyiset suunnitelman ehdot.
 
+Muutama sääntö pätee:
+
+- Rajallista `endTs` voidaan vain lyhentää, ei koskaan pidentää tai tyhjentää
+  (`PlanEndTsCannotExtend`).
+- `Sunset`-suunnitelmassa voit poistaa vetäjiä (uuden joukon on oltava nykyisen
+  osajoukko) vaarantuneen vetäjän oikeuksien peruuttamiseksi; tila, `endTs` ja
+  metatiedot pysyvät muuttumattomina.
+- Muokkaukset toimivat suunnitelman viimeisen laskutuskauden aikana, kunhan
+  `endTs` pysyy muuttumattomana.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -173,9 +183,13 @@ nykyiset suunnitelman ehdot.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -190,8 +204,8 @@ nykyiset suunnitelman ehdot.
 
 ## Tilaa
 
-Tilaaja hyväksyy nykyiset tilausehdot. Tilauksen PDA johdetaan
-tilaussuunnitelman PDA:sta ja tilaajan osoitteesta.
+Tilaaja hyväksyy voimassa olevat suunnitelmaehdot. Tilauksen PDA johdetaan
+suunnitelman PDA:sta ja tilaajan osoitteesta.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -312,11 +326,11 @@ tilaussuunnitelman PDA:sta ja tilaajan osoitteesta.
   </Tab>
 </Tabs>
 
-## Kerää maksu
+## Kerää Maksu
 
-Kauppias tai sallittujen listalla oleva nostaja allekirjoittaa keräyksen. Kun
-suunnitelmassa käytetään kohdeosoitteiden sallittujen listaa, vastaanottajan
-token account -tilin omistajan tulee olla lueteltu kohteessa `destinations`.
+Kauppias tai sallittu vetäjä allekirjoittaa keräyksen. Kun suunnitelma käyttää
+kohteen sallittujen listaa, vastaanottajan token account -omistajan on oltava
+merkittynä `destinations`:ssä.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -365,9 +379,9 @@ token account -tilin omistajan tulee olla lueteltu kohteessa `destinations`.
 
 ## Peruuta ja kumoa
 
-Peruuttaminen merkitsee tilauksen päättymisen. Kumoaminen sulkee tilauksen PDA:n
-sen jälkeen, kun peruutuksen voimassaoloaika on kulunut umpeen. Tilaaja
-allekirjoittaa molemmat tapahtumat.
+Peruuttaminen merkitsee tilauksen päättyväksi. Kumoaminen sulkee tilauksen
+PDA:n, kun peruutuksen voimassaoloaika on kulunut. Tilaaja allekirjoittaa
+molemmat tapahtumat.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -416,15 +430,58 @@ allekirjoittaa molemmat tapahtumat.
   </Tab>
 </Tabs>
 
-## Huomautukset
+## Jatka tilausta
 
-- `amount` on perusyksiköissä. 6-desimaalisen tokenin kohdalla `5_000_000`
-  tarkoittaa `5` tokenia.
-- TypeScript SDK hakee reaaliaikaiset tilausehdot `subscribe`-toiminnon aikana,
-  kun jätät ne pois.
-- Rust `SubscribeBuilder` tarvitsee odotetut tilausehdot. Hae ja dekoodaa
-  tilaustili ensin, ja välitä sitten kyseiset kentät `SubscribeData`-toiminnon
-  kautta.
-- Vain kauppias tai `pullers`-listassa oleva lompakko voi kerätä maksuja.
-- Tilaaja allekirjoittaa asetus-, peruutus- ja kumoamistapahtumat. Kauppias tai
-  hyväksytty maksun kerääjä allekirjoittaa keräystapahtumat.
+Peruutetun tilauksen voi reaktivoida ennen sen kumoamista. Kun tilaus on
+kumottu, tilaustilin tiedot suljetaan ja tilaajan täytyy
+[tilata uudelleen](#subscribe). Jatkaminen edellyttää tilaajan
+`SubscriptionAuthority` suunnitelman minttiä varten, jonka ohjelma vahvistaa
+(omistaja, mintti ja `init_id`) ja hylkää, jos se on vanhentunut tai uudelleen
+alustettu.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Huomioita
+
+- `amount` on perusyksiköissä. 6 desimaalin tokenille `5_000_000` tarkoittaa `5`
+  tokenia.
+- TypeScript SDK hakee reaaliaikaiset suunnitelman ehdot `subscribe` aikana, kun
+  jätät ne pois.
+- Rust `SubscribeBuilder` tarvitsee odotetut suunnitelman ehdot. Hae ja pura
+  suunnitelmatili ensin, sitten välitä nämä kentät `SubscribeData` kautta.
+- Vain kauppias tai `pullers`-listalla oleva lompakko voi kerätä maksuja.
+- Tilaaja allekirjoittaa asennuksen, peruutuksen ja kumoamisen tapahtumat.
+  Kauppias tai hyväksytty kerääjä allekirjoittaa maksutapahtumat.

@@ -1,0 +1,261 @@
+---
+title: اللغة والبنية النحوية
+description:
+  استخدم لغة DSL الخاصة بـ txtx لوصف عمليات النشر التي يديرها surfpool.
+---
+
+هذا هو التوثيق الرسمي للغة txtx. تصف ملفات Runbook التي تكتبها سلاسل الكتل
+والشبكات المراد استخدامها، والبيانات التي يجب استرجاعها، والمعاملات التي يجب
+بثّها. كما تتيح لك لغة txtx تحديد التبعيات بين الموارد وإنشاء بنى متعددة
+ومتشابهة من كتلة واحدة.
+
+## البنية النحوية
+
+تحتوي ملفات Runbook على سلسلة من كتل الشيفرة تبدو على النحو التالي:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+لكل كتلة نوع أمر (في هذا المثال `variable` و`action` و `output`)، واسم مرجعي
+(`"query_path"` و`"http_query"` و `"status_code"`)، والبيانات الداخلية للكتلة
+(كل شيء بين `{ ... }`). تستلزم بعض أنواع الأوامر أيضاً تحديد أمر معيّن
+(`"std::send_http_request"`). وتُحدَّد البيانات الداخلية للكتلة وفقاً لنوع الأمر
+والأمر المحدَّدَين.
+
+### مراجع الأوامر
+
+يمكن لأمر ما الرجوع إلى مخرجات أمر آخر لبناء سلسلة من الأوامر المترابطة. عند
+تنفيذ Runbook، ينشئ surfpool رسماً بيانياً لجميع الأوامر لضمان تنفيذها دائماً
+بالترتيب الصحيح. وهذا يعني ضرورة تجنّب الدورات الدائرية في التبعيات عند إنشاء
+Runbook.
+
+يمكن الإشارة إلى مخرجات أمر آخر داخل كتلة باستخدام
+`command_type.ref_name.output_name`. وفيما يلي بعض الأمثلة:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### الدوال
+
+توفر [المكتبة القياسية](/docs/tools/surfpool/iac/std/functions) عدداً من الدوال
+التي يمكن كتابتها بشكل مضمّن، بدلاً من كتابة كتل أوامر كاملة بوسائط مسمّاة.
+ويمكن توسيع هذه الدوال عبر الإضافات.
+
+يمكن أن تبدو هذه الدوال كاستدعاءات دوال صريحة (مثل `add_uint(1, 3)`)، أو كعمليات
+حسابية مضمّنة (مثل `1 + 3`). ويمكن للدوال الرجوع إلى مخرجات أوامر أخرى، أو
+تخزينها في مخرجات أوامر جديدة. وفيما يلي مثال يستخدم عدداً من الدوال:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## مدخلات الملف التعريفي وواجهة سطر الأوامر
+
+يمكن تزويد Runbook بالمدخلات عبر تمريرها كمدخل في واجهة سطر الأوامر (CLI)، أو
+بتحديدها في ملف `txtx.yml`. في حال توفير نفس المدخل عبر واجهة سطر الأوامر وفي
+الملف التعريفي معاً، فإن مدخل واجهة سطر الأوامر سيأخذ الأولوية. للاطلاع على
+كيفية استخدام واجهة سطر الأوامر، راجع
+[توثيق CLI](/docs/tools/surfpool/toolchain/cli). يمكن في الملف التعريفي تجميع
+هذه المدخلات تحت مفتاح بيئة معين، مما يُسهّل استخدام نفس Runbook عبر بيئات
+متعددة.
+
+فيما يلي مثال على إعداد يتضمن متغيرات البيئة:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+في أي من ملفات `.tx` التي يحمّلها هذا الـ Runbook، ستكون المدخلات
+`input.network_id` و `input.rpc_api_url` متاحةً في النطاق العام. عند تحميل واجهة
+الويب لهذا الـ Runbook، سيتيح لك عنصر الإجراء الأول اختيار البيئة التي تريد
+تحميلها. يؤدي اختيار بيئة جديدة إلى إعادة تحميل الـ Runbook الحالي مع حقن
+متغيرات البيئة الجديدة في عملية التنفيذ.
+
+### إدارة الحالة
+
+يستطيع Surfpool إدارة الحالة عبر تنفيذات Runbook المتعددة. عند تشغيل عمليات نشر
+العقود، يمكن الاستفادة من إدارة الحالة للكشف عن أي تغييرات في كود العقد ومدخلات
+Runbook، لتحديد ما إذا كان يلزم إعادة تنفيذ Runbook. سيمنع Surfpool إعادة تنفيذ
+Runbook في حال عدم وجود أي تغييرات في كود العقد أو مدخلاته.
+
+لتفعيل إدارة الحالة، قدّم قيمة `state` ومساراً `location` لتخزين ملف الحالة في
+`txtx.yml`:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## المتغيرات
+
+يمكن استخدام المتغيرات لتخزين القيم التي يمكن للتركيبات الأخرى استخدامها، وكذلك
+تعديلها من قِبَل المستخدمين في واجهة الويب. إذا كان حقل `editable` للمتغير غير
+محدد أو مضبوطاً على `false`، فسيظهر المتغير في واجهة الويب ضمن قسم
+`Variables Review` كقيمة للقراءة فقط يمكن التحقق منها. أما إذا كان حقل
+`editable` مضبوطاً على `true`، فسيظهر المتغير كحقل قابل للتعديل في واجهة الويب.
+يمكن توفير الحقل الاختياري `description` لإضافة سياق إضافي للمتغير. فيما يلي
+مثال على متغير:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## الإضافات والقيم الافتراضية
+
+تتيح لك كتل الإضافات تحديد الإضافات التي سيستخدمها Runbook. ويمكن الإشارة إلى أي
+حقول معلنة داخل كتلة الإضافة من قِبل أي إجراءات تنتمي إلى تلك الإضافة. سيتيح لك
+ذلك حذف الحقول عند استخدام الإجراءات المخصصة من تلك الإضافة. يُعلن المثال التالي
+عن الإضافة `svm` ويضبط حقلَي `network_id` و `rpc_api_url` كقيم افتراضية:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+بعد إضافة هذه القيمة الافتراضية إلى ملف `.tx`، يمكن لأي إجراءات من إضافة SVM حذف
+كلا الحقلين `network_id` و `rpc_api_url`.
+
+## التدفقات
+
+تتيح لك التدفقات تنفيذ Runbook عدة مرات بمدخلات مختلفة لكل تنفيذ. ويمكن الإشارة
+إلى أي حقول محددة في كتلة التدفق من قِبل أي إجراءات تنتمي إلى ذلك التدفق عبر
+`flow.field_name`. ويمكن استخدام هذا بالتزامن مع كتلة `addon` بطرق مفيدة:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## الموقِّعون
+
+يمكن للإضافات تعريف موقِّعين يوفرون طرقًا متنوعة لتوقيع المعاملات عند استخدام
+surfpool. ويمكن استخدام هؤلاء الموقِّعين لتوقيع المعاملات عبر عبارة استرداد أو
+مفتاح سري، أو لمطالبة المستخدمين بربط محفظتهم الإلكترونية والتوقيع في واجهة
+Surfpool Web UI، أو لتوقيع المعاملات بشكل غير متزامن عبر تشفير آمن، أو لتعريف
+محافظ متعددة التوقيع، وغير ذلك. وسيكون لكل تنفيذ لموقِّع الإضافة حالات استخدام
+ووثائق خاصة به.
+
+إليك مثال على موقِّع قيد الاستخدام:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+يُعرِّف هذا المثال موقِّعًا باسم `alice`، يستخدم الموقِّع `svm::web_wallet`.
+سيُولِّد تعريف هذا الموقِّع موجهًا في واجهة Web UI لربط محفظة، وتوفير pubkey عبر
+توقيع رسالة، وتوقيع جميع المعاملات باستخدام هذه المحفظة كموقِّع.
+
+## الإجراءات
+
+الإجراءات هي بُنى متعددة الأغراض يتم تعريفها بواسطة الإضافات وبواسطة
+[المكتبة القياسية](/docs/tools/surfpool/iac/std/actions). يحدد كل إجراء مجموعته
+الخاصة من المدخلات (بعضها اختياري وبعضها إلزامي) التي يمكن تزويدها للإجراء، وما
+يحدث خلال كل استدعاء للإجراء، والمخرجات التي ينتجها الإجراء، والتي يمكن الرجوع
+إليها في الأوامر اللاحقة.
+
+تشمل بعض أمثلة أنواع الإجراءات: إرسال طلبات HTTP وإخراج النتيجة، وترميز بيانات
+المعاملات لتتوافق مع برنامج الترميز الخاص بسلسلة معينة، وتوقيع معاملة باستخدام
+محفظة وإخراج بايتات المعاملة الموقّعة، أو بث معاملة إلى شبكة.
+
+فيما يلي مثال على إجراء:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## الوحدات
+
+قريباً.
+
+## المخرجات
+
+يمكن استخدام أمر الإخراج لعرض البيانات في نهاية تنفيذ دفتر التشغيل. فيما يلي
+مثال على أمر الإخراج:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

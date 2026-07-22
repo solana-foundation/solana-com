@@ -44,16 +44,50 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
         with:
-          version: 10.15.1
+          fetch-depth: 0
+      - name: Check for dependency changes
+        id: dependency-changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            package.json \
+            ':(glob)**/package.json' \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            .github/workflows/security.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No dependency inputs changed; the full audit runs on main and weekly."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Skip audit for unrelated pull request
+        if:
+          github.event_name == 'pull_request' &&
+          steps.dependency-changes.outputs.changed != 'true'
+        run: echo "Dependency audit not required for this pull request."
+      - name: Install pnpm
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.13.0
           run_install: false
       - name: Install Node.js
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
       - name: Audit production dependencies
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
         # Fails on High/Critical advisories per the Solana Foundation SDLC.
         # Known-unfixable advisories are ignored via auditConfig.ignoreGhsas
         # in pnpm-workspace.yaml with a documented justification.

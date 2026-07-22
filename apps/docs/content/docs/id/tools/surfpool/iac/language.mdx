@@ -1,0 +1,276 @@
+---
+title: Bahasa & Sintaksis
+description:
+  Gunakan DSL txtx untuk mendeskripsikan deployment yang dikelola surfpool.
+---
+
+Ini adalah dokumentasi untuk bahasa txtx. File Runbook yang Anda tulis
+mendeskripsikan blockchain dan jaringan mana yang akan digunakan, data apa yang
+akan diambil, dan transaksi apa yang akan disiarkan. Bahasa txtx juga
+memungkinkan Anda mendefinisikan dependensi antar sumber daya dan membuat
+beberapa konstruk serupa dari satu blok.
+
+## Sintaksis
+
+Runbook berisi serangkaian blok kode yang terlihat seperti ini:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Setiap blok memiliki tipe perintah (dalam contoh ini `variable`, `action`, dan
+`output`), nama referensi (`"query_path"`, `"http_query"`, dan `"status_code"`),
+dan data bagian dalam blok (semua yang berada di antara `{ ... }`). Beberapa
+tipe perintah juga mengharuskan sebuah perintah ditentukan
+(`"std::send_http_request"`). Data bagian dalam blok ditentukan oleh tipe
+perintah dan perintah yang ditetapkan.
+
+### Referensi Perintah
+
+Satu perintah dapat mereferensikan output perintah lain untuk membangun
+rangkaian perintah yang saling bergantung. Saat Anda menjalankan sebuah Runbook,
+surfpool membuat graf dari semua perintah untuk memastikan perintah-perintah
+tersebut selalu dieksekusi dalam urutan yang benar. Hal ini berarti bahwa siklus
+dependensi perlu dihindari saat membuat sebuah Runbook.
+
+Output perintah lain dapat direferensikan dalam sebuah blok menggunakan
+`command_type.ref_name.output_name`. Berikut beberapa contohnya:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Fungsi
+
+[Pustaka standar](/docs/tools/surfpool/iac/std/functions) menyediakan beberapa
+fungsi yang dapat ditulis secara in-line, berbeda dengan menulis blok perintah
+penuh dengan argumen bernama. Fungsi-fungsi ini dapat diperluas melalui addon.
+
+Fungsi-fungsi ini dapat terlihat seperti pemanggilan fungsi eksplisit (misalnya
+`add_uint(1, 3)`), atau dapat terlihat seperti operasi aritmatika in-line
+(misalnya `1 + 3`). Fungsi dapat mereferensikan output perintah lain, atau dapat
+disimpan dalam output perintah baru. Berikut contoh penggunaan beberapa fungsi:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Input Manifes & CLI
+
+Input dapat diberikan ke Runbook dengan meneruskannya sebagai input CLI, atau
+dengan menentukannya dalam file manifes `txtx.yml`. Jika input yang sama
+diberikan baik melalui CLI maupun manifes, input CLI akan lebih diprioritaskan.
+Untuk melihat informasi tentang cara menggunakan CLI, lihat
+[dokumentasi CLI](/docs/tools/surfpool/toolchain/cli). Dalam manifes,
+input-input ini dapat dikelompokkan berdasarkan kunci lingkungan, sehingga
+memudahkan penggunaan Runbook yang sama di berbagai lingkungan.
+
+Berikut adalah contoh konfigurasi dengan variabel lingkungan:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+Di salah satu file `.tx` yang dimuat oleh runbook ini, input `input.network_id`
+dan `input.rpc_api_url` akan tersedia dalam cakupan global. Ketika Web UI memuat
+runbook ini, item tindakan pertama akan memungkinkan Anda memilih lingkungan
+mana yang akan dimuat. Memilih lingkungan baru akan memuat ulang runbook saat
+ini dengan variabel lingkungan baru yang diinjeksikan ke dalam eksekusi.
+
+### Manajemen State
+
+Surfpool dapat mengelola state di seluruh eksekusi Runbook. Saat menjalankan
+deployment kontrak, manajemen state dapat digunakan untuk mendeteksi perubahan
+apa pun pada kode kontrak dan input Runbook guna menentukan apakah Runbook perlu
+dieksekusi ulang. Surfpool akan mencegah eksekusi ulang Runbook jika tidak ada
+perubahan pada kode kontrak atau input Runbook.
+
+Untuk mengaktifkan manajemen state, berikan nilai `state` dan `location` untuk
+menyimpan file state dalam `txtx.yml`:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Variabel
+
+Variabel dapat digunakan untuk menyimpan nilai yang dapat digunakan oleh
+konstruk lain dan dapat diedit oleh pengguna di Web UI. Jika kolom `editable`
+pada variabel tidak ditentukan atau diatur ke `false`, variabel akan muncul di
+Web UI pada bagian `Variables Review` sebagai nilai hanya-baca yang dapat
+diverifikasi. Namun jika kolom `editable` diatur ke `true`, variabel akan muncul
+sebagai kolom yang dapat diedit di Web UI. Kolom opsional `description` dapat
+disertakan untuk menambahkan konteks tambahan pada variabel. Berikut adalah
+contoh variabel:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Addon & Default
+
+Blok addon memungkinkan Anda menentukan addon apa yang akan digunakan oleh
+Runbook. Semua field yang dideklarasikan di dalam blok addon dapat
+direferensikan oleh aksi apa pun yang merupakan bagian dari addon tersebut. Ini
+memungkinkan Anda menghilangkan field saat menggunakan aksi kustom dari addon
+tersebut. Contoh berikut mendeklarasikan addon `svm` dan menetapkan field
+`network_id` dan `rpc_api_url` sebagai default:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Dengan default ini ditambahkan ke file `.tx`, setiap aksi dari addon SVM dapat
+menghilangkan kedua field `network_id` dan `rpc_api_url`.
+
+## Flow
+
+Flow memungkinkan Anda mengeksekusi Runbook beberapa kali dengan input yang
+berbeda untuk setiap eksekusi. Semua field yang ditentukan dalam blok flow dapat
+direferensikan oleh aksi apa pun yang merupakan bagian dari flow tersebut
+melalui `flow.field_name`. Ini dapat digunakan bersama dengan blok `addon`
+dengan cara yang berguna:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## Penanda Tangan
+
+Addon dapat mendefinisikan penanda tangan yang menyediakan berbagai cara untuk
+menandatangani transaksi saat menggunakan surfpool. Penanda tangan ini dapat
+digunakan untuk menandatangani transaksi melalui mnemonic atau kunci rahasia,
+untuk meminta pengguna menghubungkan dompet web mereka dan masuk di Surfpool Web
+UI, untuk menandatangani transaksi secara asinkron melalui secure enclave, untuk
+mendefinisikan dompet multisig, dan lainnya. Setiap implementasi penanda tangan
+addon akan memiliki kasus penggunaan dan dokumentasinya sendiri.
+
+Berikut adalah contoh penanda tangan yang sedang digunakan:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+Contoh ini mendefinisikan penanda tangan bernama `alice`, yang menggunakan
+penanda tangan `svm::web_wallet`. Definisi penanda tangan ini akan menghasilkan
+prompt di Web UI untuk menghubungkan dompet, menyediakan pubkey melalui tanda
+tangan pesan, dan menandatangani semua transaksi menggunakan dompet ini sebagai
+penanda tangan.
+
+## Aksi
+
+Aksi adalah konstruksi serbaguna yang didefinisikan oleh addon dan oleh
+[pustaka standar](/docs/tools/surfpool/iac/std/actions). Setiap aksi
+mendefinisikan sekumpulan inputnya sendiri (beberapa opsional dan beberapa
+wajib) yang dapat diberikan ke aksi tersebut, apa yang terjadi selama setiap
+pemanggilan aksi, dan output apa yang dihasilkan oleh aksi tersebut, yang dapat
+dirujuk oleh perintah-perintah berikutnya.
+
+Beberapa contoh jenis aksi meliputi membuat permintaan http dan mengeluarkan
+hasilnya, mengenkode data transaksi agar sesuai dengan codec rantai tertentu,
+menandatangani transaksi dengan dompet dan mengeluarkan byte transaksi yang
+telah ditandatangani, atau menyiarkan transaksi ke jaringan.
+
+Berikut adalah contoh aksi:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Modul
+
+Segera hadir.
+
+## Output
+
+Perintah output dapat digunakan untuk menampilkan data di akhir eksekusi
+runbook. Berikut adalah contoh perintah output:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

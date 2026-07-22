@@ -1,0 +1,226 @@
+---
+title: Schnellstart
+description:
+  Erfahren Sie, wie Sie die litesvm-loader-Crate zum Testen des Deployments
+  upgradefähiger Programme verwenden
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/litesvm-loader"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    <code>litesvm-loader</code> auf crates.io ansehen
+  </a>
+</div>
+
+## Installation
+
+Stellen Sie sicher, dass alle erforderlichen Abhängigkeiten vorhanden sind:
+
+```bash
+cargo add --dev litesvm litesvm-loader solana-keypair solana-signer
+```
+
+Falls Ihr Test das bereitgestellte Programm direkt aufruft, fügen Sie außerdem
+die von Ihrem Test verwendeten Solana- Anweisungen und Transaktions-Crates
+hinzu:
+
+```bash
+cargo add --dev solana-instruction solana-message solana-transaction
+```
+
+## Was ist litesvm-loader?
+
+Die `litesvm-loader`-Crate stellt Hilfsfunktionen bereit, um Programme über den
+BPF-Upgradeable-Loader innerhalb von LiteSVM zu deployen. Verwenden Sie sie,
+wenn Ihr Test loader-eigene program accounts, programdata account oder das
+Verhalten der Upgrade-Authority benötigt, anstatt ein Programm direkt mit
+`svm.add_program(...)` einzufügen.
+
+<Steps>
+<Step>
+**Upgradefähiges Deployment**
+- Erstellt den Loader-Buffer-Account
+- Schreibt Programm-Bytes in Blöcken
+- Stellt den finalen program account mit dem BPF-Upgradeable-Loader bereit
+- Verwendet das angegebene Programm-keypair als Programm-ID
+</Step>
+
+<Step>
+  **Upgrade-Authority-Verwaltung** – Ändert die Upgrade-Authority eines bereits
+  bereitgestellten Programms – Unterstützt die Zuweisung einer neuen Authority –
+  Unterstützt die Übergabe von `None`, um das Programm unveränderlich zu machen
+</Step>
+
+<Steps>
+  <Step>
+    **Echter Loader-Zustand** - Verwendet dasselbe Loader-Kontenmodell, das Ihr
+    Programm on-chain sieht - Ermöglicht Tests, program accounts und programdata
+    account zu inspizieren - Hilft dabei, Fehler aufzudecken, die durch das
+    direkte Einfügen von Programmen verborgen bleiben
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Für die meisten Tests ist `svm.add_program(program_id, program_bytes)` nach
+  wie vor der schnellste und einfachste Weg, ein Programm zu laden. Verwende
+  `litesvm-loader`, wenn das Layout des Loader-Konten oder die Upgrade-Authority
+  Teil dessen ist, was du testen möchtest.
+</Callout>
+
+## Schnellbeispiel
+
+Hier ist ein vollständiges Beispiel, das ein Programm über den upgradefähigen
+Loader deployed und anschließend seine Upgrade-Authority rotiert:
+
+```rust
+use litesvm::LiteSVM;
+use litesvm_loader::{deploy_upgradeable_program, set_upgrade_authority};
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+
+#[test]
+fn test_upgradeable_deployment() {
+    let mut svm = LiteSVM::new();
+
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Use the keypair that should own the program ID.
+    // For Anchor programs, this is usually target/deploy/<program>-keypair.json.
+    let program = Keypair::new();
+    let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+    deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+
+    let program_account = svm.get_account(&program.pubkey()).unwrap();
+    assert!(program_account.executable);
+
+    let new_authority = Keypair::new();
+    set_upgrade_authority(
+        &mut svm,
+        &payer,
+        &program.pubkey(),
+        &payer,
+        Some(&new_authority.pubkey()),
+    )
+    .unwrap();
+}
+```
+
+## Das Program keypair auswählen
+
+`deploy_upgradeable_program` verwendet das Argument `program_kp` als Programm-
+Adresse. Wenn dein Programm eine feste ID deklariert, lade das generierte
+Deploy-keypair anstatt ein zufälliges keypair zu erstellen:
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+## Das deployed Programm aufrufen
+
+Nach dem Deployment rufst du das Programm auf dieselbe Weise auf, wie du jedes
+LiteSVM-geladene Programm aufrufen würdest. Erstelle eine Anweisung für dein
+Programm, signiere die Transaktion und sende sie über dieselbe
+`LiteSVM`-Instanz:
+
+```rust
+use solana_instruction::Instruction;
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let instruction = Instruction::new_with_bytes(
+    program.pubkey(),
+    &[],  // instruction data for your program
+    vec![], // account metas for your program
+);
+
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+let tx = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+svm.send_transaction(tx).unwrap();
+```
+
+## Wichtige Komponenten
+
+### deploy_upgradeable_program
+
+| Argument        | Beschreibung                                                          |
+| --------------- | --------------------------------------------------------------------- |
+| `svm`           | Veränderliche `LiteSVM`-Instanz, die das deployed Programm empfängt   |
+| `payer_kp`      | Gebührenzahler und initiale Upgrade-Authority                         |
+| `program_kp`    | keypair, dessen öffentlicher Schlüssel zur Programm-ID wird           |
+| `program_bytes` | Kompilierte SBF-Programm-Bytes, in der Regel von `target/deploy/*.so` |
+
+`deploy_upgradeable_program` erstellt einen Loader-Puffer, schreibt die
+Programm-Bytes in 512-Byte-Blöcken und deployed das Programm mit Spielraum für
+zukünftige Upgrades.
+
+### set_upgrade_authority
+
+| Argument                    | Beschreibung                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------- |
+| `svm`                       | Veränderliche `LiteSVM`-Instanz, die das deployed Programm enthält                    |
+| `from_keypair`              | Gebührenzahler und Unterzeichnungsbefugnis für die Transaktion                        |
+| `program_address`           | Programm-ID, deren Upgrade-Authority geändert werden soll                             |
+| `current_authority_keypair` | Aktuelles keypair der Upgrade-Authority                                               |
+| `new_authority_address`     | Neue Upgrade-Authority-Adresse, oder `None`, um das Programm unveränderlich zu machen |
+
+<Callout type="warn">
+  In der aktuellen Hilfsimplementierung wird die generierte Transaktion von
+  `from_keypair` signiert. Übergeben Sie die aktuelle Upgrade-Authority als
+  `from_keypair`, oder halten Sie den Zahler und die aktuelle Upgrade-Authority
+  gleich, wenn Sie die Upgrade-Authority ändern.
+</Callout>
+
+## Häufige Workflows
+
+### Deployment mit der deklarierten Programm-ID
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+### Ein Programm unveränderlich machen
+
+```rust
+set_upgrade_authority(
+    &mut svm,
+    &payer,
+    &program.pubkey(),
+    &payer,
+    None,
+)
+.unwrap();
+```
+
+## Fehlerbehebung
+
+### Häufige Fehler
+
+| Fehler                                                                 | Ursache                                                                                                     | Lösung                                                                                                                                         |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ProgramAccountNotFound` oder Anweisungen scheitern an der falschen ID | Beim Deployment wurde ein zufälliges `Keypair` verwendet, während das Programm eine deklarierte ID erwartet | Lesen Sie `target/deploy/<program>-keypair.json` und übergeben Sie das keypair an `deploy_upgradeable_program`                                 |
+| `InsufficientFunds`                                                    | Der Zahler verfügt nicht über genügend lamports für Loader-Puffer und program account                       | Vor dem Deployment mehr lamports per Airdrop erhalten                                                                                          |
+| `MissingRequiredSignature` beim Ändern der Upgrade-Authority           | Die aktuelle Upgrade-Authority hat die Transaktion nicht signiert                                           | Übergeben Sie die aktuelle Upgrade-Authority als `from_keypair`, oder verwenden Sie Zahler und aktuelle Upgrade-Authority als dasselbe keypair |
+| Das Programm-Deployment ist langsamer als erwartet                     | Loader-Deployment schreibt Bytes über echte Loader- Anweisungen                                             | Verwenden Sie `svm.add_program(...)`, wenn Sie kein Loader-State- oder Upgrade-Authority-Verhalten benötigen                                   |

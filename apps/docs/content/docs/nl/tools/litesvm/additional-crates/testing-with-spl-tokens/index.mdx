@@ -1,0 +1,280 @@
+---
+title: Snelstart
+description:
+  Leer hoe je de litesvm-token crate gebruikt voor het testen met SPL-tokens
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/litesvm-token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    Bekijk <code>litesvm-token</code> op crates.io
+  </a>
+</div>
+
+## Installatie
+
+Zorg ervoor dat je alle benodigde afhankelijkheden hebt:
+
+```bash
+cargo add --dev litesvm litesvm-token solana-sdk spl-token spl-associated-token-account
+```
+
+## SPL Token-basisprincipes
+
+In Solana is het aanmaken van een token account een proces in twee stappen.
+
+<Steps>
+<Step>
+**Maak een `Mint Account` aan**
+- Heeft geen tokensaldo 
+- Bevat alle globale informatie van de token, zoals de totale voorraad, decimalen, autoriteit, enz.
+- Er is één mint account per token
+- De eigenaar is het Token Program (TokenKeg of Token 2022)
+</Step>
+
+<Step>
+**Maak een `Token Account` aan**
+- Slaat het saldo op voor een specifieke SPL-token 
+- Bevat het mint account om te definiëren welke SPL-token zich in dit account bevindt 
+- Er kunnen meerdere token accounts zijn voor één mint account 
+- De eigenaar is degene die controle heeft over de tokens in dit account 
+</Step>
+</Steps>
+
+## Soorten token accounts
+
+### Gewoon token account
+
+Een token account slaat je saldo op voor een specifieke SPL-token:
+
+```rust
+// Can create token accounts at ANY address
+let token_account = Keypair::new();  // Random address
+let create_ix = system_instruction::create_account(
+    &payer.pubkey(),
+    &token_account.pubkey(),  // Any address you want
+    rent,
+    165,  // Token account size
+    &spl_token::id(),
+);
+let init_ix = spl_token::instruction::initialize_account(
+    &spl_token::id(),
+    &token_account.pubkey(),
+    &mint,
+    &owner.pubkey(),
+)?;
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Voordelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Meerdere accounts aanmaken voor dezelfde mint/eigenaar is mogelijk</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Flexibel - elk adres kan worden gebruikt</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nadelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Niet deterministisch - adressen moeten handmatig bijgehouden worden</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Ontvanger moet aangeven naar welk account verzonden moet worden</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Zorgt voor verwarring bij meerdere accounts</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<Callout type="info">
+  **Wanneer te gebruiken:** Tijdelijke/escrow-accounts,
+  programma-eigendomsaccounts met aangepaste logica, wanneer je meerdere
+  accounts nodig hebt voor hetzelfde token, geavanceerde DeFi-strategieën.
+</Callout>
+
+### Associated Token Account (ATA)
+
+Een ATA is een token account op een deterministisch PDA-adres:
+
+```rust
+// ATA address is ALWAYS the same for owner + mint
+let ata = get_associated_token_address(&owner.pubkey(), &mint);
+// Address derived from: [owner_pubkey, token_program_id, mint]
+```
+
+Hoe het ATA-adres wordt afgeleid:
+
+```rust
+// ATA is a PDA owned by the Associated Token Program
+let (ata, bump) = Pubkey::find_program_address(
+    &[
+        owner.as_ref(),
+        spl_token::id().as_ref(),
+        mint.as_ref(),
+    ],
+    &spl_associated_token_account::id(),  // ATA program
+);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Voordelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Één canoniek account per eigenaar/mint-combinatie</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Deterministisch - iedereen kan het adres berekenen</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Vereenvoudigt betalingen - alleen een wallet-adres en mint nodig</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Standaardconventie in alle Solana-applicaties</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Nadelen
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Er kan slechts ÉÉN ATA per eigenaar/mint-combinatie zijn (by design)</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<Callout type="info">
+  **Aanbevolen voor de meeste gevallen:** Wallet-applicaties, DeFi-protocollen,
+  NFT-bezit, betalingssystemen en alle gebruikersgerichte token-overdrachten.
+</Callout>
+
+## Snel voorbeeld
+
+Hier is een volledig voorbeeld van het aanmaken van een token mint en het minten
+van tokens:
+
+```rust
+use litesvm::LiteSVM;
+use litesvm_token::{
+    get_spl_account,
+    spl_token::{native_mint::DECIMALS, state::Account as TokenAccount},
+    CreateAccount, CreateMint, MintTo, Transfer,
+};
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+};
+
+#[test]
+fn test_create_and_mint_tokens() {
+    let mut svm = LiteSVM::new();
+
+    // Create payer account and fund it
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10 * LAMPORTS_PER_SOL).unwrap();
+
+    // Create a new SPL token mint with the payer as the mint authority
+    let mint = CreateMint::new(&mut svm, &payer)
+        .authority(&payer.pubkey())
+        .decimals(DECIMALS)
+        .send()
+        .unwrap();
+
+    // Create a token account for the payer
+    let token_account = CreateAccount::new(&mut svm, &payer, &mint)
+        .owner(&payer.pubkey())
+        .send()
+        .unwrap();
+
+    // Mint tokens into the payer's token account
+    MintTo::new(&mut svm, &payer, &mint, &token_account, 1000)
+        .owner(&payer)
+        .send()
+        .unwrap();
+
+    // Verify balance
+    let token_account: TokenAccount = get_spl_account(&svm, &token_account).unwrap();
+    let account_balance = token_account.amount;
+    assert_eq!(account_balance, 1000)
+}
+```
+
+## Kernconcepten
+
+### Token-decimalen
+
+De meeste tokens gebruiken decimalen om fractionele bedragen weer te geven:
+
+```rust
+// SOL has 9 decimals
+let one_sol = 10_u64.pow(9);  // 1_000_000_000 lamports
+
+// USDC has 6 decimals
+let one_usdc = 10_u64.pow(6); // 1_000_000 micro-USDC
+
+// Always account for decimals in calculations
+let amount_tokens = 100;
+let amount_raw = amount_tokens * 10_u64.pow(decimals as u32);
+```
+
+### Accountrelaties
+
+Het begrijpen van de relaties tussen accounts is essentieel:
+
+- **Mint Account**: Definieert de token (aanbod, decimalen, bevoegdheden)
+- **Token account**: Bewaart tokens voor een specifieke eigenaar
+- **Associated token account**: Deterministisch token account voor een
+  eigenaar+mint-paar
+- **Mint Authority**: Kan nieuwe tokens aanmaken
+- **Freeze Authority**: Kan token accounts bevriezen (optioneel)
+
+## Probleemoplossing
+
+### Veelvoorkomende fouten
+
+| Fout                        | Oorzaak                                                          | Oplossing                                       |
+| --------------------------- | ---------------------------------------------------------------- | ----------------------------------------------- |
+| `AccountNotFound`           | Proberen een account te gebruiken dat niet bestaat               | Zorg dat het account is aangemaakt vóór gebruik |
+| `AccountAlreadyInitialized` | Proberen een al geïnitialiseerd account opnieuw te initialiseren | Controleer of het account bestaat vóór aanmaak  |
+| `InsufficientFunds`         | Onvoldoende lamports voor rent of tokens voor overdracht         | Zorg voor voldoende financiering/minting        |
+| `OwnerMismatch`             | Account eigendom van verkeerd programma                          | Verifieer het juiste programma-ID bij aanmaak   |

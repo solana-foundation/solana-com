@@ -5,11 +5,11 @@ import styles from "./DevelopersContentPage.module.scss";
 import { FormattedDate } from "@/components/SolFormattedMessage";
 import Link from "next/link";
 import Image from "next/image";
-import defaultImg from "@@/public/social/solana.jpg";
 import blurImage from "@@/public/img/blurImage.png";
 import SocialShareButtons from "@/components/sharedPageSections/SocialShareButtons";
 import { config } from "@@/src/config";
 import { TagCloud } from "./TagCloud";
+import { DEFAULT_SOCIAL_IMAGE_URL } from "@solana-com/ui-chrome/social-image";
 
 export function HeroTitle({
   record,
@@ -72,7 +72,7 @@ export function HeroTitle({
               src={
                 record.href
                   ? `/opengraph${record.href.replace(/^\/[a-z]{2}(?:-[a-z]{2})?\//, "/")}`
-                  : defaultImg
+                  : DEFAULT_SOCIAL_IMAGE_URL
               }
               loading="lazy"
               fill
@@ -81,7 +81,7 @@ export function HeroTitle({
               placeholder="blur"
               blurDataURL={blurImage.blurDataURL}
               onError={(e) => {
-                e.currentTarget.srcset = "/social/solana.jpg";
+                e.currentTarget.srcset = DEFAULT_SOCIAL_IMAGE_URL;
               }}
             />
           </Link>

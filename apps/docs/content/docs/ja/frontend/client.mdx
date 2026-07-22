@@ -1,102 +1,144 @@
 ---
-title: "@solana/client"
-description: ヘッドレスSolanaクライアントランタイムで軽量なSolanaフロントエンドを構築します。
+title: Kitクライアント
+description: RPC、署名、トランザクション送信のためのKitプラグインからSolanaクライアントを構築します。
 ---
 
-`@solana/client`はランタイムの表面を軽量に保ちます。1つのストア、1つのRPCスタック、およびウォレットレジストリが、さまざまなヘルパーを支えるため、同じインスタンスがCLI、スクリプト、または完全なUIをサポートできます。アクション、ウォッチャー、およびヘルパーはすべて、その単一のクライアントを通じてキャッシュ、サブスクリプション、およびウォレットセッションを共有します。
+`@solana/kit`は`createClient`を提供します。これはプラグインで拡張できる小さなホストです。各プラグインはRPC接続、署名者、トランザクション計画といった機能を追加し、組み合わされたクライアントはスクリプト、サーバールート、UIのいずれにも対応します。
 
 <Callout type="info">
-  純粋なReact体験を構築する場合、通常は[`@solana/react-hooks`](/docs/frontend/react-hooks)から始める方が高速です。hooksパッケージは、この同じクライアントランタイムをラップし、すぐに使えるフックを公開するため、追加の制御が必要な場合にのみヘッドレスクライアントに移行します。
+  Reactアプリを構築していますか？[Reactガイド](/docs/frontend/react-hooks)では、このクライアントを`@solana/react`でラップし、コンポーネントがフックを通じてウォレットの状態とRPCデータを読み取れるようにしています。まずそちらから始め、より細かい制御が必要になったらここに戻ってください。
 </Callout>
 
 ## インストール
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-任意のパッケージマネージャーを使用できます。クライアントはブラウザ、ワーカー、React、Svelte、またはサーバーサイドランタイムで動作します。
+パッケージマネージャーはどれでも使用できます。KitはバージョンはKit
+v7以上、`@solana/kit-plugin-*`パッケージは0.13以上が必要です。
 
-## クライアントを一度作成
+## クライアントを作成する
 
-Wallet
-Standard コネクタを選択し(自動検出が最も高速な開始方法です)、クライアントを作成します。この単一のオブジェクトは、ストア、アクション、ウォッチャー、およびヘルパーを公開します。
+`.use(...)`でプラグインを組み合わせます。最初に署名者を設定し、次にRPC接続を設定します。`solanaDevnetRpc()`は`client.rpc`、サブスクリプション、トランザクションプランナー/エグゼキューター、および`client.sendTransaction`ヘルパーを追加するため、アプリがこれらの部品を自分で接続する必要はほとんどありません。
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-クライアントストアは、クラスタ設定、サブスクリプション、保留中のトランザクション、およびウォレットセッションを追跡します。永続化やマルチタブ調整が必要な場合は、独自のZustandストアを提供できます。
+`signer`プラグインは手数料支払者とアプリのIDの両方を設定します。RPCバンドルは先に支払者が設定されている必要があるため、順序が重要です。
 
-## ウォレットオーケストレーション
+### 署名者のバリアント
 
-コネクタは、Wallet
-Standardメタデータと接続/切断ロジックをカプセル化します。組み込みの`phantom()`、`solflare()`、`backpack()`、または`autoDiscover()`ヘルパーを登録するか、`createWalletStandardConnector`でカスタムプロバイダーをラップします。すべてのウォレットアクション(接続、切断、署名、送信)はクライアントレジストリを通過するため、すべてのコンシューマーが同期を保ちます。
+`@solana/kit-plugin-signer`は3つのロールを提供しており、クライアントに必要な権限のみを付与できます：
 
-## アクション、ウォッチャー、およびヘルパー
+- `signer(x)` — `client.payer`と`client.identity`の両方を設定します。
+- `payer(x)` — 手数料支払者のみ。
+- `identity(x)` — アプリの権限のみ。
 
-- **アクション**は、ストアを更新しながら一般的なRPC読み取りと書き込みをラップします(例:`fetchAccount`、`requestAirdrop`、`setCluster`)。
-- **ウォッチャー**は、WebSocketサブスクリプションを多重化し、更新をストアにストリーミングし、クリーンアップ用の中止ハンドルを提供します。
-- **ヘルパー**は、SOL転送、SPLトークンヘルパー、署名ポーリング、トランザクションプールなどの高レベルフローを公開します。
+それぞれに`*FromFile(path)`（Node）、`generated*()`、`generated*WithSol(amount)`、および`airdrop*()`のバリアントがあり、テストやスクリプトに利用できます。
+
+## トランザクションを送信する
+
+生成されたプログラムクライアントでinstructionsを構築し、`client.sendTransaction`に渡します。プランナーはブロックハッシュを解決し、コンピュートを見積もり、クライアントの支払者で署名して送信します。
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## トランザクションヘルパーパターン
+`sendTransaction`は結果オブジェクトに解決され、トランザクション署名は`result.context.signature`にあります。プランが単一のトランザクションに収まることを表明し、そうでない場合はエラーをスローします。バッチが複数のトランザクションにまたがる可能性がある場合は`sendTransactions`を使用してください。
 
-トランザクションヘルパーは、ブロックハッシュの更新、手数料支払者の解決、署名を管理します。お好みのUXで準備、検査、送信が可能です。
+## RPCバンドルを選択する
+
+`@solana/kit-plugin-rpc` はクラスタープリセットを提供しています：
+
+- `solanaDevnetRpc()` —
+  devnetのデフォルト、エアドロップ有効（`client.airdrop`）。
+- `solanaMainnetRpc()` — mainnet；エアドロップはコンパイル時エラー。
+- `solanaLocalRpc()` — ローカルvalidator用の`http://127.0.0.1:8899`。
+- `solanaRpc({ rpcUrl })` — 任意のエンドポイント。
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-`prepareAndSend`を使用すると、事前構築されたフロー（シミュレーションとログ記録）を利用できます。または、`sign`
-/
-`toWire`を呼び出して、ワイヤーフォーマットを自分で中継する前に手動で署名を収集することもできます。
+### 詳細に組み合わせる
 
-<Callout type="info">
-  ヘッドレスで実行中 —
-  ブラウザウォレットのないAPIルート、ワーカー、またはスクリプトで使用していますか？
-  生のkeypairの代わりに、バックエンドの鍵管理サービスで署名してください。
-  [Keychain](/docs/tools/keychain) および
-  [本番環境での署名](/docs/core/transactions/signing-in-production)
-  を参照してください。
+プリセットはRPC接続、プランナー、エグゼキューター、および送信ヘルパーをまとめているため、ほとんどのアプリでは各パーツを個別に使用する必要はありません。カスタムプランナーや別のサブスクリプションチャネルなど、1つをカスタマイズする場合にのみ、詳細なプラグインに切り替えてください。このパスには
+`@solana/kit-plugin-instruction-plan`
+も必要です。これはプリセットに含まれています：
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## プログラムクライアントを追加する
+
+生成された `@solana-program/*`
+パッケージはクライアントプラグインを公開しており、プログラム呼び出しをクライアントにぶら下げることができます。必要なプログラムをインストールし、そのプラグインを
+`.use()` してください：
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="ピア依存関係の範囲">
+  一部の `@solana-program/*` リリースでは、Kitがバージョン`@solana/kit ^6.x`
+  のピアを宣言している一方、Kitは7.xです。これらはKit 7で動作します —
+  パッケージマネージャーが警告を出す場合は、ピアの範囲をオーバーライドしてください。
 </Callout>
+
+## ブラウザウォレットなしで署名する
+
+APIルート、ワーカー、またはスクリプトでヘッドレス実行していますか？生のkeypairの代わりに、バックエンドの鍵管理サービスで署名してください。[Keychain](/docs/tools/keychain)および[本番環境での署名](/docs/core/transactions/signing-in-production)を参照してください。
 
 ## Solana開発者向けの一般的なパターン
 
-- **ヘッドレスステートマシン**:
-  APIルート、スクリプト、またはワーカー内でクライアントを実行し、UIを動かすのと同じウォレット +
-  RPCオーケストレーションロジックを再利用できます。
-- **リアルタイムダッシュボード**: ウォッチャー（残高、アカウント、署名）をお好みのUIライブラリと組み合わせることで、クライアントがWebSocketのファンアウトとキャッシュの無効化を処理します。
-- **カスタムストア**: 独自のZustandストアを注入して、IndexedDB/localStorageからのハイドレーション、サーバーセッションへの状態のミラーリング、またはブラウザタブ間の調整を行えます。
-- **Reactフックへのブリッジ**: 同じランタイム上でエルゴノミックなフックを使用したい場合は、設定済みのクライアントインスタンスを`@solana/react-hooks`に渡してください。
-- **テスト容易性**: 単一のクライアントインターフェースはユニットテストでモック化でき、ブラウザウォレットなしでRPCレスポンスやウォレットセッションのシミュレーションが容易になります。
+- **共有セットアップ**：コアモジュールで一度クライアントを構築し、スクリプト、サーバールート、UIにインポートします。
+- **サーバー側の読み取り**：`signer` + `solanaRpc`
+  のみのクライアント（ウォレットプラグインなし）は、サーバーからアカウントを読み取り、トランザクションをシミュレートします。
+- **ローカルテスト**：`@solana/kit-plugin-litesvm` の `.use(litesvm())`
+  にRPCバンドルを切り替えて、インメモリvalidatorに対して実行します（Nodeのみ）。
+- **テスト容易性**：構成されたクライアントはモックが簡単です — ブラウザウォレットがなくても、RPCレスポンスや署名者をスタブ化できます。
