@@ -62,6 +62,66 @@ const inlineLatex = inline({
   ContentView: (props) => <Latex formula={props.value.formula} />,
 });
 
+const figure = wrapper({
+  label: "Figure (image with caption)",
+  description:
+    "An image with separate accessibility text and a rich-text caption",
+  schema: {
+    src: fields.image({
+      label: "Image",
+      directory: "public/uploads/posts",
+      publicPath: "/uploads/posts",
+      validation: { isRequired: true },
+    }),
+    alt: fields.text({
+      label: "Alt Text",
+      description:
+        "Describe the image for people who cannot see it; do not repeat the caption",
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => (
+    <figure
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "16px" }}>
+        <strong style={{ display: "block", marginBottom: "4px" }}>Image</strong>
+        <span>{props.value.src?.filename || "Choose an image"}</span>
+        {props.value.alt && (
+          <span
+            style={{
+              color: "#6b7280",
+              display: "block",
+              fontSize: "14px",
+              marginTop: "4px",
+            }}
+          >
+            Alt: {props.value.alt}
+          </span>
+        )}
+      </div>
+      <figcaption
+        style={{
+          borderTop: "1px solid #e5e7eb",
+          color: "#6b7280",
+          fontSize: "14px",
+          padding: "12px 16px",
+        }}
+      >
+        <strong style={{ display: "block", marginBottom: "4px" }}>
+          Caption
+        </strong>
+        {props.children}
+      </figcaption>
+    </figure>
+  ),
+});
+
 // Block Quote component - wrapper because it has children
 const blockquote = wrapper({
   label: "Block Quote",
@@ -462,6 +522,7 @@ export const componentBlocks: Record<string, ContentComponent> = {
 // continue to use the shared component set above.
 export const postComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
+  Figure: figure,
   Latex: latex,
   InlineLatex: inlineLatex,
 };
