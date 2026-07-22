@@ -11,7 +11,7 @@ solana-com/
 │   ├── accelerate/   # Solana Accelerate conference - port 3004
 │   ├── web/          # Main website (solana.com) - port 3000
 │   ├── docs/         # Developer documentation - port 3003
-│   ├── media/        # Blog & news (TinaCMS) - port 3002
+│   ├── media/        # Blog & news (Keystatic) - port 3002
 │   └── templates/    # Code templates showcase - port 3001
 ├── packages/
 │   ├── config-eslint/       # Shared ESLint configurations
@@ -95,7 +95,8 @@ All apps use `[locale]` dynamic routing pattern.
 
 Key environment variables (defined in `turbo.json`):
 
-- `NEXT_PUBLIC_TINA_CLIENT_ID` / `TINA_TOKEN` - TinaCMS for media app
+- `KEYSTATIC_GITHUB_CLIENT_ID` / `KEYSTATIC_GITHUB_CLIENT_SECRET` /
+  `KEYSTATIC_SECRET` - Keystatic for media app
 - `SENTRY_AUTH_TOKEN` - Error tracking
 - `SIMPLECAST_API_KEY` / `SIMPLECAST_PODCAST_ID` - Podcast integration
 - `YOUTUBE_API_KEY` / `YOUTUBE_CHANNEL_ID` - YouTube integration
