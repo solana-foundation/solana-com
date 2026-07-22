@@ -1,0 +1,225 @@
+---
+title: Γρήγορη Εκκίνηση
+description:
+  Μάθετε πώς να χρησιμοποιείτε το crate litesvm-loader για δοκιμή αναβαθμίσιμης
+  ανάπτυξης προγράμματος
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/litesvm-loader"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    Προβολή <code>litesvm-loader</code> στο crates.io
+  </a>
+</div>
+
+## Εγκατάσταση
+
+Βεβαιωθείτε ότι έχετε όλες τις απαιτούμενες εξαρτήσεις:
+
+```bash
+cargo add --dev litesvm litesvm-loader solana-keypair solana-signer
+```
+
+Αν το τεστ σας καλεί απευθείας το αναπτυγμένο πρόγραμμα, προσθέστε επίσης τα
+crates εντολών και συναλλαγών του Solana που χρησιμοποιεί το τεστ σας:
+
+```bash
+cargo add --dev solana-instruction solana-message solana-transaction
+```
+
+## Τι είναι το litesvm-loader;
+
+Το crate `litesvm-loader` παρέχει βοηθητικές συναρτήσεις για την ανάπτυξη
+προγραμμάτων μέσω του BPF upgradeable loader εντός του LiteSVM. Χρησιμοποιήστε
+το όταν το τεστ σας χρειάζεται λογαριασμούς προγράμματος υπό την κυριότητα του
+loader, program data accounts, ή συμπεριφορά αρχής αναβάθμισης, αντί να εισάγετε
+απευθείας ένα πρόγραμμα με το `svm.add_program(...)`.
+
+<Steps>
+<Step>
+**Αναβαθμίσιμη Ανάπτυξη**
+- Δημιουργεί τον λογαριασμό buffer του loader
+- Γράφει τα bytes του προγράμματος σε τμήματα
+- Αναπτύσσει τον τελικό program account με τον BPF upgradeable loader
+- Χρησιμοποιεί το παρεχόμενο keypair προγράμματος ως αναγνωριστικό προγράμματος
+</Step>
+
+<Step>
+  **Διαχείριση Αρχής Αναβάθμισης** - Αλλάζει την αρχή αναβάθμισης για ένα ήδη
+  αναπτυγμένο πρόγραμμα - Υποστηρίζει την ανάθεση νέας αρχής - Υποστηρίζει τη
+  μεταβίβαση `None` για να καταστεί το πρόγραμμα μη τροποποιήσιμο
+</Step>
+
+<Steps>
+  <Step>
+    **Πραγματική Κατάσταση Loader** - Ασκεί το ίδιο μοντέλο λογαριασμών loader
+    που βλέπει το πρόγραμμά σας on-chain - Επιτρέπει στα τεστ να επιθεωρούν
+    program account και program data accounts - Βοηθά στον εντοπισμό σφαλμάτων
+    που κρύβονται από την άμεση εισαγωγή προγράμματος
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Για τις περισσότερες δοκιμές, το `svm.add_program(program_id, program_bytes)`
+  εξακολουθεί να είναι ο πιο γρήγορος και απλός τρόπος φόρτωσης ενός
+  προγράμματος. Χρησιμοποιήστε το `litesvm-loader` όταν η διάταξη του loader
+  account ή η αρχή αναβάθμισης αποτελεί μέρος αυτού που χρειάζεστε να
+  δοκιμάσετε.
+</Callout>
+
+## Γρήγορο Παράδειγμα
+
+Ακολουθεί ένα πλήρες παράδειγμα που αναπτύσσει ένα πρόγραμμα μέσω του
+upgradeable loader και στη συνέχεια εναλλάσσει την αρχή του:
+
+```rust
+use litesvm::LiteSVM;
+use litesvm_loader::{deploy_upgradeable_program, set_upgrade_authority};
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+
+#[test]
+fn test_upgradeable_deployment() {
+    let mut svm = LiteSVM::new();
+
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Use the keypair that should own the program ID.
+    // For Anchor programs, this is usually target/deploy/<program>-keypair.json.
+    let program = Keypair::new();
+    let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+    deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+
+    let program_account = svm.get_account(&program.pubkey()).unwrap();
+    assert!(program_account.executable);
+
+    let new_authority = Keypair::new();
+    set_upgrade_authority(
+        &mut svm,
+        &payer,
+        &program.pubkey(),
+        &payer,
+        Some(&new_authority.pubkey()),
+    )
+    .unwrap();
+}
+```
+
+## Επιλογή του keypair Προγράμματος
+
+Το `deploy_upgradeable_program` χρησιμοποιεί το όρισμα `program_kp` ως τη
+διεύθυνση του προγράμματος. Εάν το πρόγραμμά σας δηλώνει ένα σταθερό ID,
+φορτώστε το παραγόμενο deploy keypair αντί να δημιουργήσετε ένα τυχαίο keypair:
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+## Κλήση του Αναπτυγμένου Προγράμματος
+
+Μετά την ανάπτυξη, καλέστε το πρόγραμμα με τον ίδιο τρόπο που θα καλούσατε
+οποιοδήποτε πρόγραμμα φορτωμένο από LiteSVM. Δημιουργήστε μια εντολή για το
+πρόγραμμά σας, υπογράψτε τη συναλλαγή και στείλτε τη μέσω της ίδιας παρουσίας
+`LiteSVM`:
+
+```rust
+use solana_instruction::Instruction;
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let instruction = Instruction::new_with_bytes(
+    program.pubkey(),
+    &[],  // instruction data for your program
+    vec![], // account metas for your program
+);
+
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+let tx = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+svm.send_transaction(tx).unwrap();
+```
+
+## Βασικά Συστατικά
+
+### deploy_upgradeable_program
+
+| Όρισμα          | Περιγραφή                                                                   |
+| --------------- | --------------------------------------------------------------------------- |
+| `svm`           | Μεταβλητή παρουσία `LiteSVM` που δέχεται το αναπτυγμένο πρόγραμμα           |
+| `payer_kp`      | Πληρωτής τελών και αρχική αρχή αναβάθμισης                                  |
+| `program_kp`    | keypair του οποίου το δημόσιο κλειδί γίνεται το ID προγράμματος             |
+| `program_bytes` | Μεταγλωττισμένα bytes SBF προγράμματος, συνήθως από το `target/deploy/*.so` |
+
+Το `deploy_upgradeable_program` δημιουργεί ένα buffer loader, γράφει τα bytes
+του προγράμματος σε τμήματα 512 byte και αναπτύσσει το πρόγραμμα με χώρο για
+μελλοντικές αναβαθμίσεις.
+
+### set_upgrade_authority
+
+| Όρισμα                      | Περιγραφή                                                          |
+| --------------------------- | ------------------------------------------------------------------ |
+| `svm`                       | Μεταβλητή παρουσία `LiteSVM` που περιέχει το αναπτυγμένο πρόγραμμα |
+| `from_keypair`              | Πληρωτής τελών και αρχή υπογραφής για τη συναλλαγή                 |
+| `program_address`           | ID προγράμματος του οποίου η αρχή πρέπει να αλλάξει                |
+| `current_authority_keypair` | Τρέχον keypair αρχής αναβάθμισης                                   |
+| `new_authority_address`     | Νέα διεύθυνση αρχής, ή `None` για να γίνει το πρόγραμμα αμετάβλητο |
+
+<Callout type="warn">
+  Στην τρέχουσα υλοποίηση του βοηθού, η παραγόμενη συναλλαγή υπογράφεται από
+  `from_keypair`. Περάστε την τρέχουσα αρχή ως `from_keypair`, ή διατηρήστε τον
+  πληρωτή και την τρέχουσα αρχή ίδιους, κατά την αλλαγή της αρχής αναβάθμισης.
+</Callout>
+
+## Συνήθεις Ροές Εργασίας
+
+### Ανάπτυξη με το δηλωμένο αναγνωριστικό προγράμματος
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+### Καταστήστε ένα πρόγραμμα αμετάβλητο
+
+```rust
+set_upgrade_authority(
+    &mut svm,
+    &payer,
+    &program.pubkey(),
+    &payer,
+    None,
+)
+.unwrap();
+```
+
+## Αντιμετώπιση Προβλημάτων
+
+### Συνήθη Σφάλματα
+
+| Σφάλμα                                                               | Αιτία                                                                                      | Λύση                                                                                                           |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `ProgramAccountNotFound` ή αποτυχίες εντολών για λάθος αναγνωριστικό | Η ανάπτυξη χρησιμοποίησε τυχαίο `Keypair` ενώ το πρόγραμμα αναμένει δηλωμένο αναγνωριστικό | Διαβάστε `target/deploy/<program>-keypair.json` και περάστε αυτό το keypair στο `deploy_upgradeable_program`   |
+| `InsufficientFunds`                                                  | Ο πληρωτής δεν έχει αρκετά lamports για το buffer του φορτωτή και τα program accounts      | Κάντε airdrop περισσότερων lamports πριν από την ανάπτυξη                                                      |
+| `MissingRequiredSignature` κατά την αλλαγή αρχής                     | Η τρέχουσα αρχή δεν υπέγραψε τη συναλλαγή                                                  | Περάστε την τρέχουσα αρχή ως `from_keypair`, ή διατηρήστε τον πληρωτή και την τρέχουσα αρχή ως το ίδιο keypair |
+| Η ανάπτυξη του προγράμματος είναι πιο αργή από το αναμενόμενο        | Η ανάπτυξη του φορτωτή γράφει bytes μέσω πραγματικών εντολών φορτωτή                       | Χρησιμοποιήστε `svm.add_program(...)` όταν δεν χρειάζεστε κατάσταση φορτωτή ή συμπεριφορά αρχής αναβάθμισης    |

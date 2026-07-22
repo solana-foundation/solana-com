@@ -1,0 +1,203 @@
+---
+title: トークンテスト
+description: "@solana-program/tokenとLiteSVMを使用したSPLトークンのテスト"
+---
+
+Solanaでトークンロジックをテストするには、実際にテストしたい転送ロジックの前に、ミント、token
+account、およびオーソリティを設定する必要があります。`@solana-program/token`の`tokenProgram()`プラグインを使用すると、そのセットアップをわずかなメソッド呼び出しに集約でき、ATAの作成も自動的に処理されます。
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    npmで<code>@solana-program/token</code>を見る
+  </a>
+</div>
+
+## インストール
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## ミントの作成
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## トークンのミント
+
+`mintToATA`は、オーナーのassociated token
+accountにトークンを発行します。ATAが存在しない場合は、同じトランザクション内で作成されます。
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`decimals`パラメータは安全確認のためのもので、ミントの小数点以下桁数と完全に一致している必要があります。一致しない場合、Token
+Programはエラーコード `0x24`
+でトランザクションを拒否します。これにより、誤って1000倍のトークンをミントしてしまうことを防ぎます。
+
+## トークンの転送
+
+`transferToATA`はユーザー間でトークンを移動します。必要に応じて、受取人のATAは自動的に作成されます。
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`authority`は、送金元トークンを所有する署名者です。プラグインは送金元と送金先のATAをそれぞれのアドレスとミントから導出します。
+
+## 残高の確認
+
+トークン残高を読み取るには、`findAssociatedTokenPda`でATAアドレスを導出し、デコードされたアカウントを取得します：
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## 小数点以下の桁数
+
+トークン量は常にraw単位で表されます。小数点以下9桁のトークン1000個は`1_000_000_000_000n`であり、`1000n`ではありません。
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  トークン量には必ず`BigInt`を使用してください。JavaScriptの`Number`は2^53を超えると精度が失われます。
+</Callout>
+
+## プラグインリファレンス
+
+| メソッド                                    | 説明                                                         |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `client.token.instructions.createMint()`    | 新しいSPLトークンのmint accountを作成する                    |
+| `client.token.instructions.mintToATA()`     | オーナーのATAにトークンをミントする（必要に応じてATAを作成） |
+| `client.token.instructions.transferToATA()` | 受取人のATAにトークンを転送する（必要に応じてATAを作成）     |
+| `client.token.accounts.mint.fetch()`        | mint accountをフェッチしてデコードする                       |
+| `client.token.accounts.token.fetch()`       | token accountをフェッチしてデコードする                      |
+
+## よくあるエラー
+
+| エラー                       | 原因                                       | 対処法                                                         |
+| ---------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| `custom program error: 0x24` | `decimals`がmintと一致しない               | `createMint`に渡したのと同じdecimalsの値を使用してください     |
+| `AccountNotFound`            | アカウントがまだ存在しない                 | ミントの前にmint accountが作成されていることを確認してください |
+| `InsufficientFunds`          | rentに必要なlamportが不足している          | 支払者にSOLをエアドロップしてください                          |
+| `OwnerMismatch`              | 誤ったプログラムがアカウントを所有している | プログラムIDを確認してください                                 |

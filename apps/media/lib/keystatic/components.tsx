@@ -1,10 +1,12 @@
 import { fields } from "@keystatic/core";
 import {
   block,
+  inline,
   wrapper,
   type ContentComponent,
 } from "@keystatic/core/content-components";
 import React from "react";
+import { Latex } from "@/components/latex";
 
 // Background options for section blocks
 const backgroundOptions = [
@@ -30,6 +32,35 @@ const backgroundOptions = [
   { label: "Pink", value: "bg-pink-50/80" },
   { label: "Rose", value: "bg-rose-50/80" },
 ] as const;
+
+const latex = block({
+  label: "Display formula (LaTeX)",
+  description: "A centered formula on its own line",
+  schema: {
+    formula: fields.text({
+      label: "LaTeX",
+      description: "Enter TeX without $$ delimiters, for example \\frac{a}{b}",
+      multiline: true,
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => (
+    <Latex formula={props.value.formula} displayMode={true} />
+  ),
+});
+
+const inlineLatex = inline({
+  label: "Inline formula (LaTeX)",
+  description: "A formula that flows with surrounding text",
+  schema: {
+    formula: fields.text({
+      label: "LaTeX",
+      description: "Enter TeX without $ delimiters, for example E = mc^2",
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => <Latex formula={props.value.formula} />,
+});
 
 // Block Quote component - wrapper because it has children
 const blockquote = wrapper({
@@ -425,6 +456,14 @@ export const componentBlocks: Record<string, ContentComponent> = {
   sup,
   tweet,
   iframe,
+};
+
+// Formula controls are intentionally limited to news posts. Other collections
+// continue to use the shared component set above.
+export const postComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  Latex: latex,
+  InlineLatex: inlineLatex,
 };
 
 // Export fields for rendering configuration

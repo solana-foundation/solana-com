@@ -8,6 +8,7 @@ import { SafeTweet } from "./safe-tweet";
 import { Gallery } from "./ui/gallery";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
+import { Latex } from "./latex";
 
 // Block types for post body templates
 type VideoBlockData = {
@@ -577,6 +578,14 @@ const SupBlock = (props: { children: React.ReactNode }) => (
   </sup>
 );
 
+const LatexBlock = (props: { formula?: string }) => (
+  <Latex formula={props.formula} displayMode={true} />
+);
+
+const InlineLatex = (props: { formula?: string }) => (
+  <Latex formula={props.formula} />
+);
+
 // MDX component map for next-mdx-remote rendering.
 // Includes both:
 // - Capitalized names: for custom inline JSX components (after preprocessMDX capitalizes tags)
@@ -594,6 +603,8 @@ export const mdxComponents = {
   Newslettersignup: NewslettersignupBlock,
   Footnotes: FootnotesBlock,
   Sup: SupBlock,
+  Latex: LatexBlock,
+  InlineLatex,
   // Lowercase overrides for markdown-generated elements
   blockquote: BlockquoteBlock,
   img: ({ src, alt }: { src?: ImageProps["src"]; alt?: ImageProps["alt"] }) => {

@@ -1,0 +1,259 @@
+---
+title: 테스트 헬퍼
+description: 계정 생성, 토큰 작업, PDA 파생 및 slot 관리 유틸리티
+---
+
+## 자금이 충전된 계정 생성
+
+가장 일반적인 테스트 요구 사항은 SOL이 있는 계정을 생성하는 것입니다.
+`TestHelpers` 트레이트를 사용하면 이 작업이 간단해집니다.
+
+### 단일 계정
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_create_funded_account() {
+    let mut svm = LiteSVM::new();
+
+    // Create a funded account with 10 SOL
+    let alice = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+
+    // The keypair is ready to use immediately
+    println!("Alice's pubkey: {}", alice.pubkey());
+}
+```
+
+### 다중 계정
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_create_multiple_accounts() {
+    let mut svm = LiteSVM::new();
+
+    // Create 5 funded accounts, each with 5 SOL
+    let accounts = svm.create_funded_accounts(5, 5 * LAMPORTS_PER_SOL).unwrap();
+
+    assert_eq!(accounts.len(), 5);
+
+    for (i, account) in accounts.iter().enumerate() {
+        println!("Account {}: {}", i, account.pubkey());
+    }
+}
+```
+
+## 토큰 작업
+
+일반적인 보일러플레이트 없이 토큰 민트와 계정을 생성합니다.
+
+### 토큰 민트 생성
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_create_token_mint() {
+    let mut svm = LiteSVM::new();
+
+    // Create authority account
+    let authority = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+
+    // Create a token mint with 9 decimals (returns Keypair)
+    let mint = svm.create_token_mint(&authority, 9).unwrap();
+
+    println!("Mint address: {}", mint.pubkey());
+}
+```
+
+### Token Accounts 생성
+
+```rust
+use litesvm_utils::{LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_create_token_accounts() {
+    let mut svm = LiteSVM::new();
+
+    let authority = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let user = svm.create_funded_account(5 * LAMPORTS_PER_SOL).unwrap();
+
+    // Create mint (returns Keypair)
+    let mint = svm.create_token_mint(&authority, 9).unwrap();
+
+    // Create a regular token account (returns Keypair)
+    let token_account = svm.create_token_account(&mint.pubkey(), &user).unwrap();
+
+    // Or create an Associated Token Account — ATA (returns Pubkey)
+    let ata = svm.create_associated_token_account(&mint.pubkey(), &user).unwrap();
+
+    println!("Token account: {}", token_account.pubkey());
+    println!("ATA: {}", ata);
+}
+```
+
+<Callout type="info">
+  **대부분의 경우 ATA를 사용하세요.** Associated Token Accounts는 결정론적이며
+  Solana 규칙을 따릅니다. 동일한 민트/소유자 쌍에 대해 여러 계정이 필요한
+  경우에만 regular token account를 사용하세요.
+</Callout>
+
+### 토큰 발행
+
+```rust
+use litesvm_utils::{AssertionHelpers, LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_mint_tokens() {
+    let mut svm = LiteSVM::new();
+
+    let authority = svm.create_funded_account(10 * LAMPORTS_PER_SOL).unwrap();
+    let user = svm.create_funded_account(5 * LAMPORTS_PER_SOL).unwrap();
+
+    // Create mint with authority
+    let mint = svm.create_token_mint(&authority, 9).unwrap();
+
+    // Create ATA for user (returns Pubkey)
+    let user_ata = svm.create_associated_token_account(&mint.pubkey(), &user).unwrap();
+
+    // Mint 1000 tokens to user's ATA
+    svm.mint_to(&mint.pubkey(), &user_ata, &authority, 1000).unwrap();
+
+    // Verify the balance
+    svm.assert_token_balance(&user_ata, 1000);
+}
+```
+
+## PDA 파생
+
+테스트를 위한 Program Derived Address를 쉽게 파생합니다.
+
+### 기본 PDA 파생
+
+```rust
+use litesvm_utils::{LiteSVM, Pubkey, TestHelpers};
+
+#[test]
+fn test_derive_pda() {
+    let mut svm = LiteSVM::new();
+
+    let program_id = Pubkey::new_unique();
+    let user = Pubkey::new_unique();
+
+    // Get PDA with bump
+    let (pda, bump) = svm.derive_pda(
+        &[b"user_account", user.as_ref()],
+        &program_id,
+    );
+
+    println!("PDA: {}, Bump: {}", pda, bump);
+}
+```
+
+### PDA만 가져오기
+
+```rust
+use litesvm_utils::{LiteSVM, Pubkey, TestHelpers};
+
+#[test]
+fn test_get_pda() {
+    let mut svm = LiteSVM::new();
+
+    let program_id = Pubkey::new_unique();
+
+    // When you don't need the bump
+    let pda = svm.get_pda(&[b"config"], &program_id);
+
+    println!("Config PDA: {}", pda);
+}
+```
+
+<Callout type="info">
+  bump seed가 필요할 때(예: CPI 호출)는 `derive_pda`를 사용하세요. 주소만 필요할
+  때는 `get_pda`를 사용하세요.
+</Callout>
+
+## Slot 관리
+
+시간 의존적 로직을 테스트하기 위해 시간 진행을 제어합니다.
+
+### 현재 slot 가져오기
+
+```rust
+use litesvm_utils::{LiteSVM, TestHelpers};
+
+#[test]
+fn test_get_current_slot() {
+    let mut svm = LiteSVM::new();
+
+    let slot = svm.get_current_slot();
+    println!("Current slot: {}", slot);
+}
+```
+
+### slot 진행하기
+
+```rust
+use litesvm_utils::{LiteSVM, TestHelpers};
+
+#[test]
+fn test_advance_slots() {
+    let mut svm = LiteSVM::new();
+
+    let initial_slot = svm.get_current_slot();
+
+    // Advance by 100 slots
+    svm.advance_slot(100);
+
+    let new_slot = svm.get_current_slot();
+    assert_eq!(new_slot, initial_slot + 100);
+}
+```
+
+## 완전한 예제
+
+다음은 여러 테스트 헬퍼를 함께 사용하는 포괄적인 예제입니다:
+
+```rust
+use litesvm_utils::{AssertionHelpers, LiteSVM, Signer, TestHelpers};
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+
+#[test]
+fn test_complete_setup() {
+    let mut svm = LiteSVM::new();
+
+    // Create accounts
+    let admin = svm.create_funded_account(100 * LAMPORTS_PER_SOL).unwrap();
+    let users = svm.create_funded_accounts(3, 10 * LAMPORTS_PER_SOL).unwrap();
+
+    // Create token infrastructure (returns Keypair)
+    let mint = svm.create_token_mint(&admin, 6).unwrap(); // 6 decimals like USDC
+
+    // Create ATAs and mint tokens to each user
+    for (i, user) in users.iter().enumerate() {
+        // create_associated_token_account returns Pubkey
+        let ata = svm.create_associated_token_account(&mint.pubkey(), user).unwrap();
+        let amount = (i as u64 + 1) * 1_000_000; // 1, 2, 3 tokens
+        svm.mint_to(&mint.pubkey(), &ata, &admin, amount).unwrap();
+
+        // Verify
+        svm.assert_token_balance(&ata, amount);
+    }
+
+    // Verify total supply
+    let total_supply = 1_000_000 + 2_000_000 + 3_000_000;
+    svm.assert_mint_supply(&mint.pubkey(), total_supply);
+
+    // Test time-based logic
+    let start_slot = svm.get_current_slot();
+    svm.advance_slot(1000);
+    assert!(svm.get_current_slot() > start_slot);
+}
+```

@@ -1,0 +1,252 @@
+---
+title: Getting Started
+description: Use LiteSVM with @solana/kit for fast, in-process Solana testing
+---
+
+# LiteSVM for TypeScript
+
+Solana test suites that spin up `solana-test-validator` take seconds per test —
+you're waiting on process startup, RPC connections, and network round-trips.
+LiteSVM runs the same tests in milliseconds. No external process, no network,
+everything in-memory inside your test runner.
+
+<Callout type="info">
+  **Tested against:** `@solana/kit@6.8.0`, `@solana/kit-plugin-litesvm@0.10.0`,
+  `@solana/kit-plugin-signer@0.10.0`, `@solana-program/system@0.12.0`,
+  `@solana-program/token@0.13.0`. These plugin packages are new and evolving
+  quickly — if you hit a mismatch, check
+  [`testing/package.json`](https://github.com/solana-foundation/litesvm-docs/blob/main/testing/package.json)
+  for the exact versions the docs and test suite run against.
+</Callout>
+
+You assemble a Kit client from `@solana/kit` by installing plugins with
+`.use()`: a signer plugin
+([`@solana/kit-plugin-signer`](https://www.npmjs.com/package/@solana/kit-plugin-signer)),
+the LiteSVM plugin
+([`@solana/kit-plugin-litesvm`](https://www.npmjs.com/package/@solana/kit-plugin-litesvm)),
+and any program plugins you need. The result exposes `client.sendTransaction()`,
+`client.rpc`, and direct access to account state, clock, and sysvars — all
+without leaving your process.
+
+## Quick Start
+
+<Steps>
+
+<Step>
+### Install Dependencies
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+### Create Your Client
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+// Payer first, then the LiteSVM transport.
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Fund the payer
+client.svm.airdrop(client.payer.address, lamports(5_000_000_000n));
+
+// Check the balance
+const balance = client.svm.getBalance(client.payer.address);
+console.log("Balance:", balance, "lamports");
+```
+
+<Callout type="info">
+  `createClient()` returns an empty shell — each `.use(plugin)` layers
+  capabilities onto it. The `signer()` plugin must come **before** `litesvm()`
+  because the transport plugin needs a payer to attach to. `signer(mySigner)` is
+  shorthand for installing the same keypair as both `payer` and `identity` — use
+  `payer()` or `identity()` from the same package if you want to split those
+  roles. This ordering is the same for `solanaRpc()` when you're on a real
+  network.
+</Callout>
+
+<Callout type="info">
+  Prefer a one-line setup for quick experiments? The `litesvm()` bundle includes
+  an airdrop, so you can chain
+  `.use(generatedPayerWithSol(lamports(10_000_000_000n)))` from
+  `@solana/kit-plugin-signer` to auto-generate and fund a payer.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Understanding the Client
+
+After `.use(signer(...)).use(litesvm())`, the client exposes:
+
+| Property                    | Description                                                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.payer`              | The `TransactionSigner` you installed with the `signer()` plugin (also set as `client.identity`)                                                                                                         |
+| `client.identity`           | The wallet signer that owns accounts, tokens, and authorities                                                                                                                                            |
+| `client.svm`                | Direct [`LiteSVM`](https://www.npmjs.com/package/litesvm) instance for account management, transactions, and configuration                                                                               |
+| `client.rpc`                | Kit-compatible RPC interface (subset: `getAccountInfo`, `getBalance`, `getEpochSchedule`, `getLatestBlockhash`, `getMinimumBalanceForRentExemption`, `getMultipleAccounts`, `getSlot`, `requestAirdrop`) |
+| `client.sendTransaction(s)` | Plan, sign, and send instructions as a transaction                                                                                                                                                       |
+| `client.airdrop`            | Request SOL from the LiteSVM faucet                                                                                                                                                                      |
+| `client.getMinimumBalance`  | Compute minimum lamports for rent exemption                                                                                                                                                              |
+
+### Using client.svm
+
+Direct access to LiteSVM for:
+
+- Account management (`setAccount`, `getAccount`, `airdrop`)
+- Transaction execution (`sendTransaction`, `simulateTransaction`)
+- Configuration (`withSigverify`, `withBlockhashCheck`, etc.)
+- Time manipulation (`warpToSlot`, `getClock`)
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Fund an account
+client.svm.airdrop(address, lamports(1_000_000_000n));
+
+// Set account state directly
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([1, 2, 3]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 3n
+});
+
+// Get the latest blockhash
+const blockhash = client.svm.latestBlockhash();
+```
+
+### Using client.rpc
+
+Kit-compatible RPC interface for standard operations:
+
+```typescript
+// Get account info (returns base64-encoded data)
+const { value: account } = await client.rpc.getAccountInfo(address).send();
+
+// Get multiple accounts in one call
+const { value: accounts } = await client.rpc
+  .getMultipleAccounts([addr1, addr2, addr3])
+  .send();
+
+// Get latest blockhash
+const { value: blockhash } = await client.rpc.getLatestBlockhash().send();
+```
+
+<Callout type="warn">
+  The RPC layer only supports **base64 encoding**. Requesting other encodings
+  will throw an error.
+</Callout>
+
+## Configuration
+
+Configure LiteSVM using builder methods on `client.svm`:
+
+```typescript
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Configure for testing
+client.svm
+  .withSigverify(false) // Skip signature verification
+  .withBlockhashCheck(false) // Skip blockhash validation
+  .withSysvars() // Enable Clock, Rent, etc.
+  .withBuiltins() // Enable ed25519, secp256k1
+  .withTransactionHistory(100n); // Store transaction history
+```
+
+## Sending Transactions
+
+Layer in program plugins after the transport — they hang instruction builders
+off the client so you never touch a raw `TransactionMessage`:
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { systemProgram } from "@solana-program/system";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(systemProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const recipient = await generateKeyPairSigner();
+
+// Build and send in one call
+await client.system.instructions
+  .transferSol({
+    source: client.payer,
+    destination: recipient.address,
+    amount: lamports(1_000_000_000n)
+  })
+  .sendTransaction();
+```
+
+## SVM → RPC Flow
+
+You can set state via SVM and read it via RPC:
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Set account directly via SVM
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 4n
+});
+
+// Read via RPC (returns base64-encoded data)
+const { value } = await client.rpc.getAccountInfo(myAddress).send();
+console.log("Data:", value?.data); // ['3q2+7w==', 'base64']
+```
+
+## What's Next
+
+This covers the core client — creating accounts, sending instructions, and
+reading state. If your tests involve SPL tokens (mints, ATAs, transfers), the
+[token testing guide](/docs/tools/litesvm/typescript/tokens) shows how the
+`tokenProgram()` plugin collapses ~40 lines of setup into 3 calls. For a full
+API reference, see the [API docs](/docs/tools/litesvm/typescript/api-reference).

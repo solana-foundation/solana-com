@@ -64,7 +64,7 @@
 ### Surfpool
 
 - [Surfpool Documentation](https://docs.surfpool.dev/)
-- [Surfpool Repository](https://github.com/txtx/surfpool)
+- [Surfpool Repository](https://github.com/solana-foundation/surfpool)
 
 ## IDLs and Codegen
 

@@ -9,6 +9,19 @@ import { config, publicLocalizedRouteUrl } from "@/config";
 const socialImageAlt =
   "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
 
+function createBreakpointSocialImage() {
+  const url = config.siteMetadata.socialShare;
+
+  return {
+    url,
+    secureUrl: url,
+    width: 1200,
+    height: 630,
+    alt: socialImageAlt,
+    type: "image/jpeg",
+  };
+}
+
 type PageMetadataConfig = {
   description: string;
   path: string;
@@ -60,31 +73,14 @@ export async function getBaseMetadata(
       siteName,
       title: ogTitle,
       description: ogDescription,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          secureUrl: siteMetadata.socialShare,
-          width: 1200,
-          height: 630,
-          alt: socialImageAlt,
-          type: "image/jpeg",
-        },
-      ],
+      images: [createBreakpointSocialImage()],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
       title: ogTitle,
       description: ogDescription,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          alt: socialImageAlt,
-          width: 1200,
-          height: 630,
-          type: "image/jpeg",
-        },
-      ],
+      images: [createBreakpointSocialImage()],
     },
     icons: [
       { url: faviconPng.src, rel: "icon", type: "image/png" },

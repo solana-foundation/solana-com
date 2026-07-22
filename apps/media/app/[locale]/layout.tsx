@@ -11,6 +11,7 @@ import {
   ThemeProvider,
 } from "@solana-com/ui-chrome";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import { reader } from "@/lib/reader";
 import { staticLocales } from "@workspace/i18n/config";
@@ -47,14 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: siteMetadata.title,
       title: siteMetadata.title,
       description: siteMetadata.shortDescription,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          width: 1200,
-          height: 630,
-          alt: siteMetadata.title,
-        },
-      ],
+      images: [createDefaultSocialImage(siteMetadata.title)],
     },
     twitter: {
       card: "summary_large_image",
@@ -62,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       creator: siteMetadata.author,
       title: siteMetadata.title,
       description: siteMetadata.shortDescription,
-      images: [siteMetadata.socialShare],
+      images: [createDefaultSocialImage(siteMetadata.title)],
     },
     icons: {
       icon: siteIcon,

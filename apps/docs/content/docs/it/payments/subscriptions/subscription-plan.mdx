@@ -27,8 +27,8 @@ pagamenti dal PDA di abbonamento risultante.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -140,6 +140,16 @@ Il commerciante può aggiornare i campi modificabili del piano dopo la creazione
 Gli abbonati esistenti mantengono i termini che hanno accettato, mentre i nuovi
 abbonati accettano i termini attuali del piano.
 
+Si applicano alcune regole:
+
+- Una `endTs` finita può solo essere accorciata, mai estesa o azzerata
+  (`PlanEndTsCannotExtend`).
+- Con un piano `Sunset` è possibile rimuovere i puller (il nuovo insieme deve
+  essere un sottoinsieme di quello attuale) per revocare un puller compromesso;
+  lo stato, `endTs` e i metadati rimangono bloccati.
+- Le modifiche funzionano durante l'ultimo periodo di fatturazione di un piano,
+  purché `endTs` rimanga invariata.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -174,9 +184,13 @@ abbonati accettano i termini attuali del piano.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -189,10 +203,10 @@ abbonati accettano i termini attuali del piano.
   </Tab>
 </Tabs>
 
-## Iscriviti
+## Iscrizione
 
-L'abbonato accetta i termini attuali del piano. Il PDA dell'abbonamento deriva
-dal PDA del piano e dall'indirizzo dell'abbonato.
+Il sottoscrittore accetta i termini del piano corrente. Il PDA della
+sottoscrizione è derivato dal PDA del piano e dall'indirizzo del sottoscrittore.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -315,9 +329,9 @@ dal PDA del piano e dall'indirizzo dell'abbonato.
 
 ## Riscuoti un Pagamento
 
-Il commerciante o un estrattore autorizzato firma la riscossione. Quando il
-piano utilizza una lista di destinazioni consentite, il proprietario del token
-account ricevente deve essere incluso in `destinations`.
+Il commerciante o un puller autorizzato firma la riscossione. Quando il piano
+utilizza una lista consentita di destinazione, il proprietario del token account
+ricevente deve essere elencato in `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -366,9 +380,9 @@ account ricevente deve essere incluso in `destinations`.
 
 ## Annulla e Revoca
 
-L'annullamento segna l'abbonamento come in fase di chiusura. La revoca chiude il
+L'annullamento contrassegna l'abbonamento come in scadenza. La revoca chiude il
 PDA dell'abbonamento dopo che è trascorso il periodo di scadenza
-dell'annullamento. L'abbonato firma entrambe le transazioni.
+dell'annullamento. Il sottoscrittore firma entrambe le transazioni.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -417,16 +431,60 @@ dell'annullamento. L'abbonato firma entrambe le transazioni.
   </Tab>
 </Tabs>
 
+## Riprendi un Abbonamento
+
+Un abbonamento annullato può essere riattivato prima che venga revocato. Una
+volta revocato, l'account dell'abbonamento viene chiuso e il sottoscrittore deve
+[abbonarsi](#subscribe) nuovamente. La ripresa richiede
+l'`SubscriptionAuthority` del sottoscrittore per il mint del piano, che il
+programma convalida (proprietario, mint e `init_id`) e rifiuta se obsoleto o
+reinizializzato.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Note
 
-- `amount` è espresso in unità base. Per un token a 6 decimali, `5_000_000`
-  significa `5` token.
+- `amount` è in unità base. Per un token a 6 decimali, `5_000_000` corrisponde a
+  `5` token.
 - L'SDK TypeScript recupera i termini del piano in tempo reale durante
-  `subscribe` quando li ometti.
-- Il `SubscribeBuilder` Rust richiede i termini del piano previsti. Prima
-  recupera e decodifica l'account del piano, poi passa quei campi attraverso
+  `subscribe` se vengono omessi.
+- Il `SubscribeBuilder` Rust necessita dei termini del piano previsti. Recupera
+  e decodifica prima l'account del piano, quindi passa quei campi tramite
   `SubscribeData`.
 - Solo il merchant o un wallet elencato in `pullers` può riscuotere i pagamenti.
-- Il sottoscrittore firma le transazioni di configurazione, cancellazione e
+- Il sottoscrittore firma le transazioni di configurazione, annullamento e
   revoca. Il merchant o il puller autorizzato firma le transazioni di
   riscossione.

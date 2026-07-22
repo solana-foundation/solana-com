@@ -1,0 +1,158 @@
+---
+title: Συναλλαγές
+description: Εκτέλεση και προσομοίωση συναλλαγών με το LiteSVM σε TypeScript
+---
+
+# Συναλλαγές
+
+Μέθοδοι για αποστολή, προσομοίωση και διαχείριση συναλλαγών.
+
+## sendTransaction
+
+```typescript
+sendTransaction(tx: Transaction): TransactionMetadata | FailedTransactionMetadata
+```
+
+Εκτέλεση μιας συναλλαγής. Επιστρέφει μεταδεδομένα σε περίπτωση επιτυχίας ή
+λεπτομέρειες αποτυχίας σε περίπτωση σφάλματος.
+
+```typescript
+const result = client.svm.sendTransaction(signedTx);
+
+// Check for errors
+if ("err" in result && result.err()) {
+  console.error("Transaction failed:", result.err());
+  return;
+}
+
+// Access result properties (note: these are getter functions)
+console.log("Signature:", result.signature());
+console.log("Compute units:", result.computeUnitsConsumed());
+console.log("Logs:", result.logs());
+```
+
+<Callout type="warn">
+  Οι ιδιότητες αποτελέσματος συναλλαγής όπως `err()`, `computeUnitsConsumed()`,
+  `logs()` και `signature()` είναι **συναρτήσεις getter**, όχι ιδιότητες. Να τις
+  καλείτε πάντα με παρενθέσεις.
+</Callout>
+
+### Μέθοδοι TransactionMetadata
+
+| Μέθοδος                  | Επιστρέφει              | Περιγραφή                                  |
+| ------------------------ | ----------------------- | ------------------------------------------ |
+| `signature()`            | `Uint8Array`            | Bytes υπογραφής συναλλαγής                 |
+| `computeUnitsConsumed()` | `bigint`                | Χρησιμοποιημένες μονάδες υπολογισμού       |
+| `logs()`                 | `string[]`              | Αρχεία καταγραφής προγράμματος             |
+| `innerInstructions()`    | `InnerInstruction[]`    | Εσωτερικές οδηγίες (CPI)                   |
+| `returnData()`           | `TransactionReturnData` | Δεδομένα επιστροφής από προγράμματα        |
+| `prettyLogs()`           | `string`                | Μορφοποιημένα αρχεία καταγραφής με χρώματα |
+
+## simulateTransaction
+
+```typescript
+simulateTransaction(tx: Transaction): SimulatedTransactionInfo | FailedTransactionMetadata
+```
+
+Προσομοίωση μιας συναλλαγής χωρίς τροποποίηση κατάστασης.
+
+```typescript
+const simResult = client.svm.simulateTransaction(signedTx);
+
+if ("err" in simResult && simResult.err()) {
+  console.error("Simulation failed:", simResult.err());
+  return;
+}
+
+// Use .meta() to get TransactionMetadata
+const meta = simResult.meta();
+console.log("Would use", meta.computeUnitsConsumed(), "compute units");
+console.log("Logs:", meta.logs());
+
+// Get post-execution account states
+const postAccounts = simResult.postAccounts();
+console.log("Post-state accounts:", postAccounts);
+```
+
+<Callout type="info">
+  Η προσομοίωση δεν αλλάζει κατάσταση. Χρησιμοποιήστε την για να ελέγξετε τις
+  συναλλαγές πριν από την αποστολή.
+</Callout>
+
+## Διαχείριση Blockhash
+
+### latestBlockhash
+
+```typescript
+latestBlockhash(): Blockhash
+```
+
+Λήψη του τρέχοντος blockhash.
+
+```typescript
+const blockhash = client.svm.latestBlockhash();
+console.log("Blockhash:", blockhash);
+```
+
+### getLatestBlockhash (μέσω client.rpc)
+
+Λήψη του blockhash με πληροφορίες διάρκειας ζωής για τη δημιουργία συναλλαγών
+χειροκίνητα. Χρησιμοποιήστε το βοηθητικό RPC καθώς επιστρέφει τόσο το
+`blockhash` όσο και το `lastValidBlockHeight`.
+
+```typescript
+import {
+  createTransactionMessage,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const { value: blockhashLifetime } = await client.rpc
+  .getLatestBlockhash()
+  .send();
+
+const tx = setTransactionMessageLifetimeUsingBlockhash(
+  blockhashLifetime,
+  createTransactionMessage({ version: 0 })
+);
+```
+
+<Callout type="info">
+  Κατά τη χρήση πρόσθετων προγραμμάτων όπως `systemProgram()` ή
+  `tokenProgram()`, δεν χρειάζεται ποτέ να ανακτήσετε μόνοι σας το blockhash —
+  το `client.sendTransaction()` (και το βοηθητικό `.sendTransaction()` στις
+  αλυσίδες εντολών) το χειρίζεται για εσάς.
+</Callout>
+
+### expireBlockhash
+
+```typescript
+expireBlockhash(): LiteSVM
+```
+
+Προχωρά σε νέο blockhash. Χρήσιμο για δοκιμή σεναρίων λήξης blockhash.
+
+```typescript
+const oldBlockhash = client.svm.latestBlockhash();
+client.svm.expireBlockhash();
+const newBlockhash = client.svm.latestBlockhash();
+
+console.log("Old:", oldBlockhash);
+console.log("New:", newBlockhash);
+// Blockhashes will be different
+```
+
+## Ιστορικό Συναλλαγών
+
+Ενεργοποιήστε το ιστορικό συναλλαγών για να ανακτήσετε συναλλαγές μετά την
+αποστολή:
+
+```typescript
+// Enable history storage (stores last N transactions)
+client.svm.withTransactionHistory(100n);
+
+// Send a transaction
+const result = client.svm.sendTransaction(signedTx);
+
+// Later, retrieve it by signature (base58 string)
+// Note: getTransaction expects a base58-encoded signature string
+```

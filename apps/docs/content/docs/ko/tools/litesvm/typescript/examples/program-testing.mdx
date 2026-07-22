@@ -1,0 +1,140 @@
+---
+title: 프로그램 테스트
+description: LiteSVM으로 커스텀 Solana 프로그램을 로드하고 테스트하기
+---
+
+# 프로그램 테스트 예제
+
+커스텀 Solana 프로그램을 테스트한다는 것은 컴파일된 `.so` 파일을 SVM에 로드하고,
+프로그램이 필요로 하는 계정을 설정한 뒤, 해당 프로그램에 명령을 전송하는 것을
+의미합니다. LiteSVM은 이 모든 과정을 인프로세스로 처리하므로 validator가
+필요하지 않습니다. 호환되는 Kit Plugin에 접근할 수 있도록
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js)를 사용하여
+프로그램 클라이언트를 생성하는 것을 권장합니다.
+
+## 프로그램 로드하기
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## 전체 프로그램 테스트 설정
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## 기본 프로그램 사용하기
+
+표준 프로그램이 필요한 테스트의 경우:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  `cargo build-sbf` 명령어로 Solana 프로그램을 빌드하면 `.so` 파일이 생성됩니다.
+</Callout>
+
+패턴은 항상 동일합니다:
+
+1. **프로그램 로드**: `addProgramFromFile`를 사용하여 컴파일된 프로그램을
+   로드하고 클라이언트에서 myProgramPlugin()을 임포트합니다
+2. **설정**: 필요에 따라 sysvar, 내장 프로그램(builtin), 사전
+   컴파일(precompile)을 활성화합니다
+3. **계정 설정**: `setAccount`로 데이터 계정을 사전에 채웁니다
+4. **전송**: `client.myProgram.testInstruction({..}).sendTransaction()` 사용 —
+   수동 트랜잭션 빌드 불필요
+5. **검증**: 실행 후 계정 상태를 확인합니다 (`client.myProgram.myAccount.fetch`)
+
+이 기본 구조가 정상적으로 동작하면, 더 많은 명령과 어설션을 추가하여 완전한
+테스트 스위트를 구성할 수 있습니다.

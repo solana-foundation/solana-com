@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 
 const require = createRequire(import.meta.url);
 
+const SERVER_ONLY_MOCK_ID = "\0server-only-mock";
 const INLINE_SVG_MOCK_ID = "\0inline-svg-mock";
 const SVG_MOCK_ID = "\0svg-mock";
 
@@ -13,9 +14,13 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "mock-svg-imports",
+      name: "mock-server-only-and-svg-imports",
       enforce: "pre",
       resolveId(source) {
+        if (source === "server-only") {
+          return SERVER_ONLY_MOCK_ID;
+        }
+
         if (source.endsWith(".inline.svg")) {
           return INLINE_SVG_MOCK_ID;
         }
@@ -25,6 +30,10 @@ export default defineConfig({
         }
       },
       load(id) {
+        if (id === SERVER_ONLY_MOCK_ID) {
+          return "export {};";
+        }
+
         if (id === INLINE_SVG_MOCK_ID) {
           return `
             import * as React from "react";

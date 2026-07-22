@@ -1,0 +1,219 @@
+---
+title: 빠른 시작
+description:
+  업그레이드 가능한 프로그램 배포 테스트를 위한 litesvm-loader 크레이트 사용법
+  알아보기
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/litesvm-loader"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    crates.io에서 <code>litesvm-loader</code> 보기
+  </a>
+</div>
+
+## 설치
+
+필요한 모든 종속성이 설치되어 있는지 확인하세요:
+
+```bash
+cargo add --dev litesvm litesvm-loader solana-keypair solana-signer
+```
+
+테스트에서 배포된 프로그램을 직접 호출하는 경우, 테스트에 사용되는 Solana 명령어
+및 트랜잭션 크레이트도 추가하세요:
+
+```bash
+cargo add --dev solana-instruction solana-message solana-transaction
+```
+
+## litesvm-loader란?
+
+`litesvm-loader` 크레이트는 LiteSVM 내에서 BPF 업그레이드 가능 로더를 통해
+프로그램을 배포하기 위한 헬퍼를 제공합니다. 로더 소유의 program account, program
+data account 또는 업그레이드 권한 동작이 필요한 테스트에서
+`svm.add_program(...)`로 프로그램을 직접 삽입하는 대신 사용하세요.
+
+<Steps>
+<Step>
+**업그레이드 가능한 배포**
+- 로더 버퍼 계정 생성
+- 프로그램 바이트를 청크 단위로 작성
+- BPF 업그레이드 가능 로더를 통해 최종 program account 배포
+- 프로그램 ID로 제공된 program keypair 사용
+</Step>
+
+<Step>
+  **업그레이드 권한 관리** - 이미 배포된 프로그램의 업그레이드 권한 변경 - 새
+  권한 부여 지원 - 프로그램을 불변으로 만들기 위해 `None` 전달 지원
+</Step>
+
+<Step>
+  **실제 로더 상태** - 온체인에서 프로그램이 확인하는 것과 동일한 로더 계정 모델
+  실행 - 테스트에서 program account 및 program data account 검사 가능 - 프로그램
+  직접 삽입으로 숨겨진 실수 발견에 도움
+</Step>
+
+</Steps>
+
+<Callout type="info">
+  대부분의 테스트에서 `svm.add_program(program_id, program_bytes)`은(는) 여전히
+  프로그램을 로드하는 가장 빠르고 간단한 방법입니다. 로더 계정 레이아웃이나
+  업그레이드 권한이 테스트 대상에 포함될 경우 `litesvm-loader`을(를) 사용하세요.
+</Callout>
+
+## 빠른 예제
+
+다음은 업그레이드 가능한 로더를 통해 프로그램을 배포한 후 권한을 교체하는 전체
+예제입니다:
+
+```rust
+use litesvm::LiteSVM;
+use litesvm_loader::{deploy_upgradeable_program, set_upgrade_authority};
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+
+#[test]
+fn test_upgradeable_deployment() {
+    let mut svm = LiteSVM::new();
+
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Use the keypair that should own the program ID.
+    // For Anchor programs, this is usually target/deploy/<program>-keypair.json.
+    let program = Keypair::new();
+    let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+    deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+
+    let program_account = svm.get_account(&program.pubkey()).unwrap();
+    assert!(program_account.executable);
+
+    let new_authority = Keypair::new();
+    set_upgrade_authority(
+        &mut svm,
+        &payer,
+        &program.pubkey(),
+        &payer,
+        Some(&new_authority.pubkey()),
+    )
+    .unwrap();
+}
+```
+
+## 프로그램 keypair 선택
+
+`deploy_upgradeable_program`은(는) `program_kp` 인수를 프로그램 주소로
+사용합니다. 프로그램에 고정 ID가 선언되어 있는 경우, 무작위 keypair를 생성하는
+대신 생성된 배포 keypair를 로드하세요:
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+## 배포된 프로그램 호출
+
+배포 후, LiteSVM으로 로드된 프로그램을 호출하는 것과 동일한 방식으로 프로그램을
+호출합니다. 프로그램에 대한 명령어를 빌드하고, 트랜잭션에 서명한 후 동일한
+`LiteSVM` 인스턴스를 통해 전송합니다:
+
+```rust
+use solana_instruction::Instruction;
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let instruction = Instruction::new_with_bytes(
+    program.pubkey(),
+    &[],  // instruction data for your program
+    vec![], // account metas for your program
+);
+
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+let tx = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+svm.send_transaction(tx).unwrap();
+```
+
+## 주요 구성 요소
+
+### deploy_upgradeable_program
+
+| 인수            | 설명                                                               |
+| --------------- | ------------------------------------------------------------------ |
+| `svm`           | 배포된 프로그램을 수신하는 가변 `LiteSVM` 인스턴스                 |
+| `payer_kp`      | 수수료 지불자 및 초기 업그레이드 권한                              |
+| `program_kp`    | 공개 키가 프로그램 ID가 되는 keypair                               |
+| `program_bytes` | 컴파일된 SBF 프로그램 바이트, 보통 `target/deploy/*.so`에서 가져옴 |
+
+`deploy_upgradeable_program`은(는) 로더 버퍼를 생성하고, 프로그램 바이트를
+512바이트 청크로 기록한 후, 향후 업그레이드를 위한 공간을 확보하여 프로그램을
+배포합니다.
+
+### set_upgrade_authority
+
+| 인수                        | 설명                                                   |
+| --------------------------- | ------------------------------------------------------ |
+| `svm`                       | 배포된 프로그램을 포함하는 가변 `LiteSVM` 인스턴스     |
+| `from_keypair`              | 트랜잭션의 수수료 지불자 및 서명 권한                  |
+| `program_address`           | 권한을 변경할 프로그램 ID                              |
+| `current_authority_keypair` | 현재 업그레이드 권한 keypair                           |
+| `new_authority_address`     | 새 권한 주소, 또는 프로그램을 불변으로 만들려면 `None` |
+
+<Callout type="warn">
+  현재 헬퍼 구현에서 생성된 트랜잭션은 `from_keypair`에 의해 서명됩니다.
+  업그레이드 권한을 변경할 때는 현재 권한을 `from_keypair`로 전달하거나, payer와
+  현재 권한을 동일하게 유지하세요.
+</Callout>
+
+## 일반적인 워크플로
+
+### 선언된 프로그램 ID로 배포하기
+
+```rust
+use solana_keypair::read_keypair_file;
+
+let program = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+deploy_upgradeable_program(&mut svm, &payer, &program, program_bytes).unwrap();
+```
+
+### 프로그램을 불변으로 만들기
+
+```rust
+set_upgrade_authority(
+    &mut svm,
+    &payer,
+    &program.pubkey(),
+    &payer,
+    None,
+)
+.unwrap();
+```
+
+## 문제 해결
+
+### 일반적인 오류
+
+| 오류                                                     | 원인                                                                   | 해결 방법                                                                                              |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ProgramAccountNotFound` 또는 잘못된 ID에 대한 명령 실패 | 배포 시 프로그램이 선언된 ID를 기대하는 동안 임의의 `Keypair`가 사용됨 | `target/deploy/<program>-keypair.json`를 읽고 해당 keypair를 `deploy_upgradeable_program`에 전달하세요 |
+| `InsufficientFunds`                                      | payer가 로더 버퍼 및 program account에 필요한 lamport가 부족함         | 배포 전에 lamport를 추가로 에어드롭하세요                                                              |
+| 권한 변경 시 `MissingRequiredSignature`                  | 현재 권한이 트랜잭션에 서명하지 않음                                   | 현재 권한을 `from_keypair`로 전달하거나, payer와 현재 권한을 동일한 keypair로 유지하세요               |
+| 프로그램 배포가 예상보다 느림                            | 로더 배포가 실제 로더 명령을 통해 바이트를 기록함                      | 로더 상태나 업그레이드 권한 동작이 필요하지 않을 때 `svm.add_program(...)`를 사용하세요                |

@@ -1,0 +1,213 @@
+---
+title: Tijdgebaseerd Testen
+description: Test tijdafhankelijke logica met LiteSVM-klokmanipulatie
+---
+
+# Voorbeeld van Tijdgebaseerd Testen
+
+Demonstreert het gebruik van `warpToSlot` om tijdafhankelijke programmalogica te
+testen.
+
+## Basis Klokmanipulatie
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Enable sysvars for clock access
+client.svm.withSysvars();
+
+// Check initial clock
+const initialClock = client.svm.getClock();
+console.log("Initial state:");
+console.log("  Slot:", initialClock.slot);
+console.log("  Epoch:", initialClock.epoch);
+console.log("  Unix timestamp:", initialClock.unixTimestamp);
+
+// Warp to slot 1000
+client.svm.warpToSlot(1000n);
+
+const afterWarp = client.svm.getClock();
+console.log("\nAfter warpToSlot(1000):");
+console.log("  Slot:", afterWarp.slot);
+console.log("  Epoch:", afterWarp.epoch);
+
+// Warp further
+client.svm.warpToSlot(100000n);
+
+const afterWarp2 = client.svm.getClock();
+console.log("\nAfter warpToSlot(100000):");
+console.log("  Slot:", afterWarp2.slot);
+console.log("  Epoch:", afterWarp2.epoch);
+```
+
+## Tijdvergrendelde Logica Testen
+
+Voorbeeldpatroon voor het testen van tijdvergrendelde functionaliteit:
+
+```typescript
+import {
+  createClient,
+  address,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+client.svm.withSigverify(false).withBlockhashCheck(false).withSysvars();
+
+// Fund payer
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+// Set up a time-locked vault account
+// Structure: [u8 discriminator, u64 unlock_slot, u64 amount]
+const unlockSlot = 10000n;
+const lockedAmount = 5_000_000_000n;
+
+const vaultData = new Uint8Array(1 + 8 + 8);
+const view = new DataView(vaultData.buffer);
+vaultData[0] = 0x01; // discriminator
+view.setBigUint64(1, unlockSlot, true); // unlock_slot
+view.setBigUint64(9, lockedAmount, true); // amount
+
+const programId = address("TimeLockedVault11111111111111111111111"); // replace or generateKeyPairSigner()
+const vaultAddress = address("Vault111111111111111111111111111"); // replace or generateKeyPairSigner()
+const minBalance = client.svm.minimumBalanceForRentExemption(
+  BigInt(vaultData.length)
+);
+
+client.svm.setAccount({
+  address: vaultAddress,
+  data: vaultData,
+  executable: false,
+  lamports: lamports(minBalance + lockedAmount),
+  programAddress: programId,
+  space: BigInt(vaultData.length)
+});
+
+console.log("Vault created with unlock slot:", unlockSlot);
+console.log("Locked amount:", Number(lockedAmount) / 1e9, "SOL");
+
+// Test 1: Try to withdraw before unlock (should fail)
+console.log("\n--- Test 1: Before unlock ---");
+const currentClock = client.svm.getClock();
+console.log("Current slot:", currentClock.slot);
+
+// In a real test, you would:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to fail
+console.log("Withdrawal attempt: EXPECTED TO FAIL (too early)");
+
+// Test 2: Warp to after unlock slot
+console.log("\n--- Test 2: After unlock ---");
+client.svm.warpToSlot(unlockSlot + 100n);
+
+const newClock = client.svm.getClock();
+console.log("Current slot:", newClock.slot);
+
+// In a real test:
+// 1. Build a withdraw instruction
+// 2. Send it and expect it to succeed
+console.log("Withdrawal attempt: EXPECTED TO SUCCEED (after unlock)");
+
+// Verify vault state
+const updatedVault = client.svm.getAccount(vaultAddress);
+if (updatedVault.exists) {
+  console.log("\nVault balance:", updatedVault.lamports);
+}
+```
+
+## Het Epoch-schema Uitlezen
+
+Je kunt het epoch-schema uitlezen om de slot/epoch-relatie op het cluster te
+begrijpen:
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+const epochSchedule = client.svm.getEpochSchedule();
+console.log("Slots per epoch:", epochSchedule.slotsPerEpoch);
+console.log("First normal epoch:", epochSchedule.firstNormalEpoch);
+console.log("First normal slot:", epochSchedule.firstNormalSlot);
+```
+
+<Callout type="warn">
+  `warpToSlot` verschuift het `slot`-veld van de klok, maar werkt **niet**
+  automatisch `epoch` of `unixTimestamp` bij. Gebruik `setClock` voor volledige
+  controle over klokvelden.
+</Callout>
+
+## Handmatige Klokmanipulatie
+
+Wanneer je programma `epoch` of `unix_timestamp` uit de Clock sysvar leest,
+gebruik `setClock` om die velden direct in te stellen:
+
+```typescript
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+client.svm.withSysvars();
+
+// Get clock, mutate, write back
+const clock = client.svm.getClock();
+clock.slot = 50000n;
+clock.epoch = 5n;
+clock.unixTimestamp = 1700000000n;
+client.svm.setClock(clock);
+
+const after = client.svm.getClock();
+console.log("Slot:", after.slot); // 50000n
+console.log("Epoch:", after.epoch); // 5n
+console.log("Timestamp:", after.unixTimestamp); // 1700000000n
+```
+
+Dit weerspiegelt het Rust `set_sysvar(&clock)`-patroon. Gebruik `warpToSlot`
+voor eenvoudige slot-vooruitgang, `setClock` wanneer je epoch- of
+tijdstempelcontrole nodig hebt.
+
+## Toepassingsgevallen
+
+Tijdmanipulatie is nuttig voor het testen van:
+
+| Scenario                 | Aanpak                                     |
+| ------------------------ | ------------------------------------------ |
+| Token vesting            | Warp voorbij vesting-grens/mijlpalen       |
+| Veilingafsluitingen      | Warp voorbij het einde-slot van de veiling |
+| Staking-beloningen       | Gebruik `setClock` om epoch in te stellen  |
+| Tijdvergrendelde opnames | Warp voorbij het ontgrendelingsslot        |
+| Snelheidsbeperking       | Warp tussen toegestane intervallen         |
+| Verlopende orders        | Warp voorbij de vervaldatum van de order   |
+
+<Callout type="info">
+  Houd er rekening mee dat `warpToSlot` alleen de slot wijzigt. De
+  unix-tijdstempel wordt mogelijk niet proportioneel bijgewerkt, afhankelijk van
+  de SVM-implementatie.
+</Callout>
+
+## Belangrijkste Punten
+
+1. **Sysvars inschakelen**: Roep `withSysvars()` aan voordat je klokmethoden
+   gebruikt
+2. **Vooruit spoelen**: Gebruik `warpToSlot(slot)` om de slot te laten vorderen
+3. **Volledige controle**: Gebruik `setClock` wanneer je `epoch`,
+   `unixTimestamp` of andere klokvelden wilt instellen
+4. **Klok uitlezen**: Gebruik `getClock()` om de huidige slot, epoch en
+   tijdstempel te lezen
+5. **Testpatroon**: Test voor en na tijdsgrenzen

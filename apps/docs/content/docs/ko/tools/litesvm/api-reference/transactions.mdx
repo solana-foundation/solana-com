@@ -1,0 +1,277 @@
+---
+title: 트랜잭션
+description: 트랜잭션 처리 방법
+---
+
+## send_transaction
+
+```rust
+pub fn send_transaction(&mut self, tx: impl Into<VersionedTransaction>) -> Result<TransactionMetadata, FailedTransactionMetadata>
+```
+
+트랜잭션을 실행하고 상태를 수정합니다.
+
+```rust
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Success! Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Fee: {} lamports", meta.fee);
+    }
+    Err(e) => {
+        println!("Failed: {:?}", e.err);
+        println!("Logs: {:?}", e.meta.logs);
+    }
+}
+```
+
+## simulate_transaction
+
+```rust
+pub fn simulate_transaction(&self, tx: impl Into<VersionedTransaction>) -> Result<SimulatedTransactionInfo, FailedTransactionMetadata>
+```
+
+상태를 수정하지 않고 트랜잭션을 시뮬레이션합니다.
+
+다음을 포함하는 `SimulatedTransactionInfo`를 반환합니다:
+
+- `meta`: 트랜잭션 메타데이터 (로그, 컴퓨팅 유닛, 서명 등)
+- `post_accounts`: 시뮬레이션 이후의 계정 상태
+
+```rust
+// State before simulation
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate transaction
+let result = svm.simulate_transaction(tx.clone());
+
+// State unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+
+// Check simulation result
+if let Ok(sim_info) = result {
+    println!("Would succeed");
+    println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+    // Can inspect post_accounts to see what would change
+    for (pubkey, account) in sim_info.post_accounts {
+        println!("Account {} would have {} lamports", pubkey, account.lamports());
+    }
+
+    // Safe to send
+    svm.send_transaction(tx).unwrap();
+}
+```
+
+## 시뮬레이션 사용 시기
+
+다음 용도로 `simulate_transaction()`를 사용하세요:
+
+- 상태를 수정하지 않고 트랜잭션 유효성 테스트
+- 컴퓨팅 유닛 소비량 확인
+- 커밋 없이 트랜잭션 로그 검증
+- 오류 처리 경로 테스트
+
+```rust
+// Test if transaction would succeed
+let result = svm.simulate_transaction(tx.clone());
+
+match result {
+    Ok(sim_info) => {
+        println!("Would succeed");
+        println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+        // Now execute for real
+        svm.send_transaction(tx).unwrap();
+    }
+    Err(e) => {
+        println!("Would fail: {:?}", e.err);
+        // Don't send transaction
+    }
+}
+```
+
+## 오류 케이스 테스트
+
+```rust
+// Simulate expected failure
+let result = svm.simulate_transaction(invalid_tx);
+assert!(result.is_err());
+
+match result.unwrap_err().err {
+    TransactionError::InsufficientFundsForFee => {
+        println!("Expected error occurred");
+    }
+    _ => panic!("Unexpected error"),
+}
+```
+
+## 상태 변경 없음
+
+```rust
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate multiple times
+for _ in 0..10 {
+    svm.simulate_transaction(tx.clone()).unwrap();
+}
+
+// Balance unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+```
+
+## 트랜잭션 메타데이터
+
+`send_transaction()`는 `TransactionMetadata`를 직접 반환하는 반면,
+`simulate_transaction()`는 `meta: TransactionMetadata`를 포함하는
+`SimulatedTransactionInfo`를 반환합니다:
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+### 트랜잭션 데이터 접근
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Signature
+println!("Signature: {}", result.signature);
+
+// Logs
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Compute units
+println!("CU consumed: {}", result.compute_units_consumed);
+
+// Return data
+if let Some(data) = result.return_data.data {
+    println!("Program returned: {:?}", data);
+}
+
+// Inner instructions (CPIs)
+for inner in &result.inner_instructions {
+    println!("CPI: {:?}", inner);
+}
+
+// Transaction fee paid by fee payer
+println!("Fee paid: {} lamports", result.fee);
+```
+
+## get_transaction
+
+```rust
+pub fn get_transaction(&self, signature: &Signature) -> Option<&TransactionResult>
+```
+
+Where
+`TransactionResult = Result<TransactionMetadata, FailedTransactionMetadata>`.
+
+기록에서 트랜잭션을 조회합니다. `with_transaction_history()` 설정이 필요합니다.
+
+```rust
+let mut svm = LiteSVM::default()
+    .with_transaction_history(100);
+
+let result = svm.send_transaction(tx).unwrap();
+let signature = result.signature;
+
+// Query later
+if let Some(tx_result) = svm.get_transaction(&signature) {
+    match tx_result {
+        Ok(meta) => println!("Found: {:?}", meta),
+        Err(e) => println!("Failed: {:?}", e.err),
+    }
+}
+```
+
+## latest_blockhash
+
+```rust
+pub fn latest_blockhash(&self) -> Hash
+```
+
+트랜잭션에 사용할 현재 블록해시를 가져옵니다.
+
+```rust
+let blockhash = svm.latest_blockhash();
+
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    blockhash,
+);
+```
+
+## expire_blockhash
+
+```rust
+pub fn expire_blockhash(&mut self)
+```
+
+현재 블록해시를 강제로 만료시킵니다.
+
+```rust
+let old_hash = svm.latest_blockhash();
+svm.expire_blockhash();
+let new_hash = svm.latest_blockhash();
+
+assert_ne!(old_hash, new_hash);
+
+// Transactions with old_hash will now fail
+```
+
+## 일반적인 패턴
+
+### 실행 전 유효성 검사
+
+```rust
+// Simulate first to check validity
+if svm.simulate_transaction(tx.clone()).is_ok() {
+    // Execute if simulation passes
+    svm.send_transaction(tx).unwrap();
+} else {
+    println!("Transaction would fail, skipping execution");
+}
+```
+
+### 컴퓨팅 유닛 추적
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Assert within budget
+assert!(
+    result.compute_units_consumed < 100_000,
+    "Transaction used too many compute units: {}",
+    result.compute_units_consumed
+);
+```
+
+### 트랜잭션 로그 확인
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Check for specific log messages
+assert!(result.logs.iter().any(|log|
+    log.contains("Transfer successful")
+));
+```

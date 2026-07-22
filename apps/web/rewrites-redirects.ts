@@ -447,6 +447,11 @@ export default {
   redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    {
+      source: "/solana-wallets",
+      destination: "/wallets",
+      permanent: true,
+    },
     // /upgrades is served by the media app
     { source: "/upgrade", destination: "/upgrades" },
     {

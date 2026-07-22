@@ -1,0 +1,144 @@
+---
+title: السفر عبر الزمن
+description:
+  قم بتقديم ساعة Surfnet إلى slot أو epoch أو طابع زمني Unix محدد. مفيد
+  للاختبارات التي تتناول جداول الاستحقاق، وفترات القفل، ونوافذ الانتهاء، أو حدود
+  epoch.
+---
+
+يوفر وقت تشغيل Surfpool ثلاثة أدوات مساعدة للسفر عبر الزمن. كل واحدة منها تنقل
+الساعة المحلية إلى هدف مطلق (وليس إزاحة نسبية) وتُعيد `EpochInfo` المحدَّثة حتى
+تتمكن الاختبارات من التحقق من أن وقت التشغيل وصل فعلاً إلى الوقت المطلوب.
+
+| Helper                                               | Target                       | Returns                                |
+| ---------------------------------------------------- | ---------------------------- | -------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | رقم slot مطلق                | `EpochInfo` مع `absolute_slot` الجديدة |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | رقم epoch مطلق               | `EpochInfo` مع `epoch` الجديدة         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | طابع زمني Unix بالميلي ثانية | `EpochInfo` يعكس الـ slot المستنتج     |
+
+<Callout type="warn" title="للأمام فقط">
+  السفر عبر الزمن لا يمكنه سوى تحريك الساعة **للأمام**. استدعاء هذه الأساليب
+  بهدف في الماضي لن يُحدث أي تأثير — يُعيد المساعد `EpochInfo` الحالية دون
+  تغيير.
+</Callout>
+
+## الانتقال إلى slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## الانتقال إلى epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## الانتقال إلى طابع زمني Unix
+
+مرِّر الطابع الزمني بالـ **ميلي ثانية**، وليس بالثواني. يحسب وقت التشغيل أقرب
+slot عند ذلك الطابع الزمني.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## الأنماط الشائعة
+
+### اختبار نافذة قفل أو استحقاق
+
+المثال أدناه هو مخطط تقريبي — `assertWithdrawFails` و `assertWithdrawSucceeds`
+هي عناصر نائبة لأي أدوات مساعدة من جانب العميل تستخدمها مجموعة الاختبارات لديك
+للتحقق من سلوك RPC.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### تشغيل سيناريو متعدد الـ epoch
+
+<Callout type="warn" title="يتم تخطي الـ slot الوسيطة">
+  السفر عبر الزمن ينتقل مباشرةً إلى الهدف — الانتقال من epoch 1 إلى epoch 5
+  يتخطى الـ slot الواقعة بينهما. إذا كان برنامجك يحتاج إلى تفعيل كل حد epoch
+  وسيط (مثلاً لإضافة المكافآت لكل epoch)، استدعِ `time_travel_to_epoch` مرة
+  واحدة لكل epoch مع أي معاملات مطلوبة بينهما.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## شكل EpochInfo
+
+يُعيد كلا الـ SDK كائنًا بشكل `EpochInfo` يحتوي على هذه الحقول:
+
+| الحقل                     | Rust                             | JS                          |
+| ------------------------- | -------------------------------- | --------------------------- |
+| الـ slot المطلق           | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| الـ slot ضمن الـ epoch    | `slot_index: u64`                | `slotIndex: number`         |
+| عدد الـ slot في الـ epoch | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| رقم الـ epoch             | `epoch: u64`                     | `epoch: number`             |
+| ارتفاع الكتلة             | `block_height: u64`              | `blockHeight: number`       |
+| عدد المعاملات             | `transaction_count: Option<u64>` | `transactionCount?: number` |

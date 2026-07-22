@@ -12,11 +12,11 @@ export const galaxy = {
   slug: "galaxy",
   name: "Galaxy",
   profile: {
-    tagline: "Global leader in digital assets and data center infrastructure",
+    tagline: "Digital assets and data center leader",
     summary:
-      "Galaxy is a publicly traded digital asset and blockchain financial services firm that provides institutional-grade trading, asset management, and infrastructure solutions.",
+      "Galaxy provides institutional digital-asset markets, asset management, staking, custody technology, and digital infrastructure services.",
     description:
-      "Galaxy (TSX: GLXY) is a digital asset and blockchain leader founded by Michael Novogratz, headquartered in New York. The company operates three complementary businesses: Global Markets, Asset Management, and Digital Infrastructure Solutions, serving institutions, startups, and qualified individuals. Galaxy is a major participant in the Solana ecosystem and a significant SOL holder.",
+      "Galaxy serves institutions and investors through trading, lending, derivatives, asset management, staking, and custody technology. It also operates digital infrastructure and data center businesses while participating in digital-asset networks including Solana.",
     sector: "Infrastructure",
     type: "Company",
     links: {

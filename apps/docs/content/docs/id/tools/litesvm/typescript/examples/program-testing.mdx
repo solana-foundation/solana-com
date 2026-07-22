@@ -1,0 +1,142 @@
+---
+title: Pengujian Program
+description: Muat dan uji program Solana kustom dengan LiteSVM
+---
+
+# Contoh Pengujian Program
+
+Menguji program Solana kustom berarti memuat file `.so` yang telah dikompilasi
+ke dalam SVM, menyiapkan akun-akun yang dibutuhkan, dan mengirim instruksi ke
+dalamnya. LiteSVM menangani semua ini secara in-process — tidak memerlukan
+validator. Kami merekomendasikan generasi klien program dengan
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js) agar Anda dapat
+mengakses Kit Plugin yang kompatibel.
+
+## Memuat Program
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## Penyiapan Pengujian Program Lengkap
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## Menggunakan Program Bawaan
+
+Untuk pengujian yang memerlukan program standar:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  Bangun program Solana Anda dengan `cargo build-sbf` untuk menghasilkan file
+  `.so`.
+</Callout>
+
+Polanya selalu sama:
+
+1. **Memuat Program**: Gunakan `addProgramFromFile` untuk memuat program yang
+   telah dikompilasi dan impor myProgramPlugin() dari klien Anda
+2. **Konfigurasi**: Aktifkan sysvar, builtin, dan precompile sesuai kebutuhan
+3. **Penyiapan Akun**: Isi awal akun data dengan `setAccount`
+4. **Pengiriman**: Gunakan
+   `client.myProgram.testInstruction({..}).sendTransaction()` — tanpa perlu
+   membangun transaksi secara manual
+5. **Verifikasi**: Periksa status akun setelah eksekusi
+   (`client.myProgram.myAccount.fetch`)
+
+Setelah kerangka ini berjalan, Anda dapat membangun rangkaian pengujian lengkap
+dengan menambahkan lebih banyak instruksi dan assertion.

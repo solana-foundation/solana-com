@@ -1,0 +1,155 @@
+---
+title: 트랜잭션
+description: TypeScript에서 LiteSVM으로 트랜잭션을 실행하고 시뮬레이션하기
+---
+
+# 트랜잭션
+
+트랜잭션 전송, 시뮬레이션 및 관리를 위한 메서드입니다.
+
+## sendTransaction
+
+```typescript
+sendTransaction(tx: Transaction): TransactionMetadata | FailedTransactionMetadata
+```
+
+트랜잭션을 실행합니다. 성공 시 메타데이터를 반환하고, 오류 시 실패 세부 정보를
+반환합니다.
+
+```typescript
+const result = client.svm.sendTransaction(signedTx);
+
+// Check for errors
+if ("err" in result && result.err()) {
+  console.error("Transaction failed:", result.err());
+  return;
+}
+
+// Access result properties (note: these are getter functions)
+console.log("Signature:", result.signature());
+console.log("Compute units:", result.computeUnitsConsumed());
+console.log("Logs:", result.logs());
+```
+
+<Callout type="warn">
+  `err()`, `computeUnitsConsumed()`, `logs()`, `signature()` 등의 트랜잭션 결과
+  속성은 **getter 함수**이며, 일반 속성이 아닙니다. 반드시 괄호를 붙여
+  호출하세요.
+</Callout>
+
+### TransactionMetadata 메서드
+
+| 메서드                   | 반환값                  | 설명                        |
+| ------------------------ | ----------------------- | --------------------------- |
+| `signature()`            | `Uint8Array`            | 트랜잭션 서명 바이트        |
+| `computeUnitsConsumed()` | `bigint`                | 사용된 컴퓨트 유닛          |
+| `logs()`                 | `string[]`              | 프로그램 로그               |
+| `innerInstructions()`    | `InnerInstruction[]`    | 내부 (CPI) 명령어           |
+| `returnData()`           | `TransactionReturnData` | 프로그램의 반환 데이터      |
+| `prettyLogs()`           | `string`                | 색상이 적용된 형식화된 로그 |
+
+## simulateTransaction
+
+```typescript
+simulateTransaction(tx: Transaction): SimulatedTransactionInfo | FailedTransactionMetadata
+```
+
+상태를 변경하지 않고 트랜잭션을 시뮬레이션합니다.
+
+```typescript
+const simResult = client.svm.simulateTransaction(signedTx);
+
+if ("err" in simResult && simResult.err()) {
+  console.error("Simulation failed:", simResult.err());
+  return;
+}
+
+// Use .meta() to get TransactionMetadata
+const meta = simResult.meta();
+console.log("Would use", meta.computeUnitsConsumed(), "compute units");
+console.log("Logs:", meta.logs());
+
+// Get post-execution account states
+const postAccounts = simResult.postAccounts();
+console.log("Post-state accounts:", postAccounts);
+```
+
+<Callout type="info">
+  시뮬레이션은 상태를 변경하지 않습니다. 트랜잭션을 전송하기 전에 검증하는 데
+  활용하세요.
+</Callout>
+
+## 블록해시 관리
+
+### latestBlockhash
+
+```typescript
+latestBlockhash(): Blockhash
+```
+
+현재 블록해시를 가져옵니다.
+
+```typescript
+const blockhash = client.svm.latestBlockhash();
+console.log("Blockhash:", blockhash);
+```
+
+### getLatestBlockhash (client.rpc를 통해)
+
+트랜잭션을 수동으로 구성하기 위해 수명 정보가 포함된 블록해시를 가져옵니다.
+`blockhash`와 `lastValidBlockHeight`를 모두 반환하는 RPC 헬퍼를 사용하세요.
+
+```typescript
+import {
+  createTransactionMessage,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const { value: blockhashLifetime } = await client.rpc
+  .getLatestBlockhash()
+  .send();
+
+const tx = setTransactionMessageLifetimeUsingBlockhash(
+  blockhashLifetime,
+  createTransactionMessage({ version: 0 })
+);
+```
+
+<Callout type="info">
+  `systemProgram()` 또는 `tokenProgram()`와 같은 프로그램 플러그인을 사용할 때는
+  블록해시를 직접 가져올 필요가 없습니다 — `client.sendTransaction()`(및 명령어
+  체인의 `.sendTransaction()` 헬퍼)가 자동으로 처리합니다.
+</Callout>
+
+### expireBlockhash
+
+```typescript
+expireBlockhash(): LiteSVM
+```
+
+새 블록해시로 이동합니다. 블록해시 만료 시나리오 테스트에 유용합니다.
+
+```typescript
+const oldBlockhash = client.svm.latestBlockhash();
+client.svm.expireBlockhash();
+const newBlockhash = client.svm.latestBlockhash();
+
+console.log("Old:", oldBlockhash);
+console.log("New:", newBlockhash);
+// Blockhashes will be different
+```
+
+## 트랜잭션 기록
+
+트랜잭션 전송 후 조회하려면 트랜잭션 기록을 활성화하세요:
+
+```typescript
+// Enable history storage (stores last N transactions)
+client.svm.withTransactionHistory(100n);
+
+// Send a transaction
+const result = client.svm.sendTransaction(signedTx);
+
+// Later, retrieve it by signature (base58 string)
+// Note: getTransaction expects a base58-encoded signature string
+```

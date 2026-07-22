@@ -1,0 +1,208 @@
+---
+title: Sự kiện Runtime
+description:
+  Quan sát các giao dịch, slot tick, luồng tài khoản và lỗi runtime từ bên trong
+  một bài kiểm thử. Rust cung cấp một channel; JS cung cấp một phương thức
+  drain.
+---
+
+Runtime Surfnet phát ra một luồng sự kiện có cấu trúc bao gồm xử lý giao dịch,
+slot tick, luồng tài khoản, du hành thời gian và lỗi. SDK cung cấp luồng này để
+các bài kiểm thử có thể xác nhận hành vi runtime mà không cần phân tích log.
+
+## Rust: Channel Receiver
+
+`Surfnet::events()` trả về tham chiếu đến
+`crossbeam_channel::Receiver<SimnetEvent>` mà runtime xuất bản đến. Drain nó
+bằng `try_iter()` (không chặn) hoặc đọc từng sự kiện riêng lẻ bằng `recv()` /
+`recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Receiver được chia sẻ">
+  Nếu bạn tạo một tác vụ nền để tiêu thụ sự kiện, đừng đồng thời gọi `try_iter`
+  từ luồng chính. Các sự kiện sẽ bị phân chia không thể đoán trước giữa hai
+  consumer.
+</Callout>
+
+## JS: Phương thức Drain
+
+Các binding JS lưu đệm sự kiện nội bộ và hiển thị chúng thông qua `drainEvents`.
+Mỗi lần gọi trả về những gì đã tích lũy kể từ lần gọi trước, sau đó xóa bộ đệm.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Bộ đệm không giới hạn">
+  Nếu bạn không bao giờ gọi `drainEvents`, bộ đệm sẽ tăng trưởng trong suốt vòng
+  đời của instance. Điều đó ổn với các bài kiểm thử ngắn, nhưng hãy gọi nó định
+  kỳ cho các fixture chạy lâu để bộ nhớ không bị phình to.
+</Callout>
+
+## Cấu trúc SimnetEventValue (JS)
+
+Kiểu sự kiện JS là một đối tượng phẳng với bộ phân biệt `kind` và các trường tùy
+chọn. Không phải mọi trường đều được đặt trên mọi biến thể — hãy destructure dựa
+trên `kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Các loại sự kiện
+
+Chuỗi Kind ở phía JS sử dụng camelCase; biến thể Rust tương ứng sử dụng
+PascalCase. Khớp với các chuỗi chính xác này — chúng phân biệt chữ hoa/thường và
+ổn định qua các phiên bản.
+
+| JS `kind`                                       | Biến thể Rust                                                | Phát ra khi                                                                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Runtime khởi động xong; mang theo `initialTransactionCount`.                                                                                          |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Đã kết nối với RPC từ xa upstream; mang theo `message` (URL).                                                                                         |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Khởi động bị hủy; mang theo `message` (lý do).                                                                                                        |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Quá trình tắt máy nhẹ nhàng bắt đầu.                                                                                                                  |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Đồng hồ hệ thống đã tiến lên; mang theo `clock`.                                                                                                      |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Một lệnh đồng hồ đã chạy (tạm dừng/tiếp tục/cập nhật khoảng thời gian); mang theo `clockCommand` và tùy chọn `slotIntervalMs`.                        |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Một snapshot thông tin epoch mới có sẵn; mang theo `epochInfo`.                                                                                       |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Một blockhash đang được sử dụng đã hết hạn.                                                                                                           |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Một giao dịch đã được xếp hàng; mang theo `timestamp`, `transactionSignature`.                                                                        |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Một giao dịch đã được thực thi; mang theo `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee`, và `errorMessage` khi thất bại. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Một tài khoản đã thay đổi — bao gồm các tài khoản được stream và các thay đổi do cheatcode thực hiện; mang theo `timestamp` và `accountPubkey`.       |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Runtime đã phát ra một dòng log; mang theo `timestamp` và `message`.                                                                                  |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Một plugin Geyser đã được tải; mang theo `message` (tên plugin).                                                                                      |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Một kết quả profiler đã được gắn thẻ; mang theo `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                                   |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Một runbook đã bắt đầu hoặc kết thúc; mang theo `runbookId` và (khi hoàn thành) tùy chọn `runbookErrors`.                                             |
+
+## Các Mẫu Kiểm Tra
+
+### Kiểm Tra Giao Dịch Đã Được Thực Hiện
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Kiểm Tra Không Có Lỗi Runtime Xảy Ra
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Tại Sao Sự Kiện Tốt Hơn Phân Tích Log
+
+<Callout type="info" title="Ưu tiên luồng sự kiện hơn stdout">
+Runtime in các sự kiện có cấu trúc qua `tracing`, điều này có thể khiến bạn muốn bắt và phân tích từ stdout. Đừng làm vậy. Luồng sự kiện có cấu trúc:
+
+- **Không bị ảnh hưởng bởi thay đổi cấp độ log** — các sự kiện được phát ra bất
+  kể `RUST_LOG`.
+- **Đi kèm với payload có kiểu dữ liệu** — không cần phân tích chuỗi, không có
+  sự thay đổi định dạng giữa các phiên bản.
+- **Có các loại ổn định** — các dòng log được định dạng cho con người và có thể
+  thay đổi tự do; các loại sự kiện là một phần của hợp đồng SDK.
+
+</Callout>

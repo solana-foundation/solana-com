@@ -1,0 +1,279 @@
+---
+title: Mulai Cepat
+description:
+  Pelajari cara menggunakan anchor-litesvm untuk menguji program Anchor dengan
+  sintaks yang disederhanakan
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    Lihat <code>anchor-litesvm</code> di crates.io
+  </a>
+</div>
+
+## Instalasi
+
+Tambahkan dependensi yang diperlukan:
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## Apa itu anchor-litesvm?
+
+Crate `anchor-litesvm` menyediakan **sintaks yang disederhanakan mirip dengan
+anchor-client** namun tanpa overhead RPC. Ini menghasilkan **pengurangan kode
+sebesar 78%** dibandingkan LiteSVM mentah sambil tetap menjaga keamanan tipe
+dengan tipe Anchor.
+
+<Steps>
+<Step>
+**AnchorContext**
+- Konteks pengujian yang kompatibel dengan produksi
+- Pola API yang sama seperti anchor-client
+- Mengelola instans LiteSVM, payer, dan program
+- Jalankan instruksi tanpa overhead RPC
+</Step>
+
+<Step>
+  **API Program** - Pembangunan instruksi yang lancar - Penanganan akun dan
+  argumen yang aman secara tipe - Sintaks anchor-client yang familiar
+</Step>
+
+<Step>
+  **Deserialisasi Akun** - Ambil dan deserialisasi akun Anchor - Penanganan
+  diskriminator otomatis - Dukungan untuk PDA dan tata letak kustom
+</Step>
+
+<Step>
+**Penguraian Event**
+- Urai event dari log transaksi
+- Periksa emisi event
+- Deserialisasi event yang aman secara tipe
+</Step>
+</Steps>
+
+## Contoh Cepat
+
+Dengan Anchor 1.0, gunakan `declare_program!` untuk menghasilkan tipe klien dari
+IDL program Anda. Makro ini membuat modul `client::accounts::*` dan
+`client::args::*` untuk pembangunan instruksi yang aman secara tipe:
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  `declare_program!(my_program)` membaca IDL dari `target/idl/my_program.json`
+  pada waktu kompilasi dan menghasilkan modul `client::accounts::*` dan
+  `client::args::*`. Ini memerlukan pembangunan program Anda terlebih dahulu.
+</Callout>
+
+## Perbandingan: Raw LiteSVM vs anchor-litesvm
+
+### Sebelum (Raw LiteSVM)
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### Setelah (anchor-litesvm)
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## Komponen Utama
+
+### AnchorLiteSVM Builder
+
+| Method                          | Deskripsi                           |
+| ------------------------------- | ----------------------------------- |
+| `new()`                         | Membuat instance builder baru       |
+| `with_payer(keypair)`           | Menetapkan keypair payer kustom     |
+| `deploy_program(id, bytes)`     | Menambahkan program untuk di-deploy |
+| `build()`                       | Membangun AnchorContext             |
+| `build_with_program(id, bytes)` | Kemudahan untuk program tunggal     |
+| `build_with_programs(programs)` | Men-deploy beberapa program         |
+
+### AnchorContext
+
+| Method                               | Deskripsi                                                             |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `svm`                                | Akses langsung ke instance `LiteSVM` yang mendasarinya (field publik) |
+| `program_id`                         | ID program (field publik)                                             |
+| `program()`                          | Mengembalikan `Program` untuk pembuatan instruksi                     |
+| `payer()`                            | Mendapatkan keypair payer                                             |
+| `execute_instruction(ix, signers)`   | Mengeksekusi satu instruksi                                           |
+| `execute_instructions(ixs, signers)` | Mengeksekusi beberapa instruksi dalam satu transaksi                  |
+| `send_and_confirm_transaction(&tx)`  | Mengirim transaksi mentah                                             |
+| `get_account<T>(pubkey)`             | Mengambil dan mendeserialkan akun Anchor                              |
+| `get_account_unchecked<T>(pubkey)`   | Mengambil tanpa pemeriksaan discriminator                             |
+| `create_funded_account(lamports)`    | Membuat dan mendanai keypair baru                                     |
+| `airdrop(pubkey, lamports)`          | Melakukan airdrop SOL ke suatu alamat                                 |
+| `latest_blockhash()`                 | Mendapatkan blockhash saat ini                                        |
+| `account_exists(pubkey)`             | Memeriksa apakah suatu akun ada                                       |
+| `deploy_program(id, bytes)`          | Men-deploy program tambahan (melalui `ProgramTestExt`)                |
+
+### Program
+
+| Method               | Deskripsi                                                     |
+| -------------------- | ------------------------------------------------------------- |
+| `accounts(accounts)` | Menetapkan akun instruksi (tipe `ToAccountMetas` apa pun)     |
+| `args(args)`         | Menetapkan argumen instruksi (tipe `InstructionData` apa pun) |
+| `instruction()`      | Membangun `Instruction` akhir                                 |
+| `id()`               | Mendapatkan ID program                                        |
+
+### ctx.svm — TestHelpers & AssertionHelpers
+
+`ctx.svm` adalah field publik `LiteSVM` dengan trait `TestHelpers` dan
+`AssertionHelpers` yang tersedia melalui `litesvm-utils`:
+
+| Metode                                                    | Deskripsi                     |
+| --------------------------------------------------------- | ----------------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | Buat dan danai keypair        |
+| `ctx.svm.create_token_mint(authority, decimals)`          | Buat token mint SPL           |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | Buat ATA                      |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | Mint token                    |
+| `ctx.svm.get_pda(seeds, program_id)`                      | Dapatkan alamat PDA           |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | Dapatkan PDA dengan bump seed |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | Periksa saldo token           |
+| `ctx.svm.assert_account_closed(pubkey)`                   | Periksa akun telah ditutup    |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | Periksa saldo SOL             |
+
+## Pemecahan Masalah
+
+### Kesalahan Umum
+
+| Kesalahan                          | Penyebab                                     | Solusi                                                                                          |
+| ---------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `AccountNotFound`                  | Akun tidak ada                               | Pastikan akun dibuat sebelum diambil                                                            |
+| `DiscriminatorMismatch`            | Tipe akun salah                              | Verifikasi bahwa Anda menggunakan struct akun yang benar                                        |
+| `DeserializationError`             | Data akun tidak valid                        | Periksa apakah akun telah diinisialisasi dengan benar                                           |
+| Tidak ada program yang ditambahkan | Memanggil `build()` tanpa `deploy_program()` | Tambahkan setidaknya satu program sebelum membangun                                             |
+| Tipe klien tidak ditemukan         | `declare_program!` belum dipanggil           | Jalankan `anchor build` terlebih dahulu untuk menghasilkan IDL, lalu panggil `declare_program!` |

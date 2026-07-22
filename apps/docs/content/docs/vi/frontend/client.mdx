@@ -1,126 +1,170 @@
 ---
-title: "@solana/client"
+title: Bộ công cụ client
 description:
-  Xây dựng giao diện Solana gọn nhẹ với runtime client Solana headless.
+  Xây dựng một Solana client từ các plugin Kit cho RPC, ký và gửi giao dịch.
 ---
 
-`@solana/client` giữ cho bề mặt runtime gọn nhẹ. Một store, một RPC stack và một
-wallet registry cung cấp năng lượng cho các helper khác nhau để cùng một
-instance có thể hỗ trợ CLI, script hoặc UI đầy đủ. Action, watcher và helper đều
-chia sẻ cache, subscription và wallet session thông qua client duy nhất đó.
+`@solana/kit` cung cấp `createClient`, một host nhỏ mà bạn mở rộng bằng các
+plugin. Mỗi plugin bổ sung một khả năng — kết nối RPC, trình ký, lập kế hoạch
+giao dịch — và client được tổng hợp hỗ trợ các script, route server và giao diện
+người dùng như nhau.
 
 <Callout type="info">
-  Khi bạn đang xây dựng trải nghiệm React thuần túy, thường sẽ nhanh hơn khi bắt
-  đầu với [`@solana/react-hooks`](/docs/frontend/react-hooks). Package hook bao
-  bọc cùng runtime client này và cung cấp các hook sẵn sàng để bạn chỉ cần
-  chuyển xuống headless client khi cần kiểm soát thêm.
+  Đang xây dựng ứng dụng React? [Hướng dẫn React](/docs/frontend/react-hooks)
+  bọc cùng client này với `@solana/react` để các component đọc trạng thái ví và
+  dữ liệu RPC thông qua hook. Bắt đầu từ đó và quay lại đây khi bạn cần kiểm
+  soát chi tiết hơn.
 </Callout>
 
 ## Cài đặt
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Sử dụng bất kỳ package manager nào; client chạy trong browser, worker, React,
-Svelte hoặc runtime phía server.
+Sử dụng bất kỳ trình quản lý gói nào. Kit là v7+ và các gói
+`@solana/kit-plugin-*` là 0.13+.
 
-## Tạo client một lần
+## Tạo một client
 
-Chọn Wallet Standard connector (auto discovery là cách nhanh nhất để bắt đầu),
-sau đó tạo client. Object duy nhất này cung cấp store, action, watcher và
-helper.
+Kết hợp các plugin với `.use(...)`. Đặt trình ký trước, sau đó là kết nối RPC.
+`solanaDevnetRpc()` thêm `client.rpc`, các subscription, trình lập kế hoạch/thực
+thi giao dịch và helper `client.sendTransaction` — vì vậy một ứng dụng hiếm khi
+cần tự kết nối các thành phần đó.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-Client store theo dõi cấu hình cluster, subscription, giao dịch đang chờ xử lý
-và wallet session. Bạn có thể cung cấp Zustand store của riêng mình nếu cần
-persistence hoặc điều phối đa tab.
+Plugin `signer` đặt cả người trả phí lẫn danh tính ứng dụng. Gói RPC yêu cầu
+người trả phí phải được thiết lập trước, đó là lý do thứ tự quan trọng.
 
-## Điều phối wallet
+### Các biến thể của trình ký
 
-Connector đóng gói metadata Wallet Standard cùng với logic connect/disconnect.
-Đăng ký `phantom()`, `solflare()`, `backpack()` hoặc `autoDiscover()` helper
-tích hợp sẵn, hoặc bao bọc custom provider với `createWalletStandardConnector`.
-Tất cả wallet action (connect, disconnect, sign, send) đều chạy qua client
-registry để mọi consumer luôn đồng bộ.
+`@solana/kit-plugin-signer` cung cấp ba vai trò để bạn chỉ cấp quyền những gì
+client cần:
 
-## Action, watcher và helper
+- `signer(x)` — đặt cả `client.payer` và `client.identity`.
+- `payer(x)` — chỉ người trả phí.
+- `identity(x)` — chỉ quyền ứng dụng.
 
-- **Action** bao bọc các thao tác đọc và ghi RPC phổ biến trong khi cập nhật
-  store (ví dụ: `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **Watcher** ghép kênh websocket subscription, truyền update vào store và cung
-  cấp abort handle để dọn dẹp.
-- **Helper** cung cấp các luồng cấp cao hơn như chuyển SOL, SPL token helper,
-  signature polling và transaction pool.
+Mỗi cái có các biến thể `*FromFile(path)` (Node), `generated*()`,
+`generated*WithSol(amount)` và `airdrop*()` cho các bài kiểm tra và script.
+
+## Gửi một giao dịch
+
+Xây dựng các lệnh với một program client được tạo sẵn, sau đó chuyển chúng cho
+`client.sendTransaction`. Trình lập kế hoạch phân giải blockhash, ước tính
+compute, ký bằng người trả phí của client và gửi đi.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## Mẫu transaction helper
+`sendTransaction` phân giải thành một đối tượng kết quả; chữ ký giao dịch nằm
+tại `result.context.signature`. Nó khẳng định kế hoạch phù hợp với một giao dịch
+duy nhất và ném lỗi nếu không — sử dụng `sendTransactions` khi một lô có thể
+trải rộng trên nhiều giao dịch.
 
-Transaction helper quản lý việc làm mới blockhash, xác định fee payer và ký giao
-dịch. Bạn có thể chuẩn bị, kiểm tra và gửi với bất kỳ trải nghiệm người dùng nào
-bạn muốn.
+## Chọn một gói RPC
+
+`@solana/kit-plugin-rpc` cung cấp các cài đặt sẵn cho cluster:
+
+- `solanaDevnetRpc()` — mặc định devnet, bật airdrop (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; airdrop là lỗi biên dịch.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` cho validator cục bộ.
+- `solanaRpc({ rpcUrl })` — bất kỳ endpoint nào.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Sử dụng `prepareAndSend` cho luồng xử lý có sẵn (mô phỏng cộng với ghi log) hoặc
-gọi `sign` / `toWire` để thu thập chữ ký thủ công trước khi tự chuyển tiếp định
-dạng wire.
+### Kết hợp theo từng phần
 
-<Callout type="info">
-  Chạy headless — trong một API route, worker, hoặc script không có ví trình
-  duyệt? Hãy ký bằng dịch vụ quản lý khóa backend thay vì dùng keypair thô. Xem
-  [Keychain](/docs/tools/keychain) và [Ký trong Môi Trường
-  Production](/docs/core/transactions/signing-in-production).
+Các gói cài đặt sẵn đã bao gồm kết nối RPC, planner, executor và các trình trợ
+giúp gửi, vì vậy hầu hết các ứng dụng không cần dùng riêng từng thành phần. Chỉ
+chuyển sang các plugin chi tiết khi bạn cần tùy chỉnh một thành phần — ví dụ như
+một planner tùy chỉnh hoặc một kênh đăng ký khác. Cách này cũng cần
+`@solana/kit-plugin-instruction-plan`, vốn đã được các gói cài đặt sẵn tích hợp
+sẵn cho bạn:
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Thêm các client chương trình
+
+Các gói `@solana-program/*` được tạo tự động cung cấp các plugin client để các
+lệnh gọi chương trình được gắn vào client. Cài đặt chương trình bạn cần và
+`.use()` plugin của nó:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+<Callout type="warn" title="Phạm vi phụ thuộc ngang hàng">
+  Một số bản phát hành `@solana-program/*` vẫn khai báo peer `@solana/kit ^6.x`
+  trong khi Kit đang ở phiên bản 7.x. Chúng hoạt động với Kit 7 — hãy ghi đè
+  phạm vi peer trong trình quản lý gói của bạn nếu có cảnh báo.
 </Callout>
 
-## Các mẫu phổ biến cho các nhà phát triển Solana
+## Ký giao dịch không cần ví trình duyệt
 
-- **Máy trạng thái headless**: Chạy client bên trong các API route, script hoặc
-  worker để tái sử dụng cùng logic điều phối ví + RPC vốn đã cung cấp sức mạnh
-  cho giao diện người dùng của bạn.
-- **Bảng điều khiển thời gian thực**: Kết hợp các watcher (số dư, tài khoản, chữ
-  ký) với thư viện giao diện người dùng ưa thích của bạn; client xử lý việc phân
-  phối websocket và làm mới cache.
-- **Store tùy chỉnh**: Inject store Zustand của riêng bạn để hydrate từ
-  IndexedDB/localStorage, đồng bộ trạng thái với các phiên máy chủ, hoặc điều
-  phối giữa các tab trình duyệt.
-- **Cầu nối tới React hooks**: Truyền một client instance đã được cấu hình vào
-  `@solana/react-hooks` khi bạn muốn các hook tiện lợi trên cùng một runtime.
-- **Khả năng kiểm thử**: Giao diện client đơn nhất có thể được mock trong các
-  unit test, giúp dễ dàng mô phỏng các phản hồi RPC hoặc phiên ví mà không cần
-  ví trình duyệt.
+Đang chạy headless trong một API route, worker hoặc script? Hãy ký bằng dịch vụ
+quản lý khóa backend thay vì dùng keypair thô. Xem
+[Keychain](/docs/tools/keychain) và
+[Ký trong Môi trường Production](/docs/core/transactions/signing-in-production).
+
+## Các mẫu phổ biến dành cho lập trình viên Solana
+
+- **Thiết lập dùng chung**: Xây dựng client một lần trong một module cốt lõi và
+  nhập nó vào các script, server route và giao diện người dùng.
+- **Đọc phía server**: Một client chỉ với `signer` + `solanaRpc` (không có
+  plugin ví) có thể đọc tài khoản và mô phỏng giao dịch từ phía server.
+- **Kiểm thử cục bộ**: Thay gói RPC bằng `.use(litesvm())` từ
+  `@solana/kit-plugin-litesvm` để chạy với validator trong bộ nhớ (chỉ dành cho
+  Node).
+- **Khả năng kiểm thử**: Client được kết hợp rất dễ mock — stub các phản hồi RPC
+  hoặc signer mà không cần ví trình duyệt.

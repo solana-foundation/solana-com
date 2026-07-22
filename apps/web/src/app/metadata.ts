@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, publicUrl } = config;
@@ -19,12 +20,13 @@ export function getBaseMetadata(locale: string) {
     description: siteMetadata.description,
     openGraph: {
       type: "website",
-      images: [siteMetadata.socialShare],
+      images: [createDefaultSocialImage(siteMetadata.title)],
       locale,
     },
     twitter: {
       card: "summary_large_image",
       creator: siteMetadata.author,
+      images: [createDefaultSocialImage(siteMetadata.title)],
     },
     robots: "index, follow",
     manifest: "/site.webmanifest",

@@ -27,8 +27,8 @@ van de resulterende abonnements-PDA.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -140,6 +140,16 @@ De handelaar kan muteerbare planvelden bijwerken na aanmaak. Bestaande abonnees
 behouden de voorwaarden die zij hebben geaccepteerd, terwijl nieuwe abonnees de
 huidige planvoorwaarden accepteren.
 
+Een aantal regels zijn van toepassing:
+
+- Een eindige `endTs` kan alleen worden ingekort, nooit verlengd of gewist
+  (`PlanEndTsCannotExtend`).
+- Bij een `Sunset` plan kun je pullers verwijderen (de nieuwe set moet een
+  subset zijn van de huidige) om een gecompromitteerde puller in te trekken;
+  status, `endTs` en metadata blijven bevroren.
+- Wijzigingen werken tijdens de laatste factureringsperiode van een plan, zolang
+  `endTs` ongewijzigd blijft.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -174,9 +184,13 @@ huidige planvoorwaarden accepteren.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -313,10 +327,10 @@ afgeleid van de plan-PDA en het adres van de abonnee.
   </Tab>
 </Tabs>
 
-## Een betaling innen
+## Een Betaling Innen
 
-De handelaar of een gewhiteliste puller ondertekent de incasso. Wanneer het plan
-gebruikmaakt van een bestemmingsallowlist, moet de eigenaar van het ontvangende
+De merchant of een gewhitelistte puller ondertekent de inning. Wanneer het plan
+gebruikmaakt van een bestemming-allowlist, moet de eigenaar van de ontvanger
 token account worden vermeld in `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -364,11 +378,11 @@ token account worden vermeld in `destinations`.
   </Tab>
 </Tabs>
 
-## Annuleren en intrekken
+## Annuleren en Intrekken
 
-Annuleren markeert het abonnement als eindigend. Intrekken sluit de
-abonnements-PDA nadat de annuleringstermijn is verstreken. De abonnee
-ondertekent beide transacties.
+Annuleren markeert het abonnement als eindigend. Intrekken sluit de abonnements-
+PDA nadat de annuleringstermijn is verstreken. De abonnee ondertekent beide
+transacties.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -417,16 +431,59 @@ ondertekent beide transacties.
   </Tab>
 </Tabs>
 
+## Een Abonnement Hervatten
+
+Een geannuleerd abonnement kan opnieuw worden geactiveerd voordat het wordt
+ingetrokken. Zodra het is ingetrokken, wordt het abonnementsaccount gesloten en
+moet de abonnee [opnieuw abonneren](#subscribe). Hervatten vereist het
+`SubscriptionAuthority` van de abonnee voor de mint van het plan, dat het
+programma valideert (eigenaar, mint en `init_id`) en afwijst als het verouderd
+of opnieuw geïnitialiseerd is.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Opmerkingen
 
 - `amount` is in basiseenheden. Voor een token met 6 decimalen betekent
-  `5_000_000` eigenlijk `5` tokens.
-- De TypeScript SDK haalt live plantermen op tijdens `subscribe` wanneer je deze
-  weglaat.
-- De Rust `SubscribeBuilder` heeft de verwachte plantermen nodig. Haal eerst het
-  planaccount op en decodeer het, en geef die velden vervolgens door via
+  `5_000_000` `5` tokens.
+- De TypeScript SDK haalt live plantermijnen op tijdens `subscribe` wanneer u
+  deze weglaat.
+- De Rust `SubscribeBuilder` heeft de verwachte plantermijnen nodig. Haal het
+  planaccount op en decodeer het eerst, geef die velden vervolgens door via
   `SubscribeData`.
-- Alleen de merchant of een wallet die vermeld staat in `pullers` kan betalingen
-  innen.
-- De abonnee ondertekent setup-, cancel- en revoke-transacties. De merchant of
-  goedgekeurde puller ondertekent incassotransacties.
+- Alleen de handelaar of een wallet vermeld in `pullers` kan betalingen innen.
+- De abonnee ondertekent setup-, annulerings- en intrekkingstransacties. De
+  handelaar of goedgekeurde puller ondertekent incassotransacties.

@@ -1,0 +1,238 @@
+---
+title: はじめに
+description: LiteSVMと@solana/kitを使用した高速なインプロセスSolanaテスト
+---
+
+# TypeScript向けLiteSVM
+
+`solana-test-validator`を起動するSolanaテストスイートは、テストごとに数秒かかります —プロセスの起動、RPC接続、ネットワークのラウンドトリップを待つことになります。LiteSVMは同じテストをミリ秒単位で実行します。外部プロセス不要、ネットワーク不要、すべてテストランナー内のメモリ上で完結します。
+
+<Callout type="info">
+  **動作確認済みバージョン:**
+  `@solana/kit@6.8.0`、`@solana/kit-plugin-litesvm@0.10.0`、
+  `@solana/kit-plugin-signer@0.10.0`、`@solana-program/system@0.12.0`、
+  `@solana-program/token@0.13.0`。これらのプラグインパッケージは新しく、急速に進化しています
+  — バージョンの不一致が発生した場合は、
+  [`testing/package.json`](https://github.com/solana-foundation/litesvm-docs/blob/main/testing/package.json)
+  でドキュメントおよびテストスイートが使用する正確なバージョンをご確認ください。
+</Callout>
+
+`@solana/kit`からKitクライアントを構築するには、`.use()`を使ってプラグインをインストールします：signerプラグイン ([`@solana/kit-plugin-signer`](https://www.npmjs.com/package/@solana/kit-plugin-signer))、LiteSVMプラグイン ([`@solana/kit-plugin-litesvm`](https://www.npmjs.com/package/@solana/kit-plugin-litesvm))、そして必要なプログラムプラグイン。結果として、`client.sendTransaction()`、
+`client.rpc`、およびアカウントの状態、クロック、syvarsへの直接アクセスが公開されます —すべてプロセス内で完結します。
+
+## クイックスタート
+
+<Steps>
+
+<Step>
+### 依存関係のインストール
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/system
+```
+
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+### クライアントの作成
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+
+// Payer first, then the LiteSVM transport.
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Fund the payer
+client.svm.airdrop(client.payer.address, lamports(5_000_000_000n));
+
+// Check the balance
+const balance = client.svm.getBalance(client.payer.address);
+console.log("Balance:", balance, "lamports");
+```
+
+<Callout type="info">
+  `createClient()`は空のシェルを返します —
+  各`.use(plugin)`はそこに機能を追加していきます。`signer()`プラグインは`litesvm()`の**前に**記述する必要があります。
+  トランスポートプラグインがアタッチする支払者を必要とするためです。`signer(mySigner)`は、
+  同一のkeypairを`payer`と`identity`の両方として設定する省略形です —
+  それらの役割を分けたい場合は、同じパッケージの`payer()`または`identity()`を使用してください。
+  この順序は、実際のネットワーク上での`solanaRpc()`でも同様です。
+</Callout>
+
+<Callout type="info">
+  素早い試験用に1行でセットアップしたい場合は、`litesvm()`バンドルにエアドロップが含まれているため、
+  `@solana/kit-plugin-signer`から
+  `.use(generatedPayerWithSol(lamports(10_000_000_000n)))`をチェーンして、支払者を自動生成・入金することができます。
+</Callout>
+
+</Step>
+
+</Steps>
+
+## クライアントを理解する
+
+`.use(signer(...)).use(litesvm())` の後、クライアントは以下を公開します：
+
+| プロパティ                  | 説明                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.payer`              | `signer()` プラグインと共にインストールした `TransactionSigner`（`client.identity` としても設定されます）                                                                                                     |
+| `client.identity`           | アカウント、トークン、および権限を所有するウォレット署名者                                                                                                                                                    |
+| `client.svm`                | アカウント管理、トランザクション、および設定のための [`LiteSVM`](https://www.npmjs.com/package/litesvm) インスタンスへの直接アクセス                                                                          |
+| `client.rpc`                | Kit互換RPCインターフェース（サポート対象：`getAccountInfo`、`getBalance`、`getEpochSchedule`、`getLatestBlockhash`、`getMinimumBalanceForRentExemption`、`getMultipleAccounts`、`getSlot`、`requestAirdrop`） |
+| `client.sendTransaction(s)` | instructions をトランザクションとして計画、署名、送信する                                                                                                                                                     |
+| `client.airdrop`            | LiteSVMフォーセットからSOLをリクエストする                                                                                                                                                                    |
+| `client.getMinimumBalance`  | rent免除に必要な最小lamport数を計算する                                                                                                                                                                       |
+
+### client.svmの使用
+
+LiteSVMへの直接アクセスによる以下の操作：
+
+- アカウント管理（`setAccount`、`getAccount`、`airdrop`）
+- トランザクション実行（`sendTransaction`、`simulateTransaction`）
+- 設定（`withSigverify`、`withBlockhashCheck` など）
+- 時間操作（`warpToSlot`、`getClock`）
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Fund an account
+client.svm.airdrop(address, lamports(1_000_000_000n));
+
+// Set account state directly
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([1, 2, 3]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 3n
+});
+
+// Get the latest blockhash
+const blockhash = client.svm.latestBlockhash();
+```
+
+### client.rpcの使用
+
+標準操作向けのKit互換RPCインターフェース：
+
+```typescript
+// Get account info (returns base64-encoded data)
+const { value: account } = await client.rpc.getAccountInfo(address).send();
+
+// Get multiple accounts in one call
+const { value: accounts } = await client.rpc
+  .getMultipleAccounts([addr1, addr2, addr3])
+  .send();
+
+// Get latest blockhash
+const { value: blockhash } = await client.rpc.getLatestBlockhash().send();
+```
+
+<Callout type="warn">
+  RPCレイヤーは**base64エンコード**のみをサポートしています。他のエンコードをリクエストするとエラーが発生します。
+</Callout>
+
+## 設定
+
+`client.svm` のビルダーメソッドを使用してLiteSVMを設定します：
+
+```typescript
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Configure for testing
+client.svm
+  .withSigverify(false) // Skip signature verification
+  .withBlockhashCheck(false) // Skip blockhash validation
+  .withSysvars() // Enable Clock, Rent, etc.
+  .withBuiltins() // Enable ed25519, secp256k1
+  .withTransactionHistory(100n); // Store transaction history
+```
+
+## トランザクションの送信
+
+トランスポートの後にプログラムプラグインを追加します — これによりinstructionsビルダーがクライアントに紐付けられ、生の
+`TransactionMessage` を直接操作する必要がなくなります：
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { systemProgram } from "@solana-program/system";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(systemProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const recipient = await generateKeyPairSigner();
+
+// Build and send in one call
+await client.system.instructions
+  .transferSol({
+    source: client.payer,
+    destination: recipient.address,
+    amount: lamports(1_000_000_000n)
+  })
+  .sendTransaction();
+```
+
+## SVM → RPCフロー
+
+SVMでステートを設定し、RPCで読み取ることができます：
+
+```typescript
+import { address, lamports } from "@solana/kit";
+
+// Set account directly via SVM
+client.svm.setAccount({
+  address: myAddress,
+  data: new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
+  executable: false,
+  lamports: lamports(1_000_000n),
+  programAddress: address("11111111111111111111111111111111"),
+  space: 4n
+});
+
+// Read via RPC (returns base64-encoded data)
+const { value } = await client.rpc.getAccountInfo(myAddress).send();
+console.log("Data:", value?.data); // ['3q2+7w==', 'base64']
+```
+
+## 次のステップ
+
+ここではコアクライアントの基本的な使い方、すなわちアカウントの作成、instructionsの送信、およびステートの読み取りについて説明しました。テストにSPLトークン（ミント、ATA、転送）が含まれる場合は、[トークンテストガイド](/docs/tools/litesvm/typescript/tokens)で`tokenProgram()`
+プラグインが約40行のセットアップをわずか3つの呼び出しにまとめる方法を確認できます。完全なAPIリファレンスについては、[APIドキュメント](/docs/tools/litesvm/typescript/api-reference)をご覧ください。

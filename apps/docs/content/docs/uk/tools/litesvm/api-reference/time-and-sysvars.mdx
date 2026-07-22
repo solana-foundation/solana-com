@@ -1,0 +1,217 @@
+---
+title: Час і системні змінні
+description: Методи для маніпуляцій з часом та системними змінними
+---
+
+## Маніпуляції з часом
+
+### warp_to_slot
+
+```rust
+pub fn warp_to_slot(&mut self, slot: u64)
+```
+
+Перехід до певного slot. Підтримується лише переміщення вперед у часі.
+
+```rust
+// Get current slot
+let clock: Clock = svm.get_sysvar();
+let current_slot = clock.slot;
+
+// Jump forward 100 slots
+svm.warp_to_slot(current_slot + 100);
+
+// Verify
+let new_clock: Clock = svm.get_sysvar();
+assert_eq!(new_clock.slot, current_slot + 100);
+```
+
+### Ручне керування годинником
+
+```rust
+use solana_sdk::clock::Clock;
+
+// Read clock
+let mut clock: Clock = svm.get_sysvar();
+
+// Modify fields
+clock.slot = 1000;
+clock.epoch = 10;
+clock.unix_timestamp = 1735689600;
+
+// Write back
+svm.set_sysvar(&clock);
+```
+
+<Callout type="info">
+  Використовуйте `warp_to_slot()` для більшості маніпуляцій з часом. Ручне
+  змінення годинника застосовуйте лише тоді, коли потрібен точний контроль над
+  кількома полями.
+</Callout>
+
+## Системні змінні
+
+### get_sysvar
+
+```rust
+pub fn get_sysvar<T: Sysvar>(&self) -> T
+```
+
+Читання значення системної змінної.
+
+```rust
+use solana_sdk::clock::Clock;
+use solana_sdk::rent::Rent;
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let clock: Clock = svm.get_sysvar();
+let rent: Rent = svm.get_sysvar();
+let epoch_schedule: EpochSchedule = svm.get_sysvar();
+```
+
+### set_sysvar
+
+```rust
+pub fn set_sysvar<T: Sysvar>(&mut self, sysvar: &T)
+```
+
+Запис значення системної змінної.
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent = Rent {
+    lamports_per_byte_year: 3480,
+    exemption_threshold: 2.0,
+    burn_percent: 50,
+};
+
+svm.set_sysvar(&rent);
+```
+
+## Загальні системні змінні
+
+### Clock
+
+```rust
+use solana_sdk::clock::Clock;
+
+let clock: Clock = svm.get_sysvar();
+println!("Slot: {}", clock.slot);
+println!("Timestamp: {}", clock.unix_timestamp);
+println!("Epoch: {}", clock.epoch);
+```
+
+### Rent
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent: Rent = svm.get_sysvar();
+let min_balance = rent.minimum_balance(data_len);
+```
+
+### Epoch Schedule
+
+```rust
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let schedule: EpochSchedule = svm.get_sysvar();
+println!("Slots per epoch: {}", schedule.slots_per_epoch);
+```
+
+### Історія стейкингу
+
+```rust
+use solana_sdk::stake_history::{StakeHistory, StakeHistoryEntry};
+
+let mut stake_history = StakeHistory::default();
+stake_history.add(
+    0, // epoch
+    StakeHistoryEntry {
+        effective: 1_000_000,
+        activating: 0,
+        deactivating: 0,
+    },
+);
+
+svm.set_sysvar(&stake_history);
+```
+
+## Патерни тестування на основі часу
+
+### Тестування функцій на основі slot
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get starting slot
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Try action before unlock slot (should fail)
+let result = call_locked_program(&mut svm);
+assert!(result.is_err());
+
+// Warp to unlock slot
+svm.warp_to_slot(start_slot + 1000);
+
+// Now it should succeed
+let result = call_locked_program(&mut svm);
+assert!(result.is_ok());
+```
+
+### Тестування функцій на основі часових міток
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get current timestamp
+let clock: Clock = svm.get_sysvar();
+let current_time = clock.unix_timestamp;
+
+// Warp forward 1 hour (3600 seconds)
+// Slots roughly correspond to ~0.4 seconds on Solana
+let target_slot = clock.slot + (3600.0 / 0.4) as u64;
+svm.warp_to_slot(target_slot);
+
+// Verify timestamp increased
+let new_clock: Clock = svm.get_sysvar();
+assert!(new_clock.unix_timestamp >= current_time + 3600);
+```
+
+### Тестування розкладів вестингу
+
+```rust
+// Setup vesting with 100 slot period
+let vesting_period = 100;
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Test before vesting completes
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_err()); // Too early
+
+// Warp past vesting period
+svm.warp_to_slot(start_slot + vesting_period + 1);
+
+// Now claim should succeed
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_ok());
+```
+
+## Поширені випадки використання
+
+- Розклади вестингу
+- Виведення коштів із часовим блокуванням
+- Періоди кулдауну для стейкингу/анстейкингу
+- Час завершення аукціону
+- Періоди оренди
+- Винагороди на основі епох
+
+## Важливі примітки
+
+1. **Тільки вперед** - Переміщення в часі можливе лише вперед, але не назад
+2. **Slot до часу** - Slot приблизно відповідає ~0.4 секунди в мережі Solana
+   mainnet
+3. **Clock sysvar** - Завжди оновлюється при використанні `warp_to_slot()`
+4. **Без автоматичних оновлень** - На відміну від реальних validator, час не
+   просувається автоматично між транзакціями

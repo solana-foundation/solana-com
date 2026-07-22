@@ -22,6 +22,7 @@ import { byreal } from "./records/byreal";
 import { cherryServers } from "./records/cherry-servers";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
+import { colosseum } from "./records/colosseum";
 import { comicbook } from "./records/comicbook";
 import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
@@ -56,6 +57,7 @@ import { meta } from "./records/meta";
 import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
+import { nodit } from "./records/nodit";
 import { openmined } from "./records/openmined";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
@@ -75,6 +77,7 @@ import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sanctum } from "./records/sanctum";
+import { sec3 } from "./records/sec3";
 import { sidley } from "./records/sidley";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
@@ -130,6 +133,7 @@ export const companies = [
   cherryServers,
   citi,
   coinbase,
+  colosseum,
   comicbook,
   d3,
   dabba,
@@ -164,6 +168,7 @@ export const companies = [
   metaplex,
   monkeDao,
   morganStanley,
+  nodit,
   openmined,
   orbitflare,
   osl,
@@ -183,6 +188,7 @@ export const companies = [
   ryder,
   safepalWallet,
   sanctum,
+  sec3,
   sidley,
   societeGenerale,
   sofi,

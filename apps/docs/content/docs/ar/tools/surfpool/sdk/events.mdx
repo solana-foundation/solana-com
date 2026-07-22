@@ -1,0 +1,203 @@
+---
+title: أحداث وقت التشغيل
+description:
+  راقب المعاملات، ونبضات slot، وبث الحسابات، وأخطاء وقت التشغيل من داخل
+  الاختبار. تعرض Rust قناة؛ وتعرض JS طريقة تصريف.
+---
+
+يُصدر وقت تشغيل Surfnet تدفقًا من الأحداث المنظمة التي تغطي معالجة المعاملات،
+ونبضات slot، وبث الحسابات، والتنقل عبر الزمن، والأخطاء. يعرض SDK هذا التدفق حتى
+تتمكن الاختبارات من التحقق من سلوك وقت التشغيل دون تحليل السجلات.
+
+## Rust: مستقبل القناة
+
+يُعيد `Surfnet::events()` مرجعًا إلى `crossbeam_channel::Receiver<SimnetEvent>`
+الذي ينشر إليه وقت التشغيل. قم بتصريفه باستخدام `try_iter()` (غير محظور) أو اقرأ
+الأحداث الفردية باستخدام `recv()` / `recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="المستقبل مشترك">
+  إذا أطلقت مهمة خلفية لاستهلاك الأحداث، فلا تستدعِ `try_iter` من الخيط الرئيسي
+  أيضًا. سيتم توزيع الأحداث بشكل غير متوقع بين المستهلكَين.
+</Callout>
+
+## JS: طريقة التصريف
+
+تقوم روابط JS بتخزين الأحداث داخليًا وعرضها من خلال `drainEvents`. تُعيد كل
+استدعاء ما تراكم منذ الاستدعاء السابق، ثم تمسح المخزن المؤقت.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="مخزن مؤقت غير محدود">
+  إذا لم تستدعِ `drainEvents` أبدًا، فسينمو المخزن المؤقت طوال عمر المثيل. هذا
+  مقبول للاختبارات القصيرة، لكن استدعِه دوريًا للتركيبات طويلة الأمد حتى لا
+  تتضخم الذاكرة.
+</Callout>
+
+## شكل SimnetEventValue (JS)
+
+نوع حدث JS هو كائن مسطح يحتوي على مُميِّز `kind` وحقول اختيارية. ليس كل حقل
+مُعيَّنًا في كل متغير — قم بالتفكيك استنادًا إلى `kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## أنواع الأحداث
+
+سلاسل النوع في جانب JS تكون بصيغة camelCase؛ بينما يستخدم متغير Rust المقابل
+صيغة PascalCase. طابق على هذه السلاسل بالضبط — فهي حساسة لحالة الأحرف وثابتة عبر
+الإصدارات.
+
+| JS `kind`                                       | متغير Rust                                                   | يُصدَر عند                                                                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | ينتهي وقت التشغيل من التهيئة؛ يحمل `initialTransactionCount`.                                                                |
+| `connected`                                     | `SimnetEvent::Connected`                                     | اتصل بـ RPC البعيد الأعلى؛ يحمل `message` (عنوان URL).                                                                       |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | تم إلغاء التشغيل؛ يحمل `message` (السبب).                                                                                    |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | يبدأ إيقاف تشغيل سلس.                                                                                                        |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | تقدّمت ساعة النظام؛ يحمل `clock`.                                                                                            |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | نُفِّذ أمر ساعة (إيقاف مؤقت/استئناف/تحديث الفاصل الزمني)؛ يحمل `clockCommand` واختياريًا `slotIntervalMs`.                   |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | لقطة معلومات epoch جديدة متاحة؛ تحمل `epochInfo`.                                                                            |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | انتهت صلاحية تجزئة كتلة كانت قيد الاستخدام.                                                                                  |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | تمت إضافة معاملة إلى قائمة الانتظار؛ يحمل `timestamp`، `transactionSignature`.                                               |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | نُفِّذت معاملة؛ يحمل `timestamp`، `transactionSignature`، `logs`، `computeUnitsConsumed`، `fee`، و `errorMessage` عند الفشل. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | تغيّر حساب — يشمل الحسابات المبثوثة والتعديلات المدفوعة بـ cheatcode؛ يحمل `timestamp` و `accountPubkey`.                    |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | أصدر وقت التشغيل سطر سجل؛ يحمل `timestamp` و `message`.                                                                      |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | تم تحميل إضافة Geyser؛ يحمل `message` (اسم الإضافة).                                                                         |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | تم وضع علامة على نتيجة ملف تعريف؛ يحمل `tag`، `profileKey`، `profileSlot`، `logs`، `computeUnitsConsumed`.                   |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | بدأ دفتر تشغيل أو انتهى؛ يحمل `runbookId` و(عند الاكتمال) `runbookErrors` الاختيارية.                                        |
+
+## أنماط التحقق
+
+### التحقق من تنفيذ معاملة
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### التحقق من غياب أخطاء وقت التشغيل
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## لماذا الأحداث أفضل من تحليل السجلات
+
+<Callout type="info" title="استخدم تدفق الأحداث بدلاً من stdout">
+يُصدر وقت التشغيل أحداثاً منظّمة عبر `tracing`، وقد يكون من المغري التقاطها وتحليلها من stdout. لا تفعل ذلك. تدفق الأحداث المنظّم:
+
+- **يصمد أمام تغييرات مستوى السجل** — تُصدَر الأحداث بصرف النظر عن `RUST_LOG`.
+- **يأتي مع حمولات مُكتَّبة** — لا حاجة لتحليل النصوص، ولا تغيّر في التنسيق بين
+  الإصدارات.
+- **يمتلك أنواعاً ثابتة** — أسطر السجل مُنسَّقة للبشر وتتغيّر بحرية؛ أما أنواع
+  الأحداث فهي جزء من عقد SDK.
+
+</Callout>

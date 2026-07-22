@@ -26,8 +26,8 @@ dari PDA langganan yang dihasilkan.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -139,6 +139,16 @@ Pedagang dapat memperbarui kolom paket yang dapat diubah setelah pembuatan.
 Pelanggan yang sudah ada tetap mempertahankan ketentuan yang telah mereka
 terima, sementara pelanggan baru menerima ketentuan paket saat ini.
 
+Beberapa aturan berlaku:
+
+- `endTs` yang terbatas hanya dapat dipersingkat, tidak pernah diperpanjang atau
+  dihapus (`PlanEndTsCannotExtend`).
+- Pada paket `Sunset`, Anda dapat menghapus puller (set baru harus merupakan
+  subset dari yang saat ini ada) untuk mencabut puller yang telah dikompromikan;
+  status, `endTs`, dan metadata tetap dibekukan.
+- Pengeditan berfungsi selama periode penagihan terakhir suatu paket selama
+  `endTs` tidak berubah.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -173,9 +183,13 @@ terima, sementara pelanggan baru menerima ketentuan paket saat ini.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -312,11 +326,11 @@ paket dan alamat pelanggan.
   </Tab>
 </Tabs>
 
-## Mengumpulkan Pembayaran
+## Kumpulkan Pembayaran
 
-Pedagang atau penarik yang masuk daftar putih menandatangani pengumpulan. Ketika
+Merchant atau puller yang masuk daftar putih menandatangani pengumpulan. Ketika
 paket menggunakan daftar izin tujuan, pemilik token account penerima harus
-terdaftar dalam `destinations`.
+tercantum dalam `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -363,11 +377,11 @@ terdaftar dalam `destinations`.
   </Tab>
 </Tabs>
 
-## Membatalkan Dan Mencabut
+## Batalkan Dan Cabut
 
-Pembatalan menandai langganan sebagai berakhir. Pencabutan menutup PDA langganan
-setelah masa berlaku pembatalan telah lewat. Pelanggan menandatangani kedua
-transaksi.
+Pembatalan menandai langganan sebagai akan berakhir. Pencabutan menutup PDA
+langganan setelah masa berlaku pembatalan habis. Pelanggan menandatangani kedua
+transaksi tersebut.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -416,16 +430,59 @@ transaksi.
   </Tab>
 </Tabs>
 
+## Lanjutkan Langganan
+
+Langganan yang dibatalkan dapat diaktifkan kembali sebelum dicabut. Setelah
+dicabut, akun langganan ditutup dan pelanggan harus [berlangganan](#subscribe)
+kembali. Melanjutkan memerlukan `SubscriptionAuthority` milik pelanggan untuk
+mint paket, yang divalidasi oleh program (pemilik, mint, dan `init_id`) dan
+ditolak jika sudah kedaluwarsa atau diinisialisasi ulang.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Catatan
 
-- `amount` dalam unit dasar. Untuk token 6-desimal, `5_000_000` berarti `5`
+- `amount` dalam satuan dasar. Untuk token 6 desimal, `5_000_000` berarti `5`
   token.
 - TypeScript SDK mengambil ketentuan paket secara langsung selama `subscribe`
-  ketika Anda tidak menyertakannya.
-- Rust `SubscribeBuilder` memerlukan ketentuan paket yang diharapkan. Ambil dan
-  decode akun paket terlebih dahulu, lalu teruskan field tersebut melalui
+  apabila Anda tidak menyertakannya.
+- `SubscribeBuilder` Rust memerlukan ketentuan paket yang diharapkan. Ambil dan
+  dekode akun paket terlebih dahulu, lalu teruskan kolom-kolom tersebut melalui
   `SubscribeData`.
 - Hanya merchant atau dompet yang terdaftar di `pullers` yang dapat mengumpulkan
   pembayaran.
-- Subscriber menandatangani transaksi setup, cancel, dan revoke. Merchant atau
-  puller yang disetujui menandatangani transaksi pengumpulan.
+- Pelanggan menandatangani transaksi pengaturan, pembatalan, dan pencabutan.
+  Merchant atau puller yang disetujui menandatangani transaksi pengumpulan.

@@ -26,7 +26,7 @@ export const CAMPAIGNS: Campaign[] = [
   {
     id: "epoch1000",
     start: "2026-07-09",
-    end: "2026-07-17",
+    end: "2026-07-15",
   },
 ];
 

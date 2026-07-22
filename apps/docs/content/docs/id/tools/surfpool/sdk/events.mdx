@@ -1,0 +1,210 @@
+---
+title: Event Runtime
+description:
+  Amati transaksi, tick slot, streaming akun, dan error runtime dari dalam
+  sebuah pengujian. Rust mengekspos sebuah channel; JS mengekspos metode drain.
+---
+
+Runtime Surfnet memancarkan aliran event terstruktur yang mencakup pemrosesan
+transaksi, tick slot, streaming akun, perjalanan waktu, dan error. SDK
+mengekspos aliran ini sehingga pengujian dapat memverifikasi perilaku runtime
+tanpa mengurai log.
+
+## Rust: Channel Receiver
+
+`Surfnet::events()` mengembalikan referensi ke
+`crossbeam_channel::Receiver<SimnetEvent>` yang dipublikasikan oleh runtime.
+Kosongkan dengan `try_iter()` (non-blocking) atau baca event satu per satu
+dengan `recv()` / `recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Receiver dibagi bersama">
+  Jika Anda menjalankan task latar belakang untuk mengonsumsi event, jangan juga
+  memanggil `try_iter` dari thread utama. Event akan terbagi secara tidak
+  terduga antara kedua konsumen.
+</Callout>
+
+## JS: Metode Drain
+
+Binding JS menyangga event secara internal dan mengeksposnya melalui
+`drainEvents`. Setiap pemanggilan mengembalikan semua yang telah terakumulasi
+sejak pemanggilan sebelumnya, lalu mengosongkan buffer.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Buffer tidak terbatas">
+  Jika Anda tidak pernah memanggil `drainEvents`, buffer akan terus bertambah
+  selama masa instance berlangsung. Hal ini tidak masalah untuk pengujian
+  singkat, namun panggil secara berkala untuk fixture yang berjalan lama agar
+  memori tidak membengkak.
+</Callout>
+
+## Bentuk SimnetEventValue (JS)
+
+Tipe event JS adalah objek datar dengan diskriminator `kind` dan field opsional.
+Tidak setiap field diisi pada setiap varian — destrukturisasi berdasarkan
+`kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Jenis Event
+
+String kind di sisi JS menggunakan camelCase; varian Rust yang bersesuaian
+menggunakan PascalCase. Cocokkan dengan string yang tepat ini — string ini peka
+huruf besar/kecil dan stabil di seluruh versi.
+
+| JS `kind`                                       | Varian Rust                                                  | Dipancarkan ketika                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Runtime selesai melakukan booting; membawa `initialTransactionCount`.                                                                           |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Terhubung ke RPC remote upstream; membawa `message` (URL).                                                                                      |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Startup dibatalkan; membawa `message` (alasannya).                                                                                              |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Proses shutdown yang teratur dimulai.                                                                                                           |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Jam sistem maju; membawa `clock`.                                                                                                               |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Perintah jam dijalankan (pause/resume/update interval); membawa `clockCommand` dan opsional `slotIntervalMs`.                                   |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Snapshot info epoch baru tersedia; membawa `epochInfo`.                                                                                         |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Sebuah blockhash yang sedang digunakan telah kedaluwarsa.                                                                                       |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Sebuah transaksi diantrekan; membawa `timestamp`, `transactionSignature`.                                                                       |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Sebuah transaksi dieksekusi; membawa `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee`, dan `errorMessage` saat gagal. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Sebuah akun berubah — mencakup akun yang di-stream dan mutasi yang digerakkan oleh cheatcode; membawa `timestamp` dan `accountPubkey`.          |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Runtime memancarkan baris log; membawa `timestamp` dan `message`.                                                                               |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Plugin Geyser dimuat; membawa `message` (nama plugin).                                                                                          |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Hasil profiler diberi tag; membawa `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                                          |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Sebuah runbook dimulai atau selesai; membawa `runbookId` dan (saat selesai) opsional `runbookErrors`.                                           |
+
+## Pola Assertion
+
+### Memastikan Transaksi Berhasil Dikirim
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Memastikan Tidak Ada Error Runtime
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Mengapa Event Lebih Baik dari Parsing Log
+
+<Callout type="info" title="Gunakan aliran event daripada stdout">
+Runtime mencetak event terstruktur melalui `tracing`, yang mungkin terasa menggoda untuk ditangkap dan di-parse dari stdout. Jangan lakukan itu. Aliran event terstruktur:
+
+- **Tetap berfungsi meski level log berubah** — event dipancarkan terlepas dari
+  `RUST_LOG`.
+- **Hadir dengan payload bertipe** — tidak ada parsing string, tidak ada
+  perubahan format antar versi.
+- **Memiliki jenis yang stabil** — baris log diformat untuk manusia dan dapat
+  berubah sewaktu-waktu; jenis event adalah bagian dari kontrak SDK.
+
+</Callout>

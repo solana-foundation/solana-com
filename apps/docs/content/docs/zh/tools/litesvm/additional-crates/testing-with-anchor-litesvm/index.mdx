@@ -1,0 +1,276 @@
+---
+title: 快速入门
+description: 了解如何使用 anchor-litesvm 以简化语法测试 Anchor 程序
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    在 crates.io 上查看 <code>anchor-litesvm</code>
+  </a>
+</div>
+
+## 安装
+
+添加所需依赖项：
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## 什么是 anchor-litesvm？
+
+`anchor-litesvm`
+crate 提供了**类似于 anchor-client 的简化语法**，但无需 RPC 开销。与原始 LiteSVM 相比，它实现了
+**78% 的代码量削减**，同时借助 Anchor 类型保持类型安全。
+
+<Steps>
+<Step>
+**AnchorContext**
+- 兼容生产环境的测试上下文
+- 与 anchor-client 相同的 API 模式
+- 管理 LiteSVM 实例、付款方和程序
+- 无需 RPC 开销即可执行指令
+</Step>
+
+<Step>
+  **Program API** - 流畅的指令构建 - 类型安全的账户与参数处理 - 熟悉的
+  anchor-client 语法
+</Step>
+
+<Step>
+  **账户反序列化** - 获取并反序列化 Anchor 账户 - 自动处理鉴别器 - 支持 PDA
+  和自定义布局
+</Step>
+
+<Step>
+**事件解析**
+- 从交易日志中解析事件
+- 断言事件触发
+- 类型安全的事件反序列化
+</Step>
+</Steps>
+
+## 快速示例
+
+使用 Anchor 1.0 时，通过 `declare_program!`
+从程序的 IDL 生成客户端类型。该宏会创建 `client::accounts::*` 和
+`client::args::*` 模块，用于类型安全的指令构建：
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  `declare_program!(my_program)` 在编译时从 `target/idl/my_program.json` 读取
+  IDL，并生成 `client::accounts::*` 和 `client::args::*`
+  模块。这需要先构建您的程序。
+</Callout>
+
+## 比较：原始 LiteSVM 与 anchor-litesvm
+
+### 之前（原始 LiteSVM）
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### 之后（anchor-litesvm）
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## 核心组件
+
+### AnchorLiteSVM 构建器
+
+| 方法                            | 描述                     |
+| ------------------------------- | ------------------------ |
+| `new()`                         | 创建新的构建器实例       |
+| `with_payer(keypair)`           | 设置自定义付款方 keypair |
+| `deploy_program(id, bytes)`     | 添加要部署的程序         |
+| `build()`                       | 构建 AnchorContext       |
+| `build_with_program(id, bytes)` | 单程序部署的便捷方法     |
+| `build_with_programs(programs)` | 部署多个程序             |
+
+### AnchorContext
+
+| 方法                                 | 描述                                    |
+| ------------------------------------ | --------------------------------------- |
+| `svm`                                | 直接访问底层 `LiteSVM` 实例（公共字段） |
+| `program_id`                         | 程序 ID（公共字段）                     |
+| `program()`                          | 返回用于构建指令的 `Program`            |
+| `payer()`                            | 获取付款方 `Keypair`                    |
+| `execute_instruction(ix, signers)`   | 执行单条指令                            |
+| `execute_instructions(ixs, signers)` | 在一个交易中执行多条指令                |
+| `send_and_confirm_transaction(&tx)`  | 发送原始交易                            |
+| `get_account<T>(pubkey)`             | 获取并反序列化 Anchor 账户              |
+| `get_account_unchecked<T>(pubkey)`   | 不进行鉴别器检查的获取操作              |
+| `create_funded_account(lamports)`    | 创建并充值新的 keypair                  |
+| `airdrop(pubkey, lamports)`          | 向某地址空投 SOL                        |
+| `latest_blockhash()`                 | 获取当前区块哈希                        |
+| `account_exists(pubkey)`             | 检查账户是否存在                        |
+| `deploy_program(id, bytes)`          | 部署额外程序（通过 `ProgramTestExt`）   |
+
+### Program
+
+| 方法                 | 描述                                        |
+| -------------------- | ------------------------------------------- |
+| `accounts(accounts)` | 设置指令账户（任意 `ToAccountMetas` 类型）  |
+| `args(args)`         | 设置指令参数（任意 `InstructionData` 类型） |
+| `instruction()`      | 构建最终的 `Instruction`                    |
+| `id()`               | 获取程序 ID                                 |
+
+### ctx.svm — TestHelpers 与 AssertionHelpers
+
+`ctx.svm` 是一个公共 `LiteSVM` 字段，通过 `litesvm-utils` 提供 `TestHelpers` 和
+`AssertionHelpers` trait：
+
+| 方法                                                      | 描述                    |
+| --------------------------------------------------------- | ----------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | 创建并为 keypair 充值   |
+| `ctx.svm.create_token_mint(authority, decimals)`          | 创建 SPL 代币铸造账户   |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | 创建 ATA                |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | 铸造代币                |
+| `ctx.svm.get_pda(seeds, program_id)`                      | 派生 PDA 地址           |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | 派生带 bump seed 的 PDA |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | 断言代币余额            |
+| `ctx.svm.assert_account_closed(pubkey)`                   | 断言账户已关闭          |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | 断言 SOL 余额           |
+
+## 故障排查
+
+### 常见错误
+
+| 错误                    | 原因                                                 | 解决方案                                                      |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| `AccountNotFound`       | 账户不存在                                           | 确保在获取账户之前已创建该账户                                |
+| `DiscriminatorMismatch` | 账户类型错误                                         | 验证您使用的是正确的账户结构体                                |
+| `DeserializationError`  | 账户数据无效                                         | 检查账户是否已正确初始化                                      |
+| 未添加任何程序          | 在未调用 `deploy_program()` 的情况下调用了 `build()` | 在构建之前至少添加一个程序                                    |
+| 缺少客户端类型          | 未调用 `declare_program!`                            | 先运行 `anchor build` 以生成 IDL，然后调用 `declare_program!` |
