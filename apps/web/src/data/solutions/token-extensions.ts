@@ -23,6 +23,6 @@ export const CARD_IMAGES = [
 export const CARD_URLS = [
   "https://solana.com/news/token-extensions-on-solana",
   "https://solana.com/news/token-extensions-developer-guide",
-  "https://solana.com/developers/guides/token-extensions/getting-started",
+  "https://solana.com/docs/tokens/extensions",
   "https://www.youtube.com/playlist?list=PLilwLeBwGuK6imBuGLSLmzMEyj6yVHGDO",
 ];

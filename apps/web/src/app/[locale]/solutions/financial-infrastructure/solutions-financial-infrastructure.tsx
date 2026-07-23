@@ -174,7 +174,7 @@ export function SolutionsFinancialInfrastructurePage() {
               src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
-              url: "/developers/guides/getstarted/hello-world-in-your-browser",
+              url: "/docs/intro/quick-start",
               endIcon: "arrow-right",
               hierarchy: "outline",
             },
