@@ -9,6 +9,7 @@ import { Gallery } from "./ui/gallery";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
 import { Latex } from "./latex";
+import { ArticleFigure } from "./article-figure";
 
 // Block types for post body templates
 type VideoBlockData = {
@@ -603,6 +604,7 @@ export const mdxComponents = {
   Newslettersignup: NewslettersignupBlock,
   Footnotes: FootnotesBlock,
   Sup: SupBlock,
+  Figure: ArticleFigure,
   Latex: LatexBlock,
   InlineLatex,
   // Lowercase overrides for markdown-generated elements
