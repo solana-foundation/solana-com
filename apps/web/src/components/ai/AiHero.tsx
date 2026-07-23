@@ -30,12 +30,7 @@ export default function AiHero() {
           <div className={classNames("lg:w-3/4", styles["hero__points"])}>
             <p className="mb-0">{t("ai.hero.point-3")}</p>
           </div>
-          <Button
-            newTab
-            size="large"
-            to="/developers/guides/getstarted/intro-to-ai"
-            variant="secondary"
-          >
+          <Button newTab size="large" to="/docs/tools/ai" variant="secondary">
             {t("ai.hero.cta")}
           </Button>
         </div>

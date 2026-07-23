@@ -406,7 +406,7 @@ const navigationHubStaticConfigs = {
             href: "/rpc",
           },
           {
-            href: "/developers/guides",
+            href: "/docs/tools",
           },
         ],
       },
