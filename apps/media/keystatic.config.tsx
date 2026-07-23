@@ -24,13 +24,16 @@ const localStorage: LocalConfig["storage"] = {
   kind: "local",
 };
 
-const githubStorage: GitHubConfig["storage"] = {
+export const githubStorage: GitHubConfig["storage"] = {
   kind: "github",
   repo: {
     owner: "solana-foundation",
     name: "solana-com",
   },
-  branchPrefix: "staging",
+  // Keep content work isolated to one branch per article or content batch.
+  // Keystatic prepends this value when creating a branch and only lists
+  // matching branches (plus the repository's default branch).
+  branchPrefix: "staging-",
   pathPrefix: "apps/media",
 };
 

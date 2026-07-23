@@ -75,14 +75,34 @@ access the site through `solana.com`.
    KEYSTATIC_GITHUB_CLIENT_ID=your_client_id
    KEYSTATIC_GITHUB_CLIENT_SECRET=your_client_secret
    KEYSTATIC_SECRET=your_random_secret
-
-   # Or use local mode
-   NEXT_PUBLIC_KEYSTATIC_LOCAL=true
+   NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG=your_app_slug
 
    # Vercel (auto-set)
    VERCEL_ENV=production
    VERCEL_URL=solana-com-media.vercel.app
    ```
+
+   Do not set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` in Vercel. That flag is for
+   local filesystem development only.
+
+4. **Verify the Keystatic GitHub App:**
+   - The app is installed for `solana-foundation/solana-com`.
+   - Repository permissions include **Contents: Read and write**, **Pull
+     requests: Read and write**, and **Metadata: Read-only**.
+   - The production callback URL is
+     `https://solana-com-media.vercel.app/api/keystatic/github/oauth/callback`.
+   - Content writers have the repository's **Write** role. Read or Triage access
+     cannot create branches.
+   - Repository rules allow creation of `staging-*` branches while requiring
+     Pull Requests for changes to `main`.
+   - For production ownership continuity, the GitHub App registration is owned
+     by `solana-foundation` and has designated App managers rather than
+     depending on one person's account.
+
+   If permissions, repository access, or organization integration policies
+   change, an organization owner may need to approve the updated installation.
+   After approval, writers should log out of Keystatic and authorize the app
+   again so their user token reflects the current access.
 
 ### Deploying Updates
 
