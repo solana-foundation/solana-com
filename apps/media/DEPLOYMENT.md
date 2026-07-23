@@ -209,6 +209,19 @@ paths—no URL rewriting needed.
 
 ## Troubleshooting
 
+### Issue: The New branch button does not open or create a branch
+
+**Solution:**
+
+1. Keep `@keystatic/core` 0.6.x paired with `@keystar/ui` 0.8.x. Keystatic 0.6
+   updates the UI and React Aria stack used by the branch dialog.
+2. Run `pnpm --filter solana-com-media test:keystatic-branches` to verify that
+   the dialog opens, non-`staging-*` branches are filtered out, and the GitHub
+   `createRef` request starts from `main`.
+3. If the dialog opens but GitHub rejects the request, verify the GitHub App
+   installation and writer permissions described above, then have the writer
+   sign out and authorize the app again.
+
 ### Issue: 404 on solana.com/news or solana.com/podcasts
 
 **Solution:** Check that:
