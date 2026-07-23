@@ -98,8 +98,36 @@ doesn't silently skip the hook.
 ## Detecting the extension
 
 Check the mint for the `TransferHook` extension before building a transfer.
-`getTransferHook` returns the configured hook program address, or `null` if the
-mint doesn't have one:
+
+### Kit
+
+`@solana-program/token-2022` decodes the mint's extensions directly; filter for
+the `TransferHook` variant:
+
+```ts title="detect-transfer-hook-kit.ts"
+import {
+  fetchMint,
+  isExtension,
+  unwrapOption
+} from "@solana-program/token-2022";
+
+const mint = await fetchMint(rpc, mintAddress);
+
+const transferHook = (unwrapOption(mint.data.extensions) ?? []).find((item) =>
+  isExtension("TransferHook", item)
+);
+
+if (transferHook) {
+  // This mint requires extra accounts on every transfer.
+  // transferHook.programId is the hook program to resolve accounts against.
+}
+```
+
+### Web3.js
+
+The legacy `@solana/spl-token` client exposes a dedicated helper,
+`getTransferHook`, that returns the configured hook program address, or `null`
+if the mint doesn't have one:
 
 ```ts title="detect-transfer-hook.ts"
 import {
@@ -159,9 +187,41 @@ the transfer's own accounts (for example, the source token account's owner).
 Resolving the data-seeded case requires fetching account data over RPC, which is
 why resolution is asynchronous and can take more than one round trip.
 
-You don't need to implement this resolution by hand. The high-level helper
-builds the base `TransferChecked` instruction, fetches the
-`ExtraAccountMetaList`, resolves every entry, and appends them in order:
+### Kit
+
+`@solana-program/token-2022` builds the base `TransferChecked` instruction via
+`getTransferCheckedInstruction`, but as of this writing it doesn't ship an
+`ExtraAccountMetaList` decoder or resolver, only the low-level
+`initializeTransferHook` / `updateTransferHook` instruction builders an issuer
+uses to configure the hook:
+
+```ts title="build-transfer-kit.ts"
+import { getTransferCheckedInstruction } from "@solana-program/token-2022";
+
+const instruction = getTransferCheckedInstruction({
+  source: sourceTokenAccount,
+  mint: mintAddress,
+  destination: destinationTokenAccount,
+  authority: ownerSigner,
+  amount,
+  decimals
+});
+```
+
+<Callout type="warn">
+  This instruction is missing the hook's extra accounts and will fail onchain if
+  the mint has a transfer hook configured. Resolving and appending those
+  accounts has no Kit-native equivalent yet, so integrations built on Kit should
+  pull in `@solana/spl-token` for the transfer-hook resolution path (see Web3.js
+  below), or resolve manually against a Kit-derived RPC connection using the
+  same `ExtraAccountMetaList` PDA and seed rules the legacy client implements.
+</Callout>
+
+### Web3.js
+
+The legacy `@solana/spl-token` client's high-level helper resolves everything
+for you: it reads the mint's hook program, fetches the `ExtraAccountMetaList`,
+and appends the resolved accounts to a `TransferChecked` instruction.
 
 ```ts title="build-transfer-with-hook.ts"
 import { createTransferCheckedWithTransferHookInstruction } from "@solana/spl-token";
@@ -179,16 +239,6 @@ const instruction = await createTransferCheckedWithTransferHookInstruction(
   TOKEN_2022_PROGRAM_ID
 );
 ```
-
-<Callout type="warn">
-  This helper is currently only available in the legacy `@solana/spl-token`
-  client. The Kit-based `@solana-program/token-2022` client exposes the
-  low-level `initializeTransferHook` / `updateTransferHook` instruction builders
-  but doesn't yet ship an equivalent extra-account resolver, so integrations
-  built on Kit should still pull in `@solana/spl-token` for the transfer-hook
-  resolution path, or resolve manually with `getExtraAccountMetas` and
-  `resolveExtraAccountMeta` against a Kit-derived connection.
-</Callout>
 
 If you're assembling the instruction yourself rather than using the helper, the
 lower-level pieces are:
