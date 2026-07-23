@@ -7,22 +7,14 @@ type Item = PageTree.Item;
 
 export function getToolsSidebarTree(tree: Root, activeTool?: string): Root {
   const toolsFolder = findToolsFolder(tree);
-  if (!toolsFolder || !activeTool) {
-    return withChildren(
-      tree,
-      toolsFolder ? getToolLandingPages(toolsFolder) : [],
-    );
-  }
+  void activeTool;
+  if (!toolsFolder) return withChildren(tree, []);
 
-  const activeNode = findToolNode(toolsFolder, activeTool);
-  if (!activeNode) {
-    return withChildren(tree, [toolsFolder]);
-  }
-
-  const otherTools = getOtherToolsFolder(toolsFolder, activeNode);
+  // Keep the complete Resources tree in the sidebar on every tool page. The
+  // active tool expands in place instead of replacing the sidebar.
   return withChildren(tree, [
-    ...getToolNavigationChildren(activeNode),
-    ...(otherTools ? [otherTools] : []),
+    ...(toolsFolder.index ? [toolsFolder.index] : []),
+    ...toolsFolder.children,
   ]);
 }
 
@@ -65,32 +57,6 @@ function findToolNode(
   return toolsFolder.children.find(
     (child) => getToolSlug(getLandingPage(child)?.url) === activeTool,
   );
-}
-
-function getOtherToolsFolder(
-  toolsFolder: Folder,
-  activeNode: Node,
-): Folder | undefined {
-  const otherTools = toolsFolder.children
-    .filter((child) => child !== activeNode)
-    .map((child) => getLandingPage(child))
-    .filter((child): child is Item => Boolean(child));
-
-  if (otherTools.length === 0) return undefined;
-
-  return {
-    $id: `${toolsFolder.$id ?? "tools"}#other-tools`,
-    type: "folder",
-    name: "Other Tools",
-    defaultOpen: false,
-    children: otherTools,
-  };
-}
-
-function getToolLandingPages(toolsFolder: Folder): Item[] {
-  return toolsFolder.children
-    .map((child) => getLandingPage(child))
-    .filter((child): child is Item => Boolean(child));
 }
 
 function getToolNavigationChildren(node: Node): Node[] {
