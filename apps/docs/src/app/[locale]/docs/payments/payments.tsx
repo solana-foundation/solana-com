@@ -5,6 +5,7 @@ import { DocsPage } from "@@/src/app/components/docs-page";
 import { mdxComponents } from "@@/src/app/mdx-components";
 import { getMdxMetadata } from "@@/src/app/metadata";
 import { DocsCategory } from "fumadocs-ui/page";
+import { getFinancePageTree } from "../finance/finance-page-tree";
 
 export async function PaymentsDocsPage({
   slug,
@@ -25,7 +26,7 @@ export async function PaymentsDocsPage({
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
       hidePageNavigation={page.data.hidePageNavigation}
-      pageTree={docsSource.pageTree[locale]}
+      pageTree={getFinancePageTree(docsSource.pageTree[locale], "payments")}
       href={page.url}
       markdown={markdown}
     >

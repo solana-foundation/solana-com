@@ -46,7 +46,7 @@ export function DevelopersPage({
       <DevelopersCoursesSection /* courses={courses} */ />
       <DevelopersResourcesSection
         items={guides ?? []}
-        baseHref={`/developers/guides`}
+        baseHref={`/docs`}
         translationKey={"guides"}
       />
       <DevelopersDocumentsSection latestVideo={latestChangelogVideo} />

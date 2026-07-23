@@ -1,7 +1,6 @@
 // simple strings for the content record groups
 export const RECORD_GROUPS = {
   cookbook: "cookbook",
-  guides: "guides",
   docs: "docs",
   rpc: "docs/rpc",
 } as const;
