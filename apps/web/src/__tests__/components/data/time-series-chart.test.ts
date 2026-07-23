@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   compareTooltipValues,
+  formatValue,
+  getAxisValueFormatter,
   getSeriesDashPatterns,
+  getValueDomain,
+  getYAxisTickValues,
   type ChartSeries,
 } from "@/app/[locale]/data/time-series-chart";
 
@@ -95,5 +99,55 @@ describe("compareTooltipValues", () => {
     expect(values.sort(compareTooltipValues).map((item) => item.label)).toEqual(
       ["DeFiLlama", "Dune"],
     );
+  });
+});
+
+describe("getAxisValueFormatter", () => {
+  it("rounds percent axis labels to whole numbers and caps them at 100", () => {
+    const ticks = [98.4, 99.5, 100, 100.4, 100.6];
+    const formatter = getAxisValueFormatter("Percent");
+
+    expect(ticks.map(formatter)).toEqual([
+      "98%",
+      "100%",
+      "100%",
+      "100%",
+      "100%",
+    ]);
+  });
+
+  it("keeps non-percent axis labels unchanged", () => {
+    const formatter = getAxisValueFormatter("Milliseconds");
+
+    expect(formatter(10.4)).toBe("10.4");
+  });
+});
+
+describe("formatValue", () => {
+  it("rounds percent values to whole numbers and caps them at 100", () => {
+    expect(formatValue(99.4, "Percent")).toBe("99%");
+    expect(formatValue(99.5, "Percent")).toBe("100%");
+    expect(formatValue(100.6, "Percent")).toBe("100%");
+  });
+});
+
+describe("percent y-axis domain", () => {
+  it("rounds tight percent ranges near 100 to whole-number bounds capped at 100", () => {
+    const domain = getValueDomain(
+      makeSeries("a", [99.99996, 100.00004]).points,
+      "Percent",
+    );
+
+    expect(domain).toEqual([99, 100]);
+  });
+
+  it("returns whole-number percent ticks for tight ranges near 100", () => {
+    const ticks = getYAxisTickValues(
+      [99.99996, 100, 100.00004],
+      [99, 100],
+      "Percent",
+    );
+
+    expect(ticks).toEqual([99, 100]);
   });
 });

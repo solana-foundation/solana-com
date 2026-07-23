@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { MetricRow, ProviderName } from "@/app/[locale]/data/data-config";
+import type {
+  ChartDefinition,
+  MetricRow,
+  ProviderName,
+} from "@/app/[locale]/data/data-config";
 import {
   getAvailableProviders,
+  getKpiValue,
   getMedian,
   getSelectedProviderList,
   parseProviders,
@@ -15,6 +20,15 @@ const availableProviders: ProviderName[] = [
   "Dune",
   "New Provider",
 ];
+const latencyChart = {
+  aggregation: "avg",
+  id: "rpc-avg-latency",
+  metrics: ["RPC Avg Latency"],
+  seriesField: "provider",
+  tab: "rpc",
+  title: "Avg Latency",
+  valueLabel: "Milliseconds",
+} as const satisfies ChartDefinition;
 
 describe("getMedian", () => {
   it("returns the middle value for an odd count", () => {
@@ -154,5 +168,46 @@ describe("available providers", () => {
       "DeFiLlama",
       "Dune",
     ]);
+  });
+});
+
+describe("KPI aggregation", () => {
+  const rows: MetricRow[] = [
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "Alchemy",
+      unit: "Milliseconds",
+      value: 120,
+    },
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "Helius",
+      unit: "Milliseconds",
+      value: 40,
+    },
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "QuickNode",
+      unit: "Milliseconds",
+      value: 80,
+    },
+  ];
+  const selectedProviders = new Set<ProviderName>([
+    "Alchemy",
+    "Helius",
+    "QuickNode",
+  ]);
+
+  it("keeps provider KPI aggregation median by default", () => {
+    expect(getKpiValue(latencyChart, rows, selectedProviders).value).toBe(80);
+  });
+
+  it("supports minimum provider KPI aggregation for RPC latency", () => {
+    expect(
+      getKpiValue(latencyChart, rows, selectedProviders, "minimum").value,
+    ).toBe(40);
   });
 });
