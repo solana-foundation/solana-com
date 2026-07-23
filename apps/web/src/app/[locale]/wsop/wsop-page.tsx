@@ -1,11 +1,16 @@
 "use client";
 
 import type { ComponentType, SVGProps } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
+  animate,
   motion,
   MotionConfig,
+  useInView,
   useReducedMotion,
+  useScroll,
+  useTransform,
   type Variants,
 } from "framer-motion";
 import {
@@ -31,6 +36,11 @@ type WsopPageProps = {
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+
+const SUITS = ["♠", "♦", "♥", "♣"] as const;
+
+const isRedSuit = (suit: string) =>
+  suit === "♥" || suit === "♦" || suit === "◆";
 
 const revealVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -60,6 +70,16 @@ const staggerItemVariants: Variants = {
   },
 };
 
+const dealVariants: Variants = {
+  hidden: { opacity: 0, y: 26, rotate: -2.5 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    rotate: 0,
+    transition: { duration: 0.55, ease: EASE },
+  },
+};
+
 const heroVariants: Variants = {
   hidden: {},
   visible: {
@@ -78,6 +98,36 @@ const heroItemVariants: Variants = {
     transition: { duration: 0.8, ease: EASE },
   },
 };
+
+const heroTitleVariants: Variants = {
+  hidden: { y: "110%" },
+  visible: {
+    y: 0,
+    transition: { duration: 0.9, ease: EASE },
+  },
+};
+
+const chipVariants: Variants = {
+  hidden: { opacity: 0, rotate: -110, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    rotate: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 55, damping: 14 },
+  },
+};
+
+/** Approved WSOP short brand headlines (brand standards, p.12). */
+const marqueeLines = [
+  "Shuffle up & deal",
+  "Eye on the prize",
+  "Rise a champion",
+  "Stack ’em high",
+  "Victory is in the cards",
+  "Ante up & win",
+  "Where champions are made",
+  "Action is calling",
+];
 
 const benefits: Array<{
   title: string;
@@ -148,7 +198,7 @@ const ambassadors = [
   {
     name: "Jamie Gold",
     initials: "JG",
-    suit: "◆",
+    suit: "♦",
     title: "2006 Main Event champion",
     biography:
       "Winner of the 2006 WSOP Main Event, the largest in history at the time, for a record $12 million. Gold is one of poker’s biggest personalities and a defining figure of the WSOP’s original ESPN era.",
@@ -219,6 +269,18 @@ function Stagger({
   );
 }
 
+function SuitRun({ className = "" }: { className?: string }) {
+  return (
+    <span className={`wsop-suit-run ${className}`} aria-hidden="true">
+      {SUITS.map((suit) => (
+        <span key={suit} className={isRedSuit(suit) ? "is-red" : ""}>
+          {suit}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function LiveChip({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
 
@@ -231,9 +293,9 @@ function LiveChip({ children }: { children: React.ReactNode }) {
             ? undefined
             : {
                 boxShadow: [
-                  "0 0 0 3px rgba(244, 130, 82, 0.14)",
-                  "0 0 0 8px rgba(244, 130, 82, 0)",
-                  "0 0 0 3px rgba(244, 130, 82, 0.14)",
+                  "0 0 0 3px rgba(217, 0, 41, 0.2)",
+                  "0 0 0 8px rgba(217, 0, 41, 0)",
+                  "0 0 0 3px rgba(217, 0, 41, 0.2)",
                 ],
               }
         }
@@ -251,14 +313,22 @@ function LiveChip({ children }: { children: React.ReactNode }) {
 
 function SectionLabel({
   index,
+  suit,
   children,
 }: {
   index: string;
+  suit: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="wsop-section-label">
       <span>{index}</span>
+      <span
+        className={`wsop-section-label__suit ${isRedSuit(suit) ? "is-red" : ""}`}
+        aria-hidden="true"
+      >
+        {suit}
+      </span>
       <p>{children}</p>
     </div>
   );
@@ -286,6 +356,63 @@ function ArrowLink({
       <span>{children}</span>
       <ArrowUpRight aria-hidden="true" />
     </motion.a>
+  );
+}
+
+function BrandMarquee() {
+  const track = (hidden: boolean) => (
+    <div className="wsop-marquee__track" aria-hidden={hidden || undefined}>
+      {marqueeLines.map((line, index) => (
+        <span className="wsop-marquee__item" key={line}>
+          <span className="wsop-marquee__text">{line}</span>
+          <span
+            className={`wsop-marquee__suit ${
+              isRedSuit(SUITS[index % SUITS.length]) ? "is-red" : ""
+            }`}
+            aria-hidden="true"
+          >
+            {SUITS[index % SUITS.length]}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="wsop-marquee">
+      {track(false)}
+      {track(true)}
+    </div>
+  );
+}
+
+function PrizeCounter() {
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-15% 0px" });
+  const reduceMotion = useReducedMotion();
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+
+    if (reduceMotion) {
+      setValue(100);
+      return;
+    }
+
+    const controls = animate(0, 100, {
+      duration: 1.4,
+      ease: EASE,
+      onUpdate: (latest) => setValue(Math.round(latest)),
+    });
+
+    return () => controls.stop();
+  }, [inView, reduceMotion]);
+
+  return (
+    <strong ref={ref} aria-label="$100K">
+      <span aria-hidden="true">${value}K</span>
+    </strong>
   );
 }
 
@@ -408,6 +535,14 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
 }
 
 export function WsopPage({ videos }: WsopPageProps) {
+  const heroRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroParallax = useTransform(scrollYProgress, [0, 1], ["0%", "14%"]);
+
   return (
     <MotionConfig reducedMotion="user">
       <motion.a
@@ -421,10 +556,15 @@ export function WsopPage({ videos }: WsopPageProps) {
       </motion.a>
 
       <main id="wsop-main">
-        <section className="wsop-hero" aria-labelledby="wsop-title">
+        <section
+          className="wsop-hero"
+          aria-labelledby="wsop-title"
+          ref={heroRef}
+        >
           <motion.div
             className="wsop-hero__image-motion"
-            initial={{ opacity: 0, scale: 1.02 }}
+            style={reduceMotion ? undefined : { y: heroParallax }}
+            initial={{ opacity: 0, scale: 1.04 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.9, ease: EASE }}
           >
@@ -456,20 +596,17 @@ export function WsopPage({ videos }: WsopPageProps) {
             animate="visible"
             variants={heroVariants}
           >
-            <motion.div
-              className="wsop-hero__marker"
-              aria-hidden="true"
-              variants={heroItemVariants}
-            >
-              <span>57</span>
-              <small>Annual series</small>
-            </motion.div>
             <motion.div variants={heroItemVariants}>
-              <p className="wsop-eyebrow">The partnership</p>
-              <h1 id="wsop-title">
-                Solana is upping the ante on the World Series of Poker
-              </h1>
+              <p className="wsop-eyebrow wsop-hero__eyebrow">
+                <SuitRun />
+                The partnership
+              </p>
             </motion.div>
+            <div className="wsop-hero__title-mask">
+              <motion.h1 id="wsop-title" variants={heroTitleVariants}>
+                Solana is upping the ante on the World Series of Poker
+              </motion.h1>
+            </div>
           </motion.div>
 
           <motion.a
@@ -499,13 +636,17 @@ export function WsopPage({ videos }: WsopPageProps) {
           </motion.a>
         </section>
 
+        <BrandMarquee />
+
         <section
           className="wsop-section wsop-partnership"
           id="partnership"
           aria-labelledby="partnership-heading"
         >
           <Reveal>
-            <SectionLabel index="01">The edge</SectionLabel>
+            <SectionLabel index="01" suit="♠">
+              The edge
+            </SectionLabel>
             <div className="wsop-partnership__grid">
               <h2 id="partnership-heading">
                 The same instincts. A faster way to move.
@@ -541,7 +682,9 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="buyins-heading"
         >
           <Reveal>
-            <SectionLabel index="02">Solana buy-ins</SectionLabel>
+            <SectionLabel index="02" suit="♦">
+              Solana buy-ins
+            </SectionLabel>
 
             <div className="wsop-buyins__heading">
               <div>
@@ -581,11 +724,20 @@ export function WsopPage({ videos }: WsopPageProps) {
             </Stagger>
 
             <div className="wsop-buyins__next">
-              <div className="wsop-buyins__stamp" aria-hidden="true">
-                <span>Next stop</span>
-                <strong>PARADISE</strong>
-                <small>The Bahamas · December 2026</small>
-              </div>
+              <motion.div
+                className="wsop-chip"
+                aria-hidden="true"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "0px 0px -12% 0px" }}
+                variants={chipVariants}
+              >
+                <div className="wsop-chip__face">
+                  <span>Next stop</span>
+                  <strong>Paradise</strong>
+                  <small>The Bahamas · December 2026</small>
+                </div>
+              </motion.div>
               <div>
                 <p className="wsop-eyebrow">What’s next</p>
                 <h3>
@@ -630,7 +782,9 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="event-heading"
         >
           <Reveal>
-            <SectionLabel index="03">WSOP: Solana Edition</SectionLabel>
+            <SectionLabel index="03" suit="♥">
+              WSOP: Solana Edition
+            </SectionLabel>
 
             <div className="wsop-event__intro">
               <div>
@@ -646,22 +800,27 @@ export function WsopPage({ videos }: WsopPageProps) {
             </div>
 
             <div className="wsop-event__layout">
-              <div className="wsop-ticket">
+              <motion.div
+                className="wsop-ticket"
+                whileHover={{ rotate: -0.75 }}
+                transition={{ duration: 0.25, ease: EASE }}
+              >
                 <div className="wsop-ticket__header">
                   <span>Invitational No. 0804</span>
                   <span>Las Vegas</span>
                 </div>
                 <div className="wsop-ticket__prize">
                   <p>Prize pool</p>
-                  <strong>$100K</strong>
+                  <PrizeCounter />
                   <span>+ custom Solana WSOP bracelet</span>
                 </div>
+                <SuitRun className="wsop-ticket__suits" />
                 <div className="wsop-ticket__barcode" aria-hidden="true" />
                 <div className="wsop-ticket__footer">
                   <span>Feature table</span>
                   <span>Live on X</span>
                 </div>
-              </div>
+              </motion.div>
 
               <Stagger className="wsop-event__details">
                 {eventDetails.map(({ label, value, Icon }) => (
@@ -692,9 +851,21 @@ export function WsopPage({ videos }: WsopPageProps) {
                 variants={staggerVariants}
               >
                 {lineup.map((player, index) => (
-                  <motion.li key={player} variants={staggerItemVariants}>
+                  <motion.li
+                    key={player}
+                    variants={dealVariants}
+                    style={{ transformOrigin: "0% 100%" }}
+                  >
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     {player}
+                    <span
+                      className={`wsop-lineup__suit ${
+                        isRedSuit(SUITS[index % SUITS.length]) ? "is-red" : ""
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {SUITS[index % SUITS.length]}
+                    </span>
                   </motion.li>
                 ))}
               </motion.ol>
@@ -717,7 +888,9 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="ambassadors-heading"
         >
           <Reveal>
-            <SectionLabel index="04">The ambassadors</SectionLabel>
+            <SectionLabel index="04" suit="♣">
+              The ambassadors
+            </SectionLabel>
 
             <div className="wsop-ambassadors__heading">
               <h2 id="ambassadors-heading">
@@ -735,13 +908,13 @@ export function WsopPage({ videos }: WsopPageProps) {
                   className="wsop-ambassador"
                   key={ambassador.name}
                   variants={staggerItemVariants}
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2, ease: EASE }}
                 >
                   <div className="wsop-ambassador__portrait">
                     <span
-                      className={`wsop-ambassador__suit ${
-                        ambassador.suit === "♥" || ambassador.suit === "◆"
-                          ? "is-red"
-                          : ""
+                      className={`wsop-ambassador__watermark ${
+                        isRedSuit(ambassador.suit) ? "is-red" : ""
                       }`}
                       aria-hidden="true"
                     >
@@ -773,7 +946,9 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="videos-heading"
         >
           <Reveal>
-            <SectionLabel index="05">From the felt</SectionLabel>
+            <SectionLabel index="05" suit="♠">
+              From the felt
+            </SectionLabel>
             <div className="wsop-videos__heading">
               <h2 id="videos-heading">The hands. The people. The stories.</h2>
               <p>
@@ -787,7 +962,9 @@ export function WsopPage({ videos }: WsopPageProps) {
 
         <section className="wsop-start" aria-labelledby="get-started-heading">
           <Reveal className="wsop-start__inner">
-            <SectionLabel index="06">Your first hand</SectionLabel>
+            <SectionLabel index="06" suit="♦">
+              Your first hand
+            </SectionLabel>
             <div className="wsop-start__content">
               <h2 id="get-started-heading">Get started with Solana</h2>
               <p>
