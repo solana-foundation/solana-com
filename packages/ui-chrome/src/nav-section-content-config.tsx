@@ -151,12 +151,6 @@ export const buildStartItems: NavItemDefinition[] = [
 
 export const buildResourceItems: NavItemDefinition[] = [
   {
-    id: "build-guides",
-    titleKey: "nav.build.resources.items.guides.title",
-    href: "/developers/guides",
-    icon: DocumentsIcon,
-  },
-  {
     id: "build-cookbook",
     titleKey: "nav.build.resources.items.cookbook.title",
     href: "/developers/cookbook",
@@ -187,10 +181,10 @@ export const buildResourceItems: NavItemDefinition[] = [
     icon: ApiConnectionNetworkIcon,
   },
   {
-    id: "build-tokens-docs",
-    titleKey: "nav.build.resources.items.tokensDocs.title",
-    href: "/docs/tokens",
-    icon: CoinsIcon,
+    id: "build-finance-docs",
+    titleKey: "nav.build.resources.items.financeDocs.title",
+    href: "/docs/finance",
+    icon: MoneyIcon,
   },
 ];
 

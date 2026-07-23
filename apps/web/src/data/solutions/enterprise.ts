@@ -18,15 +18,15 @@ export const SOLUTION_LINKS = [
 export const TECHNICAL_GUIDES = [
   {
     key: "dvp",
-    href: "/developers/guides/advanced/dvp",
+    href: "/docs/tokenization/dvp",
   },
   {
     key: "nav-strikes",
-    href: "/developers/guides/advanced/nav-strikes",
+    href: "/docs/tokenization/nav-strikes",
   },
   {
     key: "acl",
-    href: "/developers/guides/advanced/acl",
+    href: "/docs/tokenization/token-acl",
   },
 ];
 
