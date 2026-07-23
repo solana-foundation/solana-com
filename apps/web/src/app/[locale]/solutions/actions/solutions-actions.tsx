@@ -91,7 +91,7 @@ export function ActionsPage() {
             size: "lg",
             iconSize: "md",
             label: t("buttons.startBuilding"),
-            url: "https://solana.com/docs/advanced/actions",
+            url: "https://solana.com/docs/tools/actions",
           },
         ]}
       />

@@ -33,7 +33,7 @@ export function SolutionsSolanaPermissionedEnvironmentsPage() {
             label: t("buttons.readTheDocs"),
             hierarchy: "primary",
             size: "lg",
-            url: "https://solana.com/developers/guides/permissioned-environments",
+            url: "https://solana.com/docs/tools/private-channels",
           },
           {
             label: t("buttons.areSpesRightForYou"),
@@ -150,7 +150,7 @@ export function SolutionsSolanaPermissionedEnvironmentsPage() {
               src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
-              url: "/developers/guides/getstarted/hello-world-in-your-browser",
+              url: "/docs/intro/quick-start",
               endIcon: "arrow-right",
               hierarchy: "outline",
             },
