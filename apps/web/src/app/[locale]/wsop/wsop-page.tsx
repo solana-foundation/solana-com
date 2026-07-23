@@ -1,8 +1,13 @@
 "use client";
 
 import type { ComponentType, SVGProps } from "react";
-import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import {
+  motion,
+  MotionConfig,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -23,6 +28,55 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 type WsopPageProps = {
   videos: LinkItem[];
+};
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const revealVariants: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: EASE },
+  },
+};
+
+const staggerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      delayChildren: 0.08,
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const staggerItemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.65, ease: EASE },
+  },
+};
+
+const heroVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      delayChildren: 0.2,
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const heroItemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.8, ease: EASE },
+  },
 };
 
 const benefits: Array<{
@@ -132,42 +186,66 @@ function Reveal({
   children: React.ReactNode;
   className?: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const element = ref.current;
-
-    if (!element) {
-      return;
-    }
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
-    );
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div
-      ref={ref}
-      className={`wsop-reveal ${visible ? "is-visible" : ""} ${className}`}
+    <motion.div
+      className={className}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "0px 0px -8% 0px", amount: 0.12 }}
+      variants={revealVariants}
     >
       {children}
-    </div>
+    </motion.div>
+  );
+}
+
+function Stagger({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className: string;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "0px 0px -8% 0px" }}
+      variants={staggerVariants}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function LiveChip({ children }: { children: React.ReactNode }) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <span className="wsop-live-chip">
+      <motion.span
+        aria-hidden="true"
+        animate={
+          reduceMotion
+            ? undefined
+            : {
+                boxShadow: [
+                  "0 0 0 3px rgba(244, 130, 82, 0.14)",
+                  "0 0 0 8px rgba(244, 130, 82, 0)",
+                  "0 0 0 3px rgba(244, 130, 82, 0.14)",
+                ],
+              }
+        }
+        transition={{
+          duration: 2.2,
+          ease: "easeOut",
+          repeat: Infinity,
+          times: [0, 0.55, 1],
+        }}
+      />
+      {children}
+    </span>
   );
 }
 
@@ -196,15 +274,18 @@ function ArrowLink({
   className?: string;
 }) {
   return (
-    <a
+    <motion.a
       href={href}
       className={`wsop-button ${className}`}
       target="_blank"
       rel="noreferrer"
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2, ease: EASE }}
     >
       <span>{children}</span>
       <ArrowUpRight aria-hidden="true" />
-    </a>
+    </motion.a>
   );
 }
 
@@ -252,10 +333,7 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
         />
         <div className="wsop-video-empty__wash" />
         <div className="wsop-video-empty__content">
-          <span className="wsop-live-chip">
-            <span aria-hidden="true" />
-            First deal · Aug 4
-          </span>
+          <LiveChip>First deal · Aug 4</LiveChip>
           <h3>Stories from the felt are coming.</h3>
           <p>
             Player reveals, table talk, and highlights will appear here as the
@@ -267,89 +345,158 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
     );
   }
 
-  return (
-    <div className="wsop-video-rail" aria-label="WSOP video highlights">
-      {videos.map((video) => {
-        const thumbnail = getVideoThumbnail(video);
+  const cards = videos.map((video) => {
+    const thumbnail = getVideoThumbnail(video);
 
-        return (
-          <a
-            key={video.id}
-            href={video.url}
-            target="_blank"
-            rel="noreferrer"
-            className="wsop-video-card"
-          >
-            <div className="wsop-video-card__media">
-              {thumbnail ? (
-                <Image
-                  src={thumbnail}
-                  alt=""
-                  fill
-                  sizes="(max-width: 768px) 84vw, 450px"
-                  className="wsop-video-card__image"
-                />
-              ) : (
-                <div className="wsop-video-card__fallback" />
-              )}
-              <span className="wsop-video-card__play" aria-hidden="true">
-                <Play fill="currentColor" />
-              </span>
-            </div>
-            <div className="wsop-video-card__copy">
-              <span>{video.source || "Video"}</span>
-              <h3>{video.title}</h3>
-              <ArrowUpRight aria-hidden="true" />
-            </div>
-          </a>
-        );
-      })}
-    </div>
+    return (
+      <motion.a
+        key={video.id}
+        href={video.url}
+        target="_blank"
+        rel="noreferrer"
+        className="wsop-video-card"
+        variants={staggerItemVariants}
+        whileHover="hover"
+      >
+        <div className="wsop-video-card__media">
+          {thumbnail ? (
+            <motion.div
+              className="wsop-video-card__image-motion"
+              variants={{
+                hover: {
+                  scale: 1.02,
+                  transition: { duration: 0.3, ease: EASE },
+                },
+              }}
+            >
+              <Image
+                src={thumbnail}
+                alt=""
+                fill
+                sizes="(max-width: 768px) 84vw, 450px"
+                className="wsop-video-card__image"
+              />
+            </motion.div>
+          ) : (
+            <div className="wsop-video-card__fallback" />
+          )}
+          <span className="wsop-video-card__play" aria-hidden="true">
+            <Play fill="currentColor" />
+          </span>
+        </div>
+        <div className="wsop-video-card__copy">
+          <span>{video.source || "Video"}</span>
+          <h3>{video.title}</h3>
+          <ArrowUpRight aria-hidden="true" />
+        </div>
+      </motion.a>
+    );
+  });
+
+  return (
+    <motion.div
+      className="wsop-video-rail"
+      aria-label="WSOP video highlights"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "0px 0px -8% 0px" }}
+      variants={staggerVariants}
+    >
+      {cards}
+    </motion.div>
   );
 }
 
 export function WsopPage({ videos }: WsopPageProps) {
   return (
-    <>
-      <a className="wsop-skip-link" href="#wsop-main">
+    <MotionConfig reducedMotion="user">
+      <motion.a
+        className="wsop-skip-link"
+        href="#wsop-main"
+        initial={{ y: "-180%" }}
+        whileFocus={{ y: 0 }}
+        transition={{ duration: 0.2, ease: EASE }}
+      >
         Skip to main content
-      </a>
+      </motion.a>
 
       <main id="wsop-main">
         <section className="wsop-hero" aria-labelledby="wsop-title">
-          <Image
-            src="/src/img/wsop/feature-table.webp"
-            alt="The World Series of Poker feature table, presented by Solana"
-            fill
-            priority
-            sizes="100vw"
-            className="wsop-hero__image"
-          />
+          <motion.div
+            className="wsop-hero__image-motion"
+            initial={{ opacity: 0, scale: 1.02 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.9, ease: EASE }}
+          >
+            <Image
+              src="/src/img/wsop/feature-table.webp"
+              alt="The World Series of Poker feature table, presented by Solana"
+              fill
+              priority
+              sizes="100vw"
+              className="wsop-hero__image"
+            />
+          </motion.div>
           <div className="wsop-hero__shade" />
           <div className="wsop-hero__grid" aria-hidden="true" />
 
-          <div className="wsop-hero__topline">
+          <motion.div
+            className="wsop-hero__topline"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
+          >
             <p>Solana × World Series of Poker</p>
             <p>Official presenting sponsor · 2026</p>
-          </div>
+          </motion.div>
 
-          <div className="wsop-hero__content">
-            <div className="wsop-hero__marker" aria-hidden="true">
+          <motion.div
+            className="wsop-hero__content"
+            initial="hidden"
+            animate="visible"
+            variants={heroVariants}
+          >
+            <motion.div
+              className="wsop-hero__marker"
+              aria-hidden="true"
+              variants={heroItemVariants}
+            >
               <span>57</span>
               <small>Annual series</small>
-            </div>
-            <div>
+            </motion.div>
+            <motion.div variants={heroItemVariants}>
               <p className="wsop-eyebrow">The partnership</p>
               <h1 id="wsop-title">
                 Solana is upping the ante on the World Series of Poker
               </h1>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <a className="wsop-hero__scroll" href="#partnership">
+          <motion.a
+            className="wsop-hero__scroll"
+            href="#partnership"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{
+              y: -2,
+              transition: { duration: 0.2, ease: EASE },
+            }}
+            transition={{ duration: 0.6, ease: EASE, delay: 0.55 }}
+          >
             <span>Read the story</span>
-            <ArrowDown aria-hidden="true" />
-          </a>
+            <motion.span
+              className="wsop-scroll-cue"
+              aria-hidden="true"
+              animate={{ y: [0, 4, 0] }}
+              transition={{
+                duration: 2,
+                ease: "easeInOut",
+                repeat: Infinity,
+              }}
+            >
+              <ArrowDown />
+            </motion.span>
+          </motion.a>
         </section>
 
         <section
@@ -410,18 +557,28 @@ export function WsopPage({ videos }: WsopPageProps) {
               </p>
             </div>
 
-            <div className="wsop-benefits">
+            <Stagger className="wsop-benefits">
               {benefits.map(({ title, body, Icon }, index) => (
-                <article className="wsop-benefit" key={title}>
+                <motion.article
+                  className="wsop-benefit"
+                  key={title}
+                  variants={staggerItemVariants}
+                  whileHover={{
+                    y: -4,
+                    borderColor: "rgba(236, 228, 253, 0.2)",
+                    backgroundColor: "rgba(255, 255, 255, 0.07)",
+                  }}
+                  transition={{ duration: 0.2, ease: EASE }}
+                >
                   <div className="wsop-benefit__topline">
                     <span>0{index + 1}</span>
                     <Icon aria-hidden="true" />
                   </div>
                   <h3>{title}</h3>
                   <p>{body}</p>
-                </article>
+                </motion.article>
               ))}
-            </div>
+            </Stagger>
 
             <div className="wsop-buyins__next">
               <div className="wsop-buyins__stamp" aria-hidden="true">
@@ -442,20 +599,26 @@ export function WsopPage({ videos }: WsopPageProps) {
                 </p>
                 <div className="wsop-reference-links">
                   <span>Completed-pilot app references:</span>
-                  <a
+                  <motion.a
                     href="https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059"
                     target="_blank"
                     rel="noreferrer"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.2, ease: EASE }}
                   >
                     App Store <ArrowUpRight aria-hidden="true" />
-                  </a>
-                  <a
+                  </motion.a>
+                  <motion.a
                     href="https://play.google.com/store/apps/details?id=com.nsus.wsopplus&hl=en"
                     target="_blank"
                     rel="noreferrer"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.2, ease: EASE }}
                   >
                     Google Play <ArrowUpRight aria-hidden="true" />
-                  </a>
+                  </motion.a>
                 </div>
               </div>
             </div>
@@ -471,10 +634,7 @@ export function WsopPage({ videos }: WsopPageProps) {
 
             <div className="wsop-event__intro">
               <div>
-                <span className="wsop-live-chip">
-                  <span aria-hidden="true" />
-                  One night only
-                </span>
+                <LiveChip>One night only</LiveChip>
                 <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
               </div>
               <p>
@@ -503,17 +663,21 @@ export function WsopPage({ videos }: WsopPageProps) {
                 </div>
               </div>
 
-              <div className="wsop-event__details">
+              <Stagger className="wsop-event__details">
                 {eventDetails.map(({ label, value, Icon }) => (
-                  <div className="wsop-detail" key={label}>
+                  <motion.div
+                    className="wsop-detail"
+                    key={label}
+                    variants={staggerItemVariants}
+                  >
                     <Icon aria-hidden="true" />
                     <div>
                       <span>{label}</span>
                       <p>{value}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </Stagger>
             </div>
 
             <div className="wsop-lineup">
@@ -521,14 +685,19 @@ export function WsopPage({ videos }: WsopPageProps) {
                 <p className="wsop-eyebrow">At the table</p>
                 <h3>Eight seats. No easy hands.</h3>
               </div>
-              <ol>
+              <motion.ol
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "0px 0px -8% 0px" }}
+                variants={staggerVariants}
+              >
                 {lineup.map((player, index) => (
-                  <li key={player}>
+                  <motion.li key={player} variants={staggerItemVariants}>
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     {player}
-                  </li>
+                  </motion.li>
                 ))}
-              </ol>
+              </motion.ol>
             </div>
 
             <div className="wsop-event__cta">
@@ -560,9 +729,13 @@ export function WsopPage({ videos }: WsopPageProps) {
               </p>
             </div>
 
-            <div className="wsop-ambassadors__grid">
+            <Stagger className="wsop-ambassadors__grid">
               {ambassadors.map((ambassador, index) => (
-                <article className="wsop-ambassador" key={ambassador.name}>
+                <motion.article
+                  className="wsop-ambassador"
+                  key={ambassador.name}
+                  variants={staggerItemVariants}
+                >
                   <div className="wsop-ambassador__portrait">
                     <span
                       className={`wsop-ambassador__suit ${
@@ -589,9 +762,9 @@ export function WsopPage({ videos }: WsopPageProps) {
                       <Clock3 aria-hidden="true" />
                     </div>
                   </div>
-                </article>
+                </motion.article>
               ))}
-            </div>
+            </Stagger>
           </Reveal>
         </section>
 
@@ -638,6 +811,6 @@ export function WsopPage({ videos }: WsopPageProps) {
           </Reveal>
         </section>
       </main>
-    </>
+    </MotionConfig>
   );
 }
