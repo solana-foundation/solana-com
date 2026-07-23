@@ -18,10 +18,14 @@ import {
   ArrowUpRight,
   CalendarDays,
   CircleDollarSign,
+  Club,
   Clock3,
+  Diamond,
   Globe2,
+  Heart,
   MapPin,
   Play,
+  Spade,
   Trophy,
   WalletCards,
   Zap,
@@ -37,10 +41,17 @@ type WsopPageProps = {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const SUITS = ["♠", "♦", "♥", "♣"] as const;
+const SUITS = ["spade", "diamond", "heart", "club"] as const;
+type Suit = (typeof SUITS)[number];
 
-const isRedSuit = (suit: string) =>
-  suit === "♥" || suit === "♦" || suit === "◆";
+const SUIT_ICONS: Record<Suit, Icon> = {
+  spade: Spade,
+  diamond: Diamond,
+  heart: Heart,
+  club: Club,
+};
+
+const isRedSuit = (suit: Suit) => suit === "heart" || suit === "diamond";
 
 const revealVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
@@ -194,11 +205,17 @@ const lineup = [
   "Bangerz",
 ];
 
-const ambassadors = [
+const ambassadors: Array<{
+  name: string;
+  initials: string;
+  suit: Suit;
+  title: string;
+  biography: string;
+}> = [
   {
     name: "Jamie Gold",
     initials: "JG",
-    suit: "♦",
+    suit: "diamond",
     title: "2006 Main Event champion",
     biography:
       "Winner of the 2006 WSOP Main Event, the largest in history at the time, for a record $12 million. Gold is one of poker’s biggest personalities and a defining figure of the WSOP’s original ESPN era.",
@@ -206,7 +223,7 @@ const ambassadors = [
   {
     name: "Michael Mizrachi",
     initials: "MM",
-    suit: "♠",
+    suit: "spade",
     title: "The Grinder",
     biography:
       "The 2025 WSOP Main Event champion took down the title for $10 million. His nine bracelets include a record four Poker Players Championship wins. Inducted into the Poker Hall of Fame in 2025, his career earnings exceed $30 million.",
@@ -214,7 +231,7 @@ const ambassadors = [
   {
     name: "Alex Foxen",
     initials: "AF",
-    suit: "♣",
+    suit: "club",
     title: "Four-time bracelet winner",
     biography:
       "One of the modern era’s most dominant high-roller players. Foxen has more than $58 million in live earnings and is the only player to win back-to-back Global Poker Index Player of the Year awards.",
@@ -222,7 +239,7 @@ const ambassadors = [
   {
     name: "Kristen Foxen",
     initials: "KF",
-    suit: "♥",
+    suit: "heart",
     title: "Six-time bracelet winner",
     biography:
       "The most decorated woman in WSOP history and number one on the women’s all-time money list, with close to $20 million in live earnings and five GPI Female Player of the Year awards.",
@@ -269,13 +286,30 @@ function Stagger({
   );
 }
 
+function SuitIcon({
+  suit,
+  className = "",
+}: {
+  suit: Suit;
+  className?: string;
+}) {
+  const Icon = SUIT_ICONS[suit];
+
+  return (
+    <Icon
+      className={`wsop-suit-icon ${className} ${
+        isRedSuit(suit) ? "is-red" : ""
+      }`}
+      aria-hidden="true"
+    />
+  );
+}
+
 function SuitRun({ className = "" }: { className?: string }) {
   return (
     <span className={`wsop-suit-run ${className}`} aria-hidden="true">
       {SUITS.map((suit) => (
-        <span key={suit} className={isRedSuit(suit) ? "is-red" : ""}>
-          {suit}
-        </span>
+        <SuitIcon key={suit} suit={suit} />
       ))}
     </span>
   );
@@ -312,23 +346,15 @@ function LiveChip({ children }: { children: React.ReactNode }) {
 }
 
 function SectionLabel({
-  index,
   suit,
   children,
 }: {
-  index: string;
-  suit: string;
+  suit: Suit;
   children: React.ReactNode;
 }) {
   return (
     <div className="wsop-section-label">
-      <span>{index}</span>
-      <span
-        className={`wsop-section-label__suit ${isRedSuit(suit) ? "is-red" : ""}`}
-        aria-hidden="true"
-      >
-        {suit}
-      </span>
+      <SuitIcon className="wsop-section-label__suit" suit={suit} />
       <p>{children}</p>
     </div>
   );
@@ -365,14 +391,10 @@ function BrandMarquee() {
       {marqueeLines.map((line, index) => (
         <span className="wsop-marquee__item" key={line}>
           <span className="wsop-marquee__text">{line}</span>
-          <span
-            className={`wsop-marquee__suit ${
-              isRedSuit(SUITS[index % SUITS.length]) ? "is-red" : ""
-            }`}
-            aria-hidden="true"
-          >
-            {SUITS[index % SUITS.length]}
-          </span>
+          <SuitIcon
+            className="wsop-marquee__suit"
+            suit={SUITS[index % SUITS.length]}
+          />
         </span>
       ))}
     </div>
@@ -644,9 +666,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="partnership-heading"
         >
           <Reveal>
-            <SectionLabel index="01" suit="♠">
-              The edge
-            </SectionLabel>
+            <SectionLabel suit="spade">The edge</SectionLabel>
             <div className="wsop-partnership__grid">
               <h2 id="partnership-heading">
                 The same instincts. A faster way to move.
@@ -682,9 +702,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="buyins-heading"
         >
           <Reveal>
-            <SectionLabel index="02" suit="♦">
-              Solana buy-ins
-            </SectionLabel>
+            <SectionLabel suit="diamond">Solana buy-ins</SectionLabel>
 
             <div className="wsop-buyins__heading">
               <div>
@@ -782,9 +800,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="event-heading"
         >
           <Reveal>
-            <SectionLabel index="03" suit="♥">
-              WSOP: Solana Edition
-            </SectionLabel>
+            <SectionLabel suit="heart">WSOP: Solana Edition</SectionLabel>
 
             <div className="wsop-event__intro">
               <div>
@@ -858,14 +874,10 @@ export function WsopPage({ videos }: WsopPageProps) {
                   >
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     {player}
-                    <span
-                      className={`wsop-lineup__suit ${
-                        isRedSuit(SUITS[index % SUITS.length]) ? "is-red" : ""
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {SUITS[index % SUITS.length]}
-                    </span>
+                    <SuitIcon
+                      className="wsop-lineup__suit"
+                      suit={SUITS[index % SUITS.length]}
+                    />
                   </motion.li>
                 ))}
               </motion.ol>
@@ -888,9 +900,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="ambassadors-heading"
         >
           <Reveal>
-            <SectionLabel index="04" suit="♣">
-              The ambassadors
-            </SectionLabel>
+            <SectionLabel suit="club">The ambassadors</SectionLabel>
 
             <div className="wsop-ambassadors__heading">
               <h2 id="ambassadors-heading">
@@ -912,14 +922,10 @@ export function WsopPage({ videos }: WsopPageProps) {
                   transition={{ duration: 0.2, ease: EASE }}
                 >
                   <div className="wsop-ambassador__portrait">
-                    <span
-                      className={`wsop-ambassador__watermark ${
-                        isRedSuit(ambassador.suit) ? "is-red" : ""
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {ambassador.suit}
-                    </span>
+                    <SuitIcon
+                      className="wsop-ambassador__watermark"
+                      suit={ambassador.suit}
+                    />
                     <strong aria-hidden="true">{ambassador.initials}</strong>
                     <span className="wsop-ambassador__portrait-note">
                       Official portrait incoming
@@ -946,9 +952,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="videos-heading"
         >
           <Reveal>
-            <SectionLabel index="05" suit="♠">
-              From the felt
-            </SectionLabel>
+            <SectionLabel suit="spade">From the felt</SectionLabel>
             <div className="wsop-videos__heading">
               <h2 id="videos-heading">The hands. The people. The stories.</h2>
               <p>
@@ -962,9 +966,7 @@ export function WsopPage({ videos }: WsopPageProps) {
 
         <section className="wsop-start" aria-labelledby="get-started-heading">
           <Reveal className="wsop-start__inner">
-            <SectionLabel index="06" suit="♦">
-              Your first hand
-            </SectionLabel>
+            <SectionLabel suit="diamond">Your first hand</SectionLabel>
             <div className="wsop-start__content">
               <h2 id="get-started-heading">Get started with Solana</h2>
               <p>
