@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   if (!isEnvConfigured) {
     console.error("Missing required environment variables.");
     return NextResponse.json(
-      { error: "Service unavailable due to missing environment variables." },
+      { error: "The code runner is not configured for this environment." },
       { status: 503 },
     );
   }

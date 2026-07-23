@@ -2,6 +2,7 @@ import { docsSource } from "@@/src/app/sources/docs";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
+import { getFinancePageTree } from "../finance/finance-page-tree";
 
 export default async function Layout({
   children,
@@ -11,15 +12,7 @@ export default async function Layout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const tree = docsSource.pageTree[locale];
-  const paymentsFolder = tree.children.find(
-    (child) =>
-      child.type === "folder" && child.index?.url?.includes("/docs/payments"),
-  );
-  const pageTree = {
-    ...tree,
-    children: paymentsFolder ? [paymentsFolder] : [],
-  };
+  const pageTree = getFinancePageTree(docsSource.pageTree[locale], "payments");
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
