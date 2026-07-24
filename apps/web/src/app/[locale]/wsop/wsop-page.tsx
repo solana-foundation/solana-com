@@ -139,8 +139,8 @@ const benefits: Array<{
   suit: Suit;
 }> = [
   {
-    title: "Zero fees",
-    body: "No processing fee for the completed Vegas crypto buy-in pilot.",
+    title: "Zero processing fees",
+    body: "Every crypto buy-in goes straight into play.",
     suit: "spade",
   },
   {
@@ -876,7 +876,7 @@ export function WsopPage({ videos }: WsopPageProps) {
                   powered by Solana.
                 </p>
                 <div className="wsop-reference-links mt-6 flex flex-wrap gap-3">
-                  <span className="w-full font-[var(--wsop-font-label)] text-[0.7rem] leading-[1.33] font-medium tracking-[var(--wsop-label-tracking)] text-black/60 uppercase">
+                  <span className="w-full font-[var(--wsop-font-label)] text-[length:var(--wsop-label-size)] leading-[1.33] font-medium tracking-[var(--wsop-label-tracking)] text-black/60 uppercase">
                     Get the WSOP LIVE app
                   </span>
                   <Button
