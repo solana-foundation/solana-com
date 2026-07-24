@@ -692,14 +692,12 @@ function HubButton({
 
   if (variant === "primary") {
     return (
-      <Link
-        to={link.href}
+      <LinkAnchor
+        link={link}
         className={cn(
           buttonVariants({ size: "lg", rounded: true }),
           "rounded-full h-auto md:h-[48px] text-base md:text-lg !px-5 py-2 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px] whitespace-normal text-left no-underline",
         )}
-        target={external ? "_blank" : undefined}
-        rel={external ? "noopener noreferrer" : undefined}
       >
         <span className="-ml-2 p-1 !size-6 md:!size-8 bg-black text-white rounded-full inline-flex items-center justify-center shrink-0">
           {external ? (
@@ -717,13 +715,13 @@ function HubButton({
           )}
         </span>
         <span className="pl-2">{link.title}</span>
-      </Link>
+      </LinkAnchor>
     );
   }
 
   return (
-    <Link
-      to={link.href}
+    <LinkAnchor
+      link={link}
       className={cn(
         buttonVariants({
           size: "lg",
@@ -732,8 +730,6 @@ function HubButton({
         }),
         "h-12 text-base md:text-lg no-underline text-inherit",
       )}
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
     >
       {link.title}
       {external ? (
@@ -741,7 +737,7 @@ function HubButton({
       ) : (
         <ArrowRight aria-hidden className="size-4" />
       )}
-    </Link>
+    </LinkAnchor>
   );
 }
 
@@ -749,11 +745,9 @@ function ResourceLink({ link }: { link: HubLink }) {
   const external = link.external ?? isExternalHref(link.href);
 
   return (
-    <Link
-      to={link.href}
+    <LinkAnchor
+      link={link}
       className="group flex items-center justify-between gap-4 px-2 py-4 rounded-md text-white no-underline transition-colors hover:bg-white/[0.03]"
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
     >
       <span className="flex-1 min-w-0">
         <span className="block text-base md:text-lg font-medium leading-[1.35] tracking-[-0.18px] transition-colors group-hover:text-white">
@@ -776,6 +770,6 @@ function ResourceLink({ link }: { link: HubLink }) {
           className="size-5 shrink-0 text-white/40 transition-all group-hover:translate-x-1 group-hover:text-white"
         />
       )}
-    </Link>
+    </LinkAnchor>
   );
 }
