@@ -812,12 +812,6 @@ export function WsopPage({ videos }: WsopPageProps) {
                   className="wsop-benefit"
                   key={title}
                   variants={staggerItemVariants}
-                  whileHover={{
-                    y: -4,
-                    borderColor: "rgba(236, 228, 253, 0.2)",
-                    backgroundColor: "rgba(255, 255, 255, 0.07)",
-                  }}
-                  transition={{ duration: 0.2, ease: EASE }}
                 >
                   <div className="wsop-benefit__topline">
                     <span>0{index + 1}</span>
