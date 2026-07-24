@@ -9,7 +9,6 @@ import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { useVariant } from "@/lib/use-variant";
 
 export default function HeroSection() {
@@ -115,16 +114,38 @@ export default function HeroSection() {
             as="h1"
             text={variant?.heroHeadline ?? t("hero.headline")}
             durationMs={1000}
-            className="type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] xl:w-[926px]"
+            className={
+              variant?.compactHeroHeadline
+                ? "type-h3 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] xl:w-[926px]"
+                : "type-h1 whitespace-pre-line text-white md:absolute md:left-0 md:top-0 md:w-[763px] xl:w-[926px]"
+            }
           />
-          <div className="mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0">
+          <div
+            className={
+              variant
+                ? "mt-8 flex flex-col items-start gap-2xs md:absolute md:left-0 md:top-[180px] md:mt-0"
+                : "mt-8 md:absolute md:left-0 md:top-[180px] md:mt-0"
+            }
+          >
             {variant ? (
-              <Button
-                label={variant.heroCtaLabel}
-                variant="primary"
-                arrow
-                href={GENERAL_ADMISSION_HREF}
-              />
+              <>
+                <div className="flex flex-wrap items-center gap-xs">
+                  <Button
+                    label={variant.heroCtaLabel}
+                    variant="primary"
+                    arrow
+                    href={variant.heroCtaHref}
+                  />
+                  {variant.heroOriginalPrice && (
+                    <span
+                      className="type-eyebrow text-white/70 line-through"
+                      aria-label={`Original price ${variant.heroOriginalPrice}`}
+                    >
+                      {variant.heroOriginalPrice}
+                    </span>
+                  )}
+                </div>
+              </>
             ) : (
               <Button
                 label={t("hero.cta")}

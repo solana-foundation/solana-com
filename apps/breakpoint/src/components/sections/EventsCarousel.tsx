@@ -8,6 +8,7 @@ import CarouselControls from "@/components/CarouselControls";
 import type { HighlightedEvent } from "@/content/events/types";
 import { SIDE_EVENTS_HREF } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
+import { useVariant } from "@/lib/use-variant";
 
 interface EventsCarouselProps {
   headline: string;
@@ -76,8 +77,21 @@ export default function EventsCarousel({
   items,
 }: EventsCarouselProps) {
   const locale = useLocale();
+  const variant = useVariant();
   const scrollRef = useRef<HTMLUListElement>(null);
   const headingId = useId();
+  const matchedVariantItems = variant?.eventNames
+    ?.map((name) =>
+      items.find((item) =>
+        item.title.toLocaleLowerCase().includes(name.toLocaleLowerCase()),
+      ),
+    )
+    .filter((item): item is HighlightedEvent => item !== undefined);
+  const displayedItems =
+    matchedVariantItems && matchedVariantItems.length > 0
+      ? matchedVariantItems
+      : items;
+  const displayedHeadline = variant?.eventsHeadline ?? headline;
 
   const scrollBy = useCallback((direction: number) => {
     if (!scrollRef.current) return;
@@ -120,7 +134,7 @@ export default function EventsCarousel({
       <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col items-start gap-s">
           <h2 id={headingId} className="type-h3 max-w-[560px] text-white">
-            {headline}
+            {displayedHeadline}
           </h2>
           <div className="flex w-full flex-col gap-xs sm:w-auto sm:flex-row">
             <Button
@@ -134,7 +148,7 @@ export default function EventsCarousel({
         </div>
         <CarouselControls
           className="shrink-0"
-          labelPrefix={headline}
+          labelPrefix={displayedHeadline}
           onPrev={() => scrollBy(-1)}
           onNext={() => scrollBy(1)}
         />
@@ -142,11 +156,11 @@ export default function EventsCarousel({
 
       <ul
         ref={scrollRef}
-        aria-label={headline}
+        aria-label={displayedHeadline}
         className="unstyled-list scrollbar-hidden -mr-[20px] flex touch-pan-x snap-x snap-mandatory gap-m overflow-x-auto overflow-y-hidden overscroll-x-contain p-0 pr-[20px] [-webkit-overflow-scrolling:touch] md:mr-0 md:pr-0"
         role="list"
       >
-        {items.map((event) => {
+        {displayedItems.map((event) => {
           const { time, date } = formatEventMeta(event, locale);
 
           return (
