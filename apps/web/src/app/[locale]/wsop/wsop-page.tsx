@@ -713,7 +713,7 @@ export function WsopPage({ videos }: WsopPageProps) {
             <motion.div variants={heroItemVariants}>
               <p className="wsop-eyebrow wsop-hero__eyebrow">
                 <SuitRun />
-                The partnership
+                The main event
               </p>
             </motion.div>
             <div className="wsop-hero__title-mask">
