@@ -1,0 +1,314 @@
+---
+title: Getting Started
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+# LiteSVM for Go
+
+Solana test suites that spin up `solana-test-validator` take seconds per test -
+you are waiting on process startup, RPC connections, and network round-trips.
+LiteSVM runs the same tests in milliseconds. No external process, no network,
+everything in-memory inside your test runner.
+
+`litesvm-go` is the official Go binding. Core types (`PublicKey`, `Hash`,
+`Signature`) come straight from
+[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go), so values
+flow naturally between `litesvm-go` and the rest of the Go Solana ecosystem.
+
+<Callout type="info">
+  **Requirements:** Go 1.24+. No Rust toolchain needed - prebuilt static
+  archives are vendored in the module and selected automatically by `GOOS` /
+  `GOARCH`. Supported platforms: macOS (amd64, arm64), Linux (amd64, arm64;
+  glibc or musl), Windows (amd64).
+</Callout>
+
+A fresh `LiteSVM` handle exposes airdrops, transactions (legacy + v0),
+simulation, account read/write, sysvars, compute budget, feature gates, time
+travel, custom programs, and transaction history - all backed by the same Rust
+core that powers the Rust and TypeScript SDKs.
+
+## Quick Start
+
+<Steps>
+
+<Step>
+### Install the module
+
+`go get` resolves dependencies into a Go module, so initialize one first if you
+do not already have a `go.mod`:
+
+```bash
+go mod init mytest
+```
+
+Then add the module:
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+Also pull in `solana-go` for keypair, instruction, and transaction building:
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Alpine / musl users:** add `-tags musl` to your `go build` / `go test`
+  invocation so the right vendored archive is linked.
+</Callout>
+
+</Step>
+
+<Step>
+### Create your SVM
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  `litesvm.New()` returns a `*LiteSVM` and an `error`. Every entry point in
+  `litesvm-go` follows the same `(value, error)` shape; panics on the Rust side
+  are caught and converted to errors. Always `defer svm.Close()` so the
+  underlying Rust handle is released - or rely on the finalizer, though explicit
+  `Close` is preferred for predictable cleanup.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Understanding the Handle
+
+After `litesvm.New()`, the returned `*LiteSVM` exposes these capability groups:
+
+| Group                | Methods                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Accounts             | `Airdrop`, `Balance`, `GetAccount`, `SetAccount`, `MinimumBalanceForRentExemption`                                                 |
+| Transactions         | `SendLegacyTransaction`, `SendVersionedTransaction`, `SimulateLegacyTransaction`, `SimulateVersionedTransaction`, `GetTransaction` |
+| Blockhash            | `LatestBlockhash`, `ExpireBlockhash`                                                                                               |
+| Programs             | `AddProgram`, `AddProgramFromFile`, `AddProgramWithLoader`                                                                         |
+| Time and sysvars     | `WarpToSlot`, `Clock`, `SetClock`, `Rent`, `SetRent`, `EpochSchedule`, `SetEpochSchedule`, `EpochRewards`, ...                     |
+| Configuration        | `SetSigverify`, `SetBlockhashCheck`, `SetTransactionHistory`, `SetLogBytesLimit`, `SetSysvars`, `SetBuiltins`, ...                 |
+| Compute and features | `ComputeBudget`, `SetComputeBudget`, `SetFeatureSet`                                                                               |
+
+A fresh `LiteSVM` ships with the core Solana programs (System Program, SPL
+Token, etc.) preloaded, so simple transfers work out of the box.
+
+## Sending Transactions
+
+Build instructions with `solana-go`, marshal the transaction, and submit the
+bytes. `litesvm-go` accepts the bincode-encoded bytes produced by
+`(*solana.Transaction).MarshalBinary`:
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  `SendLegacyTransaction` and `SendVersionedTransaction` both return a
+  `*TxOutcome` whether the transaction succeeded or failed. Call `IsOk()` before
+  reading success-only fields, and always `defer out.Close()` to release the
+  Rust handle.
+</Callout>
+
+## Working with TxOutcome
+
+Every send / simulate entry point returns a `*TxOutcome`. The same handle
+carries metadata for success and failure:
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+For `SimulateLegacyTransaction` / `SimulateVersionedTransaction`, the same
+`*TxOutcome` additionally exposes `PostAccounts()` - the would-be post-execution
+account state:
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## Configuration
+
+`litesvm-go` exposes the same builder switches as the Rust crate, surfaced as
+`Set*` methods:
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## Notes
+
+**Thread safety.** A `*LiteSVM` handle is not safe for concurrent use from
+multiple goroutines (the underlying Rust type is not `Sync`, and most methods
+mutate internal state). Confine a handle to a single goroutine, or guard it with
+a `sync.Mutex`.
+
+**Panic behavior.** Vendored release archives are built with `immediate-abort`:
+any panic inside Rust aborts the host process directly, without unwinding. This
+is a deliberate trade for smaller archives. If you ever hit one in practice,
+please open an issue with a reproducer.
+
+## What's Next
+
+This covers the core handle - creating accounts, sending instructions, and
+reading state. For a full method-by-method reference see the
+[API docs](/docs/tools/litesvm/go/api-reference). For runnable examples (SOL
+transfer, account setup, program testing, time-based logic) see
+[Examples](/docs/tools/litesvm/go/examples).
