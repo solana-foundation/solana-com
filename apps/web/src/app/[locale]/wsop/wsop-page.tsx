@@ -48,26 +48,7 @@ const SUIT_ICONS: Record<Suit, Icon> = {
 const isRedSuit = (suit: Suit) => suit === "heart" || suit === "diamond";
 
 const revealVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease: EASE },
-  },
-};
-
-const staggerVariants: Variants = {
-  hidden: {},
-  visible: {
-    transition: {
-      delayChildren: 0.08,
-      staggerChildren: 0.08,
-    },
-  },
-};
-
-const staggerItemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 18 },
   visible: {
     opacity: 1,
     y: 0,
@@ -75,13 +56,32 @@ const staggerItemVariants: Variants = {
   },
 };
 
+const staggerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      delayChildren: 0.05,
+      staggerChildren: 0.07,
+    },
+  },
+};
+
+const staggerItemVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: EASE },
+  },
+};
+
 const dealVariants: Variants = {
-  hidden: { opacity: 0, y: 26, rotate: -2.5 },
+  hidden: { opacity: 0, y: 18, rotate: -1.5 },
   visible: {
     opacity: 1,
     y: 0,
     rotate: 0,
-    transition: { duration: 0.55, ease: EASE },
+    transition: { duration: 0.6, ease: EASE },
   },
 };
 
@@ -96,11 +96,11 @@ const heroVariants: Variants = {
 };
 
 const heroItemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 16 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.8, ease: EASE },
+    transition: { duration: 0.7, ease: EASE },
   },
 };
 
@@ -113,12 +113,12 @@ const heroTitleVariants: Variants = {
 };
 
 const chipVariants: Variants = {
-  hidden: { opacity: 0, rotate: -110, scale: 0.9 },
+  hidden: { opacity: 0, rotate: -18, scale: 0.94 },
   visible: {
     opacity: 1,
     rotate: 0,
     scale: 1,
-    transition: { type: "spring", stiffness: 55, damping: 14 },
+    transition: { type: "spring", stiffness: 80, damping: 16 },
   },
 };
 
@@ -357,7 +357,7 @@ function LiveChip({ children }: { children: React.ReactNode }) {
         aria-hidden="true"
         animate={
           reduceMotion
-            ? undefined
+            ? { boxShadow: "0 0 0 3px rgba(217, 0, 41, 0.2)" }
             : {
                 boxShadow: [
                   "0 0 0 3px rgba(217, 0, 41, 0.2)",
@@ -367,7 +367,7 @@ function LiveChip({ children }: { children: React.ReactNode }) {
               }
         }
         transition={{
-          duration: 2.2,
+          duration: 2.6,
           ease: "easeOut",
           repeat: Infinity,
           times: [0, 0.55, 1],
@@ -402,15 +402,17 @@ function ArrowLink({
   children: React.ReactNode;
   className?: string;
 }) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <motion.a
       href={href}
       className={`wsop-button ${className}`}
       target="_blank"
       rel="noreferrer"
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2, ease: EASE }}
+      whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
+      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.98 }}
+      transition={{ duration: 0.18, ease: EASE }}
     >
       <span>{children}</span>
       <ArrowUpRight aria-hidden="true" />
@@ -448,15 +450,15 @@ function PrizeCounter() {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
-    if (!inView) return;
-
     if (reduceMotion) {
       setValue(100);
       return;
     }
 
+    if (!inView) return;
+
     const controls = animate(0, 100, {
-      duration: 1.4,
+      duration: 1.2,
       ease: EASE,
       onUpdate: (latest) => setValue(Math.round(latest)),
     });
@@ -558,6 +560,8 @@ function getVideoThumbnail(video: LinkItem) {
 }
 
 function VideoRail({ videos }: { videos: LinkItem[] }) {
+  const reduceMotion = useReducedMotion();
+
   if (videos.length === 0) {
     return (
       <div className="wsop-video-empty">
@@ -593,7 +597,8 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
         rel="noreferrer"
         className="wsop-video-card"
         variants={staggerItemVariants}
-        whileHover="hover"
+        whileHover={reduceMotion ? {} : "hover"}
+        whileTap={reduceMotion ? { scale: 1 } : { scale: 0.995 }}
       >
         <div className="wsop-video-card__media">
           {thumbnail ? (
@@ -724,17 +729,21 @@ export function WsopPage({ videos }: WsopPageProps) {
             href="#partnership"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{
-              y: -2,
-              transition: { duration: 0.2, ease: EASE },
-            }}
+            whileHover={
+              reduceMotion
+                ? { y: 0 }
+                : {
+                    y: -2,
+                    transition: { duration: 0.2, ease: EASE },
+                  }
+            }
             transition={{ duration: 0.6, ease: EASE, delay: 0.55 }}
           >
             <span>Read the story</span>
             <motion.span
               className="wsop-scroll-cue"
               aria-hidden="true"
-              animate={{ y: [0, 4, 0] }}
+              animate={reduceMotion ? { y: 0 } : { y: [0, 4, 0] }}
               transition={{
                 duration: 2,
                 ease: "easeInOut",
@@ -868,7 +877,7 @@ export function WsopPage({ videos }: WsopPageProps) {
                 </p>
                 <div className="wsop-reference-links mt-6 flex flex-wrap gap-3">
                   <span className="w-full font-[var(--wsop-font-label)] text-[0.7rem] leading-[1.33] font-medium tracking-[var(--wsop-label-tracking)] text-black/60 uppercase">
-                    Completed-pilot app references
+                    Get the WSOP LIVE app
                   </span>
                   <Button
                     asChild
@@ -881,8 +890,8 @@ export function WsopPage({ videos }: WsopPageProps) {
                       target="_blank"
                       rel="noreferrer"
                       aria-label="View WSOP LIVE on the App Store (opens in a new tab)"
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
+                      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.98 }}
                       transition={{ duration: 0.2, ease: EASE }}
                     >
                       <span className="grid size-11 shrink-0 place-items-center rounded-[0.625rem] bg-black text-white">
@@ -921,8 +930,8 @@ export function WsopPage({ videos }: WsopPageProps) {
                       target="_blank"
                       rel="noreferrer"
                       aria-label="View WSOP LIVE on Google Play (opens in a new tab)"
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
+                      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.98 }}
                       transition={{ duration: 0.2, ease: EASE }}
                     >
                       <span className="grid size-11 shrink-0 place-items-center rounded-[0.625rem] bg-black text-white">
@@ -979,7 +988,7 @@ export function WsopPage({ videos }: WsopPageProps) {
             <div className="wsop-event__layout">
               <motion.div
                 className="wsop-ticket"
-                whileHover={{ rotate: -0.75 }}
+                whileHover={reduceMotion ? { rotate: 0 } : { rotate: -0.75 }}
                 transition={{ duration: 0.25, ease: EASE }}
               >
                 <div className="wsop-ticket__topline">
@@ -1054,11 +1063,14 @@ export function WsopPage({ videos }: WsopPageProps) {
                     variants={dealVariants}
                     style={{ transformOrigin: "0% 100%" }}
                   >
-                    <a
+                    <motion.a
                       className="wsop-lineup__player"
                       href={player.href}
                       target="_blank"
                       rel="noreferrer"
+                      whileHover={reduceMotion ? { x: 0 } : { x: 3 }}
+                      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.995 }}
+                      transition={{ duration: 0.18, ease: EASE }}
                     >
                       <Image
                         className="wsop-lineup__avatar"
@@ -1075,7 +1087,7 @@ export function WsopPage({ videos }: WsopPageProps) {
                         className="wsop-lineup__suit"
                         suit={SUITS[index % SUITS.length]}
                       />
-                    </a>
+                    </motion.a>
                   </motion.li>
                 ))}
               </motion.ol>
@@ -1116,8 +1128,8 @@ export function WsopPage({ videos }: WsopPageProps) {
                   className="wsop-ambassador"
                   key={ambassador.name}
                   variants={staggerItemVariants}
-                  whileHover={{ y: -4 }}
-                  transition={{ duration: 0.2, ease: EASE }}
+                  whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
+                  transition={{ duration: 0.18, ease: EASE }}
                 >
                   <div className="wsop-ambassador__portrait">
                     <SuitIcon
