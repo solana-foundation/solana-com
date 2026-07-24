@@ -186,15 +186,60 @@ const eventDetails: Array<{
   },
 ];
 
-const lineup = [
-  "Ansem",
-  "Banks",
-  "WendyO",
-  "Rasmr",
-  "MinhxDynasty",
-  "AshleyDCan",
-  "Solomon",
-  "Bangerz",
+const lineup: Array<{
+  name: string;
+  handle: string;
+  href: string;
+  image: string;
+}> = [
+  {
+    name: "Ansem",
+    handle: "blknoiz06",
+    href: "https://x.com/blknoiz06",
+    image: "/src/img/wsop/ansem.webp",
+  },
+  {
+    name: "Banks",
+    handle: "Banks",
+    href: "https://x.com/Banks",
+    image: "/src/img/wsop/banks.webp",
+  },
+  {
+    name: "WendyO",
+    handle: "CryptoWendyO",
+    href: "https://x.com/CryptoWendyO",
+    image: "/src/img/wsop/wendyo.webp",
+  },
+  {
+    name: "Rasmr",
+    handle: "rasmr_eth",
+    href: "https://x.com/rasmr_eth",
+    image: "/src/img/wsop/rasmr.webp",
+  },
+  {
+    name: "MinhxDynasty",
+    handle: "MINHxDYNASTY",
+    href: "https://x.com/MINHxDYNASTY",
+    image: "/src/img/wsop/minhxdynasty.webp",
+  },
+  {
+    name: "AshleyDCan",
+    handle: "AshleyDCan",
+    href: "https://x.com/AshleyDCan",
+    image: "/src/img/wsop/ashleydcan.webp",
+  },
+  {
+    name: "Solomon",
+    handle: "IOV_OWL",
+    href: "https://x.com/IOV_OWL",
+    image: "/src/img/wsop/solomon.webp",
+  },
+  {
+    name: "Bangerz",
+    handle: "bangerz",
+    href: "https://x.com/bangerz",
+    image: "/src/img/wsop/bangerz.webp",
+  },
 ];
 
 const ambassadors: Array<{
@@ -936,16 +981,35 @@ export function WsopPage({ videos }: WsopPageProps) {
               >
                 {lineup.map((player, index) => (
                   <motion.li
-                    key={player}
+                    key={player.handle}
                     variants={dealVariants}
                     style={{ transformOrigin: "0% 100%" }}
                   >
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    {player}
-                    <SuitIcon
-                      className="wsop-lineup__suit"
-                      suit={SUITS[index % SUITS.length]}
-                    />
+                    <a
+                      className="wsop-lineup__player"
+                      href={player.href}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <span className="wsop-lineup__number">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <Image
+                        className="wsop-lineup__avatar"
+                        src={player.image}
+                        alt=""
+                        width={48}
+                        height={48}
+                      />
+                      <span className="wsop-lineup__identity">
+                        <strong>{player.name}</strong>
+                        <span>@{player.handle}</span>
+                      </span>
+                      <SuitIcon
+                        className="wsop-lineup__suit"
+                        suit={SUITS[index % SUITS.length]}
+                      />
+                    </a>
                   </motion.li>
                 ))}
               </motion.ol>
