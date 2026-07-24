@@ -2,15 +2,21 @@
  * Audience variants for the Breakpoint home page.
  *
  * Paid campaigns land on `/breakpoint?v=<slug>` and the page swaps its
- * messaging layer (hero, narrative, stats, tickets closing line) to match the
- * ad the visitor clicked. A missing or unknown `v` renders the default page,
- * so a bad link can never 404 or show a broken variant. The swap happens
- * client-side after hydration so the page stays fully static — see
- * `useVariant` in `src/lib/use-variant.ts`.
+ * messaging layer to match the ad the visitor clicked. A missing or unknown
+ * `v` renders the default page, so a bad link can never 404 or show a broken
+ * variant. The swap happens client-side after hydration so the page stays
+ * fully static — see `useVariant` in `src/lib/use-variant.ts`.
  */
 
 export const VARIANT_PARAM = "v";
 export const VARIANT_FALLBACK_PARAM = "utm_content";
+
+export type VariantCarouselItem = {
+  id: string;
+  title: string;
+  url: string;
+  tags: string[];
+};
 
 export type VariantStat = {
   value: string;
@@ -22,27 +28,115 @@ export type VariantConfig = {
   slug: string;
   /** Hero headline; `\n` forces a line break like the default headline. */
   heroHeadline: string;
+  compactHeroHeadline?: boolean;
   heroCtaLabel: string;
+  heroCtaHref: string;
+  heroOriginalPrice?: string;
   /** Ad-continuity positioning statement, rendered as the narrative eyebrow. */
   positioningStatement: string;
   /** Narrative body paragraphs, revealed in order. */
   narrativeParagraphs: string[];
+  carouselItems: VariantCarouselItem[];
   stats: VariantStat[];
+  eventsHeadline?: string;
+  eventNames?: string[];
+  talkUrls: string[];
   /** Closing conversion line, rendered as the tickets section headline. */
   ticketsHeadline: string;
+  ticketsSupportingText?: string;
+};
+
+const general: VariantConfig = {
+  slug: "general",
+  heroHeadline: "The Everything Chain",
+  heroCtaLabel: "Buy Tickets Today",
+  heroCtaHref: "https://luma.com/breakpoint2026",
+  positioningStatement:
+    "The best tech event you’ll ever experience: Breakpoint is where the people building the next wave of tech and finance come to meet each other.",
+  narrativeParagraphs: [
+    "Whatever you're working on, the person who can help you take it further will be in this room. Founders looking for a technical co-founder, engineers hunting for their next team, investors writing the checks that turn prototypes into companies, the operators and partners who help you actually ship. Three days, one place, and the shortest path between you and the people who matter for what comes next.",
+    "We’ve carefully designed Breakpoint so the conversations you want are the ones you fall into, whether that's over coffee between talks, at a Hacker House late into the night, or across the table during VC speed-dating. You leave with more than notes. You leave with relationships, collaborators, and a few introductions that change your trajectory.",
+    "Solana has become the place where AI, fintech, and frontier tech converge, which means the people you'll meet aren't just from your corner of the industry. They're from every corner of what's coming next. It's the rare event where the person beside you might be the key to unlocking the future you’ve always wanted to build.",
+    "Breakpoint is coming to London on November 15–17. Buy your tickets today.",
+  ],
+  carouselItems: [
+    {
+      id: "general-wsop",
+      title: "WSOP",
+      url: "https://solana.com/news/world-series-of-poker",
+      tags: ["News"],
+    },
+    {
+      id: "general-sports-industry",
+      title: "Sports Industry",
+      url: "https://solana.com/news/chiliz-sports-industry-on-solana",
+      tags: ["News"],
+    },
+    {
+      id: "general-accelerate-usa",
+      title: "Accelerate USA",
+      url: "https://solana.com/news/accelerate-usa-recap",
+      tags: ["News"],
+    },
+  ],
+  stats: [
+    {
+      value: "$2B",
+      suffix: "+",
+      label: "In real-world assets tokenized on Solana",
+    },
+    { value: "43", suffix: "%", label: "RWA growth in a single quarter" },
+    {
+      value: "#1",
+      suffix: "",
+      label: "Chain by wallets holding tokenized RWAs",
+    },
+  ],
+  talkUrls: [],
+  ticketsHeadline:
+    "Breakpoint is coming to London on November 15–17. Buy your tickets today.",
+  ticketsSupportingText: "Use code BRAVE20 to save 20%",
 };
 
 const developers: VariantConfig = {
   slug: "developers",
   heroHeadline: "Building at the\nSpeed of Solana",
-  heroCtaLabel: "Get tickets",
+  heroCtaLabel: "Buy Dev Tickets $250",
+  heroCtaHref: "https://solanafoundation.typeform.com/bp26-devapp",
+  heroOriginalPrice: "$450",
   positioningStatement:
-    "Firedancer is live. Alpenglow is coming. Meet the engineers shipping the fastest chain in production — and build what comes next.",
+    "Innovators wanted: Breakpoint is the best event for builders looking to be a part of the next wave of innovation in tech and finance.",
   narrativeParagraphs: [
-    "At Breakpoint 2025 in Abu Dhabi, the headline was Firedancer — the promise of a faster, more resilient network that no longer ran on a single piece of software.",
-    "That promise has been kept. Firedancer, which demonstrated over 1 million transactions per second in controlled testing, reached Solana mainnet. The Alpenglow consensus upgrade is bringing finality down from roughly 12.8 seconds toward about 150 milliseconds — close to a 100x improvement.",
-    "These upgrades unlock use cases that weren't possible before: latency-sensitive apps, high-frequency DeFi, payments, real-time games. And the progress is measurable — Solana processed more than 10 billion transactions in the first quarter of 2026 alone.",
-    "At Breakpoint 2026 in London, hear directly from the engineers and founders building all of it — core protocol, infra, payment rails, and the next wave of onchain apps.",
+    "Everything is happening on Solana, and this November, the builders driving that innovation are heading to London for Breakpoint.",
+    "Whether you’re working on an app, protocol, agent, market, or something entirely new, the people you need to meet will be in this room.",
+    "Breakpoint is more than an event, it’s the convergence of the people and technologies creating new possibilities for our future, and this year we’ll have the most robust technical agenda ever. Hacker Houses and Scale or Die kick will set the tone, and even more awaits once the main event kicks off.",
+    "Join us November 15–17 to swap notes, find your next collaborator, and see why Google, Mastercard and Paypal are building here. Dev tickets are available now at a special subsidized rate.",
+  ],
+  carouselItems: [
+    {
+      id: "developers-pay-sh",
+      title: "Pay.SH",
+      url: "https://solana.com/news/solana-foundation-launches-pay-sh-in-collaboration-with-google-cloud",
+      tags: ["News"],
+    },
+    {
+      id: "developers-sdp",
+      title: "SDP",
+      url: "https://solana.com/news/solana-developer-platform",
+      tags: ["News"],
+    },
+    {
+      id: "developers-robot-ai",
+      title: "Robot AI",
+      url: "https://solana.com/news/robot-ai",
+      tags: ["News"],
+    },
+    {
+      id: "developers-quantum-readiness",
+      title: "Quantum Readiness",
+      url: "https://solana.com/news/quantum-readiness",
+      tags: ["News"],
+    },
   ],
   stats: [
     { value: "1M", suffix: "+", label: "TPS demonstrated by Firedancer" },
@@ -53,49 +147,59 @@ const developers: VariantConfig = {
     },
     { value: "10B", suffix: "+", label: "Transactions processed in Q1 2026" },
   ],
-  ticketsHeadline:
-    "Claim your ticket and help write the next chapter of what's possible onchain.",
-};
-
-const ai: VariantConfig = {
-  slug: "ai",
-  heroHeadline: "Home Base for the\nAgentic Economy",
-  heroCtaLabel: "Get tickets",
-  positioningStatement:
-    "AI agents already make millions of payments on Solana. Meet the people building the infrastructure of the agentic internet.",
-  narrativeParagraphs: [
-    "Autonomous AI agents transact in fractions of a cent — paying for an API call, a data query, a few seconds of compute. Those economics simply don't work on higher-fee chains, which is why Solana has quietly become home base for the agentic economy.",
-    "The network has already processed 15 million payments initiated by agents, and roughly 65% of agentic payments settling through the x402 standard now run on Solana. x402 is an open payment standard stewarded by the Linux Foundation, with backing from Google, Stripe, Visa, and Mastercard. Through gateways like Pay.sh, an agent can fund a wallet in about a minute and pay per request for Google Cloud services like Gemini and Vertex AI alongside 50-plus other APIs — no accounts, no subscriptions.",
-    "At Breakpoint 2026 in London, the people building this stack will be on stage and in the halls — agent frameworks, payment rails, and the companies wiring AI to money. Hear what they shipped, what's next, and where the opportunities are.",
-  ],
-  stats: [
-    {
-      value: "15M",
-      suffix: "",
-      label: "Payments initiated by AI agents on Solana",
-    },
-    {
-      value: "65",
-      suffix: "%",
-      label: "Of x402 agentic payments settle on Solana",
-    },
-    { value: "50", suffix: "+", label: "APIs payable per-request via Pay.sh" },
+  eventsHeadline: "Join us early to take part in our dev track:",
+  eventNames: ["Scale Or Die", "Hacker House"],
+  talkUrls: [
+    "https://www.youtube.com/watch?v=T9N0Sbk7UqU&list=PLilwLeBwGuK7bjP6jockOC7cIlof9qL1g&index=10",
+    "https://www.youtube.com/watch?v=0RRKrabfvZY&list=PLilwLeBwGuK7bjP6jockOC7cIlof9qL1g&index=17",
+    "https://www.youtube.com/watch?v=cTFumlE38k0&list=PLilwLeBwGuK5jTCJGnRzD7iu9UlHN_OC_&index=18",
+    "https://www.youtube.com/watch?v=ELH2w3xf0Zw&list=PLilwLeBwGuK5jTCJGnRzD7iu9UlHN_OC_&index=27",
+    "https://www.youtube.com/watch?v=O0VYopeDMhk&list=PLilwLeBwGuK4dz_gqiiDA3GfS094Yr46b&index=60",
   ],
   ticketsHeadline:
-    "Be in the room where AI meets money. Get your Breakpoint 2026 ticket.",
+    "Dev tickets are available now at a special subsidized rate.",
 };
 
 const finance: VariantConfig = {
   slug: "finance",
-  heroHeadline: "Where Global Finance\nComes Onchain",
-  heroCtaLabel: "Get tickets",
+  heroHeadline:
+    "The Future of Capital Markets, in the birthplace of modern finance.",
+  compactHeroHeadline: true,
+  heroCtaLabel: "Join us in London",
+  heroCtaHref: "https://luma.com/breakpoint2026",
   positioningStatement:
-    "Equities, bonds, and billions in real-world assets now trade on Solana. Meet the institutions and builders making markets onchain.",
+    "Breakpoint is Solana’s flagship yearly event, gathering the leaders, builders and institutions shaping the future of global capital markets.",
   narrativeParagraphs: [
-    "At Breakpoint 2025, the conversation about tokenized real-world assets revolved around their promise. The case was simple but powerful: Solana's speed and near-zero transaction costs make it a natural home for global finance.",
-    "Over the next year, that narrative moved from promise to reality. Equities, bonds, precious metals, and private-company stock were tokenized in record numbers — and found real liquidity onchain.",
-    "The value of real-world assets tokenized on Solana climbed past $2 billion in early 2026, up 43% in a single quarter. More wallets hold tokenized RWAs on Solana than on any other blockchain, and tokenized equities like Tesla and NVIDIA trade with instant settlement — Solana has captured roughly 97% of all onchain tokenized-equity spot volume.",
-    "At Breakpoint 2026 in London — a global capital of finance — hear directly from the institutions and founders driving this shift: the progress made, and where the story goes next.",
+    "For the first time, Breakpoint is coming to London, the birthplace of modern finance. The internet has rewritten the rules of nearly every industry. Finance, insulated by cheap leverage and financial engineering, has long been the exception. That era is over.",
+    "We've entered a new supercycle defined by physical capacity: the energy grids, semiconductors, and datacenters powering the AI revolution have created global demand for capitalization at an unprecedented rate.",
+    "Legacy markets can't meet that demand, because the real obstacle was never financial, it was technological. Solana is rebuilding the rails of modern finance: an always-on, unified layer for the world's capital, enabling the seamless issuance and trading of real assets.",
+    "Breakpoint will gather the sharpest minds in finance, technology, and policy in one room to shape the narratives and build the rails for this transformative moment for global capital. You will want to be in that room.",
+  ],
+  carouselItems: [
+    {
+      id: "finance-sdp",
+      title: "Solana Foundation Launches Solana Developer Platform",
+      url: "https://solana.com/news/solana-developer-platform",
+      tags: ["News"],
+    },
+    {
+      id: "finance-institutions",
+      title: "Goldman, Citi, Blackrock",
+      url: "https://solana.com/news/state-of-solana-february-2026",
+      tags: ["News"],
+    },
+    {
+      id: "finance-tokenizing-gold",
+      title: "Tokenizing Gold",
+      url: "https://solana.com/news/tokenizing-gold-inside-oro-s-vertically-integrated-bet",
+      tags: ["News"],
+    },
+    {
+      id: "finance-accelerate-usa",
+      title: "Accelerate USA",
+      url: "https://solana.com/news/accelerate-usa-recap",
+      tags: ["News"],
+    },
   ],
   stats: [
     {
@@ -115,43 +219,22 @@ const finance: VariantConfig = {
       label: "Chain by wallets holding tokenized RWAs",
     },
   ],
-  ticketsHeadline:
-    "Buy your ticket and be in the room where the next chapter of onchain finance is written.",
-};
-
-const collectibles: VariantConfig = {
-  slug: "collectibles",
-  heroHeadline: "Every Asset,\nOnchain",
-  heroCtaLabel: "Get tickets",
-  positioningStatement:
-    "From Pokémon cards to dinosaur bones, collectors are trading real-world assets on Solana with instant liquidity and global reach.",
-  narrativeParagraphs: [
-    "From SpaceX stock to Pokémon cards, Solana has emerged as the best network to trade every asset. Global access, instant liquidity, and fast, near-free execution have enabled novel ways to invest, collect, and trade for millions of users.",
-    "The value of real-world assets tokenized on Solana climbed past $2 billion in early 2026, up 43% in a single quarter — and today, more wallets hold tokenized RWAs on Solana than on any other blockchain. Precious metals, luxury goods, sports and gaming collectibles, even dinosaur bones: if it can be collected, it's coming onchain.",
-    "At Breakpoint 2026, the companies and people powering this trend will be in the room. Hear how blockchain is transforming legacy assets — directly from the people driving the transformation.",
+  talkUrls: [
+    "https://www.youtube.com/watch?v=zwkvyjwZ1o0&list=PLilwLeBwGuK5jTCJGnRzD7iu9UlHN_OC_&index=7",
+    "https://www.youtube.com/watch?v=0_0Dl_vOgYc&list=PLilwLeBwGuK5jTCJGnRzD7iu9UlHN_OC_&index=17",
+    "https://www.youtube.com/watch?v=WlJCP9vISMI&list=PLilwLeBwGuK5jTCJGnRzD7iu9UlHN_OC_&index=20",
+    "https://www.youtube.com/watch?v=pXXc47BQUvE&list=PLilwLeBwGuK5uLyb-1oD6K1HcKDpKCei1&index=11",
+    "https://www.youtube.com/watch?v=sdcu_Glm7EY&list=PLilwLeBwGuK5uLyb-1oD6K1HcKDpKCei1&index=13",
+    "https://www.youtube.com/watch?v=f65eS-vrhs4&list=PLilwLeBwGuK5yeFH0YLgETacO-Gz4fjml&index=5",
   ],
-  stats: [
-    {
-      value: "$2B",
-      suffix: "+",
-      label: "In real-world assets tokenized on Solana",
-    },
-    { value: "43", suffix: "%", label: "RWA growth in a single quarter" },
-    {
-      value: "#1",
-      suffix: "",
-      label: "Chain by wallets holding tokenized RWAs",
-    },
-  ],
-  ticketsHeadline:
-    "Get your ticket and meet the people bringing every asset onchain.",
+  ticketsHeadline: "You will want to be in that room.",
+  ticketsSupportingText: "Use code BRAVE20 to save 20%",
 };
 
 export const VARIANTS: Record<string, VariantConfig> = {
+  general,
   developers,
-  ai,
   finance,
-  collectibles,
 };
 
 export function resolveVariant(

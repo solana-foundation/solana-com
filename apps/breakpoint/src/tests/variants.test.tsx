@@ -16,7 +16,7 @@ describe("resolveVariant", () => {
 
   it("is case-insensitive", () => {
     expect(resolveVariant("Developers")?.slug).toBe("developers");
-    expect(resolveVariant("AI")?.slug).toBe("ai");
+    expect(resolveVariant("GENERAL")?.slug).toBe("general");
   });
 
   it("falls back to null for missing or unknown values", () => {
@@ -36,8 +36,8 @@ describe("resolveVariant", () => {
 
 describe("resolveVariantFromParams", () => {
   it("prefers ?v= over utm_content", () => {
-    const params = new URLSearchParams("v=ai&utm_content=finance");
-    expect(resolveVariantFromParams(params)?.slug).toBe("ai");
+    const params = new URLSearchParams("v=general&utm_content=finance");
+    expect(resolveVariantFromParams(params)?.slug).toBe("general");
   });
 
   it("falls back to an exact-slug utm_content when v is absent", () => {
@@ -62,16 +62,24 @@ describe("variant configs", () => {
     for (const variant of Object.values(VARIANTS)) {
       expect(variant.heroHeadline).toBeTruthy();
       expect(variant.heroCtaLabel).toBeTruthy();
+      expect(variant.heroCtaHref).toBeTruthy();
       expect(variant.positioningStatement).toBeTruthy();
       expect(variant.ticketsHeadline).toBeTruthy();
       expect(variant.narrativeParagraphs.length).toBeGreaterThanOrEqual(3);
       expect(variant.narrativeParagraphs.length).toBeLessThanOrEqual(4);
+      expect(variant.carouselItems.length).toBeGreaterThanOrEqual(3);
+      for (const item of variant.carouselItems) {
+        expect(item.id).toBeTruthy();
+        expect(item.title).toBeTruthy();
+        expect(item.url).toBeTruthy();
+      }
       expect(variant.stats.length).toBeGreaterThanOrEqual(3);
       expect(variant.stats.length).toBeLessThanOrEqual(4);
       for (const stat of variant.stats) {
         expect(stat.value).toBeTruthy();
         expect(stat.label).toBeTruthy();
       }
+      expect(Array.isArray(variant.talkUrls)).toBe(true);
     }
   });
 });

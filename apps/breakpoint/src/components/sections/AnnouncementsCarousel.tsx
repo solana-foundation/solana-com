@@ -9,6 +9,7 @@ import {
   getAnchorLinkProps,
   isRelativeHref,
 } from "@/lib/links";
+import { useVariant } from "@/lib/use-variant";
 
 interface AnnouncementsCarouselProps {
   headline: string;
@@ -19,8 +20,10 @@ export default function AnnouncementsCarousel({
   headline,
   items,
 }: AnnouncementsCarouselProps) {
+  const variant = useVariant();
   const scrollRef = useRef<HTMLUListElement>(null);
   const headingId = useId();
+  const carouselItems = variant?.carouselItems ?? items;
 
   const scrollBy = useCallback((direction: number) => {
     if (!scrollRef.current) return;
@@ -76,7 +79,7 @@ export default function AnnouncementsCarousel({
         className="unstyled-list scrollbar-hidden -mr-[20px] flex touch-pan-x snap-x snap-mandatory gap-s overflow-x-auto overscroll-x-contain p-0 pr-[20px] [-webkit-overflow-scrolling:touch] md:mr-0 md:pr-0"
         role="list"
       >
-        {items.map((item) => {
+        {carouselItems.map((item) => {
           const resolvedUrl = breakpointHref(item.url);
           const content = (
             <>

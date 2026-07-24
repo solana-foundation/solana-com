@@ -133,6 +133,7 @@ function HorizontalTicketCard({
   heading,
   href,
   lumaEventId,
+  originalPrice,
   price,
 }: TicketCardProps) {
   const activeClasses =
@@ -158,6 +159,11 @@ function HorizontalTicketCard({
         {heading}
       </h3>
       <div className="flex min-w-0 items-center gap-1 md:gap-3">
+        {originalPrice && (
+          <span className="font-bp26 text-[20px] leading-none tracking-[0.05rem] text-white/50 line-through md:text-[28px]">
+            {originalPrice}
+          </span>
+        )}
         <p
           className={`font-bp26 text-[24px] leading-[1.18] tracking-[0.06rem] whitespace-nowrap uppercase md:text-h2 md:leading-[var(--text-h2--line-height)] md:tracking-[var(--text-h2--letter-spacing)] ${
             disabled ? "text-text-secondary" : "text-white"
@@ -191,6 +197,11 @@ export default function TicketsSection() {
           <h2 className="type-h3 mx-auto max-w-[24ch] text-white">
             {variant?.ticketsHeadline ?? t("tickets.headline")}
           </h2>
+          {variant?.ticketsSupportingText && (
+            <p className="type-eyebrow text-white">
+              {variant.ticketsSupportingText}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
@@ -204,6 +215,11 @@ export default function TicketsSection() {
           <div className="grid gap-xs md:col-span-8 md:h-[352px] md:grid-rows-3 md:gap-s">
             <HorizontalTicketCard
               heading={t("tickets.categories.developers.label")}
+              originalPrice={
+                variant?.slug === "developers"
+                  ? variant.heroOriginalPrice
+                  : undefined
+              }
               price={t("tickets.categories.developers.price")}
               href={DEVELOPER_APPLICATION_HREF}
             />
