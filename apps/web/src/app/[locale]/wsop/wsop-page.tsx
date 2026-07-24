@@ -125,16 +125,15 @@ const chipVariants: Variants = {
   },
 };
 
-/** Approved WSOP short brand headlines (brand standards, p.12). */
 const marqueeLines = [
   "Shuffle up & deal",
-  "Eye on the prize",
-  "Rise a champion",
-  "Stack ’em high",
-  "Victory is in the cards",
-  "Ante up & win",
-  "Where champions are made",
-  "Action is calling",
+  "Buy in from anywhere",
+  "Read the table",
+  "Cash out in seconds",
+  "Hold your nerve",
+  "No wires. No waiting.",
+  "Size your bets",
+  "The fastest money in the room",
 ];
 
 const benefits: Array<{
@@ -794,15 +793,12 @@ export function WsopPage({ videos }: WsopPageProps) {
           aria-labelledby="buyins-heading"
         >
           <Reveal>
-            <SectionLabel suit="diamond">Solana buy-ins</SectionLabel>
+            <SectionLabel suit="diamond">
+              Buy-ins powered by Solana + MoonPay
+            </SectionLabel>
 
-            <div className="wsop-buyins__heading">
-              <div>
-                <p className="wsop-eyebrow">Powered by Solana + MoonPay</p>
-                <h2 id="buyins-heading">
-                  Fast and frictionless crypto buy-ins
-                </h2>
-              </div>
+            <div className="wsop-section-heading wsop-buyins__heading">
+              <h2 id="buyins-heading">Fast and frictionless crypto buy-ins</h2>
               <p>
                 This summer in Las Vegas, WSOP players bought into tournaments
                 with crypto for the first time - in seconds, through the WSOP
@@ -845,7 +841,11 @@ export function WsopPage({ videos }: WsopPageProps) {
                 <div className="wsop-chip__face">
                   <span>Next stop</span>
                   <strong>Paradise</strong>
-                  <small>The Bahamas · December 2026</small>
+                  <small>
+                    The Bahamas
+                    <br />
+                    December 2026
+                  </small>
                 </div>
               </motion.div>
               <div>
@@ -894,7 +894,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           <Reveal>
             <SectionLabel suit="heart">WSOP: Solana Edition</SectionLabel>
 
-            <div className="wsop-event__intro">
+            <div className="wsop-section-heading wsop-event__intro">
               <div>
                 <LiveChip>One night only</LiveChip>
                 <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
@@ -1031,7 +1031,7 @@ export function WsopPage({ videos }: WsopPageProps) {
           <Reveal>
             <SectionLabel suit="club">The ambassadors</SectionLabel>
 
-            <div className="wsop-ambassadors__heading">
+            <div className="wsop-section-heading wsop-ambassadors__heading">
               <h2 id="ambassadors-heading">
                 Introducing Solana’s Poker Ambassadors
               </h2>
@@ -1082,7 +1082,7 @@ export function WsopPage({ videos }: WsopPageProps) {
         >
           <Reveal>
             <SectionLabel suit="spade">From the felt</SectionLabel>
-            <div className="wsop-videos__heading">
+            <div className="wsop-section-heading wsop-videos__heading">
               <h2 id="videos-heading">The hands. The people. The stories.</h2>
               <p>
                 WSOP and poker video content, updated automatically as the
