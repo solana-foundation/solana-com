@@ -991,9 +991,6 @@ export function WsopPage({ videos }: WsopPageProps) {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <span className="wsop-lineup__number">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
                       <Image
                         className="wsop-lineup__avatar"
                         src={player.image}
