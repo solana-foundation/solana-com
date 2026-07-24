@@ -16,18 +16,15 @@ import {
 import {
   ArrowDown,
   ArrowUpRight,
-  CircleDollarSign,
   Club,
   Clock3,
   Diamond,
-  Globe2,
   Heart,
   Play,
   Spade,
-  WalletCards,
-  Zap,
 } from "lucide-react";
 import { Link } from "@workspace/i18n/routing";
+import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -139,27 +136,27 @@ const marqueeLines = [
 const benefits: Array<{
   title: string;
   body: string;
-  Icon: Icon;
+  suit: Suit;
 }> = [
   {
     title: "Zero fees",
     body: "No processing fee for the completed Vegas crypto buy-in pilot.",
-    Icon: CircleDollarSign,
+    suit: "spade",
   },
   {
     title: "Instant confirmation",
     body: "From wallet to tournament ticket in seconds.",
-    Icon: Zap,
+    suit: "diamond",
   },
   {
     title: "Borderless",
     body: "A cleaner way for a global field to move money.",
-    Icon: Globe2,
+    suit: "heart",
   },
   {
     title: "Straight from your wallet",
     body: "Pay in SOL, USDC, or USDT.",
-    Icon: WalletCards,
+    suit: "club",
   },
 ];
 
@@ -807,18 +804,33 @@ export function WsopPage({ videos }: WsopPageProps) {
             </div>
 
             <Stagger className="wsop-benefits">
-              {benefits.map(({ title, body, Icon }, index) => (
+              {benefits.map(({ title, body, suit }) => (
                 <motion.article
                   className="wsop-benefit"
                   key={title}
-                  variants={staggerItemVariants}
+                  variants={dealVariants}
                 >
-                  <div className="wsop-benefit__topline">
-                    <span>0{index + 1}</span>
-                    <Icon aria-hidden="true" />
-                  </div>
+                  <span
+                    className={`wsop-benefit__index ${
+                      isRedSuit(suit) ? "is-red" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    A
+                    <SuitIcon suit={suit} />
+                  </span>
+                  <SuitIcon className="wsop-benefit__pip" suit={suit} />
                   <h3>{title}</h3>
                   <p>{body}</p>
+                  <span
+                    className={`wsop-benefit__index wsop-benefit__index--mirror ${
+                      isRedSuit(suit) ? "is-red" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    A
+                    <SuitIcon suit={suit} />
+                  </span>
                 </motion.article>
               ))}
             </Stagger>
@@ -849,32 +861,95 @@ export function WsopPage({ videos }: WsopPageProps) {
                   December.
                 </h3>
                 <p>
-                  The Vegas pilot is complete and its buy-in window is closed.
-                  Players will not be able to use the app links below to buy
-                  into the finished Vegas tournament.
+                  The Las Vegas pilot brought crypto buy-ins to the WSOP LIVE
+                  app for the first time. This December at WSOP Paradise, the
+                  experience expands with fast crypto buy-ins and payouts
+                  powered by Solana.
                 </p>
-                <div className="wsop-reference-links">
-                  <span>Completed-pilot app references:</span>
-                  <motion.a
-                    href="https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059"
-                    target="_blank"
-                    rel="noreferrer"
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2, ease: EASE }}
+                <div className="wsop-reference-links mt-6 flex flex-wrap gap-3">
+                  <span className="w-full font-[var(--wsop-font-label)] text-[0.7rem] leading-[1.33] font-medium tracking-[var(--wsop-label-tracking)] text-black/60 uppercase">
+                    Completed-pilot app references
+                  </span>
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="secondary-outline"
+                    className="group h-auto min-h-[4.25rem] min-w-48 basis-full justify-start gap-3 rounded-xl border-black/20 bg-white/25 px-3 py-2.5 text-left text-black shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-[border-color,background-color,box-shadow] hover:border-black/30 hover:bg-white/50 hover:text-black hover:shadow-[0_12px_24px_rgba(0,0,0,0.1)] focus-visible:ring-black md:flex-1 md:basis-48"
                   >
-                    App Store <ArrowUpRight aria-hidden="true" />
-                  </motion.a>
-                  <motion.a
-                    href="https://play.google.com/store/apps/details?id=com.nsus.wsopplus&hl=en"
-                    target="_blank"
-                    rel="noreferrer"
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2, ease: EASE }}
+                    <motion.a
+                      href="https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="View WSOP LIVE on the App Store (opens in a new tab)"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: EASE }}
+                    >
+                      <span className="grid size-11 shrink-0 place-items-center rounded-[0.625rem] bg-black text-white">
+                        <Image
+                          src="/src/img/wsop/apple.svg"
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="size-5"
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="grid min-w-0 gap-0.5">
+                        <small className="font-[var(--wsop-font-label)] text-[0.625rem] leading-none font-medium tracking-[0.06em] text-black/60 uppercase">
+                          View on
+                        </small>
+                        <strong className="font-[var(--wsop-font-sans)] text-base leading-[1.15] font-medium tracking-[-0.015em]">
+                          App Store
+                        </strong>
+                      </span>
+                      <ArrowUpRight
+                        className="ml-auto !size-4 shrink-0 opacity-60"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                    </motion.a>
+                  </Button>
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="secondary-outline"
+                    className="group h-auto min-h-[4.25rem] min-w-48 basis-full justify-start gap-3 rounded-xl border-black/20 bg-white/25 px-3 py-2.5 text-left text-black shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-[border-color,background-color,box-shadow] hover:border-black/30 hover:bg-white/50 hover:text-black hover:shadow-[0_12px_24px_rgba(0,0,0,0.1)] focus-visible:ring-black md:flex-1 md:basis-48"
                   >
-                    Google Play <ArrowUpRight aria-hidden="true" />
-                  </motion.a>
+                    <motion.a
+                      href="https://play.google.com/store/apps/details?id=com.nsus.wsopplus&hl=en"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="View WSOP LIVE on Google Play (opens in a new tab)"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: EASE }}
+                    >
+                      <span className="grid size-11 shrink-0 place-items-center rounded-[0.625rem] bg-black text-white">
+                        <Image
+                          src="/src/img/wsop/google-play.svg"
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="size-5"
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="grid min-w-0 gap-0.5">
+                        <small className="font-[var(--wsop-font-label)] text-[0.625rem] leading-none font-medium tracking-[0.06em] text-black/60 uppercase">
+                          View on
+                        </small>
+                        <strong className="font-[var(--wsop-font-sans)] text-base leading-[1.15] font-medium tracking-[-0.015em]">
+                          Google Play
+                        </strong>
+                      </span>
+                      <ArrowUpRight
+                        className="ml-auto !size-4 shrink-0 opacity-60"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                    </motion.a>
+                  </Button>
                 </div>
               </div>
             </div>

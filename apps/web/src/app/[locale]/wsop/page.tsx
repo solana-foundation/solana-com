@@ -17,7 +17,7 @@ type WsopContentMode = "preview" | "live";
 
 // Change this one value to switch between project-owner preview content and
 // published WSOP videos from apps/media/content/links.
-const WSOP_CONTENT_MODE: WsopContentMode = "preview";
+const WSOP_CONTENT_MODE: WsopContentMode = "live";
 
 const PREVIEW_VIDEOS: LinkItem[] = [
   {
