@@ -9,7 +9,7 @@ type Props = {
 
 const PAGE_TITLE = "Solana × World Series of Poker";
 const PAGE_DESCRIPTION =
-  "Solana is bringing instant digital buy-ins and payouts to the World Series of Poker—and crypto's biggest personalities to the feature table.";
+  "Solana is bringing instant digital buy-ins and payouts to the World Series of Poker - and crypto's biggest personalities to the feature table.";
 
 export const revalidate = 300;
 

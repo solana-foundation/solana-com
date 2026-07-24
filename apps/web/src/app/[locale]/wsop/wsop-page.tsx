@@ -713,8 +713,8 @@ export function WsopPage({ videos }: WsopPageProps) {
               </div>
               <p>
                 This summer in Las Vegas, WSOP players bought into tournaments
-                with crypto for the first time—in seconds, through the WSOP LIVE
-                app.
+                with crypto for the first time - in seconds, through the WSOP
+                LIVE app.
               </p>
             </div>
 
@@ -810,7 +810,7 @@ export function WsopPage({ videos }: WsopPageProps) {
               <p>
                 WSOP: Solana Edition is a live-streamed invitational bringing
                 some of crypto’s biggest personalities to the bright lights of
-                the WSOP feature table—the same felt where champions are
+                the WSOP feature table - the same felt where champions are
                 crowned.
               </p>
             </div>
