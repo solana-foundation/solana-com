@@ -528,6 +528,10 @@ const navigationHubStaticConfigs = {
             href: "/breakpoint",
           },
           {
+            href: "/wsop",
+            locale: "en",
+          },
+          {
             href: "/community",
           },
           {
