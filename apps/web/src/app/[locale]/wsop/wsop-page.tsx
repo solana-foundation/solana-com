@@ -16,17 +16,14 @@ import {
 import {
   ArrowDown,
   ArrowUpRight,
-  CalendarDays,
   CircleDollarSign,
   Club,
   Clock3,
   Diamond,
   Globe2,
   Heart,
-  MapPin,
   Play,
   Spade,
-  Trophy,
   WalletCards,
   Zap,
 } from "lucide-react";
@@ -438,6 +435,61 @@ function PrizeCounter() {
   );
 }
 
+/** Code 39 character patterns (1 = bar module, 0 = space module, wide = 2 modules). */
+const CODE39: Record<string, string> = {
+  "0": "101001101101",
+  "1": "110100101011",
+  "2": "101100101011",
+  "3": "110110010101",
+  "4": "101001101011",
+  "5": "110100110101",
+  "6": "101100110101",
+  "7": "101001011011",
+  "8": "110100101101",
+  "9": "101100101101",
+  "*": "100101101101",
+};
+
+function TicketBarcode({ value }: { value: string }) {
+  const binary = `*${value}*`
+    .split("")
+    .map((char) => CODE39[char] ?? CODE39["0"])
+    .join("0");
+
+  const bars: Array<{ x: number; width: number }> = [];
+  let runStart = -1;
+
+  for (let i = 0; i <= binary.length; i++) {
+    if (binary[i] === "1") {
+      if (runStart < 0) runStart = i;
+    } else if (runStart >= 0) {
+      bars.push({ x: runStart, width: i - runStart });
+      runStart = -1;
+    }
+  }
+
+  return (
+    <svg
+      className="wsop-ticket__barcode"
+      viewBox={`0 0 ${binary.length} 60`}
+      preserveAspectRatio="none"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      {bars.map((bar) => (
+        <rect
+          key={bar.x}
+          x={bar.x}
+          y={0}
+          width={bar.width}
+          height={60}
+          fill="currentColor"
+        />
+      ))}
+    </svg>
+  );
+}
+
 function getYoutubeId(url: string) {
   try {
     const parsed = new URL(url);
@@ -821,20 +873,44 @@ export function WsopPage({ videos }: WsopPageProps) {
                 whileHover={{ rotate: -0.75 }}
                 transition={{ duration: 0.25, ease: EASE }}
               >
-                <div className="wsop-ticket__header">
-                  <span>Invitational No. 0804</span>
-                  <span>Las Vegas</span>
+                <div className="wsop-ticket__topline">
+                  <span>WSOP 2026</span>
+                  <span>Ev# 0804</span>
+                  <span>NLH</span>
                 </div>
-                <div className="wsop-ticket__prize">
-                  <p>Prize pool</p>
-                  <PrizeCounter />
-                  <span>+ custom Solana WSOP bracelet</span>
+
+                <div className="wsop-ticket__place">
+                  <div className="wsop-ticket__chip" aria-hidden="true">
+                    <span>WSOP</span>
+                    <SuitRun className="wsop-ticket__chip-suits" />
+                  </div>
+                  <p className="wsop-ticket__prize">
+                    <PrizeCounter />
+                    <span>Prize Pool</span>
+                  </p>
                 </div>
-                <SuitRun className="wsop-ticket__suits" />
-                <div className="wsop-ticket__barcode" aria-hidden="true" />
-                <div className="wsop-ticket__footer">
-                  <span>Feature table</span>
-                  <span>Live on X</span>
+
+                <p className="wsop-ticket__bracelet">
+                  + custom Solana WSOP bracelet
+                </p>
+
+                <div className="wsop-ticket__date">
+                  <span>Tournament Date:</span>
+                  <span className="wsop-ticket__pen" aria-hidden="true">
+                    804-8
+                  </span>
+                  <time dateTime="2026-08-04">8/4/2026</time>
+                </div>
+
+                <div className="wsop-ticket__scan">
+                  <span className="wsop-ticket__serial">0804-100</span>
+                  <TicketBarcode value="08042026" />
+                </div>
+
+                <div className="wsop-ticket__bottomline">
+                  <span>Solana Edition</span>
+                  <span>Buy-in</span>
+                  <span>Invite only</span>
                 </div>
               </motion.div>
 
