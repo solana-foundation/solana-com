@@ -529,7 +529,6 @@ const navigationHubStaticConfigs = {
           },
           {
             href: "/wsop",
-            locale: "en",
           },
           {
             href: "/community",

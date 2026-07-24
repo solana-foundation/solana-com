@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { getAlternates } from "@workspace/i18n/routing";
 import { fetchLatestLinks } from "@/lib/media/link";
 import type { LinkItem } from "@/types/media";
 import { WsopPage } from "./wsop-page";
@@ -16,10 +16,10 @@ const SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
 type WsopContentMode = "preview" | "live";
 
 // Change this one value to switch between project-owner preview content and
-// published WSOP videos from apps/media/content/links.
+// published WSOP stories from apps/media/content/links.
 const WSOP_CONTENT_MODE: WsopContentMode = "live";
 
-const PREVIEW_VIDEOS: LinkItem[] = [
+const PREVIEW_STORIES: LinkItem[] = [
   {
     id: "preview-feature-table",
     title: "Inside the WSOP: Solana Edition feature table",
@@ -51,45 +51,33 @@ const PREVIEW_VIDEOS: LinkItem[] = [
 
 export const revalidate = 300;
 
-export default async function Page({ params }: Props) {
-  const { locale } = await params;
-
-  if (locale !== "en") {
-    notFound();
-  }
-
-  const videos =
+export default async function Page() {
+  const stories =
     WSOP_CONTENT_MODE === "preview"
-      ? PREVIEW_VIDEOS
+      ? PREVIEW_STORIES
       : (
           await fetchLatestLinks({
             limit: 8,
             tag: "wsop",
-            linkType: "video",
           })
         ).links;
 
-  return <WsopPage videos={videos} />;
+  return <WsopPage stories={stories} />;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-
-  if (locale !== "en") {
-    return {};
-  }
+  const alternates = getAlternates("/wsop", locale);
 
   return {
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
-    alternates: {
-      canonical: "/wsop",
-    },
+    alternates,
     openGraph: {
       title: PAGE_TITLE,
       description: PAGE_DESCRIPTION,
       type: "website",
-      url: "/wsop",
+      url: alternates.canonical,
       images: [
         {
           url: SOCIAL_IMAGE,

@@ -30,7 +30,7 @@ import type { LinkItem } from "@/types/media";
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 type WsopPageProps = {
-  videos: LinkItem[];
+  stories: LinkItem[];
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -546,23 +546,23 @@ function getYoutubeId(url: string) {
   return undefined;
 }
 
-function getVideoThumbnail(video: LinkItem) {
-  if (video.thumbnailImage?.startsWith("/uploads/")) {
-    return `/media-assets${video.thumbnailImage}`;
+function getStoryThumbnail(story: LinkItem) {
+  if (story.thumbnailImage?.startsWith("/uploads/")) {
+    return `/media-assets${story.thumbnailImage}`;
   }
 
-  if (video.thumbnailImage) {
-    return video.thumbnailImage;
+  if (story.thumbnailImage) {
+    return story.thumbnailImage;
   }
 
-  const id = getYoutubeId(video.url);
+  const id = getYoutubeId(story.url);
   return id ? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg` : undefined;
 }
 
-function VideoRail({ videos }: { videos: LinkItem[] }) {
+function StoryRail({ stories }: { stories: LinkItem[] }) {
   const reduceMotion = useReducedMotion();
 
-  if (videos.length === 0) {
+  if (stories.length === 0) {
     return (
       <div className="wsop-video-empty">
         <Image
@@ -586,13 +586,13 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
     );
   }
 
-  const cards = videos.map((video) => {
-    const thumbnail = getVideoThumbnail(video);
+  const cards = stories.map((story) => {
+    const thumbnail = getStoryThumbnail(story);
 
     return (
       <motion.a
-        key={video.id}
-        href={video.url}
+        key={story.id}
+        href={story.url}
         target="_blank"
         rel="noreferrer"
         className="wsop-video-card"
@@ -623,12 +623,16 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
             <div className="wsop-video-card__fallback" />
           )}
           <span className="wsop-video-card__play" aria-hidden="true">
-            <Play fill="currentColor" />
+            {story.linkType === "video" ? (
+              <Play fill="currentColor" />
+            ) : (
+              <ArrowUpRight />
+            )}
           </span>
         </div>
         <div className="wsop-video-card__copy">
-          <span>{video.source || "Video"}</span>
-          <h3>{video.title}</h3>
+          <span>{story.source || story.linkType || "Story"}</span>
+          <h3>{story.title}</h3>
           <ArrowUpRight aria-hidden="true" />
         </div>
       </motion.a>
@@ -638,7 +642,7 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
   return (
     <motion.div
       className="wsop-video-rail"
-      aria-label="WSOP video highlights"
+      aria-label="WSOP campaign stories"
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "0px 0px -8% 0px" }}
@@ -649,7 +653,7 @@ function VideoRail({ videos }: { videos: LinkItem[] }) {
   );
 }
 
-export function WsopPage({ videos }: WsopPageProps) {
+export function WsopPage({ stories }: WsopPageProps) {
   const heroRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({
@@ -1166,11 +1170,11 @@ export function WsopPage({ videos }: WsopPageProps) {
             <div className="wsop-section-heading wsop-videos__heading">
               <h2 id="videos-heading">The hands. The people. The stories.</h2>
               <p>
-                WSOP and poker video content, updated automatically as the
-                campaign unfolds.
+                WSOP and poker coverage, updated automatically as the campaign
+                unfolds.
               </p>
             </div>
-            <VideoRail videos={videos} />
+            <StoryRail stories={stories} />
           </Reveal>
         </section>
 

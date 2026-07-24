@@ -1,7 +1,6 @@
 import Image, { type StaticImageData } from "next/image";
 import { ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
 import { Link } from "@solana-com/ui-chrome/link";
-import { Link as I18nLink } from "@workspace/i18n/routing";
 import { buttonVariants } from "@/app/components/ui/button";
 import { cn } from "@/app/components/utils";
 import { HubHeroBackground } from "@/components/navigation-migration/hub-hero-background";
@@ -11,7 +10,6 @@ export interface HubLink {
   href: string;
   description?: string;
   external?: boolean;
-  locale?: React.ComponentProps<typeof I18nLink>["locale"];
 }
 
 export interface HubSection {
@@ -97,19 +95,6 @@ function LinkAnchor({
   ariaLabel?: string;
 }) {
   const external = link.external ?? isExternalHref(link.href);
-
-  if (link.locale) {
-    return (
-      <I18nLink
-        href={link.href}
-        locale={link.locale}
-        className={className}
-        aria-label={ariaLabel}
-      >
-        {children}
-      </I18nLink>
-    );
-  }
 
   return (
     <Link
