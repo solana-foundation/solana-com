@@ -1192,7 +1192,9 @@ export function WsopPage({ videos }: WsopPageProps) {
                   <ArrowUpRight aria-hidden="true" />
                 </Link>
                 <span className="wsop-coming-soon">
-                  <span>A poker player’s guide to crypto</span>
+                  <span className="wsop-coming-soon__label">
+                    A poker player’s guide to crypto
+                  </span>
                   <small>Coming soon</small>
                 </span>
               </div>
