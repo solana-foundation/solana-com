@@ -10,6 +10,7 @@ type Props = {
 const PAGE_TITLE = "Solana × World Series of Poker";
 const PAGE_DESCRIPTION =
   "Solana is bringing instant digital buy-ins and payouts to the World Series of Poker - and crypto's biggest personalities to the feature table.";
+const SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
 
 export const revalidate = 300;
 
@@ -49,10 +50,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: "/wsop",
       images: [
         {
-          url: "/src/img/wsop/feature-table.webp",
-          width: 2000,
-          height: 1139,
-          alt: "The World Series of Poker feature table, presented by Solana",
+          url: SOCIAL_IMAGE,
+          width: 1200,
+          height: 630,
+          alt: "Solana × World Series of Poker",
         },
       ],
     },
@@ -60,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: PAGE_TITLE,
       description: PAGE_DESCRIPTION,
-      images: ["/src/img/wsop/feature-table.webp"],
+      images: [SOCIAL_IMAGE],
     },
   };
 }
