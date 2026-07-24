@@ -167,27 +167,22 @@ const benefits: Array<{
 const eventDetails: Array<{
   label: string;
   value: string;
-  Icon: Icon;
 }> = [
   {
     label: "When",
     value: "August 4, 2026",
-    Icon: CalendarDays,
   },
   {
     label: "Where",
     value: "WSOP feature table, Horseshoe Las Vegas",
-    Icon: MapPin,
   },
   {
     label: "Watch",
     value: "@Solana on X",
-    Icon: Play,
   },
   {
     label: "Hosted by",
     value: "2006 Main Event champion Jamie Gold",
-    Icon: Trophy,
   },
 ];
 
@@ -915,17 +910,14 @@ export function WsopPage({ videos }: WsopPageProps) {
               </motion.div>
 
               <Stagger className="wsop-event__details">
-                {eventDetails.map(({ label, value, Icon }) => (
+                {eventDetails.map(({ label, value }) => (
                   <motion.div
                     className="wsop-detail"
                     key={label}
                     variants={staggerItemVariants}
                   >
-                    <Icon aria-hidden="true" />
-                    <div>
-                      <span>{label}</span>
-                      <p>{value}</p>
-                    </div>
+                    <span>{label}</span>
+                    <p>{value}</p>
                   </motion.div>
                 ))}
               </Stagger>
