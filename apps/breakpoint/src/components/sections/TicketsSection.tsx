@@ -191,6 +191,11 @@ export default function TicketsSection() {
           <h2 className="type-h3 mx-auto max-w-[24ch] text-white">
             {variant?.ticketsHeadline ?? t("tickets.headline")}
           </h2>
+          {variant?.ticketsStrapline && (
+            <p className="type-p-large mx-auto max-w-[48ch] text-white">
+              {variant.ticketsStrapline}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">

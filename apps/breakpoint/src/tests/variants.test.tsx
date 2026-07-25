@@ -16,7 +16,7 @@ describe("resolveVariant", () => {
 
   it("is case-insensitive", () => {
     expect(resolveVariant("Developers")?.slug).toBe("developers");
-    expect(resolveVariant("AI")?.slug).toBe("ai");
+    expect(resolveVariant("TECH")?.slug).toBe("tech");
   });
 
   it("falls back to null for missing or unknown values", () => {
@@ -36,13 +36,27 @@ describe("resolveVariant", () => {
 
 describe("resolveVariantFromParams", () => {
   it("prefers ?v= over utm_content", () => {
-    const params = new URLSearchParams("v=ai&utm_content=finance");
-    expect(resolveVariantFromParams(params)?.slug).toBe("ai");
+    const params = new URLSearchParams("v=finance&utm_content=tech");
+    expect(resolveVariantFromParams(params)?.slug).toBe("finance");
   });
 
-  it("falls back to an exact-slug utm_content when v is absent", () => {
+  it("resolves the Tech campaign from its utm_content fallback", () => {
     const params = new URLSearchParams(
-      "utm_source=meta&utm_content=developers",
+      "utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=tech",
+    );
+    expect(resolveVariantFromParams(params)?.slug).toBe("tech");
+  });
+
+  it("resolves the Finance campaign from its canonical variant", () => {
+    const params = new URLSearchParams(
+      "v=finance&utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=finance",
+    );
+    expect(resolveVariantFromParams(params)?.slug).toBe("finance");
+  });
+
+  it("resolves the Builders campaign from its developers variant", () => {
+    const params = new URLSearchParams(
+      "v=developers&utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=builders",
     );
     expect(resolveVariantFromParams(params)?.slug).toBe("developers");
   });
@@ -58,6 +72,16 @@ describe("resolveVariantFromParams", () => {
 });
 
 describe("variant configs", () => {
+  it("shows the BRAVE20 offers as ticket straplines", () => {
+    expect(VARIANTS.tech?.ticketsStrapline).toBe(
+      "Buy your tickets today and use code BRAVE20 to save 20%.",
+    );
+    expect(VARIANTS.finance?.ticketsStrapline).toBe(
+      "Use code BRAVE20 to save 20%.",
+    );
+    expect(VARIANTS.developers?.ticketsStrapline).toBeUndefined();
+  });
+
   it("carry complete copy for every swapped section", () => {
     for (const variant of Object.values(VARIANTS)) {
       expect(variant.heroHeadline).toBeTruthy();
@@ -65,7 +89,7 @@ describe("variant configs", () => {
       expect(variant.positioningStatement).toBeTruthy();
       expect(variant.ticketsHeadline).toBeTruthy();
       expect(variant.narrativeParagraphs.length).toBeGreaterThanOrEqual(3);
-      expect(variant.narrativeParagraphs.length).toBeLessThanOrEqual(4);
+      expect(variant.narrativeParagraphs.length).toBeLessThanOrEqual(5);
       expect(variant.stats.length).toBeGreaterThanOrEqual(3);
       expect(variant.stats.length).toBeLessThanOrEqual(4);
       for (const stat of variant.stats) {
