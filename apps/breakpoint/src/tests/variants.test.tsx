@@ -5,6 +5,10 @@ import {
   resolveVariantFromParams,
   VARIANTS,
 } from "@/content/variants";
+import {
+  DEVELOPER_APPLICATION_HREF,
+  GENERAL_ADMISSION_HREF,
+} from "@/content/links";
 import { useVariant } from "@/lib/use-variant";
 
 describe("resolveVariant", () => {
@@ -72,6 +76,12 @@ describe("resolveVariantFromParams", () => {
 });
 
 describe("variant configs", () => {
+  it("routes each hero CTA to the ticket flow it advertises", () => {
+    expect(VARIANTS.developers?.heroCtaHref).toBe(DEVELOPER_APPLICATION_HREF);
+    expect(VARIANTS.tech?.heroCtaHref).toBe(GENERAL_ADMISSION_HREF);
+    expect(VARIANTS.finance?.heroCtaHref).toBe(GENERAL_ADMISSION_HREF);
+  });
+
   it("shows the BRAVE20 offers as ticket straplines", () => {
     expect(VARIANTS.tech?.ticketsStrapline).toBe(
       "Buy your tickets today and use code BRAVE20 to save 20%.",
@@ -86,6 +96,7 @@ describe("variant configs", () => {
     for (const variant of Object.values(VARIANTS)) {
       expect(variant.heroHeadline).toBeTruthy();
       expect(variant.heroCtaLabel).toBeTruthy();
+      expect(variant.heroCtaHref).toBeTruthy();
       expect(variant.positioningStatement).toBeTruthy();
       expect(variant.ticketsHeadline).toBeTruthy();
       expect(variant.narrativeParagraphs.length).toBeGreaterThanOrEqual(3);
