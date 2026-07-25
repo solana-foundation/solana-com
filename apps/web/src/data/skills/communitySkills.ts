@@ -277,6 +277,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/switchboard",
     category: INFRASTRUCTURE,
   },
+  {
+    slug: "covenant-skill",
+    title: "Covenant",
+    description:
+      "Give an agent scoped authority on Solana: actions clear a capability check and budget before signing, with a hash-chained audit, untrusted-input tagging, and an on-chain witness anyone can recompute. Devnet reference implementation.",
+    url: "https://github.com/open-covenant/covenant-skill/tree/33683b38ad19f896d052764679ac266f2bed49a3/skill",
+    category: INFRASTRUCTURE,
+  },
 
   // ── Developer Tools ─────────────────────────────────────────────────
   {
