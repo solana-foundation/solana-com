@@ -371,6 +371,7 @@ describe("changelogListingMetadata", () => {
 
     expect(meta.title).toContain("Solana Changelog");
     expect(meta.description).toContain("developer tooling");
+    expect(String(meta.description)).toHaveLength(160);
   });
 
   it("has complete social metadata at the public changelog URL", () => {
@@ -380,6 +381,12 @@ describe("changelogListingMetadata", () => {
     expectTwitterFields(meta.twitter as any);
     expectCanonical(meta.alternates, "/changelog");
     expectNoInternalUrls(meta.openGraph, meta.alternates);
+    expect((meta.alternates as any).types["application/rss+xml"]).toBe(
+      "https://solana.com/changelog/rss.xml",
+    );
+    expect(meta.robots).toEqual(
+      expect.objectContaining({ index: true, follow: true }),
+    );
   });
 
   it("sets localized alternates", () => {

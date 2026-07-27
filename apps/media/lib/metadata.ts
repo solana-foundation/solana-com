@@ -116,16 +116,30 @@ export async function newsListingMetadata(locale?: string): Promise<Metadata> {
 // Changelog listing  /changelog
 // ---------------------------------------------------------------------------
 
+export const CHANGELOG_SEO_TITLE = "Solana Changelog: Weekly Developer Updates";
+export const CHANGELOG_SEO_DESCRIPTION =
+  "Read the Solana Changelog for weekly updates on validator clients, protocol changes, SDK releases, RPC improvements, and developer tooling across the ecosystem.";
+
 export function changelogListingMetadata(locale?: string): Metadata {
   const resolvedLocale = resolveLocale(locale);
   const canonicalUrl = `${publicUrl}/changelog`;
-  const title = "Solana Changelog: Weekly Developer Updates";
-  const description =
-    "Weekly Solana engineering updates covering validator clients, protocol changes, SDK releases, and developer tooling.";
+  const title = CHANGELOG_SEO_TITLE;
+  const description = CHANGELOG_SEO_DESCRIPTION;
 
   return {
     title,
     description,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
     openGraph: {
       title,
       description,
@@ -140,7 +154,12 @@ export function changelogListingMetadata(locale?: string): Metadata {
       description,
       images: [siteMetadata.socialShare],
     },
-    alternates: getPublicAlternates("/changelog", resolvedLocale),
+    alternates: {
+      ...getPublicAlternates("/changelog", resolvedLocale),
+      types: {
+        "application/rss+xml": `${publicUrl}/changelog/rss.xml`,
+      },
+    },
   };
 }
 

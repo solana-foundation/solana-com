@@ -9,6 +9,7 @@ import {
 } from "../utils";
 
 const mediaContentRoot = path.join(repoRoot, "apps", "media", "content");
+const changelogCategorySlug = "changelog";
 
 function parseScalar(value: string) {
   const trimmed = value.trim();
@@ -159,6 +160,10 @@ function getMediaPostEntries() {
       changeFrequency: "daily",
       priority: 0.8,
     }),
+    ...createLocalizedEntries("/changelog", {
+      changeFrequency: "weekly",
+      priority: 0.8,
+    }),
   ];
 
   const postEntries = readContentEntries("posts", {
@@ -177,7 +182,10 @@ function getMediaPostEntries() {
             ? categoryItem
             : categoryItem?.category || null;
 
-        if (categorySlug) {
+        if (
+          categorySlug &&
+          categorySlug.toLowerCase() !== changelogCategorySlug
+        ) {
           categoryPaths.add(`/news/category/${categorySlug}`);
         }
       }

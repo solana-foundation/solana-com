@@ -3,12 +3,16 @@
 import { useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight, Check, Mail, Rss } from "lucide-react";
+import { ArrowUpRight, Mail, Rss } from "lucide-react";
 import {
   DescriptionContent,
   type DescriptionContentProps,
 } from "@/components/post/post-card";
-import { CHANGELOG_CATEGORY, CHANGELOG_PAGE_SIZE } from "@/lib/changelog";
+import {
+  CHANGELOG_CATEGORY,
+  CHANGELOG_PAGE_SIZE,
+  CHANGELOG_SUBSCRIBE_URL,
+} from "@/lib/changelog";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -75,81 +79,49 @@ function Description({ post }: { post: PostItem }) {
   );
 }
 
-type SubscribeStatus = "idle" | "loading" | "success" | "error";
-
 function SubscribeForm() {
   const t = useTranslations("changelog");
-  const [status, setStatus] = useState<SubscribeStatus>("idle");
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (status === "loading") return;
-
-    const email = new FormData(event.currentTarget).get("email");
-    setStatus("loading");
-
-    try {
-      const response = await fetch("/api/changelog/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (!response.ok) throw new Error("Subscription failed");
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    }
-  };
 
   return (
-    <div aria-live="polite" className="w-full">
-      {status === "success" ? (
-        <p className="flex min-h-11 items-center gap-2 font-mono text-sm text-white/75">
-          <Check aria-hidden className="size-4 text-primary" />
-          {t("subscribeSuccess")}
-        </p>
-      ) : (
-        <form onSubmit={handleSubmit} className="w-full">
-          <label
-            htmlFor="changelog-email"
-            className="mb-2 block font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/50"
-          >
-            <span aria-hidden># </span>
-            {t("subscribeLabel")}
-          </label>
-          <div className="flex min-w-0 max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 border-b border-white/20 transition-colors focus-within:border-primary hover:border-white/30">
-              <span aria-hidden className="font-mono text-sm text-primary">
-                $
-              </span>
-              <input
-                id="changelog-email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                required
-                placeholder={t("emailPlaceholder")}
-                className="min-h-11 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/45"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Mail aria-hidden className="size-4" />
-              {status === "loading" ? t("subscribing") : t("subscribe")}
-            </button>
-          </div>
-          {status === "error" && (
-            <p className="mt-2 text-xs leading-relaxed text-red-300">
-              {t("subscribeError")}
-            </p>
-          )}
-        </form>
-      )}
-    </div>
+    <form
+      name="iterable-optin"
+      action={CHANGELOG_SUBSCRIBE_URL}
+      target="_blank"
+      method="POST"
+      className="w-full"
+    >
+      <label
+        htmlFor="changelog-email"
+        className="mb-2 block font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/50"
+      >
+        <span aria-hidden># </span>
+        {t("subscribeLabel")}
+      </label>
+      <div className="flex min-w-0 max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 border-b border-white/20 transition-colors focus-within:border-primary hover:border-white/30">
+          <span aria-hidden className="font-mono text-sm text-primary">
+            $
+          </span>
+          <input
+            id="changelog-email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            inputMode="email"
+            required
+            placeholder={t("emailPlaceholder")}
+            className="min-h-11 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/45"
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        >
+          <Mail aria-hidden className="size-4" />
+          {t("subscribe")}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -250,12 +222,21 @@ export function ChangelogPage({
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3.5 font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/55 md:px-8">
-              <div className="flex items-center">
-                <span aria-hidden>~/</span>
-                <span className="text-white/70">Solana</span>
-                <span aria-hidden>/</span>
-                <span>{t("breadcrumb")}</span>
-              </div>
+              <nav aria-label={t("breadcrumbLabel")}>
+                <ol className="flex items-center">
+                  <li aria-hidden>~/</li>
+                  <li>
+                    <Link
+                      href="/"
+                      className="text-white/70 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Solana
+                    </Link>
+                  </li>
+                  <li aria-hidden>/</li>
+                  <li aria-current="page">{t("breadcrumb")}</li>
+                </ol>
+              </nav>
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden
@@ -315,7 +296,7 @@ export function ChangelogPage({
         </div>
       </header>
 
-      <main
+      <section
         aria-labelledby="release-log-title"
         className="mx-auto w-full max-w-[1280px] px-5 py-8 md:px-8 md:py-10"
       >
@@ -433,7 +414,7 @@ export function ChangelogPage({
             )}
           </div>
         )}
-      </main>
+      </section>
     </div>
   );
 }
