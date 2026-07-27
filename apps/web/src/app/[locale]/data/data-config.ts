@@ -47,18 +47,18 @@ export const rpcTimeframeOptions = [
 ] as const;
 
 export const rpcRegionOptions = [
-  { label: "iad", value: "iad" },
-  { label: "nyc", value: "nyc" },
-  { label: "ewr", value: "ewr" },
-  { label: "pit", value: "pit" },
-  { label: "lax", value: "lax" },
-  { label: "sfo", value: "sfo" },
-  { label: "lon", value: "lon" },
-  { label: "fra", value: "fra" },
-  { label: "ams", value: "ams" },
-  { label: "dub", value: "dub" },
-  { label: "tyo", value: "tyo" },
-  { label: "sgp", value: "sgp" },
+  { label: "IAD", value: "iad" },
+  { label: "NYC", value: "nyc" },
+  { label: "EWR", value: "ewr" },
+  { label: "PIT", value: "pit" },
+  { label: "LAX", value: "lax" },
+  { label: "SFO", value: "sfo" },
+  { label: "LON", value: "lon" },
+  { label: "FRA", value: "fra" },
+  { label: "AMS", value: "ams" },
+  { label: "DUB", value: "dub" },
+  { label: "TYO", value: "tyo" },
+  { label: "SGP", value: "sgp" },
 ] as const;
 
 export const rpcInfraOptions = [

@@ -133,7 +133,7 @@ const rpcLatencyProviderOnboardingUrl = `${rpcLatencyRepositoryUrl}#adding-your-
 const rpcLatencyGrafanaUrl =
   "https://rpclatency.grafana.net/d/rpc-latency-monitor/rpc-latency-monitor?orgId=1";
 const rpcSenderGrafanaUrl =
-  "https://rpclatency.grafana.net/d/rpc-sender/sender?orgId=1";
+  "https://rpclatency.grafana.net/public-dashboards/6f18bcfc9e0e4e0ea62d10e5e484c50d";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
 const resourceCardStepFallback = 460;
 const resourceCards = [
@@ -166,16 +166,6 @@ const resourceCards = [
     href: rpcLatencyRepositoryUrl,
     nodeId: "25:141",
     titleKey: "buildSection.cards.rpcMonitor.title",
-  },
-  {
-    analyticsId: "rpc-sender-dashboard",
-    backgroundClassName: "-scale-y-100",
-    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
-    ctaKey: "buildSection.cards.senderMetrics.cta",
-    descriptionKey: "buildSection.cards.senderMetrics.description",
-    href: rpcSenderGrafanaUrl,
-    nodeId: "25:142",
-    titleKey: "buildSection.cards.senderMetrics.title",
   },
   {
     analyticsId: "allium",
@@ -236,6 +226,16 @@ const resourceCards = [
     href: "/x402",
     nodeId: "8:171",
     titleKey: "buildSection.cards.x402.title",
+  },
+  {
+    analyticsId: "rpc-sender-dashboard",
+    backgroundClassName: "-scale-y-100",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
+    ctaKey: "buildSection.cards.senderMetrics.cta",
+    descriptionKey: "buildSection.cards.senderMetrics.description",
+    href: rpcSenderGrafanaUrl,
+    nodeId: "25:142",
+    titleKey: "buildSection.cards.senderMetrics.title",
   },
 ] as const;
 const dataSWRConfig = {
@@ -1729,7 +1729,7 @@ function FilterSelect<T extends string>({
     >
       <SelectTrigger
         aria-label={ariaLabel}
-        className="h-auto w-auto shrink-0 gap-1.5 rounded-none border-nd-border-prominent bg-transparent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-high-em-text ring-offset-0 transition-colors hover:bg-nd-border-light/20 focus:ring-1 focus:ring-nd-primary focus:ring-offset-0 [&>svg]:h-3.5 [&>svg]:w-3.5"
+        className="h-auto w-auto shrink-0 gap-1.5 rounded-none border-nd-border-prominent bg-transparent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold text-nd-high-em-text ring-offset-0 transition-colors hover:bg-nd-border-light/20 focus:ring-1 focus:ring-nd-primary focus:ring-offset-0 [&>svg]:h-3.5 [&>svg]:w-3.5"
       >
         <span className="text-nd-mid-em-text/70">{label}</span>
         <SelectValue />
@@ -1737,7 +1737,7 @@ function FilterSelect<T extends string>({
       <SelectContent className="rounded-none border-nd-border-prominent bg-[#1D1D20] text-nd-high-em-text">
         {options.map((option) => (
           <SelectItem
-            className="rounded-none py-1.5 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text focus:bg-white/10 focus:text-nd-high-em-text data-[state=checked]:text-nd-high-em-text"
+            className="rounded-none py-1.5 font-brand-mono text-[11px] leading-[1.42] font-bold text-nd-mid-em-text focus:bg-white/10 focus:text-nd-high-em-text data-[state=checked]:text-nd-high-em-text"
             key={option.value}
             value={option.value}
           >

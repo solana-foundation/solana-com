@@ -106,6 +106,15 @@ describe("RPC latency query options", () => {
     ]);
   });
 
+  it("keeps RPC dropdown labels in their intended casing", () => {
+    expect(rpcTimeframeOptions.map((option) => option.label)).toContain("6h");
+    expect(rpcRegionOptions.map((option) => option.label)).toContain("LAX");
+    expect(rpcInfraOptions.map((option) => option.label)).toContain("TSW");
+    expect(rpcMethodOptions.map((option) => option.label)).toContain(
+      "getLatestBlockhash",
+    );
+  });
+
   it("accepts reviewed infra and falls back for unknown infra", () => {
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=tsw")).infra,
