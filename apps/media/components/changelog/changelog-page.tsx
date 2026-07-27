@@ -1,17 +1,14 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight, Braces, Mail, Rss } from "lucide-react";
+import { ArrowUpRight, Braces, Check, Mail, Rss } from "lucide-react";
 import {
   DescriptionContent,
   type DescriptionContentProps,
 } from "@/components/post/post-card";
-import {
-  CHANGELOG_CATEGORY,
-  CHANGELOG_PAGE_SIZE,
-  CHANGELOG_SUBSCRIBE_URL,
-} from "@/lib/changelog";
+import { CHANGELOG_CATEGORY, CHANGELOG_PAGE_SIZE } from "@/lib/changelog";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -21,11 +18,9 @@ const DEFAULT_PAGE_INFO: PageInfo = {
   endCursor: null,
 };
 
-const monthFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
+// Issues whose stripped title is just the publish date (e.g. "July 23, 2026")
+// fall back to their summary text so the list scans by what changed.
+const DATE_ONLY_TITLE = /^[A-Za-z]+ \d{1,2},? \d{4}$/;
 
 type ChangelogPageProps = {
   initialPosts: PostItem[];
@@ -46,35 +41,30 @@ function getMachineDate(post: PostItem) {
   return post.publishedAt?.slice(0, 10) ?? post.published;
 }
 
-function getMonth(post: PostItem) {
-  if (!post.publishedAt) {
-    return { key: "archive", label: "Archive" };
+function extractDocumentText(node: unknown): string {
+  if (!node) return "";
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(extractDocumentText).join(" ");
+  if (typeof node === "object") {
+    const record = node as { text?: unknown; children?: unknown };
+    if (typeof record.text === "string") return record.text;
+    return extractDocumentText(record.children);
   }
-
-  const date = new Date(post.publishedAt);
-  if (Number.isNaN(date.getTime())) {
-    return { key: "archive", label: "Archive" };
-  }
-
-  return {
-    key: post.publishedAt.slice(0, 7),
-    label: monthFormatter.format(date),
-  };
+  return "";
 }
 
-function groupIssues(posts: PostItem[]) {
-  return posts.reduce<IssueGroup[]>((groups, post) => {
-    const month = getMonth(post);
-    const currentGroup = groups[groups.length - 1];
+function getIssueHeading(post: PostItem) {
+  const title = getIssueTitle(post.title);
+  if (!DATE_ONLY_TITLE.test(title)) {
+    return { heading: title, showDescription: true };
+  }
 
-    if (currentGroup?.key === month.key) {
-      currentGroup.posts.push(post);
-      return groups;
-    }
-
-    groups.push({ ...month, posts: [post] });
-    return groups;
-  }, []);
+  const summary = extractDocumentText(post.description)
+    .replace(/\s+/g, " ")
+    .trim();
+  return summary
+    ? { heading: summary, showDescription: false }
+    : { heading: title, showDescription: true };
 }
 
 function Description({ post }: { post: PostItem }) {
@@ -85,44 +75,78 @@ function Description({ post }: { post: PostItem }) {
   );
 }
 
+type SubscribeStatus = "idle" | "loading" | "success" | "error";
+
 function SubscribeForm() {
+  const t = useTranslations("changelog");
+  const [status, setStatus] = useState<SubscribeStatus>("idle");
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (status === "loading") return;
+
+    const email = new FormData(event.currentTarget).get("email");
+    setStatus("loading");
+
+    try {
+      const response = await fetch("/api/changelog/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok) throw new Error("Subscription failed");
+      setStatus("success");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  const labelClassName =
+    "mb-2 block font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/50";
+
   return (
-    <form
-      name="iterable-optin"
-      action={CHANGELOG_SUBSCRIBE_URL}
-      target="_blank"
-      method="POST"
-      className="w-full"
-    >
-      <label
-        htmlFor="changelog-email"
-        className="mb-2 block font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/50"
-      >
-        Get the weekly diff
-      </label>
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-        <input
-          id="changelog-email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          inputMode="email"
-          required
-          placeholder="you@company.com"
-          className="min-h-11 min-w-0 flex-1 rounded-md border border-white/20 bg-black/35 px-3.5 font-mono text-sm text-white outline-none transition-colors placeholder:text-white/35 hover:border-white/30 focus:border-primary focus:ring-1 focus:ring-primary"
-        />
-        <button
-          type="submit"
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0d10]"
-        >
-          <Mail aria-hidden className="size-4" />
-          Subscribe
-        </button>
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-white/40">
-        One engineering brief a week. No marketing noise.
-      </p>
-    </form>
+    <div aria-live="polite" className="w-full">
+      {status === "success" ? (
+        <>
+          <p className={labelClassName}>{t("subscribeLabel")}</p>
+          <p className="flex min-h-11 items-center gap-2 text-sm text-white/75">
+            <Check aria-hidden className="size-4 text-primary" />
+            {t("subscribeSuccess")}
+          </p>
+        </>
+      ) : (
+        <form onSubmit={handleSubmit} className="w-full">
+          <label htmlFor="changelog-email" className={labelClassName}>
+            {t("subscribeLabel")}
+          </label>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <input
+              id="changelog-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              placeholder={t("emailPlaceholder")}
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-white/20 bg-black/35 px-3.5 font-mono text-sm text-white outline-none transition-colors placeholder:text-white/45 hover:border-white/30 focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Mail aria-hidden className="size-4" />
+              {status === "loading" ? t("subscribing") : t("subscribe")}
+            </button>
+          </div>
+          {status === "error" && (
+            <p className="mt-2 text-xs leading-relaxed text-red-300">
+              {t("subscribeError")}
+            </p>
+          )}
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -130,18 +154,48 @@ export function ChangelogPage({
   initialPosts,
   initialPageInfo = DEFAULT_PAGE_INFO,
 }: ChangelogPageProps) {
+  const t = useTranslations("changelog");
+  const format = useFormatter();
   const [posts, setPosts] = useState(initialPosts);
   const [pageInfo, setPageInfo] = useState(initialPageInfo);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasLoadError, setHasLoadError] = useState(false);
 
-  const issueGroups = useMemo(() => groupIssues(posts), [posts]);
+  const issueGroups = useMemo(() => {
+    const groups = new Map<string, IssueGroup>();
+
+    for (const post of posts) {
+      const date = post.publishedAt ? new Date(post.publishedAt) : null;
+      const isValid = date !== null && !Number.isNaN(date.getTime());
+      const key = isValid ? post.publishedAt!.slice(0, 7) : "archive";
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.posts.push(post);
+        continue;
+      }
+
+      groups.set(key, {
+        key,
+        label: isValid
+          ? format.dateTime(date, {
+              month: "long",
+              year: "numeric",
+              timeZone: "UTC",
+            })
+          : t("archiveGroup"),
+        posts: [post],
+      });
+    }
+
+    return [...groups.values()];
+  }, [posts, format, t]);
 
   const handleLoadMore = useCallback(async () => {
     if (!pageInfo.hasNextPage || isLoadingMore) return;
 
     setIsLoadingMore(true);
-    setLoadError(null);
+    setHasLoadError(false);
 
     try {
       const params = new URLSearchParams({
@@ -155,7 +209,7 @@ export function ChangelogPage({
 
       const response = await fetch(`/api/posts/latest?${params.toString()}`);
       if (!response.ok) {
-        throw new Error("The archive could not be loaded.");
+        throw new Error("Failed to load posts");
       }
 
       const data = (await response.json()) as {
@@ -172,12 +226,8 @@ export function ChangelogPage({
         ];
       });
       setPageInfo(data.pageInfo ?? DEFAULT_PAGE_INFO);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "The archive could not be loaded.",
-      );
+    } catch {
+      setHasLoadError(true);
     } finally {
       setIsLoadingMore(false);
     }
@@ -199,36 +249,32 @@ export function ChangelogPage({
         />
 
         <div className="mx-auto w-full max-w-[1280px] px-5 py-10 md:px-8 md:py-14 lg:py-16">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/45">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/55">
             <div className="flex items-center gap-2.5">
               <Braces aria-hidden className="size-3.5 text-primary" />
               <span className="text-white/70">Solana</span>
               <span aria-hidden>/</span>
-              <span>Changelog</span>
+              <span>{t("breadcrumb")}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(20,241,149,0.8)]"
-              />
-              Updated weekly
+              <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+              {t("updatedWeekly")}
             </div>
           </div>
 
           <div className="grid gap-9 pt-9 lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-end lg:gap-16 lg:pt-12">
             <div>
               <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">
-                Release notes for builders
+                {t("kicker")}
               </p>
               <h1
                 id="changelog-title"
                 className="mt-3 text-5xl font-medium leading-[0.98] tracking-[-0.05em] sm:text-6xl md:text-7xl"
               >
-                Solana Changelog
+                {t("title")}
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">
-                A concise record of protocol changes, validator releases, SDK
-                updates, and developer tooling across the Solana ecosystem.
+                {t("description")}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs">
                 <a
@@ -236,13 +282,13 @@ export function ChangelogPage({
                   className="inline-flex min-h-11 items-center gap-2 text-white/60 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Rss aria-hidden className="size-3.5" />
-                  RSS feed
+                  {t("rssFeed")}
                 </a>
                 <Link
                   href="/developers"
                   className="inline-flex min-h-11 items-center gap-2 text-white/60 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  Developer resources
+                  {t("developerResources")}
                   <ArrowUpRight aria-hidden className="size-3.5" />
                 </Link>
               </div>
@@ -255,169 +301,124 @@ export function ChangelogPage({
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1280px] lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <aside
-          aria-label="Changelog details"
-          className="border-b border-white/10 px-5 py-6 md:px-8 lg:border-b-0 lg:border-r lg:px-6 lg:py-10"
-        >
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-white/35">
-            Log index
-          </p>
-          <dl className="mt-4 grid grid-cols-3 gap-3 lg:grid-cols-1 lg:gap-0">
-            <div className="border-l border-white/10 pl-3 lg:border-b lg:border-l-0 lg:pb-4 lg:pl-0">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/35">
-                Cadence
-              </dt>
-              <dd className="mt-1 text-sm text-white/75">Weekly</dd>
-            </div>
-            <div className="border-l border-white/10 pl-3 lg:border-b lg:border-l-0 lg:py-4 lg:pl-0">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/35">
-                Order
-              </dt>
-              <dd className="mt-1 text-sm text-white/75">Newest first</dd>
-            </div>
-            <div className="border-l border-white/10 pl-3 lg:border-l-0 lg:pt-4 lg:pl-0">
-              <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-white/35">
-                Format
-              </dt>
-              <dd className="mt-1 text-sm text-white/75">Engineering brief</dd>
-            </div>
-          </dl>
-        </aside>
+      <main
+        aria-labelledby="release-log-title"
+        className="mx-auto w-full max-w-[1280px] px-5 py-8 md:px-8 md:py-10"
+      >
+        <h2 id="release-log-title" className="sr-only">
+          {t("releaseLog")}
+        </h2>
 
-        <section
-          aria-labelledby="release-log-title"
-          className="min-w-0 px-5 py-8 md:px-8 md:py-10 lg:px-10 lg:py-10"
-        >
-          <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
-            <div>
-              <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-primary">
-                Archive
-              </p>
-              <h2
-                id="release-log-title"
-                className="mt-1.5 text-2xl font-medium tracking-[-0.025em] md:text-3xl"
+        {issueGroups.length > 0 ? (
+          <div className="border-t border-white/15">
+            {issueGroups.map((group) => (
+              <section
+                key={group.key}
+                aria-labelledby={`month-${group.key}`}
+                className="grid border-b border-white/15 md:grid-cols-[9rem_minmax(0,1fr)]"
               >
-                Release log
-              </h2>
-            </div>
-            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-white/35">
-              {posts.length} {posts.length === 1 ? "issue" : "issues"} loaded
-            </p>
-          </div>
+                <div className="border-b border-white/10 bg-white/[0.015] px-4 py-4 md:border-b-0 md:border-r md:px-5 md:py-6">
+                  <h3
+                    id={`month-${group.key}`}
+                    className="font-mono text-xs uppercase tracking-[0.1em] text-white/50"
+                  >
+                    {group.label}
+                  </h3>
+                </div>
 
-          {issueGroups.length > 0 ? (
-            <div className="border-t border-white/15">
-              {issueGroups.map((group) => (
-                <section
-                  key={group.key}
-                  aria-labelledby={`month-${group.key}`}
-                  className="grid border-b border-white/15 md:grid-cols-[9rem_minmax(0,1fr)]"
-                >
-                  <div className="border-b border-white/10 bg-white/[0.015] px-4 py-4 md:border-b-0 md:border-r md:px-5 md:py-6">
-                    <h3
-                      id={`month-${group.key}`}
-                      className="font-mono text-xs uppercase tracking-[0.1em] text-white/50"
-                    >
-                      {group.label}
-                    </h3>
-                  </div>
+                <ol>
+                  {group.posts.map((post) => {
+                    const isLatest = post.id === posts[0]?.id;
+                    const { heading, showDescription } = getIssueHeading(post);
 
-                  <ol>
-                    {group.posts.map((post) => {
-                      const isLatest = post.id === posts[0]?.id;
+                    return (
+                      <li
+                        key={post.id}
+                        className="relative border-b border-white/10 last:border-b-0"
+                      >
+                        {isLatest && (
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-px bg-primary"
+                          />
+                        )}
+                        <article>
+                          <Link
+                            href={post.url}
+                            className="group grid min-w-0 gap-3 px-4 py-5 transition-colors duration-150 hover:bg-white/[0.035] focus-visible:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[7.25rem_minmax(0,1fr)_1.5rem] sm:gap-5 sm:px-5 sm:py-6"
+                          >
+                            <div className="flex items-center gap-2 self-start pt-0.5 font-mono text-[0.6875rem] tracking-[0.04em] text-white/55 sm:block">
+                              {post.publishedAt ? (
+                                <time dateTime={post.publishedAt}>
+                                  {getMachineDate(post)}
+                                </time>
+                              ) : (
+                                <span>{getMachineDate(post)}</span>
+                              )}
+                              {isLatest && (
+                                <span className="rounded-sm border border-primary/35 bg-primary/10 px-1.5 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-[0.12em] text-primary sm:mt-2 sm:block sm:w-fit">
+                                  {t("latest")}
+                                </span>
+                              )}
+                            </div>
 
-                      return (
-                        <li
-                          key={post.id}
-                          className="relative border-b border-white/10 last:border-b-0"
-                        >
-                          {isLatest && (
-                            <span
-                              aria-hidden
-                              className="absolute inset-y-0 left-0 w-px bg-primary"
-                            />
-                          )}
-                          <article>
-                            <Link
-                              href={post.url}
-                              className="group grid min-w-0 gap-3 px-4 py-5 transition-colors duration-150 hover:bg-white/[0.035] focus-visible:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[7.25rem_minmax(0,1fr)_1.5rem] sm:gap-5 sm:px-5 sm:py-6"
-                            >
-                              <div className="flex items-center gap-2 self-start pt-0.5 font-mono text-[0.6875rem] tracking-[0.04em] text-white/40 sm:block">
-                                {post.publishedAt ? (
-                                  <time dateTime={post.publishedAt}>
-                                    {getMachineDate(post)}
-                                  </time>
-                                ) : (
-                                  <span>{getMachineDate(post)}</span>
-                                )}
-                                {isLatest && (
-                                  <span className="rounded-sm border border-primary/35 bg-primary/10 px-1.5 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-[0.12em] text-primary sm:mt-2 sm:block sm:w-fit">
-                                    Latest
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="min-w-0">
-                                <h4 className="text-xl font-medium leading-snug tracking-[-0.025em] text-white transition-colors duration-150 group-hover:text-primary md:text-[1.375rem]">
-                                  {getIssueTitle(post.title)}
-                                </h4>
+                            <div className="min-w-0">
+                              <h4 className="line-clamp-2 text-xl font-medium leading-snug tracking-[-0.025em] text-white transition-colors duration-150 group-hover:text-primary md:text-[1.375rem]">
+                                {heading}
+                              </h4>
+                              {showDescription && (
                                 <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/50 [&_p]:m-0 md:text-[0.9375rem]">
                                   <Description post={post} />
                                 </div>
-                              </div>
+                              )}
+                            </div>
 
-                              <ArrowUpRight
-                                aria-hidden
-                                className="hidden size-4 self-center text-white/30 transition duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transform-none sm:block"
-                              />
-                            </Link>
-                          </article>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
-              ))}
-            </div>
-          ) : (
-            <div className="border-y border-white/15 py-16 text-center">
-              <h3 className="text-xl font-medium">
-                The first issue is on its way.
-              </h3>
-              <p className="mt-2 text-sm text-white/50">
-                Check back for weekly Solana engineering updates.
+                            <ArrowUpRight
+                              aria-hidden
+                              className="hidden size-4 self-center text-white/40 transition duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transform-none sm:block"
+                            />
+                          </Link>
+                        </article>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="border-y border-white/15 py-16 text-center">
+            <h3 className="text-xl font-medium">{t("emptyTitle")}</h3>
+            <p className="mt-2 text-sm text-white/50">
+              {t("emptyDescription")}
+            </p>
+          </div>
+        )}
+
+        {issueGroups.length > 0 && (
+          <div
+            className="flex min-h-24 flex-col items-center justify-center gap-3 pt-6"
+            aria-live="polite"
+          >
+            {pageInfo.hasNextPage ? (
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-white/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.08em] text-white/70 transition-colors duration-150 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isLoadingMore ? t("loadingMore") : t("loadMore")}
+              </button>
+            ) : (
+              <p className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-white/50">
+                {t("endOfArchive")}
               </p>
-            </div>
-          )}
-
-          {issueGroups.length > 0 && (
-            <div
-              className="flex min-h-24 flex-col items-center justify-center gap-3 pt-6"
-              aria-live="polite"
-            >
-              {pageInfo.hasNextPage ? (
-                <button
-                  type="button"
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-white/20 px-4 py-2.5 font-mono text-xs uppercase tracking-[0.08em] text-white/70 transition-colors duration-150 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isLoadingMore ? "Loading issues…" : "Load older issues"}
-                </button>
-              ) : (
-                <p className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-white/30">
-                  End of archive
-                </p>
-              )}
-              {loadError && (
-                <p className="text-sm text-red-300">
-                  {loadError} Please try again.
-                </p>
-              )}
-            </div>
-          )}
-        </section>
+            )}
+            {hasLoadError && (
+              <p className="text-sm text-red-300">{t("loadError")}</p>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
