@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight, Braces, Check, Mail, Rss } from "lucide-react";
+import { ArrowUpRight, Check, Mail, Rss } from "lucide-react";
 import {
   DescriptionContent,
   type DescriptionContentProps,
@@ -101,35 +101,38 @@ function SubscribeForm() {
     }
   };
 
-  const labelClassName =
-    "mb-2 block font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/50";
-
   return (
     <div aria-live="polite" className="w-full">
       {status === "success" ? (
-        <>
-          <p className={labelClassName}>{t("subscribeLabel")}</p>
-          <p className="flex min-h-11 items-center gap-2 text-sm text-white/75">
-            <Check aria-hidden className="size-4 text-primary" />
-            {t("subscribeSuccess")}
-          </p>
-        </>
+        <p className="flex min-h-11 items-center gap-2 font-mono text-sm text-white/75">
+          <Check aria-hidden className="size-4 text-primary" />
+          {t("subscribeSuccess")}
+        </p>
       ) : (
         <form onSubmit={handleSubmit} className="w-full">
-          <label htmlFor="changelog-email" className={labelClassName}>
+          <label
+            htmlFor="changelog-email"
+            className="mb-2 block font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/50"
+          >
+            <span aria-hidden># </span>
             {t("subscribeLabel")}
           </label>
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-            <input
-              id="changelog-email"
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              required
-              placeholder={t("emailPlaceholder")}
-              className="min-h-11 min-w-0 flex-1 rounded-md border border-white/20 bg-black/35 px-3.5 font-mono text-sm text-white outline-none transition-colors placeholder:text-white/45 hover:border-white/30 focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+          <div className="flex min-w-0 max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 border-b border-white/20 transition-colors focus-within:border-primary hover:border-white/30">
+              <span aria-hidden className="font-mono text-sm text-primary">
+                $
+              </span>
+              <input
+                id="changelog-email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                required
+                placeholder={t("emailPlaceholder")}
+                className="min-h-11 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/45"
+              />
+            </div>
             <button
               type="submit"
               disabled={status === "loading"}
@@ -237,46 +240,57 @@ export function ChangelogPage({
     <div className="min-h-screen bg-[#07080a] text-white selection:bg-primary selection:text-black">
       <header
         aria-labelledby="changelog-title"
-        className="relative isolate overflow-hidden border-b border-white/10 bg-[#0b0d10]"
+        className="border-b border-white/10"
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_82%_10%,rgba(153,69,255,0.16),transparent_28%),radial-gradient(circle_at_10%_110%,rgba(20,241,149,0.1),transparent_30%)]"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.18)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:linear-gradient(to_right,black,transparent_88%)]"
-        />
+        <div className="mx-auto w-full max-w-[1280px] px-5 py-10 md:px-8 md:py-12 lg:py-16">
+          <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0b0d10]">
+            <div
+              aria-hidden
+              className="h-px bg-gradient-to-r from-[#9945FF] via-primary to-transparent"
+            />
 
-        <div className="mx-auto w-full max-w-[1280px] px-5 py-10 md:px-8 md:py-14 lg:py-16">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-white/55">
-            <div className="flex items-center gap-2.5">
-              <Braces aria-hidden className="size-3.5 text-primary" />
-              <span className="text-white/70">Solana</span>
-              <span aria-hidden>/</span>
-              <span>{t("breadcrumb")}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3.5 font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/55 md:px-8">
+              <div className="flex items-center">
+                <span aria-hidden>~/</span>
+                <span className="text-white/70">Solana</span>
+                <span aria-hidden>/</span>
+                <span>{t("breadcrumb")}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-1.5 rounded-full bg-primary"
+                />
+                {t("updatedWeekly")}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-              {t("updatedWeekly")}
-            </div>
-          </div>
 
-          <div className="grid gap-9 pt-9 lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-end lg:gap-16 lg:pt-12">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">
+            <div className="px-5 py-10 md:px-8 lg:px-10 lg:py-14">
+              <p className="font-mono text-xs lowercase tracking-[0.04em] text-white/50">
+                <span aria-hidden># </span>
                 {t("kicker")}
+              </p>
+              <p className="mt-2 font-mono text-xs tracking-[0.04em] text-white/70 sm:text-sm">
+                <span aria-hidden className="text-primary">
+                  ${" "}
+                </span>
+                solana changelog{" "}
+                <span className="text-[#a670ff]">--follow</span>
+                <span
+                  aria-hidden
+                  className="ml-1 inline-block h-[1.05em] w-[0.55em] translate-y-[0.18em] bg-primary/70 animate-caret-blink motion-reduce:animate-none"
+                />
               </p>
               <h1
                 id="changelog-title"
-                className="mt-3 text-5xl font-medium leading-[0.98] tracking-[-0.05em] sm:text-6xl md:text-7xl"
+                className="mt-6 text-5xl font-medium leading-[0.98] tracking-[-0.05em] sm:text-6xl md:text-7xl"
               >
                 {t("title")}
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">
                 {t("description")}
               </p>
-              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs">
+              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs lowercase">
                 <a
                   href="/changelog/rss.xml"
                   className="inline-flex min-h-11 items-center gap-2 text-white/60 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -294,7 +308,7 @@ export function ChangelogPage({
               </div>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-black/20 p-4 shadow-[0_16px_50px_rgba(0,0,0,0.22)] md:p-5">
+            <div className="border-t border-white/10 px-5 py-5 md:px-8">
               <SubscribeForm />
             </div>
           </div>
