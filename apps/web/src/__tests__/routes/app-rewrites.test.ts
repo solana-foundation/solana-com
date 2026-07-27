@@ -48,6 +48,10 @@ describe("Cross-app rewrites", () => {
       `${MEDIA_APP_URL}/:locale/changelog/:path*`,
     );
     expectBeforeFileRewrite(
+      "/:locale/changelog",
+      `${MEDIA_APP_URL}/:locale/changelog`,
+    );
+    expectBeforeFileRewrite(
       "/podcasts/:path*",
       `${MEDIA_APP_URL}/podcasts/:path*`,
     );
