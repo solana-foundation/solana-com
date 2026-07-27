@@ -19,6 +19,7 @@ import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { extractHeadings } from "@/lib/extract-headings";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
+import { isChangelogCategory } from "@/lib/changelog";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -46,21 +47,37 @@ export default async function PostPage({
 
   // Resolve category
   let categoryName: string | null = null;
+  let isChangelogPost = false;
   if (post.categories) {
     for (const catItem of post.categories) {
-      if (catItem && typeof catItem === "object" && "category" in catItem) {
-        if (catItem.category) {
-          const catData = await reader.collections.categories.read(
-            catItem.category,
-          );
-          if (catData?.name) {
-            categoryName = String(catData.name);
-            break;
-          }
+      const categorySlug =
+        typeof catItem === "string"
+          ? catItem
+          : catItem && typeof catItem === "object" && "category" in catItem
+            ? catItem.category
+            : null;
+
+      if (!categorySlug) continue;
+
+      if (isChangelogCategory(categorySlug)) {
+        isChangelogPost = true;
+      }
+
+      const catData = await reader.collections.categories.read(categorySlug);
+      if (catData?.name) {
+        const resolvedCategoryName = String(catData.name);
+        categoryName ??= resolvedCategoryName;
+
+        if (isChangelogCategory(resolvedCategoryName)) {
+          isChangelogPost = true;
         }
       }
     }
   }
+
+  const backLink = isChangelogPost
+    ? { href: "/changelog" as const, label: "Back to Changelog" }
+    : { href: "/news" as const, label: "Back to News" };
 
   // Resolve CTA
   let cta = null;
@@ -85,9 +102,9 @@ export default async function PostPage({
           <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
             <div className="mb-6">
               <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
-                <Link href="/news">
+                <Link href={backLink.href}>
                   <ArrowLeft className="size-4" />
-                  <span>Back to News</span>
+                  <span>{backLink.label}</span>
                 </Link>
               </Button>
             </div>
