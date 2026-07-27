@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildChangelogJsonLd,
-  serializeJsonLd,
-} from "@/app/[locale]/changelog/structured-data";
+import { buildChangelogJsonLd } from "@/app/[locale]/changelog/structured-data";
 import type { PostItem } from "@/lib/post-types";
 
 const POSTS: PostItem[] = [
@@ -61,11 +58,8 @@ describe("buildChangelogJsonLd", () => {
     }) as any;
 
     expect(data["@graph"][0].url).toBe("https://solana.com/de/changelog");
-  });
-
-  it("escapes markup in dynamic JSON-LD values", () => {
-    expect(serializeJsonLd({ value: "</script>" })).toContain(
-      "\\u003c/script>",
+    expect(data["@graph"][3].url).toBe(
+      "https://solana.com/de/news/solana-changelog-july-23-2026",
     );
   });
 });

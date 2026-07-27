@@ -11,6 +11,18 @@ import {
 const mediaContentRoot = path.join(repoRoot, "apps", "media", "content");
 const changelogCategorySlug = "changelog";
 
+function isPublishedAtOrBefore(value: unknown, now = new Date()) {
+  if (typeof value !== "string" || !value.trim()) {
+    return false;
+  }
+
+  const publishedAt = new Date(value);
+  return (
+    !Number.isNaN(publishedAt.getTime()) &&
+    publishedAt.getTime() <= now.getTime()
+  );
+}
+
 function parseScalar(value: string) {
   const trimmed = value.trim();
 
@@ -167,7 +179,8 @@ function getMediaPostEntries() {
   ];
 
   const postEntries = readContentEntries("posts", {
-    filter: ({ data }) => data.status === "published",
+    filter: ({ data }) =>
+      data.status === "published" && isPublishedAtOrBefore(data.publishedAt),
     mapEntry: ({ data, fileName }) => {
       const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.publishedAt
@@ -246,7 +259,10 @@ function getMediaReportEntries() {
   ];
 
   const reportEntries = readContentEntries("switchbacks", {
-    filter: ({ data }) => Boolean(data.isReport) && data.status === "published",
+    filter: ({ data }) =>
+      Boolean(data.isReport) &&
+      data.status === "published" &&
+      isPublishedAtOrBefore(data.publishedAt),
     mapEntry: ({ data, fileName }) => {
       const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.publishedAt
@@ -273,7 +289,8 @@ function getUpgradeEntries() {
   ];
 
   const upgradeEntries = readContentEntries("upgrades", {
-    filter: ({ data }) => data.status === "published",
+    filter: ({ data }) =>
+      data.status === "published" && isPublishedAtOrBefore(data.publishedAt),
     mapEntry: ({ data, fileName, filePath }) => {
       const slug = String(data.slug || fileName.replace(/\.(mdx|yaml)$/, ""));
       const lastModified = data.publishedAt

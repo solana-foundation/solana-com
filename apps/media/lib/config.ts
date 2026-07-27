@@ -7,11 +7,11 @@ import {
 export const config = {
   siteMetadata: {
     title: `Solana Media`,
-    tagline: `News & Podcasts from the Solana Ecosystem`,
-    description: `Breaking news, in-depth analysis, and exclusive podcasts from the Solana blockchain ecosystem. Stay informed on DeFi, NFTs, developer updates, and Web3 innovation.`,
-    shortDescription: `Breaking news, in-depth analysis, and exclusive podcasts from the Solana blockchain ecosystem.`,
+    tagline: `News, changelogs, research, upgrades, and podcasts from Solana`,
+    description: `Official Solana news, developer changelogs, research reports, network upgrades, and podcasts covering builders, markets, technology, and the ecosystem.`,
+    shortDescription: `Official news, research, network updates, and podcasts from across the Solana ecosystem.`,
     socialShare: DEFAULT_SOCIAL_IMAGE_URL,
-    author: `@solana`,
+    author: `Solana Foundation`,
     keywords: [
       "Solana",
       "blockchain",

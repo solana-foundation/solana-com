@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import type { ReportItem } from "@/lib/report-types";

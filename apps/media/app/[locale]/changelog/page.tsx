@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ChangelogPage } from "@/components/changelog/changelog-page";
+import { JsonLd } from "@/components/seo/json-ld";
 import { CHANGELOG_CATEGORY, CHANGELOG_PAGE_SIZE } from "@/lib/changelog";
 import {
   CHANGELOG_SEO_DESCRIPTION,
@@ -7,7 +8,7 @@ import {
   changelogListingMetadata,
 } from "@/lib/metadata";
 import { fetchLatestPosts } from "@/lib/post-data";
-import { buildChangelogJsonLd, serializeJsonLd } from "./structured-data";
+import { buildChangelogJsonLd } from "./structured-data";
 
 export const revalidate = 300;
 
@@ -35,10 +36,7 @@ export default async function Page({ params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
-      />
+      <JsonLd id="changelog-structured-data" data={structuredData} />
       <ChangelogPage initialPageInfo={pageInfo} initialPosts={posts} />
     </>
   );

@@ -12,6 +12,8 @@ import { isChangelogCategory } from "@/lib/changelog";
 import { getActiveCampaign } from "@/lib/news-campaign";
 import type { NewsNavItem } from "@/lib/news-nav";
 import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildPostCollectionJsonLd } from "@/lib/content-structured-data";
 
 export const revalidate = 300;
 
@@ -65,15 +67,29 @@ export default async function CategoryPostsPage({
     return notFound();
   }
   const campaign = getActiveCampaign(`category:${categoryParam}`);
+  const title = `${categoryName} News`;
+  const description = `Read the latest ${categoryName} news, product updates, ecosystem stories, developer releases, and analysis from across the Solana network.`;
+  const structuredData = buildPostCollectionJsonLd({
+    posts: latestPosts.posts,
+    path: `/news/category/${categoryParam}`,
+    locale,
+    title,
+    description,
+    listName: `Latest ${categoryName} news`,
+    aboutName: `${categoryName} on Solana`,
+  });
 
   return (
-    <CategoryPostsClientPage
-      category={categoryName}
-      categorySlug={categoryParam}
-      campaign={campaign}
-      latestPosts={latestPosts.posts}
-      initialPageInfo={latestPosts.pageInfo}
-      navItems={navItems}
-    />
+    <>
+      <JsonLd data={structuredData} />
+      <CategoryPostsClientPage
+        category={categoryName}
+        categorySlug={categoryParam}
+        campaign={campaign}
+        latestPosts={latestPosts.posts}
+        initialPageInfo={latestPosts.pageInfo}
+        navItems={navItems}
+      />
+    </>
   );
 }

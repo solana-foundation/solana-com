@@ -21,6 +21,9 @@ import { extractHeadings } from "@/lib/extract-headings";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isChangelogCategory } from "@/lib/changelog";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildArticleJsonLd } from "@/lib/content-structured-data";
+import { toPlainText } from "@/lib/structured-data";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -75,6 +78,25 @@ export default async function PostPage({
     }
   }
 
+  const tagNames = post.tags
+    ? (
+        await Promise.all(
+          post.tags.map(async (tagItem: unknown) => {
+            const tagSlug =
+              typeof tagItem === "string"
+                ? tagItem
+                : tagItem && typeof tagItem === "object" && "tag" in tagItem
+                  ? tagItem.tag
+                  : null;
+
+            if (!tagSlug) return null;
+            const tagData = await reader.collections.tags.read(tagSlug);
+            return tagData?.name ? String(tagData.name) : null;
+          }),
+        )
+      ).filter((tagName): tagName is string => Boolean(tagName))
+    : [];
+
   const backLink = isChangelogPost
     ? { href: "/changelog" as const, label: "Back to Changelog" }
     : { href: "/news" as const, label: "Back to News" };
@@ -92,9 +114,24 @@ export default async function PostPage({
   }
 
   const formattedDate = formatPublishedAt(post.publishedAt, "long");
+  const title = String(post.title);
+  const structuredData = buildArticleJsonLd({
+    slug,
+    locale: resolvedParams.locale,
+    title,
+    description: post.description ? toPlainText(post.description) : undefined,
+    image: post.heroImage,
+    publishedAt: post.publishedAt,
+    authorName: author?.name ? String(author.name) : undefined,
+    category: categoryName,
+    tags: tagNames,
+    backPath: backLink.href,
+    backLabel: backLink.label.replace(/^Back to /, ""),
+  });
 
   return (
     <ErrorBoundary>
+      <JsonLd data={structuredData} />
       <Section>
         <div className="relative w-full py-12 pt-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
@@ -133,7 +170,7 @@ export default async function PostPage({
             </div>
 
             <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
-              {String(post.title)}
+              {title}
             </h1>
 
             {post.heroImage && (
@@ -141,7 +178,7 @@ export default async function PostPage({
                 <Image
                   priority={true}
                   src={post.heroImage}
-                  alt={String(post.title)}
+                  alt={title}
                   width={720}
                   height={400}
                   className="w-full h-auto"
@@ -172,7 +209,7 @@ export default async function PostPage({
                 />
               </article>
 
-              <SocialShare title={String(post.title)} variant="card" />
+              <SocialShare title={title} variant="card" />
 
               <aside className="hidden xl:block absolute top-0 bottom-0 left-full ml-12 w-56">
                 <div className="sticky top-24 space-y-8">
