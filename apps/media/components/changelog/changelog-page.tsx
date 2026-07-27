@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowUpRight, Mail, Rss } from "lucide-react";
@@ -81,15 +81,47 @@ function Description({ post }: { post: PostItem }) {
 
 function SubscribeForm() {
   const t = useTranslations("changelog");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "success" | "error"
+  >("idle");
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setStatus("submitting");
+
+    try {
+      const data = new FormData();
+      data.append("email", email.trim());
+
+      const response = await fetch(CHANGELOG_SUBSCRIBE_URL, {
+        method: "POST",
+        body: data,
+      });
+
+      if (!response.ok) {
+        throw new Error("Changelog subscription failed");
+      }
+
+      setEmail("");
+      setStatus("success");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  const statusMessage =
+    status === "submitting"
+      ? t("subscribing")
+      : status === "success"
+        ? t("subscribeSuccess")
+        : status === "error"
+          ? t("subscribeError")
+          : null;
 
   return (
-    <form
-      name="iterable-optin"
-      action={CHANGELOG_SUBSCRIBE_URL}
-      target="_blank"
-      method="POST"
-      className="w-full"
-    >
+    <form name="iterable-optin" onSubmit={handleSubmit} className="w-full">
       <label
         htmlFor="changelog-email"
         className="mb-2 block font-mono text-[0.6875rem] lowercase tracking-[0.14em] text-white/50"
@@ -97,28 +129,60 @@ function SubscribeForm() {
         <span aria-hidden># </span>
         {t("subscribeLabel")}
       </label>
-      <div className="flex min-w-0 max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 border-b border-white/20 transition-colors focus-within:border-primary hover:border-white/30">
-          <span aria-hidden className="font-mono text-sm text-primary">
-            $
-          </span>
-          <input
-            id="changelog-email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            inputMode="email"
-            required
-            placeholder={t("emailPlaceholder")}
-            className="min-h-11 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/45"
-          />
+      <div className="flex min-w-0 max-w-xl flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <div
+            className={`flex min-h-11 min-w-0 items-center gap-2.5 border-b transition-colors focus-within:border-primary ${
+              status === "error"
+                ? "border-red-400"
+                : status === "success"
+                  ? "border-primary"
+                  : "border-white/20 hover:border-white/30"
+            }`}
+          >
+            <Mail aria-hidden className="size-4 shrink-0 text-primary" />
+            <input
+              id="changelog-email"
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              value={email}
+              aria-describedby={
+                statusMessage ? "changelog-email-status" : undefined
+              }
+              aria-invalid={status === "error"}
+              disabled={status === "submitting"}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (status !== "idle") {
+                  setStatus("idle");
+                }
+              }}
+              placeholder={t("emailPlaceholder")}
+              className="min-h-11 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/45 disabled:cursor-wait disabled:opacity-70"
+            />
+          </div>
+          {statusMessage && (
+            <p
+              id="changelog-email-status"
+              role={status === "error" ? "alert" : "status"}
+              className={`mt-2 font-mono text-xs ${
+                status === "error" ? "text-red-400" : "text-primary"
+              }`}
+            >
+              {statusMessage}
+            </p>
+          )}
         </div>
         <button
           type="submit"
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          disabled={status === "submitting"}
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-black transition-colors duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-wait disabled:opacity-70"
         >
           <Mail aria-hidden className="size-4" />
-          {t("subscribe")}
+          {status === "submitting" ? t("subscribing") : t("subscribe")}
         </button>
       </div>
     </form>
