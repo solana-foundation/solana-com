@@ -80,6 +80,16 @@ export default function PodcastsClientPage({
     <ErrorBoundary>
       <Section>
         <div className="flex flex-col gap-16">
+          <div className="mx-auto w-full max-w-6xl px-4 pt-8 md:px-6 lg:px-0">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-6xl">
+              Solana Podcasts
+            </h1>
+            <p className="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
+              Conversations with builders, founders, researchers, and leaders
+              shaping the Solana ecosystem.
+            </p>
+          </div>
+
           {/* Featured Podcast Hero */}
           {latestPodcast && (
             <motion.div
@@ -97,9 +107,9 @@ export default function PodcastsClientPage({
                     Latest Episode
                   </span>
 
-                  <h1 className="text-3xl font-bold leading-[1.1] md:text-5xl lg:text-6xl text-foreground">
+                  <h2 className="text-3xl font-bold leading-[1.1] md:text-5xl lg:text-6xl text-foreground">
                     {latestPodcast.title}
-                  </h1>
+                  </h2>
 
                   {latestPodcast.descriptionPlainText && (
                     <p className="text-base leading-relaxed text-muted-foreground line-clamp-3 md:text-lg">
@@ -199,17 +209,6 @@ export default function PodcastsClientPage({
 
           {/* Podcasts Listing */}
           <div className="px-4 md:px-6 lg:px-0">
-            {!latestPodcast && (
-              <div className="max-w-6xl mx-auto w-full mb-8">
-                <h1 className="text-4xl font-bold md:text-6xl mb-3 text-foreground">
-                  Podcasts
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  Explore the Solana podcast network
-                </p>
-              </div>
-            )}
-
             {/* Solana Originals Section */}
             {internalPodcasts.length > 0 && (
               <div className="max-w-6xl mx-auto w-full mb-16">

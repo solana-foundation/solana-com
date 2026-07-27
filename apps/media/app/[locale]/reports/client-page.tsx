@@ -117,7 +117,7 @@ export default function ReportsClientPage({
         <div className="relative mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
           <div className="flex flex-col max-w-5xl py-[64px] md:py-[112px] xl:py-[160px]">
             <h1 className="m-0 font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
-              Research and reports from across the ecosystem.
+              Solana research and reports from across the ecosystem.
             </h1>
             <p className="text-[#ABABBA] text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
               Long-form analysis, market context, and ecosystem research
