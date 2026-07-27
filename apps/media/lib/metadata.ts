@@ -113,6 +113,38 @@ export async function newsListingMetadata(locale?: string): Promise<Metadata> {
 }
 
 // ---------------------------------------------------------------------------
+// Changelog listing  /changelog
+// ---------------------------------------------------------------------------
+
+export function changelogListingMetadata(locale?: string): Metadata {
+  const resolvedLocale = resolveLocale(locale);
+  const canonicalUrl = `${publicUrl}/changelog`;
+  const title = "Solana Changelog: Weekly Developer Updates";
+  const description =
+    "Weekly Solana engineering updates covering validator clients, protocol changes, SDK releases, and developer tooling.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: siteMetadata.title,
+      images: [fallbackImage()],
+    },
+    twitter: {
+      ...twitterBase(),
+      title,
+      description,
+      images: [siteMetadata.socialShare],
+    },
+    alternates: getPublicAlternates("/changelog", resolvedLocale),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // News post  /news/[slug]
 // ---------------------------------------------------------------------------
 

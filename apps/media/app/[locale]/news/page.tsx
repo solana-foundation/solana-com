@@ -4,6 +4,7 @@ import { fetchFeaturedPosts, fetchLatestPosts } from "@/lib/post-data";
 import { newsListingMetadata } from "@/lib/metadata";
 import { getActiveCampaign } from "@/lib/news-campaign";
 import { fetchNewsNavItemsWithPosts } from "@/lib/news-nav-data";
+import { CHANGELOG_CATEGORY } from "@/lib/changelog";
 
 export const revalidate = 300;
 
@@ -25,9 +26,13 @@ export default async function PostsPage({
   params: Promise<{ locale: string }>;
 }) {
   const [featuredPosts, latestPosts, navItems] = await Promise.all([
-    fetchFeaturedPosts({ limit: FEATURED_MASTHEAD_LIMIT }),
+    fetchFeaturedPosts({
+      limit: FEATURED_MASTHEAD_LIMIT,
+      excludeCategory: CHANGELOG_CATEGORY,
+    }),
     fetchLatestPosts({
       limit: LATEST_POSTS_LIMIT,
+      excludeCategory: CHANGELOG_CATEGORY,
       excludeTag: "featured",
     }),
     fetchNewsNavItemsWithPosts(),

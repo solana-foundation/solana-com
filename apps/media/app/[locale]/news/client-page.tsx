@@ -17,6 +17,7 @@ import LoadMoreStatus from "@/components/ui/load-more-status";
 import type { NewsCampaign } from "@/lib/news-campaign";
 import type { NewsNavItem } from "@/lib/news-nav";
 import type { PageInfo, PostItem } from "@/lib/post-types";
+import { CHANGELOG_CATEGORY } from "@/lib/changelog";
 import uniqBy from "lodash/uniqBy";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -62,6 +63,7 @@ export default function PostsClientPage({
       const cursor = currentCursor || pageInfo.endCursor;
       const params = new URLSearchParams({
         limit: "13",
+        excludeCategory: CHANGELOG_CATEGORY,
         excludeTag: "featured",
       });
       if (cursor) params.set("cursor", cursor);

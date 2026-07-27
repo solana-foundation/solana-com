@@ -50,6 +50,7 @@ import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import {
+  changelogListingMetadata,
   newsListingMetadata,
   newsPostMetadata,
   categoryListingMetadata,
@@ -359,6 +360,32 @@ describe("categoryListingMetadata", () => {
     mockFetchCategory.mockResolvedValue({ category: null });
     const meta = await categoryListingMetadata("nonexistent");
     expect(meta.title).toBe("Category Not Found");
+  });
+});
+
+// ---- Changelog Listing ----
+
+describe("changelogListingMetadata", () => {
+  it("describes the developer-focused changelog", () => {
+    const meta = changelogListingMetadata();
+
+    expect(meta.title).toContain("Solana Changelog");
+    expect(meta.description).toContain("developer tooling");
+  });
+
+  it("has complete social metadata at the public changelog URL", () => {
+    const meta = changelogListingMetadata();
+
+    expectOgFields(meta.openGraph as any);
+    expectTwitterFields(meta.twitter as any);
+    expectCanonical(meta.alternates, "/changelog");
+    expectNoInternalUrls(meta.openGraph, meta.alternates);
+  });
+
+  it("sets localized alternates", () => {
+    const meta = changelogListingMetadata("de");
+
+    expectLocalizedAlternates(meta.alternates, "/changelog", "de");
   });
 });
 

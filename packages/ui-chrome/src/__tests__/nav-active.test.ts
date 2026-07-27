@@ -129,5 +129,8 @@ describe("shared header route matching", () => {
     expect(isNavSectionActive("/data", buildSection?.matchRules ?? [])).toBe(
       true,
     );
+    expect(
+      isNavSectionActive("/changelog", buildSection?.matchRules ?? []),
+    ).toBe(true);
   });
 });

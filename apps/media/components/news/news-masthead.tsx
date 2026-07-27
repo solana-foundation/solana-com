@@ -88,7 +88,7 @@ export function NewsMasthead({
             {navItems.map((item) => (
               <li key={item.slug}>
                 <NavLink
-                  href={newsNavHref(item.slug)}
+                  href={newsNavHref(item)}
                   isActive={item.slug === activeSlug}
                 >
                   {item.label}

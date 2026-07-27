@@ -38,6 +38,15 @@ function expectSourceIndex(source: string) {
 describe("Cross-app rewrites", () => {
   it("proxies app-owned route namespaces to their owning deployments", () => {
     expectBeforeFileRewrite("/news", `${MEDIA_APP_URL}/news`);
+    expectBeforeFileRewrite("/changelog", `${MEDIA_APP_URL}/changelog`);
+    expectBeforeFileRewrite(
+      "/changelog/:path*",
+      `${MEDIA_APP_URL}/changelog/:path*`,
+    );
+    expectBeforeFileRewrite(
+      "/:locale/changelog/:path*",
+      `${MEDIA_APP_URL}/:locale/changelog/:path*`,
+    );
     expectBeforeFileRewrite(
       "/podcasts/:path*",
       `${MEDIA_APP_URL}/podcasts/:path*`,
