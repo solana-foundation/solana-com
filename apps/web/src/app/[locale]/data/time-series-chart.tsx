@@ -5,7 +5,7 @@ import { localPoint } from "@visx/event";
 import { GridRows } from "@visx/grid";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
-import { scaleLinear, scaleTime } from "@visx/scale";
+import { scaleLinear, scaleLog, scaleTime } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { useMemo, useState } from "react";
@@ -13,7 +13,7 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
 
-import type { MetricRowDetail } from "./data-config";
+import type { ChartScale, MetricRowDetail } from "./data-config";
 
 export type SeriesPoint = {
   date: Date;
@@ -32,6 +32,7 @@ type TimeSeriesChartProps = {
   series: ChartSeries[];
   valueLabel: string;
   height?: number;
+  scaleType?: ChartScale;
   timeGranularity?: TimeGranularity;
 };
 
@@ -68,6 +69,7 @@ export function TimeSeriesChart({
   series,
   valueLabel,
   height = 320,
+  scaleType = "linear",
   timeGranularity = "day",
 }: TimeSeriesChartProps) {
   const locale = useLocale();
@@ -162,6 +164,7 @@ export function TimeSeriesChart({
                 height={measuredHeight}
                 highlightedSeriesId={highlightedSeriesId}
                 locale={locale}
+                scaleType={scaleType}
                 series={visibleSeries}
                 seriesDashPatterns={seriesDashPatterns}
                 timeGranularity={timeGranularity}
@@ -184,6 +187,7 @@ function ChartSvg({
   height,
   highlightedSeriesId,
   locale,
+  scaleType,
   series,
   seriesDashPatterns,
   timeGranularity,
@@ -193,6 +197,7 @@ function ChartSvg({
   height: number;
   highlightedSeriesId: string | null;
   locale: string;
+  scaleType: ChartScale;
   series: ChartSeries[];
   seriesDashPatterns: ReadonlyMap<string, string>;
   timeGranularity: TimeGranularity;
@@ -218,21 +223,33 @@ function ChartSvg({
     new Set(points.map((point) => point.date.getTime())),
   ).sort((a, b) => a - b);
   const xDomain = getDateDomain(points);
-  const yDomain = getValueDomain(points, valueLabel);
+  const yDomain =
+    scaleType === "log"
+      ? getLogValueDomain(points)
+      : getValueDomain(points, valueLabel);
   const xScale = scaleTime<number>({
     domain: xDomain,
     range: [0, innerWidth],
   });
-  const yScale = scaleLinear<number>({
-    domain: yDomain,
-    nice: true,
-    range: [innerHeight, 0],
-  });
-  const yTickValues = getYAxisTickValues(
-    yScale.ticks(yAxisTickCount),
-    yScale.domain(),
-    valueLabel,
-  );
+  const yScale =
+    scaleType === "log"
+      ? scaleLog<number>({
+          domain: yDomain,
+          range: [innerHeight, 0],
+        })
+      : scaleLinear<number>({
+          domain: yDomain,
+          nice: true,
+          range: [innerHeight, 0],
+        });
+  const yTickValues =
+    scaleType === "log"
+      ? getLogTickValues(yDomain)
+      : getYAxisTickValues(
+          yScale.ticks(yAxisTickCount),
+          yScale.domain(),
+          valueLabel,
+        );
   const formatYAxisValue = getAxisValueFormatter(valueLabel, locale);
 
   if (width < 10 || height < 10 || innerWidth <= 0 || innerHeight <= 0) {
@@ -290,7 +307,10 @@ function ChartSvg({
           {series.map((item) => (
             <LinePath
               data={item.points}
-              defined={(point) => Number.isFinite(point.value)}
+              defined={(point) =>
+                Number.isFinite(point.value) &&
+                (scaleType !== "log" || point.value > 0)
+              }
               key={item.id}
               stroke={item.color}
               strokeDasharray={seriesDashPatterns.get(item.id)}
@@ -565,6 +585,35 @@ export function getValueDomain(
     minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding,
     maxValue + padding,
   ];
+}
+
+export function getLogValueDomain(points: SeriesPoint[]): [number, number] {
+  const values = points
+    .map((point) => point.value)
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (values.length === 0) {
+    return [1, 10];
+  }
+
+  const minPower = Math.floor(Math.log10(Math.min(...values)));
+  let maxPower = Math.ceil(Math.log10(Math.max(...values)));
+
+  if (maxPower <= minPower) {
+    maxPower = minPower + 1;
+  }
+
+  return [10 ** minPower, 10 ** maxPower];
+}
+
+export function getLogTickValues([minValue, maxValue]: readonly number[]) {
+  const minPower = Math.ceil(Math.log10(minValue));
+  const maxPower = Math.floor(Math.log10(maxValue));
+
+  return Array.from(
+    { length: Math.max(maxPower - minPower + 1, 0) },
+    (_, index) => 10 ** (minPower + index),
+  );
 }
 
 function getPercentValueDomain(

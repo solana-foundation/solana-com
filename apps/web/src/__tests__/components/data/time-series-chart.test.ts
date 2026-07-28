@@ -4,6 +4,8 @@ import {
   compareTooltipValues,
   formatValue,
   getAxisValueFormatter,
+  getLogTickValues,
+  getLogValueDomain,
   getSeriesDashPatterns,
   getValueDomain,
   getYAxisTickValues,
@@ -149,5 +151,20 @@ describe("percent y-axis domain", () => {
     );
 
     expect(ticks).toEqual([99, 100]);
+  });
+});
+
+describe("log y-axis domain", () => {
+  it("uses enclosing powers of ten for positive values", () => {
+    expect(getLogValueDomain(makeSeries("a", [23, 9_850]).points)).toEqual([
+      10, 10_000,
+    ]);
+  });
+
+  it("ignores non-positive values and returns major power-of-ten ticks", () => {
+    const domain = getLogValueDomain(makeSeries("a", [-1, 0, 12]).points);
+
+    expect(domain).toEqual([10, 100]);
+    expect(getLogTickValues(domain)).toEqual([10, 100]);
   });
 });

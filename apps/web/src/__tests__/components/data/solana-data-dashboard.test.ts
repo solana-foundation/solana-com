@@ -10,6 +10,7 @@ import {
   getKpiValue,
   getMedian,
   getSelectedProviderList,
+  getSenderEconomicsItems,
   parseProviders,
   updateProvidersParam,
 } from "@/app/[locale]/data/solana-data-dashboard";
@@ -168,6 +169,66 @@ describe("available providers", () => {
       "DeFiLlama",
       "Dune",
     ]);
+  });
+});
+
+describe("transaction sender economics", () => {
+  const date = "2026-07-29T00:00:00.000Z";
+  const rows: MetricRow[] = [
+    {
+      date,
+      metricName: "Sender Total Transactions",
+      providerName: "jito",
+      unit: "Count",
+      value: 204_212,
+    },
+    {
+      date,
+      metricName: "Sender Total Tips",
+      providerName: "jito",
+      unit: "SOL",
+      value: 38.3,
+    },
+    {
+      date,
+      metricName: "Sender Total Fees",
+      providerName: "jito",
+      unit: "SOL",
+      value: 5.6,
+    },
+    {
+      date,
+      metricName: "Sender Median Tip",
+      providerName: "jito",
+      unit: "Lamports",
+      value: 4_000,
+    },
+    {
+      date,
+      metricName: "Sender Median Fee",
+      providerName: "jito",
+      unit: "Lamports",
+      value: 5_000,
+    },
+  ];
+
+  it("normalizes provider labels and returns complete economics rows", () => {
+    expect(
+      getSenderEconomicsItems(rows, new Set<ProviderName>(["Jito"])),
+    ).toEqual([
+      {
+        medianFeeLamports: 5_000,
+        medianTipLamports: 4_000,
+        provider: "Jito",
+        totalFeesSol: 5.6,
+        totalTipsSol: 38.3,
+        transactions: 204_212,
+      },
+    ]);
+  });
+
+  it("honors the provider selection", () => {
+    expect(getSenderEconomicsItems(rows, new Set<ProviderName>())).toEqual([]);
   });
 });
 

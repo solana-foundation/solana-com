@@ -332,11 +332,13 @@ export type DashboardTab =
   | "overview"
   | "network"
   | "defi"
-  | "rpc";
+  | "rpc"
+  | "senders";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
 export type TimeGranularity = "day" | "hour";
 export type ChartVisualization = "line" | "bar";
+export type ChartScale = "linear" | "log";
 
 export type MethodologyComment = {
   provider: ProviderName;
@@ -351,8 +353,10 @@ export type ChartDefinition = {
   metrics: readonly string[];
   aggregation: Aggregation;
   seriesField: SeriesField;
+  fullWidth?: boolean;
   lowerIsBetter?: boolean;
   methodology?: readonly MethodologyComment[];
+  scale?: ChartScale;
   timeGranularity?: TimeGranularity;
   visualization?: ChartVisualization;
 };
@@ -467,28 +471,42 @@ export type DataApiResponse = {
 };
 
 export const providerColors: Record<string, string> = {
+  "0Slot": "#22C55E",
   Allium: "#DFA3DA",
   Alchemy: "#2196F3",
+  Astralane: "#EAB308",
   Artemis: "#14F195",
+  BlockRazor: "#FACC15",
   Blockworks: "#E32EE9",
+  bloXroute: "#86EFAC",
   DeFiLlama: "#3B8CFF",
   Dune: "#F75F47",
   Helius: "#E84125",
+  Jito: "#A78BFA",
   QuickNode: "#6CFF75",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
+  Stellium: "#FB7185",
+  Temporal: "#FB923C",
   "Token Terminal": "#45A88E",
   Triton: "#A12CFF",
   "Validators App": "#38BDF8",
 };
 
 const providerAliases: Record<string, ProviderName> = {
+  "0slot": "0Slot",
   alchemy: "Alchemy",
+  astralane: "Astralane",
+  blockrazor: "BlockRazor",
+  bloxroute: "bloXroute",
   DefiLama: "DeFiLlama",
   DefiLlama: "DeFiLlama",
   helius: "Helius",
+  jito: "Jito",
   Quicknode: "QuickNode",
   quicknode: "QuickNode",
+  stellium: "Stellium",
+  temporal: "Temporal",
   triton: "Triton",
 };
 
@@ -979,7 +997,60 @@ export const chartDefinitions = [
       },
     ],
   },
+  {
+    id: "sender-transactions-over-time",
+    tab: "senders",
+    title: "Tipping transactions over time by provider",
+    valueLabel: "Count",
+    metrics: ["Sender Transactions"],
+    aggregation: "sum",
+    seriesField: "provider",
+    fullWidth: true,
+    scale: "log",
+    timeGranularity: "hour",
+  },
+  {
+    id: "sender-transactions",
+    tab: "senders",
+    title: "Tipping transactions by provider",
+    valueLabel: "Count",
+    metrics: ["Sender Total Transactions"],
+    aggregation: "sum",
+    seriesField: "provider",
+    timeGranularity: "hour",
+    visualization: "bar",
+  },
+  {
+    id: "sender-total-tips",
+    tab: "senders",
+    title: "Total tips by provider",
+    valueLabel: "SOL",
+    metrics: ["Sender Total Tips"],
+    aggregation: "sum",
+    seriesField: "provider",
+    timeGranularity: "hour",
+    visualization: "bar",
+  },
+  {
+    id: "sender-total-fees",
+    tab: "senders",
+    title: "Total fees by provider",
+    valueLabel: "SOL",
+    metrics: ["Sender Total Fees"],
+    aggregation: "sum",
+    seriesField: "provider",
+    timeGranularity: "hour",
+    visualization: "bar",
+  },
 ] as const satisfies readonly ChartDefinition[];
+
+export const senderEconomicsMetricNames = [
+  "Sender Total Transactions",
+  "Sender Total Tips",
+  "Sender Total Fees",
+  "Sender Median Tip",
+  "Sender Median Fee",
+] as const;
 
 export const metricNames = Array.from(
   new Set(chartDefinitions.flatMap((chart) => chart.metrics)),
