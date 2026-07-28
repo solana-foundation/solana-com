@@ -236,6 +236,12 @@ const lineup: Array<{
     href: "https://x.com/bangerz",
     image: "/src/img/wsop/bangerz.webp",
   },
+  {
+    name: "Gabriel Haines",
+    handle: "gabrielhaines",
+    href: "https://x.com/gabrielhaines",
+    image: "/src/img/wsop/gabriel-haines.webp",
+  },
 ];
 
 const ambassadors: Array<{
@@ -244,6 +250,7 @@ const ambassadors: Array<{
   suit: Suit;
   title: string;
   biography: string;
+  image?: string;
 }> = [
   {
     name: "Jamie Gold",
@@ -252,6 +259,7 @@ const ambassadors: Array<{
     title: "2006 Main Event champion",
     biography:
       "Winner of the 2006 WSOP Main Event, the largest in history at the time, for a record $12 million. Gold is one of poker’s biggest personalities and a defining figure of the WSOP’s original ESPN era.",
+    image: "/src/img/wsop/jamie-gold.webp",
   },
   {
     name: "Michael Mizrachi",
@@ -1053,7 +1061,7 @@ export function WsopPage({ stories }: WsopPageProps) {
             <div className="wsop-lineup">
               <div>
                 <p className="wsop-eyebrow">At the table</p>
-                <h3>Eight seats. No easy hands.</h3>
+                <h3>Nine seats. No easy hands.</h3>
               </div>
               <motion.ol
                 initial="hidden"
@@ -1136,14 +1144,28 @@ export function WsopPage({ stories }: WsopPageProps) {
                   transition={{ duration: 0.18, ease: EASE }}
                 >
                   <div className="wsop-ambassador__portrait">
-                    <SuitIcon
-                      className="wsop-ambassador__watermark"
-                      suit={ambassador.suit}
-                    />
-                    <strong aria-hidden="true">{ambassador.initials}</strong>
-                    <span className="wsop-ambassador__portrait-note">
-                      Official portrait incoming
-                    </span>
+                    {ambassador.image ? (
+                      <Image
+                        className="wsop-ambassador__portrait-image"
+                        src={ambassador.image}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
+                      />
+                    ) : (
+                      <>
+                        <SuitIcon
+                          className="wsop-ambassador__watermark"
+                          suit={ambassador.suit}
+                        />
+                        <strong aria-hidden="true">
+                          {ambassador.initials}
+                        </strong>
+                        <span className="wsop-ambassador__portrait-note">
+                          Official portrait incoming
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div className="wsop-ambassador__copy">
                     <span>{String(index + 1).padStart(2, "0")}</span>
