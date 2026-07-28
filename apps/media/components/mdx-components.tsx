@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import React from "react";
-import type { ReactNode, ElementType } from "react";
+import type { ComponentPropsWithoutRef, ReactNode, ElementType } from "react";
 import Image, { ImageProps } from "next/image";
 import { Video } from "./blocks/video";
 import { Mermaid } from "./blocks/mermaid";
@@ -9,6 +9,7 @@ import { Gallery } from "./ui/gallery";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
 import { Latex } from "./latex";
+import { ArticleFigure } from "./article-figure";
 
 // Block types for post body templates
 type VideoBlockData = {
@@ -164,7 +165,8 @@ export const components = {
     paragraph: ({ children }) => <p className="mb-4">{children}</p>,
     // Headings
     heading: ({ level, children }) => {
-      const Tag = `h${level}` as ElementType;
+      const semanticLevel = Math.min(level + 1, 6);
+      const Tag = `h${semanticLevel}` as ElementType;
       const sizes: Record<number, string> = {
         1: "text-4xl font-bold mt-8 mb-4",
         2: "text-3xl font-bold mt-6 mb-3",
@@ -603,10 +605,14 @@ export const mdxComponents = {
   Newslettersignup: NewslettersignupBlock,
   Footnotes: FootnotesBlock,
   Sup: SupBlock,
+  Figure: ArticleFigure,
   Latex: LatexBlock,
   InlineLatex,
   // Lowercase overrides for markdown-generated elements
   blockquote: BlockquoteBlock,
+  h1: ({ children, ...props }: ComponentPropsWithoutRef<"h1">) => (
+    <h2 {...props}>{children}</h2>
+  ),
   img: ({ src, alt }: { src?: ImageProps["src"]; alt?: ImageProps["alt"] }) => {
     if (!src) return null;
     return (

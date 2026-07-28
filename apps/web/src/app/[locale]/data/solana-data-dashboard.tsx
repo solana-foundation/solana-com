@@ -37,6 +37,7 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/utils";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import {
   chartDefinitions,
@@ -98,6 +99,7 @@ const dataDedupingIntervalMs = 60 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
+const resourceCarouselAutoAdvanceMs = 6000;
 const resourceCardStepFallback = 460;
 const resourceCards = [
   {
@@ -677,7 +679,15 @@ function ChartGrid({
 
 function DataResourceCarousel() {
   const t = useTranslations("dataDashboard");
+  const carouselRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)",
+  );
+  const [isCarouselInView, setIsCarouselInView] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
+  const [isPointerDown, setIsPointerDown] = useState(false);
+  const [isPointerInside, setIsPointerInside] = useState(false);
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -719,6 +729,24 @@ function DataResourceCarousel() {
     };
   }, [updateScrollState]);
 
+  useEffect(() => {
+    const carouselElement = carouselRef.current;
+
+    if (!carouselElement || typeof IntersectionObserver === "undefined") {
+      setIsCarouselInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsCarouselInView(entry.isIntersecting),
+      { threshold: 0.35 },
+    );
+
+    observer.observe(carouselElement);
+
+    return () => observer.disconnect();
+  }, []);
+
   const scrollCards = useCallback((direction: -1 | 1) => {
     const scrollElement = scrollRef.current;
 
@@ -738,14 +766,74 @@ function DataResourceCarousel() {
     });
   }, []);
 
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    const isAutoAdvancePaused =
+      prefersReducedMotion ||
+      !isCarouselInView ||
+      isFocusWithin ||
+      isPointerDown ||
+      isPointerInside;
+
+    if (
+      !scrollElement ||
+      isAutoAdvancePaused ||
+      scrollElement.scrollWidth <= scrollElement.clientWidth + 1
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const maxScrollLeft =
+        scrollElement.scrollWidth - scrollElement.clientWidth;
+
+      if (scrollElement.scrollLeft < maxScrollLeft - 1) {
+        scrollCards(1);
+        return;
+      }
+
+      scrollElement.scrollTo({ behavior: "smooth", left: 0, top: 0 });
+    }, resourceCarouselAutoAdvanceMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [
+    isCarouselInView,
+    isFocusWithin,
+    isPointerDown,
+    isPointerInside,
+    prefersReducedMotion,
+    scrollCards,
+  ]);
+
   return (
     <section
       aria-labelledby="data-resource-carousel-title"
+      aria-roledescription="carousel"
       className="mt-10 -mx-4 bg-black px-4 py-8 md:-mx-8 md:px-8 md:py-10 xl:-mx-10 xl:px-10 xl:py-11"
       data-node-id="2:1090"
+      onBlurCapture={(event) => {
+        const nextFocusedElement = event.relatedTarget;
+
+        if (
+          !(nextFocusedElement instanceof Node) ||
+          !event.currentTarget.contains(nextFocusedElement)
+        ) {
+          setIsFocusWithin(false);
+        }
+      }}
+      onFocusCapture={() => setIsFocusWithin(true)}
+      onPointerCancel={() => setIsPointerDown(false)}
+      onPointerDown={() => setIsPointerDown(true)}
+      onPointerEnter={() => setIsPointerInside(true)}
+      onPointerLeave={() => {
+        setIsPointerDown(false);
+        setIsPointerInside(false);
+      }}
+      onPointerUp={() => setIsPointerDown(false)}
+      ref={carouselRef}
     >
       <div className="border border-nd-border-light bg-black">
-        <div className="flex items-stretch border-b border-nd-border-light">
+        <div className="flex flex-col border-b border-nd-border-light sm:flex-row sm:items-stretch">
           <div className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-6 md:px-9 md:py-7">
             <h2
               className="text-[28px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text md:text-[32px]"
@@ -758,24 +846,24 @@ function DataResourceCarousel() {
             </p>
           </div>
 
-          <div className="hidden shrink-0 items-center gap-3 bg-white/[0.02] px-6 py-6 sm:flex md:px-9">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-nd-border-light bg-white/[0.04] px-5 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-6 md:px-9">
             <DataResourceNavButton
               ariaLabel={t("buildSection.previous")}
               disabled={!scrollState.canScrollLeft}
-              icon={<ChevronLeft aria-hidden="true" className="h-4 w-4" />}
+              icon={<ChevronLeft aria-hidden="true" className="h-5 w-5" />}
               onClick={() => scrollCards(-1)}
             />
             <DataResourceNavButton
               ariaLabel={t("buildSection.next")}
               disabled={!scrollState.canScrollRight}
-              icon={<ChevronRight aria-hidden="true" className="h-4 w-4" />}
+              icon={<ChevronRight aria-hidden="true" className="h-5 w-5" />}
               onClick={() => scrollCards(1)}
             />
           </div>
         </div>
 
         <div
-          className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           ref={scrollRef}
         >
           <div className="flex min-w-max xl:min-w-0">
@@ -806,9 +894,11 @@ function DataResourceNavButton({
     <button
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] text-nd-high-em-text transition-colors",
-        "hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-        disabled ? "cursor-not-allowed opacity-50 hover:bg-white/[0.08]" : "",
+        "inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(255,255,255,0.12)] transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        disabled
+          ? "cursor-not-allowed border-white/30 !bg-white/10 text-white/55 shadow-none hover:!bg-white/10"
+          : "border-white !bg-white text-black hover:!bg-white/85",
       )}
       disabled={disabled}
       onClick={onClick}
@@ -834,12 +924,15 @@ function DataResourceCard({
 
   return (
     <article
+      aria-label={`${index + 1} / ${resourceCards.length}: ${title}`}
+      aria-roledescription="slide"
       className={cn(
-        "relative flex min-h-[186px] shrink-0 basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
+        "relative flex min-h-[186px] shrink-0 snap-start basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
         index > 0 ? "border-l border-nd-border-light" : "",
       )}
       data-node-id={card.nodeId}
       ref={cardRef}
+      role="group"
     >
       <img
         alt=""

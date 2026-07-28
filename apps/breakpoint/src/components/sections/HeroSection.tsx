@@ -9,7 +9,6 @@ import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { useVariant } from "@/lib/use-variant";
 
 export default function HeroSection() {
@@ -123,7 +122,7 @@ export default function HeroSection() {
                 label={variant.heroCtaLabel}
                 variant="primary"
                 arrow
-                href={GENERAL_ADMISSION_HREF}
+                href={variant.heroCtaHref}
               />
             ) : (
               <Button

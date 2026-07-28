@@ -11,8 +11,8 @@ Keystatic uses GitHub for authentication and version control. Before you start,
 make sure you have:
 
 1. A GitHub account.
-2. Access to the `solana-foundation/solana-com` repository.
-3. Permission to work in Keystatic on the shared `staging` branch.
+2. **Write** access to the `solana-foundation/solana-com` repository.
+3. Access to the Solana Media Keystatic GitHub App.
 
 If you do not have repository access yet:
 
@@ -31,26 +31,27 @@ If you do not have repository access yet:
 
 There are two separate stages in the workflow:
 
-| Stage                  | Where the change lives                | What it means                               |
-| ---------------------- | ------------------------------------- | ------------------------------------------- |
-| **Drafting / editing** | `staging` branch                      | Safe working copy for content updates       |
-| **Publishing**         | Pull Request from `staging` to `main` | Review and release process for live content |
+| Stage                  | Where the change lives                          | What it means                               |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------- |
+| **Drafting / editing** | A dedicated `staging-*` branch made from `main` | Safe working copy for one content change    |
+| **Publishing**         | Pull Request from that branch to `main`         | Review and release process for live content |
 
-The `staging` branch has its own preview deployment at
-[https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
-Use this link to verify how your content looks before opening a Pull Request.
+Each Pull Request gets a Vercel preview deployment. Open the preview link from
+the Pull Request checks to verify the content before merging.
 
-> **Note:** After saving a change to `staging`, allow 1–2 minutes for the
-> preview to update. Vercel needs to rebuild the site before new content
-> appears.
+> **Note:** After saving a change, allow 1–2 minutes for the branch preview to
+> update. Vercel needs to rebuild the site before new content appears.
 
 Important rules:
 
-- Always select the `staging` branch before you create or edit content.
-- Saving in Keystatic writes a commit to `staging`, not to the live site.
-- Setting a post to **Published** only marks it ready on `staging`.
-- Content goes live only after a Pull Request from `staging` to `main` is
-  reviewed and merged.
+- Start from `main`, then create a new branch for the article or content batch.
+- Branch names must start with `staging-`. Keystatic adds this prefix for you.
+- Do not edit content directly on `main` or on the old shared `staging` branch.
+- Saving in Keystatic writes a commit to the selected `staging-*` branch, not to
+  the live site.
+- Setting a post to **Published** only marks it ready on that branch.
+- Content goes live only after a Pull Request from the content branch to `main`
+  is reviewed and merged.
 - Posts and reports now use **Publish Date** with both date and time.
 - Enter **Publish Date** in UTC.
 - Published posts and reports remain hidden until their **Publish Date** has
@@ -69,22 +70,40 @@ Important rules:
 2. Click **Log in with GitHub**.
 3. Authorize the GitHub prompt if asked.
 4. After Keystatic loads, use the branch selector in the left sidebar and
-   confirm it is set to **`staging`** before doing any work.
+   confirm it is set to **`main`**.
+5. Click **New branch...**.
+6. Enter a descriptive suffix such as `ek-article-name`. Keystatic displays the
+   fixed `staging-` prefix and creates `staging-ek-article-name`.
+7. Because you started on `main`, Keystatic uses `main` as the base
+   automatically. Click **Create**.
 
 ### Dashboard
 
 The dashboard shows all collections and singletons you can manage, plus the
 current branch and the **Create pull request** action.
 
-![Dashboard](screenshots/01-dashboard.webp)
-
 On the dashboard:
 
-- The branch selector in the left sidebar should read `staging`.
+- The branch selector should show your dedicated `staging-*` branch before you
+  edit content.
 - The **Create pull request** button is used later when content is ready to
   publish.
 - The collection cards take you to Posts, Podcasts, Authors, Categories, Tags,
   CTAs, Switchbacks, and Links.
+
+### If Branch Creation Fails
+
+1. Confirm you opened the branch dialog from `main`.
+2. Enter only the branch suffix. The `staging-` prefix is already supplied by
+   Keystatic.
+3. Log out of Keystatic, log in again, and reauthorize the GitHub App.
+4. Ask a repository admin to confirm that:
+   - you have the **Write** role,
+   - the Solana Media Keystatic App is installed for
+     `solana-foundation/solana-com`,
+   - the installation is not suspended or awaiting approval, and
+   - its repository permissions include write access to Contents and Pull
+     Requests.
 
 ---
 
@@ -92,13 +111,14 @@ On the dashboard:
 
 This is the most common workflow.
 
-### Step 1: Confirm You Are on `staging`
+### Step 1: Confirm You Are on Your `staging-*` Branch
 
 Before editing anything, check the branch selector in the left sidebar. It
-should show **`staging`**.
+should show the dedicated branch you just created, such as
+**`staging-ek-article-name`**.
 
-If it shows `main`, switch it to `staging` first. Drafts and edits should be
-made on staging, not directly on `main`.
+If it shows `main`, create or select the correct `staging-*` branch first.
+Drafts and edits must not be made directly on `main`.
 
 ### Step 2: Open the Posts Collection
 
@@ -140,18 +160,17 @@ the TeX expression without `$` or `$$` delimiters. For example, enter `E = mc^2`
 or `\frac{a}{b}` directly in the LaTeX field. The editor preview shows the
 rendered formula before you save.
 
-### Step 4: Save the Post as a Draft on `staging`
+### Step 4: Save the Post as a Draft on Your Branch
 
 When the article is still in progress:
 
 1. Leave **Status** set to **Draft**.
 2. Click **Create**.
-3. Keystatic saves the new post to the current **`staging`** branch.
+3. Keystatic saves the new post to the selected **`staging-*`** branch.
 
-This does **not** publish the article to the live site. You can preview your
-draft on the staging site at
-[https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
-Allow 1–2 minutes after saving for the preview to update while Vercel rebuilds.
+This does **not** publish the article to the live site. After you open the Pull
+Request, use its Vercel preview link to review the draft. Allow 1–2 minutes
+after saving for the preview to update while Vercel rebuilds.
 
 ### Step 5: Mark the Post Ready for Publishing
 
@@ -163,30 +182,29 @@ When the article is approved and finalized:
    visible in UTC.
 4. Click **Save**.
 
-This still saves only to `staging`. The article is not live yet.
+This still saves only to your `staging-*` branch. The article is not live yet.
 
 ---
 
 ## Section 5: Opening a Pull Request to Publish
 
-Publishing happens after the content is already saved on `staging`.
+Publishing happens after the content is already saved on its dedicated branch.
 
 1. Return to the dashboard.
-2. Confirm the current branch is still **`staging`**.
+2. Confirm the current branch is your **`staging-*`** content branch.
 3. Click **Create pull request**.
 4. In GitHub, open a Pull Request with:
    - **base:** `main`
-   - **compare:** `staging`
-5. Review the diff and create the Pull Request.
-6. Wait for the preview deployment to finish building. You can also verify
-   content on the staging preview at
-   [https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/)
-   before merging.
+   - **compare:** your `staging-*` branch
+5. Review the diff, confirm it contains only the intended content change, and
+   create the Pull Request.
+6. Wait for the Vercel preview deployment to finish and verify the preview link
+   from the Pull Request checks.
 7. After review and approval, merge the Pull Request into `main`.
 
 > **Important:** A post with **Status = Published** is still not live until the
-> `staging` to `main` Pull Request is merged, and it remains hidden until the
-> **Publish Date** timestamp has passed.
+> content branch is merged to `main`, and it remains hidden until the **Publish
+> Date** timestamp has passed.
 >
 > Example: if you want a post to go live at `6:00 PM` in Auckland on March 20,
 > 2026, enter the equivalent UTC time, not `2026-03-20 18:00`.
@@ -217,8 +235,8 @@ Click **Add** to create a new link.
 | **Tags**        | Related tags                                            |
 | **Featured**    | Whether the link should be featured                     |
 
-Save link changes on `staging`, then publish them through the same Pull Request
-flow described above.
+Save link changes on a dedicated `staging-*` branch, then publish them through
+the same Pull Request flow described above.
 
 ---
 
@@ -282,7 +300,8 @@ To schedule a report:
 2. Enable **Use As Report** if needed.
 3. Set **Report Status** to **Published**.
 4. Set **Publish Date** to the exact release date and time in UTC.
-5. Save on `staging` and publish through the normal Pull Request flow.
+5. Save on a dedicated `staging-*` branch and publish through the normal Pull
+   Request flow.
 
 ---
 
@@ -335,16 +354,17 @@ Global Settings controls site-wide theme options.
 
 ## Section 12: Quick Reference
 
-| Task                     | Branch                                | Final step                               |
-| ------------------------ | ------------------------------------- | ---------------------------------------- |
-| Start a new draft        | `staging`                             | Click **Create**                         |
-| Update an existing draft | `staging`                             | Click **Save**                           |
-| Mark a post ready        | `staging`                             | Set **Status** to **Published** and save |
-| Publish to the live site | Pull Request from `staging` to `main` | Merge the PR                             |
+| Task                     | Branch                                       | Final step                               |
+| ------------------------ | -------------------------------------------- | ---------------------------------------- |
+| Start a new draft        | New `staging-*` branch based on `main`       | Click **Create**                         |
+| Update an existing draft | That content change's `staging-*` branch     | Click **Save**                           |
+| Mark a post ready        | That content change's `staging-*` branch     | Set **Status** to **Published** and save |
+| Publish to the live site | Pull Request from the content branch to main | Merge the PR                             |
 
 ### Remember
 
-- Work in **`staging`**.
-- Drafts stay in **`staging`**.
+- Start from **`main`**, then create a fresh **`staging-*`** branch.
+- Keep one article or related content batch per branch.
 - **Published** status alone does not make content live.
-- A **Pull Request from `staging` to `main`** is what publishes the content.
+- A **Pull Request from the content branch to `main`** is what publishes the
+  content.

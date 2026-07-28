@@ -7,6 +7,7 @@ export interface LatestPostsParams {
   limit?: number;
   cursor?: string;
   category?: string;
+  excludeCategory?: string;
   tag?: string;
   excludeTag?: string;
 }
@@ -286,12 +287,18 @@ export const fetchLatestPosts = async (
     });
 
     const normalizedCategory = normalizeFilter(params.category);
+    const normalizedExcludeCategory = normalizeFilter(params.excludeCategory);
     const normalizedTag = normalizeFilter(params.tag);
     const normalizedExcludeTag = normalizeFilter(params.excludeTag);
 
     // Filter by category and/or tag if specified
     let filteredPosts = postsWithDates;
-    if (normalizedCategory || normalizedTag || normalizedExcludeTag) {
+    if (
+      normalizedCategory ||
+      normalizedExcludeCategory ||
+      normalizedTag ||
+      normalizedExcludeTag
+    ) {
       filteredPosts = [];
 
       for (const item of postsWithDates) {
@@ -299,12 +306,20 @@ export const fetchLatestPosts = async (
           item.post,
           normalizedCategory,
         );
+        const matchesExcludedCategory = normalizedExcludeCategory
+          ? await postMatchesCategory(item.post, normalizedExcludeCategory)
+          : false;
         const matchesTag = await postMatchesTag(item.post, normalizedTag);
         const matchesExcludedTag = normalizedExcludeTag
           ? await postMatchesTag(item.post, normalizedExcludeTag)
           : false;
 
-        if (matchesCategory && matchesTag && !matchesExcludedTag) {
+        if (
+          matchesCategory &&
+          !matchesExcludedCategory &&
+          matchesTag &&
+          !matchesExcludedTag
+        ) {
           filteredPosts.push(item);
         }
       }
@@ -353,6 +368,7 @@ export interface FeaturedPostResponse {
 
 export interface FeaturedPostsParams {
   limit?: number;
+  excludeCategory?: string;
 }
 
 export interface FeaturedPostsResponse {
@@ -372,6 +388,7 @@ export const fetchFeaturedPosts = async (
 ): Promise<FeaturedPostsResponse> => {
   try {
     const allSlugs = await reader.collections.posts.list();
+    const normalizedExcludeCategory = normalizeFilter(params.excludeCategory);
 
     const featuredCandidates: Array<{
       slug: string;
@@ -384,7 +401,11 @@ export const fetchFeaturedPosts = async (
         const post = await reader.collections.posts.read(slug);
         if (
           isPublishedPost(post) &&
-          (await postMatchesTag(post, FEATURED_TAG))
+          (await postMatchesTag(post, FEATURED_TAG)) &&
+          !(
+            normalizedExcludeCategory &&
+            (await postMatchesCategory(post, normalizedExcludeCategory))
+          )
         ) {
           featuredCandidates.push({
             slug,

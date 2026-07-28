@@ -52,20 +52,20 @@ export const upgradeMdxComponents = {
   StatusBadgeGroup,
   MetricCard,
   MetricCardGroup,
-  h1: (props: ComponentPropsWithoutRef<"h1">) => (
-    <h1
+  h1: (props: ComponentPropsWithoutRef<"h2">) => (
+    <h2
       className="text-4xl md:text-5xl font-bold mb-6 mt-12 first:mt-0"
       {...props}
     />
   ),
-  h2: (props: ComponentPropsWithoutRef<"h2">) => (
-    <h2 className="text-3xl md:text-4xl font-bold mb-6 mt-16" {...props} />
+  h2: (props: ComponentPropsWithoutRef<"h3">) => (
+    <h3 className="text-3xl md:text-4xl font-bold mb-6 mt-16" {...props} />
   ),
-  h3: (props: ComponentPropsWithoutRef<"h3">) => (
-    <h3 className="text-2xl md:text-3xl font-semibold mb-4 mt-12" {...props} />
+  h3: (props: ComponentPropsWithoutRef<"h4">) => (
+    <h4 className="text-2xl md:text-3xl font-semibold mb-4 mt-12" {...props} />
   ),
-  h4: (props: ComponentPropsWithoutRef<"h4">) => (
-    <h4 className="text-xl md:text-2xl font-semibold mb-3 mt-8" {...props} />
+  h4: (props: ComponentPropsWithoutRef<"h5">) => (
+    <h5 className="text-xl md:text-2xl font-semibold mb-3 mt-8" {...props} />
   ),
   p: (props: ComponentPropsWithoutRef<"p">) => (
     <p className="text-lg text-gray-300 mb-6 leading-relaxed" {...props} />

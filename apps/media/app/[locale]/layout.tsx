@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
-      creator: siteMetadata.author,
+      creator: `@${social.twitter.name}`,
       title: siteMetadata.title,
       description: siteMetadata.shortDescription,
       images: [createDefaultSocialImage(siteMetadata.title)],

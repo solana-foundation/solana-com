@@ -34,6 +34,7 @@ interface NewsMastheadProps {
   /** Slug of the vertical currently being viewed, if any (for active state). */
   activeSlug?: string;
   navItems?: NewsNavItem[];
+  wordmarkAsHeading?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export function NewsMasthead({
   tagline,
   activeSlug,
   navItems = NEWS_NAV_ITEMS,
+  wordmarkAsHeading = false,
 }: NewsMastheadProps) {
   const t = useTranslations("news.masthead");
   const mastheadTagline = tagline ?? t("tagline");
@@ -61,9 +63,15 @@ export function NewsMasthead({
             href="/news"
             className="text-inherit no-underline hover:no-underline w-fit"
           >
-            <span className="text-3xl md:text-4xl font-bold tracking-tight">
-              {t("wordmark")}
-            </span>
+            {wordmarkAsHeading ? (
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                {t("wordmark")}
+              </h1>
+            ) : (
+              <span className="text-3xl md:text-4xl font-bold tracking-tight">
+                {t("wordmark")}
+              </span>
+            )}
           </Link>
           <p className="text-sm text-muted-foreground">{mastheadTagline}</p>
         </div>
@@ -88,7 +96,7 @@ export function NewsMasthead({
             {navItems.map((item) => (
               <li key={item.slug}>
                 <NavLink
-                  href={newsNavHref(item.slug)}
+                  href={newsNavHref(item)}
                   isActive={item.slug === activeSlug}
                 >
                   {item.label}

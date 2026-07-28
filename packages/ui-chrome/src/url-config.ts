@@ -18,7 +18,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME;
 const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
   // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/guides/*, /developers/bootcamp/*
   docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|guides|bootcamp)(?:\/|$))/,
-  media: /^\/(?:news|podcasts)(?:\/|$)/,
+  media: /^\/(?:changelog|news|podcasts)(?:\/|$)/,
   // templates app handles: /developers/templates/*
   templates: /^\/developers\/templates(?:\/|$)/,
   // accelerate app handles: /accelerate/*

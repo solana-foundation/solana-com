@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { ArrowDownToLine, ArrowUpRight, ArrowLeft } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -14,6 +14,8 @@ import { reportMetadata } from "@/lib/metadata";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
 import { SwitchbackItem } from "@/lib/switchback-types";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildReportJsonLd } from "@/lib/content-structured-data";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -23,7 +25,7 @@ export default async function ReportPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const report: SwitchbackItem =
     await reader.collections.switchbacks.read(slug);
 
@@ -54,9 +56,34 @@ export default async function ReportPage({
         )
       ).filter((categoryName): categoryName is string => Boolean(categoryName))
     : [];
+  const tags = report.tags
+    ? (
+        await Promise.all(
+          report.tags.map(async (tagRef) => {
+            if (!tagRef?.tag) {
+              return null;
+            }
+
+            const tag = await reader.collections.tags.read(String(tagRef.tag));
+            return tag?.name ? String(tag.name) : null;
+          }),
+        )
+      ).filter((tagName): tagName is string => Boolean(tagName))
+    : [];
+  const structuredData = buildReportJsonLd({
+    slug,
+    locale,
+    title: headline,
+    description: report.description,
+    image: report.image?.src,
+    publishedAt: report.publishedAt,
+    categories,
+    tags,
+  });
 
   return (
     <ErrorBoundary>
+      <JsonLd data={structuredData} />
       <article className="relative min-h-screen bg-black text-white text-left">
         {/* Hero section */}
         <div className="relative mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
@@ -222,6 +249,6 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  return reportMetadata(slug);
+  const { locale, slug } = await params;
+  return reportMetadata(slug, locale);
 }

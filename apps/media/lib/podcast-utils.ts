@@ -52,6 +52,32 @@ export const filterAndSortPodcasts = (
 };
 
 /**
+ * Sort podcasts by their latest episode date, newest first.
+ * Podcasts without a valid episode date are placed last.
+ */
+export const sortPodcastsByLatestEpisode = (
+  podcasts: PodcastShow[],
+): PodcastShow[] => {
+  const getLatestEpisodeTimestamp = (podcast: PodcastShow): number | null => {
+    const publishedDate = podcast.latestEpisode?.publishedDate;
+    if (!publishedDate) return null;
+
+    const timestamp = Date.parse(publishedDate);
+    return Number.isNaN(timestamp) ? null : timestamp;
+  };
+
+  return [...podcasts].sort((a, b) => {
+    const timestampA = getLatestEpisodeTimestamp(a);
+    const timestampB = getLatestEpisodeTimestamp(b);
+
+    if (timestampA === null) return timestampB === null ? 0 : 1;
+    if (timestampB === null) return -1;
+
+    return timestampB - timestampA;
+  });
+};
+
+/**
  * Get unique categories from podcasts
  */
 export const getPodcastCategories = (podcasts: PodcastShow[]): string[] => {

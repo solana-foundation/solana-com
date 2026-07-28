@@ -107,6 +107,16 @@ export default {
         locale: false,
       },
       {
+        source: "/changelog",
+        destination: `${MEDIA_APP_URL}/changelog`,
+        locale: false,
+      },
+      {
+        source: "/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/changelog/:path*`,
+        locale: false,
+      },
+      {
         source: "/reports",
         destination: `${MEDIA_APP_URL}/reports`,
         locale: false,
@@ -134,6 +144,16 @@ export default {
       {
         source: "/:locale/news/:path*",
         destination: `${MEDIA_APP_URL}/:locale/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/changelog",
+        destination: `${MEDIA_APP_URL}/:locale/changelog`,
+        locale: false,
+      },
+      {
+        source: "/:locale/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/changelog/:path*`,
         locale: false,
       },
       {

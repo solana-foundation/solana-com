@@ -50,12 +50,15 @@ import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
 import {
+  changelogListingMetadata,
   newsListingMetadata,
   newsPostMetadata,
   categoryListingMetadata,
   podcastsListingMetadata,
   podcastShowMetadata,
   podcastEpisodeMetadata,
+  reportsListingMetadata,
+  upgradesListingMetadata,
 } from "@/lib/metadata";
 
 // Typed mock references
@@ -203,6 +206,7 @@ describe("newsListingMetadata", () => {
   it("sets localized alternates for non-default locales", async () => {
     const meta = await newsListingMetadata("es");
     expectLocalizedAlternates(meta.alternates, "/news", "es");
+    expect((meta.openGraph as any).url).toBe(meta.alternates?.canonical);
   });
 
   it("uses only public URLs", async () => {
@@ -229,6 +233,21 @@ describe("newsPostMetadata", () => {
     const meta = await newsPostMetadata(slug);
     expect(meta.title).toBe(MOCK_POST.title);
     expect(meta.description).toBe(MOCK_POST.description);
+  });
+
+  it("keeps long descriptions within search snippet guidance", async () => {
+    mockReader.collections.posts.read.mockResolvedValue({
+      ...MOCK_POST,
+      description: Array.from(
+        { length: 40 },
+        () => "Solana ecosystem update",
+      ).join(" "),
+    });
+
+    const meta = await newsPostMetadata(slug);
+
+    expect(String(meta.description).length).toBeLessThanOrEqual(160);
+    expect(String(meta.description)).toMatch(/…$/);
   });
 
   it("sets og:type to article", async () => {
@@ -359,6 +378,40 @@ describe("categoryListingMetadata", () => {
     mockFetchCategory.mockResolvedValue({ category: null });
     const meta = await categoryListingMetadata("nonexistent");
     expect(meta.title).toBe("Category Not Found");
+    expect(meta.robots).toEqual({ index: false, follow: false });
+  });
+});
+
+// ---- Changelog Listing ----
+
+describe("changelogListingMetadata", () => {
+  it("describes the developer-focused changelog", () => {
+    const meta = changelogListingMetadata();
+
+    expect(meta.title).toContain("Solana Changelog");
+    expect(meta.description).toContain("developer tooling");
+    expect(String(meta.description)).toHaveLength(160);
+  });
+
+  it("has complete social metadata at the public changelog URL", () => {
+    const meta = changelogListingMetadata();
+
+    expectOgFields(meta.openGraph as any);
+    expectTwitterFields(meta.twitter as any);
+    expectCanonical(meta.alternates, "/changelog");
+    expectNoInternalUrls(meta.openGraph, meta.alternates);
+    expect((meta.alternates as any).types["application/rss+xml"]).toBe(
+      "https://solana.com/changelog/rss.xml",
+    );
+    expect(meta.robots).toEqual(
+      expect.objectContaining({ index: true, follow: true }),
+    );
+  });
+
+  it("sets localized alternates", () => {
+    const meta = changelogListingMetadata("de");
+
+    expectLocalizedAlternates(meta.alternates, "/changelog", "de");
   });
 });
 
@@ -389,6 +442,42 @@ describe("podcastsListingMetadata", () => {
   it("uses only public URLs", () => {
     const meta = podcastsListingMetadata();
     expectNoInternalUrls(meta.openGraph, meta.alternates);
+  });
+
+  it("aligns localized OpenGraph and canonical URLs", () => {
+    const meta = podcastsListingMetadata("fr");
+    expectLocalizedAlternates(meta.alternates, "/podcasts", "fr");
+    expect((meta.openGraph as any).url).toBe(meta.alternates?.canonical);
+  });
+});
+
+// ---- Reports and Upgrades Listings ----
+
+describe("reportsListingMetadata", () => {
+  it("has complete, localized, indexable metadata", () => {
+    const meta = reportsListingMetadata("de");
+
+    expectOgFields(meta.openGraph as any);
+    expectTwitterFields(meta.twitter as any);
+    expectLocalizedAlternates(meta.alternates, "/reports", "de");
+    expect((meta.openGraph as any).url).toBe(meta.alternates?.canonical);
+    expect(meta.robots).toEqual(
+      expect.objectContaining({ index: true, follow: true }),
+    );
+  });
+});
+
+describe("upgradesListingMetadata", () => {
+  it("has complete, localized, indexable metadata", () => {
+    const meta = upgradesListingMetadata("ja");
+
+    expectOgFields(meta.openGraph as any);
+    expectTwitterFields(meta.twitter as any);
+    expectLocalizedAlternates(meta.alternates, "/upgrades", "ja");
+    expect((meta.openGraph as any).url).toBe(meta.alternates?.canonical);
+    expect(meta.robots).toEqual(
+      expect.objectContaining({ index: true, follow: true }),
+    );
   });
 });
 
