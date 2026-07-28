@@ -1,6 +1,6 @@
 "use client";
 
-import { InkeepSearchBar } from "@solana-com/ui-chrome";
+import { AskSolanaSearchBar } from "@solana-com/ui-chrome";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
 
 interface DocsHeroProps {
@@ -30,7 +30,7 @@ export function DocsHero({ title, description, markdown }: DocsHeroProps) {
         </p>
         <div className="mt-8 flex w-full justify-center">
           <div className="w-full max-w-2xl">
-            <InkeepSearchBar className="!w-full !max-w-none" expanded />
+            <AskSolanaSearchBar className="!w-full !max-w-none" expanded />
           </div>
         </div>
         <div className="mt-6 flex flex-row justify-center gap-2">

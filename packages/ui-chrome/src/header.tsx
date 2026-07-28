@@ -7,10 +7,10 @@ import { useRouter } from "@workspace/i18n/use-router";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
-import { InkeepSearchBar } from "./inkeep-searchbar";
+import { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
-import { InkeepChatButton } from "./inkeep-chat-button";
+import { AskSolanaButton } from "./ask-solana/ask-solana-button";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/icons/moon.inline.svg";
@@ -59,8 +59,8 @@ function Header({
 
               {/* Desktop Search and Language */}
               <div className="flex gap-5 items-center">
-                <InkeepSearchBar className="hidden md:block" />
-                <InkeepChatButton variant="inline" className="md:hidden" />
+                <AskSolanaSearchBar className="hidden md:block" />
+                <AskSolanaButton variant="inline" className="md:hidden" />
                 {showLanguage && (
                   <div className="relative items-center hidden xl:flex">
                     <LanguageSelector />

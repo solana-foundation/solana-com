@@ -19,6 +19,13 @@ export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
+export { AskSolanaButton } from "./ask-solana/ask-solana-button";
+export { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
+export {
+  ASK_SOLANA_ANALYTICS_EVENT,
+  trackAskSolana,
+} from "./ask-solana/analytics";
+export type { AskSolanaAnalyticsDetail } from "./ask-solana/analytics";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export {
