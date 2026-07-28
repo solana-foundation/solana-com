@@ -10,13 +10,12 @@
  * `src/lib/use-variant.ts`.
  */
 
-import {
-  DEVELOPER_APPLICATION_HREF,
-  GENERAL_ADMISSION_HREF,
-} from "@/content/links";
+import { DEVELOPER_APPLICATION_HREF } from "@/content/links";
 
 export const VARIANT_PARAM = "v";
 export const VARIANT_FALLBACK_PARAM = "utm_content";
+const BRAVE_GENERAL_ADMISSION_HREF =
+  "https://luma.com/breakpoint2026?coupon=BRAVE20";
 
 export type VariantStat = {
   value: string;
@@ -72,7 +71,7 @@ const tech: VariantConfig = {
   slug: "tech",
   heroHeadline: "The best tech event\nyou’ll ever experience",
   heroCtaLabel: "Buy Tickets Today",
-  heroCtaHref: GENERAL_ADMISSION_HREF,
+  heroCtaHref: BRAVE_GENERAL_ADMISSION_HREF,
   positioningStatement: "The Everything Chain",
   narrativeParagraphs: [
     "Breakpoint is where the people building the next wave of tech and finance come to meet each other. Whatever you’re working on, the person who can help you take it further will be in this room. Founders looking for a technical co-founder, engineers hunting for their next team, investors writing the checks that turn prototypes into companies, the operators and partners who help you actually ship. Three days, one place, and the shortest path between you and the people who matter for what comes next.",
@@ -96,7 +95,7 @@ const finance: VariantConfig = {
   slug: "finance",
   heroHeadline: "Where Global Finance\nComes Onchain",
   heroCtaLabel: "Join us in London",
-  heroCtaHref: GENERAL_ADMISSION_HREF,
+  heroCtaHref: BRAVE_GENERAL_ADMISSION_HREF,
   positioningStatement:
     "Breakpoint is Solana’s flagship yearly event, gathering the leaders, builders, and institutions shaping the future of global capital markets. For the first time, Breakpoint is coming to London, the birthplace of modern finance.",
   narrativeParagraphs: [
