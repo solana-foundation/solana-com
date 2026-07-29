@@ -2217,6 +2217,9 @@ export function ConceptsRoadmap() {
   const [assessmentPassed, setAssessmentPassed] = useState(false);
   const [personalization, setPersonalization] =
     useState<PersonalizationProfile | null>(null);
+  const [roadmapView, setRoadmapView] = useState<"original" | "personalized">(
+    "original",
+  );
   const [isPersonalizeOpen, setIsPersonalizeOpen] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [activeDetail, setActiveDetail] = useState<RoadmapDetail | null>(null);
@@ -2227,18 +2230,26 @@ export function ConceptsRoadmap() {
     setEntryRoute(progress.entryRoute);
     setAssessmentPassed(progress.assessmentPassed);
     setPersonalization(progress.personalization);
+    if (progress.personalization) setRoadmapView("personalized");
   }, []);
 
   const completedSet = useMemo(() => new Set(completedIds), [completedIds]);
-  const isEthereumPath = entryRoute === "ethereum";
+  const activePersonalization =
+    roadmapView === "personalized" ? personalization : null;
+  const activeEntryRoute = activePersonalization
+    ? activePersonalization.startingPoint === "ethereum"
+      ? "ethereum"
+      : "new"
+    : entryRoute;
+  const isEthereumPath = activeEntryRoute === "ethereum";
   const matchingCoreSteps = CORE_STEPS.filter((step) =>
-    stepMatchesProfile(step, personalization),
+    stepMatchesProfile(step, activePersonalization),
   );
   const visibleCoreSteps = matchingCoreSteps
     .filter(
       (step) => !isEthereumPath || !ETHEREUM_SKIPPED_STEP_IDS.has(step.id),
     )
-    .map((step) => stepForProfile(step, personalization));
+    .map((step) => stepForProfile(step, activePersonalization));
   const visibleIntroStep = visibleCoreSteps.find(
     (step) => step.id === INTRO_STEP.id,
   );
@@ -2256,7 +2267,7 @@ export function ConceptsRoadmap() {
   );
   const personalizedEthereumStep = stepForProfile(
     ETHEREUM_STEP,
-    personalization,
+    activePersonalization,
   );
   const requiredSteps = isEthereumPath
     ? [
@@ -2267,10 +2278,11 @@ export function ConceptsRoadmap() {
     : visibleCoreSteps;
   const visibleBranches = PRODUCT_BRANCHES.filter(
     (branch) =>
-      !personalization || branch.focuses.includes(personalization.focus),
+      !activePersonalization ||
+      branch.focuses.includes(activePersonalization.focus),
   ).map((branch) => ({
     ...branch,
-    resources: resourcesForProfile(branch.resources, personalization),
+    resources: resourcesForProfile(branch.resources, activePersonalization),
   }));
   const requiredCompletedCount = requiredSteps.filter((step) =>
     completedSet.has(step.id),
@@ -2321,14 +2333,14 @@ export function ConceptsRoadmap() {
   };
 
   const applyPersonalization = (profile: PersonalizationProfile) => {
-    const nextRoute = profile.startingPoint === "ethereum" ? "ethereum" : "new";
     setPersonalization(profile);
-    setEntryRoute(nextRoute);
-    writeProgress(completedIds, nextRoute, assessmentPassed, profile);
+    setRoadmapView("personalized");
+    writeProgress(completedIds, entryRoute, assessmentPassed, profile);
   };
 
   const clearPersonalization = () => {
     setPersonalization(null);
+    setRoadmapView("original");
     setEntryRoute("new");
     writeProgress(completedIds, "new", assessmentPassed, null);
   };
@@ -2386,15 +2398,59 @@ export function ConceptsRoadmap() {
   return (
     <div className={`${styles.roadmap} not-prose`} data-learn-roadmap="">
       <div className={styles.roadmapToolbar}>
-        <button
-          type="button"
-          className={styles.personalizeTrigger}
-          onClick={() => setIsPersonalizeOpen(true)}
-        >
-          <span aria-hidden="true">✨</span>
-          Personalize
-          {personalization ? <small>Active</small> : null}
-        </button>
+        {personalization ? (
+          <div
+            className={styles.roadmapViewTabs}
+            role="tablist"
+            aria-label="Roadmap view"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={roadmapView === "original"}
+              className={
+                roadmapView === "original" ? styles.roadmapViewTabActive : ""
+              }
+              onClick={() => setRoadmapView("original")}
+            >
+              Original
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={roadmapView === "personalized"}
+              className={
+                roadmapView === "personalized"
+                  ? styles.roadmapViewTabActive
+                  : ""
+              }
+              title={
+                roadmapView === "personalized"
+                  ? "Edit personalization"
+                  : "Show personalized roadmap"
+              }
+              onClick={() => {
+                if (roadmapView === "personalized") {
+                  setIsPersonalizeOpen(true);
+                  return;
+                }
+                setRoadmapView("personalized");
+              }}
+            >
+              <span aria-hidden="true">✨</span>
+              Personalized
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={styles.personalizeTrigger}
+            onClick={() => setIsPersonalizeOpen(true)}
+          >
+            <span aria-hidden="true">✨</span>
+            Personalize
+          </button>
+        )}
       </div>
 
       <div className={styles.corePath}>
@@ -2431,7 +2487,8 @@ export function ConceptsRoadmap() {
 
         {visibleIntroStep ? renderStep(visibleIntroStep, "left") : null}
 
-        {!personalization || personalization.startingPoint === "ethereum" ? (
+        {!activePersonalization ||
+        activePersonalization.startingPoint === "ethereum" ? (
           <section
             className={`${styles.ethereumFork} ${
               isEthereumPath ? styles.ethereumForkActive : ""
@@ -2665,7 +2722,7 @@ export function ConceptsRoadmap() {
       <p className={styles.srStatus} aria-live="polite">
         {requiredCompletedCount} of {requiredSteps.length} required steps
         complete on the{" "}
-        {personalization
+        {activePersonalization
           ? "personalized"
           : isEthereumPath
             ? "Ethereum shortcut"
