@@ -100,20 +100,51 @@ configured Lingo engine's glossary and instructions handle them.
 - Reuse an inherited key only when its meaning and context truly match. Do not
   duplicate a web namespace into a child app catalog.
 
-### 5. Wire the page without widening client boundaries
+### 5. Use the shared drop-ins and classify every link
 
-Prefer the shared exports for new code:
+Prefer `@workspace/i18n/*` over direct `next-intl`, `next/link`, or
+`next/navigation` imports when the package exposes the required API. Use the
+core page-level drop-ins:
 
-- server components and metadata: `getTranslations` from
-  `@workspace/i18n/server`
-- client components: `useTranslations`, `useLocale`, or the provider from
-  `@workspace/i18n/client`
-- locale-aware internal navigation: `Link`, `redirect`, `usePathname`, or
-  `useRouter` from `@workspace/i18n/routing`
+- `@workspace/i18n/server` for `getTranslations`
+- `@workspace/i18n/client` for `useTranslations`, `useLocale`, `useMessages`,
+  and `NextIntlClientProvider`
+- `@workspace/i18n/routing` for locale-aware `Link`, `redirect`, `usePathname`,
+  `useRouter`, `getAlternates`, and static-param helpers
+- `@workspace/i18n/messages` for full merged catalogs, locale resolution, and
+  English fallback outside ordinary component translation
+- `@workspace/i18n/config` and `@workspace/i18n/pathname` for canonical locale
+  data and locale-prefix parsing
 
-Use a direct `next-intl` import only for an API the shared package does not
-export or when a narrow adjacent convention makes changing it safer. Avoid
-unrelated import churn.
+When app-level i18n wiring is genuinely missing or in scope, reuse
+`createAppRequestConfig` or `loadAppRequestMessages` from
+`@workspace/i18n/request`, `createNextIntlPlugin` from `@workspace/i18n/plugin`,
+and the shared middleware primitives from `@workspace/i18n/middleware`. Do not
+copy their merging, fallback, cookie, proxy-origin, or locale-detection behavior
+into an app. Read the full drop-in matrix in the reference before changing app
+setup.
+
+Use a direct framework import only for an API the shared package does not export
+or when a narrow adjacent convention makes changing it safer. Avoid unrelated
+import churn.
+
+Classify each link before choosing a component:
+
+1. For a route owned by the current deployed app, use `Link` from
+   `@workspace/i18n/routing`; it applies the configured locale prefix.
+2. For a known sibling-app route, use a normal same-domain `<a href="/...">` so
+   navigation performs a full page load through the public rewrite. Do not use a
+   Vercel deployment URL or manually add a locale prefix.
+3. For shared or reusable UI whose target may be same-app or cross-app, use
+   `Link` from `@solana-com/ui-chrome/link`; it delegates to the i18n link or a
+   normal anchor using `NEXT_PUBLIC_APP_NAME` and the shared route map.
+4. Use normal anchors for external URLs, protocol-relative URLs, `mailto:`,
+   `tel:`, downloads, and hash-only navigation unless an established local
+   component requires otherwise.
+
+Use `apps/web/rewrites-redirects.ts` and `packages/ui-chrome/src/url-config.ts`
+as the canonical ownership sources. Treat `apps/web/apps-urls.ts` as proxy
+destination configuration, never as a source of public hrefs.
 
 Keep server pages as server components. Translate there with `getTranslations`,
 or translate inside an existing client child with `useTranslations`; do not add
@@ -143,14 +174,18 @@ official pages linked in the reference before editing.
 ### 7. Validate proportionally
 
 1. Re-scan the affected JSX/TSX for remaining hard-coded user-facing copy.
-2. Parse every edited JSON source catalog.
-3. Run `pnpm i18n:verify-source-locales`.
-4. Run `pnpm i18n:audit` when JSON namespaces changed and inspect its report.
-5. Run the owning workspace's formatter/lint and type check from its
+2. Review new direct imports from `next-intl`, `next/link`, and
+   `next/navigation`; replace them with shared drop-ins when applicable.
+3. Verify each affected href uses same-app, cross-app, or external navigation
+   intentionally.
+4. Parse every edited JSON source catalog.
+5. Run `pnpm i18n:verify-source-locales`.
+6. Run `pnpm i18n:audit` when JSON namespaces changed and inspect its report.
+7. Run the owning workspace's formatter/lint and type check from its
    `package.json` or `AGENTS.md`; run focused tests when present.
-6. For docs content, run the docs frontmatter guard and regenerate Fumadocs
+8. For docs content, run the docs frontmatter guard and regenerate Fumadocs
    sources when the app guidance requires it.
-7. If the user explicitly requested generated translations, use the repo's
+9. If the user explicitly requested generated translations, use the repo's
    scoped `pnpm i18n:app <app>` or `pnpm i18n:docs` command and review all
    generated target and lockfile changes.
 

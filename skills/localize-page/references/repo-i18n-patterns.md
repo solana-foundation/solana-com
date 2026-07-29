@@ -3,6 +3,19 @@
 Use this reference for repository-specific decisions. Verify paths against the
 checkout before editing because the monorepo continues to evolve.
 
+## Contents
+
+- [Architecture](#architecture)
+- [App and source matrix](#app-and-source-matrix)
+- [Core `@workspace/i18n` drop-ins](#core-workspacei18n-drop-ins)
+- [Server and client component patterns](#server-component-pattern)
+- [Links and navigation](#links-and-navigation)
+- [Metadata and structured data](#metadata-and-structured-data)
+- [Message construction](#message-construction)
+- [Docs content rules](#docs-content-rules)
+- [Lingo.dev integration](#lingodev-integration)
+- [Validation](#validation)
+
 ## Architecture
 
 - `packages/i18n/src/config.ts` owns supported locales and the English default.
@@ -48,6 +61,68 @@ learn/developer UI, currently come from the web catalog. Do not add
 The templates app currently renders with English as its layout locale even
 though translated target catalogs exist. Localize source copy consistently, but
 do not redesign templates routing during a page-only task.
+
+## Core `@workspace/i18n` drop-ins
+
+The package exposes each source module through `@workspace/i18n/<module>`.
+Prefer these shared contracts over reimplementing `next-intl` setup or importing
+framework navigation directly.
+
+| Module       | Public API to prefer                                                                                                              | Use it for                                                                   |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `client`     | `NextIntlClientProvider`, `useLocale`, `useMessages`, `useTranslations`                                                           | Client components and locale providers                                       |
+| `server`     | `getRequestConfig`, `getTranslations`                                                                                             | Server components, metadata, and request configuration internals             |
+| `routing`    | `routing`, `Link`, `redirect`, `usePathname`, `useRouter`, `getAlternates`, `withLocales`, `slugWithLocales`, `pathsWithLocales`  | Locale-aware same-app navigation, canonical alternates, and static params    |
+| `request`    | `createAppRequestConfig`, `loadAppRequestMessages`                                                                                | Standard app request files and typed full-message loading                    |
+| `messages`   | `resolveLocale`, `deepMergeMessages`, `loadAppMessages`, `loadMergedMessages`, `getEnglishFallbackMessages`, `getMessageFallback` | Layouts, route handlers, social images, and app catalog inheritance/fallback |
+| `config`     | `locales`, `languages`, `defaultLocale`, `namespaces`, `staticLocales`                                                            | Canonical locale data and language labels                                    |
+| `pathname`   | `getLocaleFromPathname`, `getPathnameWithoutLocale`                                                                               | Parsing raw URL strings and middleware paths                                 |
+| `plugin`     | `createNextIntlPlugin`                                                                                                            | Wiring an app request file into `next.config.ts`                             |
+| `middleware` | `createMiddleware`, `routing`, `routingWithoutDetection`, `SHARED_LOCALE_COOKIE`, cookie, pathname, and proxy-origin helpers      | Locale routing across the multi-app deployment                               |
+| `use-router` | compatibility `useRouter` and locale-free `usePathname`                                                                           | Existing shared code that must span Pages Router and App Router              |
+
+`@workspace/i18n/alternates` and `@workspace/i18n/load-messages` are lower-level
+entry points. Prefer `getAlternates` from `routing` and the app-aware
+`request`/`messages` loaders unless the existing code genuinely needs those
+primitives.
+
+Use `@workspace/i18n/use-router` only for the existing mixed-router
+compatibility case. New App Router components should normally use
+`useRouter`/`usePathname` from `@workspace/i18n/routing`.
+
+If the shared package does not export a needed API, such as `useFormatter`,
+importing that API directly from `next-intl` is valid. Keep the exception
+narrow; do not bypass the shared routing, message-loading, or request contracts.
+
+Use `loadMergedMessages` instead of importing locale JSON directly when code
+needs a complete catalog. It applies app inheritance and English fallback.
+Ordinary components should still use `getTranslations` or `useTranslations`
+rather than loading entire catalogs.
+
+For standard request setup, prefer:
+
+```ts
+import { createAppRequestConfig } from "@workspace/i18n/request";
+
+export default createAppRequestConfig("breakpoint");
+```
+
+Use a custom request callback only when the owning app has a verified
+requirement not covered by the shared factory.
+
+For app configuration, prefer:
+
+```ts
+import { createNextIntlPlugin } from "@workspace/i18n/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+```
+
+For the main web app, use middleware `routing` with locale detection. For
+separately deployed apps reached through web rewrites, use
+`routingWithoutDetection` and preserve proxied locale-cookie behavior by
+following the adjacent middleware pattern. Do not change this distinction in a
+page-only task.
 
 ## Server component pattern
 
@@ -99,19 +174,82 @@ If a server component already owns the copy and a client child is presentation
 only, passing translated string props is also valid. Match the narrower local
 pattern.
 
-## Internal navigation
+## Links and navigation
 
-Use the shared locale-aware navigation for internal Solana.com routes:
+### Same-app routes
+
+Use the shared locale-aware link for routes owned by the current deployed app:
 
 ```tsx
 import { Link } from "@workspace/i18n/routing";
 
-<Link href="/developers">{t("actions.developers")}</Link>;
+<Link href="/data">{t("actions.exploreData")}</Link>;
 ```
 
-Keep ordinary anchors for hash links, downloads, `mailto:`, and truly external
-URLs. When navigation crosses separately deployed apps, also inspect
-`packages/ui-chrome/src/url-config.ts` and the owning app's `next.config.ts`.
+The configured `Link` adds or changes the locale prefix according to
+`localePrefix: "as-needed"`. Its `usePathname` returns a pathname without the
+locale prefix, and its `useRouter` provides locale-aware client navigation. Do
+not manually build `/${locale}/...` hrefs.
+
+### Sibling-app routes
+
+Routes can share the public `solana.com` origin while being owned by different
+Next.js deployments. A client-side Next navigation to a sibling route asks the
+wrong app router to resolve it. Use a full document navigation:
+
+```tsx
+<a href="/docs">{t("actions.readDocs")}</a>
+```
+
+Keep the href relative to the public origin. Do not link to the deployment hosts
+from `apps/web/apps-urls.ts`. Do not manually prefix the locale: the shared
+`SOLANA_LOCALE` cookie and destination middleware restore the preferred locale
+on the full request.
+
+Determine ownership from:
+
+1. `apps/web/rewrites-redirects.ts`
+2. `packages/ui-chrome/src/url-config.ts`
+3. the target app's `next.config.ts`
+
+The ordering matters for overlapping paths such as `/developers/templates`
+versus broader docs-owned `/developers` routes.
+
+### Reusable links
+
+When a shared component accepts arbitrary internal or external targets, use the
+cross-app-aware chrome link:
+
+```tsx
+import { Link } from "@solana-com/ui-chrome/link";
+
+<Link href={href}>{label}</Link>;
+```
+
+It calls `shouldUseNextLink` from `@solana-com/ui-chrome/url-config`. On the web
+app, routes owned by sibling apps become anchors; on a non-web app, only routes
+owned by that app use client navigation. Non-web apps declare ownership with
+`NEXT_PUBLIC_APP_NAME` in `next.config.ts`.
+
+The chrome link is a client component. Do not turn a server-rendered page into a
+client component solely to use it. When a server component has a known target,
+render the same-app i18n `Link` or cross-app anchor directly.
+
+If an app-owned component cannot use the chrome link but still accepts variable
+targets, call `shouldUseNextLink` and render either `@workspace/i18n/routing`'s
+`Link` or an anchor. Do not use `next/link` for the localized branch.
+
+### External and special links
+
+Use normal anchors for:
+
+- `https://`, `http://`, and protocol-relative URLs
+- `mailto:` and `tel:`
+- downloads
+- hash-only navigation when no established local component requires otherwise
+
+Preserve appropriate `target`, `rel`, download, and accessibility behavior.
+Translate the visible label and accessible name, not the href.
 
 ## Metadata and structured data
 
