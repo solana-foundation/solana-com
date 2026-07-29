@@ -82,7 +82,7 @@ export function DevelopersNav({
                   "/docs/defi",
                   "/docs/tools",
                 ]}
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <DocsIcon
                   height="16"
@@ -96,7 +96,7 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/core"
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <CoursesIcon
                   height="16"
@@ -110,7 +110,7 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/rpc"
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <RpcApiIcon
                   height="16"
@@ -128,7 +128,7 @@ export function DevelopersNav({
                   "/docs/payments",
                   "/docs/defi",
                 ]}
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <StatisticsIcon
                   height="16"
@@ -143,7 +143,7 @@ export function DevelopersNav({
                 partiallyActive
                 to="/docs/tools"
                 partiallyActiveMatch={["/docs/references"]}
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <ToolsIcon
                   height="16"
@@ -162,7 +162,7 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/roadmap"
-                activeClassName="!text-white light:!text-gray-900 bg-black border-[#2A2038] hover:border-[#4A3563] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <RoadmapIcon
                   height="16"
