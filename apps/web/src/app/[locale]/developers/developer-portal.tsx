@@ -9,6 +9,12 @@ type SectionCopy = {
   cta: string;
 };
 
+type StatCopy = {
+  value: string;
+  label: string;
+  resource: string;
+};
+
 export type DeveloperPortalCopy = {
   hero: {
     eyebrow: string;
@@ -16,6 +22,16 @@ export type DeveloperPortalCopy = {
     description: string;
     primaryCta: string;
     secondaryCta: string;
+  };
+  whySolana: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    stats: {
+      transactions: StatCopy;
+      fees: StatCopy;
+      realWorldAssets: StatCopy;
+    };
   };
   capitalMarkets: SectionCopy;
   speed: SectionCopy;
@@ -295,6 +311,21 @@ function ConceptSection({
 }
 
 export function DeveloperPortal({ copy }: { copy: DeveloperPortalCopy }) {
+  const stats = [
+    {
+      ...copy.whySolana.stats.transactions,
+      href: "/data",
+    },
+    {
+      ...copy.whySolana.stats.fees,
+      href: "/docs/core/fees",
+    },
+    {
+      ...copy.whySolana.stats.realWorldAssets,
+      href: "/news/solana-ecosystem-roundup-june-2026",
+    },
+  ];
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -324,6 +355,30 @@ export function DeveloperPortal({ copy }: { copy: DeveloperPortalCopy }) {
       </section>
 
       <div className={styles.shell}>
+        <section className={styles.whySolana}>
+          <div className={styles.whySolanaIntro}>
+            <p className={styles.eyebrow}>{copy.whySolana.eyebrow}</p>
+            <h2>{copy.whySolana.title}</h2>
+            <p>{copy.whySolana.description}</p>
+          </div>
+
+          <div className={styles.stats}>
+            {stats.map((stat, index) => (
+              <Link key={stat.label} to={stat.href} className={styles.stat}>
+                <span className={styles.statIndex}>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <strong>{stat.value}</strong>
+                <span className={styles.statLabel}>{stat.label}</span>
+                <span className={styles.statResource}>
+                  {stat.resource}
+                  <Arrow />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <div className={styles.concepts}>
           <ConceptSection
             copy={copy.capitalMarkets}

@@ -17,6 +17,28 @@ export default async function Page() {
           primaryCta: t("hero.primaryCta"),
           secondaryCta: t("hero.secondaryCta"),
         },
+        whySolana: {
+          eyebrow: t("whySolana.eyebrow"),
+          title: t("whySolana.title"),
+          description: t("whySolana.description"),
+          stats: {
+            transactions: {
+              value: t("whySolana.stats.transactions.value"),
+              label: t("whySolana.stats.transactions.label"),
+              resource: t("whySolana.stats.transactions.resource"),
+            },
+            fees: {
+              value: t("whySolana.stats.fees.value"),
+              label: t("whySolana.stats.fees.label"),
+              resource: t("whySolana.stats.fees.resource"),
+            },
+            realWorldAssets: {
+              value: t("whySolana.stats.realWorldAssets.value"),
+              label: t("whySolana.stats.realWorldAssets.label"),
+              resource: t("whySolana.stats.realWorldAssets.resource"),
+            },
+          },
+        },
         capitalMarkets: {
           eyebrow: t("capitalMarkets.eyebrow"),
           title: t("capitalMarkets.title"),
