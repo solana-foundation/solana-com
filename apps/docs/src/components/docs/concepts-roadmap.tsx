@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   Bot,
@@ -14,6 +15,7 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   Trophy,
   X,
 } from "lucide-react";
@@ -35,11 +37,14 @@ type RoadmapResource = {
 type CoreStep = {
   id: string;
   number: string;
-  phase: "Get ready" | "Learn" | "Build and ship";
+  phase: "Get ready" | "Learn" | "Build" | "Ship";
   title: string;
   description: string;
   resources: RoadmapResource[];
   doneWhen: string;
+  goals?: RoadmapGoal[];
+  focuses?: RoadmapFocus[];
+  hideFor?: StartingPoint[];
 };
 
 type Branch = {
@@ -48,6 +53,7 @@ type Branch = {
   title: string;
   description: string;
   resources: RoadmapResource[];
+  focuses: RoadmapFocus[];
 };
 
 type RoadmapDetail = {
@@ -62,10 +68,41 @@ type RoadmapDetail = {
 
 type EntryRoute = "new" | "ethereum";
 
+type RoadmapGoal = "build" | "developer" | "understand" | "work" | "reference";
+
+type RoadmapFocus =
+  | "apps"
+  | "programs"
+  | "tokens-payments"
+  | "defi"
+  | "games-performance"
+  | "data"
+  | "architecture"
+  | "transactions"
+  | "ecosystem"
+  | "product"
+  | "finance"
+  | "developer-relations"
+  | "client-reference"
+  | "program-reference"
+  | "production-reference";
+
+type StartingPoint = "new" | "web" | "rust" | "ethereum" | "solana";
+
+type LearningStyle = RoadmapResource["type"];
+
+type PersonalizationProfile = {
+  goal: RoadmapGoal;
+  focus: RoadmapFocus;
+  startingPoint: StartingPoint;
+  learningStyles: LearningStyle[];
+};
+
 type StoredProgress = {
   completedIds: string[];
   entryRoute: EntryRoute;
   assessmentPassed: boolean;
+  personalization: PersonalizationProfile | null;
 };
 
 type MultipleChoiceQuestion = {
@@ -86,6 +123,261 @@ type WrittenQuestion = {
 type IntermediateQuestion = MultipleChoiceQuestion | WrittenQuestion;
 
 const STORAGE_KEY = "solana:docs:concepts-roadmap:v2";
+
+type PersonalizationOption<T extends string> = {
+  id: T;
+  emoji: string;
+  title: string;
+  description: string;
+};
+
+const GOAL_OPTIONS: readonly PersonalizationOption<RoadmapGoal>[] = [
+  {
+    id: "build",
+    emoji: "🛠️",
+    title: "I want to build something",
+    description: "I have a project or idea I want to ship",
+  },
+  {
+    id: "developer",
+    emoji: "📚",
+    title: "I want to learn Solana development",
+    description: "Take me from fundamentals toward job-ready",
+  },
+  {
+    id: "understand",
+    emoji: "🔍",
+    title: "I want to understand how Solana works",
+    description: "Concepts and architecture, with less implementation",
+  },
+  {
+    id: "work",
+    emoji: "💼",
+    title: "I'm here for work, but I don't write code",
+    description: "Founder, product, BD, analyst, creator, or finance",
+  },
+  {
+    id: "reference",
+    emoji: "⚡",
+    title: "I already know what I need",
+    description: "Skip broad introductions and get to useful references",
+  },
+];
+
+const FOCUS_OPTIONS: Record<
+  RoadmapGoal,
+  readonly PersonalizationOption<RoadmapFocus>[]
+> = {
+  build: [
+    {
+      id: "apps",
+      emoji: "🖥️",
+      title: "A consumer or web app",
+      description: "Wallet UX, clients, transactions, and product state",
+    },
+    {
+      id: "programs",
+      emoji: "⚙️",
+      title: "An onchain program",
+      description: "Rust, Anchor, account design, security, and deployment",
+    },
+    {
+      id: "tokens-payments",
+      emoji: "💸",
+      title: "Tokens or payments",
+      description: "SPL tokens, Token Extensions, and payment flows",
+    },
+    {
+      id: "defi",
+      emoji: "📈",
+      title: "A DeFi protocol",
+      description: "Composability, financial state, testing, and security",
+    },
+    {
+      id: "games-performance",
+      emoji: "🎮",
+      title: "Games or a high-performance app",
+      description: "Fast state, compute, clients, and production operations",
+    },
+  ],
+  developer: [
+    {
+      id: "apps",
+      emoji: "🖥️",
+      title: "Frontend and app development",
+      description: "Wallets, clients, RPC, indexing, and great transaction UX",
+    },
+    {
+      id: "programs",
+      emoji: "🦀",
+      title: "Onchain program development",
+      description: "Rust, Anchor, PDAs, CPIs, testing, and security",
+    },
+    {
+      id: "data",
+      emoji: "🗂️",
+      title: "Data, RPC, and infrastructure",
+      description: "Read paths, subscriptions, indexing, and observability",
+    },
+    {
+      id: "tokens-payments",
+      emoji: "🪙",
+      title: "Tokens and payments",
+      description: "Asset primitives, integrations, and production payment UX",
+    },
+  ],
+  understand: [
+    {
+      id: "architecture",
+      emoji: "🧠",
+      title: "The execution model",
+      description: "Accounts, programs, runtime behavior, and composability",
+    },
+    {
+      id: "transactions",
+      emoji: "🔁",
+      title: "Transactions and the network",
+      description: "Signing, fees, confirmation, RPC, and data flow",
+    },
+    {
+      id: "ecosystem",
+      emoji: "🌐",
+      title: "The developer ecosystem",
+      description: "Tools, clients, tokens, applications, and production",
+    },
+  ],
+  work: [
+    {
+      id: "product",
+      emoji: "🧭",
+      title: "Product or strategy",
+      description: "Understand capabilities, constraints, and shipping choices",
+    },
+    {
+      id: "finance",
+      emoji: "🏦",
+      title: "Finance or institutional assets",
+      description: "Tokens, payments, settlement, and controlled assets",
+    },
+    {
+      id: "developer-relations",
+      emoji: "🎤",
+      title: "Developer relations or ecosystem",
+      description: "The core model, tooling journey, and common developer gaps",
+    },
+  ],
+  reference: [
+    {
+      id: "client-reference",
+      emoji: "⌨️",
+      title: "Clients, transactions, and RPC",
+      description: "Get to integration and data references quickly",
+    },
+    {
+      id: "program-reference",
+      emoji: "🧩",
+      title: "Programs, PDAs, and CPIs",
+      description: "Focus on runtime, account design, testing, and deployment",
+    },
+    {
+      id: "production-reference",
+      emoji: "🛡️",
+      title: "Security and production",
+      description: "Testing, compute, verified builds, and operations",
+    },
+  ],
+};
+
+const STARTING_OPTIONS: readonly PersonalizationOption<StartingPoint>[] = [
+  {
+    id: "new",
+    emoji: "🌱",
+    title: "New to blockchain",
+    description: "Start with the mental model and build up carefully",
+  },
+  {
+    id: "web",
+    emoji: "🌐",
+    title: "Web or TypeScript developer",
+    description: "Keep client context, but teach me the onchain model",
+  },
+  {
+    id: "rust",
+    emoji: "🦀",
+    title: "Rust or systems developer",
+    description: "Skip language basics and focus on Solana's runtime",
+  },
+  {
+    id: "ethereum",
+    emoji: "⟠",
+    title: "Coming from Ethereum",
+    description: "Translate the EVM model, then merge into the shared path",
+  },
+  {
+    id: "solana",
+    emoji: "◎",
+    title: "Already building on Solana",
+    description: "Favor advanced implementation and production stops",
+  },
+];
+
+const NON_TECHNICAL_STARTING_OPTIONS: readonly PersonalizationOption<StartingPoint>[] =
+  [
+    {
+      id: "new",
+      emoji: "🧭",
+      title: "Keep it non-technical",
+      description: "Give me concepts and product implications without code",
+    },
+    {
+      id: "web",
+      emoji: "🤝",
+      title: "Enough to work with developers",
+      description:
+        "Show the technical boundaries I need to plan and review work",
+    },
+    {
+      id: "rust",
+      emoji: "📐",
+      title: "I'm comfortable with technical material",
+      description:
+        "Include architecture and implementation context where useful",
+    },
+    {
+      id: "ethereum",
+      emoji: "⟠",
+      title: "I know the Ethereum ecosystem",
+      description: "Translate the product and execution differences for me",
+    },
+    {
+      id: "solana",
+      emoji: "◎",
+      title: "I already work in Solana",
+      description: "Keep only the specialist and production context",
+    },
+  ];
+
+const LEARNING_STYLE_OPTIONS: readonly PersonalizationOption<LearningStyle>[] =
+  [
+    {
+      id: "Watch",
+      emoji: "▶️",
+      title: "Videos",
+      description: "Bootcamp and guided walkthroughs",
+    },
+    {
+      id: "Read",
+      emoji: "📖",
+      title: "Reading",
+      description: "Docs and focused conceptual guides",
+    },
+    {
+      id: "Build",
+      emoji: "🧪",
+      title: "Hands-on",
+      description: "Projects, exercises, and challenges",
+    },
+  ];
 
 const INTERMEDIATE_QUESTIONS = [
   {
@@ -157,55 +449,165 @@ const CORE_STEPS: CoreStep[] = [
         href: "/developers/bootcamp/foundations/quick-intro-to-blockchain",
         type: "Watch",
       },
-    ],
-    doneWhen:
-      "You can explain the difference between an account, a program, an instruction, and a transaction.",
-  },
-  {
-    id: "local-setup",
-    number: "02",
-    phase: "Get ready",
-    title: "Project 1: set up locally",
-    description:
-      "Install the shared toolchain and verify that the CLI, Rust, Anchor, and local validator work together.",
-    resources: [
       {
-        label: "Local Installation",
-        href: "/developers/bootcamp/foundations/local-installation",
-        type: "Watch",
+        label: "Solana core concepts",
+        href: "/docs/core",
+        type: "Read",
+      },
+      {
+        label: "Introduction to Solana",
+        href: "https://learn.blueshift.gg/en/courses/introduction-to-blockchain-and-solana/introduction-to-solana",
+        type: "Read",
       },
     ],
     doneWhen:
-      "The project checks pass and you can start a local validator without errors.",
+      "You can explain the difference between an account, a program, an instruction, and a transaction.",
+    goals: ["build", "developer", "understand", "work"],
+    hideFor: ["solana"],
   },
   {
-    id: "hello-world",
-    number: "03",
+    id: "network-wallets",
+    number: "02",
     phase: "Get ready",
-    title: "Project 2: build Hello World",
+    title: "Orient yourself on the network",
     description:
-      "Complete the first end-to-end app before adding more concepts. Run it and inspect the resulting transaction.",
+      "Understand clusters, addresses, wallets, commitments, explorers, and the difference between SOL and lamports.",
     resources: [
       {
-        label: "Hello World",
-        href: "/developers/bootcamp/foundations/hello-world",
+        label: "Solana terminology",
+        href: "/docs/references/terminology",
+        type: "Read",
+      },
+      {
+        label: "Clusters and endpoints",
+        href: "/docs/references/clusters",
+        type: "Read",
+      },
+      {
+        label: "What is a wallet?",
+        href: "/learn/what-is-a-wallet",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "You can choose the right cluster, read an address, find a transaction, and explain commitment levels.",
+    goals: ["build", "developer", "understand", "work"],
+    hideFor: ["solana"],
+  },
+  {
+    id: "local-setup",
+    number: "03",
+    phase: "Get ready",
+    title: "Set up the Solana toolchain",
+    description:
+      "Install the CLI, Rust, Anchor, and a local validator, then learn the handful of commands you will use every day.",
+    resources: [
+      {
+        label: "Local installation walkthrough",
+        href: "/developers/bootcamp/foundations/local-installation",
+        type: "Watch",
+      },
+      {
+        label: "Installation guide",
+        href: "/docs/intro/installation",
+        type: "Build",
+      },
+      {
+        label: "Solana CLI basics",
+        href: "/docs/intro/installation/solana-cli-basics",
+        type: "Read",
+      },
+      {
+        label: "Anchor CLI basics",
+        href: "/docs/intro/installation/anchor-cli-basics",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "The CLI, Rust, Anchor, and your local validator work together and the project checks pass.",
+    goals: ["build", "developer"],
+    hideFor: ["solana"],
+  },
+  {
+    id: "rust-foundations",
+    number: "04",
+    phase: "Get ready",
+    title: "Learn the Rust you need for programs",
+    description:
+      "Focus on ownership, borrowing, enums, results, traits, and serialization—the parts that show up constantly in Solana programs.",
+    resources: [
+      {
+        label: "Rust program development",
+        href: "/docs/programs/rust",
+        type: "Read",
+      },
+      {
+        label: "Program structure",
+        href: "/docs/programs/rust/program-structure",
+        type: "Read",
+      },
+      {
+        label: "The Rust Book",
+        href: "https://doc.rust-lang.org/book/",
         type: "Build",
       },
     ],
     doneWhen:
-      "Your app sends a transaction successfully and you can find its signature in an explorer.",
+      "You can read a small Rust program, follow ownership, handle a Result, and model instruction data with structs and enums.",
+    goals: ["build", "developer"],
+    focuses: ["programs", "defi", "games-performance", "program-reference"],
+    hideFor: ["rust", "solana"],
+  },
+  {
+    id: "first-program",
+    number: "05",
+    phase: "Get ready",
+    title: "Build and inspect your first program",
+    description:
+      "Complete one small end-to-end project early. Deploy it locally, call it from a client, and inspect the resulting transaction.",
+    resources: [
+      {
+        label: "Build your first program",
+        href: "/docs/intro/quick-start/build-first-program",
+        type: "Build",
+      },
+      {
+        label: "Hello World walkthrough",
+        href: "/developers/bootcamp/foundations/hello-world",
+        type: "Build",
+      },
+      {
+        label: "Bootcamp project 1",
+        href: "https://www.youtube.com/watch?v=amAq-WHAFs8&t=622s",
+        type: "Watch",
+      },
+    ],
+    doneWhen:
+      "Your client invokes the program successfully and you can find the signature, logs, and changed account state.",
+    goals: ["build", "developer"],
+    hideFor: ["solana"],
   },
   {
     id: "accounts-programs",
-    number: "04",
+    number: "06",
     phase: "Learn",
     title: "Understand accounts and programs",
     description:
-      "Read these together. Accounts store state; programs are stateless code that can modify the accounts passed to them.",
+      "Accounts store state while programs remain executable code. Learn ownership, data layout, rent, and the runtime's modification rules.",
     resources: [
       {
         label: "Accounts",
         href: "/docs/core/accounts",
+        type: "Read",
+      },
+      {
+        label: "Account structure",
+        href: "/docs/core/accounts/account-structure",
+        type: "Read",
+      },
+      {
+        label: "Account modification rules",
+        href: "/docs/core/accounts/modification-rules",
         type: "Read",
       },
       {
@@ -215,15 +617,17 @@ const CORE_STEPS: CoreStep[] = [
       },
     ],
     doneWhen:
-      "Given an account, you can identify its address, owner, data, lamports, and whether it is executable.",
+      "Given an account, you can identify its address, owner, data, lamports, executable flag, and who may modify it.",
+    goals: ["build", "developer", "understand", "reference"],
+    hideFor: ["solana"],
   },
   {
     id: "transactions",
-    number: "05",
+    number: "07",
     phase: "Learn",
-    title: "Follow a transaction",
+    title: "Follow instructions through a transaction",
     description:
-      "Learn how instructions declare accounts and data, how transactions combine them, and where execution costs come from.",
+      "Learn how instructions declare accounts and data, how messages combine them atomically, and where execution costs come from.",
     resources: [
       {
         label: "Instructions",
@@ -236,6 +640,11 @@ const CORE_STEPS: CoreStep[] = [
         type: "Read",
       },
       {
+        label: "Transaction structure",
+        href: "/docs/core/transactions/transaction-structure",
+        type: "Read",
+      },
+      {
         label: "Fees",
         href: "/docs/core/fees",
         type: "Read",
@@ -243,14 +652,44 @@ const CORE_STEPS: CoreStep[] = [
     ],
     doneWhen:
       "You can inspect a transaction and identify its signers, writable accounts, instructions, blockhash, and fee.",
+    goals: ["build", "developer", "understand", "work", "reference"],
+    hideFor: ["solana"],
   },
   {
-    id: "pda-cpi",
-    number: "06",
+    id: "signing-wallets",
+    number: "08",
     phase: "Learn",
-    title: "Learn program authority",
+    title: "Understand signing and wallet authority",
     description:
-      "PDAs give programs deterministic addresses and signing authority. CPIs let programs call and compose with other programs.",
+      "Separate fee payers, transaction signers, program authority, and wallet UX. Learn what may safely be signed in production.",
+    resources: [
+      {
+        label: "Transaction signing in production",
+        href: "/docs/core/transactions/signing-in-production",
+        type: "Read",
+      },
+      {
+        label: "Durable nonces",
+        href: "/docs/core/transactions/durable-nonces",
+        type: "Read",
+      },
+      {
+        label: "Transaction simulation",
+        href: "/docs/rpc/http/simulatetransaction",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can name every required signer, explain what each authorizes, and avoid asking a wallet to sign opaque data.",
+    goals: ["build", "developer", "understand", "reference"],
+  },
+  {
+    id: "pda-authority",
+    number: "09",
+    phase: "Learn",
+    title: "Model state and authority with PDAs",
+    description:
+      "Use deterministic seeds to find program-owned state, represent relationships, and authorize actions without private keys.",
     resources: [
       {
         label: "Program Derived Addresses",
@@ -258,65 +697,294 @@ const CORE_STEPS: CoreStep[] = [
         type: "Read",
       },
       {
+        label: "PDA derivation",
+        href: "/docs/core/pda/pda-derivation",
+        type: "Read",
+      },
+      {
+        label: "PDA accounts",
+        href: "/docs/core/pda/pda-accounts",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "You can choose stable seeds, derive the address and bump, and explain how a program signs for its PDA.",
+    goals: ["build", "developer", "reference"],
+    focuses: [
+      "programs",
+      "defi",
+      "games-performance",
+      "program-reference",
+      "production-reference",
+    ],
+    hideFor: ["solana"],
+  },
+  {
+    id: "cpi-composability",
+    number: "10",
+    phase: "Learn",
+    title: "Compose programs with CPIs",
+    description:
+      "Call other programs safely, pass the right account privileges, sign with PDAs, and understand the cost of deep composition.",
+    resources: [
+      {
         label: "Cross-Program Invocations",
         href: "/docs/core/cpi",
         type: "Read",
       },
+      {
+        label: "CPI with a PDA signer",
+        href: "/docs/core/cpi/cpi-with-pda",
+        type: "Build",
+      },
+      {
+        label: "CPI execution",
+        href: "/docs/core/cpi/cpi-execution",
+        type: "Read",
+      },
+      {
+        label: "CPI cost model",
+        href: "/docs/core/cpi/cpi-cost-model",
+        type: "Read",
+      },
     ],
     doneWhen:
-      "You can derive a PDA, explain its seeds and bump, and describe how it signs during a CPI.",
+      "You can trace nested invocations, explain privilege extension rules, and make a PDA-authorized CPI.",
+    goals: ["build", "developer", "reference"],
+    focuses: [
+      "programs",
+      "defi",
+      "games-performance",
+      "program-reference",
+      "production-reference",
+    ],
+    hideFor: ["solana"],
   },
   {
-    id: "stateful-program",
-    number: "07",
-    phase: "Build and ship",
-    title: "Build one stateful program",
+    id: "anchor",
+    number: "11",
+    phase: "Learn",
+    title: "Use Anchor without hiding the runtime",
     description:
-      "Learn the Anchor account model, then use it in a small vault challenge. Do not move on until the failure cases make sense.",
+      "Learn instruction contexts, account constraints, serialization, errors, IDLs, testing, and when to drop to lower-level Rust.",
     resources: [
       {
-        label: "Anchor Accounts",
+        label: "Anchor 101",
+        href: "https://learn.blueshift.gg/en/courses/anchor-for-dummies/anchor-101",
+        type: "Read",
+      },
+      {
+        label: "Anchor accounts",
         href: "https://learn.blueshift.gg/en/courses/anchor-for-dummies/anchor-accounts",
         type: "Read",
       },
       {
-        label: "Anchor Vault Challenge",
-        href: "https://learn.blueshift.gg/en/challenges/anchor-vault",
-        type: "Build",
-      },
-    ],
-    doneWhen:
-      "Your vault initializes, accepts a deposit, withdraws only with the correct authority, and rejects invalid signers.",
-  },
-  {
-    id: "client-integration",
-    number: "08",
-    phase: "Build and ship",
-    title: "Build the client side",
-    description:
-      "Connect a real interface to your program. Construct instructions, simulate transactions, surface wallet errors, and confirm finality.",
-    resources: [
-      {
-        label: "Frontend Client",
-        href: "/docs/frontend/client",
+        label: "Program IDLs",
+        href: "/docs/programs/idls",
         type: "Read",
       },
       {
-        label: "React Hooks",
-        href: "/docs/frontend/react-hooks",
+        label: "Advanced Anchor",
+        href: "https://learn.blueshift.gg/en/courses/anchor-for-dummies/advanced-anchor",
         type: "Build",
       },
     ],
     doneWhen:
-      "A user can connect a wallet, submit every core instruction, see useful failures, and confirm the resulting account changes.",
+      "You can read every generated constraint, write a custom one, understand the IDL, and explain what Anchor does for you.",
+    goals: ["build", "developer"],
+    focuses: ["programs", "defi", "games-performance"],
   },
   {
-    id: "test-optimize",
-    number: "09",
-    phase: "Build and ship",
-    title: "Test and profile the program",
+    id: "tokens",
+    number: "12",
+    phase: "Learn",
+    title: "Learn tokens and Token Extensions",
     description:
-      "Move beyond happy-path tests. Cover invalid authorities and account states, then measure compute before optimizing.",
+      "Understand mint accounts, token accounts, authorities, associated token accounts, Token-2022, and extension tradeoffs.",
+    resources: [
+      {
+        label: "Tokens on Solana",
+        href: "/docs/tokens",
+        type: "Read",
+      },
+      {
+        label: "Token quickstart",
+        href: "/docs/tokens/quickstart",
+        type: "Build",
+      },
+      {
+        label: "Token Extensions",
+        href: "/docs/tokens/extensions",
+        type: "Read",
+      },
+      {
+        label: "SPL Token with web3.js",
+        href: "https://learn.blueshift.gg/en/paths/token-developer/courses/spl-token-with-web3js/introduction",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can distinguish a mint from a token account, identify its authorities, and choose classic Token or Token-2022.",
+    goals: ["build", "developer", "understand", "work"],
+    focuses: ["tokens-payments", "defi", "ecosystem", "finance", "product"],
+  },
+  {
+    id: "clients-rpc",
+    number: "13",
+    phase: "Learn",
+    title: "Read and write through clients and RPC",
+    description:
+      "Build transactions with the official client, fetch accounts in batches, subscribe to changes, simulate, send, and confirm.",
+    resources: [
+      {
+        label: "JavaScript client",
+        href: "/docs/clients/official/javascript",
+        type: "Read",
+      },
+      {
+        label: "Frontend client",
+        href: "/docs/frontend/client",
+        type: "Build",
+      },
+      {
+        label: "JSON-RPC methods",
+        href: "/docs/rpc",
+        type: "Read",
+      },
+      {
+        label: "Read from the network",
+        href: "/docs/intro/quick-start/reading-from-network",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can fetch typed state, build an instruction, simulate and send it, then confirm the intended account changes.",
+    goals: ["build", "developer", "understand", "reference"],
+    focuses: [
+      "apps",
+      "data",
+      "transactions",
+      "ecosystem",
+      "client-reference",
+      "tokens-payments",
+      "games-performance",
+    ],
+  },
+  {
+    id: "stateful-program",
+    number: "14",
+    phase: "Build",
+    title: "Build a stateful program from scratch",
+    description:
+      "Design a small vault, escrow, or voting program. Define its state machine first, then implement its success and failure paths.",
+    resources: [
+      {
+        label: "Anchor Vault challenge",
+        href: "https://learn.blueshift.gg/en/challenges/anchor-vault",
+        type: "Build",
+      },
+      {
+        label: "Voting program",
+        href: "/developers/bootcamp/program-patterns/voting",
+        type: "Build",
+      },
+      {
+        label: "Escrow application",
+        href: "/developers/bootcamp/program-patterns/escrow-application",
+        type: "Build",
+      },
+      {
+        label: "Bootcamp projects 1–9",
+        href: "https://www.youtube.com/watch?v=amAq-WHAFs8",
+        type: "Watch",
+      },
+    ],
+    doneWhen:
+      "The state machine is explicit, authorities are enforced, transitions are tested, and invalid accounts are rejected.",
+    goals: ["build", "developer"],
+    focuses: ["programs", "defi", "games-performance", "tokens-payments"],
+  },
+  {
+    id: "transaction-ux",
+    number: "15",
+    phase: "Build",
+    title: "Build production-quality transaction UX",
+    description:
+      "Connect a real interface, simulate before signing, show useful errors, handle confirmation, and make state changes observable.",
+    resources: [
+      {
+        label: "React hooks",
+        href: "/docs/frontend/react-hooks",
+        type: "Build",
+      },
+      {
+        label: "Next.js and Solana",
+        href: "/docs/frontend/nextjs-solana",
+        type: "Build",
+      },
+      {
+        label: "Write to the network",
+        href: "/docs/intro/quick-start/writing-to-network",
+        type: "Build",
+      },
+      {
+        label: "Transaction pipeline",
+        href: "/docs/core/transactions/transaction-pipeline",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "A user can understand what they are signing, recover from expected failures, and verify the final state.",
+    goals: ["build", "developer"],
+    focuses: [
+      "apps",
+      "tokens-payments",
+      "defi",
+      "games-performance",
+      "client-reference",
+    ],
+  },
+  {
+    id: "program-patterns",
+    number: "16",
+    phase: "Build",
+    title: "Study reusable program patterns",
+    description:
+      "Implement escrow, voting, token authority, and swap patterns so you can recognize state machines and trust boundaries in real programs.",
+    resources: [
+      {
+        label: "Escrow application",
+        href: "/developers/bootcamp/program-patterns/escrow-application",
+        type: "Build",
+      },
+      {
+        label: "Stable swap",
+        href: "/developers/bootcamp/program-patterns/stable-swap",
+        type: "Build",
+      },
+      {
+        label: "Stable coin",
+        href: "/developers/bootcamp/program-patterns/stable-coin",
+        type: "Build",
+      },
+      {
+        label: "Anchor Escrow challenge",
+        href: "https://learn.blueshift.gg/en/challenges/anchor-escrow",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can draw each pattern's state transitions, authorities, invariants, and external program calls before reading its code.",
+    goals: ["build", "developer"],
+    focuses: ["programs", "defi", "tokens-payments", "games-performance"],
+  },
+  {
+    id: "testing-debugging",
+    number: "17",
+    phase: "Build",
+    title: "Test failures and debug execution",
+    description:
+      "Go past the happy path. Manipulate account state, assert custom errors, inspect logs, and test every authority boundary.",
     resources: [
       {
         label: "Testing with Mollusk",
@@ -324,67 +992,217 @@ const CORE_STEPS: CoreStep[] = [
         type: "Build",
       },
       {
-        label: "Compute Budget",
-        href: "/docs/core/fees/compute-budget",
+        label: "Testing with LiteSVM",
+        href: "https://learn.blueshift.gg/en/courses/testing-with-litesvm/litesvm-101",
+        type: "Build",
+      },
+      {
+        label: "Transaction introspection",
+        href: "/docs/core/transactions/transaction-introspection",
         type: "Read",
       },
       {
-        label: "Transaction Pipeline",
-        href: "/docs/core/transactions/transaction-pipeline",
+        label: "Program examples",
+        href: "/docs/programs/examples",
         type: "Read",
       },
     ],
     doneWhen:
-      "Your tests prove the important failure cases and you can explain where the program spends compute units.",
+      "Tests cover unauthorized signers, wrong owners, invalid seeds, repeated calls, boundary values, and expected custom errors.",
+    goals: ["build", "developer", "reference"],
+    focuses: [
+      "programs",
+      "defi",
+      "games-performance",
+      "program-reference",
+      "production-reference",
+    ],
+  },
+  {
+    id: "compute-performance",
+    number: "18",
+    phase: "Build",
+    title: "Measure compute and transaction limits",
+    description:
+      "Profile before optimizing. Learn account, stack, CPI, transaction-size, priority-fee, and compute-budget constraints.",
+    resources: [
+      {
+        label: "Compute budget",
+        href: "/docs/core/fees/compute-budget",
+        type: "Read",
+      },
+      {
+        label: "Program limitations",
+        href: "/docs/programs/limitations",
+        type: "Read",
+      },
+      {
+        label: "CPI cost model",
+        href: "/docs/core/cpi/cpi-cost-model",
+        type: "Read",
+      },
+      {
+        label: "Recent prioritization fees",
+        href: "/docs/rpc/http/getrecentprioritizationfees",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can measure compute, explain the limiting resource, and make a targeted optimization without removing validation.",
+    goals: ["build", "developer", "reference"],
+    focuses: [
+      "programs",
+      "defi",
+      "games-performance",
+      "program-reference",
+      "production-reference",
+    ],
   },
   {
     id: "index-data",
-    number: "10",
-    phase: "Build and ship",
+    number: "19",
+    phase: "Build",
     title: "Index and observe onchain data",
     description:
-      "Build the read path for your application instead of treating RPC calls as a database. Track events, account changes, and failed transactions.",
+      "Design the read path instead of treating RPC as a database. Track events, account changes, historical transactions, and failures.",
     resources: [
       {
-        label: "Indexing",
+        label: "Indexing walkthrough",
         href: "/developers/bootcamp/shipping-production/indexing",
         type: "Build",
       },
       {
-        label: "Transaction Introspection",
+        label: "WebSocket subscriptions",
+        href: "/docs/rpc/websocket",
+        type: "Read",
+      },
+      {
+        label: "Get program accounts",
+        href: "/docs/rpc/http/getprogramaccounts",
+        type: "Build",
+      },
+      {
+        label: "Transaction introspection",
         href: "/docs/core/transactions/transaction-introspection",
         type: "Read",
       },
     ],
     doneWhen:
-      "Your application can reconstruct its important state, diagnose a failed transaction, and alert on unexpected behavior.",
+      "Your application can reconstruct important state, diagnose a failed transaction, and alert on unexpected behavior.",
+    goals: ["build", "developer", "understand", "work", "reference"],
+    focuses: [
+      "apps",
+      "data",
+      "defi",
+      "transactions",
+      "product",
+      "developer-relations",
+      "client-reference",
+      "production-reference",
+      "games-performance",
+    ],
   },
   {
-    id: "security-production",
-    number: "11",
-    phase: "Build and ship",
-    title: "Test, review, and ship",
+    id: "security-review",
+    number: "20",
+    phase: "Ship",
+    title: "Threat-model and review the program",
     description:
-      "Finish the shared path by testing account constraints, reviewing the common security failures, and preparing a production deployment.",
+      "Review signer, owner, address, account relationship, arithmetic, reinitialization, remaining-account, and CPI boundaries.",
     resources: [
       {
-        label: "Security",
+        label: "Security walkthrough",
         href: "/developers/bootcamp/program-patterns/security",
         type: "Watch",
       },
       {
-        label: "Production Readiness",
+        label: "Advanced Anchor constraints",
+        href: "https://learn.blueshift.gg/en/courses/anchor-for-dummies/advanced-anchor",
+        type: "Read",
+      },
+      {
+        label: "Bootcamp: Attacking the Bank",
+        href: "https://www.youtube.com/watch?v=HOdYZSe1uhE&t=24025s",
+        type: "Watch",
+      },
+    ],
+    doneWhen:
+      "Critical instructions have negative tests, trust boundaries are documented, and every unchecked account has explicit validation.",
+    goals: ["build", "developer", "work", "reference"],
+  },
+  {
+    id: "deployment-upgrades",
+    number: "21",
+    phase: "Ship",
+    title: "Deploy, verify, and control upgrades",
+    description:
+      "Practice cluster deployment, program IDs, upgrade authorities, reproducible builds, key custody, and safe release sequencing.",
+    resources: [
+      {
+        label: "Deploying programs",
+        href: "/docs/programs/deploying",
+        type: "Build",
+      },
+      {
+        label: "Program deployment model",
+        href: "/docs/core/programs/program-deployment",
+        type: "Read",
+      },
+      {
+        label: "Verified builds",
+        href: "/docs/programs/verified-builds",
+        type: "Build",
+      },
+      {
+        label: "Anchor program deployment",
+        href: "https://learn.blueshift.gg/en/courses/anchor-for-dummies/program-deployment",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "You can reproduce the binary, verify it onchain, name the upgrade authority, and execute a rollback plan.",
+    goals: ["build", "developer", "reference"],
+    focuses: [
+      "programs",
+      "defi",
+      "games-performance",
+      "program-reference",
+      "production-reference",
+      "tokens-payments",
+    ],
+  },
+  {
+    id: "production-operations",
+    number: "22",
+    phase: "Ship",
+    title: "Operate a production Solana application",
+    description:
+      "Plan RPC resilience, confirmation strategy, priority fees, monitoring, indexing recovery, key management, and incident response.",
+    resources: [
+      {
+        label: "Production readiness",
         href: "/developers/bootcamp/shipping-production/production-readiness",
         type: "Watch",
       },
       {
-        label: "Verified Builds",
-        href: "/docs/programs/verified-builds",
+        label: "Payment production readiness",
+        href: "/docs/payments/production-readiness",
         type: "Read",
+      },
+      {
+        label: "Bootcamp: Getting to Production",
+        href: "https://www.youtube.com/watch?v=HOdYZSe1uhE&t=25805s",
+        type: "Watch",
+      },
+      {
+        label: "RPC health",
+        href: "/docs/rpc/http/gethealth",
+        type: "Build",
       },
     ],
     doneWhen:
-      "Critical instructions have negative tests, authorities are explicit, deployment keys are controlled, and monitoring is planned.",
+      "You have dashboards, alerts, fallback infrastructure, controlled keys, a release checklist, and an incident plan.",
+    goals: ["build", "developer", "work", "reference"],
   },
 ];
 
@@ -413,6 +1231,91 @@ const ETHEREUM_STEP: CoreStep = {
 
 const PRODUCT_BRANCHES: Branch[] = [
   {
+    id: "payments",
+    label: "Product branch",
+    title: "Payments and token products",
+    description:
+      "Take this branch for checkout, payouts, subscriptions, stablecoins, or custom token behavior.",
+    resources: [
+      {
+        label: "Payments quickstart",
+        href: "/docs/payments/quickstart",
+        type: "Build",
+      },
+      {
+        label: "How payments work",
+        href: "/docs/payments/how-payments-work",
+        type: "Read",
+      },
+      {
+        label: "Token Extensions",
+        href: "/docs/tokens/extensions",
+        type: "Read",
+      },
+      {
+        label: "x402 application",
+        href: "/developers/bootcamp/fullstack-apps/x402",
+        type: "Build",
+      },
+    ],
+    focuses: ["tokens-payments", "finance"],
+  },
+  {
+    id: "defi",
+    label: "Product branch",
+    title: "DeFi and financial programs",
+    description:
+      "Take this branch for swaps, lending, vaults, markets, or any protocol with financial invariants.",
+    resources: [
+      {
+        label: "DeFi on Solana",
+        href: "/docs/defi",
+        type: "Read",
+      },
+      {
+        label: "Stable swap",
+        href: "/developers/bootcamp/program-patterns/stable-swap",
+        type: "Build",
+      },
+      {
+        label: "Prediction market",
+        href: "/developers/bootcamp/fullstack-apps/prediction-market",
+        type: "Build",
+      },
+      {
+        label: "Bootcamp lending application",
+        href: "https://www.youtube.com/watch?v=HOdYZSe1uhE",
+        type: "Watch",
+      },
+    ],
+    focuses: ["defi"],
+  },
+  {
+    id: "games",
+    label: "Product branch",
+    title: "Games and real-time apps",
+    description:
+      "Take this branch when latency, frequent state changes, game clients, or tight compute budgets shape the architecture.",
+    resources: [
+      {
+        label: "Game SDKs",
+        href: "/docs/clients/community/game-sdks",
+        type: "Read",
+      },
+      {
+        label: "Compute budget",
+        href: "/docs/core/fees/compute-budget",
+        type: "Read",
+      },
+      {
+        label: "Versioned transactions",
+        href: "/docs/core/transactions/versioned-transactions",
+        type: "Build",
+      },
+    ],
+    focuses: ["games-performance"],
+  },
+  {
     id: "privacy",
     label: "Product branch",
     title: "Privacy",
@@ -429,7 +1332,13 @@ const PRODUCT_BRANCHES: Branch[] = [
         href: "/docs/tokens/extensions/confidential-transfer",
         type: "Read",
       },
+      {
+        label: "Confidential transfer integration guide",
+        href: "/docs/tokens/extensions/confidential-transfer/integration-guide",
+        type: "Build",
+      },
     ],
+    focuses: ["tokens-payments", "finance"],
   },
   {
     id: "institutional",
@@ -448,15 +1357,29 @@ const PRODUCT_BRANCHES: Branch[] = [
         href: "/developers/bootcamp/fullstack-apps/real-world-assets",
         type: "Build",
       },
+      {
+        label: "Tokenization quickstart",
+        href: "/docs/tokenization/quickstart",
+        type: "Build",
+      },
+      {
+        label: "Token access control",
+        href: "/docs/tokenization/token-acl",
+        type: "Read",
+      },
     ],
+    focuses: ["finance", "tokens-payments"],
   },
 ];
 
 const INTRO_STEP = CORE_STEPS[0];
-const SHARED_SETUP_STEPS = CORE_STEPS.slice(1, 3);
-const STANDARD_FOUNDATION_STEPS = CORE_STEPS.slice(3, 6);
-const INTERMEDIATE_STEPS = CORE_STEPS.slice(6, 10);
-const FINAL_STEP = CORE_STEPS[10];
+const ETHEREUM_SKIPPED_STEP_IDS = new Set([
+  "accounts-programs",
+  "transactions",
+  "signing-wallets",
+  "pda-authority",
+  "cpi-composability",
+]);
 
 function ResourceLink({ resource }: { resource: RoadmapResource }) {
   return (
@@ -473,11 +1396,78 @@ function ResourceLink({ resource }: { resource: RoadmapResource }) {
   );
 }
 
+function isPersonalizationProfile(
+  value: unknown,
+): value is PersonalizationProfile {
+  if (!value || typeof value !== "object") return false;
+
+  const profile = value as Partial<PersonalizationProfile>;
+  const goal = GOAL_OPTIONS.find((option) => option.id === profile.goal)?.id;
+  const focus =
+    goal &&
+    FOCUS_OPTIONS[goal].find((option) => option.id === profile.focus)?.id;
+  const startingPoint = STARTING_OPTIONS.find(
+    (option) => option.id === profile.startingPoint,
+  )?.id;
+  const validLearningStyles = new Set(
+    LEARNING_STYLE_OPTIONS.map((option) => option.id),
+  );
+
+  return (
+    goal !== undefined &&
+    focus !== undefined &&
+    startingPoint !== undefined &&
+    Array.isArray(profile.learningStyles) &&
+    profile.learningStyles.every(
+      (style) =>
+        typeof style === "string" &&
+        validLearningStyles.has(style as LearningStyle),
+    )
+  );
+}
+
+function stepMatchesProfile(
+  step: CoreStep,
+  profile: PersonalizationProfile | null,
+) {
+  if (!profile) return true;
+  if (step.hideFor?.includes(profile.startingPoint)) return false;
+  if (step.goals && !step.goals.includes(profile.goal)) return false;
+  if (step.focuses && !step.focuses.includes(profile.focus)) return false;
+  return true;
+}
+
+function resourcesForProfile(
+  resources: RoadmapResource[],
+  profile: PersonalizationProfile | null,
+) {
+  if (!profile || profile.learningStyles.length === 0) return resources;
+
+  const preferredResources = resources.filter((resource) =>
+    profile.learningStyles.includes(resource.type),
+  );
+
+  return preferredResources.length > 0
+    ? preferredResources
+    : resources.slice(0, 1);
+}
+
+function stepForProfile(
+  step: CoreStep,
+  profile: PersonalizationProfile | null,
+) {
+  return {
+    ...step,
+    resources: resourcesForProfile(step.resources, profile),
+  };
+}
+
 function readProgress(): StoredProgress {
   const emptyProgress: StoredProgress = {
     completedIds: [],
     entryRoute: "new",
     assessmentPassed: false,
+    personalization: null,
   };
 
   if (typeof window === "undefined") return emptyProgress;
@@ -505,6 +1495,9 @@ function readProgress(): StoredProgress {
         : [],
       entryRoute: parsed.entryRoute === "ethereum" ? "ethereum" : "new",
       assessmentPassed: parsed.assessmentPassed === true,
+      personalization: isPersonalizationProfile(parsed.personalization)
+        ? parsed.personalization
+        : null,
     };
   } catch {
     return emptyProgress;
@@ -672,6 +1665,263 @@ function RoadmapResourceDrawer({
               </div>
             </>
           ) : null}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function PersonalizationDialog({
+  open,
+  onOpenChange,
+  profile,
+  onApply,
+  onClear,
+}: {
+  open: boolean;
+  onOpenChange: (_open: boolean) => void;
+  profile: PersonalizationProfile | null;
+  onApply: (_profile: PersonalizationProfile) => void;
+  onClear: () => void;
+}) {
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [goal, setGoal] = useState<RoadmapGoal | null>(null);
+  const [focus, setFocus] = useState<RoadmapFocus | null>(null);
+  const [startingPoint, setStartingPoint] = useState<StartingPoint | null>(
+    null,
+  );
+  const [learningStyles, setLearningStyles] = useState<LearningStyle[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuestionIndex(0);
+    setGoal(profile?.goal ?? null);
+    setFocus(profile?.focus ?? null);
+    setStartingPoint(profile?.startingPoint ?? null);
+    setLearningStyles(profile?.learningStyles ?? []);
+  }, [open, profile]);
+
+  const focusOptions = goal ? FOCUS_OPTIONS[goal] : [];
+  const startingOptions =
+    goal === "work" ? NON_TECHNICAL_STARTING_OPTIONS : STARTING_OPTIONS;
+  const questionTwoTitle =
+    goal === "build"
+      ? "What do you want to build?"
+      : goal === "developer"
+        ? "Which part of development?"
+        : goal === "understand"
+          ? "What do you want to understand?"
+          : goal === "work"
+            ? "What kind of work brings you here?"
+            : "What do you need right now?";
+  const questionThreeTitle =
+    goal === "work"
+      ? "How technical should your path be?"
+      : goal === "reference"
+        ? "How much Solana context do you have?"
+        : "Where are you starting from?";
+
+  const chooseGoal = (nextGoal: RoadmapGoal) => {
+    setGoal(nextGoal);
+    if (!FOCUS_OPTIONS[nextGoal].some((option) => option.id === focus)) {
+      setFocus(null);
+    }
+    setQuestionIndex(1);
+  };
+
+  const chooseFocus = (nextFocus: RoadmapFocus) => {
+    setFocus(nextFocus);
+    setQuestionIndex(2);
+  };
+
+  const toggleLearningStyle = (style: LearningStyle) => {
+    setLearningStyles((current) =>
+      current.includes(style)
+        ? current.filter((item) => item !== style)
+        : [...current, style],
+    );
+  };
+
+  const applyProfile = () => {
+    if (!goal || !focus || !startingPoint) return;
+    onApply({ goal, focus, startingPoint, learningStyles });
+    onOpenChange(false);
+  };
+
+  const renderOption = <T extends string>(
+    option: PersonalizationOption<T>,
+    selected: boolean,
+    onSelect: () => void,
+    index: number,
+  ) => (
+    <button
+      key={option.id}
+      type="button"
+      className={`${styles.personalizeOption} ${
+        selected ? styles.personalizeOptionSelected : ""
+      }`}
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
+      <span className={styles.personalizeEmoji} aria-hidden="true">
+        {option.emoji}
+      </span>
+      <span>
+        <strong>{option.title}</strong>
+        <small>{option.description}</small>
+      </span>
+      <kbd>{index + 1}</kbd>
+    </button>
+  );
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className={styles.personalizeOverlay} />
+        <Dialog.Content className={styles.personalizeDialog}>
+          <Dialog.Close
+            className={styles.personalizeClose}
+            aria-label="Close personalization"
+          >
+            <X aria-hidden="true" size={18} />
+          </Dialog.Close>
+
+          <header className={styles.personalizeProgress}>
+            <div aria-hidden="true">
+              {[0, 1, 2].map((index) => (
+                <span
+                  key={index}
+                  className={
+                    index <= questionIndex ? styles.personalizeProgressDone : ""
+                  }
+                />
+              ))}
+            </div>
+            <span>{questionIndex + 1} of 3</span>
+          </header>
+
+          {questionIndex > 0 ? (
+            <button
+              type="button"
+              className={styles.personalizeBack}
+              onClick={() => setQuestionIndex((current) => current - 1)}
+            >
+              <ArrowLeft aria-hidden="true" size={14} />
+              Back
+            </button>
+          ) : null}
+
+          <div className={styles.personalizeHeading}>
+            <span>✨ Personalize your roadmap</span>
+            <Dialog.Title>
+              {questionIndex === 0
+                ? "What brings you to Solana?"
+                : questionIndex === 1
+                  ? questionTwoTitle
+                  : questionThreeTitle}
+            </Dialog.Title>
+            <Dialog.Description>
+              {questionIndex === 0
+                ? "Under a minute — we'll cut the full roadmap down to your starting path."
+                : questionIndex === 1
+                  ? "This chooses which specialist stops stay in your roadmap."
+                  : "We'll keep the fundamentals you need and remove the ones you already know."}
+            </Dialog.Description>
+          </div>
+
+          <div className={styles.personalizeOptions}>
+            {questionIndex === 0
+              ? GOAL_OPTIONS.map((option, index) =>
+                  renderOption(
+                    option,
+                    option.id === goal,
+                    () => chooseGoal(option.id),
+                    index,
+                  ),
+                )
+              : null}
+
+            {questionIndex === 1
+              ? focusOptions.map((option, index) =>
+                  renderOption(
+                    option,
+                    option.id === focus,
+                    () => chooseFocus(option.id),
+                    index,
+                  ),
+                )
+              : null}
+
+            {questionIndex === 2
+              ? startingOptions.map((option, index) =>
+                  renderOption(
+                    option,
+                    option.id === startingPoint,
+                    () => setStartingPoint(option.id),
+                    index,
+                  ),
+                )
+              : null}
+          </div>
+
+          {questionIndex === 2 ? (
+            <section className={styles.learningPreference}>
+              <header>
+                <div>
+                  <strong>How do you like to learn?</strong>
+                  <span>Optional · choose any that apply</span>
+                </div>
+              </header>
+              <div>
+                {LEARNING_STYLE_OPTIONS.map((option) => {
+                  const selected = learningStyles.includes(option.id);
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={selected}
+                      className={selected ? styles.learningStyleSelected : ""}
+                      onClick={() => toggleLearningStyle(option.id)}
+                    >
+                      <span aria-hidden="true">{option.emoji}</span>
+                      {option.title}
+                      {selected ? (
+                        <Check aria-hidden="true" size={13} strokeWidth={2.7} />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          <footer className={styles.personalizeFooter}>
+            {profile ? (
+              <button
+                type="button"
+                className={styles.clearPersonalization}
+                onClick={() => {
+                  onClear();
+                  onOpenChange(false);
+                }}
+              >
+                Show full roadmap
+              </button>
+            ) : (
+              <span>Personalization only removes irrelevant stops.</span>
+            )}
+            {questionIndex === 2 ? (
+              <button
+                type="button"
+                className={styles.applyPersonalization}
+                disabled={!goal || !focus || !startingPoint}
+                onClick={applyProfile}
+              >
+                Apply my roadmap
+                <Sparkles aria-hidden="true" size={15} />
+              </button>
+            ) : null}
+          </footer>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -965,46 +2215,78 @@ export function ConceptsRoadmap() {
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [entryRoute, setEntryRoute] = useState<EntryRoute>("new");
   const [assessmentPassed, setAssessmentPassed] = useState(false);
+  const [personalization, setPersonalization] =
+    useState<PersonalizationProfile | null>(null);
+  const [isPersonalizeOpen, setIsPersonalizeOpen] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [activeDetail, setActiveDetail] = useState<RoadmapDetail | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const progress = readProgress();
     setCompletedIds(progress.completedIds);
     setEntryRoute(progress.entryRoute);
     setAssessmentPassed(progress.assessmentPassed);
-    setIsHydrated(true);
+    setPersonalization(progress.personalization);
   }, []);
 
   const completedSet = useMemo(() => new Set(completedIds), [completedIds]);
   const isEthereumPath = entryRoute === "ethereum";
+  const matchingCoreSteps = CORE_STEPS.filter((step) =>
+    stepMatchesProfile(step, personalization),
+  );
+  const visibleCoreSteps = matchingCoreSteps
+    .filter(
+      (step) => !isEthereumPath || !ETHEREUM_SKIPPED_STEP_IDS.has(step.id),
+    )
+    .map((step) => stepForProfile(step, personalization));
+  const visibleIntroStep = visibleCoreSteps.find(
+    (step) => step.id === INTRO_STEP.id,
+  );
+  const phaseOneSteps = visibleCoreSteps.filter(
+    (step) => step.phase === "Get ready" && step.id !== INTRO_STEP.id,
+  );
+  const phaseTwoSteps = visibleCoreSteps.filter(
+    (step) => step.phase === "Learn",
+  );
+  const phaseThreeSteps = visibleCoreSteps.filter(
+    (step) => step.phase === "Build",
+  );
+  const phaseFourSteps = visibleCoreSteps.filter(
+    (step) => step.phase === "Ship",
+  );
+  const personalizedEthereumStep = stepForProfile(
+    ETHEREUM_STEP,
+    personalization,
+  );
   const requiredSteps = isEthereumPath
     ? [
-        INTRO_STEP,
-        ETHEREUM_STEP,
-        ...SHARED_SETUP_STEPS,
-        ...INTERMEDIATE_STEPS,
-        FINAL_STEP,
+        ...(visibleIntroStep ? [visibleIntroStep] : []),
+        personalizedEthereumStep,
+        ...visibleCoreSteps.filter((step) => step.id !== INTRO_STEP.id),
       ]
-    : CORE_STEPS;
+    : visibleCoreSteps;
+  const visibleBranches = PRODUCT_BRANCHES.filter(
+    (branch) =>
+      !personalization || branch.focuses.includes(personalization.focus),
+  ).map((branch) => ({
+    ...branch,
+    resources: resourcesForProfile(branch.resources, personalization),
+  }));
   const requiredCompletedCount = requiredSteps.filter((step) =>
     completedSet.has(step.id),
   ).length;
-  const progress = Math.round(
-    (requiredCompletedCount / requiredSteps.length) * 100,
-  );
   const nextStepId = requiredSteps.find(
     (step) => !completedSet.has(step.id),
   )?.id;
   const reachedIntermediate = requiredSteps
-    .filter((step) => step.id !== FINAL_STEP.id)
+    .filter((step) => step.phase !== "Ship")
     .every((step) => completedSet.has(step.id));
 
   const writeProgress = (
     nextIds: string[],
     nextRoute = entryRoute,
     nextAssessmentPassed = assessmentPassed,
+    nextPersonalization = personalization,
   ) => {
     safeStorageSetItem(
       getBrowserStorage("localStorage"),
@@ -1013,6 +2295,7 @@ export function ConceptsRoadmap() {
         completedIds: nextIds,
         entryRoute: nextRoute,
         assessmentPassed: nextAssessmentPassed,
+        personalization: nextPersonalization,
       } satisfies StoredProgress),
     );
   };
@@ -1027,14 +2310,6 @@ export function ConceptsRoadmap() {
     });
   };
 
-  const resetProgress = () => {
-    setCompletedIds([]);
-    setAssessmentPassed(false);
-    setIsQuizOpen(false);
-    setActiveDetail(null);
-    writeProgress([], entryRoute, false);
-  };
-
   const selectEntryRoute = (nextRoute: EntryRoute) => {
     setEntryRoute(nextRoute);
     writeProgress(completedIds, nextRoute);
@@ -1043,6 +2318,19 @@ export function ConceptsRoadmap() {
   const passAssessment = () => {
     setAssessmentPassed(true);
     writeProgress(completedIds, entryRoute, true);
+  };
+
+  const applyPersonalization = (profile: PersonalizationProfile) => {
+    const nextRoute = profile.startingPoint === "ethereum" ? "ethereum" : "new";
+    setPersonalization(profile);
+    setEntryRoute(nextRoute);
+    writeProgress(completedIds, nextRoute, assessmentPassed, profile);
+  };
+
+  const clearPersonalization = () => {
+    setPersonalization(null);
+    setEntryRoute("new");
+    writeProgress(completedIds, "new", assessmentPassed, null);
   };
 
   const openStep = (step: CoreStep) => {
@@ -1070,12 +2358,12 @@ export function ConceptsRoadmap() {
 
   const openEthereumShortcut = () => {
     setActiveDetail({
-      id: ETHEREUM_STEP.id,
+      id: personalizedEthereumStep.id,
       eyebrow: "Optional shortcut · Ethereum",
-      title: ETHEREUM_STEP.title,
-      description: ETHEREUM_STEP.description,
-      resources: ETHEREUM_STEP.resources,
-      doneWhen: ETHEREUM_STEP.doneWhen,
+      title: personalizedEthereumStep.title,
+      description: personalizedEthereumStep.description,
+      resources: personalizedEthereumStep.resources,
+      doneWhen: personalizedEthereumStep.doneWhen,
       canComplete: isEthereumPath,
     });
   };
@@ -1097,38 +2385,17 @@ export function ConceptsRoadmap() {
 
   return (
     <div className={`${styles.roadmap} not-prose`} data-learn-roadmap="">
-      <section className={styles.progressPanel} aria-label="Learning progress">
-        <div className={styles.progressPanelTop}>
-          <div className={styles.progressNumbers}>
-            <strong>{isHydrated ? requiredCompletedCount : "—"}</strong>
-            <span>/ {requiredSteps.length} required steps</span>
-          </div>
-          <button
-            type="button"
-            className={styles.resetButton}
-            onClick={resetProgress}
-            disabled={completedIds.length === 0 && !assessmentPassed}
-          >
-            <RotateCcw aria-hidden="true" size={13} />
-            Reset progress
-          </button>
-        </div>
-        <div className={styles.progressSummary}>
-          <div
-            className={styles.progressTrack}
-            role="progressbar"
-            aria-label="Learning progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <span className={styles.pathMode}>
-            {isEthereumPath ? "Ethereum shortcut" : "Full path"}
-          </span>
-        </div>
-      </section>
+      <div className={styles.roadmapToolbar}>
+        <button
+          type="button"
+          className={styles.personalizeTrigger}
+          onClick={() => setIsPersonalizeOpen(true)}
+        >
+          <span aria-hidden="true">✨</span>
+          Personalize
+          {personalization ? <small>Active</small> : null}
+        </button>
+      </div>
 
       <div className={styles.corePath}>
         <div
@@ -1162,109 +2429,121 @@ export function ConceptsRoadmap() {
           </aside>
         </div>
 
-        {renderStep(INTRO_STEP, "left")}
+        {visibleIntroStep ? renderStep(visibleIntroStep, "left") : null}
 
-        <section
-          className={`${styles.ethereumFork} ${
-            isEthereumPath ? styles.ethereumForkActive : ""
-          }`}
-          aria-labelledby="ethereum-shortcut-title"
-        >
-          <article>
-            <button
-              type="button"
-              className={styles.stepOpenButton}
-              onClick={openEthereumShortcut}
-              aria-label="Open resources for the Ethereum shortcut"
-            />
-            <header>
-              <span>
-                <GitBranch aria-hidden="true" size={14} />
-                Optional shortcut
-              </span>
-              {isEthereumPath ? (
-                <button
-                  type="button"
-                  className={styles.shortcutCheck}
-                  onClick={() => toggleComplete(ETHEREUM_STEP.id)}
-                  aria-pressed={completedSet.has(ETHEREUM_STEP.id)}
-                  aria-label={`${
-                    completedSet.has(ETHEREUM_STEP.id)
-                      ? "Mark incomplete"
-                      : "Mark complete"
-                  }: ${ETHEREUM_STEP.title}`}
-                >
-                  {completedSet.has(ETHEREUM_STEP.id) ? (
-                    <Check aria-hidden="true" size={14} />
-                  ) : (
-                    <Circle aria-hidden="true" size={10} />
-                  )}
-                </button>
-              ) : null}
-            </header>
-            <h3 id="ethereum-shortcut-title">Already building on Ethereum?</h3>
-            <p>
-              Read this after the Solana mental model. It replaces the later
-              accounts, transactions, PDA, and CPI reading stops—not the first
-              two projects.
-            </p>
-            <div className={styles.stepMeta}>
-              <span>
-                <BookOpen aria-hidden="true" size={14} />
-                {ETHEREUM_STEP.resources.length} resources
-              </span>
-              <span>
-                Open
-                <ChevronRight aria-hidden="true" size={14} />
-              </span>
-            </div>
-            <button
-              type="button"
-              className={styles.shortcutToggle}
-              onClick={() =>
-                selectEntryRoute(isEthereumPath ? "new" : "ethereum")
-              }
-              aria-pressed={isEthereumPath}
-            >
-              {isEthereumPath ? (
-                <>
-                  <Check aria-hidden="true" size={14} />
-                  Shortcut active — use full path
-                </>
-              ) : (
-                <>
+        {!personalization || personalization.startingPoint === "ethereum" ? (
+          <section
+            className={`${styles.ethereumFork} ${
+              isEthereumPath ? styles.ethereumForkActive : ""
+            }`}
+            aria-labelledby="ethereum-shortcut-title"
+          >
+            <article>
+              <button
+                type="button"
+                className={styles.stepOpenButton}
+                onClick={openEthereumShortcut}
+                aria-label="Open resources for the Ethereum shortcut"
+              />
+              <header>
+                <span>
                   <GitBranch aria-hidden="true" size={14} />
-                  Take the Ethereum shortcut
-                </>
-              )}
-            </button>
-          </article>
-        </section>
+                  Optional shortcut
+                </span>
+                {isEthereumPath ? (
+                  <button
+                    type="button"
+                    className={styles.shortcutCheck}
+                    onClick={() => toggleComplete(ETHEREUM_STEP.id)}
+                    aria-pressed={completedSet.has(ETHEREUM_STEP.id)}
+                    aria-label={`${
+                      completedSet.has(ETHEREUM_STEP.id)
+                        ? "Mark incomplete"
+                        : "Mark complete"
+                    }: ${ETHEREUM_STEP.title}`}
+                  >
+                    {completedSet.has(ETHEREUM_STEP.id) ? (
+                      <Check aria-hidden="true" size={14} />
+                    ) : (
+                      <Circle aria-hidden="true" size={10} />
+                    )}
+                  </button>
+                ) : null}
+              </header>
+              <h3 id="ethereum-shortcut-title">
+                Already building on Ethereum?
+              </h3>
+              <p>
+                Read this after the Solana mental model. It replaces the
+                accounts, transactions, PDA, CPI, and signing stops, then merges
+                back into the shared build path.
+              </p>
+              <div className={styles.stepMeta}>
+                <span>
+                  <BookOpen aria-hidden="true" size={14} />
+                  {personalizedEthereumStep.resources.length} resources
+                </span>
+                <span>
+                  Open
+                  <ChevronRight aria-hidden="true" size={14} />
+                </span>
+              </div>
+              <button
+                type="button"
+                className={styles.shortcutToggle}
+                onClick={() =>
+                  selectEntryRoute(isEthereumPath ? "new" : "ethereum")
+                }
+                aria-pressed={isEthereumPath}
+              >
+                {isEthereumPath ? (
+                  <>
+                    <Check aria-hidden="true" size={14} />
+                    Shortcut active — use full path
+                  </>
+                ) : (
+                  <>
+                    <GitBranch aria-hidden="true" size={14} />
+                    Take the Ethereum shortcut
+                  </>
+                )}
+              </button>
+            </article>
+          </section>
+        ) : null}
 
-        <div className={styles.phaseLabel}>
-          <span>Phase 1 · First projects</span>
-        </div>
-        {SHARED_SETUP_STEPS.map((step, index) =>
-          renderStep(step, index % 2 === 0 ? "left" : "right"),
-        )}
-
-        {!isEthereumPath ? (
+        {phaseOneSteps.length > 0 ? (
           <>
             <div className={styles.phaseLabel}>
-              <span>Phase 2 · Concepts</span>
+              <span>Phase 1 · Tooling and first program</span>
             </div>
-            {STANDARD_FOUNDATION_STEPS.map((step, index) =>
+            {phaseOneSteps.map((step, index) =>
+              renderStep(step, index % 2 === 0 ? "right" : "left"),
+            )}
+          </>
+        ) : null}
+
+        {phaseTwoSteps.length > 0 ? (
+          <>
+            <div className={styles.phaseLabel}>
+              <span>Phase 2 · Runtime and core primitives</span>
+            </div>
+            {phaseTwoSteps.map((step, index) =>
               renderStep(step, index % 2 === 0 ? "left" : "right"),
             )}
           </>
         ) : null}
 
-        <div className={styles.phaseLabel}>
-          <span>Phase 3 · Build beyond the basics</span>
-        </div>
-        {INTERMEDIATE_STEPS.map((step, index) =>
-          renderStep(step, index % 2 === 0 ? "right" : "left"),
-        )}
+        {phaseThreeSteps.length > 0 ? (
+          <>
+            <div className={styles.phaseLabel}>
+              <span>Phase 3 · Build beyond the basics</span>
+            </div>
+            {phaseThreeSteps.map((step, index) =>
+              renderStep(step, index % 2 === 0 ? "right" : "left"),
+            )}
+          </>
+        ) : null}
 
         <div
           className={`${styles.levelMilestone} ${
@@ -1295,77 +2574,85 @@ export function ConceptsRoadmap() {
           ) : null}
         </div>
 
-        <section
-          className={styles.specializationFork}
-          aria-labelledby="specializations-title"
-        >
-          <header>
-            <div>
-              <p className={styles.kicker}>Optional product branches</p>
-              <h3 id="specializations-title">Go deeper for your product</h3>
-            </div>
-          </header>
-          <div className={styles.specializationGrid}>
-            {PRODUCT_BRANCHES.map((branch) => {
-              const isComplete = completedSet.has(branch.id);
-              return (
-                <article
-                  key={branch.id}
-                  className={`${styles.branchCard} ${
-                    isComplete ? styles.branchComplete : ""
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className={styles.stepOpenButton}
-                    onClick={() => openBranch(branch)}
-                    aria-label={`Open resources for ${branch.title}`}
-                  />
-                  <div className={styles.branchHeader}>
-                    <span>
-                      <GitBranch aria-hidden="true" size={14} />
-                      {branch.label}
-                    </span>
+        {visibleBranches.length > 0 ? (
+          <section
+            className={styles.specializationFork}
+            aria-labelledby="specializations-title"
+          >
+            <header>
+              <div>
+                <p className={styles.kicker}>Optional product branches</p>
+                <h3 id="specializations-title">Go deeper for your product</h3>
+              </div>
+            </header>
+            <div className={styles.specializationGrid}>
+              {visibleBranches.map((branch) => {
+                const isComplete = completedSet.has(branch.id);
+                return (
+                  <article
+                    key={branch.id}
+                    className={`${styles.branchCard} ${
+                      isComplete ? styles.branchComplete : ""
+                    }`}
+                  >
                     <button
                       type="button"
-                      onClick={() => toggleComplete(branch.id)}
-                      aria-pressed={isComplete}
-                      aria-label={`${
-                        isComplete ? "Mark incomplete" : "Mark complete"
-                      }: ${branch.title} branch`}
-                    >
-                      {isComplete ? (
-                        <Check aria-hidden="true" size={14} />
-                      ) : (
-                        <Circle aria-hidden="true" size={10} />
-                      )}
-                    </button>
-                  </div>
-                  <h3>{branch.title}</h3>
-                  <p>{branch.description}</p>
-                  <div className={styles.stepMeta}>
-                    <span>
-                      <BookOpen aria-hidden="true" size={14} />
-                      {branch.resources.length} resources
-                    </span>
-                    <span>
-                      Open
-                      <ChevronRight aria-hidden="true" size={14} />
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
-            <div className={styles.directLane} aria-hidden="true">
-              <ArrowRight size={15} />
+                      className={styles.stepOpenButton}
+                      onClick={() => openBranch(branch)}
+                      aria-label={`Open resources for ${branch.title}`}
+                    />
+                    <div className={styles.branchHeader}>
+                      <span>
+                        <GitBranch aria-hidden="true" size={14} />
+                        {branch.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleComplete(branch.id)}
+                        aria-pressed={isComplete}
+                        aria-label={`${
+                          isComplete ? "Mark incomplete" : "Mark complete"
+                        }: ${branch.title} branch`}
+                      >
+                        {isComplete ? (
+                          <Check aria-hidden="true" size={14} />
+                        ) : (
+                          <Circle aria-hidden="true" size={10} />
+                        )}
+                      </button>
+                    </div>
+                    <h3>{branch.title}</h3>
+                    <p>{branch.description}</p>
+                    <div className={styles.stepMeta}>
+                      <span>
+                        <BookOpen aria-hidden="true" size={14} />
+                        {branch.resources.length} resources
+                      </span>
+                      <span>
+                        Open
+                        <ChevronRight aria-hidden="true" size={14} />
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+              <div className={styles.directLane} aria-hidden="true">
+                <ArrowRight size={15} />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
-        <div className={styles.phaseLabel}>
-          <span>Phase 4 · Ship</span>
-        </div>
-        {renderStep(FINAL_STEP, "center")}
+        {phaseFourSteps.length > 0 ? (
+          <>
+            <div className={styles.phaseLabel}>
+              <span>Phase 4 · Secure, deploy, and operate</span>
+            </div>
+            {phaseFourSteps.map((step, index) =>
+              renderStep(step, index % 2 === 0 ? "left" : "right"),
+            )}
+          </>
+        ) : null}
 
         <div className={styles.coreFinish}>
           <ShieldCheck aria-hidden="true" size={18} />
@@ -1377,8 +2664,22 @@ export function ConceptsRoadmap() {
 
       <p className={styles.srStatus} aria-live="polite">
         {requiredCompletedCount} of {requiredSteps.length} required steps
-        complete on the {isEthereumPath ? "Ethereum shortcut" : "full"} path.
+        complete on the{" "}
+        {personalization
+          ? "personalized"
+          : isEthereumPath
+            ? "Ethereum shortcut"
+            : "full"}{" "}
+        path.
       </p>
+
+      <PersonalizationDialog
+        open={isPersonalizeOpen}
+        onOpenChange={setIsPersonalizeOpen}
+        profile={personalization}
+        onApply={applyPersonalization}
+        onClear={clearPersonalization}
+      />
 
       <RoadmapResourceDrawer
         detail={activeDetail}
