@@ -342,8 +342,10 @@ export function DeveloperPortal({ copy }: { copy: DeveloperPortalCopy }) {
             <p className={styles.heroDescription}>{copy.hero.description}</p>
             <div className={styles.heroActions}>
               <Link to="/docs" className={styles.primaryButton}>
+                <span className={styles.buttonIcon}>
+                  <Arrow />
+                </span>
                 {copy.hero.primaryCta}
-                <Arrow />
               </Link>
               <Link to="/docs/payments" className={styles.secondaryButton}>
                 {copy.hero.secondaryCta}
@@ -365,8 +367,11 @@ export function DeveloperPortal({ copy }: { copy: DeveloperPortalCopy }) {
           <div className={styles.stats}>
             {stats.map((stat, index) => (
               <Link key={stat.label} to={stat.href} className={styles.stat}>
-                <span className={styles.statIndex}>
-                  {String(index + 1).padStart(2, "0")}
+                <span className={styles.statMeta}>
+                  <span className={styles.statIndex}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className={styles.statRule} aria-hidden="true" />
                 </span>
                 <strong>{stat.value}</strong>
                 <span className={styles.statLabel}>{stat.label}</span>
