@@ -19,8 +19,7 @@ Use this as a runtime-neutral Agent Skills procedure. Do not depend on a
 particular agent product, proprietary tool name, or invocation syntax. Use the
 host agent's equivalent file-reading, search, editing, shell, and web
 capabilities. If the host does not discover skills automatically, load this
-`SKILL.md` and its linked reference directly. Product-specific files under
-`agents/` are optional adapters and are not required to follow this workflow.
+`SKILL.md` and its linked reference directly.
 
 Read [references/repo-i18n-patterns.md](references/repo-i18n-patterns.md) before
 editing. Treat the checked-out repository as the final authority when it has
