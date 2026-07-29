@@ -45,6 +45,7 @@ export function LLMCopyButton({
 
   return (
     <button
+      data-docs-action=""
       className={cn(
         buttonVariants({
           color: "outline",
@@ -120,6 +121,7 @@ export function ViewOptions({
   return (
     <Popover>
       <PopoverTrigger
+        data-docs-action=""
         className={cn(
           buttonVariants({
             color: "outline",
