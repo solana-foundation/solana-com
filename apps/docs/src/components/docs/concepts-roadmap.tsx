@@ -24,7 +24,6 @@ import {
   safeStorageGetItem,
   safeStorageSetItem,
 } from "@solana-com/ui-chrome";
-import { Link } from "@solana-com/ui-chrome/link";
 import styles from "./concepts-roadmap.module.scss";
 
 type RoadmapResource = {
@@ -459,40 +458,18 @@ const STANDARD_FOUNDATION_STEPS = CORE_STEPS.slice(3, 6);
 const INTERMEDIATE_STEPS = CORE_STEPS.slice(6, 10);
 const FINAL_STEP = CORE_STEPS[10];
 
-function isExternalHref(href: string) {
-  return href.startsWith("http");
-}
-
 function ResourceLink({ resource }: { resource: RoadmapResource }) {
-  const content = (
-    <>
+  return (
+    <a
+      className={styles.resourceLink}
+      href={resource.href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       <span className={styles.resourceType}>{resource.type}</span>
       <span>{resource.label}</span>
-      {isExternalHref(resource.href) ? (
-        <ExternalLink aria-hidden="true" size={14} />
-      ) : (
-        <ArrowRight aria-hidden="true" size={14} />
-      )}
-    </>
-  );
-
-  if (isExternalHref(resource.href)) {
-    return (
-      <a
-        className={styles.resourceLink}
-        href={resource.href}
-        target="_blank"
-        rel="noreferrer"
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <Link className={styles.resourceLink} href={resource.href}>
-      {content}
-    </Link>
+      <ExternalLink aria-hidden="true" size={14} />
+    </a>
   );
 }
 
@@ -1201,14 +1178,18 @@ export function ConceptsRoadmap() {
               </span>
             </div>
             <div className={styles.agentLinks}>
-              <Link href="/developers/bootcamp/foundations/ai-best-practices">
+              <a
+                href="/developers/bootcamp/foundations/ai-best-practices"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Play aria-hidden="true" size={14} />
                 AI best practices
-              </Link>
-              <Link href="/skills">
+              </a>
+              <a href="/skills" target="_blank" rel="noopener noreferrer">
                 <Code2 aria-hidden="true" size={14} />
                 Solana skills
-              </Link>
+              </a>
             </div>
           </aside>
         </div>
