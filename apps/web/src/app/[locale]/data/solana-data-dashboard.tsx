@@ -70,7 +70,6 @@ import {
   type ChartDefinition,
   type DashboardTab,
   type DataApiResponse,
-  type MethodologyComment,
   type MetricRow,
   type ProviderName,
   type RpcLatencyInfra,
@@ -134,8 +133,6 @@ const dataAggregatorRepositoryUrl =
 const rpcLatencyRepositoryUrl =
   "https://github.com/solana-foundation/rpc-latency-monitor";
 const rpcLatencyProviderOnboardingUrl = `${rpcLatencyRepositoryUrl}#adding-your-rpc-for-providers`;
-const rpcLatencyGrafanaUrl =
-  "https://rpclatency.grafana.net/d/rpc-latency-monitor/rpc-latency-monitor?orgId=1";
 const rpcSenderGrafanaUrl =
   "https://rpclatency.grafana.net/public-dashboards/6f18bcfc9e0e4e0ea62d10e5e484c50d";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
@@ -550,16 +547,6 @@ export function SolanaDataDashboard() {
                 <>
                   <a
                     className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                    href={rpcLatencyGrafanaUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <RadioTower aria-hidden="true" className="h-3.5 w-3.5" />
-                    {t("footer.rpcSource")}
-                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
-                  </a>
-                  <a
-                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
                     href={rpcLatencyRepositoryUrl}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -578,18 +565,7 @@ export function SolanaDataDashboard() {
                     <ExternalLink aria-hidden="true" className="h-3 w-3" />
                   </a>
                 </>
-              ) : isSendersTab ? (
-                <a
-                  className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                  href={rpcSenderGrafanaUrl}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <Send aria-hidden="true" className="h-3.5 w-3.5" />
-                  {t("footer.senderSource")}
-                  <ExternalLink aria-hidden="true" className="h-3 w-3" />
-                </a>
-              ) : (
+              ) : isSendersTab ? null : (
                 <>
                   <a
                     className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
@@ -1520,7 +1496,6 @@ function ChartCard({
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
   const caption = getChartCaption(t, chart);
-  const methodologyNotes = getMethodologyNotes(chart, selectedProviders);
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -1535,14 +1510,9 @@ function ChartCard({
     >
       <div className="grid gap-1.5">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="m-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-              {title}
-            </h2>
-            {methodologyNotes.length > 0 ? (
-              <MethodologyTooltip label={title} notes={methodologyNotes} />
-            ) : null}
-          </div>
+          <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+            {title}
+          </h2>
           <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
             {valueLabel}
           </span>
@@ -1731,48 +1701,6 @@ function ChartRefreshingOverlay() {
       />
       <span className="sr-only">{t("loading.refreshing")}</span>
     </div>
-  );
-}
-
-function MethodologyTooltip({
-  label,
-  notes,
-}: {
-  label: string;
-  notes: MethodologyComment[];
-}) {
-  const t = useTranslations("dataDashboard");
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          aria-label={t("methodology.ariaLabel", { metric: label })}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
-          type="button"
-        >
-          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-      </TooltipTrigger>
-      <TooltipPortal>
-        <TooltipContent
-          className="max-w-[340px] border-nd-border-prominent bg-[#1D1D20] px-3 py-2.5 text-xs leading-[1.45] text-nd-high-em-text"
-          side="top"
-        >
-          <span className="sr-only">{label}: </span>
-          <div className="grid gap-2">
-            {notes.map((note) => (
-              <div className="grid gap-0.5" key={note.provider}>
-                <span className="font-brand-mono text-[11px] font-bold uppercase text-nd-mid-em-text">
-                  {note.provider}
-                </span>
-                <span>{note.description}</span>
-              </div>
-            ))}
-          </div>
-        </TooltipContent>
-      </TooltipPortal>
-    </Tooltip>
   );
 }
 
@@ -2498,15 +2426,6 @@ function parseMetricRowDate(value: string) {
     : new Date(`${value}T00:00:00.000Z`);
 
   return Number.isFinite(parsedDate.getTime()) ? parsedDate : undefined;
-}
-
-function getMethodologyNotes(
-  chart: ChartDefinition,
-  selectedProviders: ReadonlySet<ProviderName>,
-) {
-  return (chart.methodology ?? []).filter((note) =>
-    selectedProviders.has(note.provider),
-  );
 }
 
 function isChartDataRow(
