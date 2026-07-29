@@ -65,6 +65,14 @@ type RoadmapDetail = {
   canComplete: boolean;
 };
 
+type TokenTopic = {
+  id: string;
+  title: string;
+  description: string;
+  resources: RoadmapResource[];
+  featured?: boolean;
+};
+
 type EntryRoute = "new" | "ethereum";
 
 type RoadmapGoal = "build" | "developer" | "understand" | "work" | "reference";
@@ -129,6 +137,149 @@ type PersonalizationOption<T extends string> = {
   title: string;
   description: string;
 };
+
+const TOKEN_TOPICS: TokenTopic[] = [
+  {
+    id: "tokens-mints",
+    title: "Mint accounts",
+    description:
+      "Learn how a mint identifies a token and stores supply, decimals, and mint and freeze authorities.",
+    resources: [
+      {
+        label: "Mint accounts",
+        href: "/docs/tokens#mint-account",
+        type: "Read",
+      },
+      {
+        label: "Create a mint",
+        href: "/docs/tokens/basics/create-mint",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-accounts",
+    title: "Token accounts",
+    description:
+      "Understand how token accounts hold balances for one owner and one mint, including associated token accounts.",
+    resources: [
+      {
+        label: "Token accounts",
+        href: "/docs/tokens#token-account",
+        type: "Read",
+      },
+      {
+        label: "Create a token account",
+        href: "/docs/tokens/basics/create-token-account",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-authorities",
+    title: "Authorities and delegates",
+    description:
+      "Learn mint, freeze, owner, close, and delegate authority boundaries before moving tokens.",
+    resources: [
+      {
+        label: "Set authority",
+        href: "/docs/tokens/basics/set-authority",
+        type: "Build",
+      },
+      {
+        label: "Approve a delegate",
+        href: "/docs/tokens/basics/approve-delegate",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-kit",
+    title: "Build tokens with Kit",
+    description:
+      "Use the recommended TypeScript SDK to construct token instructions, sign transactions, and inspect resulting state.",
+    resources: [
+      {
+        label: "Solana Kit",
+        href: "/docs/clients/official/javascript#solana-kit",
+        type: "Read",
+      },
+      {
+        label: "Mint tokens with Kit",
+        href: "/docs/tokens/basics/mint-tokens#kit",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-extensions",
+    title: "Token Extensions",
+    description:
+      "Understand Token-2022, plan extensions before initializing a mint, and check compatibility constraints.",
+    resources: [
+      {
+        label: "Token Extensions overview",
+        href: "/docs/tokens/extensions",
+        type: "Read",
+      },
+    ],
+    featured: true,
+  },
+  {
+    id: "tokens-transfer-fees",
+    title: "Transfer fees",
+    description:
+      "Configure fees collected on transfers and understand withheld balances and withdrawal authority.",
+    resources: [
+      {
+        label: "Transfer fee extension",
+        href: "/docs/tokens/extensions/transfer-fees",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-transfer-hooks",
+    title: "Transfer hooks",
+    description:
+      "Run custom program logic during token transfers without replacing the Token Extensions Program.",
+    resources: [
+      {
+        label: "Transfer hook extension",
+        href: "/docs/tokens/extensions/transfer-hook",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-metadata",
+    title: "Metadata",
+    description:
+      "Store token name, symbol, URI, and update authority through Token-2022 metadata extensions.",
+    resources: [
+      {
+        label: "Token metadata extension",
+        href: "/docs/tokens/extensions/metadata",
+        type: "Build",
+      },
+    ],
+  },
+  {
+    id: "tokens-confidential",
+    title: "Confidential transfers",
+    description:
+      "Learn the account model and operational flow for encrypted token balances and transfers.",
+    resources: [
+      {
+        label: "Confidential transfers",
+        href: "/docs/tokens/extensions/confidential-transfer",
+        type: "Read",
+      },
+    ],
+  },
+];
+
+const TOKEN_TOPIC_IDS = new Set(TOKEN_TOPICS.map((topic) => topic.id));
 
 const GOAL_OPTIONS: readonly PersonalizationOption<RoadmapGoal>[] = [
   {
@@ -817,8 +968,8 @@ const CORE_STEPS: CoreStep[] = [
         type: "Read",
       },
       {
-        label: "SPL Token with web3.js",
-        href: "https://learn.blueshift.gg/en/paths/token-developer/courses/spl-token-with-web3js/introduction",
+        label: "Build tokens with Kit",
+        href: "/docs/tokens/basics/mint-tokens#kit",
         type: "Build",
       },
     ],
@@ -1461,6 +1612,119 @@ function stepForProfile(
   };
 }
 
+function TokenRoadmapGroup({
+  step,
+  topics,
+  completedSet,
+  isComplete,
+  isNext,
+  onToggle,
+  onOpen,
+  onOpenTopic,
+  side,
+}: {
+  step: CoreStep;
+  topics: TokenTopic[];
+  completedSet: Set<string>;
+  isComplete: boolean;
+  isNext: boolean;
+  onToggle: (_id: string) => void;
+  onOpen: (_step: CoreStep) => void;
+  onOpenTopic: (_topic: TokenTopic) => void;
+  side: "left" | "right" | "center";
+}) {
+  return (
+    <article
+      className={`${styles.mapRow} ${styles.tokenGroupRow} ${
+        side === "left"
+          ? styles.mapRowLeft
+          : side === "right"
+            ? styles.mapRowRight
+            : styles.mapRowCenter
+      } ${isComplete ? styles.stepComplete : ""} ${
+        isNext ? styles.stepNext : ""
+      }`}
+    >
+      <section
+        className={`${styles.tokenGroup} ${
+          isComplete ? styles.tokenGroupComplete : ""
+        }`}
+        aria-labelledby="tokens-roadmap-title"
+      >
+        <header className={styles.tokenGroupHeader}>
+          <button
+            type="button"
+            className={styles.tokenGroupTitle}
+            onClick={() => onOpen(step)}
+          >
+            <span className={styles.stepNumber}>
+              {step.number} <span>{step.phase}</span>
+            </span>
+            <h3 id="tokens-roadmap-title">Tokens &amp; Token Extensions</h3>
+          </button>
+          <div className={styles.nodeControls}>
+            {isNext && !isComplete ? (
+              <span className={styles.nextLabel}>Next</span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onToggle(step.id)}
+              aria-pressed={isComplete}
+              aria-label={`${
+                isComplete ? "Mark incomplete" : "Mark complete"
+              }: ${step.title}`}
+            >
+              {isComplete ? (
+                <Check aria-hidden="true" size={15} strokeWidth={2.6} />
+              ) : (
+                <Circle aria-hidden="true" size={9} fill="currentColor" />
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className={styles.tokenTopicGrid}>
+          {topics.map((topic) => {
+            const topicComplete = completedSet.has(topic.id);
+
+            return (
+              <div
+                key={topic.id}
+                className={`${styles.tokenTopic} ${
+                  topic.featured ? styles.tokenTopicFeatured : ""
+                } ${topicComplete ? styles.tokenTopicComplete : ""}`}
+              >
+                <button
+                  type="button"
+                  className={styles.stepOpenButton}
+                  onClick={() => onOpenTopic(topic)}
+                  aria-label={`Open resources for ${topic.title}`}
+                />
+                <span>{topic.title}</span>
+                <button
+                  type="button"
+                  className={styles.tokenTopicCheck}
+                  onClick={() => onToggle(topic.id)}
+                  aria-pressed={topicComplete}
+                  aria-label={`${
+                    topicComplete ? "Mark incomplete" : "Mark complete"
+                  }: ${topic.title}`}
+                >
+                  {topicComplete ? (
+                    <Check aria-hidden="true" size={13} strokeWidth={2.7} />
+                  ) : (
+                    <Circle aria-hidden="true" size={8} fill="currentColor" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </article>
+  );
+}
+
 function readProgress(): StoredProgress {
   const emptyProgress: StoredProgress = {
     completedIds: [],
@@ -1483,6 +1747,7 @@ function readProgress(): StoredProgress {
       ...CORE_STEPS.map((step) => step.id),
       ETHEREUM_STEP.id,
       ...PRODUCT_BRANCHES.map((branch) => branch.id),
+      ...TOKEN_TOPICS.map((topic) => topic.id),
     ]);
 
     return {
@@ -2301,9 +2566,36 @@ export function ConceptsRoadmap() {
 
   const toggleComplete = (id: string) => {
     setCompletedIds((current) => {
-      const next = current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id];
+      let next: string[];
+
+      if (id === "tokens") {
+        const shouldComplete = !current.includes(id);
+        next = shouldComplete
+          ? Array.from(
+              new Set([
+                ...current,
+                id,
+                ...TOKEN_TOPICS.map((topic) => topic.id),
+              ]),
+            )
+          : current.filter((item) => item !== id && !TOKEN_TOPIC_IDS.has(item));
+      } else if (TOKEN_TOPIC_IDS.has(id)) {
+        next = current.includes(id)
+          ? current.filter((item) => item !== id)
+          : [...current, id];
+
+        const allTokenTopicsComplete = TOKEN_TOPICS.every((topic) =>
+          next.includes(topic.id),
+        );
+        next = allTokenTopicsComplete
+          ? Array.from(new Set([...next, "tokens"]))
+          : next.filter((item) => item !== "tokens");
+      } else {
+        next = current.includes(id)
+          ? current.filter((item) => item !== id)
+          : [...current, id];
+      }
+
       writeProgress(next);
       return next;
     });
@@ -2355,6 +2647,17 @@ export function ConceptsRoadmap() {
     });
   };
 
+  const openTokenTopic = (topic: TokenTopic) => {
+    setActiveDetail({
+      id: topic.id,
+      eyebrow: "Tokens & Token Extensions",
+      title: topic.title,
+      description: topic.description,
+      resources: topic.resources,
+      canComplete: true,
+    });
+  };
+
   const openEthereumShortcut = () => {
     setActiveDetail({
       id: personalizedEthereumStep.id,
@@ -2370,17 +2673,42 @@ export function ConceptsRoadmap() {
   const renderStep = (
     step: CoreStep,
     side: "left" | "right" | "center" = "left",
-  ) => (
-    <RoadmapStep
-      key={step.id}
-      step={step}
-      isComplete={completedSet.has(step.id)}
-      isNext={step.id === nextStepId}
-      onToggle={toggleComplete}
-      onOpen={openStep}
-      side={side}
-    />
-  );
+  ) => {
+    if (step.id === "tokens") {
+      return (
+        <TokenRoadmapGroup
+          key={step.id}
+          step={step}
+          topics={TOKEN_TOPICS.map((topic) => ({
+            ...topic,
+            resources: resourcesForProfile(
+              topic.resources,
+              activePersonalization,
+            ),
+          }))}
+          completedSet={completedSet}
+          isComplete={completedSet.has(step.id)}
+          isNext={step.id === nextStepId}
+          onToggle={toggleComplete}
+          onOpen={openStep}
+          onOpenTopic={openTokenTopic}
+          side={side}
+        />
+      );
+    }
+
+    return (
+      <RoadmapStep
+        key={step.id}
+        step={step}
+        isComplete={completedSet.has(step.id)}
+        isNext={step.id === nextStepId}
+        onToggle={toggleComplete}
+        onOpen={openStep}
+        side={side}
+      />
+    );
+  };
 
   return (
     <div className={`${styles.roadmap} not-prose`} data-learn-roadmap="">
