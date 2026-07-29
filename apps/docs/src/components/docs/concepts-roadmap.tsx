@@ -1000,6 +1000,38 @@ export function ConceptsRoadmap() {
     setIsHydrated(true);
   }, []);
 
+  useEffect(() => {
+    const collapseSidebar = () => {
+      const sidebar = document.getElementById("nd-sidebar");
+      const toggle = document.querySelector("#docs-sidebar-toggle-slot button");
+
+      if (
+        !(sidebar instanceof HTMLElement) ||
+        !(toggle instanceof HTMLButtonElement)
+      ) {
+        return false;
+      }
+
+      if (sidebar.dataset.collapsed !== "true") {
+        toggle.click();
+      }
+      return true;
+    };
+
+    if (collapseSidebar()) return;
+
+    const observer = new MutationObserver(() => {
+      if (collapseSidebar()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const timeout = window.setTimeout(() => observer.disconnect(), 2000);
+    return () => {
+      window.clearTimeout(timeout);
+      observer.disconnect();
+    };
+  }, []);
+
   const completedSet = useMemo(() => new Set(completedIds), [completedIds]);
   const isEthereumPath = entryRoute === "ethereum";
   const requiredSteps = isEthereumPath
@@ -1153,30 +1185,34 @@ export function ConceptsRoadmap() {
         </div>
       </section>
 
-      <aside className={styles.agentNote}>
-        <span className={styles.agentIcon}>
-          <Bot aria-hidden="true" size={19} />
-        </span>
-        <div>
-          <strong>Using a coding agent?</strong>
-          <span>
-            Use it throughout the path, but verify account constraints and
-            authority checks yourself.
-          </span>
-        </div>
-        <div className={styles.agentLinks}>
-          <Link href="/developers/bootcamp/foundations/ai-best-practices">
-            <Play aria-hidden="true" size={14} />
-            AI best practices
-          </Link>
-          <Link href="/skills">
-            <Code2 aria-hidden="true" size={14} />
-            Solana skills
-          </Link>
-        </div>
-      </aside>
-
       <div className={styles.corePath}>
+        <div
+          className={`${styles.mapRow} ${styles.mapRowRight} ${styles.agentMapRow}`}
+        >
+          <aside className={styles.agentNote}>
+            <span className={styles.agentIcon}>
+              <Bot aria-hidden="true" size={19} />
+            </span>
+            <div>
+              <strong>Using a coding agent?</strong>
+              <span>
+                Use it throughout the path, but verify account constraints and
+                authority checks yourself.
+              </span>
+            </div>
+            <div className={styles.agentLinks}>
+              <Link href="/developers/bootcamp/foundations/ai-best-practices">
+                <Play aria-hidden="true" size={14} />
+                AI best practices
+              </Link>
+              <Link href="/skills">
+                <Code2 aria-hidden="true" size={14} />
+                Solana skills
+              </Link>
+            </div>
+          </aside>
+        </div>
+
         {renderStep(INTRO_STEP, "left")}
 
         <section
@@ -1298,19 +1334,16 @@ export function ConceptsRoadmap() {
             <small>Milestone</small>
             <strong>You&apos;ve reached intermediate level</strong>
           </span>
-          <button
-            type="button"
-            className={styles.assessmentButton}
-            disabled={!reachedIntermediate && !assessmentPassed}
-            onClick={() => setIsQuizOpen(true)}
-          >
-            {assessmentPassed
-              ? "Retake test"
-              : reachedIntermediate
-                ? "Test me"
-                : "Complete path to unlock"}
-            <ChevronRight aria-hidden="true" size={14} />
-          </button>
+          {reachedIntermediate || assessmentPassed ? (
+            <button
+              type="button"
+              className={styles.assessmentButton}
+              onClick={() => setIsQuizOpen(true)}
+            >
+              {assessmentPassed ? "Retake test" : "Test me"}
+              <ChevronRight aria-hidden="true" size={14} />
+            </button>
+          ) : null}
         </div>
 
         <section
