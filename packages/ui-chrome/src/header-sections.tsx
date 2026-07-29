@@ -6,7 +6,6 @@ import GlobusIcon from "./assets/nav/globus.inline.svg";
 import LightbulbIcon from "./assets/nav/lightbulb.inline.svg";
 import BuildingsIcon from "./assets/nav/solutions/buildings.inline.svg";
 import HeaderListUseSolana from "./header-list.use-solana";
-import HeaderListBuild from "./header-list.build";
 import HeaderListEnterprise from "./header-list.enterprise";
 import HeaderListProducts from "./header-list.products";
 import HeaderListEcosystem from "./header-list.ecosystem";
@@ -24,12 +23,10 @@ const HEADER_SECTION_ICONS: Record<
   ecosystem: GlobusIcon,
 };
 
-const HEADER_SECTION_CONTENT: Record<
-  NavTopLevelSectionId,
-  NavTopLevelSection["Content"]
+const HEADER_SECTION_CONTENT: Partial<
+  Record<NavTopLevelSectionId, NavTopLevelSection["Content"]>
 > = {
   use_solana: HeaderListUseSolana,
-  build: HeaderListBuild,
   enterprise: HeaderListEnterprise,
   products: HeaderListProducts,
   ecosystem: HeaderListEcosystem,

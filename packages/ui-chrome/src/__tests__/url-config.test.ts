@@ -30,6 +30,7 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/data")).toBe(true);
     expect(shouldUseNextLink("/data/cluster")).toBe(true);
+    expect(shouldUseNextLink("/developers")).toBe(true);
   });
 
   it("does not treat /data as an internal docs route", async () => {
@@ -37,6 +38,7 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/docs")).toBe(true);
     expect(shouldUseNextLink("/developers/guides")).toBe(true);
+    expect(shouldUseNextLink("/developers")).toBe(false);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 

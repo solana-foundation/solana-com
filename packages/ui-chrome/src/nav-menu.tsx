@@ -3,6 +3,7 @@ import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu";
 import classNames, { ArgumentArray } from "classnames";
 import { twMerge } from "tailwind-merge";
 import AngleDown from "./assets/icons/angle-down.inline.svg";
+import { Link } from "./link";
 
 function cn(...inputs: ArgumentArray) {
   return twMerge(classNames(inputs));
@@ -61,6 +62,9 @@ function NavigationMenuItem({
 const navigationMenuTriggerStyle =
   "group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium hover:text-accent-foreground focus:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:text-accent-foreground focus-visible:ring-ring/50 outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1";
 
+const topLevelNavigationItemStyle =
+  "group flex justify-between items-center w-full xl:w-auto py-1.5 xl:py-1 px-4 xl:px-3.5 text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent border-0 rounded-full hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5 relative transition-colors duration-200";
+
 function NavigationMenuTrigger({
   className,
   children,
@@ -74,13 +78,7 @@ function NavigationMenuTrigger({
       data-slot="navigation-menu-trigger"
       className={cn(
         navigationMenuTriggerStyle,
-        "group",
-        "flex justify-between items-center w-full xl:w-auto py-1.5 xl:py-1 px-4 xl:px-3.5",
-        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
-        "border-0 rounded-full",
-        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
-        "relative",
-        "transition-colors duration-200",
+        topLevelNavigationItemStyle,
         "data-[state=open]:text-white data-[state=open]:bg-white/[0.08] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
         isActive && "text-white light:!text-black",
         className,
@@ -96,6 +94,32 @@ function NavigationMenuTrigger({
         viewBox="0 0 24 24"
       />
     </NavigationMenuPrimitive.Trigger>
+  );
+}
+
+function NavigationMenuDirectLink({
+  className,
+  children,
+  isActive,
+  to,
+  ...props
+}: React.ComponentProps<typeof Link> & {
+  isActive?: boolean;
+  to: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        navigationMenuTriggerStyle,
+        topLevelNavigationItemStyle,
+        isActive && "text-white light:!text-black",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -199,5 +223,6 @@ export {
   NavigationMenuLink,
   NavigationMenuIndicator,
   NavigationMenuViewport,
+  NavigationMenuDirectLink,
   navigationMenuTriggerStyle,
 };

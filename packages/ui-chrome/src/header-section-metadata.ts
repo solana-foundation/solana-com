@@ -19,6 +19,7 @@ export const HEADER_SECTION_METADATA: Array<
   {
     id: "build",
     titleKey: "nav.build.title",
+    href: "/developers",
     matchRules: [
       { type: "includes", value: "/developers" },
       { type: "equals", value: "/changelog" },
