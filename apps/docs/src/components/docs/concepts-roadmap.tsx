@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRight,
   BookOpen,
   Bot,
   Check,
@@ -1565,18 +1564,6 @@ function RoadmapStep({
             </button>
           </div>
         </header>
-        <p className={styles.stepDescription}>{step.description}</p>
-        <div className={styles.stepMeta}>
-          <span>
-            <BookOpen aria-hidden="true" size={14} />
-            {step.resources.length}{" "}
-            {step.resources.length === 1 ? "resource" : "resources"}
-          </span>
-          <span>
-            Open
-            <ChevronRight aria-hidden="true" size={14} />
-          </span>
-        </div>
       </div>
     </article>
   );
@@ -2679,23 +2666,9 @@ export function ConceptsRoadmap() {
                       </button>
                     </div>
                     <h3>{branch.title}</h3>
-                    <p>{branch.description}</p>
-                    <div className={styles.stepMeta}>
-                      <span>
-                        <BookOpen aria-hidden="true" size={14} />
-                        {branch.resources.length} resources
-                      </span>
-                      <span>
-                        Open
-                        <ChevronRight aria-hidden="true" size={14} />
-                      </span>
-                    </div>
                   </article>
                 );
               })}
-              <div className={styles.directLane} aria-hidden="true">
-                <ArrowRight size={15} />
-              </div>
             </div>
           </section>
         ) : null}
