@@ -22,8 +22,8 @@ export default async function Layout({
           child.type === "folder" &&
           SIDEBAR_ROUTES.some((route) => child.index?.url?.includes(route)),
       )
-      // The nav item is already "Concepts", so hoist Core Concepts' pages to
-      // the top level instead of repeating the same idea as a folder header.
+      // The nav item is already "Learn", so hoist its concept pages to the top
+      // level instead of repeating the same idea as a folder header.
       .flatMap((child) =>
         child.type === "folder" && child.index?.url?.includes("/docs/core")
           ? child.children
