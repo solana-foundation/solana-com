@@ -43,6 +43,7 @@ export async function DocsLayout({
             nav={{ enabled: false }}
             sidebar={{
               enabled: sidebarEnabled,
+              collapsible: sidebarEnabled,
               component: <CustomSidebar />,
             }}
           >

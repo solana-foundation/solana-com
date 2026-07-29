@@ -11,16 +11,13 @@ export default async function Layout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const tree = docsSource.pageTree[locale];
-  const pageTree = {
-    ...tree,
-    children: (tree.children ?? []).filter(
-      (child) => child.type === "page" && child.url?.includes("/docs/roadmap"),
-    ),
-  };
 
   return (
-    <DocsLayout tree={pageTree} locale={locale}>
+    <DocsLayout
+      tree={docsSource.pageTree[locale]}
+      locale={locale}
+      sidebarEnabled={false}
+    >
       {children}
       <InkeepChatButton />
     </DocsLayout>
