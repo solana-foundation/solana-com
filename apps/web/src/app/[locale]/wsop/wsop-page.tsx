@@ -251,6 +251,7 @@ const ambassadors: Array<{
   title: string;
   biography: string;
   image?: string;
+  unoptimized?: boolean;
 }> = [
   {
     name: "Jamie Gold",
@@ -268,6 +269,8 @@ const ambassadors: Array<{
     title: "The Grinder",
     biography:
       "The 2025 WSOP Main Event champion took down the title for $10 million. His nine bracelets include a record four Poker Players Championship wins. Inducted into the Poker Hall of Fame in 2025, his career earnings exceed $30 million.",
+    image: "/src/img/wsop/michael-mizrachi.webp",
+    unoptimized: true,
   },
   {
     name: "Phil Hellmuth",
@@ -1142,6 +1145,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                         alt=""
                         fill
                         sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
+                        unoptimized={ambassador.unoptimized}
                       />
                     ) : (
                       <>
