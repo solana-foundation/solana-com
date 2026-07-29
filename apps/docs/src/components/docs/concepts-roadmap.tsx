@@ -977,38 +977,6 @@ export function ConceptsRoadmap() {
     setIsHydrated(true);
   }, []);
 
-  useEffect(() => {
-    const collapseSidebar = () => {
-      const sidebar = document.getElementById("nd-sidebar");
-      const toggle = document.querySelector("#docs-sidebar-toggle-slot button");
-
-      if (
-        !(sidebar instanceof HTMLElement) ||
-        !(toggle instanceof HTMLButtonElement)
-      ) {
-        return false;
-      }
-
-      if (sidebar.dataset.collapsed !== "true") {
-        toggle.click();
-      }
-      return true;
-    };
-
-    if (collapseSidebar()) return;
-
-    const observer = new MutationObserver(() => {
-      if (collapseSidebar()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    const timeout = window.setTimeout(() => observer.disconnect(), 2000);
-    return () => {
-      window.clearTimeout(timeout);
-      observer.disconnect();
-    };
-  }, []);
-
   const completedSet = useMemo(() => new Set(completedIds), [completedIds]);
   const isEthereumPath = entryRoute === "ethereum";
   const requiredSteps = isEthereumPath
@@ -1128,7 +1096,7 @@ export function ConceptsRoadmap() {
   );
 
   return (
-    <div className={`${styles.roadmap} not-prose wider`} data-learn-roadmap="">
+    <div className={`${styles.roadmap} not-prose`} data-learn-roadmap="">
       <section className={styles.progressPanel} aria-label="Learning progress">
         <div className={styles.progressPanelTop}>
           <div className={styles.progressNumbers}>
