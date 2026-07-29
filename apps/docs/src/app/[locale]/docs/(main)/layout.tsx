@@ -24,6 +24,7 @@ export default async function Layout({
   const tree = docsSource.pageTree[locale];
   const standaloneDocsRoutes = [
     "/docs/core",
+    "/docs/roadmap",
     "/docs/tokens",
     "/docs/references",
     "/docs/rpc",
