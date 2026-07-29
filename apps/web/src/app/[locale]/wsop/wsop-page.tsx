@@ -270,20 +270,11 @@ const ambassadors: Array<{
       "The 2025 WSOP Main Event champion took down the title for $10 million. His nine bracelets include a record four Poker Players Championship wins. Inducted into the Poker Hall of Fame in 2025, his career earnings exceed $30 million.",
   },
   {
-    name: "Alex Foxen",
-    initials: "AF",
+    name: "Phil Hellmuth",
+    initials: "PH",
     suit: "club",
-    title: "Four-time bracelet winner",
-    biography:
-      "One of the modern era’s most dominant high-roller players. Foxen has more than $58 million in live earnings and is the only player to win back-to-back Global Poker Index Player of the Year awards.",
-  },
-  {
-    name: "Kristen Foxen",
-    initials: "KF",
-    suit: "heart",
-    title: "Six-time bracelet winner",
-    biography:
-      "The most decorated woman in WSOP history and number one on the women’s all-time money list, with close to $20 million in live earnings and five GPI Female Player of the Year awards.",
+    title: "Solana Poker Ambassador",
+    biography: "Full ambassador profile coming soon.",
   },
 ];
 
@@ -731,7 +722,7 @@ export function WsopPage({ stories }: WsopPageProps) {
             </motion.div>
             <div className="wsop-hero__title-mask">
               <motion.h1 id="wsop-title" variants={heroTitleVariants}>
-                Solana is upping the ante on the World Series of Poker
+                Solana is upping the ante at the World Series of Poker
               </motion.h1>
             </div>
           </motion.div>
@@ -982,7 +973,7 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="event-heading"
         >
           <Reveal>
-            <SectionLabel suit="heart">WSOP: Solana Edition</SectionLabel>
+            <SectionLabel suit="heart">WSOP: Solana Showdown</SectionLabel>
 
             <div className="wsop-section-heading wsop-event__intro">
               <div>
@@ -990,7 +981,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                 <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
               </div>
               <p>
-                WSOP: Solana Edition is a live-streamed invitational bringing
+                WSOP: Solana Showdown is a live-streamed invitational bringing
                 some of crypto’s biggest personalities to the bright lights of
                 the WSOP feature table - the same felt where champions are
                 crowned.
@@ -1038,7 +1029,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                 </div>
 
                 <div className="wsop-ticket__bottomline">
-                  <span>Solana Edition</span>
+                  <span>Solana Showdown</span>
                   <span>Buy-in</span>
                   <span>Invite only</span>
                 </div>
@@ -1173,7 +1164,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                     <h3>{ambassador.name}</h3>
                     <p>{ambassador.biography}</p>
                     <div className="wsop-ambassador__story">
-                      Solana Story episode · Coming soon
+                      Solana Story episode · Coming in August
                       <Clock3 aria-hidden="true" />
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 # WSOP Partnership — solana.com Delivery Plan
 
 **Owner:** Ezra (design + build) **Requested by:** Lauren (WSOP partnership)
-**Key date:** August 4, 2026 — WSOP: Solana Edition live stream. Page live by
+**Key date:** August 4, 2026 — WSOP: Solana Showdown live stream. Page live by
 ~Aug 1.
 
 ## Phase 1 — WSOP Partnership Page (priority)
@@ -13,7 +13,7 @@
 **Page structure** (maps 1:1 to Lauren's doc):
 
 1. **Hero — The Partnership**
-   - H1: Solana is upping the ante on the World Series of Poker
+   - H1: Solana is upping the ante at the World Series of Poker
    - Body:
 
      The skills that make a great poker player are the skills that make a great
@@ -49,9 +49,9 @@
    - WSOP LIVE reference links:
      - [App Store](https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059)
      - [Google Play](https://play.google.com/store/apps/details?id=com.nsus.wsopplus&hl=en)
-3. **WSOP: Solana Edition**
+3. **WSOP: Solana Showdown**
    - H2: Crypto hits poker’s biggest stage for one night only
-   - Lead-in: WSOP: Solana Edition (WSOP-S) is a live-streamed invitational
+   - Lead-in: WSOP: Solana Showdown (WSOP-S) is a live-streamed invitational
      poker tournament bringing some of crypto's biggest personalities to the
      bright lights of the WSOP feature table in Las Vegas, the same felt where
      champions are crowned.
@@ -81,15 +81,8 @@
      including a record four victories in the $50,000 Poker Players
      Championship. In 2025 he was inducted into the Poker Hall of Fame, and his
      career earnings exceed $30 million.
-   - Alex Foxen: One of the most dominant high-roller players of the modern era.
-     Foxen has four WSOP bracelets and more than $58 million in live earnings,
-     good for tenth on poker's all-time money list. He is the only player ever
-     to win back-to-back Global Poker Index Player of the Year awards, in 2018
-     and 2019.
-   - Kristen Foxen: The most decorated woman in WSOP history, with six bracelets
-     to her name. Foxen is also number one on the women’s all-time money list,
-     with close to $20 million in live earnings, and a five-time GPI Female
-     Player of the Year.
+   - Phil Hellmuth: confirmed as an ambassador. Biography and approved headshot
+     are pending from Lauren.
 5. **YouTube content carousel**
    - Powered by the Media Links engine (`apps/media/content/links`,
      `linkType: video`) — carousel of WSOP/poker video content, grows as the
@@ -138,14 +131,15 @@
   MoonPay branding. WSOP does not require a separate review.
 - **Campaign creative — received:** basic campaign work is available in the
   linked Figma file, and WSOP brand guidelines have been supplied.
-- ⛔ **Player and ambassador photos — pending:** Lauren is sourcing photos with
-  usage rights.
+- ⛔ **Phil Hellmuth profile — pending:** Lauren is sourcing his biography and
+  an approved headshot.
 - **MoonPay logo asset — pending confirmation:** Lauren's response did not
   identify a supplied MoonPay logo file; confirm the approved source before
   building the co-branded lockup.
 - **Solana Story episodes — post-launch:** recording is scheduled for July 30–31
-  in Las Vegas. Launch dates and episode links are not set, so build the
-  ambassador section to accept the videos after the initial page launch.
+  in Las Vegas. Publication will wait until August 6 at the earliest, after the
+  August 3–5 WSOP Solana campaign window; build the ambassador section to accept
+  the videos when ready.
 - **Announcement timing — resolved:** no embargo. Player reveal videos are the
   first major channel announcement on August 3, followed by the game on
   August 4.
@@ -158,9 +152,9 @@
 | ---------- | -------------------------------------------------------------------------------------- |
 | This week  | Route scaffolded; Figma and brand assets incorporated; preview URL shared              |
 | ~Jul 27–31 | Build + iterate on preview with Lauren                                                 |
-| Jul 30–31  | Solana Story episodes recorded in Las Vegas; publish dates to follow                   |
+| Jul 30–31  | Solana Story episodes recorded in Las Vegas; publication begins Aug 6 at the earliest  |
 | ~Aug 1     | Page live at solana.com/wsop                                                           |
 | Aug 3      | Player reveal videos; first major announcement on Solana channels                      |
 | Aug 4      | WSOP-S live stream promoted via @Solana on X                                           |
-| Aug 5+     | v1.1 recap pass; add Solana Story episodes when ready; ongoing content via news engine |
+| Aug 6+     | v1.1 recap pass; add Solana Story episodes when ready; ongoing content via news engine |
 | Later      | Phase 2 blog post when trimmed draft arrives                                           |

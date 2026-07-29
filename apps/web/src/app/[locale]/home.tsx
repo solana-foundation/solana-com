@@ -150,7 +150,7 @@ export function HomePage({
         <Hero
           title={translations.heroTitle}
           subtitle={translations.heroSubtitle}
-          bannerEyebrow="WSOP: Solana Edition"
+          bannerEyebrow="WSOP: Solana Showdown"
           bannerDescription="Watch crypto's biggest personalities take the WSOP feature table on August 4, 2026."
           bannerImgSrc="/src/img/wsop/feature-table.webp"
           bannerHref="/wsop"

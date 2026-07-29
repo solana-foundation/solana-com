@@ -22,7 +22,7 @@ const WSOP_CONTENT_MODE: WsopContentMode = "live";
 const PREVIEW_STORIES: LinkItem[] = [
   {
     id: "preview-feature-table",
-    title: "Inside the WSOP: Solana Edition feature table",
+    title: "Inside the WSOP: Solana Showdown feature table",
     url: "https://x.com/solana",
     date: "Preview",
     source: "Preview · Solana",
