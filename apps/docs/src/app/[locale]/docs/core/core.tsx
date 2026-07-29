@@ -28,6 +28,7 @@ export async function CoreDocsPage({
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}
+      showPageActions={slug.length > 1}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
