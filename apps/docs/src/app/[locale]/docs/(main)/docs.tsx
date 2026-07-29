@@ -9,9 +9,11 @@ import { DocsCategory } from "fumadocs-ui/page";
 export async function MainDocsPage({
   slug,
   locale,
+  showPageActions,
 }: {
   slug: string[];
   locale: string;
+  showPageActions?: boolean;
 }) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
@@ -31,6 +33,7 @@ export async function MainDocsPage({
       href={page.url}
       markdown={markdown}
       isRoot={slug.length === 0}
+      showPageActions={showPageActions}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (

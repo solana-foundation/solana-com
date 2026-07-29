@@ -22,6 +22,25 @@ function NavLink(props: ComponentProps<typeof Link>) {
   );
 }
 
+function RoadmapIcon(props: ComponentProps<"svg">) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <circle cx="3" cy="3" r="1.5" />
+      <circle cx="13" cy="13" r="1.5" />
+      <path d="M4.5 3h3A2.5 2.5 0 0 1 10 5.5v5A2.5 2.5 0 0 0 12.5 13" />
+    </svg>
+  );
+}
+
 export function DevelopersNav({
   containerClassName,
 }: {
@@ -36,7 +55,7 @@ export function DevelopersNav({
     <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]">
       <div className={`mx-auto w-full max-w-[1440px] ${containerClassName}`}>
         <div className="py-2 text-[17px] font-light ml-3 xl:ml-0">
-          <div className="flex items-center">
+          <div className="flex w-full items-start">
             {showSidebarToggleSlot ? (
               <div
                 id={DOCS_SIDEBAR_TOGGLE_SLOT_ID}
@@ -47,12 +66,13 @@ export function DevelopersNav({
                 </span>
               </div>
             ) : null}
-            <nav className="flex flex-wrap items-center">
+            <nav className="flex min-w-0 flex-wrap items-center">
               <NavLink
                 partiallyActive
                 to="/docs"
                 partiallyActiveIgnore={[
                   "/docs/core",
+                  "/docs/roadmap",
                   "/docs/tokens",
                   "/docs/references",
                   "/docs/rpc",
@@ -132,6 +152,25 @@ export function DevelopersNav({
                 />
                 <span className="align-middle">
                   {t("developers.nav.resources")}
+                </span>
+              </NavLink>
+            </nav>
+            <nav
+              className="ml-auto flex shrink-0 items-center pl-4"
+              aria-label={t("developers.nav.roadmap")}
+            >
+              <NavLink
+                partiallyActive
+                to="/docs/roadmap"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <RoadmapIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.roadmap")}
                 </span>
               </NavLink>
             </nav>

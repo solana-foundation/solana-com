@@ -3,8 +3,6 @@ import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
 
-const SIDEBAR_ROUTES = ["/docs/core"];
-
 export default async function Layout({
   children,
   params,
@@ -16,20 +14,11 @@ export default async function Layout({
   const tree = docsSource.pageTree[locale];
   const pageTree = {
     ...tree,
-    children: (tree.children ?? [])
-      .filter(
-        (child) =>
-          child.type === "folder" &&
-          SIDEBAR_ROUTES.some((route) => child.index?.url?.includes(route)),
-      )
-      // Keep Concepts available in the sidebar, then hoist its pages so
-      // they remain one click away without a duplicate folder level.
-      .flatMap((child) =>
-        child.type === "folder" && child.index?.url?.includes("/docs/core")
-          ? [child.index, ...child.children]
-          : [child],
-      ),
+    children: (tree.children ?? []).filter(
+      (child) => child.type === "page" && child.url?.includes("/docs/roadmap"),
+    ),
   };
+
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
