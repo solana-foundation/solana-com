@@ -74,10 +74,13 @@ describe("Cross-app rewrites", () => {
     );
   });
 
-  it("keeps templates rewrites before generic developer docs rewrites", () => {
-    expect(expectSourceIndex("/developers/templates")).toBeLessThan(
-      expectSourceIndex("/developers"),
-    );
+  it("keeps the portal in the web app and templates ahead of developer docs rewrites", () => {
+    expect(
+      beforeFiles.some((rewrite) => rewrite.source === "/developers"),
+    ).toBe(false);
+    expect(
+      beforeFiles.some((rewrite) => rewrite.source === "/:locale/developers"),
+    ).toBe(false);
     expect(expectSourceIndex("/developers/templates/:path*")).toBeLessThan(
       expectSourceIndex("/developers/:path*.md"),
     );

@@ -18,6 +18,7 @@ import NavSwipe from "./assets/nav/nav-swipe.inline.svg";
 import { HEADER_SECTIONS } from "./header-sections";
 import { useSwipeDown } from "./hooks/useSwipeDown";
 import { isNavSectionActive } from "./nav-active";
+import { Link } from "./link";
 
 interface MobileMenuProps {
   expanded: boolean;
@@ -29,25 +30,40 @@ interface MenuItemProps {
   Icon?: React.ComponentType<{
     className?: string;
   }>;
+  href?: string;
   isActive?: boolean;
   onClick?: () => void;
 }
 
-const MenuItem = ({ title, Icon, isActive, onClick }: MenuItemProps) => {
-  return (
-    <button
-      className={`w-full flex items-center text-left gap-3 py-4 text-[16px] font-medium hover:bg-gradient-to-r hover:from-transparent hover:via-[10%] hover:via-white/5 hover:to-transparent`}
-      type="button"
-      onClick={onClick}
-    >
+const MenuItem = ({ title, Icon, href, isActive, onClick }: MenuItemProps) => {
+  const content = (
+    <>
       {Icon && <Icon className="size-[20px] text-white shrink-0" />}
       <div className="font-medium text-white grow">{title}</div>
-      <AngleDown
-        className={`transition-transform duration-300 -rotate-90 shrink-0 ${isActive ? "text-white" : ""}`}
-        width={20}
-        height={20}
-        viewBox="0 0 24 24"
-      />
+      {!href && (
+        <AngleDown
+          className={`transition-transform duration-300 -rotate-90 shrink-0 ${isActive ? "text-white" : ""}`}
+          width={20}
+          height={20}
+          viewBox="0 0 24 24"
+        />
+      )}
+    </>
+  );
+  const className =
+    "w-full flex items-center text-left gap-3 py-4 text-[16px] font-medium hover:bg-gradient-to-r hover:from-transparent hover:via-[10%] hover:via-white/5 hover:to-transparent";
+
+  if (href) {
+    return (
+      <Link to={href} className={className} onClick={onClick}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button className={className} type="button" onClick={onClick}>
+      {content}
     </button>
   );
 };
@@ -156,13 +172,21 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
         {/* Navigation Sections */}
         {!menu && (
           <nav className="px-3 divide-y divide-[rgba(238,228,255,0.04)]">
-            {HEADER_SECTIONS.map(({ id, titleKey, mobileIcon }) => (
+            {HEADER_SECTIONS.map(({ id, titleKey, mobileIcon, href }) => (
               <MenuItem
                 key={id}
                 title={t(titleKey)}
                 Icon={mobileIcon}
+                href={href}
                 isActive={activeSection === id}
-                onClick={() => setMenu(id)}
+                onClick={() => {
+                  if (href) {
+                    setExpanded(false);
+                    return;
+                  }
+
+                  setMenu(id);
+                }}
               />
             ))}
           </nav>

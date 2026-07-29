@@ -349,11 +349,6 @@ export default {
         locale: false,
       },
       {
-        source: "/developers",
-        destination: `${DOCS_APP_URL}/developers`,
-        locale: false,
-      },
-      {
         source: "/developers/:path*.md",
         destination: `${DOCS_APP_URL}/developers/:path*.md`,
         locale: false,
@@ -417,11 +412,6 @@ export default {
       {
         source: "/:locale/learn/:path*",
         destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
-        locale: false,
-      },
-      {
-        source: "/:locale/developers",
-        destination: `${DOCS_APP_URL}/:locale/developers`,
         locale: false,
       },
       {

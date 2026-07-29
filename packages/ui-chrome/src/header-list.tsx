@@ -8,6 +8,7 @@ import {
   NavigationMenuItem,
   NavigationMenuTrigger,
   NavigationMenuContent,
+  NavigationMenuDirectLink,
 } from "./nav-menu";
 import { HEADER_SECTIONS } from "./header-sections";
 import { isNavSectionActive } from "./nav-active";
@@ -27,31 +28,45 @@ const HeaderList = () => {
               contentAlign = "left",
               contentClassName,
               Content,
+              href,
             },
             index,
-          ) => (
-            <NavigationMenuItem
-              key={id}
-              className={`w-full xl:w-auto ${
-                index === HEADER_SECTIONS.length - 1
-                  ? ""
-                  : "border-b xl:border-b-0 border-white/10"
-              }`}
-              value={id}
-            >
-              <NavigationMenuTrigger
-                isActive={isNavSectionActive(asPath, matchRules)}
-              >
-                {t(titleKey)}
-              </NavigationMenuTrigger>
-              <NavigationMenuContent
-                className={contentClassName}
-                align={contentAlign}
-              >
-                <Content />
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-          ),
+          ) => {
+            const itemClassName = `w-full xl:w-auto ${
+              index === HEADER_SECTIONS.length - 1
+                ? ""
+                : "border-b xl:border-b-0 border-white/10"
+            }`;
+            const isActive = isNavSectionActive(asPath, matchRules);
+
+            if (href) {
+              return (
+                <NavigationMenuItem key={id} className={itemClassName}>
+                  <NavigationMenuDirectLink to={href} isActive={isActive}>
+                    {t(titleKey)}
+                  </NavigationMenuDirectLink>
+                </NavigationMenuItem>
+              );
+            }
+
+            if (!Content) {
+              return null;
+            }
+
+            return (
+              <NavigationMenuItem key={id} className={itemClassName} value={id}>
+                <NavigationMenuTrigger isActive={isActive}>
+                  {t(titleKey)}
+                </NavigationMenuTrigger>
+                <NavigationMenuContent
+                  className={contentClassName}
+                  align={contentAlign}
+                >
+                  <Content />
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            );
+          },
         )}
       </NavigationMenuList>
     </NavigationMenu>

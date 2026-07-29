@@ -32,12 +32,13 @@ export interface NavTopLevelSectionMetadata {
   id: NavTopLevelSectionId;
   titleKey: string;
   matchRules: NavMatchRule[];
+  href?: string;
   mobileIcon: React.ComponentType<{
     className?: string;
   }>;
   contentAlign?: "left" | "center" | "right";
   contentClassName?: string;
-  Content: React.ComponentType<{ isMobile?: boolean }>;
+  Content?: React.ComponentType<{ isMobile?: boolean }>;
 }
 
 export interface NavTopLevelSection extends Omit<
@@ -47,7 +48,7 @@ export interface NavTopLevelSection extends Omit<
   mobileIcon: React.ComponentType<{
     className?: string;
   }>;
-  Content: React.ComponentType<{ isMobile?: boolean }>;
+  Content?: React.ComponentType<{ isMobile?: boolean }>;
 }
 
 export type NavBannerPosition = "left" | "right";
