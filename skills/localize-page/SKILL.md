@@ -34,7 +34,9 @@ Start from the repository root.
    content.
 4. Check the worktree status and preserve unrelated user changes.
 5. If the user supplied a public URL rather than a file, resolve it with the
-   route map in the root `AGENTS.md` and the app's rewrites.
+   root `AGENTS.md` route map and the canonical cross-app routing sources
+   `apps/web/rewrites-redirects.ts` and `apps/web/apps-urls.ts`, then inspect
+   the owning app's rewrites when needed.
 
 Do not change providers, locale middleware, shared package contracts, asset
 prefixes, or rewrites for a page-only task unless the existing route cannot
