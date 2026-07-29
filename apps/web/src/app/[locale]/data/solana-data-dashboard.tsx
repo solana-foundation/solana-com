@@ -16,7 +16,7 @@ import {
   Send,
   type LucideIcon,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import {
   Fragment,
   type ReactNode,
@@ -296,11 +296,13 @@ export function SolanaDataDashboard() {
   const {
     activeTab,
     providerParam,
+    queryString,
     rangeDays,
     rpcInfra,
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
+    setQueryString,
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const isSendersTab = activeTab === "senders";
@@ -358,7 +360,11 @@ export function SolanaDataDashboard() {
     () => getSelectedProviderList(selectedProviders, availableProviders),
     [availableProviders, selectedProviders],
   );
-  const updateQuery = useDashboardQueryUpdater(availableProviders);
+  const updateQuery = useDashboardQueryUpdater(
+    availableProviders,
+    queryString,
+    setQueryString,
+  );
   const availableRpcRegionOptions = useMemo(
     () => getRpcRegionOptions(rpcInfra, rpcRegionsByInfra),
     [rpcInfra, rpcRegionsByInfra],
@@ -1313,13 +1319,15 @@ function DataResourceCard({
       data-node-id={card.nodeId}
       ref={cardRef}
     >
-      <img
+      <Image
         alt=""
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-70",
           card.backgroundClassName,
         )}
+        fill
+        sizes="(min-width: 1280px) 33vw, (min-width: 768px) 460px, 84vw"
         src={card.backgroundSrc}
       />
       <div
@@ -1572,7 +1580,9 @@ function ChartWatermarkFrame({
         <img
           alt=""
           className="h-auto w-[45%] min-w-[220px] max-w-[300px] opacity-[0.1] mix-blend-screen brightness-0 invert"
+          height={96}
           src="/src/img/branding/solanaLogo.svg"
+          width={646}
         />
       </div>
       <div className="relative z-[1]">{children}</div>
@@ -1984,33 +1994,54 @@ function ProviderToggle({
 }
 
 function useDashboardQueryParams() {
-  const searchParams = useSearchParams();
+  const [queryString, setQueryString] = useState("");
+  const searchParams = useMemo(
+    () => new URLSearchParams(queryString),
+    [queryString],
+  );
   const rpcInfra = parseRpcInfra(searchParams.get("infra"));
+
+  useEffect(() => {
+    const syncQueryString = () => {
+      setQueryString(window.location.search.replace(/^\?/, ""));
+    };
+
+    syncQueryString();
+    window.addEventListener("popstate", syncQueryString);
+
+    return () => window.removeEventListener("popstate", syncQueryString);
+  }, []);
 
   return {
     activeTab: parseTab(searchParams.get("tab")),
     providerParam: searchParams.get("providers"),
+    queryString,
     rangeDays: parseRangeDays(searchParams.get("days")),
     rpcInfra,
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
     rpcTimeframe: parseRpcTimeframe(searchParams.get("timeframe")),
+    setQueryString,
   };
 }
 
-function useDashboardQueryUpdater(availableProviders: readonly ProviderName[]) {
+function useDashboardQueryUpdater(
+  availableProviders: readonly ProviderName[],
+  queryString: string,
+  setQueryString: (_queryString: string) => void,
+) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   return useCallback(
     (updates: QueryUpdates) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(queryString);
 
       applyQueryUpdates(params, updates, availableProviders);
+      setQueryString(params.toString());
       router.replace(getDashboardUrl(pathname, params), { scroll: false });
     },
-    [availableProviders, pathname, router, searchParams],
+    [availableProviders, pathname, queryString, router, setQueryString],
   );
 }
 
