@@ -808,18 +808,22 @@ function PaymentSimulation() {
             {step === 0 && (
               <>
                 <div className="wsop-payment-demo__screen-heading">
-                  <span>2026 World Series of Poker</span>
+                  <span>WSOP Paradise · December 2026</span>
                   <h4>Purchase tournament ticket</h4>
                   <p>Review the entry, then choose how you want to pay.</p>
                 </div>
 
                 <div className="wsop-payment-demo__event-card">
-                  <span>Event #34</span>
-                  <h5>$500 Colossus No-Limit Hold’em</h5>
+                  <span>Example tournament</span>
+                  <h5>WSOP Paradise event entry</h5>
                   <dl>
                     <div>
                       <dt>Starts</dt>
-                      <dd>Jun 10 · 10:00 AM</dd>
+                      <dd>December 2026</dd>
+                    </div>
+                    <div>
+                      <dt>Location</dt>
+                      <dd>The Bahamas</dd>
                     </div>
                     <div>
                       <dt>Buy-in</dt>
@@ -953,7 +957,7 @@ function PaymentSimulation() {
                 <dl className="wsop-payment-demo__receipt">
                   <div>
                     <dt>Ticket</dt>
-                    <dd>#34 · Colossus NLH</dd>
+                    <dd>WSOP Paradise event entry</dd>
                   </div>
                   <div>
                     <dt>Network</dt>
@@ -1385,8 +1389,6 @@ export function WsopPage({ stories }: WsopPageProps) {
               ))}
             </Stagger>
 
-            <PaymentSimulation />
-
             <div className="wsop-buyins__next">
               <motion.div
                 className="wsop-chip"
@@ -1505,6 +1507,8 @@ export function WsopPage({ stories }: WsopPageProps) {
                 </div>
               </div>
             </div>
+
+            <PaymentSimulation />
           </Reveal>
         </section>
 
