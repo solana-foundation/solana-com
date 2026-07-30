@@ -979,7 +979,7 @@ function PaymentSimulation() {
                     Run demo again
                   </button>
                   <Link
-                    className="wsop-payment-demo__secondary"
+                    className="wsop-payment-demo__secondary wsop-payment-demo__secondary--wallet"
                     href="/wallets"
                   >
                     Find a wallet
