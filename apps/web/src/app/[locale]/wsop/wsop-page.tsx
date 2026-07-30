@@ -732,7 +732,7 @@ export function WsopPage({ stories }: WsopPageProps) {
 
           <motion.a
             className="wsop-hero__scroll"
-            href="#partnership"
+            href="#our-game"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={
@@ -762,6 +762,214 @@ export function WsopPage({ stories }: WsopPageProps) {
         </section>
 
         <BrandMarquee />
+
+        <section
+          className="wsop-section wsop-event"
+          id="our-game"
+          aria-labelledby="event-heading"
+        >
+          <Reveal>
+            <SectionLabel suit="heart">WSOP: Solana Showdown</SectionLabel>
+
+            <div className="wsop-section-heading wsop-event__intro">
+              <div>
+                <LiveChip>One night only</LiveChip>
+                <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
+              </div>
+              <p>
+                WSOP: Solana Showdown is a live-streamed invitational bringing
+                some of crypto’s biggest personalities to the bright lights of
+                the WSOP feature table - the same felt where champions are
+                crowned.
+              </p>
+            </div>
+
+            <div className="wsop-event__layout">
+              <motion.div
+                className="wsop-ticket"
+                whileHover={reduceMotion ? { rotate: 0 } : { rotate: -0.75 }}
+                transition={{ duration: 0.25, ease: EASE }}
+              >
+                <div className="wsop-ticket__topline">
+                  <span>WSOP 2026</span>
+                  <span>Ev# 0804</span>
+                  <span>NLH</span>
+                </div>
+
+                <div className="wsop-ticket__place">
+                  <div className="wsop-ticket__chip" aria-hidden="true">
+                    <span>WSOP</span>
+                    <SuitRun className="wsop-ticket__chip-suits" />
+                  </div>
+                  <p className="wsop-ticket__prize">
+                    <PrizeCounter />
+                    <span>Prize Pool</span>
+                  </p>
+                </div>
+
+                <p className="wsop-ticket__bracelet">
+                  + custom Solana WSOP bracelet
+                </p>
+
+                <div className="wsop-ticket__date">
+                  <span>Tournament Date:</span>
+                  <span className="wsop-ticket__pen" aria-hidden="true">
+                    804-8
+                  </span>
+                  <time dateTime="2026-08-04">8/4/2026</time>
+                </div>
+
+                <div className="wsop-ticket__scan">
+                  <span className="wsop-ticket__serial">0804-100</span>
+                  <TicketBarcode value="08042026" />
+                </div>
+
+                <div className="wsop-ticket__bottomline">
+                  <span>Solana Showdown</span>
+                  <span>Buy-in</span>
+                  <span>Invite only</span>
+                </div>
+              </motion.div>
+
+              <Stagger className="wsop-event__details">
+                {eventDetails.map(({ label, value }) => (
+                  <motion.div
+                    className="wsop-detail"
+                    key={label}
+                    variants={staggerItemVariants}
+                  >
+                    <span>{label}</span>
+                    <p>{value}</p>
+                  </motion.div>
+                ))}
+              </Stagger>
+            </div>
+
+            <div className="wsop-lineup">
+              <div>
+                <p className="wsop-eyebrow">At the table</p>
+                <h3>Nine seats. No easy hands.</h3>
+              </div>
+              <motion.ol
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: "0px 0px -8% 0px" }}
+                variants={staggerVariants}
+              >
+                {lineup.map((player, index) => (
+                  <motion.li
+                    key={player.handle}
+                    variants={dealVariants}
+                    style={{ transformOrigin: "0% 100%" }}
+                  >
+                    <motion.a
+                      className="wsop-lineup__player"
+                      href={player.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      whileHover={reduceMotion ? { x: 0 } : { x: 3 }}
+                      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.995 }}
+                      transition={{ duration: 0.18, ease: EASE }}
+                    >
+                      <Image
+                        className="wsop-lineup__avatar"
+                        src={player.image}
+                        alt=""
+                        width={48}
+                        height={48}
+                      />
+                      <span className="wsop-lineup__identity">
+                        <strong>{player.name}</strong>
+                        <span>@{player.handle}</span>
+                      </span>
+                      <SuitIcon
+                        className="wsop-lineup__suit"
+                        suit={SUITS[index % SUITS.length]}
+                      />
+                    </motion.a>
+                  </motion.li>
+                ))}
+              </motion.ol>
+            </div>
+
+            <div className="wsop-event__cta">
+              <p>
+                Follow @Solana on X for the full lineup and to watch the stream
+                live.
+              </p>
+              <ArrowLink href="https://x.com/solana">
+                Watch on @Solana
+              </ArrowLink>
+            </div>
+          </Reveal>
+        </section>
+
+        <section
+          className="wsop-section wsop-ambassadors"
+          aria-labelledby="ambassadors-heading"
+        >
+          <Reveal>
+            <SectionLabel suit="club">The ambassadors</SectionLabel>
+
+            <div className="wsop-section-heading wsop-ambassadors__heading">
+              <h2 id="ambassadors-heading">
+                Introducing Solana’s Poker Ambassadors
+              </h2>
+              <p>
+                Some of poker’s biggest names will represent Solana at the WSOP
+                and beyond.
+              </p>
+            </div>
+
+            <Stagger className="wsop-ambassadors__grid">
+              {ambassadors.map((ambassador, index) => (
+                <motion.article
+                  className="wsop-ambassador"
+                  key={ambassador.name}
+                  variants={staggerItemVariants}
+                  whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
+                  transition={{ duration: 0.18, ease: EASE }}
+                >
+                  <div className="wsop-ambassador__portrait">
+                    {ambassador.image ? (
+                      <Image
+                        className="wsop-ambassador__portrait-image"
+                        src={ambassador.image}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
+                        unoptimized={ambassador.unoptimized}
+                      />
+                    ) : (
+                      <>
+                        <SuitIcon
+                          className="wsop-ambassador__watermark"
+                          suit={ambassador.suit}
+                        />
+                        <strong aria-hidden="true">
+                          {ambassador.initials}
+                        </strong>
+                        <span className="wsop-ambassador__portrait-note">
+                          Official portrait incoming
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="wsop-ambassador__copy">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <p>{ambassador.title}</p>
+                    <h3>{ambassador.name}</h3>
+                    <p>{ambassador.biography}</p>
+                    <div className="wsop-ambassador__story">
+                      Solana Story episode · Coming in August
+                      <Clock3 aria-hidden="true" />
+                    </div>
+                  </div>
+                </motion.article>
+              ))}
+            </Stagger>
+          </Reveal>
+        </section>
 
         <section
           className="wsop-section wsop-partnership"
@@ -968,213 +1176,6 @@ export function WsopPage({ stories }: WsopPageProps) {
                 </div>
               </div>
             </div>
-          </Reveal>
-        </section>
-
-        <section
-          className="wsop-section wsop-event"
-          aria-labelledby="event-heading"
-        >
-          <Reveal>
-            <SectionLabel suit="heart">WSOP: Solana Showdown</SectionLabel>
-
-            <div className="wsop-section-heading wsop-event__intro">
-              <div>
-                <LiveChip>One night only</LiveChip>
-                <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
-              </div>
-              <p>
-                WSOP: Solana Showdown is a live-streamed invitational bringing
-                some of crypto’s biggest personalities to the bright lights of
-                the WSOP feature table - the same felt where champions are
-                crowned.
-              </p>
-            </div>
-
-            <div className="wsop-event__layout">
-              <motion.div
-                className="wsop-ticket"
-                whileHover={reduceMotion ? { rotate: 0 } : { rotate: -0.75 }}
-                transition={{ duration: 0.25, ease: EASE }}
-              >
-                <div className="wsop-ticket__topline">
-                  <span>WSOP 2026</span>
-                  <span>Ev# 0804</span>
-                  <span>NLH</span>
-                </div>
-
-                <div className="wsop-ticket__place">
-                  <div className="wsop-ticket__chip" aria-hidden="true">
-                    <span>WSOP</span>
-                    <SuitRun className="wsop-ticket__chip-suits" />
-                  </div>
-                  <p className="wsop-ticket__prize">
-                    <PrizeCounter />
-                    <span>Prize Pool</span>
-                  </p>
-                </div>
-
-                <p className="wsop-ticket__bracelet">
-                  + custom Solana WSOP bracelet
-                </p>
-
-                <div className="wsop-ticket__date">
-                  <span>Tournament Date:</span>
-                  <span className="wsop-ticket__pen" aria-hidden="true">
-                    804-8
-                  </span>
-                  <time dateTime="2026-08-04">8/4/2026</time>
-                </div>
-
-                <div className="wsop-ticket__scan">
-                  <span className="wsop-ticket__serial">0804-100</span>
-                  <TicketBarcode value="08042026" />
-                </div>
-
-                <div className="wsop-ticket__bottomline">
-                  <span>Solana Showdown</span>
-                  <span>Buy-in</span>
-                  <span>Invite only</span>
-                </div>
-              </motion.div>
-
-              <Stagger className="wsop-event__details">
-                {eventDetails.map(({ label, value }) => (
-                  <motion.div
-                    className="wsop-detail"
-                    key={label}
-                    variants={staggerItemVariants}
-                  >
-                    <span>{label}</span>
-                    <p>{value}</p>
-                  </motion.div>
-                ))}
-              </Stagger>
-            </div>
-
-            <div className="wsop-lineup">
-              <div>
-                <p className="wsop-eyebrow">At the table</p>
-                <h3>Nine seats. No easy hands.</h3>
-              </div>
-              <motion.ol
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: "0px 0px -8% 0px" }}
-                variants={staggerVariants}
-              >
-                {lineup.map((player, index) => (
-                  <motion.li
-                    key={player.handle}
-                    variants={dealVariants}
-                    style={{ transformOrigin: "0% 100%" }}
-                  >
-                    <motion.a
-                      className="wsop-lineup__player"
-                      href={player.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      whileHover={reduceMotion ? { x: 0 } : { x: 3 }}
-                      whileTap={reduceMotion ? { scale: 1 } : { scale: 0.995 }}
-                      transition={{ duration: 0.18, ease: EASE }}
-                    >
-                      <Image
-                        className="wsop-lineup__avatar"
-                        src={player.image}
-                        alt=""
-                        width={48}
-                        height={48}
-                      />
-                      <span className="wsop-lineup__identity">
-                        <strong>{player.name}</strong>
-                        <span>@{player.handle}</span>
-                      </span>
-                      <SuitIcon
-                        className="wsop-lineup__suit"
-                        suit={SUITS[index % SUITS.length]}
-                      />
-                    </motion.a>
-                  </motion.li>
-                ))}
-              </motion.ol>
-            </div>
-
-            <div className="wsop-event__cta">
-              <p>
-                Follow @Solana on X for the full lineup and to watch the stream
-                live.
-              </p>
-              <ArrowLink href="https://x.com/solana">
-                Watch on @Solana
-              </ArrowLink>
-            </div>
-          </Reveal>
-        </section>
-
-        <section
-          className="wsop-section wsop-ambassadors"
-          aria-labelledby="ambassadors-heading"
-        >
-          <Reveal>
-            <SectionLabel suit="club">The ambassadors</SectionLabel>
-
-            <div className="wsop-section-heading wsop-ambassadors__heading">
-              <h2 id="ambassadors-heading">
-                Introducing Solana’s Poker Ambassadors
-              </h2>
-              <p>
-                Some of poker’s biggest names will represent Solana at the WSOP
-                and beyond.
-              </p>
-            </div>
-
-            <Stagger className="wsop-ambassadors__grid">
-              {ambassadors.map((ambassador, index) => (
-                <motion.article
-                  className="wsop-ambassador"
-                  key={ambassador.name}
-                  variants={staggerItemVariants}
-                  whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
-                  transition={{ duration: 0.18, ease: EASE }}
-                >
-                  <div className="wsop-ambassador__portrait">
-                    {ambassador.image ? (
-                      <Image
-                        className="wsop-ambassador__portrait-image"
-                        src={ambassador.image}
-                        alt=""
-                        fill
-                        sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
-                        unoptimized={ambassador.unoptimized}
-                      />
-                    ) : (
-                      <>
-                        <SuitIcon
-                          className="wsop-ambassador__watermark"
-                          suit={ambassador.suit}
-                        />
-                        <strong aria-hidden="true">
-                          {ambassador.initials}
-                        </strong>
-                        <span className="wsop-ambassador__portrait-note">
-                          Official portrait incoming
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <div className="wsop-ambassador__copy">
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <p>{ambassador.title}</p>
-                    <h3>{ambassador.name}</h3>
-                    <p>{ambassador.biography}</p>
-                    <div className="wsop-ambassador__story">
-                      Solana Story episode · Coming in August
-                      <Clock3 aria-hidden="true" />
-                    </div>
-                  </div>
-                </motion.article>
-              ))}
-            </Stagger>
           </Reveal>
         </section>
 
