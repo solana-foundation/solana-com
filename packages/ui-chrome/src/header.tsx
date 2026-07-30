@@ -22,75 +22,83 @@ function Header({
   containerClassName = "",
   showLanguage = true,
   showDevelopersNav = true,
+  showMainNav = true,
 }) {
   const pathname = usePathname();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
   const showSecondaryDevelopersNav = shouldShowDevelopersNav(pathname);
+  const hideMainNav = !showMainNav && showSecondaryDevelopersNav;
 
   return (
     <>
-      <header className={`sticky top-0 z-50 ${className}`}>
-        <nav
-          id="navbar"
-          className={`py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
-        >
-          <div
-            className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
+      {!hideMainNav && (
+        <header className={`sticky top-0 z-50 ${className}`}>
+          <nav
+            id="navbar"
+            className={`py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
           >
-            <Link
-              to="/"
-              className="block shrink-0 grow-0 !text-white light:!text-[#121212] "
-              aria-label="Solana"
+            <div
+              className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
             >
-              <SolanaLogo
-                style={{ color: "currentColor" }}
-                width={134}
-                height={40}
-                viewBox="0 0 149 22"
-                className="block w-[107px] xl:w-[134px]"
-              />
-            </Link>
+              <Link
+                to="/"
+                className="block shrink-0 grow-0 !text-white light:!text-[#121212] "
+                aria-label="Solana"
+              >
+                <SolanaLogo
+                  style={{ color: "currentColor" }}
+                  width={134}
+                  height={40}
+                  viewBox="0 0 149 22"
+                  className="block w-[107px] xl:w-[134px]"
+                />
+              </Link>
 
-            <div className="xl:grow flex items-center max-md:gap-4 md:gap-2">
-              {/* Desktop Menu */}
-              <div className="hidden xl:block flex-1">
-                <HeaderList />
-              </div>
+              <div className="xl:grow flex items-center max-md:gap-4 md:gap-2">
+                {/* Desktop Menu */}
+                <div className="hidden xl:block flex-1">
+                  <HeaderList />
+                </div>
 
-              {/* Desktop Search and Language */}
-              <div className="flex gap-5 items-center">
-                <InkeepSearchBar className="hidden md:block" />
-                <InkeepChatButton variant="inline" className="md:hidden" />
-                {showLanguage && (
-                  <div className="relative items-center hidden xl:flex">
-                    <LanguageSelector />
-                  </div>
+                {/* Desktop Search and Language */}
+                <div className="flex gap-5 items-center">
+                  <InkeepSearchBar className="hidden md:block" />
+                  <InkeepChatButton variant="inline" className="md:hidden" />
+                  {showLanguage && (
+                    <div className="relative items-center hidden xl:flex">
+                      <LanguageSelector />
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Menu */}
+                <MobileMenu expanded={expanded} setExpanded={setExpanded} />
+
+                {/* Theme Toggle */}
+                {isThemePage && (
+                  <button
+                    className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-current"
+                    onClick={toggleTheme}
+                    aria-label={t("commands.toggle")}
+                  >
+                    {theme === "light" && <Moon />}
+                    {theme === "dark" && <Sun />}
+                  </button>
                 )}
               </div>
-
-              {/* Mobile Menu */}
-              <MobileMenu expanded={expanded} setExpanded={setExpanded} />
-
-              {/* Theme Toggle */}
-              {isThemePage && (
-                <button
-                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-current"
-                  onClick={toggleTheme}
-                  aria-label={t("commands.toggle")}
-                >
-                  {theme === "light" && <Moon />}
-                  {theme === "dark" && <Sun />}
-                </button>
-              )}
             </div>
-          </div>
-        </nav>
-      </header>
+          </nav>
+        </header>
+      )}
       {/* Secondary nav for docs-owned developer routes. */}
       {showDevelopersNav && showSecondaryDevelopersNav && (
-        <DevelopersNav containerClassName={containerClassName} />
+        <DevelopersNav
+          containerClassName={containerClassName}
+          docsMode={hideMainNav}
+          showLanguage={showLanguage}
+        />
       )}
     </>
   );

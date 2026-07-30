@@ -50,7 +50,7 @@ export default async function RootLayout({ children, params }: Props) {
                 <GTMTrackingSnippet />
                 <SitewideTopAlert />
                 <CookieConsent />
-                <Header />
+                <Header showMainNav={false} />
                 {children}
                 <Footer />
                 <PersistentPodcastPlayer />
