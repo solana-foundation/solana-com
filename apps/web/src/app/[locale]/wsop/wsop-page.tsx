@@ -969,14 +969,23 @@ function PaymentSimulation() {
                   </div>
                 </dl>
 
-                <button
-                  className="wsop-payment-demo__secondary"
-                  type="button"
-                  onClick={reset}
-                >
-                  <RotateCcw aria-hidden="true" />
-                  Run demo again
-                </button>
+                <div className="wsop-payment-demo__success-actions">
+                  <button
+                    className="wsop-payment-demo__secondary"
+                    type="button"
+                    onClick={reset}
+                  >
+                    <RotateCcw aria-hidden="true" />
+                    Run demo again
+                  </button>
+                  <Link
+                    className="wsop-payment-demo__secondary"
+                    href="/wallets"
+                  >
+                    Find a wallet
+                    <ArrowUpRight aria-hidden="true" />
+                  </Link>
+                </div>
               </div>
             )}
           </motion.div>
