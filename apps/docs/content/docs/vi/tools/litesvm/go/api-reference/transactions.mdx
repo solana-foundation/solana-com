@@ -1,0 +1,256 @@
+---
+title: Giao dịch
+description: Thực thi và mô phỏng giao dịch với LiteSVM trong Go
+---
+
+Các phương thức để gửi, mô phỏng và quản lý giao dịch. Cả giao dịch legacy lẫn giao dịch có phiên bản v0+ đều được hỗ trợ.
+
+`litesvm-go` chấp nhận các byte giao dịch được mã hóa bincode do
+`(*solana.Transaction).MarshalBinary` từ
+[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go) tạo ra.
+
+## SendLegacyTransaction
+
+```go
+func (s *LiteSVM) SendLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+Gửi một `Transaction` legacy được mã hóa bincode. Khi thành công, giao dịch
+được cam kết vào sổ cái trong bộ nhớ.
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+}
+
+t.Logf("signature: %s", out.Signature())
+t.Logf("compute:   %d CU", out.ComputeUnits())
+t.Logf("fee:       %d lamports", out.Fee())
+```
+
+<Callout type="warn">
+  Lỗi trả về chỉ khác nil khi các byte không thể được giải mã hoặc xảy ra
+  lỗi nội bộ. Một giao dịch *thực thi và thất bại* vẫn
+  trả về `*TxOutcome` khác nil; luôn kiểm tra `IsOk()` trước khi sử dụng
+  trạng thái chỉ dành cho thành công.
+</Callout>
+
+## SendVersionedTransaction
+
+```go
+func (s *LiteSVM) SendVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+Có cấu trúc tương tự `SendLegacyTransaction`, nhưng dành cho các thông điệp v0+. `MarshalBinary` của `solana-go`
+tạo ra các byte phù hợp cho cả hai trường hợp.
+
+## SimulateLegacyTransaction / SimulateVersionedTransaction
+
+```go
+func (s *LiteSVM) SimulateLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+func (s *LiteSVM) SimulateVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+Thực thi giao dịch mà không cam kết trạng thái. Cùng cấu trúc `*TxOutcome` được
+trả về, cộng thêm `PostAccounts()` được điền vào khi thành công với trạng thái
+tài khoản sau thực thi dự kiến.
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+if !sim.IsOk() {
+    t.Fatalf("sim failed: %s", sim.Error())
+}
+
+t.Logf("would use %d compute units", sim.ComputeUnits())
+t.Logf("logs: %v", sim.Logs())
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports())
+    p.Account.Close()
+}
+```
+
+<Callout type="info">
+  Mô phỏng không thay đổi trạng thái. Sử dụng nó để ước tính ngân sách tính toán hoặc kiểm tra
+  nhật ký mà không làm ô nhiễm sổ cái của bạn.
+</Callout>
+
+## TxOutcome
+
+Mỗi lệnh gọi gửi / mô phỏng đều trả về một `*TxOutcome` mang cùng siêu dữ liệu
+bất kể thành công hay thất bại. Luôn `Close` nó.
+
+| Phương thức                | Trả về                            | Mô tả                                               |
+| --------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `IsOk()`              | `bool`                             | Giao dịch thành công                                     |
+| `Error()`             | `string`                           | Mô tả lỗi (rỗng khi thành công)                    |
+| `Signature()`         | `solana.Signature`                 | Chữ ký giao dịch                                     |
+| `ComputeUnits()`      | `uint64`                           | Đơn vị tính toán đã tiêu thụ                                    |
+| `Fee()`               | `uint64`                           | Phí đã thu                                               |
+| `Logs()`              | `[]string`                         | Nhật ký chương trình                                              |
+| `ReturnData()`        | `(solana.PublicKey, []byte, bool)` | Dữ liệu trả về được thiết lập qua `set_return_data`; `ok=false` nếu không có |
+| `InnerInstructions()` | `[][]InnerInstruction`             | Các CPI được nhóm theo lệnh cấp cao nhất                     |
+| `PostAccounts()`      | `([]PostAccount, error)`           | Trạng thái sau thực thi - chỉ dành cho mô phỏng                      |
+| `Close()`             | -                                  | Giải phóng handle Rust bên dưới                        |
+
+### InnerInstruction
+
+```go
+type CompiledInstruction struct {
+    ProgramIDIndex uint8
+    Accounts       []byte // indices into the transaction's account table
+    Data           []byte
+}
+
+type InnerInstruction struct {
+    Instruction CompiledInstruction
+    StackHeight uint8 // 1 for top-level, higher for deeper CPIs
+}
+```
+
+`InnerInstructions()` trả về một slice được đánh chỉ mục theo lệnh cấp cao nhất đã
+kích hoạt mỗi nhóm CPI.
+
+### PostAccount
+
+```go
+type PostAccount struct {
+    Address solana.PublicKey
+    Account *Account // close this when done
+}
+```
+
+Chỉ được điền cho các mô phỏng thành công.
+
+## Quản lý Blockhash
+
+### LatestBlockhash
+
+```go
+func (s *LiteSVM) LatestBlockhash() (solana.Hash, error)
+```
+
+Đọc blockhash hiện tại. Truyền nó vào `solana.NewTransaction(...)` khi
+xây dựng giao dịch.
+
+```go
+blockhash, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+
+tx, _ := solana.NewTransaction(
+    []solana.Instruction{ix},
+    blockhash,
+    solana.TransactionPayer(payer),
+)
+```
+
+### ExpireBlockhash
+
+```go
+func (s *LiteSVM) ExpireBlockhash() error
+```
+
+Tiến qua blockhash hiện tại để lần gọi `LatestBlockhash` tiếp theo trả về một
+giá trị mới. Hữu ích để kiểm tra các trường hợp biên liên quan đến hết hạn blockhash.
+
+```go
+bh1, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.ExpireBlockhash(); err != nil {
+    t.Fatal(err)
+}
+bh2, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+// bh1 != bh2
+_, _ = bh1, bh2
+```
+
+## Lịch sử Giao dịch
+
+Lịch sử giao dịch được bật theo mặc định. Điều chỉnh dung lượng (hoặc tắt dedup)
+bằng `SetTransactionHistory`:
+
+```go
+// Cap history at 100 entries.
+if err := svm.SetTransactionHistory(100); err != nil {
+    t.Fatal(err)
+}
+
+// Disable dedup entirely (allows replaying identical transactions).
+if err := svm.SetTransactionHistory(0); err != nil {
+    t.Fatal(err)
+}
+```
+
+Tra cứu một giao dịch trước đó theo chữ ký:
+
+```go
+prior := svm.GetTransaction(sig) // nil if unknown
+if prior != nil {
+    defer prior.Close()
+    t.Logf("found: %s, fee=%d", prior.Signature(), prior.Fee())
+}
+```
+
+## BuildTransferTx (hàm trợ giúp kiểm thử)
+
+```go
+func BuildTransferTx(
+    payerSeed [32]byte,
+    to solana.PublicKey,
+    lamports uint64,
+    blockhash solana.Hash,
+) ([]byte, error)
+```
+
+Tạo ra một `Transaction` legacy đã ký, được mã hóa bincode, chuyển `lamports`
+từ keypair được dẫn xuất từ `payerSeed` đến `to`, sử dụng `blockhash`. Các
+byte trả về sẵn sàng để truyền vào `SendLegacyTransaction`.
+
+```go
+var seed [32]byte
+copy(seed[:], somePayerSeedBytes)
+
+bh, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+txBytes, err := litesvm.BuildTransferTx(seed, recipient, 1_000_000_000, bh)
+if err != nil {
+    t.Fatal(err)
+}
+
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+```
+
+<Callout type="info">
+  Hàm này tồn tại để khởi động các bài kiểm thử và cho những người dùng muốn tránh phụ thuộc vào
+  `solana-go`. Khi bạn đã xây dựng các giao dịch thực, hãy ưu tiên sử dụng
+  con đường `solana-go` được trình bày ở trên - nó mở rộng cho các giao dịch đa lệnh, thông điệp v0
+  và các chương trình tùy ý.
+</Callout>

@@ -1,0 +1,309 @@
+---
+title: Başlarken
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+`solana-test-validator` başlatan Solana test paketleri, test başına saniyeler alır —
+süreç başlatma, RPC bağlantıları ve ağ gidiş-dönüşlerini beklemeniz gerekir.
+LiteSVM, aynı testleri milisaniyeler içinde çalıştırır. Harici süreç yok, ağ yok,
+her şey test çalıştırıcınızın içinde bellekte tutulur.
+
+`litesvm-go`, resmi Go bağlamasıdır. Temel türler (`PublicKey`, `Hash`,
+`Signature`) doğrudan
+[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go)'dan gelir; bu sayede değerler
+`litesvm-go` ile Go Solana ekosisteminin geri kalanı arasında doğal biçimde akar.
+
+<Callout type="info">
+  **Gereksinimler:** Go 1.24+. Rust araç zinciri gerekmez — önceden derlenmiş statik
+  arşivler modüle dahildir ve `GOOS` / `GOARCH` tarafından otomatik olarak seçilir.
+  Desteklenen platformlar: macOS (amd64, arm64), Linux (amd64, arm64;
+  glibc veya musl), Windows (amd64).
+</Callout>
+
+Yeni bir `LiteSVM` tanıtıcısı; airdrop, işlemler (legacy + v0),
+simülasyon, hesap okuma/yazma, sysvar'lar, hesaplama bütçesi, özellik kapıları, zaman
+yolculuğu, özel programlar ve işlem geçmişini sunar — tümü Rust ve TypeScript SDK'larını
+destekleyen aynı Rust çekirdeğiyle desteklenir.
+
+## Hızlı Başlangıç
+
+<Steps>
+
+<Step>
+### Modülü yükleyin
+
+`go get`, bağımlılıkları bir Go modülüne çözer; bu nedenle henüz bir `go.mod` dosyanız
+yoksa önce bir tane başlatın:
+
+```bash
+go mod init mytest
+```
+
+Ardından modülü ekleyin:
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+keypair, talimat ve işlem oluşturmak için `solana-go`'yu da çekin:
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Alpine / musl kullanıcıları:** Doğru vendored arşivin bağlandığından emin olmak için
+  `go build` / `go test` çağrısına `-tags musl` ekleyin.
+</Callout>
+
+</Step>
+
+<Step>
+### SVM'nizi oluşturun
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  `litesvm.New()`, bir `*LiteSVM` ve bir `error` döndürür. `litesvm-go`'daki her giriş noktası
+  aynı `(value, error)` biçimini izler; Rust tarafındaki panikler yakalanarak hatalara dönüştürülür.
+  Altta yatan Rust tanıtıcısının serbest bırakılması için her zaman `defer svm.Close()` kullanın
+  — ya da sonlandırıcıya güvenin, ancak öngörülebilir temizlik için açık `Close` tercih edilir.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Tanıtıcıyı Anlamak
+
+`litesvm.New()`'den sonra döndürülen `*LiteSVM`, şu yetenek gruplarını sunar:
+
+| Grup                | Metodlar                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Hesaplar             | `Airdrop`, `Balance`, `GetAccount`, `SetAccount`, `MinimumBalanceForRentExemption`                                                 |
+| İşlemler         | `SendLegacyTransaction`, `SendVersionedTransaction`, `SimulateLegacyTransaction`, `SimulateVersionedTransaction`, `GetTransaction` |
+| Blockhash            | `LatestBlockhash`, `ExpireBlockhash`                                                                                               |
+| Programlar             | `AddProgram`, `AddProgramFromFile`, `AddProgramWithLoader`                                                                         |
+| Zaman ve sysvar'lar     | `WarpToSlot`, `Clock`, `SetClock`, `Rent`, `SetRent`, `EpochSchedule`, `SetEpochSchedule`, `EpochRewards`, ...                     |
+| Yapılandırma        | `SetSigverify`, `SetBlockhashCheck`, `SetTransactionHistory`, `SetLogBytesLimit`, `SetSysvars`, `SetBuiltins`, ...                 |
+| Hesaplama ve özellikler | `ComputeBudget`, `SetComputeBudget`, `SetFeatureSet`                                                                               |
+
+Yeni bir `LiteSVM`, temel Solana programlarıyla (System Program, SPL
+Token vb.) önceden yüklenmiş olarak gelir; bu sayede basit transferler kutudan çıktığı gibi çalışır.
+
+## İşlem Gönderme
+
+`solana-go` ile talimatlar oluşturun, işlemi seri hale getirin ve baytları gönderin.
+`litesvm-go`, `(*solana.Transaction).MarshalBinary` tarafından üretilen bincode kodlu baytları kabul eder:
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  `SendLegacyTransaction` ve `SendVersionedTransaction`, işlem başarılı olsun ya da
+  başarısız olsun her ikisi de bir `*TxOutcome` döndürür. Yalnızca başarı durumunda geçerli
+  alanları okumadan önce `IsOk()` çağırın ve Rust tanıtıcısını serbest bırakmak için
+  her zaman `defer out.Close()` kullanın.
+</Callout>
+
+## TxOutcome ile Çalışmak
+
+Her send / simulate giriş noktası bir `*TxOutcome` döndürür. Aynı tanıtıcı
+hem başarı hem de başarısızlık için meta veri taşır:
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+`SimulateLegacyTransaction` / `SimulateVersionedTransaction` için aynı
+`*TxOutcome`, ek olarak `PostAccounts()` özelliğini sunar — yani işlem sonrası
+hesap durumunu:
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## Yapılandırma
+
+`litesvm-go`, Rust crate'iyle aynı yapılandırıcı anahtarlarını `Set*` metodları
+aracılığıyla sunar:
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## Notlar
+
+**İş parçacığı güvenliği.** Bir `*LiteSVM` tanıtıcısı, birden fazla goroutine'den eşzamanlı
+kullanım için güvenli değildir (altta yatan Rust türü `Sync` değildir ve çoğu metod iç
+durumu değiştirir). Tanıtıcıyı tek bir goroutine'e bağlayın ya da `sync.Mutex` ile koruyun.
+
+**Panik davranışı.** Vendored sürüm arşivleri `immediate-abort` ile derlenir:
+Rust içindeki herhangi bir panik, ana işlemi doğrudan iptal eder, unwinding yapmaz.
+Bu, daha küçük arşivler için bilinçli bir tercihtir. Pratikte bununla karşılaşırsanız
+lütfen bir reproducer ile sorun bildirin.
+
+## Sırada Ne Var
+
+Bu bölüm temel tanıtıcıyı kapsar — hesap oluşturma, talimat gönderme ve
+durumu okuma. Metodlara göre tam başvuru için
+[API belgelerine](/docs/tools/litesvm/go/api-reference) bakın. Çalıştırılabilir örnekler için (SOL
+transfer, hesap kurulumu, program testi, zamana dayalı mantık)
+[Örnekler](/docs/tools/litesvm/go/examples) sayfasına bakın.
