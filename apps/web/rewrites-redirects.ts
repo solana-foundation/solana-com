@@ -217,7 +217,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/getstarted/intro-to-ai",
-    destination: "/docs/tools/ai",
+    destination: "/docs/intro/coding-with-agents",
   },
   {
     source: "/developers/guides/getstarted/how-to-verify-a-token",
@@ -243,6 +243,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 ]);
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
+  {
+    source: "/docs/tools/ai",
+    destination: "/docs/intro/coding-with-agents",
+  },
   {
     source: "/docs/references",
     destination: "/docs/references/clusters",

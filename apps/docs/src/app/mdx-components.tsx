@@ -57,6 +57,7 @@ export const mdxComponents = {
   CodePlaceholder,
   SideBySide,
   CodeReference,
+  DocsDiagram,
   AccountsRpc,
   AdminRpc,
   CheatcodesRpc,
@@ -69,6 +70,27 @@ export const mdxComponents = {
   Rocket,
   Coins,
 };
+
+function DocsDiagram({ src, alt }: { src: string; alt: string }) {
+  const lightSrc = src.replace(/\.svg$/, "-light.svg");
+
+  return (
+    <figure className="not-prose mt-5 mb-8 first:-mt-6">
+      <img
+        src={lightSrc}
+        alt={alt}
+        className="block h-auto w-full dark:hidden"
+        decoding="async"
+      />
+      <img
+        src={src}
+        alt={alt}
+        className="hidden h-auto w-full dark:block"
+        decoding="async"
+      />
+    </figure>
+  );
+}
 
 function DocsKitCode(props: { codeblock: RawCode }) {
   const { codeblock, ...rest } = props;
