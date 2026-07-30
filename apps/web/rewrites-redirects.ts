@@ -234,7 +234,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/permissioned-environments",
-    destination: "https://launch.solana.com/products/contra",
+    destination: "https://launch.solana.com/products/private-channels",
   },
   // token-extensions/* → tokens extensions reference
   {
@@ -751,26 +751,6 @@ export default {
     {
       source: "/developers/moving-to-svm/cosmwasm",
       destination: "/developers/evm-to-svm/complete-guide",
-    },
-    {
-      source:
-        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/%d0%ba%d1%83%d1%80%d1%81%d0%b0%d0%bc%d0%b8/tokens-and-nfts/token-program",
-      destination: "/developers/courses/tokens-and-nfts/token-program",
-    },
-    {
-      source:
-        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/%d0%ba%d1%83%d1%80%d1%81%d0%b0%d0%bc%d0%b8/tokens-and-nfts/nfts-with-metaplex",
-      destination: "/developers/courses/tokens-and-nfts/nfts-with-metaplex",
-    },
-    {
-      source:
-        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/cookbook/tokens/get-token-mint",
-      destination: "/developers/cookbook/tokens/get-token-mint",
-    },
-    {
-      source:
-        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/cookbook/tokens/create-nft",
-      destination: "/developers/cookbook/tokens/create-nft",
     },
     {
       source: "/solana-wallets",
