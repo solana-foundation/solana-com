@@ -726,7 +726,10 @@ function PaymentSimulation() {
       aria-labelledby="payment-demo-heading"
     >
       <Reveal className="wsop-payment-demo__intro">
-        <p className="wsop-eyebrow">Payment simulator · Demo only</p>
+        <p className="wsop-eyebrow wsop-payment-demo__eyebrow">
+          <SuitIcon className="wsop-payment-demo__eyebrow-suit" suit="club" />
+          <span>Payment simulator · Demo only</span>
+        </p>
         <h3 id="payment-demo-heading">See how easy a buy-in can be</h3>
         <p>
           Choose an event, review one clear payment, and preview how quickly a
