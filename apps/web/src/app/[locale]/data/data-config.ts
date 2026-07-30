@@ -94,7 +94,7 @@ export type RpcTimeframe = (typeof rpcTimeframeOptions)[number]["value"];
 export type ProviderName = string;
 
 export const defaultRpcInfra = "tsw" satisfies RpcLatencyInfra;
-export const defaultRpcRegion = "lax" satisfies RpcLatencyRegion;
+export const defaultRpcRegion = "fra" satisfies RpcLatencyRegion;
 export const defaultRpcMethod = "getLatestBlockhash" satisfies RpcLatencyMethod;
 export const defaultRpcTimeframe = "6h" satisfies RpcTimeframe;
 
