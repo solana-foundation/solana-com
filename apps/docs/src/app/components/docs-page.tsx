@@ -56,12 +56,15 @@ export function DocsPage(props: {
         ),
         enabled: !props.hideTableOfContents,
       }}
-      footer={{
-        component:
-          props.pageTree && !props.hidePageNavigation ? (
-            <Footer pageUrl={props.href} pageTree={props.pageTree} />
-          ) : undefined,
-      }}
+      footer={
+        props.pageTree && !props.hidePageNavigation
+          ? {
+              component: (
+                <Footer pageUrl={props.href} pageTree={props.pageTree} />
+              ),
+            }
+          : { enabled: false }
+      }
     >
       {props.hideHeader ? null : props.isRoot ? (
         <DocsLandingHeader
