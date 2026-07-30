@@ -5,7 +5,7 @@ import { localPoint } from "@visx/event";
 import { GridRows } from "@visx/grid";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
-import { scaleLinear, scaleTime } from "@visx/scale";
+import { scaleLinear, scaleLog, scaleTime } from "@visx/scale";
 import { LinePath } from "@visx/shape";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { useMemo, useState } from "react";
@@ -13,8 +13,11 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 
 import { cn } from "@/app/components/utils";
 
+import type { ChartScale, MetricRowDetail } from "./data-config";
+
 export type SeriesPoint = {
   date: Date;
+  details?: MetricRowDetail[];
   value: number;
 };
 
@@ -29,10 +32,13 @@ type TimeSeriesChartProps = {
   series: ChartSeries[];
   valueLabel: string;
   height?: number;
+  scaleType?: ChartScale;
+  timeGranularity?: TimeGranularity;
 };
 
 type TooltipValue = {
   color: string;
+  details?: MetricRowDetail[];
   label: string;
   value: number;
 };
@@ -41,6 +47,8 @@ type TooltipData = {
   date: Date;
   values: TooltipValue[];
 };
+
+export type TimeGranularity = "day" | "hour";
 
 const baseMargin = {
   top: 16,
@@ -52,11 +60,17 @@ const baseMargin = {
 const compactChartMaxWidth = 767;
 const coincidentDashPatterns = ["6 4", "2 4"] as const;
 const dimmedSeriesOpacity = 0.25;
+const yAxisTickCount = 4;
+const percentDomainMin = 0;
+const percentDomainMax = 100;
+const percentMinimumDomainSpan = 1;
 
 export function TimeSeriesChart({
   series,
   valueLabel,
   height = 320,
+  scaleType = "linear",
+  timeGranularity = "day",
 }: TimeSeriesChartProps) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
@@ -150,8 +164,10 @@ export function TimeSeriesChart({
                 height={measuredHeight}
                 highlightedSeriesId={highlightedSeriesId}
                 locale={locale}
+                scaleType={scaleType}
                 series={visibleSeries}
                 seriesDashPatterns={seriesDashPatterns}
+                timeGranularity={timeGranularity}
                 valueLabel={valueLabel}
                 width={width}
               />
@@ -171,19 +187,24 @@ function ChartSvg({
   height,
   highlightedSeriesId,
   locale,
+  scaleType,
   series,
   seriesDashPatterns,
+  timeGranularity,
   valueLabel,
   width,
 }: {
   height: number;
   highlightedSeriesId: string | null;
   locale: string;
+  scaleType: ChartScale;
   series: ChartSeries[];
   seriesDashPatterns: ReadonlyMap<string, string>;
+  timeGranularity: TimeGranularity;
   valueLabel: string;
   width: number;
 }) {
+  const t = useTranslations("dataDashboard");
   const {
     hideTooltip,
     showTooltip,
@@ -203,16 +224,34 @@ function ChartSvg({
     new Set(points.map((point) => point.date.getTime())),
   ).sort((a, b) => a - b);
   const xDomain = getDateDomain(points);
-  const yDomain = getValueDomain(points);
+  const yDomain =
+    scaleType === "log"
+      ? getLogValueDomain(points)
+      : getValueDomain(points, valueLabel);
   const xScale = scaleTime<number>({
     domain: xDomain,
     range: [0, innerWidth],
   });
-  const yScale = scaleLinear<number>({
-    domain: yDomain,
-    nice: true,
-    range: [innerHeight, 0],
-  });
+  const yScale =
+    scaleType === "log"
+      ? scaleLog<number>({
+          domain: yDomain,
+          range: [innerHeight, 0],
+        })
+      : scaleLinear<number>({
+          domain: yDomain,
+          nice: true,
+          range: [innerHeight, 0],
+        });
+  const yTickValues =
+    scaleType === "log"
+      ? getLogTickValues(yDomain)
+      : getYAxisTickValues(
+          yScale.ticks(yAxisTickCount),
+          yScale.domain(),
+          valueLabel,
+        );
+  const formatYAxisValue = getAxisValueFormatter(valueLabel, locale);
 
   if (width < 10 || height < 10 || innerWidth <= 0 || innerHeight <= 0) {
     return null;
@@ -225,21 +264,18 @@ function ChartSvg({
           <GridRows
             height={innerHeight}
             left={0}
-            numTicks={4}
             scale={yScale}
             stroke="var(--chart-grid)"
             strokeDasharray="2 4"
+            tickValues={yTickValues}
             width={innerWidth}
           />
 
           <AxisLeft
             hideAxisLine
             hideTicks
-            numTicks={4}
             scale={yScale}
-            tickFormat={(value) =>
-              formatAxisValue(Number(value), valueLabel, locale)
-            }
+            tickFormat={(value) => formatYAxisValue(Number(value))}
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -248,6 +284,7 @@ function ChartSvg({
               dy: "0.33em",
               dx: "-0.6em",
             })}
+            tickValues={yTickValues}
           />
 
           <AxisBottom
@@ -255,7 +292,9 @@ function ChartSvg({
             hideTicks
             numTicks={Math.max(2, Math.floor(innerWidth / 140))}
             scale={xScale}
-            tickFormat={(value) => formatDateTick(value as Date, locale)}
+            tickFormat={(value) =>
+              formatDateTick(value as Date, locale, timeGranularity, xDomain)
+            }
             tickLabelProps={() => ({
               fill: "var(--chart-muted)",
               fontSize: 11,
@@ -269,7 +308,10 @@ function ChartSvg({
           {series.map((item) => (
             <LinePath
               data={item.points}
-              defined={(point) => Number.isFinite(point.value)}
+              defined={(point) =>
+                Number.isFinite(point.value) &&
+                (scaleType !== "log" || point.value > 0)
+              }
               key={item.id}
               stroke={item.color}
               strokeDasharray={seriesDashPatterns.get(item.id)}
@@ -283,7 +325,7 @@ function ChartSvg({
               strokeWidth={2}
               style={{ transition: "stroke-opacity 150ms ease" }}
               x={(point) => xScale(point.date)}
-              y={(point) => yScale(point.value)}
+              y={(point) => yScale(getPlottedValue(point.value, valueLabel))}
             />
           ))}
 
@@ -319,7 +361,7 @@ function ChartSvg({
                 strokeWidth={2}
                 width={8}
                 x={xScale(point.date) - 4}
-                y={yScale(point.value) - 4}
+                y={yScale(getPlottedValue(point.value, valueLabel)) - 4}
               />
             );
           })}
@@ -348,10 +390,11 @@ function ChartSvg({
 
               const tooltipDate = new Date(nearestTime);
               const values = series
-                .map((item) => {
-                  const value = item.points.find(
+                .map((item): TooltipValue | null => {
+                  const seriesPoint = item.points.find(
                     (seriesPoint) => seriesPoint.date.getTime() === nearestTime,
-                  )?.value;
+                  );
+                  const value = seriesPoint?.value;
 
                   if (typeof value !== "number") {
                     return null;
@@ -359,6 +402,7 @@ function ChartSvg({
 
                   return {
                     color: item.color,
+                    details: seriesPoint?.details,
                     label: item.label,
                     value,
                   };
@@ -387,23 +431,41 @@ function ChartSvg({
           top={tooltipTop}
         >
           <div className="font-brand-mono text-[11px] font-bold uppercase tracking-normal text-nd-mid-em-text">
-            {formatTooltipDate(tooltipData.date, locale)}
+            {formatTooltipDate(tooltipData.date, locale, timeGranularity)}
           </div>
           <div className="mt-2 grid gap-1.5">
             {tooltipData.values.map((item) => (
-              <div
-                className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
-                key={item.label}
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-nd-mid-em-text">{item.label}</span>
-                <span className="font-medium tabular-nums text-nd-high-em-text">
-                  {formatValue(item.value, valueLabel, locale)}
-                </span>
+              <div className="grid gap-1" key={item.label}>
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-nd-mid-em-text">{item.label}</span>
+                  <span className="font-medium tabular-nums text-nd-high-em-text">
+                    {formatValue(item.value, valueLabel, locale)}
+                  </span>
+                </div>
+                {item.details?.length ? (
+                  <div className="ml-3.5 grid gap-1 border-l border-nd-border-light pl-2.5">
+                    {item.details.map((detail) => (
+                      <div className="grid gap-0.5" key={detail.id}>
+                        <div className="grid grid-cols-[1fr_auto] gap-3">
+                          <span className="font-medium text-nd-high-em-text">
+                            {getMetricDetailLabel(t, detail)}
+                          </span>
+                          <span className="font-medium tabular-nums text-nd-high-em-text">
+                            {formatValue(detail.value, valueLabel, locale)}
+                          </span>
+                        </div>
+                        <span className="max-w-[300px] text-[11px] leading-[1.35] text-nd-mid-em-text">
+                          {getMetricDetailDescription(t, detail)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -440,6 +502,44 @@ export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
   return b.value - a.value || a.label.localeCompare(b.label);
 }
 
+function getMetricDetailLabel(
+  t: ReturnType<typeof useTranslations>,
+  detail: MetricRowDetail,
+) {
+  const key = `rpcErrors.${detail.id}.label`;
+
+  return t.has(key) ? t(key) : detail.label;
+}
+
+function getMetricDetailDescription(
+  t: ReturnType<typeof useTranslations>,
+  detail: MetricRowDetail,
+) {
+  const key = `rpcErrors.${detail.id}.description`;
+
+  return t.has(key) ? t(key) : detail.description;
+}
+
+export function getAxisValueFormatter(valueLabel: string, locale = "en") {
+  if (valueLabel !== "Percent") {
+    return (value: number) => formatAxisValue(value, valueLabel, locale);
+  }
+
+  return (value: number) => formatWholePercentNumber(value, locale);
+}
+
+export function getYAxisTickValues(
+  tickValues: readonly number[],
+  domain: readonly number[],
+  valueLabel: string,
+) {
+  if (valueLabel !== "Percent") {
+    return [...tickValues];
+  }
+
+  return getWholePercentTickValues(domain);
+}
+
 function arePointsCoincident(a: SeriesPoint[], b: SeriesPoint[]) {
   if (a.length !== b.length) {
     return false;
@@ -471,7 +571,10 @@ function getDateDomain(points: SeriesPoint[]): [Date, Date] {
   return [new Date(Math.min(...values)), new Date(Math.max(...values))];
 }
 
-function getValueDomain(points: SeriesPoint[]): [number, number] {
+export function getValueDomain(
+  points: SeriesPoint[],
+  valueLabel?: string,
+): [number, number] {
   const values = points
     .map((point) => point.value)
     .filter((value) => Number.isFinite(value));
@@ -482,6 +585,10 @@ function getValueDomain(points: SeriesPoint[]): [number, number] {
 
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
+
+  if (valueLabel === "Percent") {
+    return getPercentValueDomain(minValue, maxValue);
+  }
 
   if (minValue === maxValue) {
     const padding = Math.max(Math.abs(maxValue) * 0.08, 1);
@@ -497,6 +604,179 @@ function getValueDomain(points: SeriesPoint[]): [number, number] {
     minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding,
     maxValue + padding,
   ];
+}
+
+export function getLogValueDomain(points: SeriesPoint[]): [number, number] {
+  const values = points
+    .map((point) => point.value)
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (values.length === 0) {
+    return [1, 10];
+  }
+
+  const minPower = Math.floor(Math.log10(Math.min(...values)));
+  let maxPower = Math.ceil(Math.log10(Math.max(...values)));
+
+  if (maxPower <= minPower) {
+    maxPower = minPower + 1;
+  }
+
+  return [10 ** minPower, 10 ** maxPower];
+}
+
+export function getLogTickValues([minValue, maxValue]: readonly number[]) {
+  const minPower = Math.ceil(Math.log10(minValue));
+  const maxPower = Math.floor(Math.log10(maxValue));
+
+  return Array.from(
+    { length: Math.max(maxPower - minPower + 1, 0) },
+    (_, index) => 10 ** (minPower + index),
+  );
+}
+
+function getPercentValueDomain(
+  minValue: number,
+  maxValue: number,
+): [number, number] {
+  const boundedMinValue = clamp(minValue, percentDomainMin, percentDomainMax);
+  const boundedMaxValue = clamp(maxValue, percentDomainMin, percentDomainMax);
+  const domain =
+    boundedMinValue === boundedMaxValue
+      ? fitBoundedDomainToMinimumSpan(
+          boundedMinValue - percentMinimumDomainSpan / 2,
+          boundedMaxValue + percentMinimumDomainSpan / 2,
+          percentDomainMin,
+          percentDomainMax,
+          percentMinimumDomainSpan,
+        )
+      : fitBoundedDomainToMinimumSpan(
+          boundedMinValue - (boundedMaxValue - boundedMinValue) * 0.08,
+          boundedMaxValue + (boundedMaxValue - boundedMinValue) * 0.08,
+          percentDomainMin,
+          percentDomainMax,
+          percentMinimumDomainSpan,
+        );
+
+  return roundPercentDomainToWholeNumbers(domain);
+}
+
+function roundPercentDomainToWholeNumbers([minValue, maxValue]: [
+  number,
+  number,
+]): [number, number] {
+  let domainMin = clamp(
+    Math.floor(minValue),
+    percentDomainMin,
+    percentDomainMax,
+  );
+  let domainMax = clamp(
+    Math.ceil(maxValue),
+    percentDomainMin,
+    percentDomainMax,
+  );
+
+  if (domainMax - domainMin < percentMinimumDomainSpan) {
+    if (domainMax >= percentDomainMax) {
+      domainMin = percentDomainMax - percentMinimumDomainSpan;
+    } else {
+      domainMax = domainMin + percentMinimumDomainSpan;
+    }
+  }
+
+  return [
+    clamp(domainMin, percentDomainMin, percentDomainMax),
+    clamp(domainMax, percentDomainMin, percentDomainMax),
+  ];
+}
+
+function getWholePercentTickValues(domain: readonly number[]) {
+  const [rawMin = percentDomainMin, rawMax = percentDomainMax] = domain;
+  const domainMin = Math.ceil(
+    clamp(Math.min(rawMin, rawMax), percentDomainMin, percentDomainMax),
+  );
+  const domainMax = Math.floor(
+    clamp(Math.max(rawMin, rawMax), percentDomainMin, percentDomainMax),
+  );
+
+  if (domainMax < domainMin) {
+    return [clamp(Math.round(rawMax), percentDomainMin, percentDomainMax)];
+  }
+
+  const span = domainMax - domainMin;
+
+  if (span <= 6) {
+    return Array.from({ length: span + 1 }, (_, index) => domainMin + index);
+  }
+
+  const step = getWholePercentTickStep(span);
+  const ticks = [domainMin];
+
+  for (
+    let tick = Math.ceil(domainMin / step) * step;
+    tick < domainMax;
+    tick += step
+  ) {
+    if (tick !== domainMin) {
+      ticks.push(tick);
+    }
+  }
+
+  if (ticks.at(-1) !== domainMax) {
+    ticks.push(domainMax);
+  }
+
+  return ticks;
+}
+
+function getWholePercentTickStep(span: number) {
+  const targetStep = span / yAxisTickCount;
+
+  return (
+    [1, 2, 5, 10, 20, 25, 50, 100].find((step) => step >= targetStep) ?? 100
+  );
+}
+
+function getPlottedValue(value: number, valueLabel: string) {
+  if (valueLabel === "Percent") {
+    return clamp(value, percentDomainMin, percentDomainMax);
+  }
+
+  return value;
+}
+
+function clamp(value: number, minValue: number, maxValue: number) {
+  return Math.min(Math.max(value, minValue), maxValue);
+}
+
+function fitBoundedDomainToMinimumSpan(
+  minValue: number,
+  maxValue: number,
+  lowerBound: number,
+  upperBound: number,
+  minimumSpan: number,
+): [number, number] {
+  let domainMin = Math.max(lowerBound, minValue);
+  let domainMax = Math.min(upperBound, maxValue);
+
+  if (domainMax - domainMin < minimumSpan) {
+    const deficit = minimumSpan - (domainMax - domainMin);
+
+    domainMin -= deficit / 2;
+    domainMax += deficit / 2;
+  }
+
+  if (domainMin < lowerBound) {
+    domainMax += lowerBound - domainMin;
+    domainMin = lowerBound;
+  }
+
+  if (domainMax > upperBound) {
+    domainMin -= domainMax - upperBound;
+    domainMax = upperBound;
+  }
+
+  return [Math.max(lowerBound, domainMin), Math.min(upperBound, domainMax)];
 }
 
 function getNearestDateValue(value: number, values: number[]) {
@@ -515,14 +795,61 @@ function getNearestDateValue(value: number, values: number[]) {
   return nearest;
 }
 
-function formatDateTick(value: Date, locale: string) {
+function formatDateTick(
+  value: Date,
+  locale: string,
+  timeGranularity: TimeGranularity,
+  domain: [Date, Date],
+) {
+  if (timeGranularity === "hour") {
+    const rangeMilliseconds = domain[1].getTime() - domain[0].getTime();
+
+    if (rangeMilliseconds <= 12 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(value);
+    }
+
+    if (rangeMilliseconds <= 2 * 24 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        hour: "numeric",
+        month: "short",
+      }).format(value);
+    }
+
+    if (rangeMilliseconds > 180 * 24 * 60 * 60 * 1000) {
+      return new Intl.DateTimeFormat(locale, {
+        month: "short",
+        year: "2-digit",
+      }).format(value);
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+    }).format(value);
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
   }).format(value);
 }
 
-function formatTooltipDate(value: Date, locale: string) {
+function formatTooltipDate(
+  value: Date,
+  locale: string,
+  timeGranularity: TimeGranularity,
+) {
+  if (timeGranularity === "hour") {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(value);
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
@@ -536,7 +863,11 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
   }
 
   if (valueLabel === "Percent") {
-    return `${formatStandardNumber(value, locale)}%`;
+    return formatWholePercentNumber(value, locale);
+  }
+
+  if (valueLabel === "Milliseconds") {
+    return formatMillisecondsNumber(value, locale);
   }
 
   return formatCompactNumber(value, locale);
@@ -544,10 +875,16 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
 
 function formatAxisValue(value: number, valueLabel: string, locale: string) {
   if (valueLabel === "Percent") {
-    return `${formatStandardNumber(value, locale)}%`;
+    return formatWholePercentNumber(value, locale);
   }
 
   return formatCompactNumber(value, locale);
+}
+
+function formatWholePercentNumber(value: number, locale: string) {
+  return `${new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 0,
+  }).format(clamp(Math.round(value), percentDomainMin, percentDomainMax))}%`;
 }
 
 function formatCompactNumber(value: number, locale: string) {
@@ -557,8 +894,9 @@ function formatCompactNumber(value: number, locale: string) {
   }).format(value);
 }
 
-function formatStandardNumber(value: number, locale: string) {
+function formatMillisecondsNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: value >= 10 ? 1 : 2,
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
   }).format(value);
 }

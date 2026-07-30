@@ -4,7 +4,6 @@ import DeveloperDocsImage from "@@/src/components/opengraph/DeveloperDocsImage";
 
 import { docsSource as docs } from "@@/src/app/sources/docs";
 import { cookbookSource as cookbook } from "@@/src/app/sources/cookbook";
-import { guidesSource as guides } from "@@/src/app/sources/guides";
 
 // Route segment config
 export const runtime = "nodejs";
@@ -29,7 +28,6 @@ export async function GET(_request: Request, { params }: Params) {
 
 const collections = {
   cookbook,
-  guides,
   docs,
 };
 function getImageProps(slugItems: Array<string>) {
@@ -54,8 +52,6 @@ function getImageProps(slugItems: Array<string>) {
       return { title: "Developer Resources", heading: "Developer Resources" };
     case "cookbook":
       return { title, heading: "Solana Cookbook" };
-    case "guides":
-      return { title, heading: "Developer Guides" };
     case "docs":
       return { title, heading: "Solana Documentation" };
     default:

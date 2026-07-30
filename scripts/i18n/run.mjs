@@ -15,28 +15,6 @@ const appTargets = new Set([
   "templates",
   "web",
 ]);
-const sourcePatternsByScope = {
-  accelerate: ["packages/i18n/messages/accelerate/en/*.json"],
-  breakpoint: ["packages/i18n/messages/breakpoint/en/*.json"],
-  docs: [
-    "apps/docs/content/docs/en/**/*.mdx",
-    "apps/docs/content/learn/en/**/*.mdx",
-    "apps/docs/content/developers-learn/en/**/*.mdx",
-    "apps/docs/content/docs/en/**/meta.json",
-    "apps/docs/content/developers-learn/en/**/meta.json",
-  ],
-  media: ["packages/i18n/messages/media/en/*.json"],
-  templates: ["packages/i18n/messages/templates/en/*.json"],
-  ui: [
-    "packages/i18n/messages/accelerate/en/*.json",
-    "packages/i18n/messages/media/en/*.json",
-    "packages/i18n/messages/templates/en/*.json",
-    "packages/i18n/messages/web/en/*.json",
-    "packages/i18n/messages/breakpoint/en/*.json",
-  ],
-  web: ["packages/i18n/messages/web/en/*.json"],
-};
-
 function loadEnvFileIfPresent(filePath) {
   if (!fs.existsSync(filePath)) {
     return;
@@ -129,16 +107,22 @@ function runContinuousLocalization(requestedScope) {
     return;
   }
 
-  // Lingo accepts positional glob patterns and resolves them itself. Keep the
-  // patterns unexpanded so scoped pushes match the entries in .lingo/config.json.
-  const sourcePatterns = sourcePatternsByScope[requestedScope] ?? [];
-  runLingoPush(sourcePatterns);
+  // Current Lingo releases treat positional patterns as force/new-file scopes
+  // and skip changed keys when target files already exist. Incremental pushes
+  // must be config-wide; the lockfile still limits work to changed sources.
+  if (requestedScope !== "all") {
+    console.log(
+      `Lingo incremental syncs are config-wide; processing changed sources for the requested "${requestedScope}" workflow.`,
+    );
+  }
+
+  runLingoPush([]);
 
   if (requestedScope === "all" && verifyTargetCoverage() !== 0) {
     console.error(
       "Lingo left target coverage incomplete; retrying once with the updated lockfile.",
     );
-    runLingoPush(sourcePatterns);
+    runLingoPush([]);
     runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
   }
 
