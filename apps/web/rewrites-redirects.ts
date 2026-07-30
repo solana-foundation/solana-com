@@ -750,7 +750,8 @@ export default {
     },
     {
       source: "/developers/moving-to-svm/cosmwasm",
-      destination: "/developers/evm-to-svm/complete-guide",
+      destination:
+        "https://rustopian.dev/article/from-cosmwasm-to-solana-rust-blockchain-development",
     },
     {
       source: "/solana-wallets",
@@ -983,7 +984,7 @@ export default {
     },
     {
       source: "/docs/intro/history",
-      destination: "/docs",
+      destination: "/learn/what-is-solana",
     },
     {
       source: "/docs/intro",
@@ -1611,7 +1612,8 @@ export default {
     },
     {
       source: "/developers/cookbook/tokens/create-nft",
-      destination: "https://developers.metaplex.com/core",
+      destination:
+        "https://www.metaplex.com/docs/smart-contracts/core/create-asset",
     },
     {
       source: "/developers/cookbook/tokens/fetch-nft-metadata",
