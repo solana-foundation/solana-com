@@ -80,7 +80,8 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   { source: "/developers/guides/advanced", destination: "/docs" },
   {
     source: "/developers/guides/games",
-    destination: "/developers/cookbook/games",
+    destination:
+      "/developers/cookbook/games/getting-started-with-game-development",
   },
   {
     source: "/developers/guides/getstarted",
@@ -231,6 +232,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     source: "/developers/guides/getstarted/supabase-auth-guide",
     destination: "/developers/cookbook/wallets/supabase-auth",
   },
+  {
+    source: "/developers/guides/permissioned-environments",
+    destination: "https://launch.solana.com/products/contra",
+  },
   // token-extensions/* → tokens extensions reference
   {
     source: "/developers/guides/token-extensions/transfer-hook",
@@ -254,6 +259,30 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   {
     source: "/docs/clients/javascript",
     destination: "/docs/clients/official/javascript",
+  },
+  {
+    source: "/docs/clients/game-sdks",
+    destination: "/docs/clients/community/game-sdks",
+  },
+  {
+    source: "/docs/clients/go",
+    destination: "/docs/clients/community/go",
+  },
+  {
+    source: "/docs/clients/java",
+    destination: "/docs/clients/community/java",
+  },
+  {
+    source: "/docs/clients/python",
+    destination: "/docs/clients/community/python",
+  },
+  {
+    source: "/docs/clients/rust",
+    destination: "/docs/clients/official/rust",
+  },
+  {
+    source: "/docs/frontend/kit",
+    destination: "/docs/frontend/client",
   },
   {
     source: "/docs/intro/quick-start/cross-program-invocation",
@@ -712,6 +741,37 @@ export default {
     ...movedDocsRedirects,
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    { source: "/wallet", destination: "/wallets" },
+    { source: "/case-studies", destination: "/news" },
+    { source: "/news/tags/case-studies", destination: "/news" },
+    {
+      source: "/developers/moving-to-svm",
+      destination: "/developers/evm-to-svm",
+    },
+    {
+      source: "/developers/moving-to-svm/cosmwasm",
+      destination: "/developers/evm-to-svm/complete-guide",
+    },
+    {
+      source:
+        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/%d0%ba%d1%83%d1%80%d1%81%d0%b0%d0%bc%d0%b8/tokens-and-nfts/token-program",
+      destination: "/developers/courses/tokens-and-nfts/token-program",
+    },
+    {
+      source:
+        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/%d0%ba%d1%83%d1%80%d1%81%d0%b0%d0%bc%d0%b8/tokens-and-nfts/nfts-with-metaplex",
+      destination: "/developers/courses/tokens-and-nfts/nfts-with-metaplex",
+    },
+    {
+      source:
+        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/cookbook/tokens/get-token-mint",
+      destination: "/developers/cookbook/tokens/get-token-mint",
+    },
+    {
+      source:
+        "/%d1%80%d0%b0%d0%b7%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%87%d0%b8%d0%ba%d0%be%d0%b2/cookbook/tokens/create-nft",
+      destination: "/developers/cookbook/tokens/create-nft",
+    },
     {
       source: "/solana-wallets",
       destination: "/wallets",
@@ -935,27 +995,23 @@ export default {
     },
     {
       source: "/docs/intro/economics",
-      destination: "/docs/economics/index",
+      destination: "/staking",
     },
     {
       source: "/docs/economics/inflation/inflation_schedule",
-      destination: "/docs/economics/inflation/inflation-schedule",
-    },
-    {
-      source: "/docs/intro/economics",
-      destination: "/docs/economics/inflation/inflation-schedule",
+      destination: "/staking",
     },
     {
       source: "/docs/intro/history",
-      destination: "/docs/index",
+      destination: "/docs",
     },
     {
       source: "/docs/intro",
-      destination: "/docs/index",
+      destination: "/docs",
     },
     {
       source: "/docs/intro/overview",
-      destination: "/docs/index",
+      destination: "/docs",
     },
     {
       source: "/developers/guides/getstarted/setup-local-development",
@@ -987,7 +1043,7 @@ export default {
     },
     {
       source: "/docs/programs/lang-rust",
-      destination: "/docs/programs/rust/index",
+      destination: "/docs/programs/rust",
     },
     {
       source: "/docs/rpc/getConfirmedBlock",
@@ -1463,7 +1519,7 @@ export default {
     },
     {
       source: "/docs/economics/:path*",
-      destination: "/docs/references/economics/:path*",
+      destination: "/staking",
     },
     {
       source: "/docs/advanced/:path*",
