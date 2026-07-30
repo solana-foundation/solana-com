@@ -19,14 +19,14 @@ import {
 } from "@/lib/rpc/server";
 
 describe("RPC latency query options", () => {
-  it("defaults to TSW in Los Angeles", () => {
+  it("defaults to TSW in Frankfurt", () => {
     const options = parseRpcLatencyQueryOptions(
       new URLSearchParams("method=getTransactionRecent"),
     );
 
     expect(options.infra).toBe("tsw");
     expect(options.method).toBe("getTransactionRecent");
-    expect(options.region).toBe("lax");
+    expect(options.region).toBe("fra");
     expect(options.timeframe).toBe("6h");
   });
 
@@ -165,11 +165,11 @@ describe("RPC latency query options", () => {
     ).toBe("pit");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("region=unknown")).region,
-    ).toBe("lax");
+    ).toBe("fra");
     expect(
       parseRpcLatencyQueryOptions(new URLSearchParams("infra=aws&region=lax"))
         .region,
-    ).toBe("iad");
+    ).toBe("fra");
   });
 });
 
@@ -305,7 +305,7 @@ describe("RPC latency cache identity", () => {
 describe("RPC Prometheus queries", () => {
   it("threads the default TSW colo into latency queries", () => {
     expect(buildRpcAvgLatencyQuery()).toContain('infra=~"tsw"');
-    expect(buildRpcAvgLatencyQuery()).toContain('region=~"lax1"');
+    expect(buildRpcAvgLatencyQuery()).toContain('region=~"fra2"');
     expect(buildRpcAvgLatencyQuery()).not.toContain("geo=");
   });
 
