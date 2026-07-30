@@ -15,13 +15,22 @@ import {
 } from "framer-motion";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUpRight,
+  Check,
+  CheckCircle2,
+  ChevronRight,
   Club,
   Clock3,
   Diamond,
   Heart,
+  Info,
+  LoaderCircle,
   Play,
+  RotateCcw,
   Spade,
+  WalletCards,
+  Zap,
 } from "lucide-react";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
@@ -655,6 +664,321 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
   );
 }
 
+const paymentSteps = ["Choose entry", "Review", "Confirmed"] as const;
+type PaymentStep = 0 | 1 | 2;
+
+function SolanaLogo() {
+  return (
+    <Image
+      className="wsop-payment-demo__solana-logo"
+      src="/src/img/logos-solana/logomark.inline.svg"
+      alt=""
+      width={31}
+      height={27}
+      aria-hidden="true"
+    />
+  );
+}
+
+function PaymentSimulation() {
+  const [step, setStep] = useState<PaymentStep>(0);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const confirmationTimer = useRef<number | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(
+    () => () => {
+      if (confirmationTimer.current) {
+        window.clearTimeout(confirmationTimer.current);
+      }
+    },
+    [],
+  );
+
+  const confirmPayment = () => {
+    if (isConfirming) return;
+
+    setIsConfirming(true);
+    confirmationTimer.current = window.setTimeout(
+      () => {
+        setIsConfirming(false);
+        setStep(2);
+        confirmationTimer.current = null;
+      },
+      reduceMotion ? 0 : 850,
+    );
+  };
+
+  const reset = () => {
+    if (confirmationTimer.current) {
+      window.clearTimeout(confirmationTimer.current);
+      confirmationTimer.current = null;
+    }
+
+    setIsConfirming(false);
+    setStep(0);
+  };
+
+  return (
+    <div
+      className="wsop-payment-demo"
+      role="region"
+      aria-labelledby="payment-demo-heading"
+    >
+      <Reveal className="wsop-payment-demo__intro">
+        <p className="wsop-eyebrow">Payment simulator · Demo only</p>
+        <h3 id="payment-demo-heading">See how easy a buy-in can be</h3>
+        <p>
+          Choose an event, review one clear payment, and preview how quickly a
+          ticket can land after approval. It’s a fast, simple look at the flow
+          from buy-in to done.
+        </p>
+        <div className="wsop-payment-demo__trust">
+          <span>
+            <CheckCircle2 aria-hidden="true" />
+            Two simple steps
+          </span>
+          <span>
+            <Zap aria-hidden="true" />
+            Confirmation in moments
+          </span>
+        </div>
+      </Reveal>
+
+      <div className="wsop-payment-demo__device">
+        <div className="wsop-payment-demo__topbar">
+          <span>WSOP LIVE</span>
+          <span>
+            <i aria-hidden="true" />
+            Demo mode
+          </span>
+        </div>
+
+        <ol
+          className="wsop-payment-demo__progress"
+          aria-label="Payment progress"
+        >
+          {paymentSteps.map((label, index) => {
+            const isComplete =
+              index < step ||
+              (step === paymentSteps.length - 1 && index === step);
+            const isCurrent = index === step;
+
+            return (
+              <li
+                className={`${isComplete ? "is-complete" : ""} ${
+                  isCurrent ? "is-current" : ""
+                }`}
+                key={label}
+                aria-current={isCurrent ? "step" : undefined}
+              >
+                <span aria-hidden="true">
+                  {isComplete ? (
+                    <Check />
+                  ) : (
+                    <span className="wsop-payment-demo__progress-number">
+                      {index + 1}
+                    </span>
+                  )}
+                </span>
+                <small>{label}</small>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="wsop-payment-demo__notice" role="note">
+          <Info aria-hidden="true" />
+          <span>
+            <strong>Demo mode</strong> — no payment will be submitted.
+          </span>
+        </div>
+
+        <div className="wsop-payment-demo__viewport" aria-live="polite">
+          <motion.div
+            className="wsop-payment-demo__screen"
+            key={step}
+            initial={reduceMotion ? false : { opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.28, ease: EASE }}
+          >
+            {step === 0 && (
+              <>
+                <div className="wsop-payment-demo__screen-heading">
+                  <span>2026 World Series of Poker</span>
+                  <h4>Purchase tournament ticket</h4>
+                  <p>Review the entry, then choose how you want to pay.</p>
+                </div>
+
+                <div className="wsop-payment-demo__event-card">
+                  <span>Event #34</span>
+                  <h5>$500 Colossus No-Limit Hold’em</h5>
+                  <dl>
+                    <div>
+                      <dt>Starts</dt>
+                      <dd>Jun 10 · 10:00 AM</dd>
+                    </div>
+                    <div>
+                      <dt>Buy-in</dt>
+                      <dd>$500</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className="wsop-payment-demo__method">
+                  <div>
+                    <span className="wsop-payment-demo__method-icon">
+                      <SolanaLogo />
+                    </span>
+                    <span>
+                      <small>Payment method</small>
+                      <strong>Crypto on Solana</strong>
+                    </span>
+                  </div>
+                  <span className="wsop-payment-demo__fee">No fee</span>
+                </div>
+
+                <button
+                  className="wsop-payment-demo__primary"
+                  type="button"
+                  onClick={() => setStep(1)}
+                >
+                  Continue with crypto
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </>
+            )}
+
+            {step === 1 && (
+              <>
+                <button
+                  className="wsop-payment-demo__back"
+                  type="button"
+                  onClick={() => setStep(0)}
+                  disabled={isConfirming}
+                >
+                  <ArrowLeft aria-hidden="true" />
+                  Back
+                </button>
+
+                <div className="wsop-payment-demo__merchant">
+                  <span>WSOP LLC</span>
+                  <span>
+                    <CheckCircle2 aria-hidden="true" />
+                    Verified
+                  </span>
+                </div>
+
+                <div className="wsop-payment-demo__amount">
+                  <span>Amount due</span>
+                  <strong>
+                    $500 <small>USDC</small>
+                  </strong>
+                  <div>
+                    <SolanaLogo />
+                    Solana
+                    <span aria-hidden="true">·</span>
+                    <WalletCards aria-hidden="true" />
+                    Demo wallet
+                  </div>
+                </div>
+
+                <dl className="wsop-payment-demo__summary">
+                  <div>
+                    <dt>Prize pool</dt>
+                    <dd>$440.50</dd>
+                  </div>
+                  <div>
+                    <dt>Tournament fee</dt>
+                    <dd>$59.50</dd>
+                  </div>
+                  <div>
+                    <dt>Payment fee</dt>
+                    <dd>$0</dd>
+                  </div>
+                  <div>
+                    <dt>Total</dt>
+                    <dd>$500 USDC</dd>
+                  </div>
+                </dl>
+
+                <button
+                  className="wsop-payment-demo__primary"
+                  type="button"
+                  onClick={confirmPayment}
+                  disabled={isConfirming}
+                >
+                  {isConfirming ? (
+                    <>
+                      Confirming
+                      <LoaderCircle
+                        className="wsop-payment-demo__spinner"
+                        aria-hidden="true"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      Confirm simulated payment
+                      <ChevronRight aria-hidden="true" />
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+
+            {step === 2 && (
+              <div className="wsop-payment-demo__success">
+                <motion.span
+                  className="wsop-payment-demo__success-icon"
+                  initial={reduceMotion ? false : { scale: 0.72, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 240,
+                    damping: 18,
+                  }}
+                >
+                  <Check aria-hidden="true" />
+                </motion.span>
+                <span>Payment confirmed</span>
+                <h4>Your ticket is ready</h4>
+                <p>
+                  $500 USDC was simulated on Solana. In the real flow, you can
+                  now use this ticket to register for the tournament.
+                </p>
+
+                <dl className="wsop-payment-demo__receipt">
+                  <div>
+                    <dt>Ticket</dt>
+                    <dd>#34 · Colossus NLH</dd>
+                  </div>
+                  <div>
+                    <dt>Network</dt>
+                    <dd>Solana</dd>
+                  </div>
+                  <div>
+                    <dt>Confirmation</dt>
+                    <dd>0.8 sec</dd>
+                  </div>
+                </dl>
+
+                <button
+                  className="wsop-payment-demo__secondary"
+                  type="button"
+                  onClick={reset}
+                >
+                  <RotateCcw aria-hidden="true" />
+                  Run demo again
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WsopPage({ stories }: WsopPageProps) {
   const heroRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
@@ -1057,6 +1381,8 @@ export function WsopPage({ stories }: WsopPageProps) {
                 </motion.article>
               ))}
             </Stagger>
+
+            <PaymentSimulation />
 
             <div className="wsop-buyins__next">
               <motion.div
