@@ -1,0 +1,262 @@
+---
+title: Konfigurasi
+description: Metode setter untuk mengonfigurasi LiteSVM di Go
+---
+
+Setiap setter mencerminkan metode builder yang sesuai pada tipe `LiteSVM` Rust.
+Panggilan langsung berlaku dan mengembalikan sebuah `error`.
+
+## Setup Pengujian Umum
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## Tanda Tangan dan Blockhash
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+Mengaktifkan atau menonaktifkan verifikasi tanda tangan transaksi.
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  Menonaktifkan verifikasi tanda tangan membuat pengujian lebih cepat tetapi kurang realistis.
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+Membaca pengaturan saat ini.
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+Mengaktifkan atau menonaktifkan pemeriksaan recent-blockhash pada transaksi yang dikirimkan.
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## Program dan Sysvar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+Menginisialisasi ulang sysvar bawaan (Clock, rent, EpochSchedule, ...) ke nilai
+default-nya.
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+Memuat kumpulan program bawaan default.
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+Memuat program SPL standar (System Program, SPL Token, Memo, ...).
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+Mengaktifkan program precompiled ed25519 / secp256k1.
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+Melakukan seed pada akun native-mint SPL Token / Token-2022 (wrapped SOL). Tidak melakukan apa pun jika
+program yang sesuai tidak dimuat; panggil `SetDefaultPrograms` terlebih dahulu jika Anda menginginkan
+keduanya.
+
+## Batas Sumber Daya
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+Mengatur saldo lamport default dari akun airdrop-pool internal.
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+Membatasi total byte log yang ditangkap per transaksi. Berikan nilai negatif untuk
+menghapus batas.
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+Mengatur kapasitas riwayat transaksi dalam memori. Berikan `0` untuk menonaktifkan dedup
+dan mengizinkan pemutaran ulang transaksi yang identik.
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## Anggaran Komputasi
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+Membaca anggaran komputasi saat ini. Nilai kembalian kedua melaporkan apakah
+anggaran telah ditetapkan secara eksplisit; jika `false`, struct berisi nilai default
+yang akan digunakan.
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+Memasang anggaran komputasi untuk transaksi berikutnya.
+
+## Feature Set
+
+`FeatureSet` adalah handle yang bersifat opaque - buat, mutasi dengan `Activate` /
+`Deactivate`, lalu pasang dengan `SetFeatureSet`. Tutup handle yang Anda buat.
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| Metode                                                   | Deskripsi                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | Set kosong (semua fitur tidak aktif) |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | Semua fitur aktif               |
+| `fs.Activate(featureID, slot) error`                     | Tandai fitur aktif pada slot       |
+| `fs.Deactivate(featureID) error`                         | Tandai fitur tidak aktif             |
+| `fs.IsActive(featureID) bool`                            | Pemeriksaan status aktif                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | slot saat fitur diaktifkan   |
+| `fs.ActiveCount() int`                                   | Jumlah fitur aktif              |
+| `fs.InactiveCount() int`                                 | Jumlah fitur tidak aktif            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | Daftar ID fitur aktif           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | Daftar ID fitur tidak aktif         |
+| `fs.Close()`                                             | Lepaskan handle                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | Pasang pada SVM                |
+
+<Callout type="info">
+  Gunakan feature gating untuk menguji perilaku program di bawah versi Solana tertentu
+  - aktifkan fitur yang dirilis bersama versi yang Anda targetkan, lalu
+  nonaktifkan fitur yang hadir setelahnya.
+</Callout>
