@@ -204,6 +204,7 @@ function ChartSvg({
   valueLabel: string;
   width: number;
 }) {
+  const t = useTranslations("dataDashboard");
   const {
     hideTooltip,
     showTooltip,
@@ -452,14 +453,14 @@ function ChartSvg({
                       <div className="grid gap-0.5" key={detail.id}>
                         <div className="grid grid-cols-[1fr_auto] gap-3">
                           <span className="font-medium text-nd-high-em-text">
-                            {detail.label}
+                            {getMetricDetailLabel(t, detail)}
                           </span>
                           <span className="font-medium tabular-nums text-nd-high-em-text">
                             {formatValue(detail.value, valueLabel, locale)}
                           </span>
                         </div>
                         <span className="max-w-[300px] text-[11px] leading-[1.35] text-nd-mid-em-text">
-                          {detail.description}
+                          {getMetricDetailDescription(t, detail)}
                         </span>
                       </div>
                     ))}
@@ -499,6 +500,24 @@ export function getSeriesDashPatterns(series: ChartSeries[]) {
 
 export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
   return b.value - a.value || a.label.localeCompare(b.label);
+}
+
+function getMetricDetailLabel(
+  t: ReturnType<typeof useTranslations>,
+  detail: MetricRowDetail,
+) {
+  const key = `rpcErrors.${detail.id}.label`;
+
+  return t.has(key) ? t(key) : detail.label;
+}
+
+function getMetricDetailDescription(
+  t: ReturnType<typeof useTranslations>,
+  detail: MetricRowDetail,
+) {
+  const key = `rpcErrors.${detail.id}.description`;
+
+  return t.has(key) ? t(key) : detail.description;
 }
 
 export function getAxisValueFormatter(valueLabel: string, locale = "en") {
