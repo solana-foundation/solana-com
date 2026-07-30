@@ -1,0 +1,236 @@
+---
+title: トランザクション
+description: GoのLiteSVMでトランザクションを実行・シミュレートする
+---
+
+トランザクションの送信、シミュレート、および管理のためのメソッドです。レガシートランザクションとv0+バージョン付きトランザクションの両方をサポートしています。
+
+`litesvm-go` は、[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go) の `(*solana.Transaction).MarshalBinary` によって生成されたbincodeエンコード済みトランザクションバイト列を受け付けます。
+
+## SendLegacyTransaction
+
+```go
+func (s *LiteSVM) SendLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+bincodeエンコード済みのレガシー `Transaction` を送信します。成功した場合、トランザクションはインメモリ台帳にコミットされます。
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+}
+
+t.Logf("signature: %s", out.Signature())
+t.Logf("compute:   %d CU", out.ComputeUnits())
+t.Logf("fee:       %d lamports", out.Fee())
+```
+
+<Callout type="warn">
+  返却されるエラーが非nilになるのは、バイト列のデコードに失敗した場合、または内部エラーが発生した場合のみです。*実行されて失敗した* トランザクションでも非nilの `*TxOutcome` が返されます。成功時のみ有効な状態を参照する前に、必ず `IsOk()` を確認してください。
+</Callout>
+
+## SendVersionedTransaction
+
+```go
+func (s *LiteSVM) SendVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+`SendLegacyTransaction` と同じ構造ですが、v0+メッセージ向けです。`solana-go` の `MarshalBinary` はどちらのケースにも対応した正しいバイト列を生成します。
+
+## SimulateLegacyTransaction / SimulateVersionedTransaction
+
+```go
+func (s *LiteSVM) SimulateLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+func (s *LiteSVM) SimulateVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+状態をコミットせずにトランザクションを実行します。同じ `*TxOutcome` 構造が返され、成功時には `PostAccounts()` に実行後の想定アカウント状態が格納されます。
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+if !sim.IsOk() {
+    t.Fatalf("sim failed: %s", sim.Error())
+}
+
+t.Logf("would use %d compute units", sim.ComputeUnits())
+t.Logf("logs: %v", sim.Logs())
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports())
+    p.Account.Close()
+}
+```
+
+<Callout type="info">
+  シミュレーションは状態を変更しません。台帳を汚染することなく、コンピュートバジェットのサイジングやログのアサーションに活用してください。
+</Callout>
+
+## TxOutcome
+
+すべての送信／シミュレート呼び出しは、成功・失敗を問わず同じメタデータを持つ `*TxOutcome` を返します。必ず `Close` してください。
+
+| メソッド                | 戻り値                            | 説明                                               |
+| --------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `IsOk()`              | `bool`                             | トランザクションが成功した                                     |
+| `Error()`             | `string`                           | 失敗の説明（成功時は空）                    |
+| `Signature()`         | `solana.Signature`                 | トランザクション署名                                     |
+| `ComputeUnits()`      | `uint64`                           | 消費されたコンピュートユニット数                                    |
+| `Fee()`               | `uint64`                           | 請求された手数料                                               |
+| `Logs()`              | `[]string`                         | プログラムログ                                              |
+| `ReturnData()`        | `(solana.PublicKey, []byte, bool)` | `set_return_data` で設定されたリターンデータ。存在しない場合は `ok=false` |
+| `InnerInstructions()` | `[][]InnerInstruction`             | トップレベルのinstructionごとにグループ化されたCPI                     |
+| `PostAccounts()`      | `([]PostAccount, error)`           | 実行後の状態（シミュレーション専用）                      |
+| `Close()`             | -                                  | 基底のRustハンドルを解放する                        |
+
+### InnerInstruction
+
+```go
+type CompiledInstruction struct {
+    ProgramIDIndex uint8
+    Accounts       []byte // indices into the transaction's account table
+    Data           []byte
+}
+
+type InnerInstruction struct {
+    Instruction CompiledInstruction
+    StackHeight uint8 // 1 for top-level, higher for deeper CPIs
+}
+```
+
+`InnerInstructions()` は、各CPIバッチをトリガーしたトップレベルのinstructionでインデックスされたスライスを返します。
+
+### PostAccount
+
+```go
+type PostAccount struct {
+    Address solana.PublicKey
+    Account *Account // close this when done
+}
+```
+
+シミュレーション成功時のみ格納されます。
+
+## ブロックハッシュ管理
+
+### LatestBlockhash
+
+```go
+func (s *LiteSVM) LatestBlockhash() (solana.Hash, error)
+```
+
+現在のブロックハッシュを取得します。トランザクションを構築する際に `solana.NewTransaction(...)` へ渡してください。
+
+```go
+blockhash, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+
+tx, _ := solana.NewTransaction(
+    []solana.Instruction{ix},
+    blockhash,
+    solana.TransactionPayer(payer),
+)
+```
+
+### ExpireBlockhash
+
+```go
+func (s *LiteSVM) ExpireBlockhash() error
+```
+
+現在のブロックハッシュを失効させ、次の `LatestBlockhash` が新しい値を返すようにします。ブロックハッシュ失効のエッジケースをテストする際に有用です。
+
+```go
+bh1, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.ExpireBlockhash(); err != nil {
+    t.Fatal(err)
+}
+bh2, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+// bh1 != bh2
+_, _ = bh1, bh2
+```
+
+## トランザクション履歴
+
+トランザクション履歴はデフォルトで有効です。`SetTransactionHistory` でキャパシティを調整（または重複排除を無効化）できます：
+
+```go
+// Cap history at 100 entries.
+if err := svm.SetTransactionHistory(100); err != nil {
+    t.Fatal(err)
+}
+
+// Disable dedup entirely (allows replaying identical transactions).
+if err := svm.SetTransactionHistory(0); err != nil {
+    t.Fatal(err)
+}
+```
+
+署名で過去のトランザクションを検索します：
+
+```go
+prior := svm.GetTransaction(sig) // nil if unknown
+if prior != nil {
+    defer prior.Close()
+    t.Logf("found: %s, fee=%d", prior.Signature(), prior.Fee())
+}
+```
+
+## BuildTransferTx（テストヘルパー）
+
+```go
+func BuildTransferTx(
+    payerSeed [32]byte,
+    to solana.PublicKey,
+    lamports uint64,
+    blockhash solana.Hash,
+) ([]byte, error)
+```
+
+`payerSeed` から導出されたkeypairから `to` へ `lamports` を転送する、bincodeエンコード済みの署名付きレガシー `Transaction` を生成します。`blockhash` を使用します。返却されたバイト列はそのまま `SendLegacyTransaction` に渡すことができます。
+
+```go
+var seed [32]byte
+copy(seed[:], somePayerSeedBytes)
+
+bh, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+txBytes, err := litesvm.BuildTransferTx(seed, recipient, 1_000_000_000, bh)
+if err != nil {
+    t.Fatal(err)
+}
+
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+```
+
+<Callout type="info">
+  これはテストのブートストラップ用、および `solana-go` の導入を避けたい場合向けに用意されています。実際のトランザクションを構築する際は、上記で示した `solana-go` のパスを推奨します。マルチinstructionトランザクション、v0メッセージ、任意のプログラムにも対応しています。
+</Callout>

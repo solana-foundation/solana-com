@@ -1,0 +1,274 @@
+---
+title: Bắt Đầu
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+Các bộ kiểm thử Solana khởi động `solana-test-validator` mất vài giây mỗi lần chạy test - bạn phải chờ quá trình khởi động, kết nối RPC và các vòng truyền qua mạng. LiteSVM chạy các test tương tự trong vài mili giây. Không cần tiến trình bên ngoài, không cần mạng, mọi thứ đều nằm trong bộ nhớ bên trong test runner của bạn.
+
+`litesvm-go` là binding Go chính thức. Các kiểu dữ liệu cốt lõi (`PublicKey`, `Hash`, `Signature`) được lấy trực tiếp từ [`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go), vì vậy các giá trị lưu chuyển tự nhiên giữa `litesvm-go` và phần còn lại của hệ sinh thái Go Solana.
+
+<Callout type="info">
+  **Yêu cầu:** Go 1.24+. Không cần Rust toolchain - các thư viện tĩnh đã biên dịch sẵn được tích hợp trong module và được chọn tự động theo `GOOS` / `GOARCH`. Các nền tảng được hỗ trợ: macOS (amd64, arm64), Linux (amd64, arm64; glibc hoặc musl), Windows (amd64).
+</Callout>
+
+Một handle `LiteSVM` mới cung cấp airdrop, giao dịch (legacy + v0), mô phỏng, đọc/ghi tài khoản, sysvar, ngân sách tính toán, feature gate, du hành thời gian, chương trình tùy chỉnh và lịch sử giao dịch - tất cả đều được hỗ trợ bởi cùng lõi Rust đang vận hành các SDK Rust và TypeScript.
+
+## Bắt Đầu Nhanh
+
+<Steps>
+
+<Step>
+### Cài đặt module
+
+`go get` phân giải các dependency vào một Go module, vì vậy hãy khởi tạo một module trước nếu bạn chưa có `go.mod`:
+
+```bash
+go mod init mytest
+```
+
+Sau đó thêm module:
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+Cũng cần kéo `solana-go` về để xây dựng keypair, instruction và transaction:
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Người dùng Alpine / musl:** thêm `-tags musl` vào lệnh `go build` / `go test` của bạn để liên kết đúng thư viện tĩnh đã tích hợp sẵn.
+</Callout>
+
+</Step>
+
+<Step>
+### Tạo SVM của bạn
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  `litesvm.New()` trả về một `*LiteSVM` và một `error`. Mọi điểm đầu vào trong `litesvm-go` đều tuân theo cùng cấu trúc `(value, error)`; các panic ở phía Rust được bắt và chuyển đổi thành lỗi. Luôn dùng `defer svm.Close()` để giải phóng handle Rust bên dưới - hoặc dựa vào finalizer, dù `Close` tường minh được ưu tiên hơn để dọn dẹp có thể đoán trước.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Hiểu về Handle
+
+Sau `litesvm.New()`, `*LiteSVM` trả về sẽ cung cấp các nhóm chức năng sau:
+
+| Nhóm                | Phương thức                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Tài khoản             | `Airdrop`, `Balance`, `GetAccount`, `SetAccount`, `MinimumBalanceForRentExemption`                                                 |
+| Giao dịch         | `SendLegacyTransaction`, `SendVersionedTransaction`, `SimulateLegacyTransaction`, `SimulateVersionedTransaction`, `GetTransaction` |
+| Blockhash            | `LatestBlockhash`, `ExpireBlockhash`                                                                                               |
+| Chương trình             | `AddProgram`, `AddProgramFromFile`, `AddProgramWithLoader`                                                                         |
+| Thời gian và sysvar     | `WarpToSlot`, `Clock`, `SetClock`, `Rent`, `SetRent`, `EpochSchedule`, `SetEpochSchedule`, `EpochRewards`, ...                     |
+| Cấu hình        | `SetSigverify`, `SetBlockhashCheck`, `SetTransactionHistory`, `SetLogBytesLimit`, `SetSysvars`, `SetBuiltins`, ...                 |
+| Tính toán và tính năng | `ComputeBudget`, `SetComputeBudget`, `SetFeatureSet`                                                                               |
+
+Một `LiteSVM` mới đi kèm với các chương trình Solana cốt lõi (System Program, SPL Token, v.v.) được tải sẵn, vì vậy các lệnh chuyển đơn giản hoạt động ngay lập tức.
+
+## Gửi Giao Dịch
+
+Xây dựng các instruction với `solana-go`, đóng gói giao dịch và gửi các byte. `litesvm-go` chấp nhận các byte được mã hóa bincode do `(*solana.Transaction).MarshalBinary` tạo ra:
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  `SendLegacyTransaction` và `SendVersionedTransaction` đều trả về một `*TxOutcome` dù giao dịch thành công hay thất bại. Gọi `IsOk()` trước khi đọc các trường chỉ dành cho trường hợp thành công, và luôn dùng `defer out.Close()` để giải phóng handle Rust.
+</Callout>
+
+## Làm việc với TxOutcome
+
+Mọi điểm đầu vào send / simulate đều trả về một `*TxOutcome`. Cùng một handle chứa metadata cho cả thành công và thất bại:
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+Đối với `SimulateLegacyTransaction` / `SimulateVersionedTransaction`, cùng `*TxOutcome` còn cung cấp thêm `PostAccounts()` - trạng thái tài khoản sau khi thực thi dự kiến:
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## Cấu Hình
+
+`litesvm-go` cung cấp các tùy chọn builder tương tự như Rust crate, được hiển thị qua các phương thức `Set*`:
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## Lưu Ý
+
+**An toàn luồng.** Một handle `*LiteSVM` không an toàn khi sử dụng đồng thời từ nhiều goroutine (kiểu Rust bên dưới không phải `Sync`, và hầu hết các phương thức đều thay đổi trạng thái nội bộ). Hãy giới hạn một handle trong một goroutine duy nhất, hoặc bảo vệ nó bằng `sync.Mutex`.
+
+**Hành vi Panic.** Các thư viện release đã tích hợp được biên dịch với `immediate-abort`: bất kỳ panic nào bên trong Rust sẽ hủy ngay tiến trình host, không thực hiện unwinding. Đây là đánh đổi có chủ ý để có thư viện nhỏ hơn. Nếu bạn gặp phải điều này trong thực tế, vui lòng mở một issue kèm theo reproducer.
+
+## Tiếp Theo
+
+Phần này đề cập đến handle cốt lõi - tạo tài khoản, gửi instruction và đọc trạng thái. Để có tài liệu tham chiếu đầy đủ từng phương thức, xem [Tài liệu API](/docs/tools/litesvm/go/api-reference). Để có các ví dụ có thể chạy được (chuyển SOL, thiết lập tài khoản, kiểm thử chương trình, logic dựa trên thời gian), xem [Ví dụ](/docs/tools/litesvm/go/examples).

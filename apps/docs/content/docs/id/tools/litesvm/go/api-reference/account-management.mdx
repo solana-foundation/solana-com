@@ -1,0 +1,221 @@
+---
+title: Manajemen Akun
+description: Metode untuk mengelola akun, saldo, dan rent di Go
+---
+
+Metode untuk mendanai, membaca, dan menulis akun.
+
+## Airdrop
+
+```go
+func (s *LiteSVM) Airdrop(pubkey solana.PublicKey, lamports uint64) error
+```
+
+Danai sebuah akun dengan lamport. Diimplementasikan sebagai transfer System Program nyata
+dari faucet internal, sehingga penerima harus dapat menampung saldo
+yang dihasilkan.
+
+```go
+priv, err := solana.NewRandomPrivateKey()
+if err != nil {
+    t.Fatal(err)
+}
+payer := priv.PublicKey()
+
+// Airdrop 5 SOL
+if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+    t.Fatal(err)
+}
+```
+
+## Balance
+
+```go
+func (s *LiteSVM) Balance(pubkey solana.PublicKey) (uint64, bool, error)
+```
+
+Kembalikan saldo SOL akun. Nilai kedua adalah `false` ketika akun
+tidak ada - berbeda dari "akun ada dengan nol lamport".
+
+```go
+lamports, ok, err := svm.Balance(payer)
+if err != nil {
+    t.Fatal(err)
+}
+if !ok {
+    t.Log("account does not exist")
+} else {
+    t.Logf("balance: %d lamports (%.3f SOL)", lamports, float64(lamports)/1e9)
+}
+```
+
+## GetAccount
+
+```go
+func (s *LiteSVM) GetAccount(pubkey solana.PublicKey) *Account
+```
+
+Ambil handle akun yang bersifat opaque, atau `nil` jika akun tidak ada.
+Selalu `Close` handle tersebut (atau andalkan finalizer).
+
+```go
+acct := svm.GetAccount(payer)
+if acct == nil {
+    t.Fatal("account missing")
+}
+defer acct.Close()
+
+_ = acct.Lamports()    // uint64
+_ = acct.Owner()       // solana.PublicKey
+_ = acct.Executable()  // bool
+_ = acct.RentEpoch()   // uint64
+_ = acct.Data()        // []byte (copy)
+```
+
+### Metode akun
+
+| Metode         | Mengembalikan            | Deskripsi                        |
+| -------------- | ------------------ | ---------------------------------- |
+| `Lamports()`   | `uint64`           | Saldo SOL                        |
+| `Owner()`      | `solana.PublicKey` | Program pemilik                     |
+| `Executable()` | `bool`             | Apakah akun dapat dieksekusi  |
+| `RentEpoch()`  | `uint64`           | Rent epoch                         |
+| `Data()`       | `[]byte`           | Salinan data akun           |
+| `Close()`      | -                  | Lepaskan handle Rust yang mendasarinya |
+
+## NewAccount
+
+```go
+func NewAccount(lamports uint64, data []byte, owner solana.PublicKey, executable bool, rentEpoch uint64) (*Account, error)
+```
+
+Buat nilai `Account` untuk diteruskan ke `SetAccount`. Pemanggil tetap memiliki
+handle yang dikembalikan dan harus `Close` handle tersebut.
+
+```go
+payload := []byte{1, 2, 3, 4}
+rent, err := svm.MinimumBalanceForRentExemption(len(payload))
+if err != nil {
+    t.Fatal(err)
+}
+
+acct, err := litesvm.NewAccount(rent, payload, ownerProgramID, false, 0)
+if err != nil {
+    t.Fatal(err)
+}
+defer acct.Close()
+```
+
+## SetAccount
+
+```go
+func (s *LiteSVM) SetAccount(pubkey solana.PublicKey, acct *Account) error
+```
+
+Simpan salinan `acct` di `pubkey`. SVM menyimpan salinannya sendiri; pemanggil tetap
+memiliki `acct` dan harus `Close` handle tersebut.
+
+```go
+if err := svm.SetAccount(targetAddr, acct); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `SetAccount` jauh lebih cepat dibandingkan mengeksekusi transaksi ketika Anda hanya
+  perlu men-seed banyak akun untuk pengujian. Pastikan nilai lamport minimal
+  sama dengan minimum bebas rent untuk ukuran data tersebut.
+</Callout>
+
+## MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+Hitung lamport yang diperlukan agar akun dengan panjang data tertentu
+bebas dari rent.
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## Manajemen Program
+
+### AddProgram
+
+```go
+func (s *LiteSVM) AddProgram(programID solana.PublicKey, bytes []byte) error
+```
+
+Muat program SBF dari byte di memori.
+
+```go
+bytes, err := os.ReadFile("./target/deploy/my_program.so")
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.AddProgram(programID, bytes); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramFromFile
+
+```go
+func (s *LiteSVM) AddProgramFromFile(programID solana.PublicKey, path string) error
+```
+
+Muat program SBF dari path file `.so`.
+
+```go
+if err := svm.AddProgramFromFile(programID, "./target/deploy/my_program.so"); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramWithLoader
+
+```go
+func (s *LiteSVM) AddProgramWithLoader(programID solana.PublicKey, bytes []byte, loaderID solana.PublicKey) error
+```
+
+Muat program SBF dengan loader tertentu. Berguna saat pengujian terhadap
+versi BPF loader non-default.
+
+## Pengaturan Akun Massal
+
+Untuk pengujian yang membutuhkan banyak akun yang telah di-seed, lakukan iterasi pada `SetAccount`:
+
+```go
+const N = 10
+for i := 0; i < N; i++ {
+    pk := solana.NewWallet().PublicKey()
+    data := []byte{byte(i)}
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if err := svm.SetAccount(pk, acct); err != nil {
+        acct.Close()
+        t.Fatal(err)
+    }
+    acct.Close()
+}
+```
+
+<Callout type="info">
+  Selalu `Close` `*Account` yang dikembalikan oleh `NewAccount` setelah SVM menyimpan
+  salinannya melalui `SetAccount` - SVM tidak mengambil kepemilikan handle tersebut.
+</Callout>
