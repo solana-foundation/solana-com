@@ -309,6 +309,12 @@ describe("RPC latency cache identity", () => {
       getRpcLatencyCacheKey(config, options),
     );
   });
+
+  it("scopes cached data to the Chainstack provider allowlist", () => {
+    expect(getRpcLatencyCacheKey(config, {})).toContain(
+      "|alchemy,chainstack,helius,quicknode,triton|",
+    );
+  });
 });
 
 describe("RPC Prometheus queries", () => {

@@ -156,6 +156,7 @@ export function getRpcLatencyCacheKey(
     timeframe.value,
     timeframe.durationSeconds,
     timeframe.stepSeconds,
+    rpcLatencyProviders.join(","),
     buildRpcErrorRateQuery(options),
     buildRpcErrorRateBreakdownQuery(options),
     buildRpcAvgLatencyQuery(options),
