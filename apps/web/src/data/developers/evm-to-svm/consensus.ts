@@ -11,7 +11,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "https://solana.com/developers/evm-to-svm",
+    url: "/developers/migrate-to-solana/ethereum",
   },
   {
     label: "",
@@ -19,7 +19,7 @@ export const NAV_BUTTONS = [
     size: "md",
     iconSize: "md",
     endIcon: "arrow-right",
-    url: "https://solana.com/developers/evm-to-svm/accounts",
+    url: "/developers/migrate-to-solana/accounts",
   },
 ] as const;
 
