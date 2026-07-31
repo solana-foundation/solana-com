@@ -47,7 +47,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "https://solana.com/developers/evm-to-svm",
+    url: "/developers/migrate-to-solana/ethereum",
   },
 ] as const;
 
@@ -108,6 +108,6 @@ export const RESOURCE_CARD_DECK = {
 
 export const CONTENT_EDITOR_CTA = {
   button: {
-    url: "/developers/evm-to-svm/erc20",
+    url: "/developers/migrate-to-solana/erc20",
   },
 } as const;
