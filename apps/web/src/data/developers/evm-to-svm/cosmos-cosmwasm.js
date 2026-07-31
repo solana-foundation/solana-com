@@ -209,19 +209,14 @@ pub fn query(
     env: Env,
     msg: QueryMsg,
 ) -&gt; StdResult&lt;Binary&gt; { ... }</code></pre>
-      <pre><code class="language-rust">use pinocchio::{
-    account_info::AccountInfo,
-    program_entrypoint,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    ProgramResult,
-};
+      <pre><code class="language-rust">use pinocchio::{entrypoint, AccountView, Address, ProgramResult};
+use solana_program_error::ProgramError;
 
-program_entrypoint!(process_instruction);
+entrypoint!(process_instruction);
 
 fn process_instruction(
-    program_id: &amp;Pubkey,
-    accounts: &amp;[AccountInfo],
+    program_id: &amp;Address,
+    accounts: &amp;mut [AccountView],
     instruction_data: &amp;[u8],
 ) -&gt; ProgramResult {
     match instruction_data.first() {
@@ -285,14 +280,14 @@ pub struct TransferTokens&lt;'info&gt; {
 }</code></pre>
       <pre><code class="language-rust">#[repr(C)]
 pub struct UserBalance {
-    pub owner: Pubkey,
+    pub owner: Address,
     pub amount: u64,
     pub bump: u8,
 }
 
 pub fn process_transfer(
-    program_id: &amp;Pubkey,
-    accounts: &amp;[AccountInfo],
+    program_id: &amp;Address,
+    accounts: &amp;[AccountView],
     _instruction_data: &amp;[u8],
 ) -&gt; ProgramResult {
     let [sender, sender_balance, ..] = accounts else {
@@ -300,16 +295,17 @@ pub fn process_transfer(
     };
 
     let (expected_balance, _bump) =
-        Pubkey::find_program_address(&amp;[b"balance", sender.key().as_ref()], program_id);
+        Address::derive_program_address(&amp;[b"balance", sender.address().as_ref()], program_id)
+            .ok_or(ProgramError::InvalidSeeds)?;
 
-    if sender_balance.key() != &amp;expected_balance {
+    if sender_balance.address() != &amp;expected_balance {
         return Err(ProgramError::InvalidArgument);
     }
 
-    let balance_data = sender_balance.try_borrow_data()?;
+    let balance_data = sender_balance.try_borrow()?;
     let sender_balance_state = UserBalance::try_from_bytes(&amp;balance_data)?;
 
-    if sender_balance_state.owner != *sender.key() {
+    if sender_balance_state.owner != *sender.address() {
         return Err(ProgramError::IllegalOwner);
     }
 
@@ -725,13 +721,13 @@ pub struct ModifyCounter&lt;'info&gt; {
       <pre><code class="language-rust">#[repr(C)]
 pub struct Counter {
     pub count: i64,
-    pub authority: Pubkey,
+    pub authority: Address,
     pub bump: u8,
 }
 
 pub fn process_increment(
-    program_id: &amp;Pubkey,
-    accounts: &amp;[AccountInfo],
+    program_id: &amp;Address,
+    accounts: &amp;mut [AccountView],
     _instruction_data: &amp;[u8],
 ) -&gt; ProgramResult {
     let [user, counter, ..] = accounts else {
@@ -739,17 +735,18 @@ pub fn process_increment(
     };
 
     let (expected_counter, bump) =
-        Pubkey::find_program_address(&amp;[b"counter", user.key().as_ref()], program_id);
+        Address::derive_program_address(&amp;[b"counter", user.address().as_ref()], program_id)
+            .ok_or(ProgramError::InvalidSeeds)?;
 
-    if counter.key() != &amp;expected_counter {
+    if counter.address() != &amp;expected_counter {
         return Err(ProgramError::InvalidArgument);
     }
 
-    let mut counter_data = counter.try_borrow_mut_data()?;
+    let mut counter_data = counter.try_borrow_mut()?;
     let counter_state = Counter::try_from_bytes_mut(&amp;mut counter_data)?;
 
-    if counter_state.authority == Pubkey::default() {
-        counter_state.authority = *user.key();
+    if counter_state.authority == Address::default() {
+        counter_state.authority = *user.address();
         counter_state.bump = bump;
     }
 
