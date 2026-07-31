@@ -4,6 +4,10 @@ import React, { useEffect } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
+  GeneralAdmissionPrice,
+  TicketPriceChangeCountdown,
+} from "@/components/TicketPriceChange";
+import {
   BREAKPOINT_LUMA_EVENT_ID,
   DEVELOPER_APPLICATION_HREF,
   GENERAL_ADMISSION_HREF,
@@ -28,6 +32,7 @@ type TicketCardProps = {
   lumaEventId?: string;
   originalPrice?: string;
   price: string;
+  priceAfterIncrease?: string;
 };
 
 function PriceCut({ value }: { value: string }) {
@@ -103,6 +108,7 @@ function FeaturedTicketCard({
   lumaEventId,
   originalPrice,
   price,
+  priceAfterIncrease,
 }: TicketCardProps) {
   return (
     <TicketLink
@@ -120,7 +126,16 @@ function FeaturedTicketCard({
 
       <div className="flex flex-col gap-2xs md:gap-3">
         {originalPrice && <PriceCut value={originalPrice} />}
-        <p className="type-h2 text-black">{price}</p>
+        <p className="type-h2 text-black">
+          {priceAfterIncrease ? (
+            <GeneralAdmissionPrice
+              currentPrice={price}
+              increasedPrice={priceAfterIncrease}
+            />
+          ) : (
+            price
+          )}
+        </p>
       </div>
 
       <ArrowGlyph className="absolute bottom-m right-m size-[26px] text-black transition-transform group-hover:translate-x-1 group-hover:-translate-y-1 md:bottom-[40px] md:right-[40px] md:size-[35px]" />
@@ -196,6 +211,10 @@ export default function TicketsSection() {
               {variant.ticketsStrapline}
             </p>
           )}
+          <TicketPriceChangeCountdown
+            className="self-center"
+            label={t("tickets.priceIncreaseCountdown")}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
@@ -203,6 +222,9 @@ export default function TicketsSection() {
             heading={t("tickets.categories.general.label")}
             description={t("tickets.categories.general.description")}
             price={t("tickets.categories.general.price")}
+            priceAfterIncrease={t(
+              "tickets.categories.general.priceAfterIncrease",
+            )}
             href={lumaHref}
             lumaEventId={lumaEventId}
           />
