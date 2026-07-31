@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import styles from "./scholars.module.css";
 
 export const metadata: Metadata = {
@@ -25,16 +26,16 @@ export default function ScholarsPage() {
           <span className={styles.abstractLabel}>Abstract</span>
           <p>
             Solana Scholars builds a bridge between Solana and the academic
-            community. We fund focused research internships carried out in
-            close collaboration with the people building the system. Your work
-            doesn&apos;t end at a PDF. It ends up in production. We put the
-            ship in internship.
+            community. We fund focused research internships carried out in close
+            collaboration with the people building the system. Your work
+            doesn&apos;t end at a PDF. It ends up in production. We put the ship
+            in internship.
           </p>
         </div>
         <div className={styles.heroCta}>
-          <a className={styles.btn} href="/scholars/apply">
+          <Link className={styles.btn} href="/scholars/apply">
             Apply to the program
-          </a>
+          </Link>
           <span className={styles.note}>
             PhD students only · Rolling admissions
           </span>
@@ -48,10 +49,10 @@ export default function ScholarsPage() {
           <h2>Why this program exists</h2>
         </div>
         <p className={styles.lede}>
-          A lot of blockchain research never touches a real system, and a lot
-          of real systems never benefit from research. We think that&apos;s a
-          waste in both directions. Solana runs at a scale where open problems
-          in consensus, networking, cryptography, and economics aren&apos;t
+          A lot of blockchain research never touches a real system, and a lot of
+          real systems never benefit from research. We think that&apos;s a waste
+          in both directions. Solana runs at a scale where open problems in
+          consensus, networking, cryptography, and economics aren&apos;t
           hypothetical — they&apos;re on the roadmap.
         </p>
         <p className={styles.lede}>
@@ -73,8 +74,8 @@ export default function ScholarsPage() {
           <div className={styles.cell}>
             <h3>Close collaboration</h3>
             <p>
-              You work directly with Solana engineers and researchers
-              throughout the internship, not just at kickoff and final report.
+              You work directly with Solana engineers and researchers throughout
+              the internship, not just at kickoff and final report.
             </p>
           </div>
           <div className={styles.cell}>
@@ -95,16 +96,16 @@ export default function ScholarsPage() {
             <h3>On-site or virtual</h3>
             <p>
               Join us in person — for example in Zurich, Switzerland or New
-              York, USA — or work with us remotely from wherever your PhD
-              keeps you.
+              York, USA — or work with us remotely from wherever your PhD keeps
+              you.
             </p>
           </div>
           <div className={styles.cell}>
             <h3>Built around your PhD</h3>
             <p>
-              Internships run for 3 months, with a possible extension. Timing
-              is flexible and applications are open year-round, so it fits
-              your program instead of interrupting it.
+              Internships run for 3 months, with a possible extension. Timing is
+              flexible and applications are open year-round, so it fits your
+              program instead of interrupting it.
             </p>
           </div>
         </div>
@@ -174,8 +175,8 @@ export default function ScholarsPage() {
         </p>
         <p className={styles.lede}>
           We expect candidates to have already published at scientific
-          conferences in the area — at venues such as FC, AFT, PODC, DISC,
-          SOSP, OSDI, EuroSys, SIGCOMM, NSDI, SIGMETRICS, CCS, S&amp;P, USENIX
+          conferences in the area — at venues such as FC, AFT, PODC, DISC, SOSP,
+          OSDI, EuroSys, SIGCOMM, NSDI, SIGMETRICS, CCS, S&amp;P, USENIX
           Security, NDSS, CRYPTO, EUROCRYPT, EC, or WINE.
         </p>
         <p className={styles.lede}>
@@ -198,9 +199,9 @@ export default function ScholarsPage() {
           throughout the year. Whenever you&apos;re ready, we&apos;re ready.
         </p>
         <div className={styles.heroCta}>
-          <a className={styles.btn} href="/scholars/apply">
+          <Link className={styles.btn} href="/scholars/apply">
             Go to the application form
-          </a>
+          </Link>
           <span className={styles.note}>We read everything.</span>
         </div>
       </section>

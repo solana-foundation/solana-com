@@ -134,8 +134,8 @@ export default function ApplyForm() {
           <label htmlFor="sch-background">
             Research background &amp; interests{" "}
             <span className={styles.optional}>
-              — a few sentences, your publications, or a link to your
-              homepage / CV
+              — a few sentences, your publications, or a link to your homepage /
+              CV
             </span>
           </label>
           <textarea id="sch-background" name="background" rows={4} required />
@@ -147,8 +147,8 @@ export default function ApplyForm() {
           <label htmlFor="sch-topic">
             What do you want to study? Why? How?{" "}
             <span className={styles.optional}>
-              — a short pitch: the question, why it matters, and how
-              you&apos;d approach it
+              — a short pitch: the question, why it matters, and how you&apos;d
+              approach it
             </span>
           </label>
           <textarea id="sch-topic" name="topic" rows={6} required />

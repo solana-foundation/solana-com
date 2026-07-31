@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import styles from "../scholars.module.css";
 import ApplyForm from "./ApplyForm";
 
@@ -20,9 +21,9 @@ export default function ScholarsApplyPage() {
         </h1>
         <p className={styles.intro}>
           Applications are short — we care about your ideas and your fit, not
-          paperwork. There is no deadline; we accept applications throughout
-          the year. New here?{" "}
-          <a href="/scholars">Read about the program first.</a>
+          paperwork. There is no deadline; we accept applications throughout the
+          year. New here?{" "}
+          <Link href="/scholars">Read about the program first.</Link>
         </p>
       </header>
       <ApplyForm />
