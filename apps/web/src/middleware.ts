@@ -35,11 +35,6 @@ export default async function middleware(req: NextRequest) {
   const pathSegments = pathname.split("/").filter(Boolean);
   const normalizedPathname = getPathnameWithoutLocale(pathname);
 
-  // Skip i18n for the temporary design lab
-  if (pathname.startsWith("/design-lab")) {
-    return NextResponse.next();
-  }
-
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (isProxiedPath(normalizedPathname)) {

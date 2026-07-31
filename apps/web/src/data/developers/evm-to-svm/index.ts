@@ -291,7 +291,7 @@ export const SECONDARY_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://solana.com/developers/templates",
+        url: "/developers",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },

@@ -22,45 +22,28 @@ const EarthAnimation = dynamic(
   { ssr: false },
 );
 
-function PathCard({
-  eyebrow,
+function GuideRow({
   heading,
   ctaLabel,
   ctaUrl,
 }: {
-  eyebrow: string;
   heading: string;
   ctaLabel: string;
   ctaUrl: string;
 }) {
   return (
-    <div
-      className="tw-glass-card flex flex-col gap-4 p-8 rounded-xl"
-      style={{
-        background: "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
+    <a
+      href={ctaUrl}
+      className="group flex items-center justify-between gap-6 py-5 px-2 md:px-4 border-b border-white/10 no-underline transition-colors hover:bg-white/5"
     >
-      <p className="tw-eyebrow text-sky-400 text-xs font-mono uppercase tracking-widest mb-0">
-        {eyebrow}
-      </p>
-      <h2 className="tw-text-display-xs md:tw-text-display-md font-medium text-white pl-3 border-l-2 border-purple-500 mb-0">
+      <span className="font-brand font-medium text-white text-lg md:text-xl">
         {heading}
-      </h2>
-      <div>
-        <a
-          href={ctaUrl}
-          className="inline-flex items-center px-5 py-2.5 rounded-full border text-sm font-semibold text-white no-underline transition-colors"
-          style={{
-            borderColor: "rgba(255,255,255,0.3)",
-            background: "transparent",
-          }}
-        >
-          {ctaLabel}
-        </a>
-      </div>
-    </div>
+      </span>
+      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#ABABBA] whitespace-nowrap transition-colors group-hover:text-white">
+        {ctaLabel}
+        <span aria-hidden="true">→</span>
+      </span>
+    </a>
   );
 }
 
@@ -111,9 +94,9 @@ const RESOURCE_CARDS = [
     Icon: Youtube,
   },
   {
-    heading: "Solana Developer Templates",
+    heading: "More Solana Developer Tools",
     body: "Browse docs, guides, cookbook recipes, tools, and ecosystem support channels.",
-    url: "https://solana.com/developers/templates",
+    url: "/developers",
     Icon: Tools,
   },
 ];
@@ -137,7 +120,6 @@ export function DevelopersChainMigrationEthereumPage() {
   ];
 
   const primaryCards = PRIMARY_CARD_DECK.cards.map((card, index) => ({
-    eyebrow: t(`primaryCardDeck.cards.${index}.eyebrow`),
     heading: t(`primaryCardDeck.cards.${index}.heading`),
     ctaLabel: t(`primaryCardDeck.cards.${index}.callToAction.label`),
     ctaUrl: card.callToAction.url,
@@ -191,19 +173,18 @@ export function DevelopersChainMigrationEthereumPage() {
         </div>
       </section>
 
-      <div className="max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-24 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="flex items-start p-0 md:p-2 xl:p-4">
-          <h2 className="nd-heading-l text-white mb-0">Choose your guide.</h2>
+      <div className="max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-24">
+        <h2 className="nd-heading-l text-white mb-10">Choose your guide.</h2>
+        <div className="border-t border-white/10">
+          {primaryCards.map((card) => (
+            <GuideRow
+              key={card.ctaUrl}
+              heading={card.heading}
+              ctaLabel={card.ctaLabel}
+              ctaUrl={card.ctaUrl}
+            />
+          ))}
         </div>
-        {primaryCards.map((card) => (
-          <PathCard
-            key={card.ctaUrl}
-            eyebrow={card.eyebrow}
-            heading={card.heading}
-            ctaLabel={card.ctaLabel}
-            ctaUrl={card.ctaUrl}
-          />
-        ))}
       </div>
 
       <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2">

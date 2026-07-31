@@ -37,7 +37,7 @@ export default function DevelopersDocumentsSection({
           }}
         >
           <div className="grid grid-cols-12 gap-5 md:gap-10">
-            <div className="col-span-12 lg:col-span-6">
+            <div className="col-span-12 lg:col-span-4">
               <DevelopersDocumentItem
                 title={t("developers.documents.solana-docs.title")}
                 description={t("developers.documents.solana-docs.description")}
@@ -45,12 +45,22 @@ export default function DevelopersDocumentsSection({
                 newTab={false}
               />
             </div>
-            <div className="col-span-12 lg:col-span-6 mt-20 lg:mt-0">
+            <div className="col-span-12 lg:col-span-4 mt-20 lg:mt-0">
               <DevelopersDocumentItem
                 title={t("developers.documents.anchor-docs.title")}
                 description={t("developers.documents.anchor-docs.description")}
                 url="https://www.anchor-lang.com/"
                 newTab={true}
+              />
+            </div>
+            <div className="col-span-12 lg:col-span-4 mt-20 lg:mt-0">
+              <DevelopersDocumentItem
+                title={t("developers.documents.solana-templates.title")}
+                description={t(
+                  "developers.documents.solana-templates.description",
+                )}
+                url="/developers/templates"
+                newTab={false}
               />
             </div>
           </div>
