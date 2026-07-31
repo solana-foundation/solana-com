@@ -16,6 +16,7 @@ import {
   getRpcLatencyFilterOptions,
   getRpcLatencyMetricRows,
   parseRpcLatencyQueryOptions,
+  rpcLatencyProviders,
 } from "@/lib/rpc/server";
 
 describe("RPC latency query options", () => {
@@ -56,6 +57,14 @@ describe("RPC latency query options", () => {
       parseRpcLatencyQueryOptions(new URLSearchParams("timeframe=forever"))
         .timeframe,
     ).toBe("6h");
+  });
+
+  it("accepts Chainstack as an RPC provider", () => {
+    expect(rpcLatencyProviders).toContain("chainstack");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("provider=chainstack"))
+        .provider,
+    ).toBe("chainstack");
   });
 
   it("caps every time frame at 200 Prometheus range samples", () => {
