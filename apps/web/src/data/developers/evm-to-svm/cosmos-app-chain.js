@@ -337,15 +337,7 @@ spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
       <p><a href="/docs/references/terminology#cluster">mainnet-beta</a> is Solana's production cluster. Rehearse the full launch on a local validator or devnet before you run these commands for real.</p>
       <h3>Add metadata</h3>
       <p>Without <a href="/docs/tokens/metaplex">token metadata</a>, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
-      <pre><code class="language-typescript">await createFungible(umi, {
-  mint: publicKey(MINT_ADDRESS),
-  name: "Your Token Name",
-  symbol: "TKN",
-  uri: "https://your-metadata-server.com/token.json",
-  sellerFeeBasisPoints: { basisPoints: 0n, identifier: "%", decimals: 2 },
-  decimals: 6,
-  isMutable: true,
-}).sendAndConfirm(umi);</code></pre>
+      <p>Attach it with the <a href="/docs/tokens/metaplex">Metaplex Token Metadata program</a>, which works with mints from both the Token Program and Token-2022, or use the built-in <a href="/docs/tokens/extensions/metadata">metadata extension</a> if you created the mint with Token-2022. If you script the launch instead of using the CLI, <a href="/docs/tokens/basics/create-mint">Create a Token Mint</a> walks through the same steps in code and links both metadata options at the end. Either path points to a JSON file you host:</p>
       <pre><code class="language-json">{
   "name": "Your Token Name",
   "symbol": "TKN",
