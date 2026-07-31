@@ -498,8 +498,6 @@ export function SolanaDataDashboard() {
           ) : null}
         </section>
 
-        <DataResourceCarousel />
-
         {error ? <DataError error={error} /> : null}
 
         {!error ? (
@@ -532,6 +530,8 @@ export function SolanaDataDashboard() {
             />
           </>
         ) : null}
+
+        <DataResourceCarousel />
 
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-5 font-brand-mono text-[12px] md:text-[13px] leading-[1.42] uppercase text-nd-mid-em-text">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
