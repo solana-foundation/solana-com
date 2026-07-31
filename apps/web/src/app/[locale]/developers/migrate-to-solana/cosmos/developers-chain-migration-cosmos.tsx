@@ -111,9 +111,9 @@ const RESOURCE_CARDS = [
     Icon: Youtube,
   },
   {
-    heading: "Solana Developer Templates",
+    heading: "More Solana Developer Tools",
     body: "Browse docs, guides, cookbook recipes, tools, and ecosystem support channels.",
-    url: "https://solana.com/developers/templates",
+    url: "/developers",
     Icon: Tools,
   },
 ];
