@@ -50,7 +50,7 @@ export const NAV_BUTTONS = [
 
 export const RUNBOOK_HIGHLIGHTS = {
   banner: {
-    eyebrow: "Migration framing",
+    eyebrow: "Migration at a glance",
     title: "Treat this as a coordinated shutdown and relaunch.",
     body: "A Cosmos app-chain migration is not a routine chain upgrade. You are retiring a live Layer 1, preserving the obligations it held, and relaunching the product, token, governance, and operations on Solana.",
   },
