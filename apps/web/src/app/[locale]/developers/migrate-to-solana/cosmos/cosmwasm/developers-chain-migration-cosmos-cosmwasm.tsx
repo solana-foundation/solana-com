@@ -54,7 +54,6 @@ type ComparisonGroupConfig =
       kind: "heading";
       markers: Array<{ heading: string; label: string }>;
       ignoredHeadings?: string[];
-      maxCodesPerTab?: number;
     }
   | {
       kind: "code-order";
@@ -74,7 +73,6 @@ const SECTION_COMPARISON_GROUPS: Partial<
         { heading: "Pinocchio toolchain", label: "Pinocchio" },
       ],
       ignoredHeadings: ["Solana toolchain options"],
-      maxCodesPerTab: 1,
     },
     {
       kind: "code-order",
@@ -294,6 +292,9 @@ function buildHeadingComparisonGroup(
 
   const tabs: ComparisonTab[] = [];
   const codeIndexes = new Set<number>();
+  // Headings at the first marker's level (or higher) that aren't markers or
+  // ignored end the group, so trailing sections keep their own code blocks.
+  const boundaryLevel = startToken.level;
   let insertAtIndex: number | null = null;
   let cursor = startIndex;
 
@@ -319,38 +320,25 @@ function buildHeadingComparisonGroup(
     while (cursor < tokens.length) {
       const token = tokens[cursor];
 
-      if (token.type === "heading" && token.level <= 2) {
-        break;
-      }
+      if (token.type === "heading") {
+        if (nextMarker && token.text === nextMarker.heading) {
+          break;
+        }
 
-      if (
-        nextMarker &&
-        token.type === "heading" &&
-        token.text === nextMarker.heading
-      ) {
-        break;
-      }
+        if (config.ignoredHeadings?.includes(token.text)) {
+          cursor += 1;
+          continue;
+        }
 
-      if (
-        token.type === "heading" &&
-        config.ignoredHeadings?.includes(token.text)
-      ) {
-        cursor += 1;
-        continue;
+        if (token.level <= boundaryLevel) {
+          break;
+        }
       }
 
       if (token.type === "code") {
         tabTokens.push(token);
         codeIndexes.add(cursor);
         insertAtIndex ??= cursor;
-
-        if (
-          config.maxCodesPerTab &&
-          tabTokens.length >= config.maxCodesPerTab
-        ) {
-          cursor += 1;
-          break;
-        }
       }
 
       cursor += 1;
